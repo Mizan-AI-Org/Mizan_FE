@@ -8,10 +8,15 @@ import {
   Settings,
   ChefHat,
   Menu,
-  X
+  X,
+  LogOut,
+  User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const navigation = [
   { name: "Overview", href: "/", icon: BarChart3 },
@@ -25,6 +30,7 @@ const navigation = [
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const currentPath = window.location.pathname;
+  const { profile, signOut } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -83,16 +89,41 @@ export default function DashboardLayout() {
 
         {/* User Profile */}
         {sidebarOpen && (
-          <div className="absolute bottom-4 left-2 right-2 p-3 bg-secondary rounded-lg">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                <span className="text-xs font-medium text-white">JD</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">John Doe</p>
-                <p className="text-xs text-muted-foreground">Restaurant Manager</p>
-              </div>
-            </div>
+          <div className="absolute bottom-4 left-2 right-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="w-full justify-start p-3 bg-secondary rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {profile?.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {profile?.full_name || 'User'}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {profile?.restaurant_name || 'Restaurant Manager'}
+                      </p>
+                    </div>
+                  </div>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem asChild>
+                  <a href="/settings" className="flex items-center">
+                    <User className="mr-2 h-4 w-4" />
+                    Profile Settings
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={signOut} className="text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
