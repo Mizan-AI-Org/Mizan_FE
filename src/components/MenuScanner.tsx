@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Camera, Upload, Loader2, ChefHat, Clock, Users } from 'lucide-react';
+import { Camera, Upload, Loader2, ChefHat, Clock, Users, X } from 'lucide-react';
 
 interface Ingredient {
   name: string;
@@ -41,7 +41,11 @@ export default function MenuScanner() {
   const [isScanning, setIsScanning] = useState(false);
   const [menuData, setMenuData] = useState<MenuData | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,6 +123,65 @@ export default function MenuScanner() {
     }
   };
 
+  const openCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } // Use back camera on mobile
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+        setIsCameraOpen(true);
+      }
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      toast({
+        title: 'Camera access denied',
+        description: 'Please allow camera access to take photos of your menu.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const closeCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraOpen(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(video, 0, 0);
+        
+        canvas.toBlob(async (blob) => {
+          if (blob) {
+            const file = new File([blob], 'menu-photo.jpg', { type: 'image/jpeg' });
+            
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              setImagePreview(e.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+            
+            closeCamera();
+            await processImage(file);
+          }
+        }, 'image/jpeg', 0.8);
+      }
+    }
+  };
+
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty.toLowerCase()) {
       case 'easy': return 'bg-success';
@@ -160,15 +223,55 @@ export default function MenuScanner() {
               </div>
             )}
 
+            {isCameraOpen && (
+              <div className="relative">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full max-w-md mx-auto rounded-lg border"
+                />
+                <canvas ref={canvasRef} className="hidden" />
+                <div className="flex gap-4 mt-4 justify-center">
+                  <Button
+                    onClick={capturePhoto}
+                    disabled={isScanning}
+                    className="flex-1 max-w-32"
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    Capture
+                  </Button>
+                  <Button
+                    onClick={closeCamera}
+                    variant="outline"
+                    disabled={isScanning}
+                    className="flex-1 max-w-32"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-4">
               <Button
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isScanning}
+                disabled={isScanning || isCameraOpen}
                 variant="outline"
                 className="flex-1"
               >
                 <Upload className="w-4 h-4 mr-2" />
-                Upload Menu Photo
+                Upload Photo
+              </Button>
+              <Button
+                onClick={openCamera}
+                disabled={isScanning || isCameraOpen}
+                variant="outline"
+                className="flex-1"
+              >
+                <Camera className="w-4 h-4 mr-2" />
+                Take Photo
               </Button>
             </div>
 

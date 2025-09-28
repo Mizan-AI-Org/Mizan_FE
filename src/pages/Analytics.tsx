@@ -13,6 +13,7 @@ import {
   PieChart,
   BarChart3
 } from "lucide-react";
+import POSIntegration from "@/components/POSIntegration";
 
 const monthlyData = [
   { month: "Jan", revenue: 45000, orders: 1200, waste: 8.5 },
@@ -119,9 +120,10 @@ export default function Analytics() {
 
       {/* Analytics Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid grid-cols-4 w-full max-w-md">
+        <TabsList className="grid grid-cols-5 w-full max-w-2xl">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="sales">Sales</TabsTrigger>
+          <TabsTrigger value="pos">POS Data</TabsTrigger>
           <TabsTrigger value="waste">Waste</TabsTrigger>
           <TabsTrigger value="trends">Trends</TabsTrigger>
         </TabsList>
@@ -200,6 +202,10 @@ export default function Analytics() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="pos" className="space-y-6">
+          <POSIntegration />
         </TabsContent>
 
         <TabsContent value="waste" className="space-y-6">
