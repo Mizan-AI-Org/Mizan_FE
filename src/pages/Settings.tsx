@@ -17,8 +17,10 @@ import {
   Palette,
   Mail,
   Smartphone,
-  Globe
+  Globe,
+  Camera
 } from "lucide-react";
+import MenuScanner from "@/components/MenuScanner";
 
 export default function Settings() {
   return (
@@ -33,8 +35,9 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid grid-cols-5 w-full max-w-2xl">
+        <TabsList className="grid grid-cols-6 w-full max-w-3xl">
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="menu">Menu</TabsTrigger>
           <TabsTrigger value="notifications">Alerts</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
@@ -157,6 +160,10 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="menu" className="space-y-6">
+          <MenuScanner />
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-6">
