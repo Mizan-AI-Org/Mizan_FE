@@ -1,24 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar as CalendarIcon, Clock, Plus, Trash2, Edit } from "lucide-react";
-import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from "date-fns";
+import { Clock, Plus, X, User } from "lucide-react";
 
 interface StaffMember {
   id: string;
   full_name: string;
   role: string;
-  status: string;
   avatar_url?: string;
+  status: string;
 }
 
 interface Shift {
@@ -28,428 +27,377 @@ interface Shift {
   start_time: string;
   end_time: string;
   status: string;
-  notes?: string;
-  staff_members?: StaffMember;
+  staff_member?: StaffMember;
 }
 
 export default function StaffScheduler() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingShift, setEditingShift] = useState<Shift | null>(null);
-  const [formData, setFormData] = useState({
-    staff_id: "",
-    start_time: "09:00",
-    end_time: "17:00",
-    notes: "",
-  });
+  const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [selectedStaffId, setSelectedStaffId] = useState<string>("");
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("17:00");
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const { toast } = useToast();
 
-  const queryClient = useQueryClient();
+  useEffect(() => {
+    fetchStaffMembers();
+  }, []);
 
-  // Fetch staff members
-  const { data: staffMembers = [] } = useQuery({
-    queryKey: ["staff-members"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("staff_members")
-        .select("*")
-        .eq("status", "active")
-        .order("full_name");
-      
-      if (error) throw error;
-      return data as StaffMember[];
-    },
-  });
+  useEffect(() => {
+    fetchShifts();
+  }, [currentMonth]);
 
-  // Fetch shifts for current month
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
+  const fetchStaffMembers = async () => {
+    const { data, error } = await supabase
+      .from("staff_members")
+      .select("*")
+      .eq("status", "active")
+      .order("full_name");
 
-  const { data: shifts = [] } = useQuery({
-    queryKey: ["staff-shifts", format(monthStart, "yyyy-MM-dd"), format(monthEnd, "yyyy-MM-dd")],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("staff_shifts")
-        .select("*, staff_members(*)")
-        .gte("shift_date", format(monthStart, "yyyy-MM-dd"))
-        .lte("shift_date", format(monthEnd, "yyyy-MM-dd"))
-        .order("shift_date")
-        .order("start_time");
-      
-      if (error) throw error;
-      return data as Shift[];
-    },
-  });
-
-  // Create shift mutation
-  const createShift = useMutation({
-    mutationFn: async (data: { staff_id: string; shift_date: string; start_time: string; end_time: string; notes?: string }) => {
-      const { data: restaurant } = await supabase.from("restaurants").select("id").single();
-      
-      const { error } = await supabase
-        .from("staff_shifts")
-        .insert({
-          ...data,
-          restaurant_id: restaurant?.id,
-          status: "scheduled",
-        });
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["staff-shifts"] });
-      toast.success("Shift scheduled successfully");
-      setIsDialogOpen(false);
-      resetForm();
-    },
-    onError: (error) => {
-      toast.error("Failed to schedule shift: " + error.message);
-    },
-  });
-
-  // Update shift mutation
-  const updateShift = useMutation({
-    mutationFn: async ({ id, ...data }: Partial<Shift> & { id: string }) => {
-      const { error } = await supabase
-        .from("staff_shifts")
-        .update(data)
-        .eq("id", id);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["staff-shifts"] });
-      toast.success("Shift updated successfully");
-      setIsDialogOpen(false);
-      setEditingShift(null);
-      resetForm();
-    },
-    onError: (error) => {
-      toast.error("Failed to update shift: " + error.message);
-    },
-  });
-
-  // Delete shift mutation
-  const deleteShift = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("staff_shifts")
-        .delete()
-        .eq("id", id);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["staff-shifts"] });
-      toast.success("Shift deleted successfully");
-    },
-    onError: (error) => {
-      toast.error("Failed to delete shift: " + error.message);
-    },
-  });
-
-  const resetForm = () => {
-    setFormData({
-      staff_id: "",
-      start_time: "09:00",
-      end_time: "17:00",
-      notes: "",
-    });
-    setEditingShift(null);
+    if (error) {
+      toast({
+        title: "Error loading staff",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setStaffMembers(data || []);
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedDate || !formData.staff_id) {
-      toast.error("Please select a date and staff member");
+  const fetchShifts = async () => {
+    const start = startOfMonth(currentMonth);
+    const end = endOfMonth(currentMonth);
+
+    const { data, error } = await supabase
+      .from("staff_shifts")
+      .select(`
+        *,
+        staff_member:staff_members(id, full_name, role, avatar_url, status)
+      `)
+      .gte("shift_date", format(start, "yyyy-MM-dd"))
+      .lte("shift_date", format(end, "yyyy-MM-dd"))
+      .order("shift_date")
+      .order("start_time");
+
+    if (error) {
+      toast({
+        title: "Error loading shifts",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setShifts(data || []);
+    }
+  };
+
+  const handleScheduleShift = async () => {
+    if (!selectedDate || !selectedStaffId) {
+      toast({
+        title: "Missing information",
+        description: "Please select a date and staff member",
+        variant: "destructive",
+      });
       return;
     }
 
-    const shiftData = {
-      staff_id: formData.staff_id,
-      shift_date: format(selectedDate, "yyyy-MM-dd"),
-      start_time: formData.start_time,
-      end_time: formData.end_time,
-      notes: formData.notes,
-    };
+    const { error } = await supabase
+      .from("staff_shifts")
+      .insert({
+        staff_id: selectedStaffId,
+        shift_date: format(selectedDate, "yyyy-MM-dd"),
+        start_time: startTime,
+        end_time: endTime,
+        status: "scheduled",
+      });
 
-    if (editingShift) {
-      updateShift.mutate({ id: editingShift.id, ...shiftData });
+    if (error) {
+      toast({
+        title: "Error scheduling shift",
+        description: error.message,
+        variant: "destructive",
+      });
     } else {
-      createShift.mutate(shiftData);
+      toast({
+        title: "Shift scheduled",
+        description: "Staff member has been scheduled successfully",
+      });
+      setIsScheduleDialogOpen(false);
+      fetchShifts();
+      setSelectedStaffId("");
     }
   };
 
-  const handleEditShift = (shift: Shift) => {
-    setEditingShift(shift);
-    setFormData({
-      staff_id: shift.staff_id,
-      start_time: shift.start_time,
-      end_time: shift.end_time,
-      notes: shift.notes || "",
-    });
-    setSelectedDate(new Date(shift.shift_date));
-    setIsDialogOpen(true);
+  const handleDeleteShift = async (shiftId: string) => {
+    const { error } = await supabase
+      .from("staff_shifts")
+      .delete()
+      .eq("id", shiftId);
+
+    if (error) {
+      toast({
+        title: "Error deleting shift",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Shift deleted",
+        description: "Shift has been removed from the schedule",
+      });
+      fetchShifts();
+    }
   };
 
-  const getDayShifts = (date: Date) => {
-    return shifts.filter(shift => isSameDay(new Date(shift.shift_date), date));
+  const getShiftsForDate = (date: Date) => {
+    return shifts.filter(shift => 
+      isSameDay(parseISO(shift.shift_date), date)
+    );
+  };
+
+  const getDaysInMonth = () => {
+    const start = startOfMonth(currentMonth);
+    const end = endOfMonth(currentMonth);
+    return eachDayOfInterval({ start, end });
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "confirmed": return "bg-success text-success-foreground";
-      case "scheduled": return "bg-primary text-primary-foreground";
-      case "completed": return "bg-muted text-muted-foreground";
-      case "cancelled": return "bg-destructive text-destructive-foreground";
-      default: return "bg-secondary text-secondary-foreground";
+      case "confirmed":
+        return "bg-success text-success-foreground";
+      case "scheduled":
+        return "bg-primary text-primary-foreground";
+      case "completed":
+        return "bg-muted text-muted-foreground";
+      default:
+        return "bg-secondary text-secondary-foreground";
     }
   };
 
-  // Calendar month days
-  const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
-
   return (
     <div className="space-y-6">
-      {/* Header with Month Navigation */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-          >
-            Previous
-          </Button>
-          <h2 className="text-2xl font-bold">{format(currentMonth, "MMMM yyyy")}</h2>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-          >
-            Next
-          </Button>
-        </div>
+      <Tabs defaultValue="calendar" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="calendar">Calendar View</TabsTrigger>
+          <TabsTrigger value="list">List View</TabsTrigger>
+        </TabsList>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-primary hover:bg-primary/90" onClick={resetForm}>
-              <Plus className="w-4 h-4 mr-2" />
-              Schedule Staff
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>{editingShift ? "Edit Shift" : "Schedule Staff"}</DialogTitle>
-              <DialogDescription>
-                {editingShift ? "Update the shift details" : "Schedule a new shift for a staff member"}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="date">Date</Label>
-                <div className="border rounded-md p-3 bg-muted/50">
-                  {selectedDate ? format(selectedDate, "PPP") : "Select a date"}
+        <TabsContent value="calendar" className="space-y-4">
+          <Card className="shadow-soft">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Staff Schedule Calendar</CardTitle>
+                  <CardDescription>
+                    Click a date to schedule staff members
+                  </CardDescription>
+                </div>
+                <Button onClick={() => setIsScheduleDialogOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Schedule Staff
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      setSelectedDate(date);
+                      if (date) {
+                        setIsScheduleDialogOpen(true);
+                      }
+                    }}
+                    onMonthChange={setCurrentMonth}
+                    className="rounded-md border"
+                  />
+                </div>
+
+                <div className="lg:col-span-2 space-y-4">
+                  <h3 className="font-semibold text-lg">
+                    Shifts for {selectedDate ? format(selectedDate, "MMMM d, yyyy") : "Select a date"}
+                  </h3>
+                  
+                  <div className="space-y-3">
+                    {selectedDate && getShiftsForDate(selectedDate).length === 0 && (
+                      <p className="text-muted-foreground text-sm">No shifts scheduled for this date</p>
+                    )}
+                    
+                    {selectedDate && getShiftsForDate(selectedDate).map(shift => (
+                      <Card key={shift.id} className="border-l-4" style={{ borderLeftColor: "hsl(var(--primary))" }}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                              <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                                <User className="w-5 h-5 text-primary-foreground" />
+                              </div>
+                              <div>
+                                <h4 className="font-semibold">{shift.staff_member?.full_name}</h4>
+                                <p className="text-sm text-muted-foreground">{shift.staff_member?.role}</p>
+                                <div className="flex items-center space-x-2 mt-1">
+                                  <Clock className="w-3 h-3 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground">
+                                    {shift.start_time} - {shift.end_time}
+                                  </span>
+                                  <Badge className={getStatusColor(shift.status)} variant="secondary">
+                                    {shift.status}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteShift(shift.id)}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
+        <TabsContent value="list" className="space-y-4">
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle>All Scheduled Shifts</CardTitle>
+              <CardDescription>View all upcoming shifts by date</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {getDaysInMonth().map(day => {
+                  const dayShifts = getShiftsForDate(day);
+                  if (dayShifts.length === 0) return null;
+
+                  return (
+                    <div key={day.toISOString()} className="space-y-2">
+                      <h4 className="font-semibold text-sm text-muted-foreground">
+                        {format(day, "EEEE, MMMM d, yyyy")}
+                      </h4>
+                      <div className="space-y-2 ml-4">
+                        {dayShifts.map(shift => (
+                          <div
+                            key={shift.id}
+                            className="flex items-center justify-between p-3 bg-secondary rounded-lg"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                                <User className="w-4 h-4 text-primary-foreground" />
+                              </div>
+                              <div>
+                                <p className="font-medium">{shift.staff_member?.full_name}</p>
+                                <p className="text-xs text-muted-foreground">{shift.staff_member?.role}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <div className="flex items-center space-x-2">
+                                <Clock className="w-3 h-3 text-muted-foreground" />
+                                <span className="text-sm">{shift.start_time} - {shift.end_time}</span>
+                              </div>
+                              <Badge className={getStatusColor(shift.status)} variant="secondary">
+                                {shift.status}
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteShift(shift.id)}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule Staff Member</DialogTitle>
+            <DialogDescription>
+              Create a new shift for {selectedDate ? format(selectedDate, "MMMM d, yyyy") : "selected date"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="staff">Staff Member</Label>
+              <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
+                <SelectTrigger id="staff">
+                  <SelectValue placeholder="Select staff member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staffMembers.map(staff => (
+                    <SelectItem key={staff.id} value={staff.id}>
+                      {staff.full_name} - {staff.role}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="staff">Staff Member</Label>
-                <Select
-                  value={formData.staff_id}
-                  onValueChange={(value) => setFormData({ ...formData, staff_id: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select staff member" />
+                <Label htmlFor="start-time">Start Time</Label>
+                <Select value={startTime} onValueChange={setStartTime}>
+                  <SelectTrigger id="start-time">
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {staffMembers.map((staff) => (
-                      <SelectItem key={staff.id} value={staff.id}>
-                        {staff.full_name} - {staff.role}
+                    {Array.from({ length: 24 }, (_, i) => i).map(hour => (
+                      <SelectItem key={hour} value={`${hour.toString().padStart(2, '0')}:00`}>
+                        {hour.toString().padStart(2, '0')}:00
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="start_time">Start Time</Label>
-                  <Input
-                    id="start_time"
-                    type="time"
-                    value={formData.start_time}
-                    onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="end_time">End Time</Label>
-                  <Input
-                    id="end_time"
-                    type="time"
-                    value={formData.end_time}
-                    onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                  />
-                </div>
-              </div>
-
               <div className="space-y-2">
-                <Label htmlFor="notes">Notes (Optional)</Label>
-                <Input
-                  id="notes"
-                  placeholder="Add any notes..."
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                />
+                <Label htmlFor="end-time">End Time</Label>
+                <Select value={endTime} onValueChange={setEndTime}>
+                  <SelectTrigger id="end-time">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 24 }, (_, i) => i).map(hour => (
+                      <SelectItem key={hour} value={`${hour.toString().padStart(2, '0')}:00`}>
+                        {hour.toString().padStart(2, '0')}:00
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingShift ? "Update Shift" : "Schedule Shift"}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Calendar View */}
-        <Card className="lg:col-span-2 shadow-soft">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5" />
-              Schedule Calendar
-            </CardTitle>
-            <CardDescription>Click on a date to view or schedule shifts</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-7 gap-2">
-              {/* Day headers */}
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                <div key={day} className="text-center font-semibold text-sm text-muted-foreground p-2">
-                  {day}
-                </div>
-              ))}
-
-              {/* Calendar days */}
-              {monthDays.map((day) => {
-                const dayShifts = getDayShifts(day);
-                const isSelected = selectedDate && isSameDay(day, selectedDate);
-                const isToday = isSameDay(day, new Date());
-
-                return (
-                  <button
-                    key={day.toISOString()}
-                    onClick={() => setSelectedDate(day)}
-                    className={`
-                      min-h-[100px] p-2 rounded-lg border-2 transition-all hover:border-primary/50
-                      ${isSelected ? "border-primary bg-primary/5" : "border-border"}
-                      ${isToday ? "bg-accent/10" : "bg-card"}
-                    `}
-                  >
-                    <div className={`text-sm font-medium mb-1 ${isToday ? "text-accent" : ""}`}>
-                      {format(day, "d")}
-                    </div>
-                    <div className="space-y-1">
-                      {dayShifts.slice(0, 2).map((shift) => (
-                        <div
-                          key={shift.id}
-                          className="text-xs p-1 rounded bg-primary/10 text-primary truncate"
-                        >
-                          {shift.staff_members?.full_name.split(" ")[0]}
-                        </div>
-                      ))}
-                      {dayShifts.length > 2 && (
-                        <div className="text-xs text-muted-foreground">
-                          +{dayShifts.length - 2} more
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Selected Day Details */}
-        <Card className="shadow-soft">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="w-5 h-5" />
-              {selectedDate ? format(selectedDate, "MMM d, yyyy") : "Select a date"}
-            </CardTitle>
-            <CardDescription>
-              {selectedDate && getDayShifts(selectedDate).length} shift(s) scheduled
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {selectedDate && getDayShifts(selectedDate).length > 0 ? (
-                getDayShifts(selectedDate).map((shift) => (
-                  <div
-                    key={shift.id}
-                    className="p-3 bg-secondary rounded-lg space-y-2"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-semibold">{shift.staff_members?.full_name}</p>
-                        <p className="text-sm text-muted-foreground">{shift.staff_members?.role}</p>
-                      </div>
-                      <Badge className={getStatusColor(shift.status)}>
-                        {shift.status}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Clock className="w-4 h-4 text-muted-foreground" />
-                      <span>{shift.start_time} - {shift.end_time}</span>
-                    </div>
-                    {shift.notes && (
-                      <p className="text-sm text-muted-foreground">{shift.notes}</p>
-                    )}
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEditShift(shift)}
-                      >
-                        <Edit className="w-3 h-3 mr-1" />
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => deleteShift.mutate(shift.id)}
-                      >
-                        <Trash2 className="w-3 h-3 mr-1" />
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <CalendarIcon className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                  <p>No shifts scheduled</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-3"
-                    onClick={() => setIsDialogOpen(true)}
-                  >
-                    Schedule a shift
-                  </Button>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsScheduleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleScheduleShift}>
+              Schedule Shift
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
