@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Calendar,
   Clock,
@@ -11,6 +12,7 @@ import {
   AlertCircle,
   TrendingUp
 } from "lucide-react";
+import StaffScheduler from "@/components/StaffScheduler";
 
 const staffMembers = [
   {
@@ -105,37 +107,44 @@ export default function Staff() {
           <h1 className="text-3xl font-bold">Staff Management</h1>
           <p className="text-muted-foreground">Manage schedules and AI-optimized staffing</p>
         </div>
-        <div className="flex space-x-3">
-          <Button variant="outline">
-            <UserCheck className="w-4 h-4 mr-2" />
-            Clock In/Out
-          </Button>
-          <Button className="bg-gradient-primary hover:bg-primary/90">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Staff
-          </Button>
-        </div>
       </div>
 
-      {/* AI Staff Insights */}
-      <Card className="bg-gradient-warm border-accent/20 shadow-soft">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            🤖 AI Staffing Recommendations
-          </CardTitle>
-          <CardDescription>Optimized scheduling based on demand forecasting</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {aiRecommendations.map((rec, index) => (
-            <div key={index} className="flex items-center p-3 bg-card rounded-lg">
-              <AlertCircle className="w-4 h-4 text-accent mr-3" />
-              <span className="text-sm">{rec}</span>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="schedule" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="schedule">
+            <Calendar className="w-4 h-4 mr-2" />
+            Schedule Calendar
+          </TabsTrigger>
+          <TabsTrigger value="overview">
+            <Users className="w-4 h-4 mr-2" />
+            Team Overview
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Staff Overview */}
+        <TabsContent value="schedule" className="space-y-6">
+          <StaffScheduler />
+        </TabsContent>
+
+        <TabsContent value="overview" className="space-y-6">
+          {/* AI Staff Insights */}
+          <Card className="bg-gradient-warm border-accent/20 shadow-soft">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                🤖 AI Staffing Recommendations
+              </CardTitle>
+              <CardDescription>Optimized scheduling based on demand forecasting</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {aiRecommendations.map((rec, index) => (
+                <div key={index} className="flex items-center p-3 bg-card rounded-lg">
+                  <AlertCircle className="w-4 h-4 text-accent mr-3" />
+                  <span className="text-sm">{rec}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Staff Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="shadow-soft">
           <CardContent className="p-4">
@@ -261,29 +270,31 @@ export default function Staff() {
         </Card>
       </div>
 
-      {/* Quick Actions */}
-      <Card className="shadow-soft">
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Common staff management tasks</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button variant="outline" className="h-16">
-              <Clock className="w-5 h-5 mr-2" />
-              Generate Auto-Schedule
-            </Button>
-            <Button variant="outline" className="h-16">
-              <Users className="w-5 h-5 mr-2" />
-              Send Shift Notifications
-            </Button>
-            <Button variant="outline" className="h-16">
-              <UserCheck className="w-5 h-5 mr-2" />
-              View Timesheets
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          {/* Quick Actions */}
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>Common staff management tasks</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Button variant="outline" className="h-16">
+                  <Clock className="w-5 h-5 mr-2" />
+                  Generate Auto-Schedule
+                </Button>
+                <Button variant="outline" className="h-16">
+                  <Users className="w-5 h-5 mr-2" />
+                  Send Shift Notifications
+                </Button>
+                <Button variant="outline" className="h-16">
+                  <UserCheck className="w-5 h-5 mr-2" />
+                  View Timesheets
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
