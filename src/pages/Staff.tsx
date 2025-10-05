@@ -3,16 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import StaffScheduler from "@/components/StaffScheduler";
 import { 
   Calendar,
   Clock,
   Users,
-  Plus,
   UserCheck,
   AlertCircle,
   TrendingUp
 } from "lucide-react";
-import StaffScheduler from "@/components/StaffScheduler";
 
 const staffMembers = [
   {
@@ -107,23 +106,19 @@ export default function Staff() {
           <h1 className="text-3xl font-bold">Staff Management</h1>
           <p className="text-muted-foreground">Manage schedules and AI-optimized staffing</p>
         </div>
+        <div className="flex space-x-3">
+          <Button variant="outline">
+            <UserCheck className="w-4 h-4 mr-2" />
+            Clock In/Out
+          </Button>
+        </div>
       </div>
 
-      <Tabs defaultValue="schedule" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="schedule">
-            <Calendar className="w-4 h-4 mr-2" />
-            Schedule Calendar
-          </TabsTrigger>
-          <TabsTrigger value="overview">
-            <Users className="w-4 h-4 mr-2" />
-            Team Overview
-          </TabsTrigger>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="schedule">Schedule Staff</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="schedule" className="space-y-6">
-          <StaffScheduler />
-        </TabsContent>
 
         <TabsContent value="overview" className="space-y-6">
           {/* AI Staff Insights */}
@@ -145,130 +140,130 @@ export default function Staff() {
           </Card>
 
           {/* Staff Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="shadow-soft">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Total Staff</p>
-                <p className="text-2xl font-bold">12</p>
-              </div>
-              <Users className="w-8 h-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-soft">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">On Duty Today</p>
-                <p className="text-2xl font-bold">8</p>
-              </div>
-              <UserCheck className="w-8 h-8 text-success" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-soft">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Labor Cost %</p>
-                <p className="text-2xl font-bold">28.5%</p>
-              </div>
-              <TrendingUp className="w-8 h-8 text-warning" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-soft">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Avg Rating</p>
-                <p className="text-2xl font-bold">4.7⭐</p>
-              </div>
-              <Clock className="w-8 h-8 text-accent" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Staff List */}
-        <Card className="shadow-soft">
-          <CardHeader>
-            <CardTitle>Team Members</CardTitle>
-            <CardDescription>Current staff roster and availability</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {staffMembers.map(staff => (
-              <div key={staff.id} className="flex items-center justify-between p-4 bg-secondary rounded-lg">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
-                    <span className="text-white font-medium">{staff.avatar}</span>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">{staff.name}</h3>
-                    <p className="text-sm text-muted-foreground">{staff.role}</p>
-                    <p className="text-xs text-muted-foreground">{staff.schedule}</p>
-                  </div>
-                </div>
-                <div className="text-right space-y-1">
-                  <Badge variant={staff.status === "active" ? "default" : "outline"}>
-                    {staff.status}
-                  </Badge>
-                  <div className="text-xs text-muted-foreground">
-                    {staff.hoursThisWeek}h this week
-                  </div>
-                  <div className="text-xs">⭐ {staff.rating}</div>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Weekly Schedule */}
-        <Card className="shadow-soft">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Weekly Schedule</CardTitle>
-                <CardDescription>Current and upcoming shifts</CardDescription>
-              </div>
-              <Button variant="outline" size="sm">
-                <Calendar className="w-4 h-4 mr-2" />
-                View Calendar
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {weeklySchedule.map(day => (
-              <div key={day.day} className="space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <Card className="shadow-soft">
+              <CardContent className="p-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-semibold">{day.day}</h4>
-                  <span className="text-sm text-muted-foreground">{day.date}</span>
+                  <div>
+                    <p className="text-sm font-medium">Total Staff</p>
+                    <p className="text-2xl font-bold">12</p>
+                  </div>
+                  <Users className="w-8 h-8 text-primary" />
                 </div>
-                <div className="space-y-2 ml-4">
-                  {day.shifts.map((shift, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                      <div>
-                        <span className="text-sm font-medium">{shift.name}</span>
-                        <span className="text-xs text-muted-foreground ml-2">({shift.role})</span>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-soft">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">On Duty Today</p>
+                    <p className="text-2xl font-bold">8</p>
+                  </div>
+                  <UserCheck className="w-8 h-8 text-success" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-soft">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Labor Cost %</p>
+                    <p className="text-2xl font-bold">28.5%</p>
+                  </div>
+                  <TrendingUp className="w-8 h-8 text-warning" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-soft">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Avg Rating</p>
+                    <p className="text-2xl font-bold">4.7⭐</p>
+                  </div>
+                  <Clock className="w-8 h-8 text-accent" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Staff List */}
+            <Card className="shadow-soft">
+              <CardHeader>
+                <CardTitle>Team Members</CardTitle>
+                <CardDescription>Current staff roster and availability</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {staffMembers.map(staff => (
+                  <div key={staff.id} className="flex items-center justify-between p-4 bg-secondary rounded-lg">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
+                        <span className="text-primary-foreground font-medium">{staff.avatar}</span>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs">{shift.time}</span>
-                        {getStatusBadge(shift.status)}
+                      <div>
+                        <h3 className="font-semibold">{staff.name}</h3>
+                        <p className="text-sm text-muted-foreground">{staff.role}</p>
+                        <p className="text-xs text-muted-foreground">{staff.schedule}</p>
                       </div>
                     </div>
-                  ))}
+                    <div className="text-right space-y-1">
+                      <Badge variant={staff.status === "active" ? "default" : "outline"}>
+                        {staff.status}
+                      </Badge>
+                      <div className="text-xs text-muted-foreground">
+                        {staff.hoursThisWeek}h this week
+                      </div>
+                      <div className="text-xs">⭐ {staff.rating}</div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Weekly Schedule */}
+            <Card className="shadow-soft">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Weekly Schedule</CardTitle>
+                    <CardDescription>Current and upcoming shifts</CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    View Calendar
+                  </Button>
                 </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {weeklySchedule.map(day => (
+                  <div key={day.day} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold">{day.day}</h4>
+                      <span className="text-sm text-muted-foreground">{day.date}</span>
+                    </div>
+                    <div className="space-y-2 ml-4">
+                      {day.shifts.map((shift, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                          <div>
+                            <span className="text-sm font-medium">{shift.name}</span>
+                            <span className="text-xs text-muted-foreground ml-2">({shift.role})</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs">{shift.time}</span>
+                            {getStatusBadge(shift.status)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Quick Actions */}
           <Card className="shadow-soft">
@@ -293,6 +288,10 @@ export default function Staff() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="schedule">
+          <StaffScheduler />
         </TabsContent>
       </Tabs>
     </div>
