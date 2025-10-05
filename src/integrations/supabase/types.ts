@@ -94,6 +94,116 @@ export type Database = {
           },
         ]
       }
+      staff_members: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string | null
+          full_name: string
+          hourly_rate: number | null
+          id: string
+          phone: string | null
+          rating: number | null
+          restaurant_id: string | null
+          role: string
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name: string
+          hourly_rate?: number | null
+          id?: string
+          phone?: string | null
+          rating?: number | null
+          restaurant_id?: string | null
+          role: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string
+          hourly_rate?: number | null
+          id?: string
+          phone?: string | null
+          rating?: number | null
+          restaurant_id?: string | null
+          role?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_members_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_shifts: {
+        Row: {
+          created_at: string | null
+          end_time: string
+          id: string
+          notes: string | null
+          restaurant_id: string | null
+          shift_date: string
+          staff_id: string
+          start_time: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_time: string
+          id?: string
+          notes?: string | null
+          restaurant_id?: string | null
+          shift_date: string
+          staff_id: string
+          start_time: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_time?: string
+          id?: string
+          notes?: string | null
+          restaurant_id?: string | null
+          shift_date?: string
+          staff_id?: string
+          start_time?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_shifts_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_shifts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       table_name: {
         Row: {
           data: Json | null
