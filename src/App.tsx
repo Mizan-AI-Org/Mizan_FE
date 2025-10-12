@@ -14,6 +14,10 @@ import AIAssistant from "./pages/AIAssistant";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import POS from "./pages/POS";
+import Kitchen from "./pages/Kitchen";
+import MenuManagement from "./pages/MenuManagement";
+import FloorManagement from "./pages/FloorManagement";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +36,10 @@ const App = () => (
               </ProtectedRoute>
             }>
               <Route index element={<Dashboard />} />
+              <Route path="pos" element={<POS />} />
+              <Route path="kitchen" element={<Kitchen />} />
+              <Route path="menu" element={<MenuManagement />} />
+              <Route path="floors" element={<FloorManagement />} />
               <Route path="inventory" element={<Inventory />} />
               <Route path="staff" element={<Staff />} />
               <Route path="analytics" element={<Analytics />} />

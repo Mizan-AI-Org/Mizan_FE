@@ -10,7 +10,11 @@ import {
   Menu,
   X,
   LogOut,
-  User
+  User,
+  CreditCard,
+  UtensilsCrossed,
+  BookOpen,
+  LayoutGrid
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -20,6 +24,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 
 const navigation = [
   { name: "Overview", href: "/", icon: BarChart3 },
+  { name: "POS", href: "/pos", icon: CreditCard },
+  { name: "Kitchen", href: "/kitchen", icon: UtensilsCrossed },
+  { name: "Menu", href: "/menu", icon: BookOpen },
+  { name: "Tables", href: "/floors", icon: LayoutGrid },
   { name: "Inventory", href: "/inventory", icon: Package },
   { name: "Staff", href: "/staff", icon: Calendar },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
