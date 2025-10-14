@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import StaffScheduler from "@/components/StaffScheduler";
+import { DraggableShiftScheduler } from "@/components/DraggableShiftScheduler";
+import { ClockInOut } from "@/components/ClockInOut";
 import { 
   Calendar,
   Clock,
@@ -107,10 +108,7 @@ export default function Staff() {
           <p className="text-muted-foreground">Manage schedules and AI-optimized staffing</p>
         </div>
         <div className="flex space-x-3">
-          <Button variant="outline">
-            <UserCheck className="w-4 h-4 mr-2" />
-            Clock In/Out
-          </Button>
+          <ClockInOut staffId="current-staff-id" />
         </div>
       </div>
 
@@ -291,7 +289,7 @@ export default function Staff() {
         </TabsContent>
 
         <TabsContent value="schedule">
-          <StaffScheduler />
+          <DraggableShiftScheduler />
         </TabsContent>
       </Tabs>
     </div>

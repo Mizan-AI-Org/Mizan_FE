@@ -3,87 +3,107 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { 
   MessageSquare,
   Send,
   Lightbulb,
   TrendingUp,
   Clock,
-  Zap
+  Zap,
+  Loader2
 } from "lucide-react";
 
 const quickQuestions = [
-  "What should I order for tomorrow?",
-  "Who should I schedule for Saturday night?", 
+  "What should I order for tomorrow based on weather and demand?",
+  "Who should I schedule for this weekend?", 
   "What's my food waste trend this week?",
   "How can I reduce labor costs?",
-  "What ingredients expire soon?",
+  "What ingredients are expiring soon?",
   "Suggest prep tasks for tomorrow"
-];
-
-const chatHistory = [
-  {
-    id: 1,
-    type: "user",
-    message: "What should I order for tomorrow?",
-    time: "10:30 AM"
-  },
-  {
-    id: 2,
-    type: "assistant",
-    message: "Based on weather forecast (sunny, 75°F) and historical data, I recommend ordering:\n\n• 55 lbs Chicken Breast - 23% increase expected\n• 42 lbs Roma Tomatoes - Critical stock level\n• 25 lbs Lettuce - Salad demand will spike\n• 15 lbs Mozzarella - Pizza Friday prep\n\nTotal estimated cost: $436.75\nExpected ROI: 240%",
-    time: "10:30 AM",
-    actions: ["Order Now", "Modify Quantities", "Save for Later"]
-  },
-  {
-    id: 3,
-    type: "user", 
-    message: "Who should I schedule for Saturday night?",
-    time: "10:32 AM"
-  },
-  {
-    id: 4,
-    type: "assistant",
-    message: "For Saturday night (Jan 13), I recommend:\n\n🔥 **Kitchen Staff:**\n• Maria Rodriguez (Head Chef) - 4pm-12am\n• James Wilson (Sous Chef) - 3pm-11pm\n• Mike Thompson (Prep) - 2pm-10pm\n\n👥 **Front of House:**\n• Sarah Kim (Server) - 5pm-close\n• Lisa Chen (Server) - 5pm-close\n• David Park (Host) - 4pm-10pm\n\nPredicted covers: 180 (+35% vs avg Saturday)\nReason: Local concert ends at 9pm",
-    time: "10:33 AM",
-    actions: ["Schedule All", "Modify Shifts", "Add Backup Staff"]
-  }
 ];
 
 const insights = [
   {
     icon: TrendingUp,
     title: "Revenue Opportunity",
-    description: "Add weekend brunch menu - potential $1,200/week increase",
+    description: "Add weekend brunch menu - potential increase in revenue",
     priority: "high"
   },
   {
     icon: Lightbulb, 
     title: "Cost Savings",
-    description: "Bulk order olive oil - save $45/month with current usage",
+    description: "Bulk order frequently used items to save on costs",
     priority: "medium"
   },
   {
     icon: Clock,
     title: "Efficiency Boost", 
-    description: "Pre-prep salads during slow hours - reduce dinner rush time",
+    description: "Pre-prep during slow hours to reduce rush time",
     priority: "medium"
   }
 ];
 
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+}
+
 export default function AIAssistant() {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
 
   const handleSendMessage = async () => {
     if (!message.trim()) return;
     
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: "user",
+      content: message,
+      timestamp: new Date(),
+    };
+
+    setChatHistory(prev => [...prev, userMessage]);
+    setMessage("");
     setIsLoading(true);
-    // Simulate AI processing
-    setTimeout(() => {
+
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-assistant-chat", {
+        body: {
+          messages: [
+            ...chatHistory.map(m => ({ role: m.role, content: m.content })),
+            { role: "user", content: message }
+          ],
+        },
+      });
+
+      if (error) throw error;
+
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: data.message,
+        timestamp: new Date(),
+      };
+
+      setChatHistory(prev => [...prev, assistantMessage]);
+    } catch (error: any) {
+      console.error("Error:", error);
+      
+      if (error.message?.includes("429")) {
+        toast.error("Rate limit exceeded. Please wait a moment before trying again.");
+      } else if (error.message?.includes("402")) {
+        toast.error("AI credits exhausted. Please add credits to your workspace.");
+      } else {
+        toast.error("Failed to get AI response. Please try again.");
+      }
+    } finally {
       setIsLoading(false);
-      setMessage("");
-    }, 2000);
+    }
   };
 
   const handleQuickQuestion = (question: string) => {
@@ -119,25 +139,25 @@ export default function AIAssistant() {
             <CardContent className="flex-1 flex flex-col">
               {/* Chat Messages */}
               <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+                {chatHistory.length === 0 && (
+                  <div className="text-center text-muted-foreground py-12">
+                    <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Start a conversation with Mizan AI</p>
+                    <p className="text-sm">Try one of the quick questions below</p>
+                  </div>
+                )}
+                
                 {chatHistory.map(chat => (
-                  <div key={chat.id} className={`flex ${chat.type === "user" ? "justify-end" : "justify-start"}`}>
+                  <div key={chat.id} className={`flex ${chat.role === "user" ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[80%] rounded-lg p-4 ${
-                      chat.type === "user" 
+                      chat.role === "user" 
                         ? "bg-primary text-primary-foreground" 
                         : "bg-secondary"
                     }`}>
-                      <div className="whitespace-pre-wrap text-sm">{chat.message}</div>
-                      <div className="text-xs opacity-70 mt-2">{chat.time}</div>
-                      
-                      {chat.actions && (
-                        <div className="flex flex-wrap gap-2 mt-3">
-                          {chat.actions.map(action => (
-                            <Button key={action} size="sm" variant="outline" className="text-xs">
-                              {action}
-                            </Button>
-                          ))}
-                        </div>
-                      )}
+                      <div className="whitespace-pre-wrap text-sm">{chat.content}</div>
+                      <div className="text-xs opacity-70 mt-2">
+                        {chat.timestamp.toLocaleTimeString()}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -146,10 +166,8 @@ export default function AIAssistant() {
                   <div className="flex justify-start">
                     <div className="bg-secondary rounded-lg p-4">
                       <div className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
-                        <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                        <span className="text-sm text-muted-foreground ml-2">AI is thinking...</span>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-sm text-muted-foreground">AI is thinking...</span>
                       </div>
                     </div>
                   </div>
@@ -162,15 +180,20 @@ export default function AIAssistant() {
                   placeholder="Ask about inventory, staffing, sales trends..."
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                  onKeyPress={(e) => e.key === "Enter" && !isLoading && handleSendMessage()}
                   className="flex-1"
+                  disabled={isLoading}
                 />
                 <Button 
                   onClick={handleSendMessage}
                   disabled={isLoading || !message.trim()}
                   className="bg-gradient-primary hover:bg-primary/90"
                 >
-                  <Send className="w-4 h-4" />
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
                 </Button>
               </div>
             </CardContent>
@@ -192,6 +215,7 @@ export default function AIAssistant() {
                   variant="outline"
                   className="w-full justify-start text-left h-auto p-3"
                   onClick={() => handleQuickQuestion(question)}
+                  disabled={isLoading}
                 >
                   <span className="text-sm">{question}</span>
                 </Button>
@@ -235,24 +259,16 @@ export default function AIAssistant() {
           {/* Usage Stats */}
           <Card className="shadow-soft">
             <CardHeader>
-              <CardTitle>Usage Today</CardTitle>
+              <CardTitle>Session Stats</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm">Questions Asked</span>
-                <span className="font-semibold">24</span>
+                <span className="font-semibold">{chatHistory.filter(m => m.role === "user").length}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm">Orders Generated</span>
-                <span className="font-semibold">3</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm">Schedules Created</span>
-                <span className="font-semibold">2</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm">Insights Provided</span>
-                <span className="font-semibold">12</span>
+                <span className="text-sm">AI Responses</span>
+                <span className="font-semibold">{chatHistory.filter(m => m.role === "assistant").length}</span>
               </div>
             </CardContent>
           </Card>
