@@ -151,20 +151,32 @@ export default function Kitchen() {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <ChefHat className="h-8 w-8" />
-        <h1 className="text-3xl font-bold">Kitchen Display</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <ChefHat className="h-8 w-8" />
+          <div>
+            <h1 className="text-3xl font-bold">Kitchen Display</h1>
+            <p className="text-muted-foreground">Real-time order tracking and management</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <Badge variant="outline" className="text-lg">
+            {orders.length} Active Orders
+          </Badge>
+        </div>
       </div>
 
       {orders.length === 0 ? (
-        <Card className="p-12 text-center">
+        <Card className="p-12 text-center shadow-soft">
+          <ChefHat className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
           <p className="text-muted-foreground text-lg">No active orders</p>
+          <p className="text-sm text-muted-foreground mt-2">New orders will appear here in real-time</p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {orders.map(order => (
-            <Card key={order.id} className="p-4">
+            <Card key={order.id} className="p-4 shadow-soft hover:shadow-lg transition-shadow">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-xl font-bold">{order.order_number}</h3>
