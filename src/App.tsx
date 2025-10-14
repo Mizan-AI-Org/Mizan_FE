@@ -32,10 +32,14 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={
               <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
                 <DashboardLayout />
               </ProtectedRoute>
             }>
-              <Route index element={<Dashboard />} />
               <Route path="pos" element={<POS />} />
               <Route path="kitchen" element={<Kitchen />} />
               <Route path="menu" element={<MenuManagement />} />

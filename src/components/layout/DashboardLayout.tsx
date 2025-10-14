@@ -23,16 +23,16 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const navigation = [
-  { name: "Overview", href: "/", icon: BarChart3 },
-  { name: "POS", href: "/pos", icon: CreditCard },
-  { name: "Kitchen", href: "/kitchen", icon: UtensilsCrossed },
-  { name: "Menu", href: "/menu", icon: BookOpen },
-  { name: "Tables", href: "/floors", icon: LayoutGrid },
-  { name: "Inventory", href: "/inventory", icon: Package },
-  { name: "Staff", href: "/staff", icon: Calendar },
-  { name: "Analytics", href: "/analytics", icon: BarChart3 },
-  { name: "AI Assistant", href: "/assistant", icon: MessageSquare },
-  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Home", href: "/", icon: LayoutGrid },
+  { name: "POS", href: "/dashboard/pos", icon: CreditCard },
+  { name: "Kitchen", href: "/dashboard/kitchen", icon: UtensilsCrossed },
+  { name: "Menu", href: "/dashboard/menu", icon: BookOpen },
+  { name: "Tables", href: "/dashboard/floors", icon: LayoutGrid },
+  { name: "Inventory", href: "/dashboard/inventory", icon: Package },
+  { name: "Staff", href: "/dashboard/staff", icon: Calendar },
+  { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+  { name: "AI Assistant", href: "/dashboard/assistant", icon: MessageSquare },
+  { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
 export default function DashboardLayout() {
