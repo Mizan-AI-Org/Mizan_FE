@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
+type AppRole = 'owner' | 'manager' | 'server' | 'chef' | 'cleaner';
+
 interface Profile {
   id: string;
   email: string | null;
@@ -12,10 +14,19 @@ interface Profile {
   avatar_url: string | null;
 }
 
+interface UserRole {
+  role: AppRole;
+  restaurant_id: string;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
+  userRoles: UserRole[];
+  hasRole: (role: AppRole) => boolean;
+  isOwner: boolean;
+  isManager: boolean;
   isLoading: boolean;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
@@ -35,6 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
@@ -56,6 +68,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const fetchUserRoles = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role, restaurant_id')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      setUserRoles(data || []);
+    } catch (error) {
+      console.error('Error fetching user roles:', error);
+      setUserRoles([]);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -64,12 +91,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Defer profile fetching to avoid deadlock
+          // Defer profile and roles fetching to avoid deadlock
           setTimeout(() => {
             fetchProfile(session.user.id);
+            fetchUserRoles(session.user.id);
           }, 0);
         } else {
           setProfile(null);
+          setUserRoles([]);
         }
         
         setIsLoading(false);
@@ -84,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session?.user) {
         setTimeout(() => {
           fetchProfile(session.user.id);
+          fetchUserRoles(session.user.id);
         }, 0);
       }
       
@@ -118,10 +148,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const hasRole = (role: AppRole): boolean => {
+    return userRoles.some(ur => ur.role === role);
+  };
+
+  const isOwner = hasRole('owner');
+  const isManager = hasRole('manager') || isOwner;
+
   const value = {
     user,
     session,
     profile,
+    userRoles,
+    hasRole,
+    isOwner,
+    isManager,
     isLoading,
     signOut,
     updateProfile,
