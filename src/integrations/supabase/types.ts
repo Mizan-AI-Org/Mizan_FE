@@ -706,9 +706,7 @@ export type Database = {
           full_name: string
           hourly_rate: number | null
           id: string
-          is_active: boolean | null
           phone: string | null
-          pin_code: string | null
           rating: number | null
           restaurant_id: string | null
           role: string
@@ -723,9 +721,7 @@ export type Database = {
           full_name: string
           hourly_rate?: number | null
           id?: string
-          is_active?: boolean | null
           phone?: string | null
-          pin_code?: string | null
           rating?: number | null
           restaurant_id?: string | null
           role: string
@@ -740,9 +736,7 @@ export type Database = {
           full_name?: string
           hourly_rate?: number | null
           id?: string
-          is_active?: boolean | null
           phone?: string | null
-          pin_code?: string | null
           rating?: number | null
           restaurant_id?: string | null
           role?: string
@@ -894,66 +888,14 @@ export type Database = {
           },
         ]
       }
-      user_roles: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          id: string
-          restaurant_id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          restaurant_id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          restaurant_id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_roles_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "restaurants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      get_user_roles: {
-        Args: { _restaurant_id: string; _user_id: string }
-        Returns: {
-          role: Database["public"]["Enums"]["app_role"]
-        }[]
-      }
-      has_restaurant_access: {
-        Args: { _restaurant_id: string; _user_id: string }
-        Returns: boolean
-      }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
-      app_role: "owner" | "manager" | "server" | "chef" | "cleaner"
       order_status:
         | "pending"
         | "confirmed"
@@ -1093,7 +1035,6 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["owner", "manager", "server", "chef", "cleaner"],
       order_status: [
         "pending",
         "confirmed",
