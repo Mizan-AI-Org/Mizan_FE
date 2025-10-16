@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { 
-  CreditCard, 
+  Plug, 
   Upload, 
   Wifi, 
   WifiOff, 
@@ -17,8 +17,18 @@ import {
   Calendar,
   DollarSign,
   Receipt,
-  FileText
+  FileText,
+  CheckCircle2
 } from 'lucide-react';
+
+const posProviders = [
+  { id: 'square', name: 'Square', logo: '⬛' },
+  { id: 'toast', name: 'Toast', logo: '🍞' },
+  { id: 'clover', name: 'Clover', logo: '🍀' },
+  { id: 'lightspeed', name: 'Lightspeed', logo: '⚡' },
+  { id: 'shopify', name: 'Shopify POS', logo: '🛍️' },
+  { id: 'revel', name: 'Revel', logo: '🎯' },
+];
 
 interface SalesEntry {
   date: string;
@@ -28,6 +38,7 @@ interface SalesEntry {
 }
 
 export default function POSIntegration() {
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [salesData, setSalesData] = useState<SalesEntry[]>([]);
@@ -39,21 +50,24 @@ export default function POSIntegration() {
   });
   const { toast } = useToast();
 
-  const handleConnect = async () => {
+  const handleConnect = async (providerId: string) => {
     setIsConnecting(true);
+    setSelectedProvider(providerId);
     // Simulate API connection
     setTimeout(() => {
       setIsConnected(true);
       setIsConnecting(false);
+      const provider = posProviders.find(p => p.id === providerId);
       toast({
         title: 'POS Connected',
-        description: 'Successfully connected to your POS system.',
+        description: `Successfully connected to ${provider?.name} POS system.`,
       });
     }, 2000);
   };
 
   const handleDisconnect = () => {
     setIsConnected(false);
+    setSelectedProvider(null);
     toast({
       title: 'POS Disconnected',
       description: 'Disconnected from POS system.',
@@ -131,59 +145,81 @@ export default function POSIntegration() {
     reader.readAsText(file);
   };
 
+  const connectedProvider = posProviders.find(p => p.id === selectedProvider);
+
   return (
     <div className="space-y-6">
-      <Card className="shadow-soft">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <CreditCard className="w-5 h-5 mr-2" />
-            POS Integration
-          </CardTitle>
-          <CardDescription>
-            Connect your Point of Sale system or manually input sales data for better analytics
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between p-4 bg-secondary rounded-lg">
-            <div className="flex items-center space-x-3">
-              {isConnected ? (
+      {!isConnected ? (
+        <Card className="shadow-soft">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Plug className="w-5 h-5 mr-2" />
+              Connect POS System
+            </CardTitle>
+            <CardDescription>
+              Connect your existing Point of Sale system to sync sales data automatically
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {posProviders.map((provider) => (
+                <Card
+                  key={provider.id}
+                  className="relative overflow-hidden hover:shadow-elegant transition-all duration-300 cursor-pointer border-2 hover:border-primary/50"
+                  onClick={() => !isConnecting && handleConnect(provider.id)}
+                >
+                  <CardContent className="p-6 text-center">
+                    <div className="text-4xl mb-3">{provider.logo}</div>
+                    <h3 className="font-semibold mb-2">{provider.name}</h3>
+                    <Button 
+                      size="sm" 
+                      className="w-full"
+                      disabled={isConnecting && selectedProvider === provider.id}
+                    >
+                      {isConnecting && selectedProvider === provider.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        'Connect'
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="shadow-soft border-success/50">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <CheckCircle2 className="w-5 h-5 mr-2 text-success" />
+              Connected to {connectedProvider?.name}
+            </CardTitle>
+            <CardDescription>
+              Real-time sales data synchronization is active
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between p-4 bg-success/10 rounded-lg border border-success/20">
+              <div className="flex items-center space-x-3">
                 <Wifi className="w-5 h-5 text-success" />
-              ) : (
-                <WifiOff className="w-5 h-5 text-muted-foreground" />
-              )}
-              <div>
-                <p className="font-medium">
-                  {isConnected ? 'Connected to Square POS' : 'Not Connected'}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {isConnected 
-                    ? 'Real-time data sync enabled' 
-                    : 'Connect your POS for automatic data sync'
-                  }
-                </p>
+                <div>
+                  <p className="font-medium text-success">Active Connection</p>
+                  <p className="text-sm text-muted-foreground">
+                    Last synced: {new Date().toLocaleTimeString()}
+                  </p>
+                </div>
               </div>
+              <Button onClick={handleDisconnect} variant="outline">
+                Disconnect
+              </Button>
             </div>
-            <div>
-              {isConnected ? (
-                <Button onClick={handleDisconnect} variant="outline">
-                  Disconnect
-                </Button>
-              ) : (
-                <Button onClick={handleConnect} disabled={isConnecting}>
-                  {isConnecting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    'Connect POS'
-                  )}
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="manual" className="space-y-6">
         <TabsList className="grid grid-cols-3 w-full max-w-md">
