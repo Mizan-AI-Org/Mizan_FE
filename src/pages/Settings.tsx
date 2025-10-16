@@ -21,6 +21,7 @@ import {
   Camera
 } from "lucide-react";
 import MenuScanner from "@/components/MenuScanner";
+import POSIntegration from "@/components/POSIntegration";
 
 export default function Settings() {
   return (
@@ -35,8 +36,9 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid grid-cols-6 w-full max-w-3xl">
+        <TabsList className="grid grid-cols-7 w-full">
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="pos">POS</TabsTrigger>
           <TabsTrigger value="menu">Menu</TabsTrigger>
           <TabsTrigger value="notifications">Alerts</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
@@ -160,6 +162,10 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="pos" className="space-y-6">
+          <POSIntegration />
         </TabsContent>
 
         <TabsContent value="menu" className="space-y-6">

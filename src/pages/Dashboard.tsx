@@ -1,12 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { 
   BarChart3, 
-  CreditCard, 
+  Plug, 
   UtensilsCrossed, 
   BookOpen, 
   LayoutGrid,
@@ -35,83 +37,83 @@ interface AppDefinition {
 
 const apps: AppDefinition[] = [
   { 
-    name: "Dashboards", 
+    name: "app.analytics", 
     href: "/dashboard/analytics", 
     icon: BarChart3, 
     gradient: "bg-gradient-to-br from-blue-500 to-cyan-500", 
-    description: "View analytics and insights",
+    description: "app.analytics.desc",
     roles: ['owner', 'manager'] as const
   },
   { 
-    name: "Point of Sale", 
-    href: "/dashboard/pos", 
-    icon: CreditCard, 
+    name: "app.pos_integration", 
+    href: "/dashboard/settings?tab=pos", 
+    icon: Plug, 
     gradient: "bg-gradient-to-br from-pink-500 to-rose-500", 
-    description: "Process orders and payments",
-    roles: ['owner', 'manager', 'server'] as const
+    description: "app.pos_integration.desc",
+    roles: ['owner', 'manager'] as const
   },
   { 
-    name: "Kitchen Display", 
+    name: "app.kitchen", 
     href: "/dashboard/kitchen", 
     icon: UtensilsCrossed, 
     gradient: "bg-gradient-to-br from-purple-500 to-pink-500", 
-    description: "Manage kitchen orders",
+    description: "app.kitchen.desc",
     roles: ['owner', 'manager', 'chef'] as const
   },
   { 
-    name: "Inventory", 
+    name: "app.inventory", 
     href: "/dashboard/inventory", 
     icon: Package, 
     gradient: "bg-gradient-to-br from-orange-500 to-amber-500", 
-    description: "Track stock levels",
+    description: "app.inventory.desc",
     roles: ['owner', 'manager'] as const
   },
   { 
-    name: "Menu", 
+    name: "app.menu", 
     href: "/dashboard/menu", 
     icon: BookOpen, 
     gradient: "bg-gradient-to-br from-green-500 to-emerald-500", 
-    description: "Update menu items",
+    description: "app.menu.desc",
     roles: ['owner', 'manager'] as const
   },
   { 
-    name: "Tables", 
+    name: "app.tables", 
     href: "/dashboard/floors", 
     icon: LayoutGrid, 
     gradient: "bg-gradient-to-br from-indigo-500 to-blue-500", 
-    description: "Manage floor layouts",
+    description: "app.tables.desc",
     roles: ['owner', 'manager'] as const
   },
   { 
-    name: "Staff Scheduling", 
+    name: "app.staff_schedule", 
     href: "/dashboard/staff", 
     icon: Calendar, 
     gradient: "bg-gradient-to-br from-violet-500 to-purple-500", 
-    description: "Schedule and manage staff",
+    description: "app.staff_schedule.desc",
     roles: ['owner', 'manager'] as const
   },
   { 
-    name: "Staff Management", 
+    name: "app.staff_management", 
     href: "/dashboard/staff-management", 
     icon: Shield, 
     gradient: "bg-gradient-to-br from-indigo-600 to-violet-600", 
-    description: "Create accounts and assign roles",
+    description: "app.staff_management.desc",
     roles: ['owner', 'manager'] as const
   },
   { 
-    name: "AI Assistant", 
+    name: "app.ai_assistant", 
     href: "/dashboard/assistant", 
     icon: MessageSquare, 
     gradient: "bg-gradient-to-br from-cyan-500 to-blue-500", 
-    description: "Get intelligent assistance",
+    description: "app.ai_assistant.desc",
     roles: ['owner', 'manager'] as const
   },
   { 
-    name: "Settings", 
+    name: "app.settings", 
     href: "/dashboard/settings", 
     icon: Settings, 
     gradient: "bg-gradient-to-br from-amber-500 to-orange-500", 
-    description: "Configure your system",
+    description: "app.settings.desc",
     roles: ['owner', 'manager', 'server', 'chef', 'cleaner'] as const
   },
 ];
@@ -119,6 +121,7 @@ const apps: AppDefinition[] = [
 export default function Dashboard() {
   const navigate = useNavigate();
   const { profile, userRoles, signOut } = useAuth();
+  const { t } = useLanguage();
 
   const filteredApps = apps.filter(app => 
     userRoles.some(ur => app.roles.includes(ur.role as AppRole))
@@ -135,14 +138,15 @@ export default function Dashboard() {
                 <ChefHat className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold">Mizan Restaurant OS</h1>
+                <h1 className="text-2xl font-bold">{t('dashboard.title')}</h1>
                 <p className="text-sm text-muted-foreground">
-                  {profile?.restaurant_name || 'Welcome back'}
+                  {profile?.restaurant_name || t('common.welcome')}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
+              <LanguageSelector />
               <ThemeToggle />
               
               <DropdownMenu>
@@ -170,12 +174,12 @@ export default function Dashboard() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate('/dashboard/settings')}>
                     <User className="mr-2 h-4 w-4" />
-                    Profile Settings
+                    {t('common.profile')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={signOut} className="text-destructive">
                     <LogOut className="mr-2 h-4 w-4" />
-                    Sign Out
+                    {t('common.sign_out')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -187,9 +191,9 @@ export default function Dashboard() {
       {/* App Grid */}
       <main className="max-w-7xl mx-auto px-6 py-12">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Restaurant Operations</h2>
+          <h2 className="text-3xl font-bold mb-2">{t('dashboard.operations')}</h2>
           <div className="flex items-center gap-2">
-            <p className="text-muted-foreground">Select an application to get started</p>
+            <p className="text-muted-foreground">{t('dashboard.select')}</p>
             {userRoles.length > 0 && (
               <span className="text-sm text-muted-foreground">•</span>
             )}
@@ -216,10 +220,10 @@ export default function Dashboard() {
                     <app.icon className="w-8 h-8 text-white" />
                   </div>
                   <h3 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors">
-                    {app.name}
+                    {t(app.name)}
                   </h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    {app.description}
+                    {t(app.description)}
                   </p>
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -231,9 +235,9 @@ export default function Dashboard() {
         {filteredApps.length === 0 && (
           <div className="text-center py-12">
             <Shield className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-xl font-semibold mb-2">No Applications Available</h3>
+            <h3 className="text-xl font-semibold mb-2">{t('dashboard.no_apps')}</h3>
             <p className="text-muted-foreground">
-              Please contact your restaurant owner to assign you roles and permissions.
+              {t('dashboard.contact_owner')}
             </p>
           </div>
         )}
