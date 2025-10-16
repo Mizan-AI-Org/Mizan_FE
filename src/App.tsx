@@ -18,6 +18,7 @@ import POS from "./pages/POS";
 import Kitchen from "./pages/Kitchen";
 import MenuManagement from "./pages/MenuManagement";
 import FloorManagement from "./pages/FloorManagement";
+import StaffManagement from "./pages/StaffManagement";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="floors" element={<FloorManagement />} />
               <Route path="inventory" element={<Inventory />} />
               <Route path="staff" element={<Staff />} />
+              <Route path="staff-management" element={<StaffManagement />} />
               <Route path="analytics" element={<Analytics />} />
               <Route path="assistant" element={<AIAssistant />} />
               <Route path="settings" element={<Settings />} />
