@@ -7,7 +7,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+<<<<<<< HEAD
 import { supabase } from "@/integrations/client";
+=======
+import { supabase } from "@/integrations/supabase/client";
+>>>>>>> refs/remotes/origin/main
 import { toast } from "sonner";
 import { Plus, Trash2, Edit, Square, Circle, Users } from "lucide-react";
 
