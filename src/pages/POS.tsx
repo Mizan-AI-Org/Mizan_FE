@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -302,7 +302,7 @@ export default function POS() {
           <div className="space-y-4">
             <div>
               <Label>Order Type</Label>
-              <Select value={orderType} onValueChange={(v: any) => setOrderType(v)}>
+              <Select value={orderType} onValueChange={(v: 'dine_in' | 'takeaway' | 'delivery') => setOrderType(v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

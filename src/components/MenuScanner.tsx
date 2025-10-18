@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/client';
 import { Camera, Upload, Loader2, ChefHat, Clock, Users, X } from 'lucide-react';
 
 interface Ingredient {
@@ -206,6 +206,8 @@ export default function MenuScanner() {
         <CardContent className="space-y-4">
           <div className="flex flex-col space-y-4">
             <input
+              id="menu-image-upload"
+              aria-label="Upload menu image"
               ref={fileInputRef}
               type="file"
               accept="image/*"
