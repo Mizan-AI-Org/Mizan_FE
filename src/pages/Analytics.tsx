@@ -1,6 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   TrendingUp, 
@@ -9,7 +8,6 @@ import {
   Users,
   Package,
   AlertTriangle,
-  Calendar,
   PieChart,
   BarChart3
 } from "lucide-react";
@@ -123,7 +121,6 @@ export default function Analytics() {
         <TabsList className="grid grid-cols-5 w-full max-w-2xl">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="sales">Sales</TabsTrigger>
-          <TabsTrigger value="pos">POS Data</TabsTrigger>
           <TabsTrigger value="waste">Waste</TabsTrigger>
           <TabsTrigger value="trends">Trends</TabsTrigger>
         </TabsList>

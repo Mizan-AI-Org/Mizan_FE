@@ -95,7 +95,7 @@ export default function Inventory() {
     return matchesSearch && matchesCategory;
   });
 
-  const getStockStatus = (item: any) => {
+  const getStockStatus = (item: { currentStock: number; minLevel: number }) => {
     if (item.currentStock <= item.minLevel) return "critical";
     if (item.currentStock <= item.minLevel * 1.5) return "low";
     return "good";

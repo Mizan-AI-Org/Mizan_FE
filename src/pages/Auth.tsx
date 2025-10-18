@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/client';
 import { Loader2, ChefHat } from 'lucide-react';
 
 const Auth = () => {
@@ -46,8 +46,12 @@ const Auth = () => {
         title: "Check your email",
         description: "We've sent you a confirmation link to complete your registration.",
       });
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('An unexpected error occurred.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -76,8 +80,12 @@ const Auth = () => {
       });
       
       navigate('/');
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('An unexpected error occurred.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -96,8 +104,13 @@ const Auth = () => {
       });
 
       if (error) throw error;
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('An unexpected error occurred.');
+      }
+    } finally {
       setIsLoading(false);
     }
   };
@@ -112,10 +125,10 @@ const Auth = () => {
             </div>
           </div>
           <CardTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Mizan Restaurant
+            Mizan 
           </CardTitle>
           <CardDescription>
-            Manage your restaurant operations efficiently
+            Your Restaurant Operations on Autopilot
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -231,7 +244,7 @@ const Auth = () => {
                 onClick={() => handleSocialAuth('github')}
                 disabled={isLoading}
               >
-                GitHub
+                Phone Number
               </Button>
             </div>
           </div>

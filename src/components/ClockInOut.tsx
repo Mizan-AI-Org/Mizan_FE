@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Webcam from "react-webcam";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/client";
 import { toast } from "sonner";
 
 interface ClockInOutProps {

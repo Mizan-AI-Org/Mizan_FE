@@ -18,16 +18,18 @@ import POS from "./pages/POS";
 import Kitchen from "./pages/Kitchen";
 import MenuManagement from "./pages/MenuManagement";
 import FloorManagement from "./pages/FloorManagement";
+import { LanguageProvider } from "./contexts/LanguageConText";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+    <LanguageProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={
@@ -40,7 +42,6 @@ const App = () => (
                 <DashboardLayout />
               </ProtectedRoute>
             }>
-              <Route path="pos" element={<POS />} />
               <Route path="kitchen" element={<Kitchen />} />
               <Route path="menu" element={<MenuManagement />} />
               <Route path="floors" element={<FloorManagement />} />
@@ -56,6 +57,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
+    </LanguageProvider>
   </QueryClientProvider>
 );
 

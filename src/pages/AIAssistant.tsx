@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/client";
 import { toast } from "sonner";
 import { 
   MessageSquare,
@@ -91,12 +91,12 @@ export default function AIAssistant() {
       };
 
       setChatHistory(prev => [...prev, assistantMessage]);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error:", error);
       
-      if (error.message?.includes("429")) {
+      if (error instanceof Error && error.message?.includes("429")) {
         toast.error("Rate limit exceeded. Please wait a moment before trying again.");
-      } else if (error.message?.includes("402")) {
+      } else if (error instanceof Error && error.message?.includes("402")) {
         toast.error("AI credits exhausted. Please add credits to your workspace.");
       } else {
         toast.error("Failed to get AI response. Please try again.");
@@ -116,7 +116,6 @@ export default function AIAssistant() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">AI Assistant</h1>
-          <p className="text-muted-foreground">Get instant insights and recommendations for your restaurant</p>
         </div>
         <Badge className="bg-gradient-primary text-white">
           <Zap className="w-3 h-3 mr-1" />
