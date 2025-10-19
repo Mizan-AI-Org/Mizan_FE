@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,15 +41,7 @@ export default function StaffScheduler() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchStaffMembers();
-  }, []);
-
-  useEffect(() => {
-    fetchShifts();
-  }, [currentMonth]);
-
-  const fetchStaffMembers = async () => {
+  const fetchStaffMembers = useCallback(async () => {
     const { data, error } = await supabase
       .from("staff_members")
       .select("*")
@@ -65,9 +57,9 @@ export default function StaffScheduler() {
     } else {
       setStaffMembers(data || []);
     }
-  };
+  }, [toast]);
 
-  const fetchShifts = async () => {
+  const fetchShifts = useCallback(async () => {
     const start = startOfMonth(currentMonth);
     const end = endOfMonth(currentMonth);
 
@@ -91,7 +83,15 @@ export default function StaffScheduler() {
     } else {
       setShifts(data || []);
     }
-  };
+  }, [currentMonth, toast]);
+
+  useEffect(() => {
+    fetchStaffMembers();
+  }, [fetchStaffMembers]);
+
+  useEffect(() => {
+    fetchShifts();
+  }, [fetchShifts]);
 
   const handleScheduleShift = async () => {
     if (!selectedDate || !selectedStaffId) {
@@ -152,7 +152,7 @@ export default function StaffScheduler() {
   };
 
   const getShiftsForDate = (date: Date) => {
-    return shifts.filter(shift => 
+    return shifts.filter(shift =>
       isSameDay(parseISO(shift.shift_date), date)
     );
   };
@@ -221,12 +221,12 @@ export default function StaffScheduler() {
                   <h3 className="font-semibold text-lg">
                     Shifts for {selectedDate ? format(selectedDate, "MMMM d, yyyy") : "Select a date"}
                   </h3>
-                  
+
                   <div className="space-y-3">
                     {selectedDate && getShiftsForDate(selectedDate).length === 0 && (
                       <p className="text-muted-foreground text-sm">No shifts scheduled for this date</p>
                     )}
-                    
+
                     {selectedDate && getShiftsForDate(selectedDate).map(shift => (
                       <Card key={shift.id} className="border-l-4" style={{ borderLeftColor: "hsl(var(--primary))" }}>
                         <CardContent className="p-4">

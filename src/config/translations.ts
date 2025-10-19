@@ -1,15 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-
 type Language = 'en' | 'fr' | 'ar';
-
-interface LanguageContextType {
-    language: Language;
-    setLanguage: (lang: Language) => void;
-    t: (key: string) => string;
-    isRTL: boolean;
-}
-
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 const translations: Record<Language, Record<string, string>> = {
     en: {
@@ -119,35 +108,4 @@ const translations: Record<Language, Record<string, string>> = {
     },
 };
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
-    const [language, setLanguage] = useState<Language>(() => {
-        const saved = localStorage.getItem('language');
-        return (saved as Language) || 'en';
-    });
-
-    const isRTL = language === 'ar';
-
-    useEffect(() => {
-        localStorage.setItem('language', language);
-        document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
-        document.documentElement.lang = language;
-    }, [language, isRTL]);
-
-    const t = (key: string): string => {
-        return translations[language][key] || key;
-    };
-
-    return (
-        <LanguageContext.Provider value={{ language, setLanguage, t, isRTL }}>
-            {children}
-        </LanguageContext.Provider>
-    );
-}
-
-export function useLanguage() {
-    const context = useContext(LanguageContext);
-    if (!context) {
-        throw new Error('useLanguage must be used within LanguageProvider');
-    }
-    return context;
-}
+export { translations };
