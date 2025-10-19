@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { DndContext, DragEndEvent, DragOverlay, useSensor, useSensors, PointerSensor } from "@dnd-kit/core";
 import { format, addDays, startOfWeek } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,12 +46,7 @@ export const DraggableShiftScheduler = () => {
     })
   );
 
-  useEffect(() => {
-    fetchStaffMembers();
-    fetchShifts();
-  }, [currentWeek]);
-
-  const fetchStaffMembers = async () => {
+  const fetchStaffMembers = useCallback(async () => {
     const { data: restaurant } = await supabase
       .from("restaurants")
       .select("id")
@@ -65,12 +60,12 @@ export const DraggableShiftScheduler = () => {
         .eq("restaurant_id", restaurant.id)
         .eq("status", "active")
         .order("full_name");
-      
+
       setStaffMembers(data || []);
     }
-  };
+  }, []);
 
-  const fetchShifts = async () => {
+  const fetchShifts = useCallback(async () => {
     const weekEnd = addDays(currentWeek, 7);
     const { data: restaurant } = await supabase
       .from("restaurants")
@@ -92,7 +87,12 @@ export const DraggableShiftScheduler = () => {
 
       setShifts(data || []);
     }
-  };
+  }, [currentWeek]);
+
+  useEffect(() => {
+    fetchStaffMembers();
+    fetchShifts();
+  }, [currentWeek, fetchStaffMembers, fetchShifts]);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;

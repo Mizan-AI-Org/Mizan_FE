@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,23 +40,24 @@ export const FloorDesigner = () => {
   const [editingFloor, setEditingFloor] = useState<Floor | null>(null);
   const [editingTable, setEditingTable] = useState<Table | null>(null);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
-  
+
   const [tableName, setTableName] = useState("");
   const [tableCapacity, setTableCapacity] = useState(4);
   const [tableShape, setTableShape] = useState("rectangle");
   const [tableStatus, setTableStatus] = useState<"available" | "reserved" | "occupied" | "cleaning">("available");
 
-  useEffect(() => {
-    fetchFloors();
+  // Removed getTableStyle function
+
+  const fetchTables = useCallback(async (floorId: string) => {
+    const { data } = await supabase
+      .from("tables")
+      .select("*")
+      .eq("floor_id", floorId);
+
+    setTables(data || []);
   }, []);
 
-  useEffect(() => {
-    if (selectedFloor) {
-      fetchTables(selectedFloor.id);
-    }
-  }, [selectedFloor]);
-
-  const fetchFloors = async () => {
+  const fetchFloors = useCallback(async () => {
     const { data: user } = await supabase.auth.getUser();
     if (!user.user) return;
 
@@ -79,16 +80,17 @@ export const FloorDesigner = () => {
         setSelectedFloor(data[0] as Floor);
       }
     }
-  };
+  }, [selectedFloor]);
 
-  const fetchTables = async (floorId: string) => {
-    const { data } = await supabase
-      .from("tables")
-      .select("*")
-      .eq("floor_id", floorId);
+  useEffect(() => {
+    fetchFloors();
+  }, [fetchFloors]);
 
-    setTables(data || []);
-  };
+  useEffect(() => {
+    if (selectedFloor) {
+      fetchTables(selectedFloor.id);
+    }
+  }, [selectedFloor, fetchTables]);
 
   const createOrUpdateFloor = async () => {
     const { data: user } = await supabase.auth.getUser();
@@ -242,9 +244,9 @@ export const FloorDesigner = () => {
     const x = e.clientX - canvas.left;
     const y = e.clientY - canvas.top;
     updateTablePosition(tableId, x, y);
-    
-    setTables(prev => 
-      prev.map(t => 
+
+    setTables(prev =>
+      prev.map(t =>
         t.id === tableId ? { ...t, position_x: x, position_y: y } : t
       )
     );
@@ -376,20 +378,13 @@ export const FloorDesigner = () => {
                   draggable
                   onDragStart={(e) => handleDragStart(e, table)}
                   onClick={() => handleTableClick(table)}
-                  className={`absolute cursor-pointer group transition-all ${
-                    selectedTableId === table.id ? "ring-2 ring-primary" : ""
-                  }`}
-                  style={{
-                    left: table.position_x,
-                    top: table.position_y,
-                    width: table.width,
-                    height: table.height,
-                  }}
+                  className={`absolute cursor-pointer group transition-all ${selectedTableId === table.id ? "ring-2 ring-primary" : ""
+                    } w-[${table.width}px] h-[${table.height}px]`}
+                  style={{ left: table.position_x, top: table.position_y }}
                 >
                   <div
-                    className={`w-full h-full border-4 ${getTableBorderColor(table.status)} ${getTableBgColor(table.status)} transition-all flex items-center justify-center ${
-                      table.shape === "circle" ? "rounded-full" : "rounded-lg"
-                    }`}
+                    className={`w-full h-full border-4 ${getTableBorderColor(table.status)} ${getTableBgColor(table.status)} transition-all flex items-center justify-center ${table.shape === "circle" ? "rounded-full" : "rounded-lg"
+                      }`}
                   >
                     <div className="text-center">
                       <div className="font-bold text-lg">{table.name}</div>
@@ -520,8 +515,8 @@ export const FloorDesigner = () => {
             </div>
             <div>
               <Label>Status / Reservation</Label>
-              <Select 
-                value={tableStatus} 
+              <Select
+                value={tableStatus}
                 onValueChange={(value) => setTableStatus(value as "available" | "reserved" | "occupied" | "cleaning")}
               >
                 <SelectTrigger>
