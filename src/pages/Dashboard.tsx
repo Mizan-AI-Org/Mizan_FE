@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "../hooks/use-auth";
+import { AuthContextType } from "../contexts/AuthContext.types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -90,12 +91,14 @@ const apps = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { profile, signOut } = useAuth();
+  const { user, logout } = useAuth() as AuthContextType;
+
+  console.log("Dashboard User:", user);
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-sm border-b shadow-soft">
+      {/* <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-sm border-b shadow-soft">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -105,7 +108,7 @@ export default function Dashboard() {
               <div>
                 <h1 className="text-3xl font-bold">Mizan </h1>
                 <p className="text-sm text-muted-foreground">
-                  {profile?.restaurant_name || "Your"}
+                  {user?.restaurant?.name || "Your"}
                 </p>
               </div>
             </div>
@@ -121,10 +124,9 @@ export default function Dashboard() {
                   >
                     <Avatar className="h-10 w-10">
                       <AvatarFallback className="bg-gradient-to-br from-primary to-primary-glow text-white">
-                        {profile?.full_name
-                          ?.split(" ")
-                          .map((n) => n[0])
-                          .join("") || "U"}
+                        {user?.first_name && user?.last_name
+                          ? `${user.first_name[0]}${user.last_name[0]}`
+                          : "U"}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -132,10 +134,12 @@ export default function Dashboard() {
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="px-2 py-1.5">
                     <p className="text-sm font-medium">
-                      {profile?.full_name || "User"}
+                      {user?.first_name && user?.last_name
+                        ? `${user.first_name} ${user.last_name}`
+                        : "User"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {profile?.restaurant_name || "Restaurant"}
+                      {user?.restaurant?.name || "Restaurant"}
                     </p>
                   </div>
                   <DropdownMenuSeparator />
@@ -147,7 +151,7 @@ export default function Dashboard() {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={signOut}
+                    onClick={logout}
                     className="text-destructive"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
@@ -158,7 +162,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-      </header>
+      </header> */}
 
       {/* App Grid */}
       <main className="max-w-7xl mx-auto px-6 py-12">
