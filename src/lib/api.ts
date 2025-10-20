@@ -10,18 +10,16 @@ export const apiClient = {
         "Content-Type": "application/json",
         ...(token && { Authorization: `Bearer ${token}` }),
       } as Record<string, string>,
+      credentials: "include",
       ...options,
     };
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
 
     if (response.status === 401) {
-      // Token expired, try to refresh
-      const newToken = await refreshToken();
-      if (newToken) {
-        (
-          config.headers as Record<string, string>
-        ).Authorization = `Bearer ${newToken}`;
+      // Try cookie-based refresh; avoid hard redirects here
+      const refreshed = await refreshToken();
+      if (refreshed) {
         return fetch(`${API_BASE_URL}${endpoint}`, config);
       }
     }
@@ -30,37 +28,34 @@ export const apiClient = {
   },
 };
 
-async function refreshToken(): Promise<string | null> {
-  const refreshToken = localStorage.getItem("refresh_token");
-
-  if (!refreshToken) {
-    // Redirect to login
-    window.location.href = "/auth";
-    return null;
-  }
-
+async function refreshToken(): Promise<boolean> {
   try {
+    const hasRefresh = !!localStorage.getItem("refresh_token");
     const response = await fetch(`${API_BASE_URL}/auth/token/refresh/`, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ refresh: refreshToken }),
+      body: hasRefresh
+        ? JSON.stringify({ refresh: localStorage.getItem("refresh_token") })
+        : undefined,
     });
 
     if (response.ok) {
-      const data = await response.json();
-      localStorage.setItem("access_token", data.access);
-      return data.access;
+      try {
+        const data = await response.json();
+        if (data?.access) {
+          localStorage.setItem("access_token", data.access);
+        }
+      } catch (_) {
+        // No JSON body is fine (cookie-based refresh)
+      }
+      return true;
     }
   } catch (error) {
     console.error("Token refresh failed:", error);
   }
 
-  // Clear tokens and redirect to login
-  localStorage.removeItem("access_token");
-  localStorage.removeItem("refresh_token");
-  localStorage.removeItem("user");
-  window.location.href = "/auth";
-  return null;
+  return false;
 }
