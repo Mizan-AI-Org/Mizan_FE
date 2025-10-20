@@ -1,6 +1,4 @@
 import React, {
-  createContext,
-  useContext,
   useEffect,
   useState,
   useCallback,
@@ -33,20 +31,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (storedUser && token) {
         // Verify token is still valid by fetching profile
         const response = await fetch("/api/auth/profile", {
+          method: "GET",
           credentials: "include",
+          headers: {
+            Authorization: localStorage.getItem("access_token")
+              ? `Bearer ${localStorage.getItem("access_token")}`
+              : undefined,
+          } as Record<string, string>,
         });
 
         if (response.ok) {
           const userData: User = await response.json();
           setUser(userData);
-          // Redirect after successful authentication
-          if (userData.role === "SUPER_ADMIN" || userData.role === "ADMIN") {
-            navigate("/dashboard");
-          } else {
-            navigate("/staff-dashboard");
+          // Don't auto-redirect on auth initialization - let the user stay where they are
+          // Only redirect if they're on a public route like /auth
+          if (location.pathname === "/auth" || location.pathname === "/staff-login") {
+            if (userData.role === "SUPER_ADMIN" || userData.role === "ADMIN") {
+              navigate("/dashboard");
+            } else {
+              navigate("/staff-dashboard");
+            }
           }
         } else {
-          // Token is invalid, clear storage
+          // Do not force clear on transient failures; allow app to show login page naturally
           clearAuth();
         }
       }
@@ -56,7 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [clearAuth]);
+  }, [clearAuth, navigate, location.pathname]);
 
   useEffect(() => {
     initializeAuth();
@@ -90,6 +97,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.setItem("user", JSON.stringify(data.user));
 
     // Redirect based on role
+    if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
+      navigate("/dashboard");
+    } else {
+      navigate("/staff-dashboard");
+    }
+  };
+
+  const loginWithPin = async (pin: string, imageSrc: string | null, latitude: number | null, longitude: number | null) => {
+    const response = await fetch("/api/auth/pin-login/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({ pin, image_data: imageSrc, latitude, longitude }),
+    });
+
+    const responseText = await response.text();
+    console.log("Raw backend PIN login response:", responseText);
+
+    if (!response.ok) {
+      let errorData = { message: "PIN login failed" };
+      try {
+        errorData = JSON.parse(responseText);
+      } catch (e) {
+        console.error("Failed to parse PIN login error response as JSON:", e, "Raw response:", responseText);
+      }
+      throw new Error(errorData.message || "PIN login failed");
+    }
+
+    const data = JSON.parse(responseText);
+    setUser(data.user);
+    localStorage.setItem("user", JSON.stringify(data.user));
+
     if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
       navigate("/dashboard");
     } else {
@@ -168,6 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     user,
     isLoading,
     login,
+    loginWithPin,
     ownerSignup,
     acceptInvitation,
     logout,
