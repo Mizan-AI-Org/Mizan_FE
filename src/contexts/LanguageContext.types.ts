@@ -6,5 +6,5 @@ interface LanguageContextType {
     t: (key: string) => string;
     isRTL: boolean;
 }
-
 export { Language, LanguageContextType };
+

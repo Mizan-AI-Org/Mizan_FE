@@ -1,449 +1,165 @@
-import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit, Trash2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/integrations/client";
+import {
+  BookOpen,
+  Star,
+  TrendingUp,
+  DollarSign,
+  Edit,
+  Image,
+  BarChart3,
+  Users
+} from "lucide-react";
 
-interface Category {
-  id: string;
-  name: string;
-  description: string | null;
-}
+const upcomingFeatures = [
+  {
+    title: "Dynamic Menu Builder",
+    description: "Drag-and-drop menu creation with real-time preview",
+    icon: Edit,
+    status: "planned"
+  },
+  {
+    title: "Smart Pricing Analytics",
+    description: "AI-powered pricing recommendations based on demand",
+    icon: DollarSign,
+    status: "planned"
+  },
+  {
+    title: "Menu Performance Insights",
+    description: "Track popular items and optimize menu layout",
+    icon: BarChart3,
+    status: "planned"
+  },
+  {
+    title: "Customer Preferences",
+    description: "Analyze ordering patterns and menu preferences",
+    icon: Users,
+    status: "planned"
+  }
+];
 
-interface Product {
-  id: string;
-  name: string;
-  description: string | null;
-  base_price: number;
-  category_id: string;
-  product_categories: { name: string };
-}
+const sampleMenuItems = [
+  { item: "Margherita Pizza", price: "$18.99", popularity: "high", category: "Pizza" },
+  { item: "Caesar Salad", price: "$12.99", popularity: "medium", category: "Salads" },
+  { item: "Pasta Carbonara", price: "$16.99", popularity: "high", category: "Pasta" },
+  { item: "Grilled Salmon", price: "$24.99", popularity: "low", category: "Mains" }
+];
 
 export default function MenuManagement() {
-  const { toast } = useToast();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [showCategoryDialog, setShowCategoryDialog] = useState(false);
-  const [showProductDialog, setShowProductDialog] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [restaurantId, setRestaurantId] = useState<string>("");
-
-  // Form states
-  const [categoryName, setCategoryName] = useState("");
-  const [categoryDesc, setCategoryDesc] = useState("");
-  const [productName, setProductName] = useState("");
-  const [productDesc, setProductDesc] = useState("");
-  const [productPrice, setProductPrice] = useState("");
-  const [productCategory, setProductCategory] = useState("");
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    const { data: user } = await supabase.auth.getUser();
-    if (!user.user) return;
-
-    const { data: restaurant } = await supabase
-      .from("restaurants")
-      .select("*")
-      .eq("owner_id", user.user.id)
-      .single();
-
-    if (restaurant) {
-      setRestaurantId(restaurant.id);
-
-      const { data: cats } = await supabase
-        .from("product_categories")
-        .select("*")
-        .eq("restaurant_id", restaurant.id)
-        .order("display_order");
-
-      const { data: prods } = await supabase
-        .from("products")
-        .select("*, product_categories(name)")
-        .eq("restaurant_id", restaurant.id);
-
-      setCategories(cats || []);
-      setProducts(prods || []);
-    }
-  };
-
-  const openCategoryDialog = (category?: Category) => {
-    if (category) {
-      setEditingCategory(category);
-      setCategoryName(category.name);
-      setCategoryDesc(category.description || "");
-    } else {
-      setEditingCategory(null);
-      setCategoryName("");
-      setCategoryDesc("");
-    }
-    setShowCategoryDialog(true);
-  };
-
-  const openProductDialog = (product?: Product) => {
-    if (product) {
-      setEditingProduct(product);
-      setProductName(product.name);
-      setProductDesc(product.description || "");
-      setProductPrice(product.base_price.toString());
-      setProductCategory(product.category_id);
-    } else {
-      setEditingProduct(null);
-      setProductName("");
-      setProductDesc("");
-      setProductPrice("");
-      setProductCategory("");
-    }
-    setShowProductDialog(true);
-  };
-
-  const saveCategory = async () => {
-    if (!categoryName.trim()) {
-      toast({
-        title: "Error",
-        description: "Category name is required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const categoryData = {
-      name: categoryName,
-      description: categoryDesc || null,
-      restaurant_id: restaurantId,
-    };
-
-    if (editingCategory) {
-      const { error } = await supabase
-        .from("product_categories")
-        .update(categoryData)
-        .eq("id", editingCategory.id);
-
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to update category",
-          variant: "destructive",
-        });
-        return;
-      }
-    } else {
-      const { error } = await supabase
-        .from("product_categories")
-        .insert(categoryData);
-
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to create category",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    toast({
-      title: "Success",
-      description: `Category ${editingCategory ? 'updated' : 'created'} successfully`,
-    });
-    setShowCategoryDialog(false);
-    loadData();
-  };
-
-  const saveProduct = async () => {
-    if (!productName.trim() || !productPrice || !productCategory) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const productData = {
-      name: productName,
-      description: productDesc || null,
-      base_price: parseFloat(productPrice),
-      category_id: productCategory,
-      restaurant_id: restaurantId,
-    };
-
-    if (editingProduct) {
-      const { error } = await supabase
-        .from("products")
-        .update(productData)
-        .eq("id", editingProduct.id);
-
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to update product",
-          variant: "destructive",
-        });
-        return;
-      }
-    } else {
-      const { error } = await supabase
-        .from("products")
-        .insert(productData);
-
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to create product",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    toast({
-      title: "Success",
-      description: `Product ${editingProduct ? 'updated' : 'created'} successfully`,
-    });
-    setShowProductDialog(false);
-    loadData();
-  };
-
-  const deleteCategory = async (id: string) => {
-    const { error } = await supabase
-      .from("product_categories")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete category",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: "Category deleted",
-      });
-      loadData();
-    }
-  };
-
-  const deleteProduct = async (id: string) => {
-    const { error } = await supabase
-      .from("products")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete product",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: "Product deleted",
-      });
-      loadData();
-    }
-  };
-
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-6">Menu Management</h1>
+    <div className="min-h-screen bg-gradient-subtle p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Coming Soon Banner */}
+        <Card className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200/50 dark:border-green-800/50 shadow-lg">
+          <CardHeader className="pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex-1">
+                <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
+                  <BookOpen className="w-6 h-6 text-green-600" />
+                  Menu Management System
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  Coming Soon - Intelligent menu creation and optimization
+                </CardDescription>
+              </div>
+              <Badge variant="secondary" className="w-fit bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
+                🚀 Coming Soon
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+          </CardContent>
+        </Card>
 
-      <Tabs defaultValue="products">
-        <TabsList>
-          <TabsTrigger value="products">Products</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
-        </TabsList>
+        {/* Upcoming Features */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          {upcomingFeatures.map((feature) => (
+            <Card key={feature.title} className="shadow-soft hover:shadow-strong transition-all duration-300 hover:scale-[1.02]">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <feature.icon className="w-5 h-5 text-muted-foreground" />
+                  <Badge variant="outline" className="text-xs">
+                    Planned
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold">{feature.title}</h3>
+                  <p className="text-xs text-muted-foreground">{feature.description}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
 
-        <TabsContent value="products" className="space-y-4">
-          <Button onClick={() => openProductDialog()}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
-          </Button>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {products.map(product => (
-              <Card key={product.id} className="p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex-1">
-                    <h3 className="font-bold">{product.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {product.product_categories.name}
-                    </p>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openProductDialog(product)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteProduct(product.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+        {/* Sample Menu Items */}
+        <Card className="shadow-soft">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5" />
+              Sample Menu Items
+            </CardTitle>
+            <CardDescription>Preview of menu management interface</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {sampleMenuItems.map((menuItem, index) => (
+              <div key={index} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg border">
+                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                  {menuItem.popularity === "high" ? (
+                    <Star className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                  ) : menuItem.popularity === "medium" ? (
+                    <TrendingUp className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                  ) : (
+                    <TrendingUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{menuItem.item}</p>
+                    <p className="text-xs text-muted-foreground">{menuItem.category}</p>
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground mb-2">
-                  {product.description}
-                </p>
-                <p className="text-lg font-bold text-primary">
-                  ${product.base_price.toFixed(2)}
-                </p>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="categories" className="space-y-4">
-          <Button onClick={() => openCategoryDialog()}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Category
-          </Button>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {categories.map(category => (
-              <Card key={category.id} className="p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <h3 className="font-bold mb-1">{category.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {category.description}
-                    </p>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openCategoryDialog(category)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteCategory(category.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={menuItem.popularity === "high" ? "default" : menuItem.popularity === "medium" ? "secondary" : "outline"}
+                    className="flex-shrink-0"
+                  >
+                    {menuItem.popularity}
+                  </Badge>
+                  <span className="text-sm font-semibold">{menuItem.price}</span>
                 </div>
-              </Card>
+              </div>
             ))}
-          </div>
-        </TabsContent>
-      </Tabs>
+          </CardContent>
+        </Card>
 
-      {/* Category Dialog */}
-      <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingCategory ? 'Edit Category' : 'Add Category'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Name *</Label>
-              <Input
-                value={categoryName}
-                onChange={(e) => setCategoryName(e.target.value)}
-                placeholder="e.g., Appetizers"
-              />
+        {/* Quick Actions */}
+        <Card className="shadow-soft">
+          <CardHeader>
+            <CardTitle>Future Quick Actions</CardTitle>
+            <CardDescription>Planned menu management features</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Button className="h-16 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-soft hover:shadow-strong transition-all duration-300" disabled>
+                <div className="text-center">
+                  <div className="font-semibold">Create New Item</div>
+                </div>
+              </Button>
+              <Button variant="outline" className="h-16 border-2 hover:bg-secondary/50 transition-all duration-300" disabled>
+                <div className="text-center">
+                  <div className="font-semibold">Menu Analytics</div>
+                </div>
+              </Button>
+              <Button variant="outline" className="h-16 border-2 hover:bg-secondary/50 transition-all duration-300 sm:col-span-2 lg:col-span-1" disabled>
+                <div className="text-center">
+                  <div className="font-semibold">Update Pricing</div>
+                </div>
+              </Button>
             </div>
-            <div>
-              <Label>Description</Label>
-              <Textarea
-                value={categoryDesc}
-                onChange={(e) => setCategoryDesc(e.target.value)}
-                placeholder="Category description"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCategoryDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={saveCategory}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Product Dialog */}
-      <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingProduct ? 'Edit Product' : 'Add Product'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Name *</Label>
-              <Input
-                value={productName}
-                onChange={(e) => setProductName(e.target.value)}
-                placeholder="Product name"
-              />
-            </div>
-            <div>
-              <Label>Category *</Label>
-              <Select value={productCategory} onValueChange={setProductCategory}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Price *</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={productPrice}
-                onChange={(e) => setProductPrice(e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <Label>Description</Label>
-              <Textarea
-                value={productDesc}
-                onChange={(e) => setProductDesc(e.target.value)}
-                placeholder="Product description"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowProductDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={saveProduct}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -3,21 +3,106 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
+import {
   Search,
   Package,
   AlertTriangle,
   TrendingUp,
   Calendar,
   Plus,
-  Download
+  Download,
+  TrendingDown
 } from "lucide-react";
+import React from "react";
+import { useNavigate } from "react-router-dom";
+
+interface InventoryItem {
+  id: number;
+  name: string;
+  category: string;
+  currentStock: number;
+  unit: string;
+  minLevel: number;
+  maxLevel: number;
+  costPerUnit: number;
+  supplier: string;
+  expirationDate: string;
+  lastUpdated: string;
+  trend: string;
+  aiRecommendation: string;
+}
+
+interface InventoryCardProps {
+  item: InventoryItem;
+  getStockStatus: (item: InventoryItem) => "low" | "high" | "optimal";
+  navigate: (path: string) => void;
+}
+
+const MemoizedInventoryCard = React.memo(({ item, getStockStatus, navigate }: InventoryCardProps) => {
+  const status = getStockStatus(item);
+  const stockStatusClass =
+    status === "low" ? "text-destructive" :
+      status === "high" ? "text-primary" :
+        "text-yellow-600";
+
+  const statusBadgeClass =
+    status === "low" ? "bg-destructive/10 text-destructive" :
+      status === "high" ? "bg-primary/10 text-primary" :
+        "bg-yellow-100 text-yellow-800";
+
+  const trendIcon =
+    item.trend === "increasing" ? <TrendingUp className="h-4 w-4 text-green-500" /> :
+      item.trend === "decreasing" ? <TrendingDown className="h-4 w-4 text-red-500" /> :
+        null;
+
+  return (
+    <Card
+      key={item.id}
+      className="p-4 flex justify-between items-center hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+      onClick={() => navigate(`/dashboard/inventory/${item.id}`)} // Example navigation
+    >
+      <div className="flex items-center space-x-4">
+        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${status === "low" ? "bg-destructive/20" :
+          status === "high" ? "bg-primary/20" :
+            "bg-yellow-100"
+          }`}>
+          <Package className={`h-6 w-6 ${stockStatusClass}`} />
+        </div>
+        <div>
+          <h3 className="font-semibold text-lg">{item.name}</h3>
+          <p className="text-sm text-muted-foreground">{item.category}</p>
+          <div className="flex items-center mt-1 text-sm text-gray-600">
+            Current: <span className={`font-medium ml-1 ${stockStatusClass}`}>{item.currentStock} {item.unit}</span>
+            <Badge variant="outline" className={`ml-2 text-xs ${statusBadgeClass}`}>{status}</Badge>
+          </div>
+        </div>
+      </div>
+
+      <div className="text-right space-y-2">
+        <div className="text-lg font-semibold">
+          ${(item.currentStock * item.costPerUnit).toFixed(2)}
+        </div>
+        <div className="text-sm text-muted-foreground">
+          ${item.costPerUnit}/{item.unit}
+        </div>
+        {item.aiRecommendation && (
+          <div className={`text-xs p-2 rounded ${item.trend === "critical" ? "bg-destructive/10 text-destructive" :
+            item.trend === "decreasing" ? "bg-warning/10 text-warning" :
+              "bg-primary/10 text-primary"
+            }`}>
+            🤖 {item.aiRecommendation}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+});
 
 const inventoryItems = [
   {
     id: 1,
     name: "Chicken Breast",
-    category: "Protein", 
+    category: "Protein",
     currentStock: 45,
     unit: "lbs",
     minLevel: 20,
@@ -31,7 +116,7 @@ const inventoryItems = [
   },
   {
     id: 2,
-    name: "Roma Tomatoes", 
+    name: "Roma Tomatoes",
     category: "Produce",
     currentStock: 8,
     unit: "lbs",
@@ -40,7 +125,7 @@ const inventoryItems = [
     costPerUnit: 2.25,
     supplier: "Garden Fresh",
     expirationDate: "2024-01-12",
-    lastUpdated: "1 hour ago", 
+    lastUpdated: "1 hour ago",
     trend: "critical",
     aiRecommendation: "URGENT: Order 42 lbs today"
   },
@@ -49,14 +134,14 @@ const inventoryItems = [
     name: "Mozzarella Cheese",
     category: "Dairy",
     currentStock: 25,
-    unit: "lbs", 
+    unit: "lbs",
     minLevel: 10,
     maxLevel: 60,
     costPerUnit: 4.75,
     supplier: "Dairy Direct",
     expirationDate: "2024-01-20",
     lastUpdated: "30 min ago",
-    trend: "stable", 
+    trend: "stable",
     aiRecommendation: "Order 15 lbs for weekend rush"
   },
   {
@@ -69,7 +154,7 @@ const inventoryItems = [
     maxLevel: 80,
     costPerUnit: 5.25,
     supplier: "Prime Meats",
-    expirationDate: "2024-01-14", 
+    expirationDate: "2024-01-14",
     lastUpdated: "45 min ago",
     trend: "increasing",
     aiRecommendation: "Current levels sufficient"
@@ -85,17 +170,29 @@ const aiInsights = {
 
 export default function Inventory() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const navigate = useNavigate();
 
   const categories = ["All", "Protein", "Produce", "Dairy", "Pantry"];
 
-  const filteredItems = inventoryItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "All" || item.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredItems = React.useMemo(() => {
+    let items = inventoryItems;
 
-  const getStockStatus = (item: { currentStock: number; minLevel: number }) => {
+    if (filterCategory !== "All") {
+      items = items.filter(item => item.category === filterCategory);
+    }
+
+    if (searchTerm) {
+      items = items.filter(
+        item =>
+          item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.category.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    return items;
+  }, [inventoryItems, filterCategory, searchTerm]);
+
+  const getStockStatus = (item: InventoryItem) => {
     if (item.currentStock <= item.minLevel) return "critical";
     if (item.currentStock <= item.minLevel * 1.5) return "low";
     return "good";
@@ -105,7 +202,7 @@ export default function Inventory() {
     switch (status) {
       case "critical":
         return <Badge variant="destructive">Critical</Badge>;
-      case "low": 
+      case "low":
         return <Badge className="bg-warning text-warning-foreground">Low</Badge>;
       default:
         return <Badge className="bg-success text-success-foreground">Good</Badge>;
@@ -190,7 +287,7 @@ export default function Inventory() {
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input 
+                <Input
                   placeholder="Search inventory items..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -202,8 +299,8 @@ export default function Inventory() {
               {categories.map(category => (
                 <Button
                   key={category}
-                  variant={selectedCategory === category ? "default" : "outline"}
-                  onClick={() => setSelectedCategory(category)}
+                  variant={filterCategory === category ? "default" : "outline"}
+                  onClick={() => setFilterCategory(category)}
                   size="sm"
                 >
                   {category}
@@ -225,44 +322,12 @@ export default function Inventory() {
             {filteredItems.map(item => {
               const status = getStockStatus(item);
               return (
-                <div key={item.id} className="flex items-center justify-between p-4 bg-secondary rounded-lg hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center space-x-4 flex-1">
-                    <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                      <Package className="w-6 h-6 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-1">
-                        <h3 className="font-semibold">{item.name}</h3>
-                        {getStockBadge(status)}
-                        <Badge variant="outline">{item.category}</Badge>
-                      </div>
-                      <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-                        <span>Stock: <strong>{item.currentStock} {item.unit}</strong></span>
-                        <span>Min: {item.minLevel} {item.unit}</span>
-                        <span>Expires: {item.expirationDate}</span>
-                        <span>Supplier: {item.supplier}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="text-right space-y-2">
-                    <div className="text-lg font-semibold">
-                      ${(item.currentStock * item.costPerUnit).toFixed(2)}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      ${item.costPerUnit}/{item.unit}
-                    </div>
-                    {item.aiRecommendation && (
-                      <div className={`text-xs p-2 rounded ${
-                        item.trend === "critical" ? "bg-destructive/10 text-destructive" :
-                        item.trend === "decreasing" ? "bg-warning/10 text-warning" : 
-                        "bg-primary/10 text-primary"
-                      }`}>
-                        🤖 {item.aiRecommendation}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <MemoizedInventoryCard
+                  key={item.id}
+                  item={item}
+                  getStockStatus={getStockStatus}
+                  navigate={navigate}
+                />
               );
             })}
           </div>
