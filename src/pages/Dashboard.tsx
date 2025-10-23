@@ -1,33 +1,17 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/use-auth";
 import { AuthContextType } from "../contexts/AuthContext.types";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   BarChart3,
-  CreditCard,
   UtensilsCrossed,
   BookOpen,
   LayoutGrid,
   Package,
-  Calendar,
-  MessageSquare,
   Settings,
-  LogOut,
-  User,
-  ChefHat,
   Users,
   Brain,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 
 const apps = [
   {

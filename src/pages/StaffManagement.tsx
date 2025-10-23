@@ -8,6 +8,7 @@ import { PlusCircle, Loader2 } from 'lucide-react';
 import AddStaffModal from '../components/staff/AddStaffModal';
 import EditStaffModal from '../components/staff/EditStaffModal';
 import DeleteStaffConfirmation from '../components/staff/DeleteStaffConfirmation';
+import InviteStaffModal from "../components/staff/InviteStaffModal";
 
 const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
@@ -133,7 +134,7 @@ const StaffManagement: React.FC = () => {
                     </TableBody>
                 </Table>
             </div>
-            <AddStaffModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+            <InviteStaffModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={refetch} />
             <EditStaffModal
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}

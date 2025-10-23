@@ -63,8 +63,8 @@ const MemoizedInventoryCard = React.memo(({ item, getStockStatus, navigate }: In
     >
       <div className="flex items-center space-x-4">
         <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${status === "low" ? "bg-destructive/20" :
-            status === "high" ? "bg-primary/20" :
-              "bg-yellow-100"
+          status === "high" ? "bg-primary/20" :
+            "bg-yellow-100"
           }`}>
           <Package className={`h-6 w-6 ${stockStatusClass}`} />
         </div>
@@ -87,8 +87,8 @@ const MemoizedInventoryCard = React.memo(({ item, getStockStatus, navigate }: In
         </div>
         {item.aiRecommendation && (
           <div className={`text-xs p-2 rounded ${item.trend === "critical" ? "bg-destructive/10 text-destructive" :
-              item.trend === "decreasing" ? "bg-warning/10 text-warning" :
-                "bg-primary/10 text-primary"
+            item.trend === "decreasing" ? "bg-warning/10 text-warning" :
+              "bg-primary/10 text-primary"
             }`}>
             🤖 {item.aiRecommendation}
           </div>
