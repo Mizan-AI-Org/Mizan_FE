@@ -1,9 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  TrendingUp,
+  TrendingDown,
   DollarSign,
   Users,
   Package,
@@ -252,7 +252,7 @@ export default function Analytics() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="h-48 flex items-center justify-center bg-secondary rounded-lg">
                   <div className="text-center space-y-2">
                     <TrendingUp className="w-12 h-12 mx-auto text-muted-foreground" />

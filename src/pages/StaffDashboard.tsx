@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/use-auth';
+import { User } from '../contexts/AuthContext.types';
 import { useQuery } from '@tanstack/react-query';
-import { Clock, Calendar, Coffee, MapPin, Navigation, Wifi, WifiOff } from 'lucide-react';
+import { Clock, Calendar, Coffee, MapPin, Navigation, Wifi, WifiOff, PhoneCall } from 'lucide-react';
+import CreateSwapRequest from '../components/CreateSwapRequest';
 
 const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 const StaffDashboard: React.FC = () => {
-    const { user, logout } = useAuth();
+    const { user, logout } = useAuth() as { user: User | null; logout: () => void; };
     const [currentTime, setCurrentTime] = useState(new Date());
     const [locationError, setLocationError] = useState<string>('');
     const [isClocking, setIsClocking] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
+    const [isOnBreak, setIsOnBreak] = useState(false); // New state for break status
 
     const testBackendConnection = useCallback(async () => {
         try {
@@ -55,6 +58,12 @@ const StaffDashboard: React.FC = () => {
         retry: 3,
         retryDelay: 1000,
     });
+
+    useEffect(() => {
+        if (staffData) {
+            setIsOnBreak(staffData.is_on_break);
+        }
+    }, [staffData]);
 
     // Fetch current session
     const { data: currentSession, refetch: refetchSession } = useQuery({
@@ -203,7 +212,6 @@ const StaffDashboard: React.FC = () => {
                 const { latitude, longitude, accuracy } = position.coords;
                 locationData = { latitude, longitude, accuracy };
             } catch (locationError) {
-                console.log('Clock out without location data');
                 // Continue without location data for clock out
             }
 
@@ -229,6 +237,58 @@ const StaffDashboard: React.FC = () => {
         } catch (error: unknown) {
             console.error('Clock out error:', error);
             setLocationError((error as Error).message || 'Failed to clock out');
+        } finally {
+            setIsClocking(false);
+        }
+    };
+
+    const startBreak = async () => {
+        setIsClocking(true);
+        try {
+            const response = await fetch(`${API_BASE}/timeloss/break/start/`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                },
+                credentials: 'include',
+            });
+            const data = await response.json();
+            if (response.ok) {
+                await refetch();
+                await refetchSession();
+                setIsOnBreak(true);
+            } else {
+                throw new Error(data.message || data.error || 'Failed to start break');
+            }
+        } catch (error: unknown) {
+            console.error('Start break error:', error);
+            setLocationError((error as Error).message || 'Failed to start break');
+        } finally {
+            setIsClocking(false);
+        }
+    };
+
+    const endBreak = async () => {
+        setIsClocking(true);
+        try {
+            const response = await fetch(`${API_BASE}/timeloss/break/end/`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                },
+                credentials: 'include',
+            });
+            const data = await response.json();
+            if (response.ok) {
+                await refetch();
+                await refetchSession();
+                setIsOnBreak(false);
+            } else {
+                throw new Error(data.message || data.error || 'Failed to end break');
+            }
+        } catch (error: unknown) {
+            console.error('End break error:', error);
+            setLocationError((error as Error).message || 'Failed to end break');
         } finally {
             setIsClocking(false);
         }
@@ -322,6 +382,20 @@ const StaffDashboard: React.FC = () => {
                 )}
             </div>
 
+            {/* Emergency Contacts */}
+            {user?.profile?.emergency_contact_name && user?.profile?.emergency_contact_phone && (
+                <div className="bg-white rounded-lg shadow p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center">
+                        <PhoneCall className="w-5 h-5 mr-2" />
+                        Emergency Contact
+                    </h3>
+                    <p className="text-gray-900 font-medium">{user.profile.emergency_contact_name}</p>
+                    <a href={`tel:${user.profile.emergency_contact_phone}`} className="text-blue-600 hover:underline">
+                        {user.profile.emergency_contact_phone}
+                    </a>
+                </div>
+            )}
+
             {/* Location Error Banner */}
             {locationError && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -365,6 +439,11 @@ const StaffDashboard: React.FC = () => {
                                         Duration: {currentSession.currentSession.duration_hours} hours
                                     </p>
                                 )}
+                                {staffData?.current_break_duration_minutes > 0 && (
+                                    <p className="text-sm text-gray-600">
+                                        Current Break: {staffData.current_break_duration_minutes} minutes
+                                    </p>
+                                )}
                                 <button
                                     onClick={clockOut}
                                     disabled={isClocking}
@@ -397,6 +476,24 @@ const StaffDashboard: React.FC = () => {
                                 </p>
                             </div>
                         )}
+                        {isClockedIn && isOnBreak ? (
+                            <button
+                                onClick={endBreak}
+                                disabled={isClocking}
+                                className="mt-3 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                {isClocking ? 'Ending Break...' : 'End Break'}
+                            </button>
+                        ) : isClockedIn ? (
+                            <button
+                                onClick={startBreak}
+                                disabled={isClocking}
+                                className="mt-3 w-full bg-yellow-600 text-white py-2 px-4 rounded-md hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                {isClocking ? 'Starting Break...' : 'Start Break'}
+                            </button>
+                        ) : null}
+                        <CreateSwapRequest onSuccess={refetch} />
                     </div>
                 </div>
 
@@ -415,7 +512,9 @@ const StaffDashboard: React.FC = () => {
                             <div className="flex justify-between">
                                 <span className="font-medium">Time:</span>
                                 <span>
-                                    {new Date(staffData.todaysShift.start_time).toLocaleTimeString([], {
+                                    {new Date(
+                                        staffData.todaysShift.start_time
+                                    ).toLocaleTimeString([], {
                                         hour: '2-digit',
                                         minute: '2-digit'
                                     })} -
@@ -425,6 +524,12 @@ const StaffDashboard: React.FC = () => {
                                     })}
                                 </span>
                             </div>
+                            {staffData.todaysShift.section && (
+                                <div className="flex justify-between">
+                                    <span className="font-medium">Section:</span>
+                                    <span className="capitalize">{staffData.todaysShift.section}</span>
+                                </div>
+                            )}
                             {staffData.todaysShift.notes && (
                                 <div>
                                     <span className="font-medium">Notes:</span>

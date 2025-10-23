@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/client";
+import { useAuth } from "../../hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,17 +9,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast as sonnerToast } from "sonner";
+
+const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 interface Category {
   id: string;
   name: string;
+  display_order: number;
 }
 
 interface Product {
   id: string;
   name: string;
   base_price: number;
-  category_id: string;
+  category: string; // This will be the category ID
 }
 
 interface CartItem {
@@ -29,66 +33,67 @@ interface CartItem {
 
 export default function POS() {
   const { toast } = useToast();
+  const { user, logout } = useAuth(); // Use useAuth hook
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [showCheckout, setShowCheckout] = useState(false);
-  const [orderType, setOrderType] = useState<"dine_in" | "takeaway" | "delivery">("dine_in");
+  const [orderType, setOrderType] = useState<"DINE_IN" | "TAKEAWAY" | "DELIVERY">("DINE_IN"); // Updated order types
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (user) {
+      loadData();
+    }
+  }, [user]);
 
   const loadData = async () => {
-    const { data: user } = await supabase.auth.getUser();
-    if (!user.user) return;
+    if (!user) return;
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.user.id)
-      .single();
+    try {
+      const headers = {
+        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+      };
 
-    if (!profile) return;
+      // Fetch categories
+      const categoriesResponse = await fetch(`${API_BASE}/staff/categories/`, { headers });
+      if (!categoriesResponse.ok) {
+        if (categoriesResponse.status === 401) logout();
+        throw new Error('Failed to fetch categories');
+      }
+      const cats: Category[] = await categoriesResponse.json();
+      setCategories(cats);
 
-    const { data: restaurant } = await supabase
-      .from("restaurants")
-      .select("*")
-      .eq("owner_id", user.user.id)
-      .single();
-
-    if (restaurant) {
-      const { data: cats } = await supabase
-        .from("product_categories")
-        .select("*")
-        .eq("restaurant_id", restaurant.id)
-        .eq("is_active", true)
-        .order("display_order");
-
-      const { data: prods } = await supabase
-        .from("products")
-        .select("*")
-        .eq("restaurant_id", restaurant.id)
-        .eq("is_active", true);
-
-      setCategories(cats || []);
-      setProducts(prods || []);
+      // Fetch products
+      const productsResponse = await fetch(`${API_BASE}/staff/products/`, { headers });
+      if (!productsResponse.ok) {
+        if (productsResponse.status === 401) logout();
+        throw new Error('Failed to fetch products');
+      }
+      const prods: Product[] = await productsResponse.json();
+      setProducts(prods);
+    } catch (error) {
+      console.error('Error loading POS data:', error);
+      toast({
+        title: "Error",
+        description: (error as Error).message || "Failed to load POS data.",
+        variant: "destructive",
+      });
     }
   };
 
-  const filteredProducts = selectedCategory === "all" 
-    ? products 
-    : products.filter(p => p.category_id === selectedCategory);
+  const filteredProducts = selectedCategory === "all"
+    ? products
+    : products.filter(p => p.category === selectedCategory); // Filter by category ID
 
   const addToCart = (product: Product) => {
     const existing = cart.find(item => item.product.id === product.id);
     if (existing) {
-      setCart(cart.map(item => 
-        item.product.id === product.id 
+      setCart(cart.map(item =>
+        item.product.id === product.id
           ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
@@ -118,52 +123,37 @@ export default function POS() {
 
     setIsProcessing(true);
     try {
-      const { data: user } = await supabase.auth.getUser();
-      const { data: restaurant } = await supabase
-        .from("restaurants")
-        .select("*")
-        .eq("owner_id", user.user?.id)
-        .single();
-
-      if (!restaurant) throw new Error("Restaurant not found");
-
-      const orderNumber = `ORD-${Date.now()}`;
-      
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          restaurant_id: restaurant.id,
-          order_number: orderNumber,
-          order_type: orderType,
-          status: "pending",
-          customer_name: customerName || null,
-          customer_phone: customerPhone || null,
-          subtotal: total,
-          tax_amount: total * 0.1,
-          total_amount: total * 1.1,
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
       const orderItems = cart.map(item => ({
-        order_id: order.id,
         product_id: item.product.id,
         quantity: item.quantity,
-        unit_price: item.product.base_price,
-        total_price: item.product.base_price * item.quantity,
       }));
 
-      const { error: itemsError } = await supabase
-        .from("order_items")
-        .insert(orderItems);
+      const orderData = {
+        order_type: orderType,
+        customer_name: customerName || null,
+        customer_phone: customerPhone || null,
+        items: orderItems,
+      };
 
-      if (itemsError) throw itemsError;
+      const response = await fetch(`${API_BASE}/staff/orders/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+        body: JSON.stringify(orderData),
+      });
 
-      toast({
-        title: "Order Created",
-        description: `Order ${orderNumber} has been placed successfully.`,
+      if (!response.ok) {
+        if (response.status === 401) logout();
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create order');
+      }
+
+      const order = await response.json();
+
+      sonnerToast.success("Order Created", {
+        description: `Order ${order.id.substring(0, 8)} has been placed successfully.`,
       });
 
       setCart([]);
@@ -173,7 +163,7 @@ export default function POS() {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to create order. Please try again.",
+        description: (error as Error).message || "Failed to create order. Please try again.",
         variant: "destructive",
       });
       console.error(error);
@@ -183,13 +173,13 @@ export default function POS() {
   };
 
   return (
-    <div className="h-screen flex">
+    <div className="flex flex-col lg:flex-row h-screen">
       {/* Products Section */}
       <div className="flex-1 p-6 overflow-auto">
         <h1 className="text-3xl font-bold mb-6">Point of Sale</h1>
-        
+
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mb-4">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="all">All</TabsTrigger>
             {categories.map(cat => (
               <TabsTrigger key={cat.id} value={cat.id}>{cat.name}</TabsTrigger>
@@ -197,7 +187,7 @@ export default function POS() {
           </TabsList>
         </Tabs>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
           {filteredProducts.map(product => (
             <Card
               key={product.id}
@@ -214,7 +204,7 @@ export default function POS() {
       </div>
 
       {/* Cart Section */}
-      <div className="w-96 bg-muted p-6 flex flex-col">
+      <div className="w-full lg:w-96 bg-muted p-6 flex flex-col border-t lg:border-t-0 lg:border-l">
         <div className="flex items-center gap-2 mb-6">
           <ShoppingCart className="h-6 w-6" />
           <h2 className="text-xl font-bold">Current Order</h2>
@@ -283,8 +273,8 @@ export default function POS() {
           </div>
         </div>
 
-        <Button 
-          className="w-full" 
+        <Button
+          className="w-full"
           size="lg"
           disabled={cart.length === 0}
           onClick={() => setShowCheckout(true)}
@@ -302,20 +292,20 @@ export default function POS() {
           <div className="space-y-4">
             <div>
               <Label>Order Type</Label>
-              <Select value={orderType} onValueChange={(v: 'dine_in' | 'takeaway' | 'delivery') => setOrderType(v)}>
+              <Select value={orderType} onValueChange={(v: "DINE_IN" | "TAKEAWAY" | "DELIVERY") => setOrderType(v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="dine_in">Dine In</SelectItem>
-                  <SelectItem value="takeaway">Takeaway</SelectItem>
-                  <SelectItem value="delivery">Delivery</SelectItem>
+                  <SelectItem value="DINE_IN">Dine In</SelectItem>
+                  <SelectItem value="TAKEAWAY">Takeaway</SelectItem>
+                  <SelectItem value="DELIVERY">Delivery</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label>Customer Name (Optional)</Label>
-              <Input 
+              <Input
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="Enter customer name"
@@ -323,7 +313,7 @@ export default function POS() {
             </div>
             <div>
               <Label>Phone Number (Optional)</Label>
-              <Input 
+              <Input
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
                 placeholder="Enter phone number"
