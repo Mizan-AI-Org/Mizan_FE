@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { AuthContextType } from "@/contexts/AuthContext.types";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -27,10 +28,23 @@ const DashboardLayout: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              {/* Home Button - Show when not on main dashboard */}
+              {location.pathname !== '/dashboard' && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate('/dashboard')}
+                  className="rounded-full"
+                  aria-label="Go to main dashboard"
+                >
+                  <Home className="h-5 w-5" />
+                </Button>
+              )}
+
               <Sheet>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open sidebar navigation">
-                    <Home className="h-5 w-5" />
+                    <ChefHat className="h-5 w-5" />
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="w-64">
@@ -38,7 +52,7 @@ const DashboardLayout: React.FC = () => {
                     <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-elegant">
                       <ChefHat className="w-5 h-5 text-white" />
                     </div>
-                    <h1 className="text-xl font-bold">Mizan</h1>
+                    <h1 className="text-3xl font-bold">Mizan</h1>
                   </div>
                   <nav className="space-y-1">
                     {user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' ? (
@@ -125,10 +139,12 @@ const DashboardLayout: React.FC = () => {
               <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-elegant hidden lg:flex">
                 <ChefHat className="w-5 h-5 text-white" />
               </div>
-              <h1 className="text-xl font-bold hidden lg:block">Mizan</h1>
+              <h1 className="text-2xl font-bold">Mizan</h1>
             </div>
-
             <div className="flex items-center gap-4">
+              {/* Theme Toggle */}
+              <ThemeToggle />
+
               <div className="hidden lg:flex items-center gap-2">
               </div>
 

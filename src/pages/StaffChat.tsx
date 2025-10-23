@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, Send, MessageSquare } from 'lucide-react';
-import { useAuth } from '../../hooks/use-auth';
 import { format } from 'date-fns';
 import { parseISO } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
 
 const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 const WS_BASE = import.meta.env.VITE_REACT_APP_WS_URL || 'ws://localhost:8000/ws';

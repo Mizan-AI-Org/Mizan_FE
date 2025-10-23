@@ -30,14 +30,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (storedUser && token) {
         // Verify token is still valid by fetching profile
-        const response = await fetch("/api/auth/profile", {
+        const response = await fetch("/api/auth/me/", {
           method: "GET",
-          credentials: "include",
           headers: {
+            "Content-Type": "application/json",
             Authorization: localStorage.getItem("access_token")
               ? `Bearer ${localStorage.getItem("access_token")}`
-              : undefined,
-          } as Record<string, string>,
+              : "",
+          },
         });
 
         if (response.ok) {
@@ -75,28 +75,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include",
       body: JSON.stringify({ email, password }),
     });
 
-    const responseText = await response.text(); // Always capture raw response text
-    console.log("Raw backend response:", responseText); // Log raw text
+    const responseText = await response.text();
 
     if (!response.ok) {
       let errorData = { message: "Login failed" };
       try {
-        errorData = JSON.parse(responseText); // Attempt to parse as JSON
+        errorData = JSON.parse(responseText);
       } catch (e) {
         console.error("Failed to parse error response as JSON:", e, "Raw response:", responseText);
       }
       throw new Error(errorData.message || "Login failed");
     }
 
-    const data = JSON.parse(responseText); // Parse the already captured raw text
+    const data = JSON.parse(responseText);
     setUser(data.user);
     localStorage.setItem("user", JSON.stringify(data.user));
+    localStorage.setItem("access_token", data.tokens.access);
+    localStorage.setItem("refresh_token", data.tokens.refresh);
 
-    // Redirect based on role
     if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
       navigate("/dashboard");
     } else {
@@ -105,46 +104,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const loginWithPin = async (pin: string, imageSrc: string | null, latitude: number | null, longitude: number | null) => {
-    const response = await fetch("/api/auth/pin-login/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({ pin, image_data: imageSrc, latitude, longitude }),
-    });
+    // This endpoint is not yet implemented in the backend, hence not used.
+    // Once implemented, uncomment the code below and adjust accordingly.
 
-    const responseText = await response.text();
-    console.log("Raw backend PIN login response:", responseText);
+    // const response = await fetch("/api/auth/pin-login/", {
+    //   method: "POST",
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //   },
+    //   body: JSON.stringify({ pin, image_data: imageSrc, latitude, longitude }),
+    // });
 
-    if (!response.ok) {
-      let errorData = { message: "PIN login failed" };
-      try {
-        errorData = JSON.parse(responseText);
-      } catch (e) {
-        console.error("Failed to parse PIN login error response as JSON:", e, "Raw response:", responseText);
-      }
-      throw new Error(errorData.message || "PIN login failed");
-    }
+    // const responseText = await response.text();
+    // console.log("Raw backend PIN login response:", responseText);
 
-    const data = JSON.parse(responseText);
-    setUser(data.user);
-    localStorage.setItem("user", JSON.stringify(data.user));
+    // if (!response.ok) {
+    //   let errorData = { message: "PIN login failed" };
+    //   try {
+    //     errorData = JSON.parse(responseText);
+    //   } catch (e) {
+    //     console.error("Failed to parse PIN login error response as JSON:", e, "Raw response:", responseText);
+    //   }
+    //   throw new Error(errorData.message || "PIN login failed");
+    // }
 
-    if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
-      navigate("/dashboard");
-    } else {
-      navigate("/staff-dashboard");
-    }
+    // const data = JSON.parse(responseText);
+    // setUser(data.user);
+    // localStorage.setItem("user", JSON.stringify(data.user));
+    // localStorage.setItem("access_token", data.tokens.access);
+    // localStorage.setItem("refresh_token", data.tokens.refresh);
+
+    // if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
+    //   navigate("/dashboard");
+    // } else {
+    //   navigate("/staff-dashboard");
+    // }
+    throw new Error("PIN login is not yet implemented.");
   };
 
   const ownerSignup = async (signupData: SignupData) => {
-    const response = await fetch("/api/auth/signup/owner", {
+    const response = await fetch("/api/auth/signup/owner/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include",
       body: JSON.stringify(signupData),
     });
 
@@ -156,17 +159,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const data = await response.json();
     setUser(data.user);
     localStorage.setItem("user", JSON.stringify(data.user));
+    localStorage.setItem("access_token", data.tokens.access);
+    localStorage.setItem("refresh_token", data.tokens.refresh);
     navigate("/dashboard");
   };
 
-  const acceptInvitation = async (token: string, userData: StaffUserData) => {
-    const response = await fetch("/api/auth/accept-invitation", {
+  const acceptInvitation = async (token: string, first_name: string, last_name: string, password: string, pin_code: string | null) => {
+    const response = await fetch("/api/auth/accept-invitation/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include",
-      body: JSON.stringify({ token, user: userData }),
+      body: JSON.stringify({ token, first_name, last_name, password, pin_code }),
     });
 
     if (!response.ok) {
@@ -177,15 +181,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const data = await response.json();
     setUser(data.user);
     localStorage.setItem("user", JSON.stringify(data.user));
+    localStorage.setItem("access_token", data.tokens.access);
+    localStorage.setItem("refresh_token", data.tokens.refresh);
     navigate("/staff-dashboard");
   };
 
   const logout = async () => {
     try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
+      const refreshToken = localStorage.getItem("refresh_token");
+      if (refreshToken) {
+        await fetch("/api/auth/logout/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+      }
     } catch (error) {
       console.error("Logout error:", error);
     } finally {

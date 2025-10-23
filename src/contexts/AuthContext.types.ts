@@ -1,4 +1,4 @@
-import { SignupData, StaffUserData } from '../services/backend.service';
+import { SignupData } from '../services/backend.service';
 
 export interface User {
     id: string;
@@ -25,7 +25,7 @@ export interface AuthContextType {
     login: (email: string, password: string) => Promise<void>;
     loginWithPin: (pin: string, imageSrc: string | null, latitude: number | null, longitude: number | null) => Promise<void>;
     ownerSignup: (signupData: SignupData) => Promise<void>;
-    acceptInvitation: (token: string, userData: StaffUserData) => Promise<void>;
+    acceptInvitation: (token: string, first_name: string, last_name: string, password: string, pin_code: string | null) => Promise<void>;
     logout: () => void;
     hasRole: (roles: string[]) => boolean;
     isSuperAdmin: () => boolean;
