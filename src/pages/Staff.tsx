@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClockInOut } from "@/components/ClockInOut";
 import {
   Calendar,
   Clock,
@@ -17,48 +16,310 @@ import {
   Copy,
   Repeat,
   Plus,
-  MoreVertical,
   ChevronLeft,
   ChevronRight,
-  Grid
+  Trash2
 } from "lucide-react";
 
-const staffMembers = [];
+import ShiftModal from "@/components/ShiftModal";
 
-const weeklySchedule = [];
+// data
 
-const aiRecommendations = [];
+const weeklySchedule = [
+  {
+    day: "",
+    date: "",
+    shifts: [
+
+    ]
+  },
+  {
+    day: "",
+    date: "",
+    shifts: [
+
+    ]
+  },
+];
+
+const aiRecommendations = [
+];
+
+// Types
+interface Shift {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  type: 'confirmed' | 'pending' | 'tentative';
+  day: number;
+  staffId: string; // Changed to string UUID
+  color?: string;
+}
+
+interface StaffMember {
+  id: string; // UUID from backend
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
+}
+
+interface WeeklyScheduleData {
+  id: string;
+  week_start: string;
+  week_end: string;
+  is_published: boolean;
+  assigned_shifts: Shift[];
+}
 
 // New Google Calendar-like Scheduler Component
 const GoogleCalendarScheduler = () => {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(new Date(2024, 0, 1)); // January 2024
   const [view, setView] = useState<"week" | "day" | "month">("week");
-  const [selectedShift, setSelectedShift] = useState<any>(null);
+  const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [showRecurringModal, setShowRecurringModal] = useState(false);
+  const [copiedShift, setCopiedShift] = useState<Shift | null>(null);
+  const [shifts, setShifts] = useState<Shift[]>([
 
-  const hours = Array.from({ length: 14 }, (_, i) => i + 6); // 6 AM to 8 PM
+  ]);
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
+  const [currentShift, setCurrentShift] = useState<Shift | null>(null);
+  const [newShiftDayIndex, setNewShiftDayIndex] = useState<number | undefined>(undefined);
+  const [newShiftHour, setNewShiftHour] = useState<number | undefined>(undefined);
+  const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+
+  const hours = Array.from({ length: 24 }, (_, i) => i); // 0 AM to 23 PM
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-  const shifts = [];
+  useEffect(() => {
+    const fetchStaffAndSchedule = async () => {
+      try {
+        // Fetch Staff Members
+        const staffResponse = await fetch('/api/staff/', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        if (!staffResponse.ok) throw new Error('Failed to fetch staff members');
+        const staffData = await staffResponse.json();
+        setStaffMembers(staffData);
 
-  const getShiftPosition = (shift: any) => {
+        // Fetch Weekly Schedule for current week
+        // For simplicity, let's assume the backend returns the current week's schedule
+        // or the first available schedule if none exists for the exact week.
+        const scheduleResponse = await fetch('/api/scheduling/weekly-schedules/', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        }); // Adjust if filtering by date is needed
+        if (!scheduleResponse.ok) throw new Error('Failed to fetch weekly schedule');
+        const schedules = await scheduleResponse.json();
+
+        // Assuming we take the first schedule found or handle multiple schedules later
+        if (schedules.length > 0) {
+          setWeeklySchedule(schedules[0]);
+          setShifts(schedules[0].assigned_shifts.map((shift: any) => ({ // Map backend shift to frontend Shift type
+            id: shift.id,
+            title: shift.notes || `Shift for ${staffData.find((s: any) => s.id === shift.staff)?.first_name}`,
+            start: shift.start_time.substring(0, 5),
+            end: shift.end_time.substring(0, 5),
+            type: 'confirmed', // Assuming all fetched are confirmed for now
+            day: new Date(shift.shift_date).getDay() === 0 ? 6 : new Date(shift.shift_date).getDay() - 1, // Convert Sunday(0) to 6, Monday(1) to 0 etc.
+            staffId: shift.staff,
+            color: "#6b7280", // Default color, can be dynamic from backend
+          })));
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    fetchStaffAndSchedule();
+  }, []);
+
+  const getShiftPosition = (shift: Shift) => {
     const [startHour, startMinute] = shift.start.split(":").map(Number);
     const [endHour, endMinute] = shift.end.split(":").map(Number);
 
-    const startPosition = ((startHour - 6) * 60 + startMinute) / 60 * 80; // 80px per hour
+    const startPosition = ((startHour) * 60 + startMinute) / 60 * 80; // 80px per hour
     const duration = ((endHour - startHour) * 60 + (endMinute - startMinute)) / 60 * 80;
 
     return { top: startPosition, height: duration };
   };
 
-  const handleCopyShift = (shift: any) => {
-    // Implementation for copying shift
-    console.log("Copying shift:", shift);
+  const handleCopyShift = (shift: Shift) => {
+    setCopiedShift(shift);
+    setSelectedShift(null);
   };
 
-  const handleSetRecurring = (shift: any) => {
+  const handlePasteShift = (targetDay: number) => {
+    if (!copiedShift) return;
+
+    const newShift: Shift = {
+      ...copiedShift,
+      id: Date.now().toString(),
+      day: targetDay
+    };
+
+    setShifts(prev => [...prev, newShift]);
+    setSelectedShift(newShift);
+  };
+
+  const handleSetRecurring = (shift: Shift) => {
     setSelectedShift(shift);
     setShowRecurringModal(true);
+  };
+
+  const handleDeleteShift = async (shiftId: string) => {
+    if (!weeklySchedule) {
+      console.error("No weekly schedule available to delete shifts.");
+      return;
+    }
+    try {
+      const response = await fetch(`/api/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/${shiftId}/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem("access_token")}`,
+        },
+      });
+
+      if (!response.ok) throw new Error('Failed to delete shift');
+
+      setShifts(prev => prev.filter(shift => shift.id !== shiftId));
+      setSelectedShift(null);
+    } catch (error) {
+      console.error("Error deleting shift:", error);
+    }
+  };
+
+  const handleCreateShift = (dayIndex: number, hour: number) => {
+    setCurrentShift(null);
+    setNewShiftDayIndex(dayIndex);
+    setNewShiftHour(hour);
+    setIsShiftModalOpen(true);
+  };
+
+  const handleEditShift = (shift: Shift) => {
+    setCurrentShift(shift);
+    setIsShiftModalOpen(true);
+  };
+
+  const handleSaveShift = async (shift: Shift) => {
+    if (!weeklySchedule) {
+      console.error("No weekly schedule available to save shifts.");
+      return;
+    }
+
+    const shiftDataForBackend = {
+      staff: shift.staffId,
+      shift_date: new Date(currentDate.setDate(currentDate.getDate() - currentDate.getDay() + 1 + shift.day)).toISOString().split('T')[0],
+      start_time: shift.start,
+      end_time: shift.end,
+      role: staffMembers.find(s => s.id === shift.staffId)?.role || "",
+      notes: shift.title,
+    };
+
+    try {
+      if (shifts.some(s => s.id === shift.id)) {
+        // Update existing shift
+        const response = await fetch(`/api/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/${shift.id}/`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem("access_token")}`,
+          },
+          body: JSON.stringify(shiftDataForBackend),
+        });
+
+        if (!response.ok) throw new Error('Failed to update shift');
+        const updatedShift = await response.json();
+        setShifts(prev => prev.map(s => (s.id === updatedShift.id ? { // Map backend response to frontend Shift type
+          id: updatedShift.id,
+          title: updatedShift.notes || `Shift for ${staffMembers.find((s: any) => s.id === updatedShift.staff)?.first_name}`,
+          start: updatedShift.start_time.substring(0, 5),
+          end: updatedShift.end_time.substring(0, 5),
+          type: 'confirmed',
+          day: new Date(updatedShift.shift_date).getDay() === 0 ? 6 : new Date(updatedShift.shift_date).getDay() - 1,
+          staffId: updatedShift.staff,
+          color: shift.color,
+        } : s)));
+      } else {
+        // Add new shift
+        const response = await fetch(`/api/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem("access_token")}`,
+          },
+          body: JSON.stringify(shiftDataForBackend),
+        });
+
+        if (!response.ok) throw new Error('Failed to create shift');
+        const newShift = await response.json();
+        setShifts(prev => [...prev, {
+          id: newShift.id,
+          title: newShift.notes || `Shift for ${staffMembers.find((s: any) => s.id === newShift.staff)?.first_name}`,
+          start: newShift.start_time.substring(0, 5),
+          end: newShift.end_time.substring(0, 5),
+          type: 'confirmed',
+          day: new Date(newShift.shift_date).getDay() === 0 ? 6 : new Date(newShift.shift_date).getDay() - 1,
+          staffId: newShift.staff,
+          color: shift.color,
+        }]);
+      }
+    } catch (error) {
+      console.error("Error saving shift:", error);
+    }
+    setIsShiftModalOpen(false);
+    setCurrentShift(null);
+    setNewShiftDayIndex(undefined);
+    setNewShiftHour(undefined);
+  };
+
+  const navigateDate = (direction: 'prev' | 'next') => {
+    setCurrentDate(prev => {
+      const newDate = new Date(prev);
+      if (view === 'week') {
+        newDate.setDate(prev.getDate() + (direction === 'next' ? 7 : -7));
+      } else if (view === 'day') {
+        newDate.setDate(prev.getDate() + (direction === 'next' ? 1 : -1));
+      } else {
+        newDate.setMonth(prev.getMonth() + (direction === 'next' ? 1 : -1));
+      }
+      return newDate;
+    });
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  const getWeekDates = () => {
+    const start = new Date(currentDate);
+    start.setDate(start.getDate() - start.getDay() + 1); // Start from Monday
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+      return date;
+    });
+  };
+
+  const getDateDisplay = () => {
+    if (view === 'week') {
+      const weekDates = getWeekDates();
+      // Display current week as "MMM D - MMM D, YYYY" (e.g. "May 13 - May 19, 2024")
+      const firstDay = weekDates[0];
+      const lastDay = weekDates[6];
+      const firstMonth = firstDay.toLocaleString('en-US', { month: 'short' });
+      const lastMonth = lastDay.toLocaleString('en-US', { month: 'short' });
+      const firstDate = firstDay.getDate();
+      const lastDate = lastDay.getDate();
+      const year = lastDay.getFullYear();
+      return `${firstMonth} ${firstDate} - ${lastMonth} ${lastDate}, ${year}`;
+    }
+    return currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
   const RecurringModal = () => (
@@ -97,7 +358,10 @@ const GoogleCalendarScheduler = () => {
           <Button variant="outline" onClick={() => setShowRecurringModal(false)}>
             Cancel
           </Button>
-          <Button onClick={() => setShowRecurringModal(false)}>
+          <Button onClick={() => {
+            // Implement recurring logic here
+            setShowRecurringModal(false);
+          }}>
             Set Recurring
           </Button>
         </div>
@@ -105,24 +369,36 @@ const GoogleCalendarScheduler = () => {
     </div>
   );
 
+  const weekDates = getWeekDates();
+
   return (
     <div className="bg-white rounded-lg border shadow-sm h-[600px] flex flex-col">
       {/* Calendar Header */}
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center space-x-4">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={goToToday}>
             Today
           </Button>
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="sm" className="p-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-2"
+              onClick={() => navigateDate('prev')}
+            >
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" size="sm" className="p-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-2"
+              onClick={() => navigateDate('next')}
+            >
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
           <h2 className="text-xl font-semibold">
-            January 2024
+            {getDateDisplay()}
           </h2>
         </div>
 
@@ -154,10 +430,21 @@ const GoogleCalendarScheduler = () => {
             </Button>
           </div>
 
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="w-4 h-4 mr-2" />
-            Create
-          </Button>
+          <div className="flex items-center space-x-2">
+            {copiedShift && ( // Only show if a shift is copied
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                Shift Copied
+              </Badge>
+            )}
+            <Button
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => handleCreateShift(0, 9)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -169,7 +456,7 @@ const GoogleCalendarScheduler = () => {
             <div className="h-12 border-b"></div>
             {hours.map(hour => (
               <div key={hour} className="h-20 border-b text-xs text-gray-500 p-1">
-                {hour <= 12 ? `${hour} AM` : `${hour - 12} PM`}
+                {String(hour).padStart(2, '0')}:00
               </div>
             ))}
           </div>
@@ -179,15 +466,29 @@ const GoogleCalendarScheduler = () => {
             {days.map((day, dayIndex) => (
               <div key={day} className="border-l">
                 {/* Day Header */}
-                <div className="h-12 border-b flex flex-col items-center justify-center">
+                <div
+                  className="h-12 border-b flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50"
+                  onClick={() => handlePasteShift(dayIndex)}
+                >
                   <div className="text-sm font-medium">{day}</div>
-                  <div className="text-xs text-gray-500">Jan {8 + dayIndex}</div>
+                  <div className="text-xs text-gray-500">Jan {weekDates[dayIndex]?.getDate()}</div>
+                  {copiedShift && ( // Only show if a shift is copied
+                    <div className="absolute top-1 right-1">
+                      <Badge variant="outline" className="text-xs bg-green-100">
+                        Paste
+                      </Badge>
+                    </div>
+                  )}
                 </div>
 
                 {/* Time Slots */}
                 <div className="relative">
                   {hours.map(hour => (
-                    <div key={hour} className="h-20 border-b"></div>
+                    <div
+                      key={hour}
+                      className="h-20 border-b cursor-pointer hover:bg-gray-50"
+                      onClick={() => handleCreateShift(dayIndex, hour)}
+                    ></div>
                   ))}
 
                   {/* Shifts */}
@@ -195,20 +496,22 @@ const GoogleCalendarScheduler = () => {
                     .filter(shift => shift.day === dayIndex)
                     .map(shift => {
                       const position = getShiftPosition(shift);
+                      const assignedStaff = staffMembers.find(staff => String(staff.id) === String(shift.staffId));
+                      const shiftTitle = assignedStaff ? `${assignedStaff.first_name} ${assignedStaff.last_name} - ${shift.title}` : shift.title;
+
                       return (
                         <div
                           key={shift.id}
-                          className={`absolute left-1 right-1 rounded p-2 cursor-pointer shadow-sm
-                            ${shift.type === 'confirmed' ? 'bg-blue-100 border-blue-300' :
-                              shift.type === 'pending' ? 'bg-yellow-100 border-yellow-300' :
-                                'bg-green-100 border-green-300'}`}
+                          className={`absolute left-1 right-1 rounded p-2 cursor-pointer shadow-sm border-l-4`}
                           style={{
                             top: `${position.top}px`,
                             height: `${position.height}px`,
+                            backgroundColor: shift.color ? `${shift.color}20` : '#f3f4f6',
+                            borderLeftColor: shift.color || '#6b7280'
                           }}
-                          onClick={() => setSelectedShift(shift)}
+                          onClick={() => handleEditShift(shift)}
                         >
-                          <div className="text-xs font-medium truncate">{shift.title}</div>
+                          <div className="text-xs font-medium truncate">{shiftTitle}</div>
                           <div className="text-xs text-gray-600">
                             {shift.start} - {shift.end}
                           </div>
@@ -218,7 +521,7 @@ const GoogleCalendarScheduler = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0"
+                                className="h-6 w-6 p-0 bg-white"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleCopyShift(shift);
@@ -229,13 +532,24 @@ const GoogleCalendarScheduler = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0"
+                                className="h-6 w-6 p-0 bg-white"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleSetRecurring(shift);
                                 }}
                               >
                                 <Repeat className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 bg-white"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteShift(shift.id);
+                                }}
+                              >
+                                <Trash2 className="w-3 h-3" />
                               </Button>
                             </div>
                           )}
@@ -250,6 +564,17 @@ const GoogleCalendarScheduler = () => {
       </div>
 
       {showRecurringModal && <RecurringModal />}
+      {isShiftModalOpen && (
+        <ShiftModal
+          isOpen={isShiftModalOpen}
+          onClose={() => setIsShiftModalOpen(false)}
+          onSave={handleSaveShift}
+          initialShift={currentShift}
+          dayIndex={newShiftDayIndex}
+          hour={newShiftHour}
+          staffMembers={staffMembers}
+        />
+      )}
     </div>
   );
 };
@@ -277,10 +602,6 @@ export default function Staff() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Staff Management</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">Manage schedules and AI-optimized staffing</p>
-        </div>
-        <div className="flex space-x-3">
-          <ClockInOut />
         </div>
       </div>
 
@@ -324,7 +645,7 @@ export default function Staff() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs sm:text-sm font-medium">Total Staff</p>
-                    <p className="text-xl sm:text-2xl font-bold">12</p>
+                    <p className="text-xl sm:text-2xl font-bold"></p>
                   </div>
                   <Users className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                 </div>
@@ -336,7 +657,7 @@ export default function Staff() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs sm:text-sm font-medium">On Duty Today</p>
-                    <p className="text-xl sm:text-2xl font-bold">8</p>
+                    <p className="text-xl sm:text-2xl font-bold"></p>
                   </div>
                   <UserCheck className="w-6 h-6 sm:w-8 sm:h-8 text-success" />
                 </div>
@@ -348,7 +669,7 @@ export default function Staff() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs sm:text-sm font-medium">Labor Cost %</p>
-                    <p className="text-xl sm:text-2xl font-bold">28.5%</p>
+                    <p className="text-xl sm:text-2xl font-bold"></p>
                   </div>
                   <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-warning" />
                 </div>
@@ -360,7 +681,7 @@ export default function Staff() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs sm:text-sm font-medium">Avg Rating</p>
-                    <p className="text-xl sm:text-2xl font-bold">4.7⭐</p>
+                    <p className="text-xl sm:text-2xl font-bold"></p>
                   </div>
                   <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-accent" />
                 </div>
@@ -376,29 +697,29 @@ export default function Staff() {
                 <CardDescription>Current staff roster and availability</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {staffMembers.map(staff => (
-                  <div key={staff.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-                    <div className="flex items-center space-x-3 min-w-0 flex-1">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-primary-foreground font-medium text-sm">{staff.avatar}</span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-semibold text-sm sm:text-base truncate">{staff.name}</h3>
-                        <p className="text-xs sm:text-sm text-muted-foreground truncate">{staff.role}</p>
-                        <p className="text-xs text-muted-foreground truncate">{staff.schedule}</p>
-                      </div>
+                {/* Staff members will be fetched or passed as props */}
+                {/* For now, we'll show a placeholder */}
+                <div className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                  <div className="flex items-center space-x-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-primary-foreground font-medium text-sm">?</span>
                     </div>
-                    <div className="text-right space-y-1 ml-2">
-                      <Badge variant={staff.status === "active" ? "default" : "outline"} className="text-xs">
-                        {staff.status}
-                      </Badge>
-                      <div className="text-xs text-muted-foreground whitespace-nowrap">
-                        {staff.hoursThisWeek}h this week
-                      </div>
-                      <div className="text-xs">⭐ {staff.rating}</div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-sm sm:text-base truncate">Staff Member</h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate">Role</p>
+                      <p className="text-xs text-muted-foreground truncate">Schedule</p>
                     </div>
                   </div>
-                ))}
+                  <div className="text-right space-y-1 ml-2">
+                    <Badge variant="outline" className="text-xs">
+                      Status
+                    </Badge>
+                    <div className="text-xs text-muted-foreground whitespace-nowrap">
+                      0h this week
+                    </div>
+                    <div className="text-xs">⭐ 0</div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -417,31 +738,7 @@ export default function Staff() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4 max-h-[600px] overflow-y-auto">
-                {weeklySchedule.map(day => (
-                  <div key={day.day} className="space-y-2">
-                    <div className="flex items-center justify-between sticky top-0 bg-background py-1">
-                      <h4 className="font-semibold text-sm sm:text-base">{day.day}</h4>
-                      <span className="text-xs sm:text-sm text-muted-foreground">{day.date}</span>
-                    </div>
-                    <div className="space-y-2">
-                      {day.shifts.map((shift, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 sm:p-3 bg-muted/50 rounded">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center space-x-1 sm:space-x-2">
-                              <span className="text-sm font-medium truncate">{shift.name}</span>
-                              <span className="text-xs text-muted-foreground hidden sm:inline">({shift.role})</span>
-                            </div>
-                            <span className="text-xs text-muted-foreground sm:hidden">{shift.role}</span>
-                          </div>
-                          <div className="flex items-center space-x-2 ml-2">
-                            <span className="text-xs whitespace-nowrap">{shift.time}</span>
-                            {getStatusBadge(shift.status)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                {/* Removed previous weeklySchedule.map block */}
               </CardContent>
             </Card>
           </div>
