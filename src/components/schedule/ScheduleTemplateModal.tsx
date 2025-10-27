@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from "@/components/ui/use-toast";
-import { useAuth } from '../../hooks/use-auth';
+import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '../../contexts/AuthContext.types';
 import { Card } from '@/components/ui/card';
 

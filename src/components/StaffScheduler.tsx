@@ -2,9 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/client";
@@ -30,6 +27,7 @@ interface Schedule {
   tasks: string[];
   is_recurring: boolean;
   recurrence_pattern: string | null;
+  color?: string;
 }
 
 export default function StaffScheduler() {
@@ -236,14 +234,14 @@ export default function StaffScheduler() {
                       <Card
                         key={schedule.id}
                         className="border-l-4 cursor-pointer"
-                        style={{ borderLeftColor: "hsl(var(--primary))" }}
+                        style={{ borderLeftColor: schedule.color || "hsl(var(--primary))" }}
                         onClick={() => handleEditSchedule(schedule)}
                       >
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-4">
-                              <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-                                <User className="w-5 h-5 text-primary-foreground" />
+                              <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: schedule.color || "hsl(var(--primary))" }}>
+                                <User className="w-5 h-5 text-white" />
                               </div>
                               <div>
                                 <h4 className="font-semibold">{schedule.staff?.full_name || schedule.staff?.username}</h4>
@@ -310,12 +308,13 @@ export default function StaffScheduler() {
                         {daySchedules.map(schedule => (
                           <div
                             key={schedule.id}
-                            className="flex items-center justify-between p-3 bg-secondary rounded-lg cursor-pointer"
+                            className="flex items-center justify-between p-3 bg-secondary rounded-lg cursor-pointer border-l-4"
+                            style={{ borderLeftColor: schedule.color || "hsl(var(--primary))" }}
                             onClick={() => handleEditSchedule(schedule)}
                           >
                             <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                                <User className="w-4 h-4 text-primary-foreground" />
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: schedule.color || "hsl(var(--primary))" }}>
+                                <User className="w-4 h-4 text-white" />
                               </div>
                               <div>
                                 <p className="font-medium">{schedule.staff?.full_name || schedule.staff?.username}</p>

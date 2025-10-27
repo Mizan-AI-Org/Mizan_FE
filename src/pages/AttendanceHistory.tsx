@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, addMonths } from 'date-fns';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, Coffee } from 'lucide-react';
-import { useAuth } from '../../hooks/use-auth';
+import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';

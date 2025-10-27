@@ -22,6 +22,10 @@ import {
 } from "lucide-react";
 import MenuScanner from "@/components/MenuScanner";
 import POSIntegration from "@/components/POSIntegration";
+import GeolocationMapSettings from "@/components/settings/GeolocationMapSettings";
+import EnhancedPOSSettings from "@/components/settings/EnhancedPOSSettings";
+import DeliveryZoneManager from "@/components/settings/DeliveryZoneManager";
+import BrandCustomization from "@/components/settings/BrandCustomization";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import type { StaffInvitation, User } from "../types/staff"; // Use type import for interfaces
@@ -134,10 +138,48 @@ export default function Settings() {
     fetchSettings();
   }, [navigate]);
 
+  const saveLocationSettings = async (lat: number, lng: number, rad: number) => {
+    setLatitude(lat);
+    setLongitude(lng);
+    setRadius(rad);
+    
+    try {
+      const response = await apiClient.put(
+        "/accounts/restaurant/update-location/",
+        {
+          latitude: lat,
+          longitude: lng,
+          radius: rad,
+          name: restaurantName,
+          address: restaurantAddress,
+          phone: restaurantPhone,
+          email: restaurantEmail,
+          timezone,
+          currency,
+          language,
+          operating_hours: operatingHours,
+          automatic_clock_out: automaticClockOut,
+          break_duration: breakDuration,
+          email_notifications: emailNotifications,
+          push_notifications: pushNotifications,
+        }
+      );
+      if (response.status === 200) {
+        toast.success("Location settings saved successfully!");
+      } else {
+        const errorData = response.data;
+        toast.error(`Failed to save settings: ${errorData.detail || errorData.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Error saving location settings:", error);
+      toast.error("Failed to save location settings.");
+    }
+  };
+
   const saveGeneralSettings = async () => {
     try {
       const response = await apiClient.put(
-        "/accounts/restaurant/update-location/", // This endpoint now handles general restaurant info as well
+        "/accounts/restaurant/update-location/",
         {
           latitude,
           longitude,
@@ -146,14 +188,14 @@ export default function Settings() {
           address: restaurantAddress,
           phone: restaurantPhone,
           email: restaurantEmail,
-          timezone, // Add timezone
-          currency, // Add currency
-          language, // Add language
-          operating_hours: operatingHours, // Add operating hours
-          automatic_clock_out: automaticClockOut, // Add automatic clock-out
-          break_duration: breakDuration, // Add break duration
-          email_notifications: emailNotifications, // Add email notification preferences
-          push_notifications: pushNotifications, // Add push notification preferences
+          timezone,
+          currency,
+          language,
+          operating_hours: operatingHours,
+          automatic_clock_out: automaticClockOut,
+          break_duration: breakDuration,
+          email_notifications: emailNotifications,
+          push_notifications: pushNotifications,
         }
       );
       if (response.status === 200) {
@@ -231,15 +273,15 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 gap-2">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
+          <TabsTrigger value="location">Location</TabsTrigger>
+          <TabsTrigger value="delivery">Delivery</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="location">Location & Tables</TabsTrigger>
-          <TabsTrigger value="menu">Menu Management</TabsTrigger>
+          <TabsTrigger value="brand">Brand</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
@@ -356,50 +398,6 @@ export default function Settings() {
                   </div>
                 </div>
               </div>
-              <Separator />
-              {/* Geolocation Settings */}
-              <Card className="shadow-soft border-0 shadow-none p-0">
-                <CardHeader className="px-0 pt-0">
-                  <CardTitle className="flex items-center text-lg">
-                    <Globe className="w-5 h-5 mr-2" />
-                    Geolocation Settings
-                  </CardTitle>
-                  <CardDescription>Set the restaurant's location for staff clock-in</CardDescription>
-                </CardHeader>
-                <CardContent className="px-0 pb-0 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="latitude">Latitude</Label>
-                      <Input
-                        id="latitude"
-                        type="number"
-                        step="any"
-                        value={latitude}
-                        onChange={(e) => setLatitude(parseFloat(e.target.value))}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="longitude">Longitude</Label>
-                      <Input
-                        id="longitude"
-                        type="number"
-                        step="any"
-                        value={longitude}
-                        onChange={(e) => setLongitude(parseFloat(e.target.value))}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="radius">Radius (meters)</Label>
-                    <Input
-                      id="radius"
-                      type="number"
-                      value={radius}
-                      onChange={(e) => setRadius(parseFloat(e.target.value))}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
               <Button onClick={saveGeneralSettings} className="w-full">Save General Settings</Button>
             </CardContent>
           </Card>
@@ -569,6 +567,23 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="location" className="space-y-6">
+          <GeolocationMapSettings
+            latitude={latitude}
+            longitude={longitude}
+            radius={radius}
+            onSave={saveLocationSettings}
+          />
+        </TabsContent>
+
+        <TabsContent value="delivery" className="space-y-6">
+          <DeliveryZoneManager />
+        </TabsContent>
+
+        <TabsContent value="brand" className="space-y-6">
+          <BrandCustomization />
+        </TabsContent>
+
         <TabsContent value="security" className="space-y-6">
           <Card className="shadow-soft">
             <CardHeader>
@@ -666,64 +681,17 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="location" className="space-y-6">
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Restaurant Layout Management</CardTitle>
-              <CardDescription>Manage your restaurant's floor plan and table configurations.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button className="w-full">Manage Floor Plans</Button>
-              <Button className="w-full">Configure Tables</Button>
-              <Button className="w-full">Setup Floor Plan</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
-        <TabsContent value="menu" className="space-y-6">
+        <TabsContent value="integrations" className="space-y-6">
+          <EnhancedPOSSettings />
+          
           <Card className="shadow-soft">
             <CardHeader>
-              <CardTitle>Menu Categories</CardTitle>
-              <CardDescription>Organize your menu items into categories.</CardDescription>
+              <CardTitle>Menu Scanner</CardTitle>
+              <CardDescription>Scan physical menus to digitize them.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <Button className="w-full">Manage Categories</Button>
-              <Button className="w-full">Add New Category</Button>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Pricing Rules</CardTitle>
-              <CardDescription>Define special pricing rules and discounts.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button className="w-full">Manage Pricing Rules</Button>
-              <Button className="w-full">Create New Rule</Button>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Tax Configurations</CardTitle>
-              <CardDescription>Set up taxes for different menu items or categories.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button className="w-full">Manage Tax Settings</Button>
-              <Button className="w-full">Add New Tax Rule</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="integrations">
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Integrations</CardTitle>
-              <CardDescription>Connect with third-party services.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent>
               <MenuScanner />
-              <POSIntegration />
             </CardContent>
           </Card>
 
@@ -733,8 +701,24 @@ export default function Settings() {
               <CardDescription>Configure your payment gateway integrations.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button className="w-full">Manage Payment Gateways</Button>
-              <Button className="w-full">Add New Gateway</Button>
+              <div className="grid grid-cols-2 gap-4">
+                <Button variant="outline" className="w-full">
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Stripe
+                </Button>
+                <Button variant="outline" className="w-full">
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  PayPal
+                </Button>
+                <Button variant="outline" className="w-full">
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Square
+                </Button>
+                <Button variant="outline" className="w-full">
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Authorize.net
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

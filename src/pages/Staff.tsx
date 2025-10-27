@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+"use client"
+
+import { useState, useEffect, useMemo } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Calendar,
   Clock,
@@ -18,309 +20,361 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
-  Trash2
-} from "lucide-react";
+  Trash2,
+} from "lucide-react"
 
-import ShiftModal from "@/components/ShiftModal";
+import ShiftModal from "@/components/ShiftModal"
 
-// data
+const aiRecommendations = []
 
-const weeklySchedule = [
-  {
-    day: "",
-    date: "",
-    shifts: [
-
-    ]
-  },
-  {
-    day: "",
-    date: "",
-    shifts: [
-
-    ]
-  },
-];
-
-const aiRecommendations = [
-];
-
-// Types
 interface Shift {
-  id: string;
-  title: string;
-  start: string;
-  end: string;
-  type: 'confirmed' | 'pending' | 'tentative';
-  day: number;
-  staffId: string; // Changed to string UUID
-  color?: string;
+  id: string
+  title: string
+  start: string
+  end: string
+  type: "confirmed" | "pending" | "tentative"
+  day: number
+  staffId: string
+  color?: string
 }
 
 interface StaffMember {
-  id: string; // UUID from backend
-  first_name: string;
-  last_name: string;
-  email: string;
-  role: string;
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  role: string
+}
+
+interface BackendShift {
+  id: string
+  staff: string
+  shift_date: string
+  start_time: string
+  end_time: string
+  notes: string
+  color?: string
 }
 
 interface WeeklyScheduleData {
-  id: string;
-  week_start: string;
-  week_end: string;
-  is_published: boolean;
-  assigned_shifts: Shift[];
+  id: string
+  week_start: string
+  week_end: string
+  is_published: boolean
+  assigned_shifts: BackendShift[]
 }
-
-// New Google Calendar-like Scheduler Component
+// import { useCalendar } from "./useCalendar"
 const GoogleCalendarScheduler = () => {
-  const [currentDate, setCurrentDate] = useState(new Date(2024, 0, 1)); // January 2024
-  const [view, setView] = useState<"week" | "day" | "month">("week");
-  const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
-  const [showRecurringModal, setShowRecurringModal] = useState(false);
-  const [copiedShift, setCopiedShift] = useState<Shift | null>(null);
-  const [shifts, setShifts] = useState<Shift[]>([
+  const [currentDate, setCurrentDate] = useState(new Date())
+  const [view, setView] = useState<"week" | "day" | "month">("week")
+  const [selectedShift, setSelectedShift] = useState<Shift | null>(null)
+  const [showRecurringModal, setShowRecurringModal] = useState(false)
+  const [copiedShift, setCopiedShift] = useState<Shift | null>(null)
+  const [shifts, setShifts] = useState<Shift[]>([])
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false)
+  const [currentShift, setCurrentShift] = useState<Shift | null>(null)
+  const [newShiftDayIndex, setNewShiftDayIndex] = useState<number>()
+  const [newShiftHour, setNewShiftHour] = useState<number>()
+  const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null)
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
 
-  ]);
-  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
-  const [currentShift, setCurrentShift] = useState<Shift | null>(null);
-  const [newShiftDayIndex, setNewShiftDayIndex] = useState<number | undefined>(undefined);
-  const [newShiftHour, setNewShiftHour] = useState<number | undefined>(undefined);
-  const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
-  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
-
-  const hours = Array.from({ length: 24 }, (_, i) => i); // 0 AM to 23 PM
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const hours = Array.from({ length: 24 }, (_, i) => i)
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
   useEffect(() => {
     const fetchStaffAndSchedule = async () => {
       try {
-        // Fetch Staff Members
-        const staffResponse = await fetch('/api/staff/', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        });
-        if (!staffResponse.ok) throw new Error('Failed to fetch staff members');
-        const staffData = await staffResponse.json();
-        setStaffMembers(staffData);
+        const token = localStorage.getItem("access_token")
+        if (!token) {
+          console.error("No access token found")
+          return
+        }
 
-        // Fetch Weekly Schedule for current week
-        // For simplicity, let's assume the backend returns the current week's schedule
-        // or the first available schedule if none exists for the exact week.
-        const scheduleResponse = await fetch('/api/scheduling/weekly-schedules/', {
+        const staffResponse = await fetch("/api/staff/", {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem("access_token")}`,
+            Authorization: `Bearer ${token}`,
           },
-        }); // Adjust if filtering by date is needed
-        if (!scheduleResponse.ok) throw new Error('Failed to fetch weekly schedule');
-        const schedules = await scheduleResponse.json();
+        })
+        if (!staffResponse.ok) throw new Error("Failed to fetch staff members")
+        const staffData: StaffMember[] = await staffResponse.json()
+        setStaffMembers(staffData)
 
-        // Assuming we take the first schedule found or handle multiple schedules later
+        const scheduleResponse = await fetch("/api/scheduling/weekly-schedules/", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        if (!scheduleResponse.ok) throw new Error("Failed to fetch weekly schedule")
+        const schedules = await scheduleResponse.json()
+
         if (schedules.length > 0) {
-          setWeeklySchedule(schedules[0]);
-          setShifts(schedules[0].assigned_shifts.map((shift: any) => ({ // Map backend shift to frontend Shift type
-            id: shift.id,
-            title: shift.notes || `Shift for ${staffData.find((s: any) => s.id === shift.staff)?.first_name}`,
-            start: shift.start_time.substring(0, 5),
-            end: shift.end_time.substring(0, 5),
-            type: 'confirmed', // Assuming all fetched are confirmed for now
-            day: new Date(shift.shift_date).getDay() === 0 ? 6 : new Date(shift.shift_date).getDay() - 1, // Convert Sunday(0) to 6, Monday(1) to 0 etc.
-            staffId: shift.staff,
-            color: "#6b7280", // Default color, can be dynamic from backend
-          })));
+          setWeeklySchedule(schedules[0])
+          setShifts(
+            schedules[0].assigned_shifts.map((shift: BackendShift) => ({
+              id: shift.id,
+              title: shift.notes || `Shift for ${staffData.find((s: StaffMember) => s.id === shift.staff)?.first_name}`,
+              start: shift.start_time.substring(0, 5),
+              end: shift.end_time.substring(0, 5),
+              type: "confirmed" as const,
+              day: new Date(shift.shift_date).getDay() === 0 ? 6 : new Date(shift.shift_date).getDay() - 1,
+              staffId: shift.staff,
+              color: shift.color || "#6b7280",
+            })),
+          )
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching data:", error)
       }
-    };
+    }
 
-    fetchStaffAndSchedule();
-  }, []);
+    fetchStaffAndSchedule()
+  }, [])
 
   const getShiftPosition = (shift: Shift) => {
-    const [startHour, startMinute] = shift.start.split(":").map(Number);
-    const [endHour, endMinute] = shift.end.split(":").map(Number);
+    const [startHour, startMinute] = shift.start.split(":").map(Number)
+    const [endHour, endMinute] = shift.end.split(":").map(Number)
 
-    const startPosition = ((startHour) * 60 + startMinute) / 60 * 80; // 80px per hour
-    const duration = ((endHour - startHour) * 60 + (endMinute - startMinute)) / 60 * 80;
+    const startPosition = ((startHour * 60 + startMinute) / 60) * 80
+    const duration = (((endHour - startHour) * 60 + (endMinute - startMinute)) / 60) * 80
 
-    return { top: startPosition, height: duration };
-  };
+    return { top: startPosition, height: duration }
+  }
 
   const handleCopyShift = (shift: Shift) => {
-    setCopiedShift(shift);
-    setSelectedShift(null);
-  };
+    setCopiedShift(shift)
+    setSelectedShift(null)
+  }
 
   const handlePasteShift = (targetDay: number) => {
-    if (!copiedShift) return;
+    if (!copiedShift) return
 
     const newShift: Shift = {
       ...copiedShift,
       id: Date.now().toString(),
-      day: targetDay
-    };
+      day: targetDay,
+    }
 
-    setShifts(prev => [...prev, newShift]);
-    setSelectedShift(newShift);
-  };
+    setShifts((prev) => [...prev, newShift])
+    setSelectedShift(newShift)
+  }
 
   const handleSetRecurring = (shift: Shift) => {
-    setSelectedShift(shift);
-    setShowRecurringModal(true);
-  };
+    setSelectedShift(shift)
+    setShowRecurringModal(true)
+  }
+
+  // export default function TeamMembersCard() {
+  // const [staff, setStaff] = useState([]);
+  // const [loading, setLoading] = useState(true);
+
+  // useEffect(() => {
+  //   const fetchStaff = async () => {
+  //     try {
+  //       const res = await fetch("/api/staff/");
+  //       const data = await res.json();
+  //       setStaff(data);
+  //     } catch (error) {
+  //       console.error("Error fetching staff:", error);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+
+  //   fetchStaff();
+  // }, []);
 
   const handleDeleteShift = async (shiftId: string) => {
     if (!weeklySchedule) {
-      console.error("No weekly schedule available to delete shifts.");
-      return;
+      console.error("No weekly schedule available to delete shifts.")
+      return
     }
     try {
-      const response = await fetch(`/api/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/${shiftId}/`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem("access_token")}`,
+      const token = localStorage.getItem("access_token")
+      if (!token) {
+        console.error("No access token found")
+        return
+      }
+
+      const response = await fetch(
+        `/api/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/${shiftId}/`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      )
 
-      if (!response.ok) throw new Error('Failed to delete shift');
+      if (!response.ok) throw new Error("Failed to delete shift")
 
-      setShifts(prev => prev.filter(shift => shift.id !== shiftId));
-      setSelectedShift(null);
+      setShifts((prev) => prev.filter((shift) => shift.id !== shiftId))
+      setSelectedShift(null)
     } catch (error) {
-      console.error("Error deleting shift:", error);
+      console.error("Error deleting shift:", error)
     }
-  };
+  }
 
   const handleCreateShift = (dayIndex: number, hour: number) => {
-    setCurrentShift(null);
-    setNewShiftDayIndex(dayIndex);
-    setNewShiftHour(hour);
-    setIsShiftModalOpen(true);
-  };
+    setCurrentShift(null)
+    setNewShiftDayIndex(dayIndex)
+    setNewShiftHour(hour)
+    setIsShiftModalOpen(true)
+  }
 
   const handleEditShift = (shift: Shift) => {
-    setCurrentShift(shift);
-    setIsShiftModalOpen(true);
-  };
+    setCurrentShift(shift)
+    setIsShiftModalOpen(true)
+  }
 
   const handleSaveShift = async (shift: Shift) => {
     if (!weeklySchedule) {
-      console.error("No weekly schedule available to save shifts.");
-      return;
+      console.error("No weekly schedule available to save shifts.")
+      return
     }
 
     const shiftDataForBackend = {
       staff: shift.staffId,
-      shift_date: new Date(currentDate.setDate(currentDate.getDate() - currentDate.getDay() + 1 + shift.day)).toISOString().split('T')[0],
+      shift_date: new Date(currentDate.setDate(currentDate.getDate() - currentDate.getDay() + 1 + shift.day))
+        .toISOString()
+        .split("T")[0],
       start_time: shift.start,
       end_time: shift.end,
-      role: staffMembers.find(s => s.id === shift.staffId)?.role || "",
+      role: staffMembers.find((s) => s.id === shift.staffId)?.role || "",
       notes: shift.title,
-    };
+      color: shift.color || "#6b7280",
+    }
 
     try {
-      if (shifts.some(s => s.id === shift.id)) {
-        // Update existing shift
-        const response = await fetch(`/api/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/${shift.id}/`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem("access_token")}`,
-          },
-          body: JSON.stringify(shiftDataForBackend),
-        });
+      const token = localStorage.getItem("access_token")
+      if (!token) {
+        console.error("No access token found")
+        return
+      }
 
-        if (!response.ok) throw new Error('Failed to update shift');
-        const updatedShift = await response.json();
-        setShifts(prev => prev.map(s => (s.id === updatedShift.id ? { // Map backend response to frontend Shift type
-          id: updatedShift.id,
-          title: updatedShift.notes || `Shift for ${staffMembers.find((s: any) => s.id === updatedShift.staff)?.first_name}`,
-          start: updatedShift.start_time.substring(0, 5),
-          end: updatedShift.end_time.substring(0, 5),
-          type: 'confirmed',
-          day: new Date(updatedShift.shift_date).getDay() === 0 ? 6 : new Date(updatedShift.shift_date).getDay() - 1,
-          staffId: updatedShift.staff,
-          color: shift.color,
-        } : s)));
+      if (shifts.some((s) => s.id === shift.id)) {
+        const response = await fetch(
+          `/api/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/${shift.id}/`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(shiftDataForBackend),
+          },
+        )
+
+        if (!response.ok) throw new Error("Failed to update shift")
+        const updatedShift = await response.json()
+        setShifts((prev) =>
+          prev.map((s) =>
+            s.id === updatedShift.id
+              ? {
+                  id: updatedShift.id,
+                  title:
+                    updatedShift.notes ||
+                    `Shift for ${staffMembers.find((s: StaffMember) => s.id === updatedShift.staff)?.first_name}`,
+                  start: updatedShift.start_time.substring(0, 5),
+                  end: updatedShift.end_time.substring(0, 5),
+                  type: "confirmed" as const,
+                  day:
+                    new Date(updatedShift.shift_date).getDay() === 0
+                      ? 6
+                      : new Date(updatedShift.shift_date).getDay() - 1,
+                  staffId: updatedShift.staff,
+                  color: updatedShift.color || shift.color,
+                }
+              : s,
+          ),
+        )
       } else {
-        // Add new shift
         const response = await fetch(`/api/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem("access_token")}`,
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(shiftDataForBackend),
-        });
+        })
 
-        if (!response.ok) throw new Error('Failed to create shift');
-        const newShift = await response.json();
-        setShifts(prev => [...prev, {
-          id: newShift.id,
-          title: newShift.notes || `Shift for ${staffMembers.find((s: any) => s.id === newShift.staff)?.first_name}`,
-          start: newShift.start_time.substring(0, 5),
-          end: newShift.end_time.substring(0, 5),
-          type: 'confirmed',
-          day: new Date(newShift.shift_date).getDay() === 0 ? 6 : new Date(newShift.shift_date).getDay() - 1,
-          staffId: newShift.staff,
-          color: shift.color,
-        }]);
+        if (!response.ok) throw new Error("Failed to create shift")
+        const newShift = await response.json()
+        setShifts((prev) => [
+          ...prev,
+          {
+            id: newShift.id,
+            title:
+              newShift.notes ||
+              `Shift for ${staffMembers.find((s: StaffMember) => s.id === newShift.staff)?.first_name}`,
+            start: newShift.start_time.substring(0, 5),
+            end: newShift.end_time.substring(0, 5),
+            type: "confirmed" as const,
+            day: new Date(newShift.shift_date).getDay() === 0 ? 6 : new Date(newShift.shift_date).getDay() - 1,
+            staffId: newShift.staff,
+            color: newShift.color || shift.color,
+          },
+        ])
       }
     } catch (error) {
-      console.error("Error saving shift:", error);
+      console.error("Error saving shift:", error)
     }
-    setIsShiftModalOpen(false);
-    setCurrentShift(null);
-    setNewShiftDayIndex(undefined);
-    setNewShiftHour(undefined);
-  };
+    setIsShiftModalOpen(false)
+    setCurrentShift(null)
+    setNewShiftDayIndex(undefined)
+    setNewShiftHour(undefined)
+  }
 
-  const navigateDate = (direction: 'prev' | 'next') => {
-    setCurrentDate(prev => {
-      const newDate = new Date(prev);
-      if (view === 'week') {
-        newDate.setDate(prev.getDate() + (direction === 'next' ? 7 : -7));
-      } else if (view === 'day') {
-        newDate.setDate(prev.getDate() + (direction === 'next' ? 1 : -1));
+  const navigateDate = (direction: "prev" | "next") => {
+    setCurrentDate((prev) => {
+      const newDate = new Date(prev)
+      if (view === "week") {
+        newDate.setDate(prev.getDate() + (direction === "next" ? 7 : -7))
+      } else if (view === "day") {
+        newDate.setDate(prev.getDate() + (direction === "next" ? 1 : -1))
       } else {
-        newDate.setMonth(prev.getMonth() + (direction === 'next' ? 1 : -1));
+        newDate.setMonth(prev.getMonth() + (direction === "next" ? 1 : -1))
       }
-      return newDate;
-    });
-  };
+      return newDate
+    })
+  }
 
   const goToToday = () => {
-    setCurrentDate(new Date());
-  };
+    setCurrentDate(new Date())
+  }
 
-  const getWeekDates = () => {
-    const start = new Date(currentDate);
-    start.setDate(start.getDate() - start.getDay() + 1); // Start from Monday
-    return Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(start);
-      date.setDate(start.getDate() + i);
-      return date;
-    });
-  };
+  const getWeekStart = (date: Date) => {
+    const d = new Date(date)
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    return new Date(d.setDate(diff))
+  }
+
+  const weekDates = useMemo(() => {
+    const dates: Date[] = []
+    const start = getWeekStart(currentDate)
+
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(start)
+      date.setDate(start.getDate() + i)
+      dates.push(date)
+    }
+
+    return dates
+  }, [currentDate])
 
   const getDateDisplay = () => {
-    if (view === 'week') {
-      const weekDates = getWeekDates();
-      // Display current week as "MMM D - MMM D, YYYY" (e.g. "May 13 - May 19, 2024")
-      const firstDay = weekDates[0];
-      const lastDay = weekDates[6];
-      const firstMonth = firstDay.toLocaleString('en-US', { month: 'short' });
-      const lastMonth = lastDay.toLocaleString('en-US', { month: 'short' });
-      const firstDate = firstDay.getDate();
-      const lastDate = lastDay.getDate();
-      const year = lastDay.getFullYear();
-      return `${firstMonth} ${firstDate} - ${lastMonth} ${lastDate}, ${year}`;
+    if (view === "week") {
+      const firstDay = weekDates[0]
+      const lastDay = weekDates[6]
+      const firstMonth = firstDay.toLocaleString("en-US", { month: "short" })
+      const lastMonth = lastDay.toLocaleString("en-US", { month: "short" })
+      const firstDate = firstDay.getDate()
+      const lastDate = lastDay.getDate()
+      const year = lastDay.getFullYear()
+      return `${firstMonth} ${firstDate} - ${lastMonth} ${lastDate}, ${year}`
     }
-    return currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  };
+    return currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+  }
 
   const RecurringModal = () => (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -329,7 +383,9 @@ const GoogleCalendarScheduler = () => {
 
         <div className="space-y-4">
           <div>
-            <label htmlFor="repeat-every" className="text-sm font-medium">Repeat every</label>
+            <label htmlFor="repeat-every" className="text-sm font-medium">
+              Repeat every
+            </label>
             <select id="repeat-every" className="w-full p-2 border rounded mt-1">
               <option>Week</option>
               <option>2 Weeks</option>
@@ -341,7 +397,7 @@ const GoogleCalendarScheduler = () => {
             <label className="text-sm font-medium">On days</label>
             <div className="grid grid-cols-7 gap-1 mt-2">
               {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => (
-                <button key={i} className="w-8 h-8 border rounded text-sm hover:bg-gray-50">
+                <button key={i} className="w-8 h-8 border rounded text-sm hover:bg-gray-50" type="button">
                   {day}
                 </button>
               ))}
@@ -349,7 +405,9 @@ const GoogleCalendarScheduler = () => {
           </div>
 
           <div>
-            <label htmlFor="end-date" className="text-sm font-medium">End date</label>
+            <label htmlFor="end-date" className="text-sm font-medium">
+              End date
+            </label>
             <input id="end-date" type="date" className="w-full p-2 border rounded mt-1" />
           </div>
         </div>
@@ -358,48 +416,34 @@ const GoogleCalendarScheduler = () => {
           <Button variant="outline" onClick={() => setShowRecurringModal(false)}>
             Cancel
           </Button>
-          <Button onClick={() => {
-            // Implement recurring logic here
-            setShowRecurringModal(false);
-          }}>
+          <Button
+            onClick={() => {
+              setShowRecurringModal(false)
+            }}
+          >
             Set Recurring
           </Button>
         </div>
       </div>
     </div>
-  );
-
-  const weekDates = getWeekDates();
+  )
 
   return (
     <div className="bg-white rounded-lg border shadow-sm h-[600px] flex flex-col">
-      {/* Calendar Header */}
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center space-x-4">
           <Button variant="outline" size="sm" onClick={goToToday}>
             Today
           </Button>
           <div className="flex items-center space-x-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="p-2"
-              onClick={() => navigateDate('prev')}
-            >
+            <Button variant="ghost" size="sm" className="p-2" onClick={() => navigateDate("prev")}>
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="p-2"
-              onClick={() => navigateDate('next')}
-            >
+            <Button variant="ghost" size="sm" className="p-2" onClick={() => navigateDate("next")}>
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
-          <h2 className="text-xl font-semibold">
-            {getDateDisplay()}
-          </h2>
+          <h2 className="text-xl font-semibold">{getDateDisplay()}</h2>
         </div>
 
         <div className="flex items-center space-x-2">
@@ -431,16 +475,12 @@ const GoogleCalendarScheduler = () => {
           </div>
 
           <div className="flex items-center space-x-2">
-            {copiedShift && ( // Only show if a shift is copied
+            {copiedShift && (
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                 Shift Copied
               </Badge>
             )}
-            <Button
-              size="sm"
-              className="bg-blue-600 hover:bg-blue-700"
-              onClick={() => handleCreateShift(0, 9)}
-            >
+            <Button size="sm" className="bg-green-700 hover:bg-green-700" onClick={() => handleCreateShift(0, 9)}>
               <Plus className="w-4 h-4 mr-2" />
               Create
             </Button>
@@ -448,31 +488,29 @@ const GoogleCalendarScheduler = () => {
         </div>
       </div>
 
-      {/* Calendar Grid */}
       <div className="flex-1 overflow-auto">
         <div className="flex min-w-full">
-          {/* Time Column */}
           <div className="w-16 flex-shrink-0">
             <div className="h-12 border-b"></div>
-            {hours.map(hour => (
+            {hours.map((hour) => (
               <div key={hour} className="h-20 border-b text-xs text-gray-500 p-1">
-                {String(hour).padStart(2, '0')}:00
+                {String(hour).padStart(2, "0")}:00
               </div>
             ))}
           </div>
 
-          {/* Days Columns */}
           <div className="flex-1 grid grid-cols-7 min-w-0">
             {days.map((day, dayIndex) => (
               <div key={day} className="border-l">
-                {/* Day Header */}
                 <div
                   className="h-12 border-b flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50"
                   onClick={() => handlePasteShift(dayIndex)}
                 >
                   <div className="text-sm font-medium">{day}</div>
-                  <div className="text-xs text-gray-500">Jan {weekDates[dayIndex]?.getDate()}</div>
-                  {copiedShift && ( // Only show if a shift is copied
+                  <div className="text-xs text-gray-500">
+                    {weekDates[dayIndex]?.toLocaleString("en-US", { month: "short" })} {weekDates[dayIndex]?.getDate()}
+                  </div>
+                  {copiedShift && (
                     <div className="absolute top-1 right-1">
                       <Badge variant="outline" className="text-xs bg-green-100">
                         Paste
@@ -481,9 +519,8 @@ const GoogleCalendarScheduler = () => {
                   )}
                 </div>
 
-                {/* Time Slots */}
                 <div className="relative">
-                  {hours.map(hour => (
+                  {hours.map((hour) => (
                     <div
                       key={hour}
                       className="h-20 border-b cursor-pointer hover:bg-gray-50"
@@ -491,13 +528,13 @@ const GoogleCalendarScheduler = () => {
                     ></div>
                   ))}
 
-                  {/* Shifts */}
                   {shifts
-                    .filter(shift => shift.day === dayIndex)
-                    .map(shift => {
-                      const position = getShiftPosition(shift);
-                      const assignedStaff = staffMembers.find(staff => String(staff.id) === String(shift.staffId));
-                      const shiftTitle = assignedStaff ? `${assignedStaff.first_name} ${assignedStaff.last_name} - ${shift.title}` : shift.title;
+                    .filter((shift) => shift.day === dayIndex)
+                    .map((shift) => {
+                      const position = getShiftPosition(shift)
+                      const assignedStaff = staffMembers.find((staff) => String(staff.id) === String(shift.staffId))
+                      const staffName = assignedStaff ? `${assignedStaff.first_name} ${assignedStaff.last_name}` : ""
+                      const shiftTitle = shift.title ? `${staffName} - ${shift.title}` : staffName
 
                       return (
                         <div
@@ -506,8 +543,8 @@ const GoogleCalendarScheduler = () => {
                           style={{
                             top: `${position.top}px`,
                             height: `${position.height}px`,
-                            backgroundColor: shift.color ? `${shift.color}20` : '#f3f4f6',
-                            borderLeftColor: shift.color || '#6b7280'
+                            backgroundColor: shift.color ? `${shift.color}20` : "#f3f4f6",
+                            borderLeftColor: shift.color || "#6b7280",
                           }}
                           onClick={() => handleEditShift(shift)}
                         >
@@ -523,8 +560,8 @@ const GoogleCalendarScheduler = () => {
                                 size="sm"
                                 className="h-6 w-6 p-0 bg-white"
                                 onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCopyShift(shift);
+                                  e.stopPropagation()
+                                  handleCopyShift(shift)
                                 }}
                               >
                                 <Copy className="w-3 h-3" />
@@ -534,8 +571,8 @@ const GoogleCalendarScheduler = () => {
                                 size="sm"
                                 className="h-6 w-6 p-0 bg-white"
                                 onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSetRecurring(shift);
+                                  e.stopPropagation()
+                                  handleSetRecurring(shift)
                                 }}
                               >
                                 <Repeat className="w-3 h-3" />
@@ -545,8 +582,8 @@ const GoogleCalendarScheduler = () => {
                                 size="sm"
                                 className="h-6 w-6 p-0 bg-white"
                                 onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteShift(shift.id);
+                                  e.stopPropagation()
+                                  handleDeleteShift(shift.id)
                                 }}
                               >
                                 <Trash2 className="w-3 h-3" />
@@ -554,7 +591,7 @@ const GoogleCalendarScheduler = () => {
                             </div>
                           )}
                         </div>
-                      );
+                      )
                     })}
                 </div>
               </div>
@@ -576,45 +613,39 @@ const GoogleCalendarScheduler = () => {
         />
       )}
     </div>
-  );
-};
+  )
+}
 
 export default function Staff() {
-  const [selectedWeek, setSelectedWeek] = useState("This Week");
-  const [showAIRecommendations, setShowAIRecommendations] = useState(false);
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "confirmed":
-        return <Badge className="bg-success text-success-foreground text-xs">Confirmed</Badge>;
-      case "pending":
-        return <Badge className="bg-warning text-warning-foreground text-xs">Pending</Badge>;
-      case "urgent":
-        return <Badge variant="destructive" className="text-xs">URGENT</Badge>;
-      default:
-        return <Badge variant="outline" className="text-xs">{status}</Badge>;
-    }
-  };
+  const [showAIRecommendations, setShowAIRecommendations] = useState(false)
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Staff Management</h1>
         </div>
+        <Button
+          className="gap-2 bg-primary hover:bg-primary/90"
+          onClick={() => (window.location.href = "staff/add-staff")}
+        >
+          <Plus className="h-4 w-4" />
+          Add Staff
+        </Button>
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="schedule">Schedule Staff</TabsTrigger>
+          <TabsTrigger value="schedule">Staff Schedule </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          {/* Minimal AI Staff Insights */}
           <Card className="border-accent/20 shadow-soft">
-            <CardHeader className="pb-3 cursor-pointer" onClick={() => setShowAIRecommendations(!showAIRecommendations)}>
+            <CardHeader
+              className="pb-3 cursor-pointer"
+              onClick={() => setShowAIRecommendations(!showAIRecommendations)}
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Sparkles className="w-5 h-5 text-accent" />
@@ -638,7 +669,6 @@ export default function Staff() {
             )}
           </Card>
 
-          {/* Staff Overview Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
             <Card className="shadow-soft">
               <CardContent className="p-3 sm:p-4">
@@ -690,40 +720,44 @@ export default function Staff() {
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            {/* Staff List */}
             <Card className="shadow-soft">
               <CardHeader>
                 <CardTitle>Team Members</CardTitle>
                 <CardDescription>Current staff roster and availability</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {/* Staff members will be fetched or passed as props */}
-                {/* For now, we'll show a placeholder */}
                 <div className="flex items-center justify-between p-3 bg-secondary rounded-lg">
                   <div className="flex items-center space-x-3 min-w-0 flex-1">
                     <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
                       <span className="text-primary-foreground font-medium text-sm">?</span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-sm sm:text-base truncate">Staff Member</h3>
-                      <p className="text-xs sm:text-sm text-muted-foreground truncate">Role</p>
-                      <p className="text-xs text-muted-foreground truncate">Schedule</p>
+                      <h3 className="font-semibold text-sm sm:text-base truncate">
+                        {/* {member.name} */}
+                        </h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                        {/* {member.role} */}
+                        </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {/* {member.schedule} */}
+                        </p>
                     </div>
                   </div>
                   <div className="text-right space-y-1 ml-2">
                     <Badge variant="outline" className="text-xs">
-                      Status
+                    {/* {member.status} */}
                     </Badge>
                     <div className="text-xs text-muted-foreground whitespace-nowrap">
-                      0h this week
-                    </div>
-                    <div className="text-xs">⭐ 0</div>
+                      {/* {member.hours}h this week */}
+                      </div>
+                    <div className="text-xs">⭐ 
+                      {/* {member.rating} */}
+                      </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Weekly Schedule */}
             <Card className="shadow-soft">
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -731,19 +765,16 @@ export default function Staff() {
                     <CardTitle>Weekly Schedule</CardTitle>
                     <CardDescription>Current and upcoming shifts</CardDescription>
                   </div>
-                  <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto bg-transparent">
                     <Calendar className="w-4 h-4 mr-2" />
                     View Calendar
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4 max-h-[600px] overflow-y-auto">
-                {/* Removed previous weeklySchedule.map block */}
-              </CardContent>
+              <CardContent className="space-y-4 max-h-[600px] overflow-y-auto"></CardContent>
             </Card>
           </div>
 
-          {/* Quick Actions */}
           <Card className="shadow-soft">
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
@@ -751,15 +782,15 @@ export default function Staff() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Button variant="outline" className="h-14 sm:h-16 flex flex-col gap-1 p-2">
+                <Button variant="outline" className="h-14 sm:h-16 flex flex-col gap-1 p-2 bg-transparent">
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="text-xs sm:text-sm text-center">Auto-Schedule</span>
                 </Button>
-                <Button variant="outline" className="h-14 sm:h-16 flex flex-col gap-1 p-2">
+                <Button variant="outline" className="h-14 sm:h-16 flex flex-col gap-1 p-2 bg-transparent">
                   <Users className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="text-xs sm:text-sm text-center">Shift Notifications</span>
                 </Button>
-                <Button variant="outline" className="h-14 sm:h-16 flex flex-col gap-1 p-2">
+                <Button variant="outline" className="h-14 sm:h-16 flex flex-col gap-1 p-2 bg-transparent">
                   <UserCheck className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="text-xs sm:text-sm text-center">Timesheets</span>
                 </Button>
@@ -773,5 +804,5 @@ export default function Staff() {
         </TabsContent>
       </Tabs>
     </div>
-  );
+  )
 }

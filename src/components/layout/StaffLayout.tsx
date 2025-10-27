@@ -1,6 +1,6 @@
 import React from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { useAuth } from '../../hooks/use-auth';
+import { useAuth } from '@/hooks/use-auth';
 import { Clock, Calendar, LogOut, User, ShoppingCart, UtensilsCrossed, LayoutDashboard, MessageSquare } from "lucide-react";
 
 const StaffLayout: React.FC = () => {
