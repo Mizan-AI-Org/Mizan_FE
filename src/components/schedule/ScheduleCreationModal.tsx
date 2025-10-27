@@ -42,6 +42,7 @@ const ScheduleCreationModal: React.FC<ScheduleCreationModalProps> = ({
     const [newTask, setNewTask] = useState<string>('');
     const [isRecurring, setIsRecurring] = useState<boolean>(initialData?.is_recurring || false);
     const [recurrencePattern, setRecurrencePattern] = useState<string>(initialData?.recurrence_pattern || '');
+    const [color, setColor] = useState<string>(initialData?.color || '#3b82f6');
     const [staffList, setStaffList] = useState<StaffMember[]>([]); // New state for staff list
 
     useEffect(() => {
@@ -71,6 +72,7 @@ const ScheduleCreationModal: React.FC<ScheduleCreationModalProps> = ({
                 setTasks(initialData.tasks || []);
                 setIsRecurring(initialData.is_recurring || false);
                 setRecurrencePattern(initialData.recurrence_pattern || '');
+                setColor(initialData.color || '#3b82f6');
             } else {
                 // Reset form when modal is opened without initial data
                 setStaffId('');
@@ -83,6 +85,7 @@ const ScheduleCreationModal: React.FC<ScheduleCreationModalProps> = ({
                 setNewTask('');
                 setIsRecurring(false);
                 setRecurrencePattern('');
+                setColor('#3b82f6');
             }
         }
     }, [initialData, isOpen]);
@@ -118,6 +121,7 @@ const ScheduleCreationModal: React.FC<ScheduleCreationModalProps> = ({
             tasks,
             is_recurring: isRecurring,
             recurrence_pattern: isRecurring ? recurrencePattern : null,
+            color,
         };
         onSave(scheduleData);
         onClose();
@@ -234,6 +238,18 @@ const ScheduleCreationModal: React.FC<ScheduleCreationModalProps> = ({
                             value={endTime}
                             onChange={(e) => setEndTime(e.target.value)}
                             className="col-span-3"
+                        />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="color" className="text-right">
+                            Color
+                        </Label>
+                        <Input
+                            id="color"
+                            type="color"
+                            value={color}
+                            onChange={(e) => setColor(e.target.value)}
+                            className="col-span-3 h-8"
                         />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">

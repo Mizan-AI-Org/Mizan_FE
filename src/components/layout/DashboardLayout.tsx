@@ -2,7 +2,7 @@ import React from 'react';
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { ChefHat, ArrowLeft, Home, LogOut, User, Bell, Users, CalendarDays, Utensils, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from '../../hooks/use-auth';
+import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useNotifications } from '../../hooks/useNotifications';
 import {
