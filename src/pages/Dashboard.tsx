@@ -11,6 +11,8 @@ import {
   Settings,
   Users,
   Brain,
+  Clock,
+  Zap,
 } from "lucide-react";
 
 const apps = [
@@ -28,7 +30,13 @@ const apps = [
     gradient: "bg-gradient-to-br from-violet-500 to-purple-500",
     description: "Schedule and manage staff",
   },
-
+  {
+    name: "Tasks",
+    href: "/dashboard/tasks",
+    icon: Clock,
+    gradient: "bg-gradient-to-br from-rose-500 to-pink-500",
+    description: "Manage daily tasks",
+  },
   {
     name: "Kitchen Display",
     href: "/dashboard/kitchen",
@@ -70,6 +78,13 @@ const apps = [
     icon: Settings,
     gradient: "bg-gradient-to-br from-amber-500 to-orange-500",
     description: "Configure your system",
+  },
+  {
+    name: "Advanced Settings",
+    href: "/dashboard/advanced-settings",
+    icon: Zap,
+    gradient: "bg-gradient-to-br from-teal-500 to-cyan-500",
+    description: "Geolocation, POS & AI",
   },
 ];
 

@@ -1,9 +1,10 @@
-import { Controller, Post, Body, UseGuards, Get, Delete, Param, Put, Query } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Delete, Param, Put, Query, Req } from '@nestjs/common';
 import type { Request } from 'express';
-import { BackendService, InviteStaffData, User, StaffListItem, StaffDashboardSummary, StaffOperationResponse } from '../services/backend.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { Roles } from '../decorators/roles.decorator';
+import type { InviteStaffData, StaffDashboardSummary, StaffListItem, StaffOperationResponse, User } from '../lib/types';
+import { BackendService } from '@/lib/api';
 
 declare module 'express' {
     interface Request {
