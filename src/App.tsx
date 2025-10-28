@@ -18,35 +18,35 @@ import InventoryItemsPage from "./pages/inventory/InventoryItemsPage";
 import SuppliersPage from "./pages/inventory/SuppliersPage";
 import PurchaseOrdersPage from "./pages/inventory/PurchaseOrdersPage";
 import StockAdjustmentsPage from "./pages/inventory/StockAdjustmentsPage";
-import TablesPage from "./pages/pos/TablesPage";
-import OrdersPage from "./pages/pos/OrdersPage";
 import ReportingPage from "./pages/reporting/ReportingPage";
 import DailySalesReportsPage from "./pages/reporting/DailySalesReportsPage";
 import AttendanceReportsPage from "./pages/reporting/AttendanceReportsPage";
 import InventoryReportsPage from "./pages/reporting/InventoryReportsPage";
 import TimeClockPage from "./pages/TimeClockPage";
+import ShiftDetailView from "./pages/ShiftDetailView";
+import Staff from "./pages/Staff";
+import AddStaff from "./pages/AddStaff";
 
 // Lazy-loaded components
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
-const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
+const AdminDashboard = React.lazy(() => import("./pages/AdminAnalytics"));
 const KitchenDisplay = React.lazy(() => import("./pages/KitchenDisplay"));
 const InventoryManagement = React.lazy(() => import("./pages/InventoryManagement"));
 const MenuManagement = React.lazy(() => import("./pages/MenuManagement"));
 const FloorManagement = React.lazy(() => import("./pages/FloorManagement"));
 const Inventory = React.lazy(() => import("./pages/Inventory"));
-const Staff = React.lazy(() => import("./pages/Staff"));
-const Analytics = React.lazy(() => import("./pages/Analytics"));
-const AIAssistant = React.lazy(() => import("./pages/AIAssistant"));
+const EnhancedAIAssistant = React.lazy(() => import("./pages/EnhancedAIAssistant"));
 const Auth = React.lazy(() => import("./pages/Auth"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
-const POS = React.lazy(() => import("./pages/POS"));
 const StaffDashboard = React.lazy(() => import("./pages/StaffDashboard"));
 const PinLogin = React.lazy(() => import("./components/auth/PinLogin"));
 const ProfileSettings = React.lazy(() => import("./pages/ProfileSettings"));
+const AdvancedSettings = React.lazy(() => import("./pages/AdvancedSettings"));
 const StaffManagement = React.lazy(() => import("./pages/StaffManagement"));
 const ScheduleManagement = React.lazy(() => import("./pages/ScheduleManagement"));
 const WeeklyScheduleView = React.lazy(() => import("./pages/WeeklyScheduleView"));
-const ShiftDetailView = React.lazy(() => import("./pages/ShiftDetailView"));
+const TaskManagementBoard = React.lazy(() => import("./pages/TaskManagementBoard"));
+
 const ManagerSwapRequests = React.lazy(() => import("./pages/ManagerSwapRequests"));
 const AttendanceHistory = React.lazy(() => import("./pages/AttendanceHistory"));
 const TableManagement = React.lazy(() => import("./pages/TableManagement"));
@@ -153,16 +153,6 @@ const App = () => {
                     <StockAdjustmentsPage />
                   </RoleBasedRoute>
                 } />
-                <Route path="dashboard/pos/tables" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <TablesPage />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/pos/orders" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'WAITER', 'CASHIER']}>
-                    <OrdersPage />
-                  </RoleBasedRoute>
-                } />
                 <Route path="dashboard/menu" element={
                   <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
                     <MenuManagement />
@@ -203,13 +193,15 @@ const App = () => {
                     <Staff />
                   </RoleBasedRoute>
                 } />
-                {/* <Route path="analytics" element={
+                <Route path="staff/add-staff" element={
                   <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <Analytics />
+                    <AddStaff />
                   </RoleBasedRoute>
-                } /> */}
-                <Route path="dashboard/assistant" element={<AIAssistant />} />
+                } />
+                <Route path="dashboard/assistant" element={<EnhancedAIAssistant />} />
                 <Route path="dashboard/settings" element={<ProfileSettings />} />
+                <Route path="dashboard/advanced-settings" element={<AdvancedSettings />} />
+                <Route path="dashboard/tasks" element={<TaskManagementBoard />} />
                 <Route path="dashboard/reports" element={
                   <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'MANAGER']}>
                     <ReportsPage />

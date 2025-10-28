@@ -86,7 +86,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         errorData = JSON.parse(responseText);
       } catch (e) {
         console.error("Failed to parse error response as JSON:", e, "Raw response:", responseText);
+        errorData.message = "An unexpected error occurred."; // Set a default message if parsing fails
       }
+      console.error("Login error:", errorData.message);
       throw new Error(errorData.message || "Login failed");
     }
 

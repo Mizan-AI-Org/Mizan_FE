@@ -22,10 +22,15 @@ import {
 } from "lucide-react";
 import MenuScanner from "@/components/MenuScanner";
 import POSIntegration from "@/components/POSIntegration";
-import { useAuth } from "@/contexts/AuthContext";
+import GeolocationMapSettings from "@/components/settings/GeolocationMapSettings";
+import EnhancedPOSSettings from "@/components/settings/EnhancedPOSSettings";
+import DeliveryZoneManager from "@/components/settings/DeliveryZoneManager";
+import BrandCustomization from "@/components/settings/BrandCustomization";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
-import { StaffInvitation } from "@/lib/types";
+import type { StaffInvitation, User } from "../types/staff"; // Use type import for interfaces
+import axios from "axios";
+import { useNavigate } from 'react-router-dom';
 
 export default function Settings() {
   const [latitude, setLatitude] = useState<number>(0);
@@ -68,8 +73,6 @@ export default function Settings() {
     aiInsights: true,
   });
 
-  const { accessToken } = useAuth();
-
   // State for Invite Staff form
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteFirstName, setInviteFirstName] = useState("");
@@ -77,92 +80,128 @@ export default function Settings() {
   const [inviteRole, setInviteRole] = useState("STAFF"); // Default role
 
   const [pendingInvitations, setPendingInvitations] = useState<StaffInvitation[]>([]); // New state for pending invitations
+  const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+
+  const apiClient = axios.create({
+    baseURL: 'http://localhost:8000/api', // Or your backend API URL
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 
   useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    const storedUser = localStorage.getItem('user');
+    if (token && storedUser) {
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setUser(JSON.parse(storedUser));
+    } else {
+      navigate('/auth');
+    }
+
     const fetchSettings = async () => {
-      if (!accessToken) return;
       try {
-        const response = await apiClient.request(
-          "/accounts/restaurant/location/",
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setLatitude(data.latitude || 0);
-          setLongitude(data.longitude || 0);
-          setRadius(data.radius || 0);
-          setRestaurantName(data.name || "");
-          setRestaurantAddress(data.address || "");
-          setRestaurantPhone(data.phone || "");
-          setRestaurantEmail(data.email || "");
-          setTimezone(data.timezone || "America/New_York");
-          setCurrency(data.currency || "USD");
-          setLanguage(data.language || "en");
-          setOperatingHours(data.operating_hours || operatingHours);
-          setAutomaticClockOut(data.automatic_clock_out || false);
-          setBreakDuration(data.break_duration || 30);
-          setEmailNotifications(data.email_notifications || emailNotifications);
-          setPushNotifications(data.push_notifications || pushNotifications);
-        }
+        const response = await apiClient.get("/accounts/restaurant/location/");
+        const data = response.data;
+        setLatitude(data.latitude || 0);
+        setLongitude(data.longitude || 0);
+        setRadius(data.radius || 0);
+        setRestaurantName(data.name || "");
+        setRestaurantAddress(data.address || "");
+        setRestaurantPhone(data.phone || "");
+        setRestaurantEmail(data.email || "");
+        setTimezone(data.timezone || "America/New_York");
+        setCurrency(data.currency || "USD");
+        setLanguage(data.language || "en");
+        setOperatingHours(data.operating_hours || operatingHours);
+        setAutomaticClockOut(data.automatic_clock_out || false);
+        setBreakDuration(data.break_duration || 30);
+        setEmailNotifications(data.email_notifications || emailNotifications);
+        setPushNotifications(data.push_notifications || pushNotifications);
       } catch (error) {
         console.error("Failed to fetch restaurant settings:", error);
         toast.error("Failed to load restaurant settings.");
       }
 
       try {
-        const data = await apiClient.request(
-          "/accounts/staff/pending-invitations/",
-          { headers: { Authorization: `Bearer ${accessToken}` } }
+        const response = await apiClient.get(
+          "/accounts/staff/pending-invitations/"
         );
-        if (data.ok) {
-          const invitations = await data.json();
-          setPendingInvitations(invitations);
-        } else {
-          console.error("Failed to fetch pending invitations:", data.statusText);
-          toast.error("Failed to load pending invitations.");
-        }
+        const invitations = response.data;
+        setPendingInvitations(invitations);
       } catch (error) {
         console.error("Error fetching pending invitations:", error);
         toast.error("Failed to load pending invitations.");
       }
     };
     fetchSettings();
-  }, [accessToken]);
+  }, [navigate]);
 
-  const saveGeneralSettings = async () => {
-    if (!accessToken) return;
+  const saveLocationSettings = async (lat: number, lng: number, rad: number) => {
+    setLatitude(lat);
+    setLongitude(lng);
+    setRadius(rad);
+    
     try {
-      const response = await apiClient.request(
-        "/accounts/restaurant/update-location/", // This endpoint now handles general restaurant info as well
+      const response = await apiClient.put(
+        "/accounts/restaurant/update-location/",
         {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            latitude,
-            longitude,
-            radius,
-            name: restaurantName,
-            address: restaurantAddress,
-            phone: restaurantPhone,
-            email: restaurantEmail,
-            timezone, // Add timezone
-            currency, // Add currency
-            language, // Add language
-            operating_hours: operatingHours, // Add operating hours
-            automatic_clock_out: automaticClockOut, // Add automatic clock-out
-            break_duration: breakDuration, // Add break duration
-            email_notifications: emailNotifications, // Add email notification preferences
-            push_notifications: pushNotifications, // Add push notification preferences
-          }),
+          latitude: lat,
+          longitude: lng,
+          radius: rad,
+          name: restaurantName,
+          address: restaurantAddress,
+          phone: restaurantPhone,
+          email: restaurantEmail,
+          timezone,
+          currency,
+          language,
+          operating_hours: operatingHours,
+          automatic_clock_out: automaticClockOut,
+          break_duration: breakDuration,
+          email_notifications: emailNotifications,
+          push_notifications: pushNotifications,
         }
       );
-      if (response.ok) {
+      if (response.status === 200) {
+        toast.success("Location settings saved successfully!");
+      } else {
+        const errorData = response.data;
+        toast.error(`Failed to save settings: ${errorData.detail || errorData.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Error saving location settings:", error);
+      toast.error("Failed to save location settings.");
+    }
+  };
+
+  const saveGeneralSettings = async () => {
+    try {
+      const response = await apiClient.put(
+        "/accounts/restaurant/update-location/",
+        {
+          latitude,
+          longitude,
+          radius,
+          name: restaurantName,
+          address: restaurantAddress,
+          phone: restaurantPhone,
+          email: restaurantEmail,
+          timezone,
+          currency,
+          language,
+          operating_hours: operatingHours,
+          automatic_clock_out: automaticClockOut,
+          break_duration: breakDuration,
+          email_notifications: emailNotifications,
+          push_notifications: pushNotifications,
+        }
+      );
+      if (response.status === 200) {
         toast.success("General settings saved successfully!");
       } else {
-        const errorData = await response.json();
+        const errorData = response.data;
         toast.error(`Failed to save settings: ${errorData.detail || errorData.error || "Unknown error"}`);
       }
     } catch (error) {
@@ -187,35 +226,23 @@ export default function Settings() {
   };
 
   const handleInviteStaff = async () => {
-    if (!accessToken) {
-      toast.error("You are not authenticated.");
-      return;
-    }
-
     if (!inviteEmail || !inviteFirstName || !inviteLastName || !inviteRole) {
       toast.error("Please fill in all staff invitation fields.");
       return;
     }
 
     try {
-      const response = await apiClient.request(
+      const response = await apiClient.post(
         "/accounts/staff/invite/",
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            email: inviteEmail,
-            first_name: inviteFirstName,
-            last_name: inviteLastName,
-            role: inviteRole,
-          }),
+          email: inviteEmail,
+          first_name: inviteFirstName,
+          last_name: inviteLastName,
+          role: inviteRole,
         }
       );
 
-      if (response.ok) {
+      if (response.status === 201) { // Assuming 201 Created for successful invitation
         toast.success("Staff invitation sent successfully!");
         // Clear form
         setInviteEmail("");
@@ -223,17 +250,14 @@ export default function Settings() {
         setInviteLastName("");
         setInviteRole("STAFF");
         // Refresh pending invitations
-        const response = await apiClient.request(
-          "/accounts/staff/pending-invitations/",
-          { headers: { Authorization: `Bearer ${accessToken}` } }
+        const updatedInvitationsResponse = await apiClient.get(
+          "/accounts/staff/pending-invitations/"
         );
-        if (response.ok) {
-          const updatedInvitations = await response.json();
-          setPendingInvitations(updatedInvitations);
-        }
+        const updatedInvitations = updatedInvitationsResponse.data;
+        setPendingInvitations(updatedInvitations);
 
       } else {
-        const errorData = await response.json();
+        const errorData = response.data;
         toast.error(`Failed to send invitation: ${errorData.detail || errorData.error || "Unknown error"}`);
       }
     } catch (error) {
@@ -249,15 +273,15 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 gap-2">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
+          <TabsTrigger value="location">Location</TabsTrigger>
+          <TabsTrigger value="delivery">Delivery</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="location">Location & Tables</TabsTrigger>
-          <TabsTrigger value="menu">Menu Management</TabsTrigger>
+          <TabsTrigger value="brand">Brand</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
@@ -313,6 +337,7 @@ export default function Settings() {
                       className="w-full p-2 border rounded-lg mt-1"
                       value={timezone}
                       onChange={(e) => setTimezone(e.target.value)}
+                      aria-label="Timezone"
                     >
                       <option value="America/New_York">America/New_York</option>
                       <option value="America/Chicago">America/Chicago</option>
@@ -329,6 +354,7 @@ export default function Settings() {
                       className="w-full p-2 border rounded-lg mt-1"
                       value={currency}
                       onChange={(e) => setCurrency(e.target.value)}
+                      aria-label="Currency"
                     >
                       <option value="USD">USD</option>
                       <option value="EUR">EUR</option>
@@ -343,6 +369,7 @@ export default function Settings() {
                       className="w-full p-2 border rounded-lg mt-1"
                       value={language}
                       onChange={(e) => setLanguage(e.target.value)}
+                      aria-label="Language"
                     >
                       <option value="en">English</option>
                       <option value="es">Spanish</option>
@@ -371,50 +398,6 @@ export default function Settings() {
                   </div>
                 </div>
               </div>
-              <Separator />
-              {/* Geolocation Settings */}
-              <Card className="shadow-soft border-0 shadow-none p-0">
-                <CardHeader className="px-0 pt-0">
-                  <CardTitle className="flex items-center text-lg">
-                    <Globe className="w-5 h-5 mr-2" />
-                    Geolocation Settings
-                  </CardTitle>
-                  <CardDescription>Set the restaurant's location for staff clock-in</CardDescription>
-                </CardHeader>
-                <CardContent className="px-0 pb-0 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="latitude">Latitude</Label>
-                      <Input
-                        id="latitude"
-                        type="number"
-                        step="any"
-                        value={latitude}
-                        onChange={(e) => setLatitude(parseFloat(e.target.value))}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="longitude">Longitude</Label>
-                      <Input
-                        id="longitude"
-                        type="number"
-                        step="any"
-                        value={longitude}
-                        onChange={(e) => setLongitude(parseFloat(e.target.value))}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="radius">Radius (meters)</Label>
-                    <Input
-                      id="radius"
-                      type="number"
-                      value={radius}
-                      onChange={(e) => setRadius(parseFloat(e.target.value))}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
               <Button onClick={saveGeneralSettings} className="w-full">Save General Settings</Button>
             </CardContent>
           </Card>
@@ -496,6 +479,7 @@ export default function Settings() {
               </div>
               <Button onClick={saveGeneralSettings} className="w-full">Save Staff Settings</Button>
               <Separator />
+              {/* Existing invite button, will keep for now but may be replaced by the form below */}
               <Button className="w-full" variant="outline">
                 Invite Team Member
               </Button>
@@ -545,6 +529,7 @@ export default function Settings() {
                   className="w-full p-2 border rounded mt-1"
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value)}
+                  aria-label="Invite Staff Role"
                 >
                   <option value="STAFF">Staff</option>
                   <option value="MANAGER">Manager</option>
@@ -568,8 +553,8 @@ export default function Settings() {
                 pendingInvitations.map((invite) => (
                   <div key={invite.id} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg border">
                     <div>
-                      <p className="font-medium">{invite.first_name} {invite.last_name}</p>
-                      <p className="text-sm text-muted-foreground">{invite.email} ({invite.role.toLowerCase()})</p>
+                      <p className="font-medium">{invite.email}</p>
+                      <p className="text-sm text-muted-foreground">({invite.role.toLowerCase()})</p>
                       <p className="text-xs text-muted-foreground">Expires: {new Date(invite.expires_at).toLocaleDateString()}</p>
                     </div>
                     <Badge variant="outline" className="ml-2">Pending</Badge>
@@ -580,6 +565,23 @@ export default function Settings() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="location" className="space-y-6">
+          <GeolocationMapSettings
+            latitude={latitude}
+            longitude={longitude}
+            radius={radius}
+            onSave={saveLocationSettings}
+          />
+        </TabsContent>
+
+        <TabsContent value="delivery" className="space-y-6">
+          <DeliveryZoneManager />
+        </TabsContent>
+
+        <TabsContent value="brand" className="space-y-6">
+          <BrandCustomization />
         </TabsContent>
 
         <TabsContent value="security" className="space-y-6">
@@ -679,64 +681,17 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="location" className="space-y-6">
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Restaurant Layout Management</CardTitle>
-              <CardDescription>Manage your restaurant's floor plan and table configurations.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button className="w-full">Manage Floor Plans</Button>
-              <Button className="w-full">Configure Tables</Button>
-              <Button className="w-full">Setup Floor Plan</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
-        <TabsContent value="menu" className="space-y-6">
+        <TabsContent value="integrations" className="space-y-6">
+          <EnhancedPOSSettings />
+          
           <Card className="shadow-soft">
             <CardHeader>
-              <CardTitle>Menu Categories</CardTitle>
-              <CardDescription>Organize your menu items into categories.</CardDescription>
+              <CardTitle>Menu Scanner</CardTitle>
+              <CardDescription>Scan physical menus to digitize them.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <Button className="w-full">Manage Categories</Button>
-              <Button className="w-full">Add New Category</Button>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Pricing Rules</CardTitle>
-              <CardDescription>Define special pricing rules and discounts.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button className="w-full">Manage Pricing Rules</Button>
-              <Button className="w-full">Create New Rule</Button>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Tax Configurations</CardTitle>
-              <CardDescription>Set up taxes for different menu items or categories.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button className="w-full">Manage Tax Settings</Button>
-              <Button className="w-full">Add New Tax Rule</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="integrations">
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Integrations</CardTitle>
-              <CardDescription>Connect with third-party services.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent>
               <MenuScanner />
-              <POSIntegration />
             </CardContent>
           </Card>
 
@@ -746,8 +701,24 @@ export default function Settings() {
               <CardDescription>Configure your payment gateway integrations.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button className="w-full">Manage Payment Gateways</Button>
-              <Button className="w-full">Add New Gateway</Button>
+              <div className="grid grid-cols-2 gap-4">
+                <Button variant="outline" className="w-full">
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Stripe
+                </Button>
+                <Button variant="outline" className="w-full">
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  PayPal
+                </Button>
+                <Button variant="outline" className="w-full">
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Square
+                </Button>
+                <Button variant="outline" className="w-full">
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Authorize.net
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Loader2, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuth } from '../../hooks/use-auth';
+import { useAuth } from '@/hooks/use-auth';
 import { AssignedShift } from './WeeklyScheduleView'; // Reuse interface from WeeklyScheduleView
 
 const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';

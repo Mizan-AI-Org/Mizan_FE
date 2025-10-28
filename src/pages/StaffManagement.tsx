@@ -1,16 +1,22 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '../hooks/use-auth';
-import { AuthContextType } from '../contexts/AuthContext.types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Loader2 } from 'lucide-react';
-import AddStaffModal from '../components/staff/AddStaffModal';
-import EditStaffModal from '../components/staff/EditStaffModal';
-import DeleteStaffConfirmation from '../components/staff/DeleteStaffConfirmation';
-import InviteStaffModal from "../components/staff/InviteStaffModal";
+import { PlusCircle, Loader2 } from "lucide-react";
+import DeleteStaffConfirmation from "@/components/staff/DeleteStaffConfirmation";
+import EditStaffModal from "@/components/staff/EditStaffModal";
+import InviteStaffModal from "@/components/staff/InviteStaffModal";
+import { AuthContextType } from "@/contexts/AuthContext.types";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
+const API_BASE =
+    import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 interface StaffMember {
     id: string;
@@ -34,23 +40,31 @@ const StaffManagement: React.FC = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [staffToDelete, setStaffToDelete] = useState<{ id: string; name: string } | null>(null);
+    const [staffToDelete, setStaffToDelete] = useState<{
+        id: string;
+        name: string;
+    } | null>(null);
 
-    const { data: staff, isLoading, error, refetch } = useQuery<StaffMember[]>({
-        queryKey: ['staff-list'],
+    const {
+        data: staff,
+        isLoading,
+        error,
+        refetch,
+    } = useQuery<StaffMember[]>({
+        queryKey: ["staff-list"],
         queryFn: async () => {
             const response = await fetch(`${API_BASE}/staff/`, {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                    Authorization: `Bearer ${localStorage.getItem("access_token")}`,
                 },
             });
 
             if (!response.ok) {
                 if (response.status === 401) {
                     logout();
-                    throw new Error('Session expired');
+                    throw new Error("Session expired");
                 }
-                throw new Error('Failed to fetch staff data');
+                throw new Error("Failed to fetch staff data");
             }
             return response.json();
         },
@@ -69,7 +83,9 @@ const StaffManagement: React.FC = () => {
         return (
             <div className="flex items-center justify-center h-64">
                 <p className="text-red-500">Error: {error.message}</p>
-                <Button onClick={() => refetch()} className="ml-4">Retry</Button>
+                <Button onClick={() => refetch()} className="ml-4">
+                    Retry
+                </Button>
             </div>
         );
     }
@@ -100,14 +116,18 @@ const StaffManagement: React.FC = () => {
                             <TableRow key={member.id}>
                                 <TableCell>{`${member.user.first_name} ${member.user.last_name}`}</TableCell>
                                 <TableCell>{member.user.email}</TableCell>
-                                <TableCell className="capitalize">{member.user.role?.toLowerCase().replace(/_/g, ' ')}</TableCell>
-                                <TableCell>{member.employee_id || 'N/A'}</TableCell>
+                                <TableCell className="capitalize">
+                                    {member.user.role?.toLowerCase().replace(/_/g, " ")}
+                                </TableCell>
+                                <TableCell>{member.employee_id || "N/A"}</TableCell>
                                 <TableCell>
                                     <span
-                                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${member.user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${member.user.is_active
+                                            ? "bg-green-100 text-green-800"
+                                            : "bg-red-100 text-red-800"
                                             }`}
                                     >
-                                        {member.user.is_active ? 'Active' : 'Inactive'}
+                                        {member.user.is_active ? "Active" : "Inactive"}
                                     </span>
                                 </TableCell>
                                 <TableCell>
@@ -119,22 +139,33 @@ const StaffManagement: React.FC = () => {
                                             setSelectedStaff(member);
                                             setIsEditModalOpen(true);
                                         }}
-                                    >Edit</Button>
+                                    >
+                                        Edit
+                                    </Button>
                                     <Button
                                         variant="destructive"
                                         size="sm"
                                         onClick={() => {
-                                            setStaffToDelete({ id: member.user.id, name: `${member.user.first_name} ${member.user.last_name}` });
+                                            setStaffToDelete({
+                                                id: member.user.id,
+                                                name: `${member.user.first_name} ${member.user.last_name}`,
+                                            });
                                             setIsDeleteModalOpen(true);
                                         }}
-                                    >Remove</Button>
+                                    >
+                                        Remove
+                                    </Button>
                                 </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
             </div>
-            <InviteStaffModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={refetch} />
+            <InviteStaffModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSuccess={refetch}
+            />
             <EditStaffModal
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
@@ -151,3 +182,7 @@ const StaffManagement: React.FC = () => {
 };
 
 export default StaffManagement;
+function useAuth(): AuthContextType {
+  throw new Error("Function not implemented.");
+}
+

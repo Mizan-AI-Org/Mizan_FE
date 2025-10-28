@@ -1448,6 +1448,190 @@ export class BackendService {
       throw new Error(error.message || "Failed to fetch attendance history");
     }
   }
+
+  // ===== TASK MANAGEMENT =====
+  async getTaskCategories(accessToken: string): Promise<any[]> {
+    try {
+      const response = await fetch(
+        `${API_BASE}/scheduling/task-categories/`,
+        {
+          method: "GET",
+          headers: this.getHeaders(accessToken),
+        },
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch task categories");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to fetch task categories");
+    }
+  }
+
+  async createTaskCategory(accessToken: string, categoryData: any): Promise<any> {
+    try {
+      const response = await fetch(
+        `${API_BASE}/scheduling/task-categories/`,
+        {
+          method: "POST",
+          headers: this.getHeaders(accessToken),
+          body: JSON.stringify(categoryData),
+        },
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create task category");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to create task category");
+    }
+  }
+
+  async getShiftTasks(accessToken: string, filters?: { assigned_to?: string; status?: string; shift_id?: string }): Promise<any[]> {
+    try {
+      let url = `${API_BASE}/scheduling/shift-tasks/`;
+      const params = new URLSearchParams();
+      
+      if (filters?.assigned_to) params.append('assigned_to', filters.assigned_to);
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.shift_id) params.append('shift_id', filters.shift_id);
+      
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+      
+      const response = await fetch(url, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch shift tasks");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to fetch shift tasks");
+    }
+  }
+
+  async createShiftTask(accessToken: string, taskData: any): Promise<any> {
+    try {
+      const response = await fetch(
+        `${API_BASE}/scheduling/shift-tasks/`,
+        {
+          method: "POST",
+          headers: this.getHeaders(accessToken),
+          body: JSON.stringify(taskData),
+        },
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create shift task");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to create shift task");
+    }
+  }
+
+  async updateShiftTask(accessToken: string, taskId: string, taskData: any): Promise<any> {
+    try {
+      const response = await fetch(
+        `${API_BASE}/scheduling/shift-tasks/${taskId}/`,
+        {
+          method: "PATCH",
+          headers: this.getHeaders(accessToken),
+          body: JSON.stringify(taskData),
+        },
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update shift task");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to update shift task");
+    }
+  }
+
+  async deleteShiftTask(accessToken: string, taskId: string): Promise<void> {
+    try {
+      const response = await fetch(
+        `${API_BASE}/scheduling/shift-tasks/${taskId}/`,
+        {
+          method: "DELETE",
+          headers: this.getHeaders(accessToken),
+        },
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete shift task");
+      }
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to delete shift task");
+    }
+  }
+
+  async markTaskCompleted(accessToken: string, taskId: string): Promise<any> {
+    try {
+      const response = await fetch(
+        `${API_BASE}/scheduling/shift-tasks/${taskId}/mark_completed/`,
+        {
+          method: "POST",
+          headers: this.getHeaders(accessToken),
+        },
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to mark task as completed");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to mark task as completed");
+    }
+  }
+
+  async startTask(accessToken: string, taskId: string): Promise<any> {
+    try {
+      const response = await fetch(
+        `${API_BASE}/scheduling/shift-tasks/${taskId}/start/`,
+        {
+          method: "POST",
+          headers: this.getHeaders(accessToken),
+        },
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to start task");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to start task");
+    }
+  }
+
+  async reassignTask(accessToken: string, taskId: string, assigned_to: string): Promise<any> {
+    try {
+      const response = await fetch(
+        `${API_BASE}/scheduling/shift-tasks/${taskId}/reassign/`,
+        {
+          method: "POST",
+          headers: this.getHeaders(accessToken),
+          body: JSON.stringify({ assigned_to }),
+        },
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to reassign task");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to reassign task");
+    }
+  }
 }
 
 export const api = new BackendService();
