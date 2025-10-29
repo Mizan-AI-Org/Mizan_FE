@@ -50,29 +50,29 @@ const AddStaff = () => {
 
     const validateForm = () => {
         const newErrors: FormErrors = {};
-        
+
         if (!email) {
             newErrors.email = "Email is required";
         } else if (!/\S+@\S+\.\S+/.test(email)) {
             newErrors.email = "Email is invalid";
         }
-        
+
         if (!firstName) newErrors.firstName = "First name is required";
         if (!lastName) newErrors.lastName = "Last name is required";
         if (!role) newErrors.role = "Role is required";
-        
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleInvite = async () => {
+    const handleInviteStaff = async () => {
         if (!validateForm()) return;
-        
+
         setIsLoading(true);
-        
+
         setTimeout(() => {
             alert(`Invitation sent to ${firstName} ${lastName} (${email})`);
-            
+
             setEmail('');
             setFirstName('');
             setLastName('');
@@ -94,11 +94,11 @@ const AddStaff = () => {
             const text = e.target?.result as string;
             const lines = text.split('\n');
             const headers = lines[0].split(',').map((h: string) => h.trim().toLowerCase());
-            
+
             const staff: StaffMember[] = [];
             for (let i = 1; i < lines.length; i++) {
                 if (!lines[i].trim()) continue;
-                
+
                 const values = lines[i].split(',').map((v: string) => v.trim());
                 const staffMember: StaffMember = {
                     id: i,
@@ -109,21 +109,21 @@ const AddStaff = () => {
                     phoneNumber: values[headers.indexOf('phone')] || values[headers.indexOf('phonenumber')] || '',
                     status: 'pending'
                 };
-                
+
                 if (staffMember.email) {
                     staff.push(staffMember);
                 }
             }
-            
+
             setParsedStaff(staff);
         };
-        
+
         reader.readAsText(file);
     };
 
     const handleBulkInvite = () => {
         setIsLoading(true);
-        
+
         setTimeout(() => {
             alert(`Successfully invited ${parsedStaff.length} staff members!`);
             setUploadedFile(null);
@@ -151,12 +151,12 @@ const AddStaff = () => {
     return (
         <div className="min-h-screen bg-gray-50 p-6">
             <div className="max-w-6xl mx-auto space-y-6">
-                
+
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Button 
-                            variant="ghost" 
+                        <Button
+                            variant="ghost"
                             size="icon"
                             onClick={() => window.history.back()}
                             className="rounded-full hover:bg-gray-200"
@@ -174,11 +174,10 @@ const AddStaff = () => {
                     <button
                         type="button"
                         onClick={() => setActiveTab('single')}
-                        className={`px-6 py-3 rounded-xl font-medium transition-all ${
-                            activeTab === 'single'
+                        className={`px-6 py-3 rounded-xl font-medium transition-all ${activeTab === 'single'
                                 ? 'bg-green-900 text-white shadow-md'
                                 : 'text-gray-600 hover:bg-gray-100'
-                        }`}
+                            }`}
                     >
                         <User className="w-4 h-4 inline-block mr-2" />
                         Single Invite
@@ -186,11 +185,10 @@ const AddStaff = () => {
                     <button
                         type="button"
                         onClick={() => setActiveTab('bulk')}
-                        className={`px-6 py-3 rounded-xl font-medium transition-all ${
-                            activeTab === 'bulk'
+                        className={`px-6 py-3 rounded-xl font-medium transition-all ${activeTab === 'bulk'
                                 ? 'bg-green-900 text-white shadow-md'
                                 : 'text-gray-600 hover:bg-gray-100'
-                        }`}
+                            }`}
                     >
                         <Users className="w-4 h-4 inline-block mr-2" />
                         Bulk Upload
@@ -212,7 +210,7 @@ const AddStaff = () => {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6 pt-6">
-                            
+
                             {/* Email */}
                             <div className="space-y-2">
                                 <Label htmlFor="email" className="text-sm font-medium text-gray-700">
@@ -334,8 +332,8 @@ const AddStaff = () => {
 
                             {/* Action Buttons */}
                             <div className="flex gap-3 pt-4">
-                                <Button 
-                                    onClick={handleInvite} 
+                                <Button
+                                    onClick={handleInviteStaff}
                                     disabled={isLoading}
                                     className="flex-1 rounded-xl bg-gradient-to-r from-green-900 to-green-900 hover:from-blue-900 hover:to-indigo-700 text-white h-12 font-medium shadow-md"
                                 >
@@ -374,7 +372,7 @@ const AddStaff = () => {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6 pt-6">
-                                
+
                                 {/* Download Template */}
                                 <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
                                     <div className="flex items-start gap-4">
@@ -386,7 +384,7 @@ const AddStaff = () => {
                                             <p className="text-sm text-gray-600 mb-3">
                                                 Get started with our CSV template. Fill in staff details and upload below.
                                             </p>
-                                            <Button 
+                                            <Button
                                                 onClick={downloadTemplate}
                                                 variant="outline"
                                                 className="rounded-xl border-blue-300 hover:bg-blue-100"
@@ -436,7 +434,7 @@ const AddStaff = () => {
                                                 {parsedStaff.length} staff members ready to invite
                                             </CardDescription>
                                         </div>
-                                        <Button 
+                                        <Button
                                             onClick={handleBulkInvite}
                                             disabled={isLoading}
                                             className="rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md"

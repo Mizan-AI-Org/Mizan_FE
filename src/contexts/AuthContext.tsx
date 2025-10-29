@@ -188,6 +188,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     navigate("/staff-dashboard");
   };
 
+  const inviteStaff = async (accessToken: string, inviteData: { email: string; role: string }) => {
+    const response = await fetch("/api/staff/invite/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(inviteData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to send invitation");
+    }
+
+    return await response.json();
+  };
+
   const logout = async () => {
     try {
       const refreshToken = localStorage.getItem("refresh_token");
@@ -226,6 +244,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     loginWithPin,
     ownerSignup,
     acceptInvitation,
+    inviteStaff,
     logout,
     hasRole,
     isSuperAdmin,
