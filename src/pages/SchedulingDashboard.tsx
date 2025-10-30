@@ -1,12 +1,18 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfWeek, endOfWeek, addWeeks, subWeeks } from 'date-fns';
-import { ChevronLeft, ChevronRight, Calendar, Users, Clock, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Users, Clock, AlertCircle, ClipboardList, MessageSquarePlus } from 'lucide-react';
 import { useAuth } from '../hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { useNavigate } from 'react-router-dom';
 
 const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
@@ -50,9 +56,14 @@ interface CoverageData {
 export const SchedulingDashboard: React.FC = () => {
     const { user } = useAuth();
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
+    const { toast } = useToast();
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [activeTab, setActiveTab] = useState('calendar');
+    const [assignModalOpen, setAssignModalOpen] = useState(false);
+    const [selectedShift, setSelectedShift] = useState<AssignedShift | null>(null);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
 
     const weekStart = format(currentWeek, 'yyyy-MM-dd');
     const weekEnd = format(endOfWeek(currentWeek), 'yyyy-MM-dd');
@@ -68,6 +79,27 @@ export const SchedulingDashboard: React.FC = () => {
             if (!response.ok) throw new Error('Failed to load schedule');
             const data = await response.json();
             return data.results?.[0] || data;
+        },
+    });
+
+    // Fetch task templates for assignment
+    interface TaskTemplate {
+        id: string;
+        name: string;
+        description: string;
+        template_type: string;
+        frequency: string;
+        tasks: any[];
+    }
+    const { data: templates } = useQuery<TaskTemplate[]>({
+        queryKey: ['task-templates'],
+        queryFn: async () => {
+            const response = await fetch(`${API_BASE}/schedule/task-templates/`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
+            });
+            if (!response.ok) throw new Error('Failed to load task templates');
+            const data = await response.json();
+            return data.results || data;
         },
     });
 
@@ -119,6 +151,88 @@ export const SchedulingDashboard: React.FC = () => {
             queryClient.invalidateQueries({ queryKey: ['schedule-analytics'] });
         },
     });
+
+    // Create task mutation for assigning to shift
+    const createTaskMutation = useMutation({
+        mutationFn: async (payload: any) => {
+            const response = await fetch(`${API_BASE}/schedule/tasks/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+                },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to create task');
+            }
+            return response.json();
+        },
+        onSuccess: () => {
+            toast({ title: 'Task(s) assigned', description: 'Tasks have been assigned to the shift.' });
+        },
+        onError: (error: Error) => {
+            toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        },
+    });
+
+    const onAssignTasksFromTemplate = async () => {
+        if (!selectedShift || !selectedTemplateId) {
+            toast({ title: 'Select template', description: 'Please choose a template to assign.' });
+            return;
+        }
+        const template = templates?.find(t => t.id === selectedTemplateId);
+        if (!template) {
+            toast({ title: 'Template not found', description: 'Please re-select a template.' });
+            return;
+        }
+        // Create tasks from template items; fall back to sensible defaults
+        const dueDate = `${selectedShift.shift_date}T${selectedShift.end_time}`;
+        const tasks = (template.tasks || []).map((t: any) => ({
+            title: t.title || template.name,
+            description: t.description || template.description || '',
+            category: template.template_type || 'CUSTOM',
+            assigned_to: [selectedShift.staff.id],
+            assigned_shift: selectedShift.id,
+            priority: (t.priority?.toUpperCase?.() || 'MEDIUM'),
+            due_date: dueDate,
+            estimated_duration: Number(t.estimated_duration) || 30,
+        }));
+        if (tasks.length === 0) {
+            // Create a single task representing the template
+            tasks.push({
+                title: template.name,
+                description: template.description || '',
+                category: template.template_type || 'CUSTOM',
+                assigned_to: [selectedShift.staff.id],
+                assigned_shift: selectedShift.id,
+                priority: 'MEDIUM',
+                due_date: dueDate,
+                estimated_duration: 30,
+            });
+        }
+        try {
+            for (const payload of tasks) {
+                // eslint-disable-next-line no-await-in-loop
+                await createTaskMutation.mutateAsync(payload);
+            }
+            setAssignModalOpen(false);
+            setSelectedTemplateId("");
+        } catch (e) {
+            // Errors are handled in mutation onError
+        }
+    };
+
+    const onOpenAiTask = () => {
+        if (!selectedShift) return;
+        const params = new URLSearchParams({
+            assigned_to: selectedShift.staff.id,
+            assigned_shift: selectedShift.id,
+            openModal: 'true',
+        }).toString();
+        navigate(`/dashboard/tasks?${params}`);
+    };
 
     const daysOfWeek = Array.from({ length: 7 }).map((_, i) => addDays(currentWeek, i));
 
@@ -308,6 +422,11 @@ export const SchedulingDashboard: React.FC = () => {
                                                             Confirm
                                                         </Button>
                                                     )}
+                                                    <div className="flex gap-2">
+                                                        <Button size="sm" onClick={() => { setSelectedShift(shift); setAssignModalOpen(true); }}>
+                                                            <ClipboardList className="h-4 w-4 mr-1" /> Assign Tasks
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))
@@ -366,6 +485,54 @@ export const SchedulingDashboard: React.FC = () => {
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            {/* Assign Tasks Modal */}
+            <Dialog open={assignModalOpen} onOpenChange={setAssignModalOpen}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <ClipboardList className="h-5 w-5" /> Assign Tasks to Shift
+                        </DialogTitle>
+                    </DialogHeader>
+                    {selectedShift && (
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm">
+                                        {selectedShift.staff.first_name} {selectedShift.staff.last_name}
+                                    </p>
+                                    <p className="text-xs text-gray-600">
+                                        {selectedShift.shift_date} • {selectedShift.start_time} - {selectedShift.end_time}
+                                    </p>
+                                </div>
+                                <Badge variant="outline">{selectedShift.role}</Badge>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Select Template</Label>
+                                <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Choose a template" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {templates?.map(t => (
+                                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <div className="flex gap-2">
+                                    <Button variant="default" onClick={onAssignTasksFromTemplate} disabled={!selectedTemplateId}>
+                                        Assign from Template
+                                    </Button>
+                                    <Button variant="secondary" onClick={onOpenAiTask}>
+                                        <MessageSquarePlus className="h-4 w-4 mr-1" /> Use AI Prompt
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

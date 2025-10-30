@@ -21,10 +21,11 @@ export interface User {
 }
 
 export interface AuthContextType {
+    [x: string]: any;
     user: User | null;
     isLoading: boolean;
     login: (email: string, password: string) => Promise<void>;
-    loginWithPin: (pin: string, imageSrc: string | null, latitude: number | null, longitude: number | null) => Promise<void>;
+    loginWithPin: (pin: string, email: string | null) => Promise<void>;
     ownerSignup: (signupData: SignupData) => Promise<void>;
     acceptInvitation: (token: string, first_name: string, last_name: string, password: string, pin_code: string | null) => Promise<void>;
     inviteStaff: (accessToken: string, inviteData: { email: string; role: string }) => Promise<any>;

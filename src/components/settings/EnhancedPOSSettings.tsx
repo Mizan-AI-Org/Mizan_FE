@@ -1,12 +1,12 @@
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import React, { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -194,7 +194,7 @@ export default function EnhancedPOSSettings({ onSave }: EnhancedPOSSettingsProps
           </div>
 
           {isConnected && provider && (
-            <div className="flex items-center justify-between p-4 bg-success/10 rounded-lg border border-success/20">
+            <div className="flex flex-col gap-3 p-4 bg-success/10 rounded-lg border border-success/20 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center space-x-3">
                 <CheckCircle2 className="w-5 h-5 text-success" />
                 <div>
@@ -216,10 +216,10 @@ export default function EnhancedPOSSettings({ onSave }: EnhancedPOSSettingsProps
 
       {selectedProvider && !isConnected && (
         <Tabs defaultValue="credentials" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="credentials">Credentials</TabsTrigger>
-            <TabsTrigger value="sync">Sync Settings</TabsTrigger>
-            <TabsTrigger value="advanced">Advanced</TabsTrigger>
+          <TabsList className="flex flex-col gap-2 sm:grid sm:grid-cols-3">
+            <TabsTrigger value="credentials" className="w-full">Credentials</TabsTrigger>
+            <TabsTrigger value="sync" className="w-full">Sync Settings</TabsTrigger>
+            <TabsTrigger value="advanced" className="w-full">Advanced</TabsTrigger>
           </TabsList>
 
           <TabsContent value="credentials" className="space-y-6">
@@ -274,11 +274,11 @@ export default function EnhancedPOSSettings({ onSave }: EnhancedPOSSettingsProps
                   </div>
                 )}
 
-                <div className="flex gap-2">
-                  <Button onClick={handleConnect} className="flex-1">
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button onClick={handleConnect} className="w-full sm:flex-1">
                     Connect to {provider?.name}
                   </Button>
-                  <Button onClick={handleTestConnection} variant="outline">
+                  <Button onClick={handleTestConnection} variant="outline" className="w-full sm:w-auto">
                     Test Connection
                   </Button>
                 </div>
@@ -296,7 +296,7 @@ export default function EnhancedPOSSettings({ onSave }: EnhancedPOSSettingsProps
                 <CardDescription>Configure what data to sync and how often</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-0.5">
                     <Label>Automatic Sync</Label>
                     <p className="text-xs text-muted-foreground">
@@ -328,7 +328,7 @@ export default function EnhancedPOSSettings({ onSave }: EnhancedPOSSettingsProps
                 <div className="space-y-4">
                   <h4 className="font-medium">Data to Sync</h4>
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-0.5">
                       <Label>Sales Data</Label>
                       <p className="text-xs text-muted-foreground">Sync orders and transactions</p>
@@ -337,7 +337,7 @@ export default function EnhancedPOSSettings({ onSave }: EnhancedPOSSettingsProps
                   </div>
 
                   {provider?.supportsInventorySync && (
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-0.5">
                         <Label>Inventory Levels</Label>
                         <p className="text-xs text-muted-foreground">
