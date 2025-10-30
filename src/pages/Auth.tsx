@@ -1,143 +1,25 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, ChefHat } from "lucide-react";
-import { useAuth } from "../hooks/use-auth";
-
-// API base URL - adjust based on your environment
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:8000/api";
-
-interface LoginResponse {
-  user: {
-    id: string;
-    email: string;
-    first_name: string;
-    last_name: string;
-    role: string;
-    restaurant: string;
-    restaurant_data?: {
-      id: string;
-      name: string;
-      address: string;
-    };
-  };
-  tokens: {
-    access: string;
-    refresh: string;
-  };
-}
-
-interface SignupData {
-  user: {
-    email: string;
-    password: string;
-    first_name: string;
-    last_name: string;
-    phone?: string;
-  };
-  restaurant: {
-    name: string;
-    address: string;
-    phone: string;
-    email: string;
-  };
-}
+import { Loader2 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { AuthForm } from "../components/AuthForm";
+import { SignUpForm } from "../components/SignUpForm";
+import { RestaurantShowcase } from "../components/RestaurantShowcase";
 
 const Auth = () => {
+  const [currentPage, setCurrentPage] = useState<"login" | "signup">("login");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const navigate = useNavigate(); // This navigate will be used only for invitation link check
   const { toast } = useToast();
   const auth = useAuth();
 
-  // Handle restaurant owner signup
-  const handleOwnerSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError("");
-
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-    const firstName = formData.get("firstName") as string;
-    const lastName = formData.get("lastName") as string;
-    const restaurantName = formData.get("restaurantName") as string;
-    const restaurantAddress = formData.get("restaurantAddress") as string;
-    const restaurantPhone = formData.get("restaurantPhone") as string;
-
-    const signupData: SignupData = {
-      user: {
-        email,
-        password,
-        first_name: firstName,
-        last_name: lastName,
-        phone: restaurantPhone,
-      },
-      restaurant: {
-        name: restaurantName,
-        address: restaurantAddress,
-        phone: restaurantPhone,
-        email: email,
-      },
-    };
-
-    try {
-      await auth.ownerSignup(signupData);
-
-      toast({
-        title: "Welcome to Mizan!",
-        description: "Your restaurant account has been created successfully.",
-      });
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError("An unexpected error occurred during signup.");
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle login for all user types (owner, admin, staff)
-  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError("");
-
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-
-    try {
-      await auth.login(email, password);
-
-      toast({
-        title: `Welcome back, ${auth.user?.first_name}!`, // Access user from auth context
-        description: "You've been signed in successfully.",
-      });
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError("An unexpected error occurred during login.");
-      }
-    } finally {
-      setIsLoading(false);
-    }
+  // Check if this is an invitation link
+  const isInvitationLink = () => {
+    return new URLSearchParams(window.location.search).has("token");
   };
 
   // Handle invitation acceptance (for staff members)
@@ -161,11 +43,13 @@ const Auth = () => {
     }
 
     try {
-      await auth.acceptInvitation(token, {
-        first_name: firstName,
-        last_name: lastName,
-        password: password,
-      });
+      await auth.acceptInvitation(
+        token,
+        firstName,
+        lastName,
+        password,
+        null
+      );
 
       toast({
         title: "Welcome to the team!",
@@ -182,231 +66,208 @@ const Auth = () => {
     }
   };
 
-  // Check if this is an invitation link
-  const isInvitationLink = () => {
-    return new URLSearchParams(window.location.search).has("token");
-  };
-
   // If it's an invitation link, show the invitation acceptance form
   if (isInvitationLink()) {
     return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-strong">
-          <CardHeader className="text-center">
-            <div className="flex justify-center mb-4">
-              <div className="p-3 bg-gradient-primary rounded-full">
-                <ChefHat className="h-8 w-8 text-primary-foreground" />
+      <div className="min-h-screen bg-[#0A0D10] flex items-center justify-center p-4 relative overflow-hidden">
+        {/* Elegant Fine Dining Gradient Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0A0D10] via-[#1a1f2e] to-[#0f1419]" />
+        
+        {/* Sophisticated Overlay - Radial Glow */}
+        <div className="absolute inset-0 pointer-events-none opacity-40" style={{
+          background: 'radial-gradient(ellipse 800px 600px at 50% 20%, rgba(0, 230, 118, 0.08), transparent 70%)'
+        }} />
+        
+        {/* Gold Accent Layer */}
+        <div className="absolute inset-0 opacity-5 pointer-events-none" style={{
+          background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.3) 0%, transparent 40%, rgba(184, 134, 11, 0.2) 100%)'
+        }} />
+        
+        {/* Premium Grid Pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,230,118,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,230,118,0.03)_1px,transparent_1px)] bg-[size:50px_50px] pointer-events-none" />
+        
+        {/* Animated Gradient Orbs */}
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#00E676] rounded-full mix-blend-screen opacity-5 blur-3xl animate-pulse" />
+        <div className="absolute top-1/3 -left-64 w-96 h-96 bg-[#D4AF37] rounded-full mix-blend-screen opacity-3 blur-3xl" style={{animation: 'float 8s ease-in-out infinite'}} />
+
+        <div className="relative z-10 w-full max-w-md">
+          {/* Logo/Brand Area */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-full bg-[#00E676] shadow-lg">
+              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                <div className="w-4 h-4 bg-[#00E676] rounded-full" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Join Your Team
-            </CardTitle>
-            <CardDescription>Complete your staff account setup</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {error && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+            <h1 className="text-3xl font-bold text-white mb-2">Mizan</h1>
+            <p className="text-[#B0BEC5]">Join Your Team</p>
+          </div>
 
-            <form onSubmit={handleAcceptInvitation} className="space-y-4">
+          {/* Elegant Form Card */}
+          <div className="relative group">
+            {/* Gradient Border Effect */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#D4AF37] via-[#00E676] to-[#00E676]/30 rounded-xl opacity-0 group-hover:opacity-30 blur transition duration-1000 pointer-events-none" />
+            
+            {/* Form Card */}
+            <div className="relative bg-gradient-to-br from-[#121A22] to-[#0f1419] border border-[#00E676]/30 rounded-xl shadow-2xl p-8 backdrop-blur-xl hover:shadow-[0_0_30px_rgba(0,230,118,0.15)] transition-all duration-500">
+              {/* Top accent line */}
+              <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-50" />
+              
+              {error && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <form onSubmit={handleAcceptInvitation} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
+                <Label htmlFor="firstName" className="text-white">
+                  First Name
+                </Label>
                 <Input
                   id="firstName"
                   name="firstName"
                   placeholder="John"
                   required
+                  className="bg-[#0A0D10] border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5]"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
+                <Label htmlFor="lastName" className="text-white">
+                  Last Name
+                </Label>
                 <Input
                   id="lastName"
                   name="lastName"
                   placeholder="Doe"
                   required
+                  className="bg-[#0A0D10] border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5]"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-white">
+                  Password
+                </Label>
                 <Input
                   id="password"
                   name="password"
                   type="password"
                   required
                   minLength={6}
+                  className="bg-[#0A0D10] border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5]"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="w-full bg-[#00E676] hover:bg-[#00C853] text-white font-semibold h-11 rounded-lg shadow-lg hover:shadow-[#00E676]/50 transition-all"
+                disabled={isLoading}
+              >
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Complete Setup
+                {isLoading ? "Completing Setup..." : "Complete Setup"}
               </Button>
-            </form>
-          </CardContent>
-        </Card>
+              </form>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="mt-6 text-center text-sm text-[#B0BEC5]">
+            <p>
+              By continuing, you agree to our{" "}
+              <a href="#" className="text-[#00E676] hover:text-[#00C853] transition-colors">
+                Terms of Service
+              </a>{" "}
+              and{" "}
+              <a href="#" className="text-[#00E676] hover:text-[#00C853] transition-colors">
+                Privacy Policy
+              </a>
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
+  // Main Auth Page with split layout
   return (
-    <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-strong">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 bg-gradient-primary rounded-full">
-              <ChefHat className="h-8 w-8 text-primary-foreground" />
-            </div>
-          </div>
-          <CardTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Mizan
-          </CardTitle>
-          <CardDescription>
-            Your Restaurant Operations on Autopilot
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            </TabsList>
+    <div className="min-h-screen bg-[#0A0D10] flex">
+      {/* Left Side - Auth Forms */}
+      <div className="w-full lg:w-1/2 relative overflow-hidden">
+        {/* Elegant Fine Dining Gradient Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0A0D10] via-[#1a1f2e] to-[#0f1419]" />
+        
+        {/* Sophisticated Overlay - Radial Glow from Top Right */}
+        <div className="absolute inset-0 bg-radial-gradient pointer-events-none opacity-40" style={{
+          background: 'radial-gradient(ellipse 800px 600px at 60% -20%, rgba(0, 230, 118, 0.08), transparent 70%)'
+        }} />
+        
+        {/* Gold Accent Layer - Subtle warmth */}
+        <div className="absolute inset-0 opacity-5 pointer-events-none" style={{
+          background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.3) 0%, transparent 40%, rgba(184, 134, 11, 0.2) 100%)'
+        }} />
+        
+        {/* Premium Grid Pattern - More Refined */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,230,118,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,230,118,0.03)_1px,transparent_1px)] bg-[size:50px_50px]" />
+        
+        {/* Elegant Animated Gradient Orbs for Depth */}
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#00E676] rounded-full mix-blend-screen opacity-5 blur-3xl animate-pulse" />
+        <div className="absolute top-1/3 -left-64 w-96 h-96 bg-[#D4AF37] rounded-full mix-blend-screen opacity-3 blur-3xl" style={{animation: 'float 8s ease-in-out infinite'}} />
+        
+        {/* Decorative Top Border - Gold shimmer */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-30" />
 
-            {error && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+        {/* Content */}
+        <div className="relative z-10 flex items-center justify-center min-h-screen p-4 lg:p-8">
+          <div className="w-full max-w-md">
+            {/* Logo/Brand Area */}
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-full bg-[#00E676] shadow-lg">
+                <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                  <div className="w-4 h-4 bg-[#00E676] rounded-full" />
+                </div>
+              </div>
+              <h1 className="text-3xl font-bold text-white mb-2">Mizan</h1>
+              <p className="text-[#B0BEC5]">Restaurant Management Excellence</p>
+            </div>
+
+            {/* Elegant Form Card with Premium Styling */}
+            <div className="relative group">
+              {/* Gradient Border Effect */}
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-[#D4AF37] via-[#00E676] to-[#00E676]/30 rounded-xl opacity-0 group-hover:opacity-30 blur transition duration-1000 pointer-events-none" />
+              
+              {/* Form Card */}
+              <div className="relative bg-gradient-to-br from-[#121A22] to-[#0f1419] border border-[#00E676]/30 rounded-xl shadow-2xl p-8 backdrop-blur-xl hover:shadow-[0_0_30px_rgba(0,230,118,0.15)] transition-all duration-500">
+                {/* Top accent line */}
+                <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-50" />
+                
+                {/* Conditionally render login or signup form */}
+                {currentPage === "login" ? (
+                  <AuthForm onNavigateToSignup={() => setCurrentPage("signup")} />
+                ) : (
+                  <SignUpForm onNavigateToLogin={() => setCurrentPage("login")} />
+                )}
+              </div>
+            </div>
+
+            {/* Footer - only show on login page */}
+            {currentPage === "login" && (
+              <div className="mt-8 text-center text-sm text-[#B0BEC5]">
+                <p>
+                  By continuing, you agree to our{" "}
+                  <a href="#" className="text-[#00E676] hover:text-[#00C853] transition-colors">
+                    Terms of Service
+                  </a>{" "}
+                  and{" "}
+                  <a href="#" className="text-[#00E676] hover:text-[#00C853] transition-colors">
+                    Privacy Policy
+                  </a>
+                </p>
+              </div>
             )}
-
-            <TabsContent value="signin" className="space-y-4">
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email</Label>
-                  <Input
-                    id="signin-email"
-                    name="email"
-                    type="email"
-                    placeholder="manager@restaurant.com"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signin-password">Password</Label>
-                  <Input
-                    id="signin-password"
-                    name="password"
-                    type="password"
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Sign In
-                </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="signup" className="space-y-4">
-              <form onSubmit={handleOwnerSignUp} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name</Label>
-                    <Input
-                      id="firstName"
-                      name="firstName"
-                      placeholder="John"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <Input
-                      id="lastName"
-                      name="lastName"
-                      placeholder="Doe"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="restaurantName">Restaurant Name</Label>
-                  <Input
-                    id="restaurantName"
-                    name="restaurantName"
-                    placeholder="John's Bistro"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="restaurantAddress">Restaurant Address</Label>
-                  <Input
-                    id="restaurantAddress"
-                    name="restaurantAddress"
-                    placeholder="123 Main Street, City, State"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="restaurantPhone">Restaurant Phone</Label>
-                  <Input
-                    id="restaurantPhone"
-                    name="restaurantPhone"
-                    placeholder="+1234567890"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    name="email"
-                    type="email"
-                    placeholder="owner@restaurant.com"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
-                    name="password"
-                    type="password"
-                    required
-                    minLength={6}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Create Restaurant Account
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  For staff members
-                </span>
-              </div>
-            </div>
-            <div className="mt-4 text-center">
-              <p className="text-sm text-muted-foreground">
-                Staff members should use the invitation link sent to their email
-              </p>
-            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {/* Right Side - Restaurant Showcase */}
+      <RestaurantShowcase />
     </div>
   );
 };
