@@ -79,13 +79,6 @@ const apps = [
     gradient: "bg-gradient-to-br from-amber-500 to-orange-500",
     description: "Configure your system",
   },
-  {
-    name: "Advanced Settings",
-    href: "/dashboard/advanced-settings",
-    icon: Zap,
-    gradient: "bg-gradient-to-br from-teal-500 to-cyan-500",
-    description: "Geolocation, POS & AI",
-  },
 ];
 
 export default function Dashboard() {

@@ -1,12 +1,8 @@
-import React, {
-  useEffect,
-  useState,
-  useCallback,
-} from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { SignupData, StaffUserData } from "../services/backend.service";
-import { AuthContext } from "./AuthContext.ts";
-import { AuthContextType, User } from "./AuthContext.types.ts";
+import { SignupData } from "@/lib/types";
+import { AuthContext } from "./AuthContext";
+import { AuthContextType, User } from "./AuthContext.types";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -45,7 +41,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setUser(userData);
           // Don't auto-redirect on auth initialization - let the user stay where they are
           // Only redirect if they're on a public route like /auth
-          if (location.pathname === "/auth" || location.pathname === "/staff-login") {
+          if (
+            location.pathname === "/auth" ||
+            location.pathname === "/staff-login"
+          ) {
             if (userData.role === "SUPER_ADMIN" || userData.role === "ADMIN") {
               navigate("/dashboard");
             } else {
@@ -85,18 +84,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         errorData = JSON.parse(responseText);
       } catch (e) {
-        console.error("Failed to parse error response as JSON:", e, "Raw response:", responseText);
-        errorData.message = "An unexpected error occurred."; // Set a default message if parsing fails
+        console.error(
+          "Failed to parse error response as JSON:",
+          e,
+          "Raw response:",
+          responseText
+        );
+        errorData.message = "An unexpected error occurred during login.";
       }
-      console.error("Login error:", errorData.message);
-      throw new Error(errorData.message || "Login failed");
+      console.error(
+        "Login failed:",
+        errorData.message,
+        "Response:",
+        responseText
+      );
+      throw new Error(errorData.message || errorData.error || "Login failed");
     }
 
     const data = JSON.parse(responseText);
     setUser(data.user);
     localStorage.setItem("user", JSON.stringify(data.user));
-    localStorage.setItem("access_token", data.tokens.access);
-    localStorage.setItem("refresh_token", data.tokens.refresh);
+    localStorage.setItem("access_token", data.tokens?.access || data.access);
+    localStorage.setItem("refresh_token", data.tokens?.refresh || data.refresh);
 
     if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
       navigate("/dashboard");
@@ -105,43 +114,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const loginWithPin = async (pin: string, imageSrc: string | null, latitude: number | null, longitude: number | null) => {
-    // This endpoint is not yet implemented in the backend, hence not used.
-    // Once implemented, uncomment the code below and adjust accordingly.
+  const loginWithPin = async (pin: string, email: string | null = null) => {
+    const response = await fetch("/api/auth/pin-login/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ pin_code: pin, email: email }),
+    });
 
-    // const response = await fetch("/api/auth/pin-login/", {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //   },
-    //   body: JSON.stringify({ pin, image_data: imageSrc, latitude, longitude }),
-    // });
+    const responseText = await response.text();
+    console.log("Raw backend PIN login response:", responseText);
 
-    // const responseText = await response.text();
-    // console.log("Raw backend PIN login response:", responseText);
+    if (!response.ok) {
+      let errorData = { message: "PIN login failed" };
+      try {
+        errorData = JSON.parse(responseText);
+      } catch (e) {
+        console.error(
+          "Failed to parse PIN login error response as JSON:",
+          e,
+          "Raw response:",
+          responseText
+        );
+        errorData.message = "An unexpected error occurred during PIN login.";
+      }
+      console.error(
+        "PIN login failed:",
+        errorData.message,
+        "Response:",
+        responseText
+      );
+      throw new Error(
+        errorData.message || errorData.error || "PIN login failed"
+      );
+    }
 
-    // if (!response.ok) {
-    //   let errorData = { message: "PIN login failed" };
-    //   try {
-    //     errorData = JSON.parse(responseText);
-    //   } catch (e) {
-    //     console.error("Failed to parse PIN login error response as JSON:", e, "Raw response:", responseText);
-    //   }
-    //   throw new Error(errorData.message || "PIN login failed");
-    // }
+    const data = JSON.parse(responseText);
+    setUser(data.user);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    localStorage.setItem("access_token", data.tokens?.access || data.access);
+    localStorage.setItem("refresh_token", data.tokens?.refresh || data.refresh);
 
-    // const data = JSON.parse(responseText);
-    // setUser(data.user);
-    // localStorage.setItem("user", JSON.stringify(data.user));
-    // localStorage.setItem("access_token", data.tokens.access);
-    // localStorage.setItem("refresh_token", data.tokens.refresh);
-
-    // if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
-    //   navigate("/dashboard");
-    // } else {
-    //   navigate("/staff-dashboard");
-    // }
-    throw new Error("PIN login is not yet implemented.");
+    if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
+      navigate("/dashboard");
+    } else {
+      navigate("/staff-dashboard");
+    }
   };
 
   const ownerSignup = async (signupData: SignupData) => {
@@ -166,13 +185,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     navigate("/dashboard");
   };
 
-  const acceptInvitation = async (token: string, first_name: string, last_name: string, password: string, pin_code: string | null) => {
+  const acceptInvitation = async (
+    token: string,
+    first_name: string,
+    last_name: string,
+    password: string,
+    pin_code: string | null
+  ) => {
     const response = await fetch("/api/auth/accept-invitation/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ token, first_name, last_name, password, pin_code }),
+      body: JSON.stringify({
+        token,
+        first_name,
+        last_name,
+        password,
+        pin_code,
+      }),
     });
 
     if (!response.ok) {
@@ -188,7 +219,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     navigate("/staff-dashboard");
   };
 
-  const inviteStaff = async (accessToken: string, inviteData: { email: string; role: string }) => {
+  const inviteStaff = async (
+    accessToken: string,
+    inviteData: { email: string; role: string }
+  ) => {
     const response = await fetch("/api/staff/invite/", {
       method: "POST",
       headers: {
@@ -254,4 +288,3 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-

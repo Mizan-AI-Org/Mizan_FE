@@ -7,6 +7,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import { LanguageProvider } from "./contexts/LanguageProvider";
 import StaffLayout from "./components/layout/StaffLayout";
+import StaffGridLayout from "./components/layout/StaffGridLayout";
 import RoleBasedRoute from "./components/RoleBasedRoute";
 import { useIdleTimeout } from "./hooks/use-idle-timeout";
 import React, { useEffect, useState } from "react";
@@ -31,29 +32,53 @@ import AddStaff from "./pages/AddStaff";
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const AdminDashboard = React.lazy(() => import("./pages/AdminAnalytics"));
 const KitchenDisplay = React.lazy(() => import("./pages/KitchenDisplay"));
-const InventoryManagement = React.lazy(() => import("./pages/InventoryManagement"));
+const InventoryManagement = React.lazy(
+  () => import("./pages/InventoryManagement")
+);
 const MenuManagement = React.lazy(() => import("./pages/MenuManagement"));
 const FloorManagement = React.lazy(() => import("./pages/FloorManagement"));
 const Inventory = React.lazy(() => import("./pages/Inventory"));
-const EnhancedAIAssistant = React.lazy(() => import("./pages/EnhancedAIAssistant"));
+const EnhancedAIAssistant = React.lazy(
+  () => import("./pages/EnhancedAIAssistant")
+);
 const Auth = React.lazy(() => import("./pages/Auth"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
 const StaffDashboard = React.lazy(() => import("./pages/StaffDashboard"));
+const StaffAppsPage = React.lazy(() => import("./pages/StaffAppsPage"));
+const SafetyDashboard = React.lazy(() => import("./pages/SafetyDashboard"));
 const PinLogin = React.lazy(() => import("./components/auth/PinLogin"));
+const StaffSchedulingPage = React.lazy(
+  () => import("./pages/StaffSchedulingPage")
+);
+const SchedulingAnalytics = React.lazy(
+  () => import("./pages/SchedulingAnalytics")
+);
 const ProfileSettings = React.lazy(() => import("./pages/ProfileSettings"));
-const AdvancedSettings = React.lazy(() => import("./pages/AdvancedSettings"));
+const AdvancedSettings = React.lazy(() => import("./pages/Settings"));
 const StaffManagement = React.lazy(() => import("./pages/StaffManagement"));
-const ScheduleManagement = React.lazy(() => import("./pages/ScheduleManagement"));
-const WeeklyScheduleView = React.lazy(() => import("./pages/WeeklyScheduleView"));
-const TaskManagementBoard = React.lazy(() => import("./pages/TaskManagementBoard"));
+const ScheduleManagement = React.lazy(
+  () => import("./pages/ScheduleManagement")
+);
+const WeeklyScheduleView = React.lazy(
+  () => import("./pages/WeeklyScheduleView")
+);
+const TaskManagementBoard = React.lazy(
+  () => import("./pages/TaskManagementBoard")
+);
 
-const ManagerSwapRequests = React.lazy(() => import("./pages/ManagerSwapRequests"));
+const ManagerSwapRequests = React.lazy(
+  () => import("./pages/ManagerSwapRequests")
+);
 const AttendanceHistory = React.lazy(() => import("./pages/AttendanceHistory"));
 const TableManagement = React.lazy(() => import("./pages/TableManagement"));
-const CategoryManagement = React.lazy(() => import("./pages/CategoryManagement"));
+const CategoryManagement = React.lazy(
+  () => import("./pages/CategoryManagement")
+);
 const ProductManagement = React.lazy(() => import("./pages/ProductManagement"));
 const CleaningTasks = React.lazy(() => import("./pages/CleaningTasks"));
-const SupervisorDashboard = React.lazy(() => import("./pages/SupervisorDashboard"));
+const SupervisorDashboard = React.lazy(
+  () => import("./pages/SupervisorDashboard")
+);
 const StaffChat = React.lazy(() => import("./pages/StaffChat"));
 const ReportsPage = React.lazy(() => import("./pages/ReportsPage"));
 const AcceptInvitation = React.lazy(() => import("./pages/AcceptInvitation"));
@@ -78,19 +103,21 @@ const App = () => {
   //   }
   // }, [user, requestPermissionAndGetToken, deleteToken]);
 
-  const [showOfflineWarning, setShowOfflineWarning] = useState(!navigator.onLine);
+  const [showOfflineWarning, setShowOfflineWarning] = useState(
+    !navigator.onLine
+  );
 
   useEffect(() => {
     const handleOnlineStatusChange = () => {
       setShowOfflineWarning(!navigator.onLine);
     };
 
-    window.addEventListener('online', handleOnlineStatusChange);
-    window.addEventListener('offline', handleOnlineStatusChange);
+    window.addEventListener("online", handleOnlineStatusChange);
+    window.addEventListener("offline", handleOnlineStatusChange);
 
     return () => {
-      window.removeEventListener('online', handleOnlineStatusChange);
-      window.removeEventListener('offline', handleOnlineStatusChange);
+      window.removeEventListener("online", handleOnlineStatusChange);
+      window.removeEventListener("offline", handleOnlineStatusChange);
     };
   }, []);
 
@@ -100,7 +127,11 @@ const App = () => {
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          {showOfflineWarning && <OfflineWarning onReconnectAttempt={() => window.location.reload()} />}
+          {showOfflineWarning && (
+            <OfflineWarning
+              onReconnectAttempt={() => window.location.reload()}
+            />
+          )}
           <React.Suspense fallback={<div>Loading...</div>}>
             <Routes>
               {/* Public Routes for Login/ Signup*/}
@@ -109,189 +140,361 @@ const App = () => {
               <Route path="/accept-invitation" element={<AcceptInvitation />} />
 
               {/* Admin/Manager Routes for Dashboard */}
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <DashboardLayout />
-                </ProtectedRoute>
-              }>
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout />
+                  </ProtectedRoute>
+                }
+              >
                 <Route index element={<Navigate to="/dashboard" replace />} />
-                <Route path="dashboard" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <Dashboard />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/analytics" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <AdminDashboard />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/kitchen" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'CHEF']}>
-                    <KitchenDisplay />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/inventory" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <InventoryManagement />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/inventory/items" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <InventoryItemsPage />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/inventory/suppliers" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <SuppliersPage />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/inventory/purchase-orders" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <PurchaseOrdersPage />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/inventory/adjustments" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <StockAdjustmentsPage />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/menu" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <MenuManagement />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/floors" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <FloorManagement />
-                  </RoleBasedRoute>
-                } />
-                <Route path="menu" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <MenuManagement />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/categories" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <CategoryManagement />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/products" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <ProductManagement />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/floors" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <FloorManagement />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/inventory" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <Inventory />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/staff" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <Staff />
-                  </RoleBasedRoute>
-                } />
-                <Route path="staff/add-staff" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <AddStaff />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/auto-schedule" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'MANAGER']}>
-                    <AutoSchedule />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/timesheets" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'MANAGER']}>
-                    <Timesheets />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/assistant" element={<EnhancedAIAssistant />} />
-                <Route path="dashboard/settings" element={<ProfileSettings />} />
-                <Route path="dashboard/advanced-settings" element={<AdvancedSettings />} />
-                <Route path="dashboard/tasks" element={<TaskManagementBoard />} />
-                <Route path="dashboard/reports" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'MANAGER']}>
-                    <ReportsPage />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/reports/sales/daily" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <DailySalesReportsPage />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/reports/attendance" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <AttendanceReportsPage />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/reports/inventory" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <InventoryReportsPage />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/swap-requests" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <ManagerSwapRequests />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/staff-management" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <StaffManagement />
-                  </RoleBasedRoute>
-                } />
-                <Route path="schedule-management" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <ScheduleManagement />
-                  </RoleBasedRoute>
-                } />
-                <Route path="dashboard/table-management" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <TableManagement />
-                  </RoleBasedRoute>
-                } />
-                <Route path="staff-management/:user_id/attendance" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-                    <AttendanceHistory />
-                  </RoleBasedRoute>
-                } />
-                <Route path="supervisor" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'MANAGER']}>
-                    <SupervisorDashboard />
-                  </RoleBasedRoute>
-                } />
-                <Route path="timeclock" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'CHEF', 'WAITER', 'CLEANER', 'CASHIER']}>
-                    <TimeClockPage />
-                  </RoleBasedRoute>
-                } />
+                <Route
+                  path="dashboard"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <Dashboard />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/analytics"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <AdminDashboard />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/kitchen"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={["SUPER_ADMIN", "ADMIN", "CHEF"]}
+                    >
+                      <KitchenDisplay />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/inventory"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <InventoryManagement />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/inventory/items"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <InventoryItemsPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/inventory/suppliers"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <SuppliersPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/inventory/purchase-orders"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <PurchaseOrdersPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/inventory/adjustments"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <StockAdjustmentsPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/menu"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <MenuManagement />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/floors"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <FloorManagement />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="menu"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <MenuManagement />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/categories"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <CategoryManagement />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/products"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <ProductManagement />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/floors"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <FloorManagement />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/inventory"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <Inventory />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/staff"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <Staff />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="staff/add-staff"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <AddStaff />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/auto-schedule"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                    >
+                      <AutoSchedule />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/timesheets"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                    >
+                      <Timesheets />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/assistant"
+                  element={<EnhancedAIAssistant />}
+                />
+                <Route
+                  path="dashboard/settings"
+                  element={<AdvancedSettings />}
+                />
+                <Route path="dashboard/profile" element={<ProfileSettings />} />
+                <Route
+                  path="dashboard/advanced-settings"
+                  element={<AdvancedSettings />}
+                />
+                <Route
+                  path="dashboard/tasks"
+                  element={
+                    <React.Suspense fallback={<div>Loading...</div>}>
+                      <TaskManagementBoard />
+                    </React.Suspense>
+                  }
+                />
+                <Route
+                  path="dashboard/scheduling"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                    >
+                      <React.Suspense fallback={<div>Loading...</div>}>
+                        <StaffSchedulingPage />
+                      </React.Suspense>
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/scheduling/analytics"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                    >
+                      <React.Suspense fallback={<div>Loading...</div>}>
+                        <SchedulingAnalytics />
+                      </React.Suspense>
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/reports"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                    >
+                      <ReportsPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/reports/sales/daily"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <DailySalesReportsPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/reports/attendance"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <AttendanceReportsPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/reports/inventory"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <InventoryReportsPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/swap-requests"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <ManagerSwapRequests />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/staff-management"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <StaffManagement />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="schedule-management"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <ScheduleManagement />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/table-management"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <TableManagement />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="staff-management/:user_id/attendance"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <AttendanceHistory />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="supervisor"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                    >
+                      <SupervisorDashboard />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="timeclock"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={[
+                        "SUPER_ADMIN",
+                        "ADMIN",
+                        "CHEF",
+                        "WAITER",
+                        "CLEANER",
+                        "CASHIER",
+                      ]}
+                    >
+                      <TimeClockPage />
+                    </RoleBasedRoute>
+                  }
+                />
               </Route>
 
               {/* Staff Routes */}
-              <Route path="/staff-dashboard" element={
-                <ProtectedRoute>
-                  <StaffLayout />
-                </ProtectedRoute>
-              }>
-                <Route index element={<StaffDashboard />} />
-                <Route path="time-tracking" element={<React.Fragment>Time Tracking (Component Missing)</React.Fragment>} />
+              <Route
+                path="/staff-dashboard"
+                element={
+                  <ProtectedRoute>
+                    <StaffGridLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<StaffAppsPage />} />
+                <Route
+                  path="time-tracking"
+                  element={
+                    <React.Fragment>
+                      Time Tracking (Component Missing)
+                    </React.Fragment>
+                  }
+                />
                 <Route path="schedule" element={<WeeklyScheduleView />} />
                 <Route path="schedule/:id" element={<ShiftDetailView />} />
                 <Route path="attendance" element={<AttendanceHistory />} />
-                <Route path="kitchen" element={
-                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'CHEF']}>
-                    <KitchenDisplay />
-                  </RoleBasedRoute>
-                } />
-                <Route path="cleaning-tasks" element={
-                  <RoleBasedRoute allowedRoles={['CLEANER']}>
-                    <CleaningTasks />
-                  </RoleBasedRoute>
-                } />
+                <Route path="safety" element={<SafetyDashboard />} />
+                <Route
+                  path="kitchen"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={["SUPER_ADMIN", "ADMIN", "CHEF"]}
+                    >
+                      <KitchenDisplay />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="cleaning-tasks"
+                  element={
+                    <RoleBasedRoute allowedRoles={["CLEANER"]}>
+                      <CleaningTasks />
+                    </RoleBasedRoute>
+                  }
+                />
                 <Route path="chat" element={<StaffChat />} />
               </Route>
 

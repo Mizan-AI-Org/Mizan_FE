@@ -1,7 +1,8 @@
 import React from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth } from '@/hooks/use-auth';
-import { Clock, Calendar, LogOut, User, ShoppingCart, UtensilsCrossed, LayoutDashboard, MessageSquare } from "lucide-react";
+import { Clock, Calendar, LogOut, User, ShoppingCart, UtensilsCrossed, LayoutDashboard, MessageSquare, Shield } from "lucide-react";
+import SafetyNotifications from "@/components/safety/SafetyNotifications";
 
 const StaffLayout: React.FC = () => {
     const { user, logout } = useAuth();
@@ -15,7 +16,7 @@ const StaffLayout: React.FC = () => {
             icon: Clock,
         },
         { name: "Schedule", href: "/staff-dashboard/schedule", icon: Calendar },
-        { name: "POS", href: "/staff-dashboard/pos", icon: ShoppingCart },
+        { name: "Safety", href: "/staff-dashboard/safety", icon: Shield },
         { name: "Chat", href: "/staff-dashboard/chat", icon: MessageSquare },
     ];
 
@@ -41,6 +42,9 @@ const StaffLayout: React.FC = () => {
                             <p className="text-sm text-gray-500">
                                 {user?.restaurant_data?.name}
                             </p>
+                        </div>
+                        <div>
+                            <SafetyNotifications />
                         </div>
                     </div>
 
