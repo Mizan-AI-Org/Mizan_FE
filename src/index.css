@@ -141,3 +141,36 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Elegant Animation for Fine Dining Aesthetic */
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0px);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translate(-20px, -20px);
+    opacity: 0.5;
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 230, 118, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(0, 230, 118, 0.4);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.5;
+  }
+}

@@ -13,6 +13,7 @@ import { PlusCircle, Loader2 } from "lucide-react";
 import DeleteStaffConfirmation from "@/components/staff/DeleteStaffConfirmation";
 import EditStaffModal from "@/components/staff/EditStaffModal";
 import InviteStaffModal from "@/components/staff/InviteStaffModal";
+import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 
 const API_BASE =
@@ -182,7 +183,4 @@ const StaffManagement: React.FC = () => {
 };
 
 export default StaffManagement;
-function useAuth(): AuthContextType {
-  throw new Error("Function not implemented.");
-}
 
