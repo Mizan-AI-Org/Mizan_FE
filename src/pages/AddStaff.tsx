@@ -50,37 +50,101 @@ const AddStaff = () => {
 
     const validateForm = () => {
         const newErrors: FormErrors = {};
-
+        
         if (!email) {
             newErrors.email = "Email is required";
         } else if (!/\S+@\S+\.\S+/.test(email)) {
             newErrors.email = "Email is invalid";
         }
-
+        
         if (!firstName) newErrors.firstName = "First name is required";
         if (!lastName) newErrors.lastName = "Last name is required";
         if (!role) newErrors.role = "Role is required";
-
+        
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleInviteStaff = async () => {
+    const handleInvite = async () => {
         if (!validateForm()) return;
-
-        setIsLoading(true);
         
-        setTimeout(() => {
-            alert(`Invitation sent to ${firstName} ${lastName} (${email})`);
-            
-            setEmail('');
-            setFirstName('');
-            setLastName('');
-            setRole('');
-            setPhoneNumber('');
-            setErrors({});
+        setIsLoading(true);
+        setErrors({}); // Clear previous errors
+
+        // 1. Get the token from localStorage
+        const token = localStorage.getItem('access_token');
+
+        // We use snake_case for the payload to match
+        // common Django REST Framework conventions
+        const payload = {
+            email: email,
+            first_name: firstName,
+            last_name: lastName,
+            role: role,
+            phone_number: phoneNumber || null // Send null if empty
+        };
+
+        // 2. Prepare headers
+        const requestHeaders: HeadersInit = {
+            'Content-Type': 'application/json',
+        };
+
+        // 3. Add Authorization header if token exists
+        if (token) {
+            requestHeaders['Authorization'] = `Bearer ${token}`;
+        }
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/api/staff/invite/', {
+                method: 'POST',
+                headers: requestHeaders, // Use the prepared headers
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                // Success (2xx status code)
+                // const data = await response.json(); // You can get the response data
+                alert(`Invitation sent to ${firstName} ${lastName} (${email})`);
+                
+                // Reset form
+                setEmail('');
+                setFirstName('');
+                setLastName('');
+                setRole('');
+                setPhoneNumber('');
+            } else {
+                // Handle errors (4xx, 5xx status codes)
+                const errorData = await response.json();
+                const newErrors: FormErrors = {};
+
+                // This assumes your API returns errors like:
+                // { "email": ["This email is already in use."], "first_name": ["This field is required."] }
+                if (typeof errorData === 'object' && errorData !== null) {
+                    if (errorData.email) newErrors.email = errorData.email[0];
+                    if (errorData.first_name) newErrors.firstName = errorData.first_name[0];
+                    if (errorData.last_name) newErrors.lastName = errorData.last_name[0];
+                    if (errorData.role) newErrors.role = errorData.role[0];
+                    
+                    setErrors(newErrors);
+
+                    // Handle non-field errors (e.g., { "detail": "..." })
+                    if (errorData.detail) {
+                        alert(`Error: ${errorData.detail}`);
+                    } else if (Object.keys(newErrors).length === 0) {
+                        alert('An unknown error occurred. Please try again.');
+                    }
+                } else {
+                    alert(`An error occurred: ${response.statusText}`);
+                }
+            }
+        } catch (error) {
+            // Handle network errors (e.g., server is down, CORS)
+            console.error('Failed to send invitation:', error);
+            alert('A network error occurred. Please check if the server is running and try again.');
+        } finally {
+            // This block runs regardless of success or failure
             setIsLoading(false);
-        })
+        }
     };
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,11 +158,11 @@ const AddStaff = () => {
             const text = e.target?.result as string;
             const lines = text.split('\n');
             const headers = lines[0].split(',').map((h: string) => h.trim().toLowerCase());
-
+            
             const staff: StaffMember[] = [];
             for (let i = 1; i < lines.length; i++) {
                 if (!lines[i].trim()) continue;
-
+                
                 const values = lines[i].split(',').map((v: string) => v.trim());
                 const staffMember: StaffMember = {
                     id: i,
@@ -109,15 +173,15 @@ const AddStaff = () => {
                     phoneNumber: values[headers.indexOf('phone')] || values[headers.indexOf('phonenumber')] || '',
                     status: 'pending'
                 };
-
+                
                 if (staffMember.email) {
                     staff.push(staffMember);
                 }
             }
-
+            
             setParsedStaff(staff);
         };
-
+        
         reader.readAsText(file);
     };
 
@@ -128,7 +192,7 @@ const AddStaff = () => {
         // 2. Loop through `parsedStaff` to create a payload array
         // 3. Send POST request with the array
         setIsLoading(true);
-
+        
         setTimeout(() => {
             alert(`Successfully invited ${parsedStaff.length} staff members! (Mock)`);
             setUploadedFile(null);
@@ -156,12 +220,12 @@ const AddStaff = () => {
     return (
         <div className="min-h-screen bg-gray-50 p-6">
             <div className="max-w-6xl mx-auto space-y-6">
-
+                
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Button
-                            variant="ghost"
+                        <Button 
+                            variant="ghost" 
                             size="icon"
                             onClick={() => window.history.back()}
                             className="rounded-full hover:bg-gray-200"
@@ -179,10 +243,11 @@ const AddStaff = () => {
                     <button
                         type="button"
                         onClick={() => setActiveTab('single')}
-                        className={`px-6 py-3 rounded-xl font-medium transition-all ${activeTab === 'single'
+                        className={`px-6 py-3 rounded-xl font-medium transition-all ${
+                            activeTab === 'single'
                                 ? 'bg-green-900 text-white shadow-md'
                                 : 'text-gray-600 hover:bg-gray-100'
-                            }`}
+                        }`}
                     >
                         <User className="w-4 h-4 inline-block mr-2" />
                         Single Invite
@@ -190,10 +255,11 @@ const AddStaff = () => {
                     <button
                         type="button"
                         onClick={() => setActiveTab('bulk')}
-                        className={`px-6 py-3 rounded-xl font-medium transition-all ${activeTab === 'bulk'
+                        className={`px-6 py-3 rounded-xl font-medium transition-all ${
+                            activeTab === 'bulk'
                                 ? 'bg-green-900 text-white shadow-md'
                                 : 'text-gray-600 hover:bg-gray-100'
-                            }`}
+                        }`}
                     >
                         <Users className="w-4 h-4 inline-block mr-2" />
                         Bulk Upload
@@ -215,7 +281,7 @@ const AddStaff = () => {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6 pt-6">
-
+                            
                             {/* Email */}
                             <div className="space-y-2">
                                 <Label htmlFor="email" className="text-sm font-medium text-gray-700">
@@ -337,8 +403,8 @@ const AddStaff = () => {
 
                             {/* Action Buttons */}
                             <div className="flex gap-3 pt-4">
-                                <Button
-                                    onClick={handleInviteStaff}
+                                <Button 
+                                    onClick={handleInvite} 
                                     disabled={isLoading}
                                     className="flex-1 rounded-xl bg-gradient-to-r from-green-900 to-green-900 hover:from-blue-900 hover:to-indigo-700 text-white h-12 font-medium shadow-md"
                                 >
@@ -377,7 +443,7 @@ const AddStaff = () => {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6 pt-6">
-
+                                
                                 {/* Download Template */}
                                 <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
                                     <div className="flex items-start gap-4">
@@ -389,7 +455,7 @@ const AddStaff = () => {
                                             <p className="text-sm text-gray-600 mb-3">
                                                 Get started with our CSV template. Fill in staff details and upload below.
                                             </p>
-                                            <Button
+                                            <Button 
                                                 onClick={downloadTemplate}
                                                 variant="outline"
                                                 className="rounded-xl border-blue-300 hover:bg-blue-100"
@@ -439,7 +505,7 @@ const AddStaff = () => {
                                                 {parsedStaff.length} staff members ready to invite
                                             </CardDescription>
                                         </div>
-                                        <Button
+                                        <Button 
                                             onClick={handleBulkInvite}
                                             disabled={isLoading}
                                             className="rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md"
