@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { SignupData } from "@/lib/types";
+import { SignupData } from "../lib/types";
 import { AuthContext } from "./AuthContext";
 import { AuthContextType, User } from "./AuthContext.types";
 
@@ -11,6 +11,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Centralized API base, consistent with other pages
+  const API_BASE =
+    import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
   const clearAuth = useCallback(() => {
     localStorage.removeItem("user");
@@ -26,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (storedUser && token) {
         // Verify token is still valid by fetching profile
-        const response = await fetch("/api/auth/me/", {
+        const response = await fetch(`${API_BASE}/auth/me/`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -68,103 +72,155 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     initializeAuth();
   }, [initializeAuth]);
 
-  const login = async (email: string, password: string) => {
-    const response = await fetch("/api/auth/login/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
-    });
+  // Periodically refresh user role and permissions for real-time UI updates
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
 
-    const responseText = await response.text();
-
-    if (!response.ok) {
-      let errorData = { message: "Login failed" };
+    const refreshInterval = setInterval(async () => {
       try {
-        errorData = JSON.parse(responseText);
-      } catch (e) {
-        console.error(
-          "Failed to parse error response as JSON:",
-          e,
-          "Raw response:",
-          responseText
-        );
-        errorData.message = "An unexpected error occurred during login.";
+        const response = await fetch(`${API_BASE}/auth/me/`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        if (response.ok) {
+          const latest: User = await response.json();
+          // Update user in memory and localStorage only if something changed
+          const prev = user ? JSON.stringify(user) : null;
+          const next = JSON.stringify(latest);
+          if (prev !== next) {
+            setUser(latest);
+            localStorage.setItem("user", JSON.stringify(latest));
+          }
+        }
+      } catch (err) {
+        // Do not clear auth on transient errors
+        console.warn("Periodic role refresh failed:", err);
       }
-      console.error(
-        "Login failed:",
-        errorData.message,
-        "Response:",
-        responseText
+    }, 60000); // 60 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [user]);
+
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/login/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const isJson = contentType.includes("application/json");
+      const rawText = await response.text();
+
+      if (!response.ok) {
+        let errorMsg = "Login failed";
+        if (isJson && rawText) {
+          try {
+            const parsed = JSON.parse(rawText);
+            errorMsg =
+              parsed.message || parsed.error || `Login failed (${response.status})`;
+          } catch (e) {
+            errorMsg = `Login failed (${response.status})`;
+          }
+        } else {
+          if (response.status === 401) errorMsg = "Invalid email or password.";
+          else if (response.status >= 500)
+            errorMsg = "Server error during login. Please try again.";
+          else errorMsg = "Backend unreachable or returned a non-JSON error.";
+        }
+        console.error("Login failed:", errorMsg, "Status:", response.status);
+        throw new Error(errorMsg);
+      }
+
+      const data = isJson ? JSON.parse(rawText) : {};
+      setUser(data.user);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("access_token", data.tokens?.access || data.access);
+      localStorage.setItem(
+        "refresh_token",
+        data.tokens?.refresh || data.refresh
       );
-      throw new Error(errorData.message || errorData.error || "Login failed");
-    }
 
-    const data = JSON.parse(responseText);
-    setUser(data.user);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    localStorage.setItem("access_token", data.tokens?.access || data.access);
-    localStorage.setItem("refresh_token", data.tokens?.refresh || data.refresh);
-
-    if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
-      navigate("/dashboard");
-    } else {
-      navigate("/staff-dashboard");
+      if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
+        navigate("/dashboard");
+      } else {
+        navigate("/staff-dashboard");
+      }
+    } catch (err) {
+      console.error("Login request error:", err);
+      if (err instanceof Error) {
+        throw err;
+      }
+      throw new Error("Network error during login. Please check backend server.");
     }
   };
 
   const loginWithPin = async (pin: string, email: string | null = null) => {
-    const response = await fetch("/api/auth/pin-login/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ pin_code: pin, email: email }),
-    });
+    try {
+      const response = await fetch(`${API_BASE}/auth/pin-login/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ pin_code: pin, email: email }),
+      });
 
-    const responseText = await response.text();
-    console.log("Raw backend PIN login response:", responseText);
+      const contentType = response.headers.get("content-type") || "";
+      const isJson = contentType.includes("application/json");
+      const rawText = await response.text();
+      console.log("Raw backend PIN login response:", rawText);
 
-    if (!response.ok) {
-      let errorData = { message: "PIN login failed" };
-      try {
-        errorData = JSON.parse(responseText);
-      } catch (e) {
-        console.error(
-          "Failed to parse PIN login error response as JSON:",
-          e,
-          "Raw response:",
-          responseText
-        );
-        errorData.message = "An unexpected error occurred during PIN login.";
+      if (!response.ok) {
+        let errorMsg = "PIN login failed";
+        if (isJson && rawText) {
+          try {
+            const parsed = JSON.parse(rawText);
+            errorMsg = parsed.message || parsed.error || "PIN login failed";
+          } catch (e) {
+            errorMsg = `PIN login failed (${response.status})`;
+          }
+        } else {
+          if (response.status === 401) errorMsg = "Invalid PIN or user.";
+          else if (response.status >= 500)
+            errorMsg = "Server error during PIN login. Please try again.";
+          else errorMsg = "Backend unreachable or returned a non-JSON error.";
+        }
+        console.error("PIN login failed:", errorMsg, "Status:", response.status);
+        throw new Error(errorMsg);
       }
-      console.error(
-        "PIN login failed:",
-        errorData.message,
-        "Response:",
-        responseText
-      );
-      throw new Error(
-        errorData.message || errorData.error || "PIN login failed"
-      );
-    }
 
-    const data = JSON.parse(responseText);
-    setUser(data.user);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    localStorage.setItem("access_token", data.tokens?.access || data.access);
-    localStorage.setItem("refresh_token", data.tokens?.refresh || data.refresh);
+      const data = isJson ? JSON.parse(rawText) : {};
+      setUser(data.user);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("access_token", data.tokens?.access || data.access);
+      localStorage.setItem(
+        "refresh_token",
+        data.tokens?.refresh || data.refresh
+      );
 
-    if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
-      navigate("/dashboard");
-    } else {
-      navigate("/staff-dashboard");
+      if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
+        navigate("/dashboard");
+      } else {
+        navigate("/staff-dashboard");
+      }
+    } catch (err) {
+      console.error("PIN login request error:", err);
+      if (err instanceof Error) {
+        throw err;
+      }
+      throw new Error("Network error during PIN login. Please check backend server.");
     }
   };
 
   const ownerSignup = async (signupData: SignupData) => {
-    const response = await fetch("/api/auth/signup/owner/", {
+    const response = await fetch(`${API_BASE}/auth/signup/owner/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -192,7 +248,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     password: string,
     pin_code: string | null
   ) => {
-    const response = await fetch("/api/auth/accept-invitation/", {
+    const response = await fetch(`${API_BASE}/auth/accept-invitation/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -223,7 +279,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     accessToken: string,
     inviteData: { email: string; role: string }
   ) => {
-    const response = await fetch("/api/staff/invite/", {
+    const response = await fetch(`${API_BASE}/staff/invite/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

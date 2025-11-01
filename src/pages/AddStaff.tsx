@@ -18,6 +18,7 @@ interface StaffMember {
     firstName: string;
     lastName: string;
     role: string;
+    department?: string;
     phoneNumber: string;
     status: string;
 }
@@ -83,6 +84,8 @@ const AddStaff = () => {
         }, 1500);
     };
 
+    const [csvText, setCsvText] = useState<string>('');
+
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -91,21 +94,56 @@ const AddStaff = () => {
 
         const reader = new FileReader();
         reader.onload = (e) => {
-            const text = e.target?.result as string;
-            const lines = text.split('\n');
-            const headers = lines[0].split(',').map((h: string) => h.trim().toLowerCase());
+            const text = (e.target?.result as string) || "";
+            // Normalize line endings
+            const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const lines = normalized.split('\n');
+            // Find first non-empty line
+            let startIndex = 0;
+            while (startIndex < lines.length && !lines[startIndex].trim()) startIndex++;
+            let delimiterFromSep: string | null = null;
+            // Excel directive: sep=,
+            const firstLine = (lines[startIndex] || '').trim();
+            const sepMatch = /^sep\s*=\s*([^\s])\s*$/i.exec(firstLine);
+            if (sepMatch) {
+                delimiterFromSep = sepMatch[1];
+                startIndex++; // skip sep line
+            }
+            const headerLine = lines[startIndex] || '';
+            const detectedDelimiter = delimiterFromSep || (headerLine.includes(';') ? ';' : ',');
+            const headers = headerLine
+                .split(detectedDelimiter)
+                .map((h: string) => h.trim().replace(/^"|"$/g, '').toLowerCase());
+            // Build a server-friendly CSV (comma-delimited, without sep= line)
+            const headerPartsRaw = headerLine
+                .split(detectedDelimiter)
+                .map((p: string) => p.trim().replace(/^"|"$/g, ''));
+            const cleanedRows: string[] = [];
+            for (let i = startIndex + 1; i < lines.length; i++) {
+                const raw = lines[i];
+                if (!raw || !raw.trim()) continue;
+                const parts = raw
+                    .split(detectedDelimiter)
+                    .map((p: string) => p.trim());
+                cleanedRows.push(parts.join(','));
+            }
+            const serverCsv = [headerPartsRaw.join(','), ...cleanedRows].join('\n');
+            setCsvText(serverCsv);
 
             const staff: StaffMember[] = [];
             for (let i = 1; i < lines.length; i++) {
                 if (!lines[i].trim()) continue;
 
-                const values = lines[i].split(',').map((v: string) => v.trim());
+                const values = lines[i]
+                    .split(detectedDelimiter)
+                    .map((v: string) => v.trim().replace(/^"|"$/g, ''));
                 const staffMember: StaffMember = {
                     id: i,
-                    email: values[headers.indexOf('email')] || '',
+                    email: values[headers.indexOf('email')] || values[headers.indexOf('email address')] || '',
                     firstName: values[headers.indexOf('firstname')] || values[headers.indexOf('first name')] || '',
                     lastName: values[headers.indexOf('lastname')] || values[headers.indexOf('last name')] || '',
                     role: values[headers.indexOf('role')] || '',
+                    department: values[headers.indexOf('department')] || '',
                     phoneNumber: values[headers.indexOf('phone')] || values[headers.indexOf('phonenumber')] || '',
                     status: 'pending'
                 };
@@ -121,25 +159,51 @@ const AddStaff = () => {
         reader.readAsText(file);
     };
 
-    const handleBulkInvite = () => {
-        setIsLoading(true);
+    const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
-        setTimeout(() => {
-            alert(`Successfully invited ${parsedStaff.length} staff members!`);
+    const handleBulkInvite = async () => {
+        if (!csvText) return;
+        setIsLoading(true);
+        try {
+            const resp = await fetch(`${API_BASE}/invitations/bulk/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                },
+                body: JSON.stringify({ type: 'csv', csv_content: csvText }),
+            });
+            const data = await resp.json();
+            if (!resp.ok) {
+                throw new Error(data?.detail || 'Bulk invite failed');
+            }
+            alert(`Processed ${data.success + data.failed} invites. Success: ${data.success}, Failed: ${data.failed}`);
             setUploadedFile(null);
             setParsedStaff([]);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Bulk invite failed';
+            alert(message);
+        } finally {
             setIsLoading(false);
-        }, 2000);
+        }
     };
 
     const downloadTemplate = () => {
-        const csv = "email,firstname,lastname,role,phone\nexample@email.com,John,Doe,WAITER,+1234567890\n";
-        const blob = new Blob([csv], { type: 'text/csv' });
+        // Excel-friendly: include delimiter directive and use BOM + CRLF
+        const lines = [
+            'sep=,',
+            'email,firstname,lastname,role,department,phone',
+            'example@email.com,John,Doe,WAITER,Kitchen,+1234567890'
+        ];
+        const csv = lines.join('\r\n');
+        const BOM = new Uint8Array([0xEF, 0xBB, 0xBF]); // UTF-8 BOM
+        const blob = new Blob([BOM, csv], { type: 'text/csv;charset=utf-8;' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = 'staff-template.csv';
         a.click();
+        window.URL.revokeObjectURL(url);
     };
 
     const removeStaffMember = (id: number) => {
@@ -154,7 +218,7 @@ const AddStaff = () => {
 
                 {/* Header */}
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                    {/* <div className="flex items-center gap-4">
                         <Button
                             variant="ghost"
                             size="icon"
@@ -166,7 +230,7 @@ const AddStaff = () => {
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900">Add Staff</h1>
                         </div>
-                    </div>
+                    </div> */}
                 </div>
 
                 {/* Tab Selector */}

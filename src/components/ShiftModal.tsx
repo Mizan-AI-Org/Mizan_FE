@@ -6,10 +6,32 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X } from "lucide-react";
 
+interface StaffMember {
+    id: string;
+    first_name: string;
+    last_name: string;
+    role?: string;
+}
+
+interface TemplateTask {
+    title: string;
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+    estimated_duration?: number;
+}
+
+interface TaskTemplate {
+    id: string;
+    name: string;
+    description?: string;
+    template_type?: string;
+    tasks?: TemplateTask[];
+}
+
 interface Task {
     id: string;
     title: string;
     priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+    frequency?: 'ONE_TIME' | 'DAILY' | 'WEEKLY' | 'CUSTOM';
 }
 
 interface Shift {
@@ -65,6 +87,9 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         priority: "MEDIUM",
     });
     const [staffSearch, setStaffSearch] = useState("");
+    const [templates, setTemplates] = useState<TaskTemplate[]>([]);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+    const [assignmentFrequency, setAssignmentFrequency] = useState<'ONE_TIME' | 'DAILY' | 'WEEKLY' | 'CUSTOM'>("ONE_TIME");
 
     useEffect(() => {
         if (initialShift) {
@@ -86,6 +111,23 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         }
     }, [initialShift, isOpen, dayIndex, hour, staffMembers]);
 
+    useEffect(() => {
+        const loadTemplates = async () => {
+            try {
+                const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
+                const res = await fetch(`${API_BASE}/scheduling/task-templates/`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                setTemplates((data.results || data || []) as TaskTemplate[]);
+            } catch (e) {
+                // silently ignore for now
+            }
+        };
+        if (isOpen) loadTemplates();
+    }, [isOpen]);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { id, value } = e.target;
         setShiftData(prev => ({
@@ -105,7 +147,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         if (newTask.title.trim()) {
             setShiftData(prev => ({
                 ...prev,
-                tasks: [...(prev.tasks || []), { id: Date.now().toString(), ...newTask }],
+                tasks: [...(prev.tasks || []), { id: Date.now().toString(), ...newTask, frequency: assignmentFrequency }],
             }));
             setNewTask({ title: "", priority: "MEDIUM" });
         }
@@ -194,6 +236,63 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                     <div className="grid grid-cols-4 gap-4">
                         <Label className="text-right pt-2">Tasks</Label>
                         <div className="col-span-3 space-y-3">
+                            {/* Templates and Frequency */}
+                            <div className="space-y-2">
+                                <div className="grid grid-cols-3 gap-2 items-center">
+                                    <div className="col-span-2">
+                                        <Label className="text-xs text-gray-600">Template</Label>
+                                        <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select task template" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {templates.map(t => (
+                                                    <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-gray-600">Frequency</Label>
+                                        <Select value={assignmentFrequency} onValueChange={(v) => setAssignmentFrequency(v as 'ONE_TIME' | 'DAILY' | 'WEEKLY' | 'CUSTOM')}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Frequency" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="ONE_TIME">One time</SelectItem>
+                                                <SelectItem value="DAILY">Every day</SelectItem>
+                                                <SelectItem value="WEEKLY">Weekly</SelectItem>
+                                                <SelectItem value="CUSTOM">Custom</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => {
+                                        const tpl = templates.find(t => String(t.id) === selectedTemplateId);
+                                        if (!tpl) return;
+                                        const items: TemplateTask[] = (tpl.tasks || []).length > 0 ? (tpl.tasks as TemplateTask[]) : [{ title: tpl.name, priority: 'MEDIUM', estimated_duration: 30 }];
+                                        setShiftData(prev => ({
+                                            ...prev,
+                                            tasks: [
+                                                ...(prev.tasks || []),
+                                                ...items.map((t) => ({
+                                                    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                                                    title: t.title || tpl.name,
+                                                    priority: ((t.priority || 'MEDIUM') as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'),
+                                                    frequency: assignmentFrequency,
+                                                })),
+                                            ],
+                                        }));
+                                    }}
+                                    disabled={!selectedTemplateId}
+                                >
+                                    Add from Template
+                                </Button>
+                            </div>
+
                             <div className="space-y-2">
                                 <div className="flex gap-2">
                                     <Input
@@ -202,7 +301,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                         onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
                                         className="flex-1"
                                     />
-                                    <Select value={newTask.priority} onValueChange={(value) => setNewTask(prev => ({ ...prev, priority: value as any }))}>
+                                    <Select value={newTask.priority} onValueChange={(value) => setNewTask(prev => ({ ...prev, priority: value as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' }))}>
                                         <SelectTrigger className="w-24">
                                             <SelectValue />
                                         </SelectTrigger>
@@ -228,6 +327,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                                     {task.priority === 'MEDIUM' && 'Medium Priority'}
                                                     {task.priority === 'HIGH' && 'High Priority'}
                                                     {task.priority === 'URGENT' && 'Urgent'}
+                                                    {task.frequency && ` • ${task.frequency}`}
                                                 </p>
                                             </div>
                                             <Button

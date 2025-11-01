@@ -112,8 +112,8 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
     const createUpdateShiftMutation = useMutation({
         mutationFn: async (data: AssignedShift) => {
             const url = shift?.id
-                ? `${API_BASE}/schedule/assigned-shifts/${shift.id}/`
-                : `${API_BASE}/schedule/assigned-shifts/`;
+                ? `${API_BASE}/scheduling/assigned-shifts-v2/${shift.id}/`
+                : `${API_BASE}/scheduling/assigned-shifts-v2/`;
             const method = shift?.id ? 'PUT' : 'POST';
 
             const response = await fetch(url, {
@@ -154,7 +154,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
 
     const deleteShiftMutation = useMutation({
         mutationFn: async (id: string) => {
-            const response = await fetch(`${API_BASE}/schedule/assigned-shifts/${id}/`, {
+            const response = await fetch(`${API_BASE}/scheduling/assigned-shifts-v2/${id}/`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,

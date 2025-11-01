@@ -1,4 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,9 +16,7 @@ import {
   Building2,
   Users,
   MapPin,
-  Truck,
   Plug,
-  Palette,
   Bell,
   Shield,
   Sparkles,
@@ -26,10 +30,7 @@ import {
 } from "lucide-react";
 import MenuScanner from "@/components/MenuScanner";
 import GeolocationMapSettings from "@/components/settings/GeolocationMapSettings";
-import DeliveryZoneManager from "@/components/settings/DeliveryZoneManager";
-import BrandCustomization from "@/components/settings/BrandCustomization";
 import ProfileSettings from "./ProfileSettings";
-import EnhancedPOSSettings from "@/components/settings/EnhancedPOSSettings";
 import { toast } from "sonner";
 import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
@@ -38,7 +39,8 @@ import { useNavigate } from "react-router-dom";
 import { StaffInvitation } from "@/lib/types";
 import { User } from "@/contexts/AuthContext.types";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+const API_BASE =
+  import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 type PosConnectionStatus = "idle" | "connected" | "error";
 
@@ -67,7 +69,9 @@ export default function Settings() {
   const [longitude, setLongitude] = useState<number>(0);
   const [radius, setRadius] = useState<number>(0);
   const [geofenceEnabled, setGeofenceEnabled] = useState(true);
-  const [geofencePolygon, setGeofencePolygon] = useState<Array<[number, number]>>([]);
+  const [geofencePolygon, setGeofencePolygon] = useState<
+    Array<[number, number]>
+  >([]);
   const [restaurantName, setRestaurantName] = useState("");
   const [restaurantAddress, setRestaurantAddress] = useState("");
   const [restaurantPhone, setRestaurantPhone] = useState("");
@@ -77,17 +81,15 @@ export default function Settings() {
   const [language, setLanguage] = useState("en");
   const [operatingHours, setOperatingHours] = useState<{
     [key: string]: { open: string; close: string; isClosed: boolean };
-  }>(
-    {
-      Monday: { open: "09:00", close: "17:00", isClosed: false },
-      Tuesday: { open: "09:00", close: "17:00", isClosed: false },
-      Wednesday: { open: "09:00", close: "17:00", isClosed: false },
-      Thursday: { open: "09:00", close: "17:00", isClosed: false },
-      Friday: { open: "09:00", close: "17:00", isClosed: false },
-      Saturday: { open: "10:00", close: "14:00", isClosed: true },
-      Sunday: { open: "10:00", close: "14:00", isClosed: true },
-    }
-  );
+  }>({
+    Monday: { open: "09:00", close: "17:00", isClosed: false },
+    Tuesday: { open: "09:00", close: "17:00", isClosed: false },
+    Wednesday: { open: "09:00", close: "17:00", isClosed: false },
+    Thursday: { open: "09:00", close: "17:00", isClosed: false },
+    Friday: { open: "09:00", close: "17:00", isClosed: false },
+    Saturday: { open: "10:00", close: "14:00", isClosed: true },
+    Sunday: { open: "10:00", close: "14:00", isClosed: true },
+  });
   const [automaticClockOut, setAutomaticClockOut] = useState(false);
   const [breakDuration, setBreakDuration] = useState(30);
   const [emailNotifications, setEmailNotifications] = useState({
@@ -106,7 +108,9 @@ export default function Settings() {
   const [inviteFirstName, setInviteFirstName] = useState("");
   const [inviteLastName, setInviteLastName] = useState("");
   const [inviteRole, setInviteRole] = useState("STAFF");
-  const [pendingInvitations, setPendingInvitations] = useState<StaffInvitation[]>([]);
+  const [pendingInvitations, setPendingInvitations] = useState<
+    StaffInvitation[]
+  >([]);
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   // Quick Settings States
@@ -123,7 +127,8 @@ export default function Settings() {
   const [showAPIKey, setShowAPIKey] = useState(false);
   const [savingPos, setSavingPos] = useState(false);
   const [posTestingConnection, setPosTestingConnection] = useState(false);
-  const [posConnectionStatus, setPosConnectionStatus] = useState<PosConnectionStatus>("idle");
+  const [posConnectionStatus, setPosConnectionStatus] =
+    useState<PosConnectionStatus>("idle");
   const [aiSettings, setAiSettings] = useState<AISettings>({
     enabled: true,
     ai_provider: "GROQ",
@@ -161,11 +166,11 @@ export default function Settings() {
 
   const loadCoreSettings = async () => {
     try {
-      const response = await apiClient.get("/accounts/restaurant/location/");
-      const data = response.data;
+      const response = await apiClient.get("/timeclock/restaurant-location/");
+      const data = response.data?.restaurant || response.data || {};
       setLatitude(data.latitude || 0);
       setLongitude(data.longitude || 0);
-      setRadius(data.radius || 0);
+      setRadius(data.geofence_radius ?? data.radius ?? 0);
       setRestaurantName(data.name || "");
       setRestaurantAddress(data.address || "");
       setRestaurantPhone(data.phone || "");
@@ -184,7 +189,9 @@ export default function Settings() {
     }
 
     try {
-      const response = await apiClient.get("/accounts/staff/pending-invitations/");
+      const response = await apiClient.get(
+        "/accounts/staff/invitations/"
+      );
       setPendingInvitations(response.data);
     } catch (error) {
       console.error("Error fetching pending invitations:", error);
@@ -194,7 +201,9 @@ export default function Settings() {
 
   const fetchAdvancedSettings = async () => {
     try {
-      const response = await apiClient.get<GeolocationSettings>("/settings/geolocation/");
+      const response = await apiClient.get<GeolocationSettings>(
+        "/settings/geolocation/"
+      );
       const geo = response.data;
       setLatitude(geo.latitude || 0);
       setLongitude(geo.longitude || 0);
@@ -206,7 +215,9 @@ export default function Settings() {
     }
 
     try {
-      const response = await apiClient.get<POSSettings>("/settings/pos_integration/");
+      const response = await apiClient.get<POSSettings>(
+        "/settings/pos_integration/"
+      );
       const data = response.data;
       setPosSettings({
         pos_provider: data.pos_provider || "NONE",
@@ -219,7 +230,9 @@ export default function Settings() {
     }
 
     try {
-      const response = await apiClient.get<AISettings>("/settings/ai_assistant_config/");
+      const response = await apiClient.get<AISettings>(
+        "/settings/ai_assistant_config/"
+      );
       const data = response.data;
       setAiSettings({
         enabled: data.enabled ?? true,
@@ -235,29 +248,16 @@ export default function Settings() {
     }
   };
 
-  const saveLocationSettings = async (lat: number, lng: number, rad: number) => {
+  const saveLocationSettings = async (
+    lat: number,
+    lng: number,
+    rad: number
+  ) => {
     setLatitude(lat);
     setLongitude(lng);
     setRadius(rad);
     setSavingGeolocation(true);
     try {
-      await apiClient.put("/accounts/restaurant/update-location/", {
-        latitude: lat,
-        longitude: lng,
-        radius: rad,
-        name: restaurantName,
-        address: restaurantAddress,
-        phone: restaurantPhone,
-        email: restaurantEmail,
-        timezone,
-        currency,
-        language,
-        operating_hours: operatingHours,
-        automatic_clock_out: automaticClockOut,
-        break_duration: breakDuration,
-        email_notifications: emailNotifications,
-        push_notifications: pushNotifications,
-      });
       await apiClient.post("/settings/geolocation/", {
         latitude: lat,
         longitude: lng,
@@ -267,8 +267,14 @@ export default function Settings() {
       });
       toast.success("Location settings saved successfully!");
     } catch (error) {
-      console.error("Error saving location settings:", error);
-      toast.error("Failed to save location settings.");
+      const axiosErr = error as AxiosError<{ detail?: string }>;
+      const errData = axiosErr.response?.data;
+      console.error("Error saving location settings:", errData ?? error);
+      toast.error(
+        `Failed to save location settings${
+          errData?.detail ? ": " + errData.detail : ""
+        }`
+      );
     } finally {
       setSavingGeolocation(false);
     }
@@ -295,7 +301,11 @@ export default function Settings() {
         loadCoreSettings();
       } else {
         const errorData = response.data;
-        toast.error(`Failed to save settings: ${errorData.detail || errorData.error || "Unknown error"}`);
+        toast.error(
+          `Failed to save settings: ${
+            errorData.detail || errorData.error || "Unknown error"
+          }`
+        );
       }
     } catch (error) {
       console.error("Error saving general settings:", error);
@@ -303,14 +313,22 @@ export default function Settings() {
     }
   };
 
-  const handleOperatingHoursChange = (day: string, field: string, value: string | boolean) => {
+  const handleOperatingHoursChange = (
+    day: string,
+    field: string,
+    value: string | boolean
+  ) => {
     setOperatingHours((prevHours) => ({
       ...prevHours,
       [day]: { ...prevHours[day], [field]: value },
     }));
   };
 
-  const handleNotificationChange = (type: "email" | "push", field: string, value: boolean) => {
+  const handleNotificationChange = (
+    type: "email" | "push",
+    field: string,
+    value: boolean
+  ) => {
     if (type === "email") {
       setEmailNotifications((prev) => ({ ...prev, [field]: value }));
     } else {
@@ -338,11 +356,17 @@ export default function Settings() {
         setInviteFirstName("");
         setInviteLastName("");
         setInviteRole("STAFF");
-        const updatedInvitationsResponse = await apiClient.get("/accounts/staff/pending-invitations/");
+        const updatedInvitationsResponse = await apiClient.get(
+          "/accounts/staff/pending-invitations/"
+        );
         setPendingInvitations(updatedInvitationsResponse.data);
       } else {
         const errorData = response.data;
-        toast.error(`Failed to send invitation: ${errorData.detail || errorData.error || "Unknown error"}`);
+        toast.error(
+          `Failed to send invitation: ${
+            errorData.detail || errorData.error || "Unknown error"
+          }`
+        );
       }
     } catch (error) {
       console.error("Error inviting staff:", error);
@@ -370,13 +394,18 @@ export default function Settings() {
       } else {
         setPosConnectionStatus("error");
         setPosSettings((prev) => ({ ...prev, pos_is_connected: false }));
-        toast.error(`POS connection failed${data.message ? `: ${data.message}` : ""}`);
+        toast.error(
+          `POS connection failed${data.message ? `: ${data.message}` : ""}`
+        );
       }
     } catch (error) {
       setPosConnectionStatus("error");
       setPosSettings((prev) => ({ ...prev, pos_is_connected: false }));
       const axiosError = error as AxiosError<{ message?: string }>;
-      const message = axiosError.response?.data?.message ?? axiosError.message ?? "Unknown error";
+      const message =
+        axiosError.response?.data?.message ??
+        axiosError.message ??
+        "Unknown error";
       toast.error(`Connection test failed: ${message}`);
     } finally {
       setPosTestingConnection(false);
@@ -405,73 +434,47 @@ export default function Settings() {
     }
   };
 
-  const saveAiSettings = async () => {
-    setSavingAi(true);
-    try {
-      await apiClient.post("/settings/ai_assistant_config/", aiSettings);
-      toast.success("AI Assistant settings updated");
-    } catch (error) {
-      console.error("Failed to update AI settings:", error);
-      toast.error("Failed to update AI settings.");
-    } finally {
-      setSavingAi(false);
-    }
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <h1 className="text-3xl font-bold">Settings</h1>
         {user && <Badge variant="outline">{user.email}</Badge>}
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 lg:grid-cols-6 xl:grid-cols-8">
-          <TabsTrigger value="profile" className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm">
+        <TabsList className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
+          <TabsTrigger
+            value="profile"
+            className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
+          >
             <Users className="w-4 h-4" />
             Profile
           </TabsTrigger>
-          <TabsTrigger value="location" className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm">
+          <TabsTrigger
+            value="location"
+            className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
+          >
             <MapPin className="w-4 h-4" />
             Geolocation
           </TabsTrigger>
-          <TabsTrigger value="pos" className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm">
-            <Plug className="w-4 h-4" />
-            POS
-          </TabsTrigger>
-          <TabsTrigger value="general" className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm">
+          <TabsTrigger
+            value="general"
+            className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
+          >
             <Building2 className="w-4 h-4" />
             General
           </TabsTrigger>
-          <TabsTrigger value="team" className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm">
-            <Users className="w-4 h-4" />
-            Team
-          </TabsTrigger>
-          <TabsTrigger value="delivery" className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm">
-            <Truck className="w-4 h-4" />
-            Delivery
-          </TabsTrigger>
-          <TabsTrigger value="integrations" className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm">
+          <TabsTrigger
+            value="integrations"
+            className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
+          >
             <Plug className="w-4 h-4" />
             Integrations
           </TabsTrigger>
-          <TabsTrigger value="brand" className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm">
-            <Palette className="w-4 h-4" />
-            Brand
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm">
-            <Bell className="w-4 h-4" />
-            Notifications
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm">
-            <Shield className="w-4 h-4" />
-            Security
-          </TabsTrigger>
-          <TabsTrigger value="ai" className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm">
-            <Sparkles className="w-4 h-4" />
-            AI
-          </TabsTrigger>
-          <TabsTrigger value="billing" className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm">
+          <TabsTrigger
+            value="billing"
+            className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
+          >
             <CreditCardIcon className="w-4 h-4" />
             Billing
           </TabsTrigger>
@@ -481,7 +484,10 @@ export default function Settings() {
           <Card className="shadow-soft">
             <CardHeader>
               <CardTitle>Profile Settings</CardTitle>
-              <CardDescription>Manage personal and emergency contact details for administrators.</CardDescription>
+              <CardDescription>
+                Manage personal and emergency contact details for
+                administrators.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ProfileSettings />
@@ -503,10 +509,6 @@ export default function Settings() {
           />
         </TabsContent>
 
-        <TabsContent value="pos" className="space-y-6">
-          <EnhancedPOSSettings />
-        </TabsContent>
-
         <TabsContent value="general" className="space-y-6">
           {/* Quick Settings - concise, responsive controls */}
           <Card className="shadow-soft">
@@ -525,27 +527,37 @@ export default function Settings() {
                   <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-medium">Email Notifications</p>
-                      <p className="text-xs text-muted-foreground">Receive email updates about your account</p>
+                      <p className="text-xs text-muted-foreground">
+                        Receive email updates about your account
+                      </p>
                     </div>
                     <Switch
                       checked={emailNotifications.aiInsights}
-                      onCheckedChange={(checked) => handleNotificationChange("email", "aiInsights", checked)}
+                      onCheckedChange={(checked) =>
+                        handleNotificationChange("email", "aiInsights", checked)
+                      }
                     />
                   </div>
                   <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-medium">Push Notifications</p>
-                      <p className="text-xs text-muted-foreground">Receive push notifications on your device</p>
+                      <p className="text-xs text-muted-foreground">
+                        Receive push notifications on your device
+                      </p>
                     </div>
                     <Switch
                       checked={pushNotifications.aiInsights}
-                      onCheckedChange={(checked) => handleNotificationChange("push", "aiInsights", checked)}
+                      onCheckedChange={(checked) =>
+                        handleNotificationChange("push", "aiInsights", checked)
+                      }
                     />
                   </div>
                   <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-medium">SMS Notifications</p>
-                      <p className="text-xs text-muted-foreground">Receive text message alerts</p>
+                      <p className="text-xs text-muted-foreground">
+                        Receive text message alerts
+                      </p>
                     </div>
                     <Switch
                       checked={smsNotificationsEnabled}
@@ -564,10 +576,17 @@ export default function Settings() {
                 <div className="divide-y rounded-lg border">
                   <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm font-medium">Two-Factor Authentication</p>
-                      <p className="text-xs text-muted-foreground">Add an extra layer of security to your account</p>
+                      <p className="text-sm font-medium">
+                        Two-Factor Authentication
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Add an extra layer of security to your account
+                      </p>
                     </div>
-                    <Switch checked={twoFactorEnabled} onCheckedChange={setTwoFactorEnabled} />
+                    <Switch
+                      checked={twoFactorEnabled}
+                      onCheckedChange={setTwoFactorEnabled}
+                    />
                   </div>
                 </div>
               </div>
@@ -581,15 +600,22 @@ export default function Settings() {
                 <div className="divide-y rounded-lg border">
                   <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm font-medium">AI-Powered Suggestions</p>
-                      <p className="text-xs text-muted-foreground">Get intelligent recommendations and insights</p>
+                      <p className="text-sm font-medium">
+                        AI-Powered Suggestions
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Get intelligent recommendations and insights
+                      </p>
                     </div>
                     <Switch
                       checked={!!aiSettings.features_enabled.insights}
                       onCheckedChange={(checked) =>
                         setAiSettings((prev) => ({
                           ...prev,
-                          features_enabled: { ...prev.features_enabled, insights: checked },
+                          features_enabled: {
+                            ...prev.features_enabled,
+                            insights: checked,
+                          },
                         }))
                       }
                     />
@@ -597,29 +623,41 @@ export default function Settings() {
                   <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-medium">Smart Scheduling</p>
-                      <p className="text-xs text-muted-foreground">Let AI optimize staff schedules automatically</p>
+                      <p className="text-xs text-muted-foreground">
+                        Let AI optimize staff schedules automatically
+                      </p>
                     </div>
                     <Switch
                       checked={!!aiSettings.features_enabled.recommendations}
                       onCheckedChange={(checked) =>
                         setAiSettings((prev) => ({
                           ...prev,
-                          features_enabled: { ...prev.features_enabled, recommendations: checked },
+                          features_enabled: {
+                            ...prev.features_enabled,
+                            recommendations: checked,
+                          },
                         }))
                       }
                     />
                   </div>
                   <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm font-medium">Predictive Analytics</p>
-                      <p className="text-xs text-muted-foreground">Enable AI-driven forecasting and predictions</p>
+                      <p className="text-sm font-medium">
+                        Predictive Analytics
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Enable AI-driven forecasting and predictions
+                      </p>
                     </div>
                     <Switch
                       checked={!!aiSettings.features_enabled.reports}
                       onCheckedChange={(checked) =>
                         setAiSettings((prev) => ({
                           ...prev,
-                          features_enabled: { ...prev.features_enabled, reports: checked },
+                          features_enabled: {
+                            ...prev.features_enabled,
+                            reports: checked,
+                          },
                         }))
                       }
                     />
@@ -632,7 +670,9 @@ export default function Settings() {
           <Card className="shadow-soft">
             <CardHeader>
               <CardTitle>Restaurant Information</CardTitle>
-              <CardDescription>Manage your restaurant's basic details.</CardDescription>
+              <CardDescription>
+                Manage your restaurant's basic details.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -686,7 +726,9 @@ export default function Settings() {
                       <option value="America/New_York">America/New_York</option>
                       <option value="America/Chicago">America/Chicago</option>
                       <option value="America/Denver">America/Denver</option>
-                      <option value="America/Los_Angeles">America/Los_Angeles</option>
+                      <option value="America/Los_Angeles">
+                        America/Los_Angeles
+                      </option>
                       <option value="Europe/London">Europe/London</option>
                       <option value="Asia/Tokyo">Asia/Tokyo</option>
                     </select>
@@ -728,32 +770,43 @@ export default function Settings() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-0.5">
                         <Label>Auto-generate purchase lists</Label>
-                        <p className="text-xs text-muted-foreground">AI creates daily purchase recommendations</p>
+                        <p className="text-xs text-muted-foreground">
+                          AI creates daily purchase recommendations
+                        </p>
                       </div>
                       <Switch defaultChecked />
                     </div>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-0.5">
                         <Label>Smart scheduling</Label>
-                        <p className="text-xs text-muted-foreground">AI optimizes staff schedules</p>
+                        <p className="text-xs text-muted-foreground">
+                          AI optimizes staff schedules
+                        </p>
                       </div>
                       <Switch defaultChecked />
                     </div>
                   </div>
                 </div>
               </div>
-              <Button onClick={saveGeneralSettings} className="w-full">Save General Settings</Button>
+              <Button onClick={saveGeneralSettings} className="w-full">
+                Save General Settings
+              </Button>
             </CardContent>
           </Card>
 
           <Card className="shadow-soft">
             <CardHeader>
               <CardTitle>Business Hours</CardTitle>
-              <CardDescription>Set your restaurant's daily operating hours.</CardDescription>
+              <CardDescription>
+                Set your restaurant's daily operating hours.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {Object.keys(operatingHours).map((day) => (
-                <div key={day} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div
+                  key={day}
+                  className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                >
                   <Label htmlFor={day.toLowerCase()}>{day}</Label>
                   <div className="flex flex-wrap items-center gap-2">
                     <Input
@@ -789,133 +842,20 @@ export default function Settings() {
                   </div>
                 </div>
               ))}
-              <Button onClick={saveGeneralSettings} className="w-full">Save Business Hours</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="team" className="space-y-6">
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Team Management</CardTitle>
-              <CardDescription>Manage your staff and their roles.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-0.5">
-                  <Label>Automatic Clock-out</Label>
-                  <p className="text-xs text-muted-foreground">Automatically clock out staff at the end of their scheduled shift.</p>
-                </div>
-                <Switch
-                  checked={automaticClockOut}
-                  onCheckedChange={setAutomaticClockOut}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="break-duration">Default Break Duration (minutes)</Label>
-                <Input
-                  id="break-duration"
-                  type="number"
-                  value={breakDuration}
-                  onChange={(e) => setBreakDuration(parseInt(e.target.value))}
-                />
-              </div>
-              <Button onClick={saveGeneralSettings} className="w-full">Save Staff Settings</Button>
-              <Separator />
-              <Button className="w-full" variant="outline">
-                Invite Team Member
+              <Button onClick={saveGeneralSettings} className="w-full">
+                Save Business Hours
               </Button>
             </CardContent>
           </Card>
-
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Invite Staff</CardTitle>
-              <CardDescription>Send an invitation to a new staff member</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="invite-email">Email</Label>
-                <Input
-                  id="invite-email"
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="invite-firstname">First Name</Label>
-                  <Input
-                    id="invite-firstname"
-                    type="text"
-                    value={inviteFirstName}
-                    onChange={(e) => setInviteFirstName(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="invite-lastname">Last Name</Label>
-                  <Input
-                    id="invite-lastname"
-                    type="text"
-                    value={inviteLastName}
-                    onChange={(e) => setInviteLastName(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="invite-role">Role</Label>
-                <select
-                  id="invite-role"
-                  className="w-full p-2 border rounded mt-1"
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
-                  aria-label="Invite Staff Role"
-                >
-                  <option value="STAFF">Staff</option>
-                  <option value="MANAGER">Manager</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
-              </div>
-              <Button onClick={handleInviteStaff} className="w-full">
-                Send Invitation
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Pending Invitations</CardTitle>
-              <CardDescription>{pendingInvitations.length} pending staff invitations</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {pendingInvitations.length > 0 ? (
-                pendingInvitations.map((invite) => (
-                  <div key={invite.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 bg-secondary/50 rounded-lg border">
-                    <div>
-                      <p className="font-medium">{invite.email}</p>
-                      <p className="text-sm text-muted-foreground">({invite.role.toLowerCase()})</p>
-                      <p className="text-xs text-muted-foreground">Expires: {new Date(invite.expires_at).toLocaleDateString()}</p>
-                    </div>
-                    <Badge variant="outline" className="ml-2">Pending</Badge>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">No pending invitations.</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="delivery" className="space-y-6">
-          <DeliveryZoneManager />
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6">
           <Card className="shadow-soft">
             <CardHeader>
               <CardTitle>POS Integration Settings</CardTitle>
-              <CardDescription>Connect your POS system for real-time transaction tracking.</CardDescription>
+              <CardDescription>
+                Connect your POS system for real-time transaction tracking.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
@@ -923,7 +863,12 @@ export default function Settings() {
                 <select
                   id="pos-provider"
                   value={posSettings.pos_provider}
-                  onChange={(e) => setPosSettings({ ...posSettings, pos_provider: e.target.value })}
+                  onChange={(e) =>
+                    setPosSettings({
+                      ...posSettings,
+                      pos_provider: e.target.value,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="NONE">Not Configured</option>
@@ -939,7 +884,12 @@ export default function Settings() {
                 <Input
                   id="pos-merchant"
                   value={posSettings.pos_merchant_id}
-                  onChange={(e) => setPosSettings({ ...posSettings, pos_merchant_id: e.target.value })}
+                  onChange={(e) =>
+                    setPosSettings({
+                      ...posSettings,
+                      pos_merchant_id: e.target.value,
+                    })
+                  }
                   placeholder="Enter your merchant ID"
                 />
               </div>
@@ -960,7 +910,11 @@ export default function Settings() {
                       onClick={() => setShowAPIKey(!showAPIKey)}
                       className="absolute right-3 top-2.5 text-gray-600"
                     >
-                      {showAPIKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showAPIKey ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -982,7 +936,9 @@ export default function Settings() {
                 <Button
                   onClick={testPosConnection}
                   variant="outline"
-                  disabled={posTestingConnection || posSettings.pos_provider === "NONE"}
+                  disabled={
+                    posTestingConnection || posSettings.pos_provider === "NONE"
+                  }
                 >
                   {posTestingConnection ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1004,12 +960,16 @@ export default function Settings() {
                   {posConnectionStatus === "connected" ? (
                     <>
                       <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span className="text-green-800">POS connection successful</span>
+                      <span className="text-green-800">
+                        POS connection successful
+                      </span>
                     </>
                   ) : (
                     <>
                       <AlertCircle className="w-5 h-5 text-red-600" />
-                      <span className="text-red-800">POS connection failed</span>
+                      <span className="text-red-800">
+                        POS connection failed
+                      </span>
                     </>
                   )}
                 </div>
@@ -1020,7 +980,9 @@ export default function Settings() {
           <Card className="shadow-soft">
             <CardHeader>
               <CardTitle>Menu Scanner</CardTitle>
-              <CardDescription>Scan physical menus to digitize them.</CardDescription>
+              <CardDescription>
+                Scan physical menus to digitize them.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <MenuScanner />
@@ -1030,7 +992,9 @@ export default function Settings() {
           <Card className="shadow-soft">
             <CardHeader>
               <CardTitle>Payment Gateway Settings</CardTitle>
-              <CardDescription>Configure your payment gateway integrations.</CardDescription>
+              <CardDescription>
+                Configure your payment gateway integrations.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -1055,295 +1019,33 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="brand" className="space-y-6">
-          <BrandCustomization />
-        </TabsContent>
-
-        <TabsContent value="notifications" className="space-y-6">
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Email Notifications</CardTitle>
-              <CardDescription>Configure email alerts for various events.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="low-inventory-email">Low Inventory Alerts</Label>
-                  <Switch
-                    id="low-inventory-email"
-                    checked={emailNotifications.lowInventory}
-                    onCheckedChange={(checked) => handleNotificationChange("email", "lowInventory", checked)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="scheduling-email">Scheduling Alerts</Label>
-                  <Switch
-                    id="scheduling-email"
-                    checked={emailNotifications.scheduling}
-                    onCheckedChange={(checked) => handleNotificationChange("email", "scheduling", checked)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="revenue-email">Revenue Alerts</Label>
-                  <Switch
-                    id="revenue-email"
-                    checked={emailNotifications.revenue}
-                    onCheckedChange={(checked) => handleNotificationChange("email", "revenue", checked)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="ai-insights-email">AI Insights</Label>
-                  <Switch
-                    id="ai-insights-email"
-                    checked={emailNotifications.aiInsights}
-                    onCheckedChange={(checked) => handleNotificationChange("email", "aiInsights", checked)}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Push Notifications</CardTitle>
-              <CardDescription>Configure push alerts for various events.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="low-inventory-push">Low Inventory Alerts</Label>
-                  <Switch
-                    id="low-inventory-push"
-                    checked={pushNotifications.lowInventory}
-                    onCheckedChange={(checked) => handleNotificationChange("push", "lowInventory", checked)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="scheduling-push">Scheduling Alerts</Label>
-                  <Switch
-                    id="scheduling-push"
-                    checked={pushNotifications.scheduling}
-                    onCheckedChange={(checked) => handleNotificationChange("push", "scheduling", checked)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="revenue-push">Revenue Alerts</Label>
-                  <Switch
-                    id="revenue-push"
-                    checked={pushNotifications.revenue}
-                    onCheckedChange={(checked) => handleNotificationChange("push", "revenue", checked)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="ai-insights-push">AI Insights</Label>
-                  <Switch
-                    id="ai-insights-push"
-                    checked={pushNotifications.aiInsights}
-                    onCheckedChange={(checked) => handleNotificationChange("push", "aiInsights", checked)}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="security" className="space-y-6">
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Password Change</CardTitle>
-              <CardDescription>Change your account password.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="current-password">Current Password</Label>
-                <Input id="current-password" type="password" />
-              </div>
-              <div>
-                <Label htmlFor="new-password">New Password</Label>
-                <Input id="new-password" type="password" />
-              </div>
-              <div>
-                <Label htmlFor="confirm-password">Confirm New Password</Label>
-                <Input id="confirm-password" type="password" />
-              </div>
-              <Button className="w-full">Change Password</Button>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Two-Factor Authentication</CardTitle>
-              <CardDescription>Enable two-factor authentication for enhanced security.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-0.5">
-                  <Label>Two-Factor Authentication</Label>
-                  <p className="text-xs text-muted-foreground">Secure your account with two-factor authentication.</p>
-                </div>
-                <Switch defaultChecked className="sm:self-center" />
-              </div>
-              <div>
-                <Label htmlFor="two-factor-code">Authentication Code</Label>
-                <Input id="two-factor-code" placeholder="Enter your authentication code" />
-              </div>
-              <Button className="w-full">Enable Two-Factor Authentication</Button>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Session Management</CardTitle>
-              <CardDescription>Manage active sessions and device access.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-0.5">
-                  <Label>Active Sessions</Label>
-                  <p className="text-xs text-muted-foreground">View and manage your active sessions across devices.</p>
-                </div>
-                <Button variant="outline" className="w-full sm:w-auto">View Sessions</Button>
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-0.5">
-                  <Label>Device Access</Label>
-                  <p className="text-xs text-muted-foreground">Control which devices can access your account.</p>
-                </div>
-                <Button variant="outline" className="w-full sm:w-auto">Manage Devices</Button>
-              </div>
-              <Button className="w-full" variant="outline">
-                Log Out All Sessions
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>API Keys</CardTitle>
-              <CardDescription>Manage your API keys for programmatic access.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-0.5">
-                  <Label>API Keys</Label>
-                  <p className="text-xs text-muted-foreground">View and manage your API keys.</p>
-                </div>
-                <Button variant="outline" className="w-full sm:w-auto">View API Keys</Button>
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-0.5">
-                  <Label>API Key Permissions</Label>
-                  <p className="text-xs text-muted-foreground">Control which API endpoints your keys can access.</p>
-                </div>
-                <Button variant="outline" className="w-full sm:w-auto">Manage Permissions</Button>
-              </div>
-              <Button className="w-full" variant="outline">
-                Create New API Key
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="ai" className="space-y-6">
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>AI Assistant Configuration</CardTitle>
-              <CardDescription>Enable AI-powered insights and recommendations for your restaurant.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Enable AI Assistant</p>
-                  <p className="text-xs text-muted-foreground">Activate AI-driven experiences across the platform.</p>
-                </div>
-                <Switch
-                  checked={aiSettings.enabled}
-                  onCheckedChange={(checked) =>
-                    setAiSettings((prev) => ({ ...prev, enabled: checked }))
-                  }
-                  className="sm:self-center"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="ai-provider">AI Provider</Label>
-                <select
-                  id="ai-provider"
-                  value={aiSettings.ai_provider}
-                  onChange={(e) =>
-                    setAiSettings((prev) => ({ ...prev, ai_provider: e.target.value }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="GROQ">Groq (Recommended)</option>
-                  <option value="OPENAI">OpenAI</option>
-                  <option value="CLAUDE">Claude</option>
-                </select>
-              </div>
-
-              <div className="space-y-3">
-                <Label>Enabled Features</Label>
-                {Object.entries(aiSettings.features_enabled).map(([feature, enabled]) => (
-                  <div key={feature} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium capitalize">{feature}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {feature === "insights" && "AI-powered analytics of your restaurant data"}
-                        {feature === "recommendations" && "Smart suggestions for optimization"}
-                        {feature === "reports" && "Automated report generation"}
-                      </span>
-                    </div>
-                    <Switch
-                      checked={enabled}
-                      onCheckedChange={(checked) =>
-                        setAiSettings((prev) => ({
-                          ...prev,
-                          features_enabled: {
-                            ...prev.features_enabled,
-                            [feature]: checked,
-                          },
-                        }))
-                      }
-                      className="sm:self-center"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 space-y-1">
-                <p className="font-medium">AI Assistant Tips</p>
-                <p>Empower managers with predictive insights, personalized recommendations, and automated reporting.</p>
-              </div>
-
-              <Button onClick={saveAiSettings} className="w-full" disabled={savingAi}>
-                {savingAi ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                Save AI Settings
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="billing">
           <Card className="shadow-soft">
             <CardHeader>
               <CardTitle>Billing Information</CardTitle>
-              <CardDescription>Manage your subscription and payment methods.</CardDescription>
+              <CardDescription>
+                Manage your subscription and payment methods.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h4 className="font-semibold">Current Plan</h4>
-                  <p className="text-sm text-muted-foreground">Pro Plan - $29/month</p>
+                  <p className="text-sm text-muted-foreground">
+                    Pro Plan - $29/month
+                  </p>
                 </div>
-                <Button variant="outline" className="w-full sm:w-auto">Change Plan</Button>
+                <Button variant="outline" className="w-full sm:w-auto">
+                  Change Plan
+                </Button>
               </div>
               <div className="space-y-2 text-sm text-muted-foreground">
-                <p>Next billing date: <strong>November 22, 2025</strong></p>
-                <p>Amount: <strong>$29.00</strong></p>
+                <p>
+                  Next billing date: <strong>November 22, 2025</strong>
+                </p>
+                <p>
+                  Amount: <strong>$29.00</strong>
+                </p>
                 <p>Payment method: Visa ending in 4242</p>
               </div>
               <Separator />
@@ -1354,7 +1056,9 @@ export default function Settings() {
                     <CreditCardIcon className="w-6 h-6 text-muted-foreground" />
                     <p className="text-sm">Visa ending in 4242</p>
                   </div>
-                  <Button variant="outline" className="w-full sm:w-auto">Update</Button>
+                  <Button variant="outline" className="w-full sm:w-auto">
+                    Update
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -1363,10 +1067,15 @@ export default function Settings() {
           <Card className="shadow-soft border-destructive/20">
             <CardHeader>
               <CardTitle className="text-destructive">Danger Zone</CardTitle>
-              <CardDescription>Permanently delete your account and all associated data. This action cannot be undone.</CardDescription>
+              <CardDescription>
+                Permanently delete your account and all associated data. This
+                action cannot be undone.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button variant="destructive" className="w-full">Delete Account</Button>
+              <Button variant="destructive" className="w-full">
+                Delete Account
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

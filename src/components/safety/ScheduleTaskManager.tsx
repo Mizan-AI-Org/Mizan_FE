@@ -45,11 +45,40 @@ interface ScheduleTask {
   };
 }
 
+// Optional detail fields that may be present on the task detail API response
+interface Attachment {
+  id?: string;
+  name?: string;
+  filename?: string;
+  url?: string;
+}
+
+interface CommentEntry {
+  id?: string;
+  author?: string;
+  text?: string;
+  comment?: string;
+  created_at?: string;
+}
+
+type RelatedScheduleRef = { id: string } | null | undefined;
+
+type SelectedTaskDetail = ScheduleTask & {
+  attachments?: Attachment[];
+  comments?: CommentEntry[];
+  shift?: RelatedScheduleRef;
+  schedule?: RelatedScheduleRef;
+};
+
 const ScheduleTaskManager: React.FC = () => {
   const { user, token } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedTaskDetails, setSelectedTaskDetails] = useState<SelectedTaskDetail | null>(null);
+  const canCreateTasks = !!user && ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(user.role);
   const [formData, setFormData] = useState<Partial<ScheduleTask>>({
     title: '',
     description: '',
@@ -175,6 +204,14 @@ const ScheduleTaskManager: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canCreateTasks) {
+      toast({
+        title: 'Not allowed',
+        description: 'You do not have permission to create tasks.',
+        variant: 'destructive',
+      });
+      return;
+    }
     createTaskMutation.mutate(formData);
   };
 
@@ -210,6 +247,27 @@ const ScheduleTaskManager: React.FC = () => {
 
   const isLoading = tasksLoading || staffLoading;
 
+  const openDetails = async (task: ScheduleTask) => {
+    try {
+      setSelectedTaskId(task.id);
+      // Use current list task as initial details until full detail loads
+      setSelectedTaskDetails(task as SelectedTaskDetail);
+      setIsDetailsOpen(true);
+      const response = await fetch(`${API_BASE}/schedule-tasks/${task.id}/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (response.ok) {
+        const detail = await response.json() as SelectedTaskDetail;
+        setSelectedTaskDetails(detail);
+      }
+    } catch (err) {
+      console.error('Failed to load task details', err);
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -219,9 +277,11 @@ const ScheduleTaskManager: React.FC = () => {
             Manage and assign safety-related tasks
           </CardDescription>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Add Task
-        </Button>
+        {canCreateTasks && (
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Add Task
+          </Button>
+        )}
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -261,7 +321,15 @@ const ScheduleTaskManager: React.FC = () => {
                     <TableCell>{new Date(task.due_date).toLocaleDateString()}</TableCell>
                     <TableCell>{getPriorityBadge(task.priority)}</TableCell>
                     <TableCell>{getStatusBadge(task.status)}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openDetails(task)}
+                        className="h-8 px-2 text-xs"
+                      >
+                        View Details
+                      </Button>
                       {task.status !== 'completed' && (
                         <Button
                           variant="outline"
@@ -282,13 +350,15 @@ const ScheduleTaskManager: React.FC = () => {
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <AlertCircle className="h-8 w-8 mb-2" />
                       <p>No tasks found</p>
-                      <Button 
-                        variant="outline" 
-                        className="mt-2"
-                        onClick={() => setIsModalOpen(true)}
-                      >
-                        Create your first task
-                      </Button>
+                      {canCreateTasks && (
+                        <Button 
+                          variant="outline" 
+                          className="mt-2"
+                          onClick={() => setIsModalOpen(true)}
+                        >
+                          Create your first task
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -395,6 +465,103 @@ const ScheduleTaskManager: React.FC = () => {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Task Details Modal */}
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Task Details</DialogTitle>
+          </DialogHeader>
+          {selectedTaskDetails ? (
+            <div className="space-y-4">
+              <div>
+                <div className="text-sm text-muted-foreground">Title</div>
+                <div className="font-medium">{selectedTaskDetails.title}</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Description</div>
+                <div className="text-sm">{selectedTaskDetails.description}</div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm text-muted-foreground">Due Date</div>
+                  <div className="text-sm">{new Date(selectedTaskDetails.due_date).toLocaleDateString()}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Priority</div>
+                  <div className="text-sm">{selectedTaskDetails.priority}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Status</div>
+                  <div className="text-sm">{selectedTaskDetails.status}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Created At</div>
+                  <div className="text-sm">{selectedTaskDetails.created_at ? new Date(selectedTaskDetails.created_at).toLocaleString() : '-'}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm text-muted-foreground">Assigned To</div>
+                  <div className="text-sm">{selectedTaskDetails.assigned_to ? `${selectedTaskDetails.assigned_to.first_name} ${selectedTaskDetails.assigned_to.last_name}` : 'Unassigned'}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Created By</div>
+                  <div className="text-sm">{selectedTaskDetails.created_by ? `${selectedTaskDetails.created_by.first_name} ${selectedTaskDetails.created_by.last_name}` : '-'}</div>
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Restaurant</div>
+                <div className="text-sm">{selectedTaskDetails.restaurant ? selectedTaskDetails.restaurant.name : '-'}</div>
+              </div>
+              {/* Associated schedules (if present) */}
+              {selectedTaskDetails.shift || selectedTaskDetails.schedule ? (
+                <div>
+                  <div className="text-sm text-muted-foreground">Associated Schedule</div>
+                  <div className="text-sm">
+                    {selectedTaskDetails.shift?.id || selectedTaskDetails.schedule?.id ? `ID: ${selectedTaskDetails.shift?.id || selectedTaskDetails.schedule?.id}` : 'Available'}
+                  </div>
+                </div>
+              ) : null}
+              {/* Attachments (if present) */}
+              {selectedTaskDetails.attachments && Array.isArray(selectedTaskDetails.attachments) && (
+                <div>
+                  <div className="text-sm text-muted-foreground">Attachments</div>
+                  <ul className="list-disc pl-5 text-sm">
+                    {selectedTaskDetails.attachments.map((a: Attachment, idx: number) => (
+                      <li key={idx}>
+                        {a.name || a.filename || 'Attachment'}
+                        {a.url && (
+                          <a href={a.url} target="_blank" rel="noreferrer" className="ml-2 text-blue-600 underline">View</a>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {/* Comments (if present) */}
+              {selectedTaskDetails.comments && Array.isArray(selectedTaskDetails.comments) && (
+                <div>
+                  <div className="text-sm text-muted-foreground">Comments</div>
+                  <div className="space-y-2">
+                    {selectedTaskDetails.comments.map((c: CommentEntry, idx: number) => (
+                      <div key={idx} className="border rounded-md p-2">
+                        <div className="text-xs text-muted-foreground">{c.author || 'User'}</div>
+                        <div className="text-sm">{c.text || c.comment}</div>
+                        {c.created_at && (
+                          <div className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleString()}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+          </div>
+          ) : (
+            <div className="py-4 text-sm text-muted-foreground">Loading details…</div>
+          )}
         </DialogContent>
       </Dialog>
     </Card>

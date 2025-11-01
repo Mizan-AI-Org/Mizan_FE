@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Shield, AlertTriangle, CheckCircle, ClipboardList } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import StandardOperatingProcedureList from '@/components/safety/StandardOperatingProcedureList';
 import SafetyChecklistComponent from '@/components/safety/SafetyChecklistComponent';
 import ScheduleTaskManager from '@/components/safety/ScheduleTaskManager';
@@ -11,11 +12,46 @@ import SafetyRecognitionComponent from '@/components/safety/SafetyRecognition';
 import TaskManagementInterface from '@/components/safety/TaskManagementInterface';
 import { useAuth } from '@/hooks/use-auth';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { useNavigate } from 'react-router-dom';
+
+const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
+
+interface MyTaskItem {
+  id: string;
+  title: string;
+  status: 'TODO' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  progress_percentage: number;
+}
 
 const SafetyDashboard: React.FC = () => {
   const { user } = useAuth();
-  const isManager = user?.role === 'manager' || user?.is_superuser;
+  const isManager = user?.role === 'MANAGER' || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const isStaffLevel = !isManager;
   const isMobile = useMediaQuery("(max-width: 768px)");
+  const navigate = useNavigate();
+  const [myTasks, setMyTasks] = useState<MyTaskItem[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        setLoadingTasks(true);
+        const token = localStorage.getItem('access_token');
+        const res = await fetch(`${API_BASE}/scheduling/my-tasks/`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to load tasks');
+        const data = await res.json();
+        setMyTasks(data.results || data || []);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingTasks(false);
+      }
+    };
+
+    fetchTasks();
+  }, []);
 
   return (
     <div className="container mx-auto py-4 md:py-6 space-y-4 md:space-y-6 px-2 md:px-6">
@@ -109,22 +145,33 @@ const SafetyDashboard: React.FC = () => {
               </CardHeader>
               <CardContent className="px-3 md:px-6 py-2 md:py-3">
                 <div className="space-y-2 md:space-y-3">
-                  <div className="flex items-center">
-                    <div className="h-3 w-3 md:h-4 md:w-4 rounded-full border border-blue-500 mr-2 flex-shrink-0"></div>
-                    <span className="text-xs md:text-sm">Morning safety walkthrough</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="h-3 w-3 md:h-4 md:w-4 rounded-full border border-blue-500 bg-blue-500 mr-2 flex-shrink-0"></div>
-                    <span className="line-through text-xs md:text-sm text-muted-foreground">Equipment inspection</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="h-3 w-3 md:h-4 md:w-4 rounded-full border border-blue-500 mr-2 flex-shrink-0"></div>
-                    <span className="text-xs md:text-sm">Update fire evacuation plan</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="h-3 w-3 md:h-4 md:w-4 rounded-full border border-blue-500 mr-2 flex-shrink-0"></div>
-                    <span className="text-xs md:text-sm">Staff safety briefing</span>
-                  </div>
+                  {loadingTasks && (
+                    <div className="text-xs md:text-sm text-muted-foreground">Loading tasks…</div>
+                  )}
+                  {!loadingTasks && myTasks.length === 0 && (
+                    <div className="text-xs md:text-sm text-muted-foreground">No tasks assigned today.</div>
+                  )}
+                  {!loadingTasks && myTasks.slice(0,5).map((t) => {
+                    const badgeClass =
+                      t.status === 'COMPLETED'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : t.status === 'IN_PROGRESS'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : t.status === 'CANCELLED'
+                        ? 'bg-red-50 text-red-700 border border-red-200'
+                        : 'bg-gray-100 text-gray-700 border border-gray-200';
+                    return (
+                      <button
+                        key={t.id}
+                        className="flex items-center w-full text-left hover:bg-gray-50 rounded-md p-2"
+                        onClick={() => navigate(`/task-checklist/${t.id}`)}
+                      >
+                        <div className={`h-3 w-3 md:h-4 md:w-4 rounded-full mr-2 flex-shrink-0 border ${t.status === 'COMPLETED' ? 'bg-blue-500 border-blue-500' : 'border-blue-500'}`}></div>
+                        <span className={`text-xs md:text-sm ${t.status === 'COMPLETED' ? 'line-through text-muted-foreground' : ''}`}>{t.title}</span>
+                        <Badge className={`ml-auto text-[10px] md:text-[11px] px-2 py-0.5 rounded-full ${badgeClass}`}>{Math.round(t.progress_percentage ?? 0)}%</Badge>
+                      </button>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -132,47 +179,55 @@ const SafetyDashboard: React.FC = () => {
         )}
       </div>
 
-      <Tabs defaultValue="procedures" className="w-full">
-        <TabsList className={`grid ${isMobile ? 'grid-cols-3' : 'grid-cols-6'} mb-4`}>
-          <TabsTrigger value="procedures">SOPs</TabsTrigger>
-          <TabsTrigger value="checklists">Checklists</TabsTrigger>
+      <Tabs defaultValue={isManager ? "procedures" : "tasks"} className="w-full">
+        <TabsList className={`grid ${isMobile ? 'grid-cols-3' : isManager ? 'grid-cols-6' : 'grid-cols-3'} mb-4`}>
+          {isManager && <TabsTrigger value="procedures">SOPs</TabsTrigger>}
+          {isManager && <TabsTrigger value="checklists">Checklists</TabsTrigger>}
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           {isMobile ? (
-            <TabsTrigger value="more" className="md:hidden">More</TabsTrigger>
+            isManager ? (
+              <TabsTrigger value="more" className="md:hidden">More</TabsTrigger>
+            ) : null
           ) : (
             <>
               <TabsTrigger value="concerns">Concerns</TabsTrigger>
               <TabsTrigger value="recognition">Recognition</TabsTrigger>
-              <TabsTrigger value="management">Management</TabsTrigger>
+              {isManager && <TabsTrigger value="management">Management</TabsTrigger>}
             </>
           )}
         </TabsList>
         
-        <TabsContent value="procedures" className="mt-0">
-          <StandardOperatingProcedureList isManager={isManager} />
-        </TabsContent>
+        {isManager && (
+          <TabsContent value="procedures" className="mt-0">
+            <StandardOperatingProcedureList />
+          </TabsContent>
+        )}
         
-        <TabsContent value="checklists" className="mt-0">
-          <SafetyChecklistComponent isManager={isManager} />
-        </TabsContent>
+        {isManager && (
+          <TabsContent value="checklists" className="mt-0">
+            <SafetyChecklistComponent />
+          </TabsContent>
+        )}
         
         <TabsContent value="tasks" className="mt-0">
-          <ScheduleTaskManager isManager={isManager} />
+          <ScheduleTaskManager />
         </TabsContent>
         
         <TabsContent value="concerns" className="mt-0">
-          <SafetyConcernReporting isManager={isManager} />
+          <SafetyConcernReporting />
         </TabsContent>
         
         <TabsContent value="recognition" className="mt-0">
-          <SafetyRecognitionComponent isManager={isManager} />
-        </TabsContent>
-        
-        <TabsContent value="management" className="mt-0">
-          <TaskManagementInterface isManager={isManager} />
+          <SafetyRecognitionComponent />
         </TabsContent>
 
-        {isMobile && (
+        {isManager && (
+          <TabsContent value="management" className="mt-0">
+            <TaskManagementInterface isManager={isManager} />
+          </TabsContent>
+        )}
+
+        {isMobile && isManager && (
           <TabsContent value="more" className="mt-0">
             <div className="grid grid-cols-1 gap-4">
               <Card className="shadow-sm">
@@ -210,22 +265,33 @@ const SafetyDashboard: React.FC = () => {
                 </CardHeader>
                 <CardContent className="px-3 py-2">
                   <div className="space-y-2">
-                    <div className="flex items-center">
-                      <div className="h-3 w-3 rounded-full border border-blue-500 mr-2 flex-shrink-0"></div>
-                      <span className="text-xs">Morning safety walkthrough</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="h-3 w-3 rounded-full border border-blue-500 bg-blue-500 mr-2 flex-shrink-0"></div>
-                      <span className="line-through text-xs text-muted-foreground">Equipment inspection</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="h-3 w-3 rounded-full border border-blue-500 mr-2 flex-shrink-0"></div>
-                      <span className="text-xs">Update fire evacuation plan</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="h-3 w-3 rounded-full border border-blue-500 mr-2 flex-shrink-0"></div>
-                      <span className="text-xs">Staff safety briefing</span>
-                    </div>
+                    {loadingTasks && (
+                      <div className="text-xs text-muted-foreground">Loading tasks…</div>
+                    )}
+                    {!loadingTasks && myTasks.length === 0 && (
+                      <div className="text-xs text-muted-foreground">No tasks assigned today.</div>
+                    )}
+                    {!loadingTasks && myTasks.slice(0,5).map((t) => {
+                      const badgeClass =
+                        t.status === 'COMPLETED'
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                          : t.status === 'IN_PROGRESS'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : t.status === 'CANCELLED'
+                          ? 'bg-red-50 text-red-700 border border-red-200'
+                          : 'bg-gray-100 text-gray-700 border border-gray-200';
+                      return (
+                        <button
+                          key={t.id}
+                          className="flex items-center w-full text-left hover:bg-gray-50 rounded-md p-2"
+                          onClick={() => navigate(`/task-checklist/${t.id}`)}
+                        >
+                          <div className={`h-3 w-3 rounded-full border mr-2 flex-shrink-0 ${t.status === 'COMPLETED' ? 'bg-blue-500 border-blue-500' : 'border-blue-500'}`}></div>
+                          <span className={`text-xs ${t.status === 'COMPLETED' ? 'line-through text-muted-foreground' : ''}`}>{t.title}</span>
+                          <Badge className={`ml-auto text-[10px] px-2 py-0.5 rounded-full ${badgeClass}`}>{Math.round(t.progress_percentage ?? 0)}%</Badge>
+                        </button>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -236,7 +302,7 @@ const SafetyDashboard: React.FC = () => {
                     <AlertTriangle className="mr-2 h-4 w-4 text-red-600" />
                     Safety Concerns
                   </h3>
-                  <SafetyConcernReporting isManager={isManager} />
+                  <SafetyConcernReporting />
                 </div>
                 
                 <div className="p-4 bg-white rounded-lg shadow-sm">
@@ -244,7 +310,7 @@ const SafetyDashboard: React.FC = () => {
                     <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
                     Safety Recognition
                   </h3>
-                  <SafetyRecognitionComponent isManager={isManager} />
+                  <SafetyRecognitionComponent />
                 </div>
                 
                 <div className="p-4 bg-white rounded-lg shadow-sm">
@@ -258,22 +324,6 @@ const SafetyDashboard: React.FC = () => {
             </div>
           </TabsContent>
         )}
-      </Tabs>
-    </div>
-  );
-};
-        
-        <TabsContent value="concerns" className="mt-0">
-          <SafetyConcernReporting isManager={isManager} />
-        </TabsContent>
-        
-        <TabsContent value="recognition" className="mt-0">
-          <SafetyRecognitionComponent isManager={isManager} />
-        </TabsContent>
-
-        <TabsContent value="management" className="mt-0">
-          <TaskManagementInterface isManager={isManager} />
-        </TabsContent>
       </Tabs>
     </div>
   );

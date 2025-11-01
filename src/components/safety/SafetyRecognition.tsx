@@ -171,14 +171,11 @@ const SafetyRecognitionComponent: React.FC = () => {
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Safety Recognition</CardTitle>
+          <CardTitle> Recognition</CardTitle>
           <CardDescription>
-            Recognize and reward staff for safety excellence
+            Recognize and reward staff for excellence
           </CardDescription>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Award Recognition
-        </Button>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="recognitions">
@@ -236,13 +233,6 @@ const SafetyRecognitionComponent: React.FC = () => {
                         <div className="flex flex-col items-center justify-center text-muted-foreground">
                           <AlertCircle className="h-8 w-8 mb-2" />
                           <p>No safety recognitions found</p>
-                          <Button 
-                            variant="outline" 
-                            className="mt-2"
-                            onClick={() => setIsModalOpen(true)}
-                          >
-                            Create your first recognition
-                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -309,13 +299,6 @@ const SafetyRecognitionComponent: React.FC = () => {
                         <div className="flex flex-col items-center justify-center text-muted-foreground">
                           <AlertCircle className="h-8 w-8 mb-2" />
                           <p>No leaderboard data available</p>
-                          <Button 
-                            variant="outline" 
-                            className="mt-2"
-                            onClick={() => setIsModalOpen(true)}
-                          >
-                            Award your first recognition
-                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
