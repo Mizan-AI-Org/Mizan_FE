@@ -7,30 +7,19 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Globe,
-  Users,
-  Mail,
-  UserPlus,
-  Clock,
-  Calendar,
-  Bell,
   CreditCard,
-  Settings as SettingsIcon,
-  Sparkles,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import MenuScanner from "@/components/MenuScanner";
-import POSIntegration from "@/components/POSIntegration";
 import GeolocationMapSettings from "@/components/settings/GeolocationMapSettings";
 import EnhancedPOSSettings from "@/components/settings/EnhancedPOSSettings";
 import DeliveryZoneManager from "@/components/settings/DeliveryZoneManager";
 import BrandCustomization from "@/components/settings/BrandCustomization";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
-import type { StaffInvitation, User } from "../types/staff"; // Use type import for interfaces
 import axios from "axios";
 import { useNavigate } from 'react-router-dom';
+import { StaffInvitation } from "@/lib/types";
+import { User } from "@/contexts/AuthContext.types";
 
 export default function Settings() {
   const [latitude, setLatitude] = useState<number>(0);

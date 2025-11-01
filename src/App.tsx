@@ -57,6 +57,8 @@ const SupervisorDashboard = React.lazy(() => import("./pages/SupervisorDashboard
 const StaffChat = React.lazy(() => import("./pages/StaffChat"));
 const ReportsPage = React.lazy(() => import("./pages/ReportsPage"));
 const AcceptInvitation = React.lazy(() => import("./pages/AcceptInvitation"));
+const AutoSchedule = React.lazy(() => import("./pages/AutoSchedule"));
+const Timesheets = React.lazy(() => import("./pages/Timesheets"));
 
 const queryClient = new QueryClient();
 
@@ -196,6 +198,16 @@ const App = () => {
                 <Route path="staff/add-staff" element={
                   <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
                     <AddStaff />
+                  </RoleBasedRoute>
+                } />
+                <Route path="dashboard/auto-schedule" element={
+                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'MANAGER']}>
+                    <AutoSchedule />
+                  </RoleBasedRoute>
+                } />
+                <Route path="dashboard/timesheets" element={
+                  <RoleBasedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'MANAGER']}>
+                    <Timesheets />
                   </RoleBasedRoute>
                 } />
                 <Route path="dashboard/assistant" element={<EnhancedAIAssistant />} />

@@ -145,7 +145,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const ownerSignup = async (signupData: SignupData) => {
-    const response = await fetch("/api/auth/signup/owner/", {
+    console.log('here\b',JSON.stringify(signupData))
+    const response = await fetch("/api/register/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -167,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const acceptInvitation = async (token: string, first_name: string, last_name: string, password: string, pin_code: string | null) => {
-    const response = await fetch("/api/auth/accept-invitation/", {
+    const response = await fetch("/api/staff/accept-invitation/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -186,6 +187,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.setItem("access_token", data.tokens.access);
     localStorage.setItem("refresh_token", data.tokens.refresh);
     navigate("/staff-dashboard");
+  };
+
+  const inviteStaff = async (accessToken: string, inviteData: { email: string; role: string }) => {
+    const response = await fetch("/api/staff/invite/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(inviteData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to send invitation");
+    }
+
+    return await response.json();
   };
 
   const logout = async () => {
@@ -226,6 +245,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     loginWithPin,
     ownerSignup,
     acceptInvitation,
+    inviteStaff,
     logout,
     hasRole,
     isSuperAdmin,

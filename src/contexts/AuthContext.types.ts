@@ -1,4 +1,5 @@
-import { SignupData } from '../services/backend.service';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { SignupData } from "@/lib/types";
 
 export interface User {
     id: string;
@@ -26,6 +27,7 @@ export interface AuthContextType {
     loginWithPin: (pin: string, imageSrc: string | null, latitude: number | null, longitude: number | null) => Promise<void>;
     ownerSignup: (signupData: SignupData) => Promise<void>;
     acceptInvitation: (token: string, first_name: string, last_name: string, password: string, pin_code: string | null) => Promise<void>;
+    inviteStaff: (accessToken: string, inviteData: { email: string; role: string }) => Promise<any>;
     logout: () => void;
     hasRole: (roles: string[]) => boolean;
     isSuperAdmin: () => boolean;

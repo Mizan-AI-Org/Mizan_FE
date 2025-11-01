@@ -1,6 +1,33 @@
-import { User, Restaurant, LoginResponse, SignupData, InviteStaffData, StaffListItem, StaffDashboardSummary, StaffOperationResponse, StaffInvitation, DailyKPI, Alert, Task, InventoryItem, Supplier, PurchaseOrder, PurchaseOrderItem, StockAdjustment, Table, Order, OrderItem, DailySalesReport, AttendanceReport, InventoryReport, ClockEvent } from "./types"; // Updated import path
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import {
+  User,
+  Restaurant,
+  LoginResponse,
+  SignupData,
+  InviteStaffData,
+  StaffListItem,
+  StaffDashboardSummary,
+  StaffOperationResponse,
+  StaffInvitation,
+  DailyKPI,
+  Alert,
+  Task,
+  InventoryItem,
+  Supplier,
+  PurchaseOrder,
+  PurchaseOrderItem,
+  StockAdjustment,
+  Table,
+  Order,
+  OrderItem,
+  DailySalesReport,
+  AttendanceReport,
+  InventoryReport,
+  ClockEvent,
+} from "./types"; // Updated import path
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+const API_BASE =
+  import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 export class BackendService {
   // In a real frontend application, HttpService and ConfigService would not be used directly
@@ -8,7 +35,7 @@ export class BackendService {
   // These are kept for now to avoid breaking existing structure but should be refactored for a pure frontend.
   constructor(
     private readonly httpService: any | null = null,
-    private readonly configService: any | null = null,
+    private readonly configService: any | null = null
   ) {
     // For frontend, we will directly use the API_BASE constant
   }
@@ -27,14 +54,11 @@ export class BackendService {
 
   async login(email: string, password: string): Promise<LoginResponse> {
     try {
-      const response = await fetch(
-        `${API_BASE}/auth/login/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(),
-          body: JSON.stringify({ email, password }),
-        },
-      );
+      const response = await fetch(`${API_BASE}/auth/login/`, {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify({ email, password }),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Login failed");
@@ -46,15 +70,13 @@ export class BackendService {
   }
 
   async ownerSignup(signupData: SignupData): Promise<LoginResponse> {
+   
     try {
-      const response = await fetch(
-        `${API_BASE}/auth/signup/owner/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(),
-          body: JSON.stringify(signupData),
-        },
-      );
+      const response = await fetch(`${API_BASE}/api/register/`, {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify(signupData),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Signup failed");
@@ -65,16 +87,25 @@ export class BackendService {
     }
   }
 
-  async acceptInvitation(token: string, first_name: string, last_name: string, password: string, pin_code: string | null): Promise<LoginResponse> {
+  async acceptInvitation(
+    token: string,
+    first_name: string,
+    last_name: string,
+    password: string,
+    pin_code: string | null
+  ): Promise<LoginResponse> {
     try {
-      const response = await fetch(
-        `${API_BASE}/auth/accept-invitation/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(),
-          body: JSON.stringify({ token, first_name, last_name, password, pin_code }),
-        },
-      );
+      const response = await fetch(`${API_BASE}/staff/accept-invitation/`, {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          token,
+          first_name,
+          last_name,
+          password,
+          pin_code,
+        }),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Invitation acceptance failed");
@@ -87,14 +118,11 @@ export class BackendService {
 
   async refreshToken(refreshToken: string): Promise<{ access: string }> {
     try {
-      const response = await fetch(
-        `${API_BASE}/auth/token/refresh/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(),
-          body: JSON.stringify({ refresh: refreshToken }),
-        },
-      );
+      const response = await fetch(`${API_BASE}/auth/token/refresh/`, {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify({ refresh: refreshToken }),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Token refresh failed");
@@ -107,13 +135,10 @@ export class BackendService {
 
   async getUserProfile(accessToken: string): Promise<User> {
     try {
-      const response = await fetch(
-        `${API_BASE}/auth/me/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/auth/me/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch user profile");
@@ -126,13 +151,10 @@ export class BackendService {
 
   async getDailyKpis(accessToken: string): Promise<DailyKPI[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/dashboard/kpis/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/dashboard/kpis/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch daily KPIs");
@@ -145,13 +167,10 @@ export class BackendService {
 
   async getAlerts(accessToken: string): Promise<Alert[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/dashboard/alerts/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/dashboard/alerts/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch alerts");
@@ -164,13 +183,10 @@ export class BackendService {
 
   async getTasks(accessToken: string): Promise<Task[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/dashboard/tasks/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/dashboard/tasks/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch tasks");
@@ -181,16 +197,17 @@ export class BackendService {
     }
   }
 
-  async updateAlertStatus(accessToken: string, alertId: string, is_resolved: boolean): Promise<Alert> {
+  async updateAlertStatus(
+    accessToken: string,
+    alertId: string,
+    is_resolved: boolean
+  ): Promise<Alert> {
     try {
-      const response = await fetch(
-        `${API_BASE}/dashboard/alerts/${alertId}/`,
-        {
-          method: "PATCH",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify({ is_resolved }),
-        },
-      );
+      const response = await fetch(`${API_BASE}/dashboard/alerts/${alertId}/`, {
+        method: "PATCH",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify({ is_resolved }),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to update alert status");
@@ -201,16 +218,17 @@ export class BackendService {
     }
   }
 
-  async updateTaskStatus(accessToken: string, taskId: string, status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'): Promise<Task> {
+  async updateTaskStatus(
+    accessToken: string,
+    taskId: string,
+    status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
+  ): Promise<Task> {
     try {
-      const response = await fetch(
-        `${API_BASE}/dashboard/tasks/${taskId}/`,
-        {
-          method: "PATCH",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify({ status }),
-        },
-      );
+      const response = await fetch(`${API_BASE}/dashboard/tasks/${taskId}/`, {
+        method: "PATCH",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify({ status }),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to update task status");
@@ -221,16 +239,16 @@ export class BackendService {
     }
   }
 
-  async inviteStaff(accessToken: string, invitationData: InviteStaffData): Promise<StaffOperationResponse> {
+  async handleInviteStaff(
+    accessToken: string,
+    invitationData: InviteStaffData
+  ): Promise<StaffOperationResponse> {
     try {
-      const response = await fetch(
-        `${API_BASE}/staff/invite/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(invitationData),
-        },
-      );
+      const response = await fetch(`${API_BASE}/staff/invite/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(invitationData),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Staff invitation failed");
@@ -243,13 +261,10 @@ export class BackendService {
 
   async getStaffList(accessToken: string): Promise<StaffListItem[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/staff/list/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/staff/list/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch staff list");
@@ -260,59 +275,59 @@ export class BackendService {
       console.error("Error fetching staff list, returning mock data:", error);
       return [
         {
-          id: "user-1",
-          email: "chef@restaurant.com",
-          first_name: "John",
-          last_name: "Doe",
-          role: "CHEF",
-          join_date: "2024-01-15"
+          id: "",
+          email: "",
+          first_name: "",
+          last_name: "",
+          role: "",
+          join_date: "",
         },
         {
-          id: "user-2",
-          email: "waiter@restaurant.com",
-          first_name: "Jane",
-          last_name: "Smith",
-          role: "WAITER",
-          join_date: "2024-01-14"
-        }
+          id: "",
+          email: "",
+          first_name: "",
+          last_name: "",
+          role: "",
+          join_date: "",
+        },
       ];
     }
   }
 
   async getStaffDashboard(accessToken: string): Promise<StaffDashboardSummary> {
     try {
-      const response = await fetch(
-        `${API_BASE}/staff/dashboard/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/staff/dashboard/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch staff dashboard");
       }
       return await response.json();
     } catch (error: any) {
-      console.error("Error fetching staff dashboard, returning mock data:", error);
+      console.error(
+        "Error fetching staff dashboard, returning mock data:",
+        error
+      );
       return {
         totalStaff: 8,
         activeShifts: 3,
         pendingOrders: 12,
-        revenueToday: 1850
+        revenueToday: 1850,
       };
     }
   }
 
-  async removeStaff(accessToken: string, staffId: string): Promise<StaffOperationResponse> {
+  async removeStaff(
+    accessToken: string,
+    staffId: string
+  ): Promise<StaffOperationResponse> {
     try {
-      const response = await fetch(
-        `${API_BASE}/staff/${staffId}/`,
-        {
-          method: "DELETE",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/staff/${staffId}/`, {
+        method: "DELETE",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to remove staff member");
@@ -323,16 +338,17 @@ export class BackendService {
     }
   }
 
-  async updateStaffRole(accessToken: string, staffId: string, role: string): Promise<StaffOperationResponse> {
+  async updateStaffRole(
+    accessToken: string,
+    staffId: string,
+    role: string
+  ): Promise<StaffOperationResponse> {
     try {
-      const response = await fetch(
-        `${API_BASE}/staff/${staffId}/role/`,
-        {
-          method: "PUT",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify({ role }),
-        },
-      );
+      const response = await fetch(`${API_BASE}/staff/${staffId}/role/`, {
+        method: "PUT",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify({ role }),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to update staff role");
@@ -343,18 +359,22 @@ export class BackendService {
     }
   }
 
-  async getPendingStaffInvitations(accessToken: string): Promise<StaffInvitation[]> {
+  async getPendingStaffInvitations(
+    accessToken: string
+  ): Promise<StaffInvitation[]> {
     try {
       const response = await fetch(
         `${API_BASE}/accounts/staff/pending-invitations/`,
         {
           method: "GET",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch pending staff invitations");
+        throw new Error(
+          errorData.message || "Failed to fetch pending staff invitations"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -365,16 +385,15 @@ export class BackendService {
 
   async getRestaurantDetails(accessToken: string): Promise<Restaurant> {
     try {
-      const response = await fetch(
-        `${API_BASE}/restaurant/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/restaurant/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch restaurant details");
+        throw new Error(
+          errorData.message || "Failed to fetch restaurant details"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -382,19 +401,21 @@ export class BackendService {
     }
   }
 
-  async updateRestaurantDetails(accessToken: string, restaurantData: Partial<Restaurant>): Promise<Restaurant> {
+  async updateRestaurantDetails(
+    accessToken: string,
+    restaurantData: Partial<Restaurant>
+  ): Promise<Restaurant> {
     try {
-      const response = await fetch(
-        `${API_BASE}/restaurant/`,
-        {
-          method: "PUT",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(restaurantData),
-        },
-      );
+      const response = await fetch(`${API_BASE}/restaurant/`, {
+        method: "PUT",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(restaurantData),
+      });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update restaurant details");
+        throw new Error(
+          errorData.message || "Failed to update restaurant details"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -406,13 +427,10 @@ export class BackendService {
 
   async getInventoryItems(accessToken: string): Promise<InventoryItem[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/inventory/items/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/inventory/items/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch inventory items");
@@ -423,15 +441,15 @@ export class BackendService {
     }
   }
 
-  async getInventoryItem(accessToken: string, itemId: string): Promise<InventoryItem> {
+  async getInventoryItem(
+    accessToken: string,
+    itemId: string
+  ): Promise<InventoryItem> {
     try {
-      const response = await fetch(
-        `${API_BASE}/inventory/items/${itemId}/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/inventory/items/${itemId}/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch inventory item");
@@ -442,16 +460,25 @@ export class BackendService {
     }
   }
 
-  async createInventoryItem(accessToken: string, itemData: Omit<InventoryItem, 'id' | 'restaurant' | 'created_at' | 'updated_at' | 'supplier_info' | 'inventory_item_info' | 'adjusted_by_info'>): Promise<InventoryItem> {
+  async createInventoryItem(
+    accessToken: string,
+    itemData: Omit<
+      InventoryItem,
+      | "id"
+      | "restaurant"
+      | "created_at"
+      | "updated_at"
+      | "supplier_info"
+      | "inventory_item_info"
+      | "adjusted_by_info"
+    >
+  ): Promise<InventoryItem> {
     try {
-      const response = await fetch(
-        `${API_BASE}/inventory/items/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(itemData),
-        },
-      );
+      const response = await fetch(`${API_BASE}/inventory/items/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(itemData),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to create inventory item");
@@ -462,16 +489,28 @@ export class BackendService {
     }
   }
 
-  async updateInventoryItem(accessToken: string, itemId: string, itemData: Partial<Omit<InventoryItem, 'id' | 'restaurant' | 'created_at' | 'updated_at' | 'supplier_info' | 'inventory_item_info' | 'adjusted_by_info'>>): Promise<InventoryItem> {
+  async updateInventoryItem(
+    accessToken: string,
+    itemId: string,
+    itemData: Partial<
+      Omit<
+        InventoryItem,
+        | "id"
+        | "restaurant"
+        | "created_at"
+        | "updated_at"
+        | "supplier_info"
+        | "inventory_item_info"
+        | "adjusted_by_info"
+      >
+    >
+  ): Promise<InventoryItem> {
     try {
-      const response = await fetch(
-        `${API_BASE}/inventory/items/${itemId}/`,
-        {
-          method: "PATCH",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(itemData),
-        },
-      );
+      const response = await fetch(`${API_BASE}/inventory/items/${itemId}/`, {
+        method: "PATCH",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(itemData),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to update inventory item");
@@ -482,15 +521,15 @@ export class BackendService {
     }
   }
 
-  async deleteInventoryItem(accessToken: string, itemId: string): Promise<void> {
+  async deleteInventoryItem(
+    accessToken: string,
+    itemId: string
+  ): Promise<void> {
     try {
-      const response = await fetch(
-        `${API_BASE}/inventory/items/${itemId}/`,
-        {
-          method: "DELETE",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/inventory/items/${itemId}/`, {
+        method: "DELETE",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to delete inventory item");
@@ -502,13 +541,10 @@ export class BackendService {
 
   async getSuppliers(accessToken: string): Promise<Supplier[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/inventory/suppliers/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/inventory/suppliers/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch suppliers");
@@ -519,14 +555,17 @@ export class BackendService {
     }
   }
 
-  async getSupplier(accessToken: string, supplierId: string): Promise<Supplier> {
+  async getSupplier(
+    accessToken: string,
+    supplierId: string
+  ): Promise<Supplier> {
     try {
       const response = await fetch(
         `${API_BASE}/inventory/suppliers/${supplierId}/`,
         {
           method: "GET",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
@@ -538,16 +577,19 @@ export class BackendService {
     }
   }
 
-  async createSupplier(accessToken: string, supplierData: Omit<Supplier, 'id' | 'restaurant' | 'created_at' | 'updated_at'>): Promise<Supplier> {
+  async createSupplier(
+    accessToken: string,
+    supplierData: Omit<
+      Supplier,
+      "id" | "restaurant" | "created_at" | "updated_at"
+    >
+  ): Promise<Supplier> {
     try {
-      const response = await fetch(
-        `${API_BASE}/inventory/suppliers/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(supplierData),
-        },
-      );
+      const response = await fetch(`${API_BASE}/inventory/suppliers/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(supplierData),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to create supplier");
@@ -558,7 +600,13 @@ export class BackendService {
     }
   }
 
-  async updateSupplier(accessToken: string, supplierId: string, supplierData: Partial<Omit<Supplier, 'id' | 'restaurant' | 'created_at' | 'updated_at'>>): Promise<Supplier> {
+  async updateSupplier(
+    accessToken: string,
+    supplierId: string,
+    supplierData: Partial<
+      Omit<Supplier, "id" | "restaurant" | "created_at" | "updated_at">
+    >
+  ): Promise<Supplier> {
     try {
       const response = await fetch(
         `${API_BASE}/inventory/suppliers/${supplierId}/`,
@@ -566,7 +614,7 @@ export class BackendService {
           method: "PATCH",
           headers: this.getHeaders(accessToken),
           body: JSON.stringify(supplierData),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
@@ -585,7 +633,7 @@ export class BackendService {
         {
           method: "DELETE",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
@@ -598,13 +646,10 @@ export class BackendService {
 
   async getPurchaseOrders(accessToken: string): Promise<PurchaseOrder[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/inventory/purchase-orders/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/inventory/purchase-orders/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch purchase orders");
@@ -615,14 +660,17 @@ export class BackendService {
     }
   }
 
-  async getPurchaseOrder(accessToken: string, orderId: string): Promise<PurchaseOrder> {
+  async getPurchaseOrder(
+    accessToken: string,
+    orderId: string
+  ): Promise<PurchaseOrder> {
     try {
       const response = await fetch(
         `${API_BASE}/inventory/purchase-orders/${orderId}/`,
         {
           method: "GET",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
@@ -634,16 +682,19 @@ export class BackendService {
     }
   }
 
-  async createPurchaseOrder(accessToken: string, orderData: Omit<PurchaseOrder, 'id' | 'restaurant' | 'created_at' | 'updated_at' | 'supplier_info'>): Promise<PurchaseOrder> {
+  async createPurchaseOrder(
+    accessToken: string,
+    orderData: Omit<
+      PurchaseOrder,
+      "id" | "restaurant" | "created_at" | "updated_at" | "supplier_info"
+    >
+  ): Promise<PurchaseOrder> {
     try {
-      const response = await fetch(
-        `${API_BASE}/inventory/purchase-orders/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(orderData),
-        },
-      );
+      const response = await fetch(`${API_BASE}/inventory/purchase-orders/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(orderData),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to create purchase order");
@@ -654,7 +705,16 @@ export class BackendService {
     }
   }
 
-  async updatePurchaseOrder(accessToken: string, orderId: string, orderData: Partial<Omit<PurchaseOrder, 'id' | 'restaurant' | 'created_at' | 'updated_at' | 'supplier_info'>>): Promise<PurchaseOrder> {
+  async updatePurchaseOrder(
+    accessToken: string,
+    orderId: string,
+    orderData: Partial<
+      Omit<
+        PurchaseOrder,
+        "id" | "restaurant" | "created_at" | "updated_at" | "supplier_info"
+      >
+    >
+  ): Promise<PurchaseOrder> {
     try {
       const response = await fetch(
         `${API_BASE}/inventory/purchase-orders/${orderId}/`,
@@ -662,7 +722,7 @@ export class BackendService {
           method: "PATCH",
           headers: this.getHeaders(accessToken),
           body: JSON.stringify(orderData),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
@@ -674,14 +734,17 @@ export class BackendService {
     }
   }
 
-  async deletePurchaseOrder(accessToken: string, orderId: string): Promise<void> {
+  async deletePurchaseOrder(
+    accessToken: string,
+    orderId: string
+  ): Promise<void> {
     try {
       const response = await fetch(
         `${API_BASE}/inventory/purchase-orders/${orderId}/`,
         {
           method: "DELETE",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
@@ -692,18 +755,23 @@ export class BackendService {
     }
   }
 
-  async getPurchaseOrderItems(accessToken: string, purchaseOrderId: string): Promise<PurchaseOrderItem[]> {
+  async getPurchaseOrderItems(
+    accessToken: string,
+    purchaseOrderId: string
+  ): Promise<PurchaseOrderItem[]> {
     try {
       const response = await fetch(
         `${API_BASE}/inventory/purchase-orders/${purchaseOrderId}/items/`,
         {
           method: "GET",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch purchase order items");
+        throw new Error(
+          errorData.message || "Failed to fetch purchase order items"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -711,18 +779,24 @@ export class BackendService {
     }
   }
 
-  async getPurchaseOrderItem(accessToken: string, purchaseOrderId: string, itemId: string): Promise<PurchaseOrderItem> {
+  async getPurchaseOrderItem(
+    accessToken: string,
+    purchaseOrderId: string,
+    itemId: string
+  ): Promise<PurchaseOrderItem> {
     try {
       const response = await fetch(
         `${API_BASE}/inventory/purchase-orders/${purchaseOrderId}/items/${itemId}/`,
         {
           method: "GET",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch purchase order item");
+        throw new Error(
+          errorData.message || "Failed to fetch purchase order item"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -730,7 +804,18 @@ export class BackendService {
     }
   }
 
-  async createPurchaseOrderItem(accessToken: string, purchaseOrderId: string, itemData: Omit<PurchaseOrderItem, 'id' | 'purchase_order' | 'created_at' | 'updated_at' | 'inventory_item_info'>): Promise<PurchaseOrderItem> {
+  async createPurchaseOrderItem(
+    accessToken: string,
+    purchaseOrderId: string,
+    itemData: Omit<
+      PurchaseOrderItem,
+      | "id"
+      | "purchase_order"
+      | "created_at"
+      | "updated_at"
+      | "inventory_item_info"
+    >
+  ): Promise<PurchaseOrderItem> {
     try {
       const response = await fetch(
         `${API_BASE}/inventory/purchase-orders/${purchaseOrderId}/items/`,
@@ -738,11 +823,13 @@ export class BackendService {
           method: "POST",
           headers: this.getHeaders(accessToken),
           body: JSON.stringify(itemData),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create purchase order item");
+        throw new Error(
+          errorData.message || "Failed to create purchase order item"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -750,7 +837,21 @@ export class BackendService {
     }
   }
 
-  async updatePurchaseOrderItem(accessToken: string, purchaseOrderId: string, itemId: string, itemData: Partial<Omit<PurchaseOrderItem, 'id' | 'purchase_order' | 'created_at' | 'updated_at' | 'inventory_item_info'>>): Promise<PurchaseOrderItem> {
+  async updatePurchaseOrderItem(
+    accessToken: string,
+    purchaseOrderId: string,
+    itemId: string,
+    itemData: Partial<
+      Omit<
+        PurchaseOrderItem,
+        | "id"
+        | "purchase_order"
+        | "created_at"
+        | "updated_at"
+        | "inventory_item_info"
+      >
+    >
+  ): Promise<PurchaseOrderItem> {
     try {
       const response = await fetch(
         `${API_BASE}/inventory/purchase-orders/${purchaseOrderId}/items/${itemId}/`,
@@ -758,11 +859,13 @@ export class BackendService {
           method: "PATCH",
           headers: this.getHeaders(accessToken),
           body: JSON.stringify(itemData),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update purchase order item");
+        throw new Error(
+          errorData.message || "Failed to update purchase order item"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -770,18 +873,24 @@ export class BackendService {
     }
   }
 
-  async deletePurchaseOrderItem(accessToken: string, purchaseOrderId: string, itemId: string): Promise<void> {
+  async deletePurchaseOrderItem(
+    accessToken: string,
+    purchaseOrderId: string,
+    itemId: string
+  ): Promise<void> {
     try {
       const response = await fetch(
         `${API_BASE}/inventory/purchase-orders/${purchaseOrderId}/items/${itemId}/`,
         {
           method: "DELETE",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to delete purchase order item");
+        throw new Error(
+          errorData.message || "Failed to delete purchase order item"
+        );
       }
     } catch (error: any) {
       throw new Error(error.message || "Failed to delete purchase order item");
@@ -790,16 +899,15 @@ export class BackendService {
 
   async getStockAdjustments(accessToken: string): Promise<StockAdjustment[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/inventory/stock-adjustments/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/inventory/stock-adjustments/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch stock adjustments");
+        throw new Error(
+          errorData.message || "Failed to fetch stock adjustments"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -807,18 +915,23 @@ export class BackendService {
     }
   }
 
-  async getStockAdjustment(accessToken: string, adjustmentId: string): Promise<StockAdjustment> {
+  async getStockAdjustment(
+    accessToken: string,
+    adjustmentId: string
+  ): Promise<StockAdjustment> {
     try {
       const response = await fetch(
         `${API_BASE}/inventory/stock-adjustments/${adjustmentId}/`,
         {
           method: "GET",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch stock adjustment");
+        throw new Error(
+          errorData.message || "Failed to fetch stock adjustment"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -826,19 +939,29 @@ export class BackendService {
     }
   }
 
-  async createStockAdjustment(accessToken: string, adjustmentData: Omit<StockAdjustment, 'id' | 'restaurant' | 'created_at' | 'updated_at' | 'inventory_item_info' | 'adjusted_by_info'>): Promise<StockAdjustment> {
+  async createStockAdjustment(
+    accessToken: string,
+    adjustmentData: Omit<
+      StockAdjustment,
+      | "id"
+      | "restaurant"
+      | "created_at"
+      | "updated_at"
+      | "inventory_item_info"
+      | "adjusted_by_info"
+    >
+  ): Promise<StockAdjustment> {
     try {
-      const response = await fetch(
-        `${API_BASE}/inventory/stock-adjustments/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(adjustmentData),
-        },
-      );
+      const response = await fetch(`${API_BASE}/inventory/stock-adjustments/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(adjustmentData),
+      });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create stock adjustment");
+        throw new Error(
+          errorData.message || "Failed to create stock adjustment"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -846,7 +969,21 @@ export class BackendService {
     }
   }
 
-  async updateStockAdjustment(accessToken: string, adjustmentId: string, adjustmentData: Partial<Omit<StockAdjustment, 'id' | 'restaurant' | 'created_at' | 'updated_at' | 'inventory_item_info' | 'adjusted_by_info'>>): Promise<StockAdjustment> {
+  async updateStockAdjustment(
+    accessToken: string,
+    adjustmentId: string,
+    adjustmentData: Partial<
+      Omit<
+        StockAdjustment,
+        | "id"
+        | "restaurant"
+        | "created_at"
+        | "updated_at"
+        | "inventory_item_info"
+        | "adjusted_by_info"
+      >
+    >
+  ): Promise<StockAdjustment> {
     try {
       const response = await fetch(
         `${API_BASE}/inventory/stock-adjustments/${adjustmentId}/`,
@@ -854,11 +991,13 @@ export class BackendService {
           method: "PATCH",
           headers: this.getHeaders(accessToken),
           body: JSON.stringify(adjustmentData),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update stock adjustment");
+        throw new Error(
+          errorData.message || "Failed to update stock adjustment"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -866,18 +1005,23 @@ export class BackendService {
     }
   }
 
-  async deleteStockAdjustment(accessToken: string, adjustmentId: string): Promise<void> {
+  async deleteStockAdjustment(
+    accessToken: string,
+    adjustmentId: string
+  ): Promise<void> {
     try {
       const response = await fetch(
         `${API_BASE}/inventory/stock-adjustments/${adjustmentId}/`,
         {
           method: "DELETE",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to delete stock adjustment");
+        throw new Error(
+          errorData.message || "Failed to delete stock adjustment"
+        );
       }
     } catch (error: any) {
       throw new Error(error.message || "Failed to delete stock adjustment");
@@ -888,13 +1032,10 @@ export class BackendService {
 
   async getTables(accessToken: string): Promise<Table[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/pos/tables/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/pos/tables/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch tables");
@@ -907,13 +1048,10 @@ export class BackendService {
 
   async getTable(accessToken: string, tableId: string): Promise<Table> {
     try {
-      const response = await fetch(
-        `${API_BASE}/pos/tables/${tableId}/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/pos/tables/${tableId}/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch table");
@@ -924,16 +1062,16 @@ export class BackendService {
     }
   }
 
-  async createTable(accessToken: string, tableData: Omit<Table, 'id' | 'restaurant' | 'created_at' | 'updated_at'>): Promise<Table> {
+  async createTable(
+    accessToken: string,
+    tableData: Omit<Table, "id" | "restaurant" | "created_at" | "updated_at">
+  ): Promise<Table> {
     try {
-      const response = await fetch(
-        `${API_BASE}/pos/tables/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(tableData),
-        },
-      );
+      const response = await fetch(`${API_BASE}/pos/tables/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(tableData),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to create table");
@@ -944,16 +1082,19 @@ export class BackendService {
     }
   }
 
-  async updateTable(accessToken: string, tableId: string, tableData: Partial<Omit<Table, 'id' | 'restaurant' | 'created_at' | 'updated_at'>>): Promise<Table> {
+  async updateTable(
+    accessToken: string,
+    tableId: string,
+    tableData: Partial<
+      Omit<Table, "id" | "restaurant" | "created_at" | "updated_at">
+    >
+  ): Promise<Table> {
     try {
-      const response = await fetch(
-        `${API_BASE}/pos/tables/${tableId}/`,
-        {
-          method: "PATCH",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(tableData),
-        },
-      );
+      const response = await fetch(`${API_BASE}/pos/tables/${tableId}/`, {
+        method: "PATCH",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(tableData),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to update table");
@@ -966,13 +1107,10 @@ export class BackendService {
 
   async deleteTable(accessToken: string, tableId: string): Promise<void> {
     try {
-      const response = await fetch(
-        `${API_BASE}/pos/tables/${tableId}/`,
-        {
-          method: "DELETE",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/pos/tables/${tableId}/`, {
+        method: "DELETE",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to delete table");
@@ -984,13 +1122,10 @@ export class BackendService {
 
   async getOrders(accessToken: string): Promise<Order[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/pos/orders/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/pos/orders/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch orders");
@@ -1003,13 +1138,10 @@ export class BackendService {
 
   async getOrder(accessToken: string, orderId: string): Promise<Order> {
     try {
-      const response = await fetch(
-        `${API_BASE}/pos/orders/${orderId}/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/pos/orders/${orderId}/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch order");
@@ -1020,16 +1152,33 @@ export class BackendService {
     }
   }
 
-  async createOrder(accessToken: string, orderData: Omit<Order, 'id' | 'restaurant' | 'order_time' | 'total_amount' | 'is_paid' | 'created_at' | 'updated_at' | 'ordered_by_info' | 'table_info' | 'items'> & { items?: Omit<OrderItem, 'id' | 'order' | 'created_at' | 'updated_at' | 'menu_item_info'>[] }): Promise<Order> {
+  async createOrder(
+    accessToken: string,
+    orderData: Omit<
+      Order,
+      | "id"
+      | "restaurant"
+      | "order_time"
+      | "total_amount"
+      | "is_paid"
+      | "created_at"
+      | "updated_at"
+      | "ordered_by_info"
+      | "table_info"
+      | "items"
+    > & {
+      items?: Omit<
+        OrderItem,
+        "id" | "order" | "created_at" | "updated_at" | "menu_item_info"
+      >[];
+    }
+  ): Promise<Order> {
     try {
-      const response = await fetch(
-        `${API_BASE}/pos/orders/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(orderData),
-        },
-      );
+      const response = await fetch(`${API_BASE}/pos/orders/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(orderData),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to create order");
@@ -1040,16 +1189,31 @@ export class BackendService {
     }
   }
 
-  async updateOrder(accessToken: string, orderId: string, orderData: Partial<Omit<Order, 'id' | 'restaurant' | 'order_time' | 'total_amount' | 'is_paid' | 'created_at' | 'updated_at' | 'ordered_by_info' | 'table_info' | 'items'>>): Promise<Order> {
+  async updateOrder(
+    accessToken: string,
+    orderId: string,
+    orderData: Partial<
+      Omit<
+        Order,
+        | "id"
+        | "restaurant"
+        | "order_time"
+        | "total_amount"
+        | "is_paid"
+        | "created_at"
+        | "updated_at"
+        | "ordered_by_info"
+        | "table_info"
+        | "items"
+      >
+    >
+  ): Promise<Order> {
     try {
-      const response = await fetch(
-        `${API_BASE}/pos/orders/${orderId}/`,
-        {
-          method: "PATCH",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(orderData),
-        },
-      );
+      const response = await fetch(`${API_BASE}/pos/orders/${orderId}/`, {
+        method: "PATCH",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(orderData),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to update order");
@@ -1060,7 +1224,11 @@ export class BackendService {
     }
   }
 
-  async updateOrderStatus(accessToken: string, orderId: string, status: Order['status']): Promise<Order> {
+  async updateOrderStatus(
+    accessToken: string,
+    orderId: string,
+    status: Order["status"]
+  ): Promise<Order> {
     try {
       const response = await fetch(
         `${API_BASE}/pos/orders/${orderId}/status/`,
@@ -1068,7 +1236,7 @@ export class BackendService {
           method: "PUT",
           headers: this.getHeaders(accessToken),
           body: JSON.stringify({ status }),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
@@ -1082,13 +1250,10 @@ export class BackendService {
 
   async deleteOrder(accessToken: string, orderId: string): Promise<void> {
     try {
-      const response = await fetch(
-        `${API_BASE}/pos/orders/${orderId}/`,
-        {
-          method: "DELETE",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/pos/orders/${orderId}/`, {
+        method: "DELETE",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to delete order");
@@ -1098,15 +1263,15 @@ export class BackendService {
     }
   }
 
-  async getOrderItems(accessToken: string, orderId: string): Promise<OrderItem[]> {
+  async getOrderItems(
+    accessToken: string,
+    orderId: string
+  ): Promise<OrderItem[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/pos/orders/${orderId}/items/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/pos/orders/${orderId}/items/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch order items");
@@ -1117,14 +1282,18 @@ export class BackendService {
     }
   }
 
-  async getOrderItem(accessToken: string, orderId: string, itemId: string): Promise<OrderItem> {
+  async getOrderItem(
+    accessToken: string,
+    orderId: string,
+    itemId: string
+  ): Promise<OrderItem> {
     try {
       const response = await fetch(
         `${API_BASE}/pos/orders/${orderId}/items/${itemId}/`,
         {
           method: "GET",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
@@ -1136,16 +1305,20 @@ export class BackendService {
     }
   }
 
-  async createOrderItem(accessToken: string, orderId: string, itemData: Omit<OrderItem, 'id' | 'order' | 'created_at' | 'updated_at' | 'menu_item_info'>): Promise<OrderItem> {
+  async createOrderItem(
+    accessToken: string,
+    orderId: string,
+    itemData: Omit<
+      OrderItem,
+      "id" | "order" | "created_at" | "updated_at" | "menu_item_info"
+    >
+  ): Promise<OrderItem> {
     try {
-      const response = await fetch(
-        `${API_BASE}/pos/orders/${orderId}/items/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(itemData),
-        },
-      );
+      const response = await fetch(`${API_BASE}/pos/orders/${orderId}/items/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(itemData),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to create order item");
@@ -1156,7 +1329,17 @@ export class BackendService {
     }
   }
 
-  async updateOrderItem(accessToken: string, orderId: string, itemId: string, itemData: Partial<Omit<OrderItem, 'id' | 'order' | 'created_at' | 'updated_at' | 'menu_item_info'>>): Promise<OrderItem> {
+  async updateOrderItem(
+    accessToken: string,
+    orderId: string,
+    itemId: string,
+    itemData: Partial<
+      Omit<
+        OrderItem,
+        "id" | "order" | "created_at" | "updated_at" | "menu_item_info"
+      >
+    >
+  ): Promise<OrderItem> {
     try {
       const response = await fetch(
         `${API_BASE}/pos/orders/${orderId}/items/${itemId}/`,
@@ -1164,7 +1347,7 @@ export class BackendService {
           method: "PATCH",
           headers: this.getHeaders(accessToken),
           body: JSON.stringify(itemData),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
@@ -1176,14 +1359,18 @@ export class BackendService {
     }
   }
 
-  async deleteOrderItem(accessToken: string, orderId: string, itemId: string): Promise<void> {
+  async deleteOrderItem(
+    accessToken: string,
+    orderId: string,
+    itemId: string
+  ): Promise<void> {
     try {
       const response = await fetch(
         `${API_BASE}/pos/orders/${orderId}/items/${itemId}/`,
         {
           method: "DELETE",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
@@ -1198,16 +1385,15 @@ export class BackendService {
 
   async getDailySalesReports(accessToken: string): Promise<DailySalesReport[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/reporting/sales/daily/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/reporting/sales/daily/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch daily sales reports");
+        throw new Error(
+          errorData.message || "Failed to fetch daily sales reports"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -1215,18 +1401,23 @@ export class BackendService {
     }
   }
 
-  async getDailySalesReport(accessToken: string, reportId: string): Promise<DailySalesReport> {
+  async getDailySalesReport(
+    accessToken: string,
+    reportId: string
+  ): Promise<DailySalesReport> {
     try {
       const response = await fetch(
         `${API_BASE}/reporting/sales/daily/${reportId}/`,
         {
           method: "GET",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch daily sales report");
+        throw new Error(
+          errorData.message || "Failed to fetch daily sales report"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -1236,16 +1427,15 @@ export class BackendService {
 
   async getAttendanceReports(accessToken: string): Promise<AttendanceReport[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/reporting/attendance/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/reporting/attendance/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch attendance reports");
+        throw new Error(
+          errorData.message || "Failed to fetch attendance reports"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -1253,18 +1443,23 @@ export class BackendService {
     }
   }
 
-  async getAttendanceReport(accessToken: string, reportId: string): Promise<AttendanceReport> {
+  async getAttendanceReport(
+    accessToken: string,
+    reportId: string
+  ): Promise<AttendanceReport> {
     try {
       const response = await fetch(
         `${API_BASE}/reporting/attendance/${reportId}/`,
         {
           method: "GET",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch attendance report");
+        throw new Error(
+          errorData.message || "Failed to fetch attendance report"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -1274,16 +1469,15 @@ export class BackendService {
 
   async getInventoryReports(accessToken: string): Promise<InventoryReport[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/reporting/inventory/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/reporting/inventory/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch inventory reports");
+        throw new Error(
+          errorData.message || "Failed to fetch inventory reports"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -1291,18 +1485,23 @@ export class BackendService {
     }
   }
 
-  async getInventoryReport(accessToken: string, reportId: string): Promise<InventoryReport> {
+  async getInventoryReport(
+    accessToken: string,
+    reportId: string
+  ): Promise<InventoryReport> {
     try {
       const response = await fetch(
         `${API_BASE}/reporting/inventory/${reportId}/`,
         {
           method: "GET",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch inventory report");
+        throw new Error(
+          errorData.message || "Failed to fetch inventory report"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -1312,16 +1511,17 @@ export class BackendService {
 
   // Time Tracking
 
-  async clockIn(accessToken: string, latitude: number, longitude: number): Promise<{ message: string; event: ClockEvent }> {
+  async clockIn(
+    accessToken: string,
+    latitude: number,
+    longitude: number
+  ): Promise<{ message: string; event: ClockEvent }> {
     try {
-      const response = await fetch(
-        `${API_BASE}/timeclock/clock-in/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify({ latitude, longitude }),
-        },
-      );
+      const response = await fetch(`${API_BASE}/timeclock/clock-in/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify({ latitude, longitude }),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to clock in");
@@ -1332,16 +1532,17 @@ export class BackendService {
     }
   }
 
-  async clockOut(accessToken: string, latitude: number, longitude: number): Promise<{ message: string; event: ClockEvent }> {
+  async clockOut(
+    accessToken: string,
+    latitude: number,
+    longitude: number
+  ): Promise<{ message: string; event: ClockEvent }> {
     try {
-      const response = await fetch(
-        `${API_BASE}/timeclock/clock-out/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify({ latitude, longitude }),
-        },
-      );
+      const response = await fetch(`${API_BASE}/timeclock/clock-out/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify({ latitude, longitude }),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to clock out");
@@ -1352,15 +1553,14 @@ export class BackendService {
     }
   }
 
-  async startBreak(accessToken: string): Promise<{ message: string; event: ClockEvent }> {
+  async startBreak(
+    accessToken: string
+  ): Promise<{ message: string; event: ClockEvent }> {
     try {
-      const response = await fetch(
-        `${API_BASE}/timeclock/start-break/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/timeclock/start-break/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to start break");
@@ -1371,15 +1571,14 @@ export class BackendService {
     }
   }
 
-  async endBreak(accessToken: string): Promise<{ message: string; event: ClockEvent }> {
+  async endBreak(
+    accessToken: string
+  ): Promise<{ message: string; event: ClockEvent }> {
     try {
-      const response = await fetch(
-        `${API_BASE}/timeclock/end-break/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/timeclock/end-break/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to end break");
@@ -1390,15 +1589,14 @@ export class BackendService {
     }
   }
 
-  async getCurrentClockSession(accessToken: string): Promise<ClockEvent | null> {
+  async getCurrentClockSession(
+    accessToken: string
+  ): Promise<ClockEvent | null> {
     try {
-      const response = await fetch(
-        `${API_BASE}/timeclock/current-session/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/timeclock/current-session/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         if (response.status === 404) return null; // No current session
         const errorData = await response.json();
@@ -1410,16 +1608,17 @@ export class BackendService {
     }
   }
 
-  async verifyLocation(accessToken: string, latitude: number, longitude: number): Promise<{ message: string; event: ClockEvent }> {
+  async verifyLocation(
+    accessToken: string,
+    latitude: number,
+    longitude: number
+  ): Promise<{ message: string; event: ClockEvent }> {
     try {
-      const response = await fetch(
-        `${API_BASE}/timeclock/verify-location/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify({ latitude, longitude }),
-        },
-      );
+      const response = await fetch(`${API_BASE}/timeclock/verify-location/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify({ latitude, longitude }),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to verify location");
@@ -1437,11 +1636,13 @@ export class BackendService {
         {
           method: "GET",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch attendance history");
+        throw new Error(
+          errorData.message || "Failed to fetch attendance history"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -1452,13 +1653,10 @@ export class BackendService {
   // ===== TASK MANAGEMENT =====
   async getTaskCategories(accessToken: string): Promise<any[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/scheduling/task-categories/`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        },
-      );
+      const response = await fetch(`${API_BASE}/scheduling/task-categories/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch task categories");
@@ -1469,16 +1667,16 @@ export class BackendService {
     }
   }
 
-  async createTaskCategory(accessToken: string, categoryData: any): Promise<any> {
+  async createTaskCategory(
+    accessToken: string,
+    categoryData: any
+  ): Promise<any> {
     try {
-      const response = await fetch(
-        `${API_BASE}/scheduling/task-categories/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(categoryData),
-        },
-      );
+      const response = await fetch(`${API_BASE}/scheduling/task-categories/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(categoryData),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to create task category");
@@ -1489,24 +1687,28 @@ export class BackendService {
     }
   }
 
-  async getShiftTasks(accessToken: string, filters?: { assigned_to?: string; status?: string; shift_id?: string }): Promise<any[]> {
+  async getShiftTasks(
+    accessToken: string,
+    filters?: { assigned_to?: string; status?: string; shift_id?: string }
+  ): Promise<any[]> {
     try {
       let url = `${API_BASE}/scheduling/shift-tasks/`;
       const params = new URLSearchParams();
-      
-      if (filters?.assigned_to) params.append('assigned_to', filters.assigned_to);
-      if (filters?.status) params.append('status', filters.status);
-      if (filters?.shift_id) params.append('shift_id', filters.shift_id);
-      
+
+      if (filters?.assigned_to)
+        params.append("assigned_to", filters.assigned_to);
+      if (filters?.status) params.append("status", filters.status);
+      if (filters?.shift_id) params.append("shift_id", filters.shift_id);
+
       if (params.toString()) {
         url += `?${params.toString()}`;
       }
-      
+
       const response = await fetch(url, {
         method: "GET",
         headers: this.getHeaders(accessToken),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch shift tasks");
@@ -1519,14 +1721,11 @@ export class BackendService {
 
   async createShiftTask(accessToken: string, taskData: any): Promise<any> {
     try {
-      const response = await fetch(
-        `${API_BASE}/scheduling/shift-tasks/`,
-        {
-          method: "POST",
-          headers: this.getHeaders(accessToken),
-          body: JSON.stringify(taskData),
-        },
-      );
+      const response = await fetch(`${API_BASE}/scheduling/shift-tasks/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(taskData),
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to create shift task");
@@ -1537,7 +1736,11 @@ export class BackendService {
     }
   }
 
-  async updateShiftTask(accessToken: string, taskId: string, taskData: any): Promise<any> {
+  async updateShiftTask(
+    accessToken: string,
+    taskId: string,
+    taskData: any
+  ): Promise<any> {
     try {
       const response = await fetch(
         `${API_BASE}/scheduling/shift-tasks/${taskId}/`,
@@ -1545,7 +1748,7 @@ export class BackendService {
           method: "PATCH",
           headers: this.getHeaders(accessToken),
           body: JSON.stringify(taskData),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
@@ -1564,7 +1767,7 @@ export class BackendService {
         {
           method: "DELETE",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
@@ -1582,11 +1785,13 @@ export class BackendService {
         {
           method: "POST",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to mark task as completed");
+        throw new Error(
+          errorData.message || "Failed to mark task as completed"
+        );
       }
       return await response.json();
     } catch (error: any) {
@@ -1601,7 +1806,7 @@ export class BackendService {
         {
           method: "POST",
           headers: this.getHeaders(accessToken),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();
@@ -1613,7 +1818,11 @@ export class BackendService {
     }
   }
 
-  async reassignTask(accessToken: string, taskId: string, assigned_to: string): Promise<any> {
+  async reassignTask(
+    accessToken: string,
+    taskId: string,
+    assigned_to: string
+  ): Promise<any> {
     try {
       const response = await fetch(
         `${API_BASE}/scheduling/shift-tasks/${taskId}/reassign/`,
@@ -1621,7 +1830,7 @@ export class BackendService {
           method: "POST",
           headers: this.getHeaders(accessToken),
           body: JSON.stringify({ assigned_to }),
-        },
+        }
       );
       if (!response.ok) {
         const errorData = await response.json();

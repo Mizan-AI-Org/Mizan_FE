@@ -69,18 +69,82 @@ const AddStaff = () => {
         if (!validateForm()) return;
         
         setIsLoading(true);
-        
-        setTimeout(() => {
-            alert(`Invitation sent to ${firstName} ${lastName} (${email})`);
-            
-            setEmail('');
-            setFirstName('');
-            setLastName('');
-            setRole('');
-            setPhoneNumber('');
-            setErrors({});
+        setErrors({}); // Clear previous errors
+
+        // 1. Get the token from localStorage
+        const token = localStorage.getItem('access_token');
+
+        // We use snake_case for the payload to match
+        // common Django REST Framework conventions
+        const payload = {
+            email: email,
+            first_name: firstName,
+            last_name: lastName,
+            role: role,
+            phone_number: phoneNumber || null // Send null if empty
+        };
+
+        // 2. Prepare headers
+        const requestHeaders: HeadersInit = {
+            'Content-Type': 'application/json',
+        };
+
+        // 3. Add Authorization header if token exists
+        if (token) {
+            requestHeaders['Authorization'] = `Bearer ${token}`;
+        }
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/api/staff/invite/', {
+                method: 'POST',
+                headers: requestHeaders, // Use the prepared headers
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                // Success (2xx status code)
+                // const data = await response.json(); // You can get the response data
+                alert(`Invitation sent to ${firstName} ${lastName} (${email})`);
+                
+                // Reset form
+                setEmail('');
+                setFirstName('');
+                setLastName('');
+                setRole('');
+                setPhoneNumber('');
+            } else {
+                // Handle errors (4xx, 5xx status codes)
+                const errorData = await response.json();
+                const newErrors: FormErrors = {};
+
+                // This assumes your API returns errors like:
+                // { "email": ["This email is already in use."], "first_name": ["This field is required."] }
+                if (typeof errorData === 'object' && errorData !== null) {
+                    if (errorData.email) newErrors.email = errorData.email[0];
+                    if (errorData.first_name) newErrors.firstName = errorData.first_name[0];
+                    if (errorData.last_name) newErrors.lastName = errorData.last_name[0];
+                    if (errorData.role) newErrors.role = errorData.role[0];
+                    
+                    setErrors(newErrors);
+
+                    // Handle non-field errors (e.g., { "detail": "..." })
+                    if (errorData.detail) {
+                        alert(`Error: ${errorData.detail}`);
+                    } else if (Object.keys(newErrors).length === 0) {
+                        alert('An unknown error occurred. Please try again.');
+                    }
+                } else {
+                    alert(`An error occurred: ${response.statusText}`);
+                }
+            }
+        } catch (error) {
+            // Handle network errors (e.g., server is down, CORS)
+            console.error('Failed to send invitation:', error);
+            alert('A network error occurred. Please check if the server is running and try again.');
+        } finally {
+            // This block runs regardless of success or failure
             setIsLoading(false);
-        }, 1500);
+        }
     };
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,10 +186,15 @@ const AddStaff = () => {
     };
 
     const handleBulkInvite = () => {
+        // TODO: Implement bulk invite API call
+        // You would apply a similar fetch logic here for a bulk endpoint
+        // 1. Get token
+        // 2. Loop through `parsedStaff` to create a payload array
+        // 3. Send POST request with the array
         setIsLoading(true);
         
         setTimeout(() => {
-            alert(`Successfully invited ${parsedStaff.length} staff members!`);
+            alert(`Successfully invited ${parsedStaff.length} staff members! (Mock)`);
             setUploadedFile(null);
             setParsedStaff([]);
             setIsLoading(false);
