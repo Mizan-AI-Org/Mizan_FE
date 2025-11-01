@@ -47,19 +47,33 @@ const AttendanceHistory: React.FC = () => {
         queryFn: async () => {
             if (!targetUserId) return Promise.reject('No user ID available');
             const endpoint = user_id
-                ? `${API_BASE}/timeloss/attendance-history/${user_id}/?start_date=${formattedStartDate}&end_date=${formattedEndDate}`
-                : `${API_BASE}/timeloss/attendance-history/?start_date=${formattedStartDate}&end_date=${formattedEndDate}`;
+                ? `${API_BASE}/timeclock/attendance-history/${user_id}/?start_date=${formattedStartDate}&end_date=${formattedEndDate}`
+                : `${API_BASE}/timeclock/attendance-history/?start_date=${formattedStartDate}&end_date=${formattedEndDate}`;
 
-            const response = await fetch(endpoint, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-                },
-            });
+            try {
+                const response = await fetch(endpoint, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                    },
+                });
 
-            if (!response.ok) {
-                throw new Error('Failed to fetch attendance history');
+                if (!response.ok) {
+                    const text = await response.text();
+                    let errorMessage = 'Failed to fetch attendance history';
+                    try {
+                        const data = JSON.parse(text);
+                        errorMessage = data.error || data.message || errorMessage;
+                    } catch {
+                        // Non-JSON error response
+                    }
+                    console.error('Attendance history error:', response.status, errorMessage);
+                    throw new Error(errorMessage);
+                }
+                return await response.json();
+            } catch (err: any) {
+                console.error('Attendance history fetch failed:', err);
+                throw err;
             }
-            return response.json();
         },
         enabled: !!targetUserId,
     });

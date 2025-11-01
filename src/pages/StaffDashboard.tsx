@@ -7,6 +7,25 @@ import CreateSwapRequest from '../components/CreateSwapRequest';
 
 const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
+// Calculate distance in meters between two coordinates using Haversine formula
+const haversineDistance = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+): number => {
+    const R = 6371e3; // meters
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+};
+
 const StaffDashboard: React.FC = () => {
     const { user, logout } = useAuth() as { user: User | null; logout: () => void; };
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -14,6 +33,15 @@ const StaffDashboard: React.FC = () => {
     const [isClocking, setIsClocking] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
     const [isOnBreak, setIsOnBreak] = useState(false); // New state for break status
+
+    // Geolocation monitoring & gating
+    const [deviceLocation, setDeviceLocation] = useState<{ lat: number; lon: number; accuracy: number } | null>(null);
+    const [distanceToWork, setDistanceToWork] = useState<number | null>(null);
+    const [isWithinGeofence, setIsWithinGeofence] = useState<boolean>(false);
+    const [gpsWeak, setGpsWeak] = useState<boolean>(false);
+    const [scheduleActive, setScheduleActive] = useState<boolean>(false);
+    const [accountGood, setAccountGood] = useState<boolean>(false);
+    const [clockInReady, setClockInReady] = useState<boolean>(false);
 
     const testBackendConnection = useCallback(async () => {
         try {
@@ -38,7 +66,7 @@ const StaffDashboard: React.FC = () => {
     const { data: staffData, isLoading, error, refetch } = useQuery({
         queryKey: ['staff-dashboard'],
         queryFn: async () => {
-            const response = await fetch(`${API_BASE}/timeloss/staff-dashboard/`, {
+            const response = await fetch(`${API_BASE}/timeclock/staff-dashboard/`, {
                 credentials: 'include',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -65,11 +93,19 @@ const StaffDashboard: React.FC = () => {
         }
     }, [staffData]);
 
+    // Derive account good standing from API response
+    useEffect(() => {
+        if (!staffData) return;
+        const active = !!staffData.is_active;
+        const goodStanding = (staffData.account_status?.toLowerCase?.() === 'good' || staffData.account_status === true);
+        setAccountGood(active && goodStanding);
+    }, [staffData]);
+
     // Fetch current session
     const { data: currentSession, refetch: refetchSession } = useQuery({
         queryKey: ['current-session'],
         queryFn: async () => {
-            const response = await fetch(`${API_BASE}/timeloss/current-session/`, {
+            const response = await fetch(`${API_BASE}/timeclock/current-session/`, {
                 credentials: 'include',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -89,6 +125,104 @@ const StaffDashboard: React.FC = () => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
+
+    // Watch device location continuously
+    useEffect(() => {
+        if (!('geolocation' in navigator)) {
+            setLocationError('Geolocation is not supported by this browser');
+            return;
+        }
+
+        let watchId: number | null = null;
+        const startWatch = () => {
+            watchId = navigator.geolocation.watchPosition(
+                async (position) => {
+                    const { latitude, longitude, accuracy } = position.coords;
+                    setDeviceLocation({ lat: latitude, lon: longitude, accuracy });
+                    setGpsWeak(accuracy > 50); // weak if > 50m
+
+                    // Compute distance if restaurant location known
+                    const rl = staffData?.restaurant_location;
+                    if (rl?.latitude && rl?.longitude) {
+                        const dist = haversineDistance(latitude, longitude, rl.latitude, rl.longitude);
+                        setDistanceToWork(dist);
+                    } else {
+                        setDistanceToWork(null);
+                    }
+
+                    // Verify geofence via backend for polygon/radius accuracy
+                    try {
+                        const resp = await fetch(`${API_BASE}/timeclock/verify-location/`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                            },
+                            credentials: 'include',
+                            body: JSON.stringify({ latitude, longitude }),
+                        });
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            setIsWithinGeofence(!!data.within_range);
+                        } else {
+                            setIsWithinGeofence(false);
+                        }
+                    } catch {
+                        setIsWithinGeofence(false);
+                    }
+                },
+                (err) => {
+                    let message = 'Failed to get location';
+                    if (err.code === err.PERMISSION_DENIED) message = 'Location services disabled. Enable location to proceed.';
+                    else if (err.code === err.POSITION_UNAVAILABLE) message = 'GPS signal weak or unavailable.';
+                    else if (err.code === err.TIMEOUT) message = 'Location request timed out.';
+                    setLocationError(message);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 5000,
+                }
+            );
+        };
+
+        startWatch();
+        return () => {
+            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        };
+    }, [staffData]);
+
+    // Determine if current time is within scheduled shift window
+    useEffect(() => {
+        const shift = staffData?.todaysShift;
+        if (!shift) {
+            setScheduleActive(false);
+            return;
+        }
+        try {
+            const start = new Date(shift.start_time);
+            const end = new Date(shift.end_time);
+            const now = currentTime;
+            setScheduleActive(now >= start && now <= end);
+        } catch {
+            setScheduleActive(false);
+        }
+    }, [staffData, currentTime]);
+
+    // Gate clock-in readiness
+    useEffect(() => {
+        setClockInReady(isWithinGeofence && scheduleActive && accountGood);
+    }, [isWithinGeofence, scheduleActive, accountGood]);
+
+    const getClockInDisableReason = (): string => {
+        if (!accountGood) return 'Account not in good standing';
+        if (!staffData?.todaysShift) return 'Schedule data unavailable';
+        if (!scheduleActive) return 'Outside scheduled shift hours';
+        if (locationError) return locationError;
+        if (gpsWeak) return 'GPS signal weak';
+        if (!isWithinGeofence) return 'Outside Work Zone';
+        return 'Initializing...';
+    };
 
     const getCurrentLocation = (): Promise<GeolocationPosition> => {
         return new Promise((resolve, reject) => {
@@ -124,7 +258,7 @@ const StaffDashboard: React.FC = () => {
 
     const verifyLocation = async (latitude: number, longitude: number): Promise<boolean> => {
         try {
-            const response = await fetch(`${API_BASE}/timeloss/verify-location/`, {
+            const response = await fetch(`${API_BASE}/timeclock/verify-location/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -169,7 +303,7 @@ const StaffDashboard: React.FC = () => {
             }
 
             // Perform clock in with location data
-            const response = await fetch(`${API_BASE}/timeloss/web-clock-in/`, {
+            const response = await fetch(`${API_BASE}/timeclock/web-clock-in/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -215,7 +349,7 @@ const StaffDashboard: React.FC = () => {
                 // Continue without location data for clock out
             }
 
-            const response = await fetch(`${API_BASE}/timeloss/web-clock-out/`, {
+            const response = await fetch(`${API_BASE}/timeclock/web-clock-out/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -245,7 +379,7 @@ const StaffDashboard: React.FC = () => {
     const startBreak = async () => {
         setIsClocking(true);
         try {
-            const response = await fetch(`${API_BASE}/timeloss/break/start/`, {
+            const response = await fetch(`${API_BASE}/timeclock/break/start/`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -271,7 +405,7 @@ const StaffDashboard: React.FC = () => {
     const endBreak = async () => {
         setIsClocking(true);
         try {
-            const response = await fetch(`${API_BASE}/timeloss/break/end/`, {
+            const response = await fetch(`${API_BASE}/timeclock/break/end/`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -456,8 +590,9 @@ const StaffDashboard: React.FC = () => {
                             <div className="space-y-3">
                                 <button
                                     onClick={clockIn}
-                                    disabled={isClocking}
-                                    className="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold flex items-center justify-center"
+                                    disabled={isClocking || !clockInReady}
+                                    title={clockInReady ? 'Ready to Clock In' : getClockInDisableReason()}
+                                    className={`w-full py-3 px-4 rounded-md transition-colors font-semibold flex items-center justify-center ${clockInReady ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}
                                 >
                                     {isClocking ? (
                                         <>
@@ -467,12 +602,12 @@ const StaffDashboard: React.FC = () => {
                                     ) : (
                                         <>
                                             <Navigation className="w-4 h-4 mr-2" />
-                                            Clock In with Location
+                                            {clockInReady ? 'Ready to Clock In' : 'Outside Work Zone'}
                                         </>
                                     )}
                                 </button>
                                 <p className="text-xs text-gray-500 text-center">
-                                    Location access required for clock in
+                                    {clockInReady ? 'All conditions met' : getClockInDisableReason()}
                                 </p>
                             </div>
                         )}
@@ -582,17 +717,18 @@ const StaffDashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* Location Status */}
+            {/* Location & Readiness Status */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="font-medium text-blue-900 mb-2 flex items-center">
                     <Navigation className="w-4 h-4 mr-2" />
-                    Location Requirements
+                    Location & Readiness
                 </h4>
                 <ul className="text-sm text-blue-700 space-y-1">
-                    <li>• Clock in requires location access</li>
-                    <li>• Must be within 100m of restaurant</li>
-                    <li>• High accuracy location recommended</li>
-                    <li>• Clock out also records location (optional)</li>
+                    <li>• Distance to work: {distanceToWork !== null ? `${Math.round(distanceToWork)} m` : '—'}</li>
+                    <li>• Geofence status: {isWithinGeofence ? 'Inside perimeter' : 'Outside perimeter'}</li>
+                    <li>• GPS accuracy: {deviceLocation ? `${Math.round(deviceLocation.accuracy)} m${gpsWeak ? ' (weak)' : ''}` : '—'}</li>
+                    <li>• Shift window: {scheduleActive ? 'Active now' : (staffData?.todaysShift ? 'Outside shift time' : 'No shift today')}</li>
+                    <li>• Account status: {accountGood ? 'Good standing' : 'Restricted'}</li>
                 </ul>
             </div>
         </div>

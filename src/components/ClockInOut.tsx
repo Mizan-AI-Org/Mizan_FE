@@ -9,6 +9,9 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "../lib/api";
 
+// Use the same API base convention as the shared API helper
+const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+
 interface ClockInOutProps {
   staffId?: string; // Made optional
   onSuccess?: () => void;
@@ -28,16 +31,22 @@ export const ClockInOut = ({ staffId, onSuccess }: ClockInOutProps) => {
     const fetchGeolocationSettings = async () => {
       if (!accessToken) return;
       try {
-        const response = await api.request(
-          "/accounts/restaurant/location/",
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setRestaurantLatitude(data.latitude || null);
-          setRestaurantLongitude(data.longitude || null);
-          setRestaurantRadius(data.radius || null);
+        const response = await fetch(`${API_BASE}/timeclock/restaurant-location/`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || "Failed to load restaurant location");
         }
+        const data = await response.json();
+        const rl = data?.restaurant || data || {};
+        setRestaurantLatitude(rl.latitude ?? null);
+        setRestaurantLongitude(rl.longitude ?? null);
+        setRestaurantRadius(rl.geofence_radius ?? rl.radius ?? null);
       } catch (error) {
         console.error("Failed to fetch restaurant geolocation settings:", error);
         toast.error("Failed to load restaurant location for clock-in.");
@@ -84,31 +93,21 @@ export const ClockInOut = ({ staffId, onSuccess }: ClockInOutProps) => {
     }
 
     try {
-      // This is a placeholder for your actual clock-in/out API call
-      // You would send userLatitude and userLongitude to the backend here.
-      const response = await api.request(
-        "/accounts/pin-login/", // Assuming this endpoint handles clock-in/out with pin and location
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
-          },
-          body: JSON.stringify({
-            pin_code: pinCode, // Use the actual PIN input
-            image_data: imageSrc,
-            latitude: userLatitude,
-            longitude: userLongitude,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || errorData.error || "Failed to clock in/out");
+      if (!accessToken) {
+        toast.error("You need to be logged in to clock in/out.");
+        return;
       }
 
-      toast.success(`Clocked ${action === "in" ? "in" : "out"} successfully at ${new Date().toLocaleTimeString()}`);
+      // Use dedicated timeclock endpoints with captured geolocation
+      const result =
+        action === "in"
+          ? await api.clockIn(accessToken, userLatitude!, userLongitude!)
+          : await api.clockOut(accessToken, userLatitude!, userLongitude!);
+
+      toast.success(
+        result?.message ||
+          `Clocked ${action === "in" ? "in" : "out"} at ${new Date().toLocaleTimeString()}`
+      );
       setIsClockedIn(action === "in");
       setShowCamera(false);
       onSuccess?.();

@@ -271,26 +271,8 @@ export class BackendService {
       }
       return await response.json();
     } catch (error: any) {
-      // Mock data for development if API fails
-      console.error("Error fetching staff list, returning mock data:", error);
-      return [
-        {
-          id: "",
-          email: "",
-          first_name: "",
-          last_name: "",
-          role: "",
-          join_date: "",
-        },
-        {
-          id: "",
-          email: "",
-          first_name: "",
-          last_name: "",
-          role: "",
-          join_date: "",
-        },
-      ];
+      console.error("Error fetching staff list:", error);
+      throw new Error(error.message || "Failed to fetch staff list");
     }
   }
 
@@ -306,16 +288,8 @@ export class BackendService {
       }
       return await response.json();
     } catch (error: any) {
-      console.error(
-        "Error fetching staff dashboard, returning mock data:",
-        error
-      );
-      return {
-        totalStaff: 8,
-        activeShifts: 3,
-        pendingOrders: 12,
-        revenueToday: 1850,
-      };
+      console.error("Error fetching staff dashboard:", error);
+      throw new Error(error.message || "Failed to fetch staff dashboard");
     }
   }
 
