@@ -200,18 +200,7 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
       
       const staffData = await response.json();
       
-      // If safety indicators are enabled, fetch safety data for each staff member
-      if (showSafetyIndicators) {
-        // This would be a real API call in production
-        // For now, we'll simulate safety data
-        return staffData.map((staff: StaffMember) => ({
-          ...staff,
-          safety_compliance: Math.floor(Math.random() * 40) + 60, // 60-100%
-          pending_tasks: Math.floor(Math.random() * 5),
-          safety_score: Math.floor(Math.random() * 40) + 60, // 60-100
-        }));
-      }
-      
+      // Do not simulate safety data; return actual staff data only
       return staffData;
     },
   });
@@ -243,30 +232,13 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
       
       const data = await response.json();
       
-      // Enhance schedules with staff names and safety data
+      // Enhance schedules with staff names only (no simulated safety data)
       return data.map((schedule: Schedule) => {
         const staffMember = staffMembers?.find(s => s.id === schedule.staff);
         
-        // Add simulated safety data if safety indicators are enabled
-        if (showSafetyIndicators) {
-          return {
-            ...schedule,
-            staff_name: staffMember ? `${staffMember.first_name} ${staffMember.last_name}` : "Unknown Staff",
-            safety_compliance: staffMember?.safety_compliance || 75,
-            safety_tasks: Array(Math.floor(Math.random() * 3) + 1).fill(null).map((_, i) => ({
-              id: `task-${schedule.id}-${i}`,
-              title: ["Safety Checklist", "Equipment Inspection", "Cleaning Protocol", "Temperature Check"][Math.floor(Math.random() * 4)],
-              description: "Required safety task",
-              due_date: schedule.end_time,
-              priority: ["LOW", "MEDIUM", "HIGH"][Math.floor(Math.random() * 3)] as "LOW" | "MEDIUM" | "HIGH",
-              status: ["PENDING", "IN_PROGRESS", "COMPLETED"][Math.floor(Math.random() * 3)] as "PENDING" | "IN_PROGRESS" | "COMPLETED",
-            }))
-          };
-        }
-        
         return {
           ...schedule,
-          staff_name: staffMember ? `${staffMember.first_name} ${staffMember.last_name}` : "Unknown Staff"
+          staff_name: staffMember ? `${staffMember.first_name} ${staffMember.last_name}` : "Unknown Staff",
         };
       });
     },

@@ -64,6 +64,7 @@ export const SchedulingDashboard: React.FC = () => {
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [selectedShift, setSelectedShift] = useState<AssignedShift | null>(null);
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+    const [assignmentFrequency, setAssignmentFrequency] = useState<'ONE_TIME' | 'DAILY' | 'WEEKLY'>('ONE_TIME');
 
     const weekStart = format(currentWeek, 'yyyy-MM-dd');
     const weekEnd = format(endOfWeek(currentWeek), 'yyyy-MM-dd');
@@ -73,7 +74,7 @@ export const SchedulingDashboard: React.FC = () => {
         queryKey: ['schedule', weekStart],
         queryFn: async () => {
             const response = await fetch(
-                `${API_BASE}/schedule/weekly-schedules-v2/?date_from=${weekStart}&date_to=${weekEnd}`,
+                `${API_BASE}/scheduling/weekly-schedules-v2/?date_from=${weekStart}&date_to=${weekEnd}`,
                 { headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` } }
             );
             if (!response.ok) throw new Error('Failed to load schedule');
@@ -83,18 +84,39 @@ export const SchedulingDashboard: React.FC = () => {
     });
 
     // Fetch task templates for assignment
-    interface TaskTemplate {
-        id: string;
-        name: string;
-        description: string;
-        template_type: string;
-        frequency: string;
-        tasks: any[];
-    }
+type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+interface TemplateTask {
+    title?: string;
+    description?: string;
+    priority?: TaskPriority;
+    estimated_duration?: number;
+}
+
+interface TaskTemplate {
+    id: string;
+    name: string;
+    description: string;
+    template_type: string;
+    frequency: string;
+    tasks: TemplateTask[];
+}
+
+interface TaskPayload {
+    title: string;
+    description: string;
+    category: string;
+    assigned_to: string[];
+    assigned_shift: string;
+    priority: TaskPriority;
+    due_date: string;
+    estimated_duration: number;
+    frequency?: 'ONE_TIME' | 'DAILY' | 'WEEKLY';
+}
     const { data: templates } = useQuery<TaskTemplate[]>({
         queryKey: ['task-templates'],
         queryFn: async () => {
-            const response = await fetch(`${API_BASE}/schedule/task-templates/`, {
+            const response = await fetch(`${API_BASE}/scheduling/task-templates/`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
             });
             if (!response.ok) throw new Error('Failed to load task templates');
@@ -109,7 +131,7 @@ export const SchedulingDashboard: React.FC = () => {
         queryFn: async () => {
             if (!schedule?.id) return null;
             const response = await fetch(
-                `${API_BASE}/schedule/weekly-schedules-v2/${schedule.id}/analytics/`,
+                `${API_BASE}/scheduling/weekly-schedules-v2/${schedule.id}/analytics/`,
                 { headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` } }
             );
             if (!response.ok) throw new Error('Failed to load analytics');
@@ -124,7 +146,7 @@ export const SchedulingDashboard: React.FC = () => {
         queryFn: async () => {
             if (!schedule?.id) return null;
             const response = await fetch(
-                `${API_BASE}/schedule/weekly-schedules-v2/${schedule.id}/coverage/`,
+                `${API_BASE}/scheduling/weekly-schedules-v2/${schedule.id}/coverage/`,
                 { headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` } }
             );
             if (!response.ok) throw new Error('Failed to load coverage');
@@ -137,7 +159,7 @@ export const SchedulingDashboard: React.FC = () => {
     const confirmShiftMutation = useMutation({
         mutationFn: async (shiftId: string) => {
             const response = await fetch(
-                `${API_BASE}/schedule/assigned-shifts-v2/${shiftId}/confirm/`,
+                `${API_BASE}/scheduling/assigned-shifts-v2/${shiftId}/confirm/`,
                 {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` },
@@ -153,9 +175,9 @@ export const SchedulingDashboard: React.FC = () => {
     });
 
     // Create task mutation for assigning to shift
-    const createTaskMutation = useMutation({
-        mutationFn: async (payload: any) => {
-            const response = await fetch(`${API_BASE}/schedule/tasks/`, {
+    const createTaskMutation = useMutation<unknown, Error, TaskPayload>({
+        mutationFn: async (payload: TaskPayload) => {
+            const response = await fetch(`${API_BASE}/scheduling/shift-tasks/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -177,40 +199,56 @@ export const SchedulingDashboard: React.FC = () => {
         },
     });
 
+    const buildTaskPayloadsForShift = (shift: AssignedShift, template: TaskTemplate): TaskPayload[] => {
+        const dueDate = `${shift.shift_date}T${shift.end_time}`;
+        const items: TaskPayload[] = (template.tasks || []).map((t) => ({
+            title: t.title || template.name,
+            description: t.description || template.description || '',
+            category: template.template_type || 'CUSTOM',
+            assigned_to: [shift.staff.id],
+            assigned_shift: shift.id,
+            priority: (t.priority ?? 'MEDIUM'),
+            due_date: dueDate,
+            estimated_duration: Number(t.estimated_duration ?? 30),
+        }));
+        if (items.length === 0) {
+            items.push({
+                title: template.name,
+                description: template.description || '',
+                category: template.template_type || 'CUSTOM',
+                assigned_to: [shift.staff.id],
+                assigned_shift: shift.id,
+                priority: 'MEDIUM',
+                due_date: dueDate,
+                estimated_duration: 30,
+            });
+        }
+        return items;
+    };
+
     const onAssignTasksFromTemplate = async () => {
         if (!selectedShift || !selectedTemplateId) {
             toast({ title: 'Select template', description: 'Please choose a template to assign.' });
             return;
         }
-        const template = templates?.find(t => t.id === selectedTemplateId);
+        const template = templates?.find(t => String(t.id) === String(selectedTemplateId));
         if (!template) {
             toast({ title: 'Template not found', description: 'Please re-select a template.' });
             return;
         }
-        // Create tasks from template items; fall back to sensible defaults
-        const dueDate = `${selectedShift.shift_date}T${selectedShift.end_time}`;
-        const tasks = (template.tasks || []).map((t: any) => ({
-            title: t.title || template.name,
-            description: t.description || template.description || '',
-            category: template.template_type || 'CUSTOM',
-            assigned_to: [selectedShift.staff.id],
-            assigned_shift: selectedShift.id,
-            priority: (t.priority?.toUpperCase?.() || 'MEDIUM'),
-            due_date: dueDate,
-            estimated_duration: Number(t.estimated_duration) || 30,
-        }));
-        if (tasks.length === 0) {
-            // Create a single task representing the template
-            tasks.push({
-                title: template.name,
-                description: template.description || '',
-                category: template.template_type || 'CUSTOM',
-                assigned_to: [selectedShift.staff.id],
-                assigned_shift: selectedShift.id,
-                priority: 'MEDIUM',
-                due_date: dueDate,
-                estimated_duration: 30,
+        let tasks: TaskPayload[] = [];
+        if (assignmentFrequency === 'ONE_TIME') {
+            tasks = buildTaskPayloadsForShift(selectedShift, template);
+        } else if (assignmentFrequency === 'DAILY') {
+            const thisWeekShiftsForStaff = schedule?.assigned_shifts?.filter(s => s.staff.id === selectedShift.staff.id) || [];
+            thisWeekShiftsForStaff.forEach(s => {
+                tasks.push(...buildTaskPayloadsForShift(s, template));
             });
+        } else if (assignmentFrequency === 'WEEKLY') {
+            tasks = buildTaskPayloadsForShift(selectedShift, template).map(t => ({
+                ...t,
+                frequency: 'WEEKLY',
+            }));
         }
         try {
             for (const payload of tasks) {
@@ -219,6 +257,7 @@ export const SchedulingDashboard: React.FC = () => {
             }
             setAssignModalOpen(false);
             setSelectedTemplateId("");
+            setAssignmentFrequency('ONE_TIME');
         } catch (e) {
             // Errors are handled in mutation onError
         }
@@ -515,11 +554,27 @@ export const SchedulingDashboard: React.FC = () => {
                                         <SelectValue placeholder="Choose a template" />
                                     </SelectTrigger>
                                     <SelectContent>
+                                        {(!templates || templates.length === 0) && (
+                                            <SelectItem value="" disabled>No templates available</SelectItem>
+                                        )}
                                         {templates?.map(t => (
-                                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                            <SelectItem key={String(t.id)} value={String(t.id)}>{t.name}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                <div className="space-y-2">
+                                    <Label>Frequency</Label>
+                                    <Select value={assignmentFrequency} onValueChange={(v) => setAssignmentFrequency(v as 'ONE_TIME' | 'DAILY' | 'WEEKLY')}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select frequency" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ONE_TIME">One time</SelectItem>
+                                            <SelectItem value="DAILY">Every day (this week)</SelectItem>
+                                            <SelectItem value="WEEKLY">Weekly (same weekday)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                                 <div className="flex gap-2">
                                     <Button variant="default" onClick={onAssignTasksFromTemplate} disabled={!selectedTemplateId}>
                                         Assign from Template

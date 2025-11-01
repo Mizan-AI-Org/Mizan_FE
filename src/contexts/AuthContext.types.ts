@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { SignupData } from "@/lib/types";
+import { SignupData } from "../lib/types";
 
 export interface User {
     id: string;

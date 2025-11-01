@@ -25,6 +25,9 @@ import {
 
 import ShiftModal from "@/components/ShiftModal"
 
+// Use configured API base to avoid relative path issues between environments
+const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+
 const aiRecommendations = []
 
 interface Shift {
@@ -90,7 +93,7 @@ const GoogleCalendarScheduler = () => {
           return
         }
 
-        const staffResponse = await fetch("/api/staff/", {
+        const staffResponse = await fetch(`${API_BASE}/staff/`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -99,7 +102,7 @@ const GoogleCalendarScheduler = () => {
         const staffData: StaffMember[] = await staffResponse.json()
         setStaffMembers(staffData)
 
-        const scheduleResponse = await fetch("/api/scheduling/weekly-schedules/", {
+        const scheduleResponse = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

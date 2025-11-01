@@ -20,79 +20,67 @@ interface Notification {
   priority: 'low' | 'medium' | 'high';
 }
 
-// Mock data for notifications
-const mockNotifications: Notification[] = [
-  {
-    id: 1,
-    title: 'New Safety Task Assigned',
-    message: 'You have been assigned a new safety task: "Kitchen Equipment Inspection"',
-    type: 'task',
-    status: 'unread',
-    created_at: new Date().toISOString(),
-    priority: 'high'
-  },
-  {
-    id: 2,
-    title: 'Safety Checklist Due Today',
-    message: 'Daily opening safety checklist needs to be completed before 10:00 AM',
-    type: 'checklist',
-    status: 'unread',
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-    priority: 'medium'
-  },
-  {
-    id: 3,
-    title: 'Safety Concern Reported',
-    message: 'A new safety concern has been reported regarding the back entrance door',
-    type: 'concern',
-    status: 'read',
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-    priority: 'high'
-  },
-  {
-    id: 4,
-    title: 'Safety Recognition',
-    message: 'You received recognition for following safety protocols during the busy weekend shift',
-    type: 'recognition',
-    status: 'read',
-    created_at: new Date(Date.now() - 172800000).toISOString(),
-    priority: 'low'
-  }
-];
-
 const SafetyNotifications: React.FC = () => {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
   const [isOpen, setIsOpen] = useState(false);
   const isMobile = useMediaQuery("(max-width: 768px)");
   
-  // In a real implementation, we would fetch notifications from the API
-  // const { data: notifications = [] } = useQuery<Notification[]>({
-  //   queryKey: ['safety-notifications'],
-  //   queryFn: async () => {
-  //     const response = await fetch(`${API_BASE}/staff/safety-notifications/`, {
-  //       headers: {
-  //         'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-  //       },
-  //     });
-  //     if (!response.ok) throw new Error('Failed to fetch notifications');
-  //     return response.json();
-  //   },
-  // });
+  // Fetch notifications from the API
+  const { data: notifications = [], isLoading, error, refetch } = useQuery<Notification[]>({
+    queryKey: ['safety-notifications'],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE}/staff/safety-notifications/`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch notifications');
+      }
+      return response.json();
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds
+    retry: 3,
+  });
 
   const unreadCount = notifications.filter(n => n.status === 'unread').length;
 
-  const markAsRead = (id: number) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id ? { ...notification, status: 'read' } : notification
-      )
-    );
+  const markAsRead = async (id: number) => {
+    try {
+      const response = await fetch(`${API_BASE}/staff/safety-notifications/${id}/mark-read/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to mark notification as read');
+      }
+      // Refetch notifications to update the UI
+      refetch();
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, status: 'read' }))
-    );
+  const markAllAsRead = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/staff/safety-notifications/mark-all-read/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to mark all notifications as read');
+      }
+      // Refetch notifications to update the UI
+      refetch();
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
   };
 
   const getNotificationIcon = (type: string) => {
@@ -142,7 +130,18 @@ const SafetyNotifications: React.FC = () => {
 
   const NotificationList = () => (
     <div className="space-y-4">
-      {notifications.length === 0 ? (
+      {isLoading ? (
+        <div className="text-center py-8 text-muted-foreground">
+          Loading notifications...
+        </div>
+      ) : error ? (
+        <div className="text-center py-8">
+          <p className="text-red-600 mb-2">Failed to load notifications</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            Try again
+          </Button>
+        </div>
+      ) : notifications.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           No notifications
         </div>

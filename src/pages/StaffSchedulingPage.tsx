@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, Clock, CheckSquare, BarChart, Settings } from "lucide-react";
-import EnhancedStaffScheduler from "@/components/schedule/EnhancedStaffScheduler";
+import EnhancedScheduleView from "@/components/schedule/EnhancedScheduleView";
 import TaskManagementBoard from "@/components/schedule/TaskManagementBoard";
 import { useQuery } from "@tanstack/react-query";
 
@@ -102,7 +102,7 @@ const StaffSchedulingPage: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <EnhancedStaffScheduler />
+              <EnhancedScheduleView />
             </CardContent>
           </Card>
         </TabsContent>

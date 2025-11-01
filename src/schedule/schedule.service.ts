@@ -93,16 +93,10 @@ export class ScheduleService {
             );
             return response.data;
         } catch (error) {
-            // Mock today's schedule
-            const today = new Date().toISOString().split('T')[0];
-            return {
-                id: 'shift-' + Date.now(),
-                user: user.id,
-                shift_type: 'MORNING',
-                start_time: `${today}T09:00:00Z`,
-                end_time: `${today}T17:00:00Z`,
-                notes: 'Regular shift'
-            };
+            throw new HttpException(
+                'Failed to get today\'s schedule. Please try again.',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
         }
     }
 
@@ -116,23 +110,10 @@ export class ScheduleService {
             );
             return response.data;
         } catch (error) {
-            // Mock upcoming shifts
-            return [
-                {
-                    id: 'shift-1',
-                    date: '2024-01-19',
-                    shift_type: 'MORNING',
-                    start_time: '09:00:00',
-                    end_time: '17:00:00'
-                },
-                {
-                    id: 'shift-2',
-                    date: '2024-01-20',
-                    shift_type: 'EVENING',
-                    start_time: '14:00:00',
-                    end_time: '22:00:00'
-                }
-            ];
+            throw new HttpException(
+                'Failed to get upcoming shifts. Please try again.',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
         }
     }
 
@@ -147,12 +128,10 @@ export class ScheduleService {
             );
             return response.data;
         } catch (error) {
-            // Mock response
-            return {
-                id: 'request-' + Date.now(),
-                status: 'PENDING',
-                message: 'Time off request submitted successfully'
-            };
+            throw new HttpException(
+                'Failed to submit time off request. Please try again.',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
         }
     }
 
@@ -166,13 +145,10 @@ export class ScheduleService {
             );
             return response.data;
         } catch (error) {
-            // Mock schedule data
-            return {
-                week_start: weekStart,
-                shifts: [
-                    // Mock shifts for the week
-                ]
-            };
+            throw new HttpException(
+                'Failed to get schedule. Please try again.',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
         }
     }
 
@@ -187,12 +163,10 @@ export class ScheduleService {
             );
             return response.data;
         } catch (error) {
-            // Mock response
-            return {
-                id: 'shift-' + Date.now(),
-                ...shiftData,
-                created_by: user.id
-            };
+            throw new HttpException(
+                'Failed to create shift. Please try again.',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
         }
     }
 }

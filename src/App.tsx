@@ -65,7 +65,7 @@ const WeeklyScheduleView = React.lazy(
 const TaskManagementBoard = React.lazy(
   () => import("./pages/TaskManagementBoard")
 );
-
+const TaskTemplates = React.lazy(() => import("./pages/TaskTemplates"));
 const ManagerSwapRequests = React.lazy(
   () => import("./pages/ManagerSwapRequests")
 );
@@ -84,6 +84,8 @@ const ReportsPage = React.lazy(() => import("./pages/ReportsPage"));
 const AcceptInvitation = React.lazy(() => import("./pages/AcceptInvitation"));
 const AutoSchedule = React.lazy(() => import("./pages/AutoSchedule"));
 const Timesheets = React.lazy(() => import("./pages/Timesheets"));
+const ChecklistRunDemo = React.lazy(() => import("./pages/ChecklistRunDemo"));
+const TaskChecklistRunner = React.lazy(() => import("./pages/TaskChecklistRunner"));
 
 const queryClient = new QueryClient();
 
@@ -329,6 +331,16 @@ const App = () => {
                   }
                 />
                 <Route
+                  path="dashboard/task-templates"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <React.Suspense fallback={<div>Loading...</div>}>
+                        <TaskTemplates />
+                      </React.Suspense>
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
                   path="dashboard/scheduling"
                   element={
                     <RoleBasedRoute
@@ -467,16 +479,14 @@ const App = () => {
                 <Route index element={<StaffAppsPage />} />
                 <Route
                   path="time-tracking"
-                  element={
-                    <React.Fragment>
-                      Time Tracking (Component Missing)
-                    </React.Fragment>
-                  }
+                  element={<TimeClockPage />}
                 />
                 <Route path="schedule" element={<WeeklyScheduleView />} />
                 <Route path="schedule/:id" element={<ShiftDetailView />} />
                 <Route path="attendance" element={<AttendanceHistory />} />
                 <Route path="safety" element={<SafetyDashboard />} />
+                <Route path="checklist-demo" element={<ChecklistRunDemo />} />
+                <Route path="task-checklist/:taskId" element={<TaskChecklistRunner />} />
                 <Route
                   path="kitchen"
                   element={

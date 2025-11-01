@@ -37,25 +37,28 @@ const WeeklyScheduleView: React.FC = () => {
     const { user } = useAuth() as { user: User | null };
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 })); // Monday as start of week
 
-    const formattedWeekStart = format(currentWeek, 'yyyy-MM-dd');
+    const formattedWeekStart = format(startOfWeek(currentWeek, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const formattedWeekEnd = format(endOfWeek(currentWeek, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
-    const { data: scheduleData, isLoading, error } = useQuery<WeeklyScheduleData>({ // Specify the type of data expected
-        queryKey: ['weeklySchedule', formattedWeekStart],
+    const { data: scheduleData, isLoading, error } = useQuery<WeeklyScheduleData>({
+        queryKey: ['weeklySchedule-v2', formattedWeekStart, formattedWeekEnd],
         queryFn: async () => {
             if (!user) return Promise.reject('No user');
-            const response = await fetch(`${API_BASE}/schedule/weekly-schedule/?week_start=${formattedWeekStart}`, {
+            const response = await fetch(`${API_BASE}/schedule/weekly-schedules-v2/?date_from=${formattedWeekStart}&date_to=${formattedWeekEnd}`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
                 },
             });
 
             if (!response.ok) {
-                throw new Error('Failed to fetch weekly schedule');
+                throw new Error('Failed to fetch weekly schedules');
             }
-            const data = await response.json();
-            return data; // Assuming data directly contains WeeklyScheduleData or is wrapped
+            const list = await response.json();
+            // Find the schedule that matches this week
+            const match = Array.isArray(list) ? list.find((s: WeeklyScheduleData) => s.week_start === formattedWeekStart) : null;
+            return match || { id: '', week_start: formattedWeekStart, week_end: formattedWeekEnd, is_published: false, assigned_shifts: [] };
         },
-        enabled: !!user, // Only fetch if user is logged in
+        enabled: !!user,
     });
 
     const daysOfWeek = Array.from({ length: 7 }).map((_, i) =>
@@ -75,7 +78,10 @@ const WeeklyScheduleView: React.FC = () => {
     if (!user) return <div className="text-center py-8 text-gray-500">Please log in to view schedules.</div>;
 
     const shiftsByDay: { [key: string]: AssignedShift[] } = {};
-    scheduleData?.assigned_shifts.forEach(shift => {
+    // Filter shifts to the current user to ensure staff sees their schedules
+    scheduleData?.assigned_shifts
+        .filter(shift => shift.staff_info?.id === user?.id)
+        .forEach(shift => {
         const dateKey = format(new Date(shift.shift_date), 'yyyy-MM-dd');
         if (!shiftsByDay[dateKey]) {
             shiftsByDay[dateKey] = [];

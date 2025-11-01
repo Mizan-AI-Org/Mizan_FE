@@ -4,40 +4,79 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart, LineChart, PieChart, Download, Calendar } from "lucide-react";
+import { Download, Calendar } from "lucide-react";
 import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
-// Mock chart components - in a real app, you'd use a charting library like recharts
-const BarChartComponent = ({ data }: { data: any }) => (
-  <div className="h-80 flex items-center justify-center bg-muted/20 rounded-md">
-    <div className="text-center">
-      <BarChart className="h-10 w-10 mx-auto text-muted-foreground" />
-      <p className="mt-2">Bar Chart Visualization</p>
-      <p className="text-sm text-muted-foreground">Data points: {data?.length || 0}</p>
-    </div>
-  </div>
+// Chart color palette
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+
+// Real chart components using recharts
+const BarChartComponent = ({ data }: { data: any[] }) => (
+  <ResponsiveContainer width="100%" height={320}>
+    <BarChart data={data || []}>
+      <CartesianGrid strokeDasharray="3 3" />
+      <XAxis dataKey="name" />
+      <YAxis />
+      <Tooltip />
+      <Legend />
+      <Bar dataKey="value" fill="#8884d8" />
+      <Bar dataKey="completionRate" fill="#82ca9d" />
+    </BarChart>
+  </ResponsiveContainer>
 );
 
-const LineChartComponent = ({ data }: { data: any }) => (
-  <div className="h-80 flex items-center justify-center bg-muted/20 rounded-md">
-    <div className="text-center">
-      <LineChart className="h-10 w-10 mx-auto text-muted-foreground" />
-      <p className="mt-2">Line Chart Visualization</p>
-      <p className="text-sm text-muted-foreground">Data points: {data?.length || 0}</p>
-    </div>
-  </div>
+const LineChartComponent = ({ data }: { data: any[] }) => (
+  <ResponsiveContainer width="100%" height={320}>
+    <LineChart data={data || []}>
+      <CartesianGrid strokeDasharray="3 3" />
+      <XAxis dataKey="date" />
+      <YAxis />
+      <Tooltip />
+      <Legend />
+      <Line type="monotone" dataKey="completed" stroke="#8884d8" strokeWidth={2} />
+      <Line type="monotone" dataKey="total" stroke="#82ca9d" strokeWidth={2} />
+    </LineChart>
+  </ResponsiveContainer>
 );
 
-const PieChartComponent = ({ data }: { data: any }) => (
-  <div className="h-80 flex items-center justify-center bg-muted/20 rounded-md">
-    <div className="text-center">
-      <PieChart className="h-10 w-10 mx-auto text-muted-foreground" />
-      <p className="mt-2">Pie Chart Visualization</p>
-      <p className="text-sm text-muted-foreground">Data points: {data?.length || 0}</p>
-    </div>
-  </div>
+const PieChartComponent = ({ data }: { data: any[] }) => (
+  <ResponsiveContainer width="100%" height={320}>
+    <PieChart>
+      <Pie
+        data={data || []}
+        cx="50%"
+        cy="50%"
+        labelLine={false}
+        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+        outerRadius={80}
+        fill="#8884d8"
+        dataKey="value"
+      >
+        {(data || []).map((entry, index) => (
+          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+        ))}
+      </Pie>
+      <Tooltip />
+      <Legend />
+    </PieChart>
+  </ResponsiveContainer>
 );
 
 const SchedulingAnalytics: React.FC = () => {
@@ -157,7 +196,16 @@ const SchedulingAnalytics: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <BarChartComponent data={staffPerformance} />
+              {staffLoading ? (
+                <div className="flex items-center justify-center h-80">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-muted-foreground">Loading staff performance data...</p>
+                  </div>
+                </div>
+              ) : (
+                <BarChartComponent data={staffPerformance} />
+              )}
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                 <Card>
@@ -201,7 +249,16 @@ const SchedulingAnalytics: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <LineChartComponent data={taskCompletion} />
+              {taskLoading ? (
+                <div className="flex items-center justify-center h-80">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-muted-foreground">Loading task completion data...</p>
+                  </div>
+                </div>
+              ) : (
+                <LineChartComponent data={taskCompletion} />
+              )}
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                 <Card>
@@ -245,7 +302,16 @@ const SchedulingAnalytics: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <PieChartComponent data={laborCosts} />
+              {laborLoading ? (
+                <div className="flex items-center justify-center h-80">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-muted-foreground">Loading labor cost data...</p>
+                  </div>
+                </div>
+              ) : (
+                <PieChartComponent data={laborCosts} />
+              )}
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                 <Card>
