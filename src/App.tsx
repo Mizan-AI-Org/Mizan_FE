@@ -318,10 +318,7 @@ const App = () => {
                   element={<AdvancedSettings />}
                 />
                 <Route path="dashboard/profile" element={<ProfileSettings />} />
-                <Route
-                  path="dashboard/advanced-settings"
-                  element={<AdvancedSettings />}
-                />
+                {/* Removed /dashboard/advanced-settings route per UI cleanup */}
                 <Route
                   path="dashboard/tasks"
                   element={

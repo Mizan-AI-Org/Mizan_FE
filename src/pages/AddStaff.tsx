@@ -71,7 +71,51 @@ const AddStaff = () => {
 
         setIsLoading(true);
 
-        setTimeout(() => {
+        try {
+            const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+            const resp = await fetch(`${API_BASE}/staff/invite/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                },
+                body: JSON.stringify({
+                    email,
+                    role,
+                    first_name: firstName,
+                    last_name: lastName,
+                    phone_number: phoneNumber || undefined,
+                }),
+            });
+
+            // Safely parse response: handle non-JSON (e.g., HTML error pages)
+            type InviteResponse = {
+                message?: string;
+                token?: string;
+                error?: string;
+                detail?: string;
+            };
+            const contentType = resp.headers.get('content-type') || '';
+            let data: InviteResponse | null = null;
+            if (contentType.includes('application/json')) {
+                try {
+                    data = await resp.json();
+                } catch (parseErr) {
+                    const text = await resp.text();
+                    data = { message: text };
+                }
+            } else {
+                const text = await resp.text();
+                data = { message: text };
+            }
+
+            if (!resp.ok) {
+                const fallback = typeof data?.message === 'string' ? data.message.slice(0, 200) : '';
+                throw new Error(
+                    data?.detail || data?.error || fallback || `Failed to send invitation (HTTP ${resp.status})`
+                );
+            }
+
             alert(`Invitation sent to ${firstName} ${lastName} (${email})`);
 
             setEmail('');
@@ -80,8 +124,12 @@ const AddStaff = () => {
             setRole('');
             setPhoneNumber('');
             setErrors({});
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to send invitation';
+            alert(message);
+        } finally {
             setIsLoading(false);
-        }, 1500);
+        }
     };
 
     const [csvText, setCsvText] = useState<string>('');

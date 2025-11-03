@@ -1,8 +1,10 @@
+/// <reference types="vite/client" />
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SignupData } from "../lib/types";
 import { AuthContext } from "./AuthContext";
 import { AuthContextType, User } from "./AuthContext.types";
+import { api } from "../lib/api";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -14,7 +16,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Centralized API base, consistent with other pages
   const API_BASE =
-    import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+    import.meta.env.VITE_API_URL ||
+    import.meta.env.VITE_REACT_APP_API_URL ||
+    "http://localhost:8000/api";
 
   const clearAuth = useCallback(() => {
     localStorage.removeItem("user");
@@ -228,12 +232,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       body: JSON.stringify(signupData),
     });
 
+    const contentType = response.headers.get("content-type") || "";
+    const rawText = await response.text();
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Signup failed");
+      let errorMsg = "Signup failed";
+      if (contentType.includes("application/json") && rawText) {
+        try {
+          const parsed = JSON.parse(rawText);
+          if (parsed.message) {
+            errorMsg = parsed.message;
+          } else {
+            const parts: string[] = [];
+            Object.entries(parsed).forEach(([key, val]) => {
+              const messages = Array.isArray(val) ? val : [val];
+              const text = messages
+                .filter(Boolean)
+                .map((v) => (typeof v === "string" ? v : JSON.stringify(v)))
+                .join(", ");
+              parts.push(`${key}: ${text}`);
+            });
+            if (parts.length) errorMsg = parts.join(" | ");
+          }
+        } catch (e) {
+          errorMsg = rawText || errorMsg;
+        }
+      } else {
+        errorMsg = rawText || `Signup failed (${response.status})`;
+      }
+      throw new Error(errorMsg);
     }
 
-    const data = await response.json();
+    const data = contentType.includes("application/json") && rawText
+      ? JSON.parse(rawText)
+      : {};
     setUser(data.user);
     localStorage.setItem("user", JSON.stringify(data.user));
     localStorage.setItem("access_token", data.tokens.access);
@@ -245,39 +277,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     token: string,
     first_name: string,
     last_name: string,
-    password: string,
-    pin_code: string | null
+    password?: string,
+    pin_code?: string | null,
+    invitation_pin?: string | null
   ) => {
-    const response = await fetch(`${API_BASE}/auth/accept-invitation/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        token,
-        first_name,
-        last_name,
-        password,
-        pin_code,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Invitation acceptance failed");
-    }
-
-    const data = await response.json();
+    // Use the API client’s logic to hit the right endpoint
+    const data = await api.acceptInvitation(
+      token,
+      first_name,
+      last_name,
+      password,
+      pin_code,
+      invitation_pin
+    );
     setUser(data.user);
     localStorage.setItem("user", JSON.stringify(data.user));
     localStorage.setItem("access_token", data.tokens.access);
     localStorage.setItem("refresh_token", data.tokens.refresh);
-    navigate("/staff-dashboard");
+    if (data.user?.role === "SUPER_ADMIN" || data.user?.role === "ADMIN") {
+      navigate("/dashboard");
+    } else {
+      navigate("/staff-dashboard");
+    }
   };
 
   const inviteStaff = async (
     accessToken: string,
-    inviteData: { email: string; role: string }
+    inviteData: {
+      email: string;
+      role: string;
+      first_name?: string;
+      last_name?: string;
+      phone_number?: string;
+    }
   ) => {
     const response = await fetch(`${API_BASE}/staff/invite/`, {
       method: "POST",
@@ -327,9 +359,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return user ? staffRoles.includes(user.role) : false;
   };
 
+  const updateUser = (updatedUser: User) => {
+    setUser(updatedUser);
+    try {
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+    } catch (e) {
+      console.warn("Failed to persist updated user to localStorage", e);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
+    updateUser,
     login,
     loginWithPin,
     ownerSignup,

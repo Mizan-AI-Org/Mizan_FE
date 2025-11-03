@@ -40,7 +40,7 @@ import { StaffInvitation } from "@/lib/types";
 import { User } from "@/contexts/AuthContext.types";
 
 const API_BASE =
-  import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+  import.meta.env.VITE_API_URL || import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 type PosConnectionStatus = "idle" | "connected" | "error";
 
@@ -129,6 +129,8 @@ export default function Settings() {
   const [posTestingConnection, setPosTestingConnection] = useState(false);
   const [posConnectionStatus, setPosConnectionStatus] =
     useState<PosConnectionStatus>("idle");
+  // Tracks backend settings schema/version for optimistic concurrency
+  const [settingsSchemaVersion, setSettingsSchemaVersion] = useState<number | null>(null);
   const [aiSettings, setAiSettings] = useState<AISettings>({
     enabled: true,
     ai_provider: "GROQ",
@@ -156,13 +158,23 @@ export default function Settings() {
     const storedUser = localStorage.getItem("user");
     if (token && storedUser) {
       apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      setUser(JSON.parse(storedUser));
-      loadCoreSettings();
-      fetchAdvancedSettings();
+      const parsedUser: User = JSON.parse(storedUser);
+      setUser(parsedUser);
+      const role = (parsedUser?.role || "").toUpperCase();
+      if (role !== "STAFF") {
+        // Only admins/managers should load sensitive unified settings
+        fetchUnifiedSettings();
+      } else {
+        // Staff: load only non-sensitive basics if needed
+        // Currently, staff sees Profile tab only; skip unified call entirely
+      }
     } else {
       navigate("/auth");
     }
   }, [navigate, apiClient]);
+
+  // Restrict non-profile settings for staff users
+  const isStaff = (user?.role || "").toUpperCase() === "STAFF";
 
   const loadCoreSettings = async () => {
     try {
@@ -199,52 +211,68 @@ export default function Settings() {
     }
   };
 
-  const fetchAdvancedSettings = async () => {
+  const fetchUnifiedSettings = async () => {
     try {
-      const response = await apiClient.get<GeolocationSettings>(
-        "/settings/geolocation/"
-      );
-      const geo = response.data;
-      setLatitude(geo.latitude || 0);
-      setLongitude(geo.longitude || 0);
-      setRadius(geo.radius || 0);
-      setGeofenceEnabled(geo.geofence_enabled ?? true);
-      setGeofencePolygon(geo.geofence_polygon || []);
-    } catch (error) {
-      console.error("Failed to load geolocation settings:", error);
-    }
+      const response = await apiClient.get("/settings/unified/");
+      const data = response.data || {};
 
-    try {
-      const response = await apiClient.get<POSSettings>(
-        "/settings/pos_integration/"
-      );
-      const data = response.data;
+      // Geolocation
+      setLatitude(data.latitude ?? data.restaurant?.latitude ?? 0);
+      setLongitude(data.longitude ?? data.restaurant?.longitude ?? 0);
+      setRadius(data.radius ?? data.restaurant?.radius ?? 0);
+      setGeofenceEnabled(data.geofence_enabled ?? true);
+      setGeofencePolygon(data.geofence_polygon ?? []);
+
+      // General
+      setRestaurantName(data.name || "");
+      setRestaurantAddress(data.address || "");
+      setRestaurantPhone(data.phone || data.phone_restaurant || "");
+      setRestaurantEmail(data.email || "");
+      setTimezone(data.timezone || "America/New_York");
+      setCurrency(data.currency || "USD");
+      setLanguage(data.language || "en");
+      setOperatingHours(data.operating_hours || operatingHours);
+      setAutomaticClockOut(data.automatic_clock_out || false);
+      setBreakDuration(data.break_duration || 30);
+      setEmailNotifications(data.email_notifications || emailNotifications);
+      setPushNotifications(data.push_notifications || pushNotifications);
+
+      // POS
       setPosSettings({
         pos_provider: data.pos_provider || "NONE",
         pos_merchant_id: data.pos_merchant_id || "",
         pos_is_connected: data.pos_is_connected || false,
       });
       setPosConnectionStatus(data.pos_is_connected ? "connected" : "idle");
-    } catch (error) {
-      console.error("Failed to load POS settings:", error);
-    }
 
-    try {
-      const response = await apiClient.get<AISettings>(
-        "/settings/ai_assistant_config/"
-      );
-      const data = response.data;
+      // AI
+      const ai = data.ai_config || {};
       setAiSettings({
-        enabled: data.enabled ?? true,
-        ai_provider: data.ai_provider || "GROQ",
+        enabled: ai.enabled ?? true,
+        ai_provider: ai.ai_provider || "GROQ",
         features_enabled: {
-          insights: data.features_enabled?.insights ?? true,
-          recommendations: data.features_enabled?.recommendations ?? true,
-          reports: data.features_enabled?.reports ?? true,
+          insights: ai.features_enabled?.insights ?? true,
+          recommendations: ai.features_enabled?.recommendations ?? true,
+          reports: ai.features_enabled?.reports ?? true,
         },
       });
+      // Version for optimistic locking
+      setSettingsSchemaVersion(
+        typeof data.settings_schema_version === "number"
+          ? data.settings_schema_version
+          : (typeof data.settingsVersion === "number" ? data.settingsVersion : 0)
+      );
     } catch (error) {
-      console.error("Failed to load AI settings:", error);
+      const axiosErr = error as AxiosError<{ detail?: string }>;
+      const status = axiosErr.response?.status;
+      const detail = axiosErr.response?.data?.detail;
+      console.error("Failed to load unified settings:", axiosErr);
+      if (status === 401) {
+        toast.error("Unauthorized. Please sign in again.");
+        navigate("/auth");
+      } else {
+        toast.error(`Failed to load unified settings${detail ? ": " + detail : ""}`);
+      }
     }
   };
 
@@ -282,10 +310,20 @@ export default function Settings() {
 
   const saveGeneralSettings = async () => {
     try {
-      const response = await apiClient.put("/settings/update_my_restaurant/", {
+      // Basic client-side validation
+      if (!restaurantName || restaurantName.trim().length < 2) {
+        toast.error("Restaurant name must be at least 2 characters.");
+        return;
+      }
+      if (restaurantEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(restaurantEmail)) {
+        toast.error("Please provide a valid email address.");
+        return;
+      }
+
+      const response = await apiClient.put("/settings/unified/", {
         name: restaurantName,
         address: restaurantAddress,
-        phone: restaurantPhone,
+        phone_restaurant: restaurantPhone,
         email: restaurantEmail,
         timezone,
         currency,
@@ -295,10 +333,12 @@ export default function Settings() {
         break_duration: breakDuration,
         email_notifications: emailNotifications,
         push_notifications: pushNotifications,
+        // Include the version for optimistic locking
+        settings_schema_version: settingsSchemaVersion,
       });
       if (response.status === 200) {
         toast.success("General settings saved successfully!");
-        loadCoreSettings();
+        fetchUnifiedSettings();
       } else {
         const errorData = response.data;
         toast.error(
@@ -308,8 +348,21 @@ export default function Settings() {
         );
       }
     } catch (error) {
-      console.error("Error saving general settings:", error);
-      toast.error("Failed to save general settings.");
+      const axiosErr = error as AxiosError<{ detail?: string }>;
+      const status = axiosErr.response?.status;
+      const detail = axiosErr.response?.data?.detail || axiosErr.message;
+      console.error("Error saving general settings:", axiosErr);
+      if (status === 409) {
+        toast.error(
+          `Conflict detected. Settings changed elsewhere. Reloading latest settings...`
+        );
+        await fetchUnifiedSettings();
+      } else if (status === 401) {
+        toast.error("Unauthorized. Please sign in again.");
+        navigate("/auth");
+      } else {
+        toast.error(`Failed to save general settings${detail ? ": " + detail : ""}`);
+      }
     }
   };
 
@@ -343,7 +396,8 @@ export default function Settings() {
     }
 
     try {
-      const response = await apiClient.post("/accounts/staff/invite/", {
+      // Align with backend: /api/staff/invite/
+      const response = await apiClient.post("/staff/invite/", {
         email: inviteEmail,
         first_name: inviteFirstName,
         last_name: inviteLastName,
@@ -419,18 +473,39 @@ export default function Settings() {
     }
     setSavingPos(true);
     try {
-      await apiClient.post("/settings/pos_integration/", {
+      await apiClient.put("/settings/unified/", {
         pos_provider: posSettings.pos_provider,
         pos_merchant_id: posSettings.pos_merchant_id,
         pos_api_key: posAPIKey,
+        settings_schema_version: settingsSchemaVersion,
       });
       toast.success("POS settings updated");
       await testPosConnection();
+      await fetchUnifiedSettings();
     } catch (error) {
       console.error("Failed to update POS settings:", error);
       toast.error("Failed to update POS settings.");
     } finally {
       setSavingPos(false);
+    }
+  };
+
+  const saveAiSettings = async () => {
+    setSavingAi(true);
+    try {
+      await apiClient.put("/settings/unified/", {
+        ai_enabled: !!aiSettings.enabled,
+        ai_provider: aiSettings.ai_provider,
+        ai_features_enabled: aiSettings.features_enabled,
+        settings_schema_version: settingsSchemaVersion,
+      });
+      toast.success("AI settings updated");
+      await fetchUnifiedSettings();
+    } catch (error) {
+      console.error("Failed to update AI settings:", error);
+      toast.error("Failed to update AI settings.");
+    } finally {
+      setSavingAi(false);
     }
   };
 
@@ -450,34 +525,38 @@ export default function Settings() {
             <Users className="w-4 h-4" />
             Profile
           </TabsTrigger>
-          <TabsTrigger
-            value="location"
-            className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
-          >
-            <MapPin className="w-4 h-4" />
-            Geolocation
-          </TabsTrigger>
-          <TabsTrigger
-            value="general"
-            className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
-          >
-            <Building2 className="w-4 h-4" />
-            General
-          </TabsTrigger>
-          <TabsTrigger
-            value="integrations"
-            className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
-          >
-            <Plug className="w-4 h-4" />
-            Integrations
-          </TabsTrigger>
-          <TabsTrigger
-            value="billing"
-            className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
-          >
-            <CreditCardIcon className="w-4 h-4" />
-            Billing
-          </TabsTrigger>
+          {!isStaff && (
+            <>
+              <TabsTrigger
+                value="location"
+                className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
+              >
+                <MapPin className="w-4 h-4" />
+                Geolocation
+              </TabsTrigger>
+              <TabsTrigger
+                value="general"
+                className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
+              >
+                <Building2 className="w-4 h-4" />
+                General
+              </TabsTrigger>
+              <TabsTrigger
+                value="integrations"
+                className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
+              >
+                <Plug className="w-4 h-4" />
+                Integrations
+              </TabsTrigger>
+              <TabsTrigger
+                value="billing"
+                className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
+              >
+                <CreditCardIcon className="w-4 h-4" />
+                Billing
+              </TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6">
@@ -495,20 +574,23 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="location" className="space-y-6">
-          <GeolocationMapSettings
-            latitude={latitude}
-            longitude={longitude}
-            radius={radius}
-            geofenceEnabled={geofenceEnabled}
-            geofencePolygon={geofencePolygon}
-            onToggleGeofence={setGeofenceEnabled}
-            onPolygonChange={setGeofencePolygon}
-            onSave={saveLocationSettings}
-            isSaving={savingGeolocation}
-          />
-        </TabsContent>
+        {!isStaff && (
+          <TabsContent value="location" className="space-y-6">
+            <GeolocationMapSettings
+              latitude={latitude}
+              longitude={longitude}
+              radius={radius}
+              geofenceEnabled={geofenceEnabled}
+              geofencePolygon={geofencePolygon}
+              onToggleGeofence={setGeofenceEnabled}
+              onPolygonChange={setGeofencePolygon}
+              onSave={saveLocationSettings}
+              isSaving={savingGeolocation}
+            />
+          </TabsContent>
+        )}
 
+        {!isStaff && (
         <TabsContent value="general" className="space-y-6">
           {/* Quick Settings - concise, responsive controls */}
           <Card className="shadow-soft">
@@ -664,12 +746,12 @@ export default function Settings() {
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+          </CardContent>
+        </Card>
 
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Restaurant Information</CardTitle>
+        <Card className="shadow-soft">
+          <CardHeader>
+            <CardTitle>Restaurant Information</CardTitle>
               <CardDescription>
                 Manage your restaurant's basic details.
               </CardDescription>
@@ -848,7 +930,9 @@ export default function Settings() {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
+        {!isStaff && (
         <TabsContent value="integrations" className="space-y-6">
           <Card className="shadow-soft">
             <CardHeader>
@@ -1015,10 +1099,18 @@ export default function Settings() {
                   Authorize.net
                 </Button>
               </div>
+              <div className="flex justify-end">
+                <Button onClick={saveAiSettings} disabled={savingAi} variant="default">
+                  {savingAi ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Save AI Settings
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
+        )}
 
+        {!isStaff && (
         <TabsContent value="billing">
           <Card className="shadow-soft">
             <CardHeader>
@@ -1079,6 +1171,7 @@ export default function Settings() {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
       </Tabs>
     </div>
   );

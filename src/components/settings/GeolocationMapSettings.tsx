@@ -381,8 +381,12 @@ export default function GeolocationMapSettings({
             <MapCenterUpdater center={mapCenter} />
             <MapInteractions />
             <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution="&copy; OpenStreetMap contributors"
+              maxZoom={19}
+              detectRetina
+              crossOrigin="anonymous"
+              keepBuffer={2}
             />
             <Marker
               position={[lat, lng]}

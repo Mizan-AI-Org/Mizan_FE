@@ -113,7 +113,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
         {/* Business Name */}
         <div className="space-y-2">
           <Label htmlFor="businessName" className="text-white text-sm">
-            Business Name
+            Restaurant Name
           </Label>
           <div className="relative">
             <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#00E676]/60" />
@@ -130,7 +130,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
         {/* Full Name */}
         <div className="space-y-2">
           <Label htmlFor="fullName" className="text-white text-sm">
-            Full Name
+            Owner's Full Name
           </Label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#00E676]/60" />

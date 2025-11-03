@@ -24,6 +24,8 @@ import {
   AttendanceReport,
   InventoryReport,
   ClockEvent,
+  StaffProfileItem,
+  CreateAnnouncementResponse,
 } from "./types"; // Updated import path
 
 const API_BASE =
@@ -90,24 +92,46 @@ export class BackendService {
     token: string,
     first_name: string,
     last_name: string,
-    password: string,
-    pin_code: string | null
+    password?: string,
+    pin_code?: string | null,
+    invitation_pin?: string | null
   ): Promise<LoginResponse> {
     try {
-      const response = await fetch(`${API_BASE}/auth/accept-invitation/`, {
+      // Decide endpoint based on provided credentials
+      const isStaffFlow = !!pin_code && !!invitation_pin;
+      const endpoint = isStaffFlow
+        ? `${API_BASE}/auth/accept-invitation/`
+        : `${API_BASE}/invitations/accept/`;
+
+      const body: Record<string, any> = {
+        token,
+        first_name,
+        last_name,
+      };
+
+      if (isStaffFlow) {
+        body.pin_code = pin_code;
+        body.invitation_pin = invitation_pin;
+      } else if (password) {
+        body.password = password;
+      } else {
+        throw new Error("Missing credentials: provide PINs for staff or password for admin.");
+      }
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: this.getHeaders(),
-        body: JSON.stringify({
-          token,
-          first_name,
-          last_name,
-          password,
-          pin_code,
-        }),
+        body: JSON.stringify(body),
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Invitation acceptance failed");
+        let message = "Invitation acceptance failed";
+        try {
+          const errorData = await response.json();
+          message = errorData.message || errorData.detail || message;
+        } catch (_) {
+          // ignore parse errors
+        }
+        throw new Error(message);
       }
       return await response.json();
     } catch (error: any) {
@@ -256,6 +280,14 @@ export class BackendService {
     } catch (error: any) {
       throw new Error(error.message || "Staff invitation failed");
     }
+  }
+
+  // Alias for consistency with controllers expecting inviteStaff()
+  async inviteStaff(
+    accessToken: string,
+    invitationData: InviteStaffData
+  ): Promise<StaffOperationResponse> {
+    return this.handleInviteStaff(accessToken, invitationData);
   }
 
   async getStaffList(accessToken: string): Promise<StaffListItem[]> {
@@ -1812,6 +1844,50 @@ export class BackendService {
       return await response.json();
     } catch (error: any) {
       throw new Error(error.message || "Failed to reassign task");
+    }
+  }
+
+  async getStaffProfiles(accessToken: string): Promise<StaffProfileItem[]> {
+    try {
+      const response = await fetch(`${API_BASE}/staff/profiles/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch staff profiles");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to fetch staff profiles");
+    }
+  }
+
+  async createAnnouncement(
+    accessToken: string,
+    announcementData: {
+      title: string;
+      message: string;
+      priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+      expires_at?: string;
+      schedule_for?: string;
+      recipients_staff_ids?: string[];
+      recipients_departments?: string[];
+    }
+  ): Promise<CreateAnnouncementResponse> {
+    try {
+      const response = await fetch(`${API_BASE}/notifications/announcements/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(announcementData),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create announcement");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to create announcement");
     }
   }
 }
