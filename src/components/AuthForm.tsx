@@ -59,8 +59,13 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
         await auth.login(email, credential);
       }
 
+      // Build a friendly display name from user profile with graceful fallback
+      const displayName =
+        auth.user?.first_name?.trim() ||
+        (auth.user?.email ? auth.user.email.split("@")[0] : "there");
+
       toast({
-        title: `Welcome back, ${auth.first_name}!`,
+        title: `Welcome back, ${displayName}!`,
         description: "You've been signed in successfully.",
       });
     } catch (error: unknown) {

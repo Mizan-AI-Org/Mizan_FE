@@ -159,7 +159,7 @@ const StaffDashboard: React.FC = () => {
                                 'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
                             },
                             credentials: 'include',
-                            body: JSON.stringify({ latitude, longitude }),
+                            body: JSON.stringify({ latitude, longitude, accuracy }),
                         });
                         if (resp.ok) {
                             const data = await resp.json();
@@ -297,7 +297,7 @@ const StaffDashboard: React.FC = () => {
             const isWithinRange = await verifyLocation(latitude, longitude);
 
             if (!isWithinRange) {
-                setLocationError('You must be at the restaurant location to clock in');
+                setLocationError('You must be within restaurant premises to clock in');
                 setIsClocking(false);
                 return;
             }
@@ -373,6 +373,23 @@ const StaffDashboard: React.FC = () => {
             setLocationError((error as Error).message || 'Failed to clock out');
         } finally {
             setIsClocking(false);
+        }
+    };
+
+    // Manual refresh button for cases of poor GPS signal
+    const refreshLocation = async () => {
+        try {
+            const position = await getCurrentLocation();
+            const { latitude, longitude, accuracy } = position.coords;
+            setDeviceLocation({ lat: latitude, lon: longitude, accuracy });
+            setGpsWeak(accuracy > 50);
+            const rl = staffData?.restaurant_location;
+            if (rl?.latitude && rl?.longitude) {
+                const dist = haversineDistance(latitude, longitude, rl.latitude, rl.longitude);
+                setDistanceToWork(dist);
+            }
+        } catch (error) {
+            setLocationError((error as Error).message);
         }
     };
 
@@ -730,6 +747,11 @@ const StaffDashboard: React.FC = () => {
                     <li>• Shift window: {scheduleActive ? 'Active now' : (staffData?.todaysShift ? 'Outside shift time' : 'No shift today')}</li>
                     <li>• Account status: {accountGood ? 'Good standing' : 'Restricted'}</li>
                 </ul>
+                <div className="mt-3">
+                    <button onClick={refreshLocation} className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">
+                        Refresh Location
+                    </button>
+                </div>
             </div>
         </div>
     );

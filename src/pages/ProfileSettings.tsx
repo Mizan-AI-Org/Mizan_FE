@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 const ProfileSettings: React.FC = () => {
     const { user, updateUser } = useAuth() as AuthContextType;
+    const { toast } = useToast();
 
     const [firstName, setFirstName] = useState(user?.first_name || "");
     const [lastName, setLastName] = useState(user?.last_name || "");
@@ -18,6 +19,9 @@ const ProfileSettings: React.FC = () => {
     const [emergencyContactName, setEmergencyContactName] = useState(user?.profile?.emergency_contact_name || "");
     const [emergencyContactPhone, setEmergencyContactPhone] = useState(user?.profile?.emergency_contact_phone || "");
     const [isLoading, setIsLoading] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     
     // Update form when user data changes
     useEffect(() => {
@@ -47,7 +51,20 @@ const ProfileSettings: React.FC = () => {
         setIsLoading(true);
 
         try {
-            const response = await fetch(`${API_BASE}/auth/users/me/`, {
+            // Basic client-side validation for password change
+            if (newPassword || confirmPassword || currentPassword) {
+                if (!newPassword || !confirmPassword || !currentPassword) {
+                    throw new Error("Please fill current, new, and confirm password.");
+                }
+                if (newPassword !== confirmPassword) {
+                    throw new Error("New password and confirmation do not match.");
+                }
+                if (newPassword.length < 8) {
+                    throw new Error("Password must be at least 8 characters.");
+                }
+            }
+
+            const response = await fetch(`${API_BASE}/auth/me/`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
@@ -57,6 +74,11 @@ const ProfileSettings: React.FC = () => {
                     first_name: firstName,
                     last_name: lastName,
                     phone: phone,
+                    ...(newPassword ? {
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                        confirm_password: confirmPassword,
+                    } : {}),
                     profile: {
                         emergency_contact_name: emergencyContactName,
                         emergency_contact_phone: emergencyContactPhone,
@@ -75,16 +97,28 @@ const ProfileSettings: React.FC = () => {
                 throw new Error(responseData.detail || responseData.message || "Failed to update profile");
             }
             
-            updateUser(responseData);
+            // Update user in auth context so UI reflects latest profile details
+            if (typeof updateUser === "function") {
+                updateUser(responseData);
+            } else {
+                // Fallback: persist to localStorage and let periodic refresh sync
+                localStorage.setItem("user", JSON.stringify(responseData));
+            }
             toast({
                 title: "Profile updated successfully!",
-                description: "Your personal information has been saved.",
+                description: newPassword ? "Your password and profile have been updated." : "Your personal information has been saved.",
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Profile update error:", error);
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : typeof error === "string"
+                    ? error
+                    : "An unexpected error occurred.";
             toast({
                 title: "Profile update failed.",
-                description: error.message || "An unexpected error occurred.",
+                description: message,
                 variant: "destructive",
             });
         } finally {
@@ -133,7 +167,23 @@ const ProfileSettings: React.FC = () => {
                 </div>
                 <div>
                     <Label>Restaurant</Label>
-                    <Input value={user?.restaurant?.name || "N/A"} disabled />
+                    <Input value={user?.restaurant_data?.name ?? "N/A"} disabled />
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Change Password</h3>
+                <div>
+                    <Label htmlFor="currentPassword">Current Password</Label>
+                    <Input id="currentPassword" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+                </div>
+                <div>
+                    <Label htmlFor="newPassword">New Password</Label>
+                    <Input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                </div>
+                <div>
+                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                    <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
                 </div>
             </div>
 

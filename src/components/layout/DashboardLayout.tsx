@@ -25,6 +25,7 @@ const DashboardLayout: React.FC = () => {
   const { notifications, isConnected, markAllAsRead, markAsRead } = useNotifications();
 
   // Derive a safe restaurant label from various possible user shapes without using `any`
+  // Compute a restaurant label, but hide raw UUIDs
   const restaurantLabel: string = (() => {
     const dataName = user?.restaurant_data?.name;
     if (typeof dataName === "string" && dataName.length > 0) return dataName;
@@ -34,8 +35,11 @@ const DashboardLayout: React.FC = () => {
       const name = (restaurantRaw as { name?: unknown }).name;
       if (typeof name === "string" && (name as string).length > 0) return name as string;
     }
-    return "Restaurant";
+    return "";
   })();
+
+  const isUuid = (val: string): boolean =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -57,11 +61,11 @@ const DashboardLayout: React.FC = () => {
               <div className="relative">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="relative" aria-label={`View ${notifications.filter(n => !n.is_read).length} notifications`}>
+                    <Button variant="ghost" size="icon" className="relative" aria-label={`View ${notifications.filter(n => !n.read).length} notifications`}>
                       <Bell className="h-5 w-5" />
-                      {notifications.filter(n => !n.is_read).length > 0 && (
+                      {notifications.filter(n => !n.read).length > 0 && (
                         <span className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center rounded-full bg-red-500 text-white text-xs">
-                          {notifications.filter(n => !n.is_read).length}
+                          {notifications.filter(n => !n.read).length}
                         </span>
                       )}
                     </Button>
@@ -120,7 +124,9 @@ const DashboardLayout: React.FC = () => {
                     <p className="text-xs text-muted-foreground capitalize">
                       {user?.role ? user.role.toLowerCase().replace(/_/g, ' ') : ""}
                     </p>
-                    <p className="text-xs text-muted-foreground">{restaurantLabel}</p>
+                    {restaurantLabel && !isUuid(restaurantLabel) && (
+                      <p className="text-xs text-muted-foreground">{restaurantLabel}</p>
+                    )}
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-destructive" aria-label="Sign out">

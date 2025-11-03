@@ -13,6 +13,7 @@ import {
   Users,
   Brain,
   FileText,
+  Zap,
 } from "lucide-react";
 
 type AppItem = {

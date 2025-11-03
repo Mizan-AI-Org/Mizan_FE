@@ -16,8 +16,10 @@ const AcceptInvitation: React.FC = () => {
 
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
-    const [password, setPassword] = useState('');
-    const [pinCode, setPinCode] = useState<string | null>(null);
+    // PIN the staff will use to log in (4 digits)
+    const [pinCode, setPinCode] = useState<string>('');
+    // Invitation verification PIN from email (4 digits)
+    const [invitationPin, setInvitationPin] = useState<string>('');
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -27,13 +29,24 @@ const AcceptInvitation: React.FC = () => {
             return;
         }
 
+        // Basic client-side validations (PIN-only for staff)
+        if (!/^[0-9]{4}$/.test(invitationPin)) {
+            toast({ title: "Invalid Invitation PIN", description: "Invitation PIN must be 4 digits.", variant: "destructive" });
+            return;
+        }
+        if (!/^[0-9]{4}$/.test(pinCode)) {
+            toast({ title: "Invalid Login PIN", description: "Login PIN must be 4 digits.", variant: "destructive" });
+            return;
+        }
+
         setLoading(true);
         try {
-            await acceptInvitation(token, firstName, lastName, password, pinCode);
+            await acceptInvitation(token, firstName, lastName, undefined, pinCode, invitationPin);
             toast({ title: "Success", description: "Invitation accepted! You are now logged in." });
             // Redirection handled by AuthContext
-        } catch (error: any) {
-            toast({ title: "Error", description: error.message || "Failed to accept invitation.", variant: "destructive" });
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Failed to accept invitation.";
+            toast({ title: "Error", description: message, variant: "destructive" });
         } finally {
             setLoading(false);
         }
@@ -86,25 +99,29 @@ const AcceptInvitation: React.FC = () => {
                                 required
                             />
                         </div>
+                        {/* Password is not required for staff invitations */}
                         <div className="grid gap-2">
-                            <Label htmlFor="password">Password</Label>
+                            <Label htmlFor="invitationPin">Invitation PIN (from email)</Label>
                             <Input
-                                id="password"
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                id="invitationPin"
+                                type="text"
+                                placeholder="XXXX"
+                                value={invitationPin}
+                                onChange={(e) => setInvitationPin(e.target.value)}
+                                maxLength={4}
                                 required
                             />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="pinCode">PIN Code (Optional)</Label>
+                            <Label htmlFor="pinCode">Set Your Login PIN</Label>
                             <Input
                                 id="pinCode"
                                 type="text"
                                 placeholder="XXXX"
-                                value={pinCode || ''}
-                                onChange={(e) => setPinCode(e.target.value || null)}
+                                value={pinCode}
+                                onChange={(e) => setPinCode(e.target.value)}
                                 maxLength={4}
+                                required
                             />
                         </div>
                         <Button type="submit" className="w-full" disabled={loading}>
@@ -117,4 +134,4 @@ const AcceptInvitation: React.FC = () => {
     );
 };
 
-export default AcceptInvitation; 
+export default AcceptInvitation;
