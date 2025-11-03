@@ -18,12 +18,17 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
   const [error, setError] = useState("");
   const [userType, setUserType] = useState<UserType>("manager");
   const [pinInput, setPinInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
   const { toast } = useToast();
   const auth = useAuth();
 
   const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/[^0-9]/g, "").slice(0, 4);
     setPinInput(value);
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPasswordInput(e.target.value);
   };
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -33,7 +38,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
-    const credential = userType === "staff" ? pinInput : (formData.get("credential") as string);
+    const credential =
+      userType === "staff" ? pinInput : (formData.get("credential") as string);
 
     // Validate PIN for staff users
     if (userType === "staff") {
@@ -45,11 +51,21 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
     }
 
     try {
-      // Always use password field for API, but accept PIN from staff
-      await auth.login(email, credential);
+      if (userType === "staff") {
+        // Use PIN login for staff (email is optional for PIN authentication)
+        await auth.loginWithPin(credential, email);
+      } else {
+        // Use regular login for managers/owners
+        await auth.login(email, credential);
+      }
+
+      // Build a friendly display name from user profile with graceful fallback
+      const displayName =
+        auth.user?.first_name?.trim() ||
+        (auth.user?.email ? auth.user.email.split("@")[0] : "there");
 
       toast({
-        title: `Welcome back, ${auth.user?.first_name}!`,
+        title: `Welcome back, ${displayName}!`,
         description: "You've been signed in successfully.",
       });
     } catch (error: unknown) {
@@ -66,7 +82,10 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
   return (
     <div className="w-full space-y-6">
       {error && (
-        <Alert variant="destructive" className="bg-red-500/10 border-red-500/30 rounded-lg">
+        <Alert
+          variant="destructive"
+          className="bg-red-500/10 border-red-500/30 rounded-lg"
+        >
           <AlertDescription className="text-red-200">{error}</AlertDescription>
         </Alert>
       )}
@@ -78,6 +97,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
           onClick={() => {
             setUserType("staff");
             setPinInput("");
+            setPasswordInput("");
           }}
           className={`flex-1 py-2 px-4 rounded-md font-medium transition-all text-sm duration-300 ${
             userType === "staff"
@@ -92,6 +112,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
           onClick={() => {
             setUserType("manager");
             setPinInput("");
+            setPasswordInput("");
           }}
           className={`flex-1 py-2 px-4 rounded-md font-medium transition-all text-sm duration-300 ${
             userType === "manager"
@@ -104,9 +125,12 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
       </div>
 
       <form onSubmit={handleSignIn} className="space-y-5">
-        {/* Email Field with Premium Styling */}
+        {/* Email Field  */}
         <div className="space-y-2">
-          <Label htmlFor="signin-email" className="text-white font-semibold text-sm tracking-wider">
+          <Label
+            htmlFor="signin-email"
+            className="text-white font-semibold text-sm tracking-wider"
+          >
             Email Address
           </Label>
           <div className="relative group">
@@ -115,16 +139,19 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
               id="signin-email"
               name="email"
               type="email"
-              placeholder="manager@restaurant.com"
+              placeholder="user@restaurant.com"
               required
               className="pl-10 bg-[#0A0D10]/50 border border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] rounded-lg transition-all duration-300 focus:shadow-[0_0_15px_rgba(0,230,118,0.2)] backdrop-blur-sm"
             />
           </div>
         </div>
 
-        {/* Credential Field (PIN/Password) with Premium Styling */}
+        {/* Credential Field (PIN/Password)  */}
         <div className="space-y-2">
-          <Label htmlFor="signin-credential" className="text-white font-semibold text-sm tracking-wider">
+          <Label
+            htmlFor="signin-credential"
+            className="text-white font-semibold text-sm tracking-wider"
+          >
             {userType === "staff" ? "PIN" : "Password"}
           </Label>
           <div className="relative group">
@@ -148,16 +175,20 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
                 type="password"
                 placeholder="••••••••"
                 required
+                value={passwordInput}
+                onChange={handlePasswordChange}
                 className="pl-10 bg-[#0A0D10]/50 border border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] rounded-lg transition-all duration-300 focus:shadow-[0_0_15px_rgba(0,230,118,0.2)] backdrop-blur-sm"
               />
             )}
           </div>
           {userType === "staff" && (
-            <p className="text-xs text-[#B0BEC5] font-medium">Enter your 4-digit PIN for secure access</p>
+            <p className="text-xs text-[#B0BEC5] font-medium">
+              Enter your 4-digit PIN for secure access
+            </p>
           )}
         </div>
 
-        {/* Premium Sign In Button */}
+        {/* Sign In Button */}
         <Button
           type="submit"
           className="w-full bg-gradient-to-r from-[#00E676] to-[#00C853] hover:from-[#00F77B] hover:to-[#00D96B] text-white font-semibold h-11 rounded-lg shadow-lg hover:shadow-[0_0_25px_rgba(0,230,118,0.4)] transition-all duration-300 border border-[#00E676]/30 mt-2"
@@ -171,12 +202,15 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
       {/* Elegant Divider and Footer Section */}
       <div className="text-center space-y-4 text-sm pt-2">
         <p>
-          <a href="#" className="text-[#00E676] hover:text-[#00F77B] transition-colors font-medium underline-offset-2 hover:underline">
+          <a
+            href="#"
+            className="text-[#00E676] hover:text-[#00F77B] transition-colors font-medium underline-offset-2 hover:underline"
+          >
             Forgot PIN?
           </a>
         </p>
-        
-        {/* Premium Divider */}
+
+        {/* Divider */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t border-gradient-to-r from-transparent via-[#00E676]/20 to-transparent" />
@@ -189,7 +223,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
         </div>
       </div>
 
-      {/* Premium Signup Button */}
+      {/* Signup Button */}
       <Button
         onClick={onNavigateToSignup}
         className="w-full border-2 border-[#00E676]/50 text-[#00E676] hover:bg-[#00E676]/10 hover:text-[#00F77B] hover:border-[#00E676] font-semibold h-11 bg-transparent backdrop-blur-sm transition-all duration-300 mt-2"

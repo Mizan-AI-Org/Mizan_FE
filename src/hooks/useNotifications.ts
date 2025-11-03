@@ -9,6 +9,14 @@ interface Notification {
     created_at: string;
     is_read: boolean;
     notification_type: string;
+    title?: string;
+    attachments?: Array<{
+      original_name?: string;
+      url?: string;
+      content_type?: string;
+      size?: number;
+      uploaded_at?: string;
+    }>;
 }
 
 interface WebSocketMessage {
@@ -31,7 +39,7 @@ export const useNotifications = () => {
         queryFn: async () => {
             if (!user) return [];
             const token = localStorage.getItem('access_token');
-            const response = await fetch(`${API_BASE}/notifications/notifications/`, {
+            const response = await fetch(`${API_BASE}/notifications/`, {
                 method: 'GET',
                 credentials: 'include',
                 headers: {
@@ -45,7 +53,12 @@ export const useNotifications = () => {
                 if (response.status === 401) return [];
                 return [];
             }
-            return response.json();
+            const data = await response.json();
+            // Normalize possible response shapes to an array
+            if (Array.isArray(data)) return data as Notification[];
+            if (data && Array.isArray(data.results)) return data.results as Notification[];
+            if (data && Array.isArray(data.notifications)) return data.notifications as Notification[];
+            return [];
         },
         enabled: !!user, // Only fetch if user is logged in
     });
@@ -54,7 +67,7 @@ export const useNotifications = () => {
     const markAsReadMutation = useMutation<Notification, Error, string>({ // Adjust return type
         mutationFn: async (notificationId: string) => {
             const token = localStorage.getItem('access_token');
-            const response = await fetch(`${API_BASE}/notifications/notifications/${notificationId}/mark-read/`, {
+            const response = await fetch(`${API_BASE}/notifications/${notificationId}/read/`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
@@ -76,7 +89,7 @@ export const useNotifications = () => {
     const markAllAsReadMutation = useMutation<void, Error>({ // Adjust return type
         mutationFn: async () => {
             const token = localStorage.getItem('access_token');
-            const response = await fetch(`${API_BASE}/notifications/notifications/mark-all-read/`, {
+            const response = await fetch(`${API_BASE}/notifications/mark-all-read/`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
@@ -114,7 +127,14 @@ export const useNotifications = () => {
         const token = localStorage.getItem('access_token');
         if (!ws.current && token) {
             // Avoid double /ws in path; WS_BASE already ends with /ws
-            ws.current = new WebSocket(`${WS_BASE}/notifications/?token=${token}`);
+            try {
+                ws.current = new WebSocket(`${WS_BASE}/notifications/?token=${token}`);
+            } catch (err) {
+                console.error('WebSocket initialization failed:', err);
+                setIsConnected(false);
+                // Do not throw; continue without realtime updates
+                return;
+            }
 
             ws.current.onopen = () => {
                 console.log('WebSocket Connected');
@@ -129,7 +149,8 @@ export const useNotifications = () => {
             };
 
             ws.current.onerror = (error) => {
-                console.error('WebSocket Error:', error);
+                // Downgrade to warning to avoid noisy error reports when WS endpoint is unavailable
+                console.warn('WebSocket warning:', error);
                 setIsConnected(false);
             };
 
@@ -154,15 +175,20 @@ export const useNotifications = () => {
         };
     }, [user, queryClient, refetch]);
 
+    // Ensure notifications is an array before mapping to prevent runtime errors
+    const normalized = Array.isArray(notifications) ? notifications : [];
+
     return {
-        notifications: notifications.map(n => ({
+        notifications: normalized.map(n => ({
             ...n,
             read: n.is_read, // Map backend 'is_read' to frontend 'read'
             timestamp: n.created_at, // Map backend 'created_at' to frontend 'timestamp'
-            verb: n.notification_type.replace(/_/g, ' ').toLowerCase(), // Derive verb from type
+            verb: (n.notification_type || '').replace(/_/g, ' ').toLowerCase(), // Derive verb from type safely
             description: n.message, // Map backend 'message' to frontend 'description'
+            title: (n as any).title,
+            attachments: (n as any).attachments || [],
         })),
-        unreadCount: notifications.filter(n => !n.is_read).length,
+        unreadCount: normalized.filter(n => !n.is_read).length,
         isConnected,
         markAsRead,
         markAllAsRead,

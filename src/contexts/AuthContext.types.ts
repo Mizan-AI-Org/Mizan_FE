@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { SignupData } from "@/lib/types";
+import { SignupData } from "../lib/types";
 
 export interface User {
     id: string;
@@ -21,13 +21,25 @@ export interface User {
 }
 
 export interface AuthContextType {
+    [x: string]: any;
     user: User | null;
     isLoading: boolean;
+    updateUser: (user: User) => void;
     login: (email: string, password: string) => Promise<void>;
-    loginWithPin: (pin: string, imageSrc: string | null, latitude: number | null, longitude: number | null) => Promise<void>;
+    loginWithPin: (pin: string, email: string | null) => Promise<void>;
     ownerSignup: (signupData: SignupData) => Promise<void>;
-    acceptInvitation: (token: string, first_name: string, last_name: string, password: string, pin_code: string | null) => Promise<void>;
-    inviteStaff: (accessToken: string, inviteData: { email: string; role: string }) => Promise<any>;
+    acceptInvitation: (
+        token: string,
+        first_name: string,
+        last_name: string,
+        password: string,
+        pin_code: string | null,
+        invitation_pin?: string | null
+    ) => Promise<void>;
+    inviteStaff: (
+        accessToken: string,
+        inviteData: { email: string; role: string; first_name?: string; last_name?: string; phone_number?: string }
+    ) => Promise<any>;
     logout: () => void;
     hasRole: (roles: string[]) => boolean;
     isSuperAdmin: () => boolean;

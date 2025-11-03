@@ -43,13 +43,7 @@ const Auth = () => {
     }
 
     try {
-      await auth.acceptInvitation(
-        token,
-        firstName,
-        lastName,
-        password,
-        null
-      );
+      await auth.acceptInvitation(token, firstName, lastName, password, null);
 
       toast({
         title: "Welcome to the team!",
@@ -72,23 +66,34 @@ const Auth = () => {
       <div className="min-h-screen bg-[#0A0D10] flex items-center justify-center p-4 relative overflow-hidden">
         {/* Elegant Fine Dining Gradient Background */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#0A0D10] via-[#1a1f2e] to-[#0f1419]" />
-        
+
         {/* Sophisticated Overlay - Radial Glow */}
-        <div className="absolute inset-0 pointer-events-none opacity-40" style={{
-          background: 'radial-gradient(ellipse 800px 600px at 50% 20%, rgba(0, 230, 118, 0.08), transparent 70%)'
-        }} />
-        
+        <div
+          className="absolute inset-0 pointer-events-none opacity-40"
+          style={{
+            background:
+              "radial-gradient(ellipse 800px 600px at 50% 20%, rgba(0, 230, 118, 0.08), transparent 70%)",
+          }}
+        />
+
         {/* Gold Accent Layer */}
-        <div className="absolute inset-0 opacity-5 pointer-events-none" style={{
-          background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.3) 0%, transparent 40%, rgba(184, 134, 11, 0.2) 100%)'
-        }} />
-        
+        <div
+          className="absolute inset-0 opacity-5 pointer-events-none"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(255, 215, 0, 0.3) 0%, transparent 40%, rgba(184, 134, 11, 0.2) 100%)",
+          }}
+        />
+
         {/* Premium Grid Pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(0,230,118,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,230,118,0.03)_1px,transparent_1px)] bg-[size:50px_50px] pointer-events-none" />
-        
+
         {/* Animated Gradient Orbs */}
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#00E676] rounded-full mix-blend-screen opacity-5 blur-3xl animate-pulse" />
-        <div className="absolute top-1/3 -left-64 w-96 h-96 bg-[#D4AF37] rounded-full mix-blend-screen opacity-3 blur-3xl" style={{animation: 'float 8s ease-in-out infinite'}} />
+        <div
+          className="absolute top-1/3 -left-64 w-96 h-96 bg-[#D4AF37] rounded-full mix-blend-screen opacity-3 blur-3xl"
+          style={{ animation: "float 8s ease-in-out infinite" }}
+        />
 
         <div className="relative z-10 w-full max-w-md">
           {/* Logo/Brand Area */}
@@ -106,12 +111,12 @@ const Auth = () => {
           <div className="relative group">
             {/* Gradient Border Effect */}
             <div className="absolute -inset-0.5 bg-gradient-to-r from-[#D4AF37] via-[#00E676] to-[#00E676]/30 rounded-xl opacity-0 group-hover:opacity-30 blur transition duration-1000 pointer-events-none" />
-            
+
             {/* Form Card */}
             <div className="relative bg-gradient-to-br from-[#121A22] to-[#0f1419] border border-[#00E676]/30 rounded-xl shadow-2xl p-8 backdrop-blur-xl hover:shadow-[0_0_30px_rgba(0,230,118,0.15)] transition-all duration-500">
               {/* Top accent line */}
               <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-50" />
-              
+
               {error && (
                 <Alert variant="destructive" className="mb-4">
                   <AlertDescription>{error}</AlertDescription>
@@ -119,51 +124,53 @@ const Auth = () => {
               )}
 
               <form onSubmit={handleAcceptInvitation} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName" className="text-white">
-                  First Name
-                </Label>
-                <Input
-                  id="firstName"
-                  name="firstName"
-                  placeholder="John"
-                  required
-                  className="bg-[#0A0D10] border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5]"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName" className="text-white">
-                  Last Name
-                </Label>
-                <Input
-                  id="lastName"
-                  name="lastName"
-                  placeholder="Doe"
-                  required
-                  className="bg-[#0A0D10] border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5]"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-white">
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  minLength={6}
-                  className="bg-[#0A0D10] border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5]"
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full bg-[#00E676] hover:bg-[#00C853] text-white font-semibold h-11 rounded-lg shadow-lg hover:shadow-[#00E676]/50 transition-all"
-                disabled={isLoading}
-              >
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isLoading ? "Completing Setup..." : "Complete Setup"}
-              </Button>
+                <div className="space-y-2">
+                  <Label htmlFor="firstName" className="text-white">
+                    First Name
+                  </Label>
+                  <Input
+                    id="firstName"
+                    name="firstName"
+                    placeholder="John"
+                    required
+                    className="bg-[#0A0D10] border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName" className="text-white">
+                    Last Name
+                  </Label>
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    placeholder="Doe"
+                    required
+                    className="bg-[#0A0D10] border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-white">
+                    Password
+                  </Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    required
+                    minLength={6}
+                    className="bg-[#0A0D10] border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5]"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-[#00E676] hover:bg-[#00C853] text-white font-semibold h-11 rounded-lg shadow-lg hover:shadow-[#00E676]/50 transition-all"
+                  disabled={isLoading}
+                >
+                  {isLoading && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {isLoading ? "Completing Setup..." : "Complete Setup"}
+                </Button>
               </form>
             </div>
           </div>
@@ -172,11 +179,17 @@ const Auth = () => {
           <div className="mt-6 text-center text-sm text-[#B0BEC5]">
             <p>
               By continuing, you agree to our{" "}
-              <a href="#" className="text-[#00E676] hover:text-[#00C853] transition-colors">
+              <a
+                href="#"
+                className="text-[#00E676] hover:text-[#00C853] transition-colors"
+              >
                 Terms of Service
               </a>{" "}
               and{" "}
-              <a href="#" className="text-[#00E676] hover:text-[#00C853] transition-colors">
+              <a
+                href="#"
+                className="text-[#00E676] hover:text-[#00C853] transition-colors"
+              >
                 Privacy Policy
               </a>
             </p>
@@ -193,24 +206,35 @@ const Auth = () => {
       <div className="w-full lg:w-1/2 relative overflow-hidden">
         {/* Elegant Fine Dining Gradient Background */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#0A0D10] via-[#1a1f2e] to-[#0f1419]" />
-        
+
         {/* Sophisticated Overlay - Radial Glow from Top Right */}
-        <div className="absolute inset-0 bg-radial-gradient pointer-events-none opacity-40" style={{
-          background: 'radial-gradient(ellipse 800px 600px at 60% -20%, rgba(0, 230, 118, 0.08), transparent 70%)'
-        }} />
-        
+        <div
+          className="absolute inset-0 bg-radial-gradient pointer-events-none opacity-40"
+          style={{
+            background:
+              "radial-gradient(ellipse 800px 600px at 60% -20%, rgba(0, 230, 118, 0.08), transparent 70%)",
+          }}
+        />
+
         {/* Gold Accent Layer - Subtle warmth */}
-        <div className="absolute inset-0 opacity-5 pointer-events-none" style={{
-          background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.3) 0%, transparent 40%, rgba(184, 134, 11, 0.2) 100%)'
-        }} />
-        
+        <div
+          className="absolute inset-0 opacity-5 pointer-events-none"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(255, 215, 0, 0.3) 0%, transparent 40%, rgba(184, 134, 11, 0.2) 100%)",
+          }}
+        />
+
         {/* Premium Grid Pattern - More Refined */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(0,230,118,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,230,118,0.03)_1px,transparent_1px)] bg-[size:50px_50px]" />
-        
+
         {/* Elegant Animated Gradient Orbs for Depth */}
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#00E676] rounded-full mix-blend-screen opacity-5 blur-3xl animate-pulse" />
-        <div className="absolute top-1/3 -left-64 w-96 h-96 bg-[#D4AF37] rounded-full mix-blend-screen opacity-3 blur-3xl" style={{animation: 'float 8s ease-in-out infinite'}} />
-        
+        <div
+          className="absolute top-1/3 -left-64 w-96 h-96 bg-[#D4AF37] rounded-full mix-blend-screen opacity-3 blur-3xl"
+          style={{ animation: "float 8s ease-in-out infinite" }}
+        />
+
         {/* Decorative Top Border - Gold shimmer */}
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-30" />
 
@@ -225,24 +249,30 @@ const Auth = () => {
                 </div>
               </div>
               <h1 className="text-3xl font-bold text-white mb-2">Mizan</h1>
-              <p className="text-[#B0BEC5]">Restaurant Management Excellence</p>
+              <p className="text-[#B0BEC5]">
+                Your Restaurant Operation on Auto Pilot
+              </p>
             </div>
 
             {/* Elegant Form Card with Premium Styling */}
             <div className="relative group">
               {/* Gradient Border Effect */}
               <div className="absolute -inset-0.5 bg-gradient-to-r from-[#D4AF37] via-[#00E676] to-[#00E676]/30 rounded-xl opacity-0 group-hover:opacity-30 blur transition duration-1000 pointer-events-none" />
-              
+
               {/* Form Card */}
               <div className="relative bg-gradient-to-br from-[#121A22] to-[#0f1419] border border-[#00E676]/30 rounded-xl shadow-2xl p-8 backdrop-blur-xl hover:shadow-[0_0_30px_rgba(0,230,118,0.15)] transition-all duration-500">
                 {/* Top accent line */}
                 <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-50" />
-                
+
                 {/* Conditionally render login or signup form */}
                 {currentPage === "login" ? (
-                  <AuthForm onNavigateToSignup={() => setCurrentPage("signup")} />
+                  <AuthForm
+                    onNavigateToSignup={() => setCurrentPage("signup")}
+                  />
                 ) : (
-                  <SignUpForm onNavigateToLogin={() => setCurrentPage("login")} />
+                  <SignUpForm
+                    onNavigateToLogin={() => setCurrentPage("login")}
+                  />
                 )}
               </div>
             </div>
@@ -252,11 +282,17 @@ const Auth = () => {
               <div className="mt-8 text-center text-sm text-[#B0BEC5]">
                 <p>
                   By continuing, you agree to our{" "}
-                  <a href="#" className="text-[#00E676] hover:text-[#00C853] transition-colors">
+                  <a
+                    href="#"
+                    className="text-[#00E676] hover:text-[#00C853] transition-colors"
+                  >
                     Terms of Service
                   </a>{" "}
                   and{" "}
-                  <a href="#" className="text-[#00E676] hover:text-[#00C853] transition-colors">
+                  <a
+                    href="#"
+                    className="text-[#00E676] hover:text-[#00C853] transition-colors"
+                  >
                     Privacy Policy
                   </a>
                 </p>

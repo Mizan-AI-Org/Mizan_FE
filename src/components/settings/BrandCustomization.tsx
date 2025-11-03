@@ -62,11 +62,19 @@ export default function BrandCustomization() {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="logo" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="logo">Logo & Images</TabsTrigger>
-          <TabsTrigger value="colors">Colors</TabsTrigger>
-          <TabsTrigger value="typography">Typography</TabsTrigger>
-          <TabsTrigger value="qr">QR Codes</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <TabsTrigger value="logo" className="text-xs sm:text-sm">
+            Logo & Images
+          </TabsTrigger>
+          <TabsTrigger value="colors" className="text-xs sm:text-sm">
+            Colors
+          </TabsTrigger>
+          <TabsTrigger value="typography" className="text-xs sm:text-sm">
+            Typography
+          </TabsTrigger>
+          <TabsTrigger value="qr" className="text-xs sm:text-sm">
+            QR Codes
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="logo" className="space-y-6">
@@ -82,7 +90,7 @@ export default function BrandCustomization() {
             </CardHeader>
             <CardContent className="space-y-4">
               {logoUrl && (
-                <div className="flex justify-center p-8 bg-secondary rounded-lg">
+                <div className="flex justify-center p-4 sm:p-6 bg-secondary rounded-lg">
                   <img
                     src={logoUrl}
                     alt="Restaurant Logo"
@@ -91,7 +99,7 @@ export default function BrandCustomization() {
                 </div>
               )}
 
-              <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
+              <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center sm:p-8">
                 <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-sm text-muted-foreground mb-4">
                   Drop your logo here or click to browse
@@ -103,7 +111,7 @@ export default function BrandCustomization() {
                   className="hidden"
                   id="logo-upload"
                 />
-                <Button onClick={() => document.getElementById('logo-upload')?.click()}>
+                <Button onClick={() => document.getElementById('logo-upload')?.click()} className="w-full sm:w-auto">
                   Choose File
                 </Button>
               </div>
@@ -161,13 +169,13 @@ export default function BrandCustomization() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="primary-color">Primary Color</Label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <Input
                       id="primary-color"
                       type="color"
                       value={primaryColor}
                       onChange={(e) => setPrimaryColor(e.target.value)}
-                      className="w-20 h-10"
+                      className="w-full h-12 sm:w-20 sm:h-10"
                     />
                     <Input
                       value={primaryColor}
@@ -182,13 +190,13 @@ export default function BrandCustomization() {
 
                 <div className="space-y-2">
                   <Label htmlFor="secondary-color">Secondary Color</Label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <Input
                       id="secondary-color"
                       type="color"
                       value={secondaryColor}
                       onChange={(e) => setSecondaryColor(e.target.value)}
-                      className="w-20 h-10"
+                      className="w-full h-12 sm:w-20 sm:h-10"
                     />
                     <Input
                       value={secondaryColor}
@@ -203,13 +211,13 @@ export default function BrandCustomization() {
 
                 <div className="space-y-2">
                   <Label htmlFor="accent-color">Accent Color</Label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <Input
                       id="accent-color"
                       type="color"
                       value={accentColor}
                       onChange={(e) => setAccentColor(e.target.value)}
-                      className="w-20 h-10"
+                      className="w-full h-12 sm:w-20 sm:h-10"
                     />
                     <Input
                       value={accentColor}
@@ -227,7 +235,7 @@ export default function BrandCustomization() {
 
               <div className="space-y-2">
                 <Label>Color Preview</Label>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div className="space-y-2">
                     <div
                       className="h-24 rounded-lg"
@@ -264,7 +272,9 @@ export default function BrandCustomization() {
                   >
                     Secondary Button
                   </Button>
-                  <Badge style={{ backgroundColor: accentColor }}>Accent Badge</Badge>
+                  <Badge style={{ backgroundColor: accentColor }} className="w-full justify-center">
+                    Accent Badge
+                  </Badge>
                 </div>
               </div>
             </CardContent>
@@ -299,13 +309,13 @@ export default function BrandCustomization() {
 
               <Separator />
 
-              <div className="space-y-4 p-4 bg-secondary rounded-lg">
+              <div className="space-y-4 p-4 bg-secondary rounded-lg sm:p-6">
                 <h4 className="font-medium">Typography Preview</h4>
                 <div style={{ fontFamily }} className="space-y-2">
-                  <h1 className="text-4xl font-bold">Heading 1</h1>
-                  <h2 className="text-3xl font-semibold">Heading 2</h2>
-                  <h3 className="text-2xl font-medium">Heading 3</h3>
-                  <p className="text-base">
+                  <h1 className="text-3xl font-bold sm:text-4xl">Heading 1</h1>
+                  <h2 className="text-2xl font-semibold sm:text-3xl">Heading 2</h2>
+                  <h3 className="text-xl font-medium sm:text-2xl">Heading 3</h3>
+                  <p className="text-sm sm:text-base">
                     This is a paragraph of body text. It shows how your chosen font will
                     look in regular content.
                   </p>
@@ -345,7 +355,7 @@ export default function BrandCustomization() {
                 Generate QR Code
               </Button>
 
-              <div className="flex justify-center p-8 bg-secondary rounded-lg">
+              <div className="flex justify-center p-6 bg-secondary rounded-lg sm:p-8">
                 <div className="text-center space-y-4">
                   <div className="w-48 h-48 bg-white rounded-lg flex items-center justify-center border-2 border-border">
                     <QrCode className="w-32 h-32 text-muted-foreground" />
@@ -362,7 +372,7 @@ export default function BrandCustomization() {
 
               <div className="space-y-2">
                 <Label>Quick Actions</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <Button
                     variant="outline"
                     size="sm"

@@ -44,6 +44,9 @@ export interface SignupData {
 export interface InviteStaffData {
     email: string;
     role: string;
+    first_name?: string;
+    last_name?: string;
+    phone_number?: string;
 }
 
 export interface StaffListItem {
@@ -244,7 +247,7 @@ export interface DailySalesReport {
     total_revenue: number;
     total_orders: number;
     avg_order_value: number;
-    top_selling_items: any[]; // Adjust with a more specific type if needed
+    top_selling_items: TopSellingItemSummary[];
     created_at: string;
     updated_at: string;
 }
@@ -257,7 +260,7 @@ export interface AttendanceReport {
     staff_on_shift: number;
     late_arrivals: number;
     absences: number;
-    attendance_details: any[]; // Adjust with a more specific type if needed
+    attendance_details: AttendanceDetailSummary[];
     created_at: string;
     updated_at: string;
 }
@@ -267,11 +270,39 @@ export interface InventoryReport {
     restaurant: string;
     date: string;
     total_inventory_value: number;
-    low_stock_items: any[]; // Adjust with a more specific type if needed
+    low_stock_items: LowStockItemSummary[];
     waste_cost: number;
-    stock_adjustment_summary: any[]; // Adjust with a more specific type if needed
+    stock_adjustment_summary: StockAdjustmentSummary[];
     created_at: string;
     updated_at: string;
+}
+
+// More specific summary types used in aggregated reports
+export interface TopSellingItemSummary {
+    menu_item_id: string;
+    name: string;
+    quantity_sold: number;
+    total_revenue: number;
+}
+
+export interface AttendanceDetailSummary {
+    user_id: string;
+    name?: string;
+    hours_worked?: number;
+    status?: 'ON_SHIFT' | 'LATE' | 'ABSENT';
+}
+
+export interface LowStockItemSummary {
+    inventory_item_id: string;
+    name: string;
+    current_stock: number;
+    min_stock_level: number;
+}
+
+export interface StockAdjustmentSummary {
+    inventory_item_id: string;
+    total_added: number;
+    total_removed: number;
 }
 
 export interface ClockEvent {
@@ -289,4 +320,37 @@ export interface ClockEvent {
     verified_location: boolean;
     created_at: string;
     updated_at: string;
+}
+
+export interface StaffProfileItem {
+    id: string;
+    user_details: {
+        id: string;
+        email: string;
+        first_name: string;
+        last_name: string;
+        role: string;
+        phone?: string;
+        restaurant: string;
+        is_verified: boolean;
+        created_at: string;
+        updated_at: string;
+    };
+    profile_image?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+    date_of_birth?: string;
+    hire_date: string;
+    position?: string;
+    hourly_rate: number;
+    skills: string[];
+    certifications: string[];
+    notes?: string;
+    department?: string;
+}
+
+export interface CreateAnnouncementResponse {
+    message: string;
+    notification_count: number;
+    announcement_id?: string;
 }

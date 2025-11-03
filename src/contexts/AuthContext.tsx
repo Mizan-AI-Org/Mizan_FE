@@ -1,12 +1,10 @@
-import React, {
-  useEffect,
-  useState,
-  useCallback,
-} from "react";
+/// <reference types="vite/client" />
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { SignupData, StaffUserData } from "../services/backend.service";
-import { AuthContext } from "./AuthContext.ts";
-import { AuthContextType, User } from "./AuthContext.types.ts";
+import { SignupData } from "../lib/types";
+import { AuthContext } from "./AuthContext";
+import { AuthContextType, User } from "./AuthContext.types";
+import { api } from "../lib/api";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -15,6 +13,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Centralized API base, consistent with other pages
+  const API_BASE =
+    import.meta.env.VITE_API_URL ||
+    import.meta.env.VITE_REACT_APP_API_URL ||
+    "http://localhost:8000/api";
 
   const clearAuth = useCallback(() => {
     localStorage.removeItem("user");
@@ -30,7 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (storedUser && token) {
         // Verify token is still valid by fetching profile
-        const response = await fetch("/api/auth/me/", {
+        const response = await fetch(`${API_BASE}/auth/me/`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -45,7 +49,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setUser(userData);
           // Don't auto-redirect on auth initialization - let the user stay where they are
           // Only redirect if they're on a public route like /auth
-          if (location.pathname === "/auth" || location.pathname === "/staff-login") {
+          if (
+            location.pathname === "/auth" ||
+            location.pathname === "/staff-login"
+          ) {
             if (userData.role === "SUPER_ADMIN" || userData.role === "ADMIN") {
               navigate("/dashboard");
             } else {
@@ -69,84 +76,155 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     initializeAuth();
   }, [initializeAuth]);
 
-  const login = async (email: string, password: string) => {
-    const response = await fetch("/api/auth/login/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
-    });
+  // Periodically refresh user role and permissions for real-time UI updates
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
 
-    const responseText = await response.text();
-
-    if (!response.ok) {
-      let errorData = { message: "Login failed" };
+    const refreshInterval = setInterval(async () => {
       try {
-        errorData = JSON.parse(responseText);
-      } catch (e) {
-        console.error("Failed to parse error response as JSON:", e, "Raw response:", responseText);
-        errorData.message = "An unexpected error occurred."; // Set a default message if parsing fails
+        const response = await fetch(`${API_BASE}/auth/me/`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        });
+        if (response.ok) {
+          const latest: User = await response.json();
+          // Update user in memory and localStorage only if something changed
+          const prev = user ? JSON.stringify(user) : null;
+          const next = JSON.stringify(latest);
+          if (prev !== next) {
+            setUser(latest);
+            localStorage.setItem("user", JSON.stringify(latest));
+          }
+        }
+      } catch (err) {
+        // Do not clear auth on transient errors
+        console.warn("Periodic role refresh failed:", err);
       }
-      console.error("Login error:", errorData.message);
-      throw new Error(errorData.message || "Login failed");
-    }
+    }, 60000); // 60 seconds
 
-    const data = JSON.parse(responseText);
-    setUser(data.user);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    localStorage.setItem("access_token", data.tokens.access);
-    localStorage.setItem("refresh_token", data.tokens.refresh);
+    return () => clearInterval(refreshInterval);
+  }, [user]);
 
-    if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
-      navigate("/dashboard");
-    } else {
-      navigate("/staff-dashboard");
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/login/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+      const isJson = contentType.includes("application/json");
+      const rawText = await response.text();
+
+      if (!response.ok) {
+        let errorMsg = "Login failed";
+        if (isJson && rawText) {
+          try {
+            const parsed = JSON.parse(rawText);
+            errorMsg =
+              parsed.message || parsed.error || `Login failed (${response.status})`;
+          } catch (e) {
+            errorMsg = `Login failed (${response.status})`;
+          }
+        } else {
+          if (response.status === 401) errorMsg = "Invalid email or password.";
+          else if (response.status >= 500)
+            errorMsg = "Server error during login. Please try again.";
+          else errorMsg = "Backend unreachable or returned a non-JSON error.";
+        }
+        console.error("Login failed:", errorMsg, "Status:", response.status);
+        throw new Error(errorMsg);
+      }
+
+      const data = isJson ? JSON.parse(rawText) : {};
+      setUser(data.user);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("access_token", data.tokens?.access || data.access);
+      localStorage.setItem(
+        "refresh_token",
+        data.tokens?.refresh || data.refresh
+      );
+
+      if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
+        navigate("/dashboard");
+      } else {
+        navigate("/staff-dashboard");
+      }
+    } catch (err) {
+      console.error("Login request error:", err);
+      if (err instanceof Error) {
+        throw err;
+      }
+      throw new Error("Network error during login. Please check backend server.");
     }
   };
 
-  const loginWithPin = async (pin: string, imageSrc: string | null, latitude: number | null, longitude: number | null) => {
-    // This endpoint is not yet implemented in the backend, hence not used.
-    // Once implemented, uncomment the code below and adjust accordingly.
+  const loginWithPin = async (pin: string, email: string | null = null) => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/pin-login/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ pin_code: pin, email: email }),
+      });
 
-    // const response = await fetch("/api/auth/pin-login/", {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //   },
-    //   body: JSON.stringify({ pin, image_data: imageSrc, latitude, longitude }),
-    // });
+      const contentType = response.headers.get("content-type") || "";
+      const isJson = contentType.includes("application/json");
+      const rawText = await response.text();
+      console.log("Raw backend PIN login response:", rawText);
 
-    // const responseText = await response.text();
-    // console.log("Raw backend PIN login response:", responseText);
+      if (!response.ok) {
+        let errorMsg = "PIN login failed";
+        if (isJson && rawText) {
+          try {
+            const parsed = JSON.parse(rawText);
+            errorMsg = parsed.message || parsed.error || "PIN login failed";
+          } catch (e) {
+            errorMsg = `PIN login failed (${response.status})`;
+          }
+        } else {
+          if (response.status === 401) errorMsg = "Invalid PIN or user.";
+          else if (response.status >= 500)
+            errorMsg = "Server error during PIN login. Please try again.";
+          else errorMsg = "Backend unreachable or returned a non-JSON error.";
+        }
+        console.error("PIN login failed:", errorMsg, "Status:", response.status);
+        throw new Error(errorMsg);
+      }
 
-    // if (!response.ok) {
-    //   let errorData = { message: "PIN login failed" };
-    //   try {
-    //     errorData = JSON.parse(responseText);
-    //   } catch (e) {
-    //     console.error("Failed to parse PIN login error response as JSON:", e, "Raw response:", responseText);
-    //   }
-    //   throw new Error(errorData.message || "PIN login failed");
-    // }
+      const data = isJson ? JSON.parse(rawText) : {};
+      setUser(data.user);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("access_token", data.tokens?.access || data.access);
+      localStorage.setItem(
+        "refresh_token",
+        data.tokens?.refresh || data.refresh
+      );
 
-    // const data = JSON.parse(responseText);
-    // setUser(data.user);
-    // localStorage.setItem("user", JSON.stringify(data.user));
-    // localStorage.setItem("access_token", data.tokens.access);
-    // localStorage.setItem("refresh_token", data.tokens.refresh);
-
-    // if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
-    //   navigate("/dashboard");
-    // } else {
-    //   navigate("/staff-dashboard");
-    // }
-    throw new Error("PIN login is not yet implemented.");
+      if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
+        navigate("/dashboard");
+      } else {
+        navigate("/staff-dashboard");
+      }
+    } catch (err) {
+      console.error("PIN login request error:", err);
+      if (err instanceof Error) {
+        throw err;
+      }
+      throw new Error("Network error during PIN login. Please check backend server.");
+    }
   };
 
   const ownerSignup = async (signupData: SignupData) => {
-    console.log('here\b',JSON.stringify(signupData))
-    const response = await fetch("/api/register/", {
+    const response = await fetch(`${API_BASE}/auth/signup/owner/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -154,12 +232,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       body: JSON.stringify(signupData),
     });
 
+    const contentType = response.headers.get("content-type") || "";
+    const rawText = await response.text();
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Signup failed");
+      let errorMsg = "Signup failed";
+      if (contentType.includes("application/json") && rawText) {
+        try {
+          const parsed = JSON.parse(rawText);
+          if (parsed.message) {
+            errorMsg = parsed.message;
+          } else {
+            const parts: string[] = [];
+            Object.entries(parsed).forEach(([key, val]) => {
+              const messages = Array.isArray(val) ? val : [val];
+              const text = messages
+                .filter(Boolean)
+                .map((v) => (typeof v === "string" ? v : JSON.stringify(v)))
+                .join(", ");
+              parts.push(`${key}: ${text}`);
+            });
+            if (parts.length) errorMsg = parts.join(" | ");
+          }
+        } catch (e) {
+          errorMsg = rawText || errorMsg;
+        }
+      } else {
+        errorMsg = rawText || `Signup failed (${response.status})`;
+      }
+      throw new Error(errorMsg);
     }
 
-    const data = await response.json();
+    const data = contentType.includes("application/json") && rawText
+      ? JSON.parse(rawText)
+      : {};
     setUser(data.user);
     localStorage.setItem("user", JSON.stringify(data.user));
     localStorage.setItem("access_token", data.tokens.access);
@@ -167,30 +273,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     navigate("/dashboard");
   };
 
-  const acceptInvitation = async (token: string, first_name: string, last_name: string, password: string, pin_code: string | null) => {
-    const response = await fetch("/api/staff/accept-invitation/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ token, first_name, last_name, password, pin_code }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Invitation acceptance failed");
-    }
-
-    const data = await response.json();
+  const acceptInvitation = async (
+    token: string,
+    first_name: string,
+    last_name: string,
+    password?: string,
+    pin_code?: string | null,
+    invitation_pin?: string | null
+  ) => {
+    // Use the API client’s logic to hit the right endpoint
+    const data = await api.acceptInvitation(
+      token,
+      first_name,
+      last_name,
+      password,
+      pin_code,
+      invitation_pin
+    );
     setUser(data.user);
     localStorage.setItem("user", JSON.stringify(data.user));
     localStorage.setItem("access_token", data.tokens.access);
     localStorage.setItem("refresh_token", data.tokens.refresh);
-    navigate("/staff-dashboard");
+    if (data.user?.role === "SUPER_ADMIN" || data.user?.role === "ADMIN") {
+      navigate("/dashboard");
+    } else {
+      navigate("/staff-dashboard");
+    }
   };
 
-  const inviteStaff = async (accessToken: string, inviteData: { email: string; role: string }) => {
-    const response = await fetch("/api/staff/invite/", {
+  const inviteStaff = async (
+    accessToken: string,
+    inviteData: {
+      email: string;
+      role: string;
+      first_name?: string;
+      last_name?: string;
+      phone_number?: string;
+    }
+  ) => {
+    const response = await fetch(`${API_BASE}/staff/invite/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -238,9 +359,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return user ? staffRoles.includes(user.role) : false;
   };
 
+  const updateUser = (updatedUser: User) => {
+    setUser(updatedUser);
+    try {
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+    } catch (e) {
+      console.warn("Failed to persist updated user to localStorage", e);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
+    updateUser,
     login,
     loginWithPin,
     ownerSignup,
@@ -255,4 +386,3 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-

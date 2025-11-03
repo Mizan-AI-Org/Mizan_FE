@@ -4,16 +4,21 @@ import { TimeTrackingService } from '../timeloss/time-tracking.service.ts';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { Roles } from '../decorators/roles.decorator';
-import { User } from '../services/backend.service';
+// Define minimal auth user type used in request context
+type AuthUser = {
+    id: string;
+    restaurant?: string;
+    role?: string;
+};
 
 declare module 'express' {
     interface Request {
-        user?: User;
+        user?: AuthUser;
     }
 }
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('timeloss')
+@Controller('timeclock')
 export class TimelossController {
     constructor(private readonly timeTrackingService: TimeTrackingService) { }
 
@@ -42,7 +47,7 @@ export class TimelossController {
         return this.timeTrackingService.getCurrentStatus(request.user.id);
     }
 
-    @Get('history')
+    @Get('attendance-history')
     @Roles('SUPER_ADMIN', 'ADMIN', 'CHEF')
     async getHistory(@Req() request: Request, @Param('startDate') startDate: string, @Param('endDate') endDate: string) {
         return this.timeTrackingService.getHistory(request.user.restaurant, startDate, endDate);
@@ -53,4 +58,4 @@ export class TimelossController {
     async getOverview(@Req() request: Request) {
         return this.timeTrackingService.getOverview(request.user.restaurant);
     }
-} 
+}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import { ChefHat, ArrowLeft, Home, LogOut, User, Bell, Users, CalendarDays, Utensils, FileText } from "lucide-react";
+import { LogOut, User, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -12,9 +12,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+// Removed mobile sidebar Sheet components per design update
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import BackLink from "@/components/BackLink";
+import BrandLogo from "@/components/BrandLogo";
 
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -22,124 +24,32 @@ const DashboardLayout: React.FC = () => {
   const { user, logout } = useAuth() as AuthContextType;
   const { notifications, isConnected, markAllAsRead, markAsRead } = useNotifications();
 
+  // Derive a safe restaurant label from various possible user shapes without using `any`
+  // Compute a restaurant label, but hide raw UUIDs
+  const restaurantLabel: string = (() => {
+    const dataName = user?.restaurant_data?.name;
+    if (typeof dataName === "string" && dataName.length > 0) return dataName;
+    const restaurantRaw = user?.restaurant;
+    if (typeof restaurantRaw === "string" && restaurantRaw.length > 0) return restaurantRaw;
+    if (typeof restaurantRaw === "object" && restaurantRaw !== null) {
+      const name = (restaurantRaw as { name?: unknown }).name;
+      if (typeof name === "string" && (name as string).length > 0) return name as string;
+    }
+    return "";
+  })();
+
+  const isUuid = (val: string): boolean =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-sm border-b shadow-soft">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {/* Home Button - Show when not on main dashboard */}
-              {location.pathname !== '/dashboard' && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => navigate('/dashboard')}
-                  className="rounded-full"
-                  aria-label="Go to main dashboard"
-                >
-                  <Home className="h-5 w-5" />
-                </Button>
-              )}
-
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open sidebar navigation">
-                    <ChefHat className="h-5 w-5" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-64">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-elegant">
-                      <ChefHat className="w-5 h-5 text-white" />
-                    </div>
-                    <h1 className="text-3xl font-bold">Mizan</h1>
-                  </div>
-                  <nav className="space-y-1">
-                    {user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' ? (
-                      <DropdownMenuItem
-                        onClick={() => navigate("/dashboard/staff-management")}
-                        className="w-full justify-start cursor-pointer"
-                        aria-label="Staff Management"
-                      >
-                        <Users className="mr-2 h-4 w-4" />
-                        Staff Management
-                      </DropdownMenuItem>
-                    ) : null}
-                    {user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' ? (
-                      <DropdownMenuItem
-                        onClick={() => navigate("/dashboard/schedule-management")}
-                        className="w-full justify-start cursor-pointer"
-                        aria-label="Schedule Management"
-                      >
-                        <CalendarDays className="mr-2 h-4 w-4" />
-                        Schedule Management
-                      </DropdownMenuItem>
-                    ) : null}
-                    {user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' ? (
-                      <DropdownMenuItem
-                        onClick={() => navigate("/dashboard/table-management")}
-                        className="w-full justify-start cursor-pointer"
-                        aria-label="Table Management"
-                      >
-                        <Utensils className="mr-2 h-4 w-4" />
-                        Table Management
-                      </DropdownMenuItem>
-                    ) : null}
-                    {user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MANAGER' ? (
-                      <DropdownMenuItem
-                        onClick={() => navigate("/dashboard/reports")}
-                        className="w-full justify-start cursor-pointer"
-                        aria-label="Reports and Analytics"
-                      >
-                        <FileText className="mr-2 h-4 w-4" />
-                        Reports & Analytics
-                      </DropdownMenuItem>
-                    ) : null}
-                    {user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' ? (
-                      <DropdownMenuItem
-                        onClick={() => navigate("/dashboard/categories")}
-                        className="w-full justify-start cursor-pointer"
-                        aria-label="Category Management"
-                      >
-                        <Utensils className="mr-2 h-4 w-4" /> {/* Using Utensils icon for categories, can be changed */}
-                        Category Management
-                      </DropdownMenuItem>
-                    ) : null}
-                    {user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' ? (
-                      <DropdownMenuItem
-                        onClick={() => navigate("/dashboard/products")}
-                        className="w-full justify-start cursor-pointer"
-                        aria-label="Product Management"
-                      >
-                        <Utensils className="mr-2 h-4 w-4" /> {/* Using Utensils icon for products, can be changed */}
-                        Product Management
-                      </DropdownMenuItem>
-                    ) : null}
-                    {user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'CHEF' ? (
-                      <DropdownMenuItem
-                        onClick={() => navigate("/staff-dashboard/kitchen")}
-                        className="w-full justify-start cursor-pointer"
-                        aria-label="Kitchen Display"
-                      >
-                        <ChefHat className="mr-2 h-4 w-4" />
-                        Kitchen Display
-                      </DropdownMenuItem>
-                    ) : null}
-                    <DropdownMenuItem
-                      onClick={logout}
-                      className="w-full justify-start text-destructive cursor-pointer"
-                      aria-label="Sign Out"
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Sign Out
-                    </DropdownMenuItem>
-                  </nav>
-                </SheetContent>
-              </Sheet>
-              <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-elegant hidden lg:flex">
-                <ChefHat className="w-5 h-5 text-white" />
-              </div>
-              <h1 className="text-2xl font-bold">Mizan</h1>
+              {/* Removed mobile sidebar trigger per design */}
+              <BrandLogo size="sm" />
+              <h1 className="text-2xl font-bold select-none cursor-default">Mizan</h1>
             </div>
             <div className="flex items-center gap-4">
               {/* Theme Toggle */}
@@ -151,11 +61,11 @@ const DashboardLayout: React.FC = () => {
               <div className="relative">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="relative" aria-label={`View ${notifications.filter(n => !n.is_read).length} notifications`}>
+                    <Button variant="ghost" size="icon" className="relative" aria-label={`View ${notifications.filter(n => !n.read).length} notifications`}>
                       <Bell className="h-5 w-5" />
-                      {notifications.filter(n => !n.is_read).length > 0 && (
+                      {notifications.filter(n => !n.read).length > 0 && (
                         <span className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center rounded-full bg-red-500 text-white text-xs">
-                          {notifications.filter(n => !n.is_read).length}
+                          {notifications.filter(n => !n.read).length}
                         </span>
                       )}
                     </Button>
@@ -214,9 +124,9 @@ const DashboardLayout: React.FC = () => {
                     <p className="text-xs text-muted-foreground capitalize">
                       {user?.role ? user.role.toLowerCase().replace(/_/g, ' ') : ""}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      {user?.restaurant?.name || "Restaurant"}
-                    </p>
+                    {restaurantLabel && !isUuid(restaurantLabel) && (
+                      <p className="text-xs text-muted-foreground">{restaurantLabel}</p>
+                    )}
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-destructive" aria-label="Sign out">
@@ -231,6 +141,11 @@ const DashboardLayout: React.FC = () => {
       </header>
 
       <main className="flex-1">
+        {location.pathname !== '/dashboard' && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-3 mb-2 border-b">
+            <BackLink fallbackPath="/dashboard">Back to Dashboard</BackLink>
+          </div>
+        )}
         <Outlet />
       </main>
     </div>

@@ -2,7 +2,6 @@ import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
-import { User } from '../services/backend.service';
 
 interface TimeSession {
     id: string;
@@ -94,20 +93,16 @@ export class TimeTrackingService {
                 this.httpService.post<
                     ClockInOutResponse
                 >(
-                    `${this.apiUrl}/timeloss/clock-in/`,
+                    `${this.apiUrl}/timeclock/clock-in/`,
                     { user_id: userId },
                 ),
             );
             return response.data;
         } catch (error) {
-            // For now, return mock data
-            return {
-                id: 'session-' + Date.now(),
-                user_id: userId,
-                clock_in: new Date().toISOString(),
-                clock_out: null,
-                status: 'active'
-            };
+            throw new HttpException(
+                'Failed to clock in. Please try again.',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
         }
     }
 
@@ -115,20 +110,16 @@ export class TimeTrackingService {
         try {
             const response = await firstValueFrom(
                 this.httpService.post<ClockInOutResponse>(
-                    `${this.apiUrl}/timeloss/clock-out/`,
+                    `${this.apiUrl}/timeclock/clock-out/`,
                     { user_id: userId },
                 ),
             );
             return response.data;
         } catch (error) {
-            // Mock response
-            return {
-                id: 'session-' + Date.now(),
-                user_id: userId,
-                clock_in: new Date().toISOString(),
-                clock_out: new Date().toISOString(),
-                status: 'completed',
-            };
+            throw new HttpException(
+                'Failed to clock out. Please try again.',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
         }
     }
 
@@ -136,13 +127,16 @@ export class TimeTrackingService {
         try {
             const response = await firstValueFrom(
                 this.httpService.post<BreakResponse>(
-                    `${this.apiUrl}/timeloss/take-break/`,
+                    `${this.apiUrl}/timeclock/break/start/`,
                     { user_id: userId },
                 ),
             );
             return response.data;
         } catch (error) {
-            return { message: 'Break started (mock)', session: null };
+            throw new HttpException(
+                'Failed to start break. Please try again.',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
         }
     }
 
@@ -150,13 +144,16 @@ export class TimeTrackingService {
         try {
             const response = await firstValueFrom(
                 this.httpService.post<BreakResponse>(
-                    `${this.apiUrl}/timeloss/end-break/`,
+                    `${this.apiUrl}/timeclock/break/end/`,
                     { user_id: userId },
                 ),
             );
             return response.data;
         } catch (error) {
-            return { message: 'Break ended (mock)', session: null };
+            throw new HttpException(
+                'Failed to end break. Please try again.',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
         }
     }
 
@@ -164,13 +161,16 @@ export class TimeTrackingService {
         try {
             const response = await firstValueFrom(
                 this.httpService.get<CurrentStatusResponse>(
-                    `${this.apiUrl}/timeloss/status/`,
+                    `${this.apiUrl}/timeclock/current-session/`,
                     { params: { user_id: userId } },
                 ),
             );
             return response.data;
         } catch (error) {
-            return { currentSession: null, currentBreak: null };
+            throw new HttpException(
+                'Failed to get current status. Please try again.',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
         }
     }
 
@@ -178,13 +178,16 @@ export class TimeTrackingService {
         try {
             const response = await firstValueFrom(
                 this.httpService.get<HistoryEntry[]>(
-                    `${this.apiUrl}/timeloss/history/`,
-                    { params: { restaurant_id: restaurantId, start_date: startDate, end_date: endDate } },
+                    `${this.apiUrl}/timeclock/attendance-history/`,
+                    { params: { start_date: startDate, end_date: endDate } },
                 ),
             );
             return response.data;
         } catch (error) {
-            return [];
+            throw new HttpException(
+                'Failed to get time tracking history. Please try again.',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
         }
     }
 
@@ -192,37 +195,33 @@ export class TimeTrackingService {
         try {
             const response = await firstValueFrom(
                 this.httpService.get<OverviewData>(
-                    `${this.apiUrl}/timeloss/overview/`,
+                    `${this.apiUrl}/timeclock/overview/`,
                     { params: { restaurant_id: restaurantId } },
                 ),
             );
             return response.data;
         } catch (error) {
-            return {
-                totalStaff: 0,
-                activeShifts: 0,
-                pendingOrders: 0,
-                revenueToday: 0,
-            };
+            throw new HttpException(
+                'Failed to get overview data. Please try again.',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
         }
     }
 
     async getStaffDashboardData(userId: string): Promise<StaffDashboardData> {
-        // Return mock data for staff dashboard
-        return {
-            currentSession: null, // or active session data
-            todaysShift: {
-                id: 'shift-1',
-                shift_type: 'MORNING',
-                start_time: '2024-01-18T09:00:00Z',
-                end_time: '2024-01-18T17:00:00Z',
-                notes: 'Regular morning shift'
-            },
-            stats: {
-                hoursThisWeek: 32.5,
-                shiftsThisWeek: 4,
-                earningsThisWeek: 520
-            }
-        };
+        try {
+            const response = await firstValueFrom(
+                this.httpService.get<StaffDashboardData>(
+                    `${this.apiUrl}/timeclock/staff-dashboard/`,
+                    { params: { user_id: userId } },
+                ),
+            );
+            return response.data;
+        } catch (error) {
+            throw new HttpException(
+                'Failed to get staff dashboard data. Please try again.',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
     }
 }
