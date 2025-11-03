@@ -72,8 +72,9 @@ export class BackendService {
   }
 
   async ownerSignup(signupData: SignupData): Promise<LoginResponse> {
+   
     try {
-      const response = await fetch(`${API_BASE}/auth/signup/owner/`, {
+      const response = await fetch(`${API_BASE}/api/register/`, {
         method: "POST",
         headers: this.getHeaders(),
         body: JSON.stringify(signupData),
