@@ -51,25 +51,39 @@ const AddStaff = () => {
 
     const validateForm = () => {
         const newErrors: FormErrors = {};
-
+        
         if (!email) {
             newErrors.email = "Email is required";
         } else if (!/\S+@\S+\.\S+/.test(email)) {
             newErrors.email = "Email is invalid";
         }
-
+        
         if (!firstName) newErrors.firstName = "First name is required";
         if (!lastName) newErrors.lastName = "Last name is required";
         if (!role) newErrors.role = "Role is required";
-
+        
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleInviteStaff = async () => {
+    const handleInvite = async () => {
         if (!validateForm()) return;
-
+        
         setIsLoading(true);
+        setErrors({}); // Clear previous errors
+
+        // 1. Get the token from localStorage
+        const token = localStorage.getItem('access_token');
+
+        // We use snake_case for the payload to match
+        // common Django REST Framework conventions
+        const payload = {
+            email: email,
+            first_name: firstName,
+            last_name: lastName,
+            role: role,
+            phone_number: phoneNumber || null // Send null if empty
+        };
 
         try {
             const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
@@ -195,15 +209,15 @@ const AddStaff = () => {
                     phoneNumber: values[headers.indexOf('phone')] || values[headers.indexOf('phonenumber')] || '',
                     status: 'pending'
                 };
-
+                
                 if (staffMember.email) {
                     staff.push(staffMember);
                 }
             }
-
+            
             setParsedStaff(staff);
         };
-
+        
         reader.readAsText(file);
     };
 
@@ -263,7 +277,7 @@ const AddStaff = () => {
     return (
         <div className="min-h-screen bg-gray-50 p-6">
             <div className="max-w-6xl mx-auto space-y-6">
-
+                
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     {/* <div className="flex items-center gap-4">
@@ -286,10 +300,11 @@ const AddStaff = () => {
                     <button
                         type="button"
                         onClick={() => setActiveTab('single')}
-                        className={`px-6 py-3 rounded-xl font-medium transition-all ${activeTab === 'single'
+                        className={`px-6 py-3 rounded-xl font-medium transition-all ${
+                            activeTab === 'single'
                                 ? 'bg-green-900 text-white shadow-md'
                                 : 'text-gray-600 hover:bg-gray-100'
-                            }`}
+                        }`}
                     >
                         <User className="w-4 h-4 inline-block mr-2" />
                         Single Invite
@@ -297,10 +312,11 @@ const AddStaff = () => {
                     <button
                         type="button"
                         onClick={() => setActiveTab('bulk')}
-                        className={`px-6 py-3 rounded-xl font-medium transition-all ${activeTab === 'bulk'
+                        className={`px-6 py-3 rounded-xl font-medium transition-all ${
+                            activeTab === 'bulk'
                                 ? 'bg-green-900 text-white shadow-md'
                                 : 'text-gray-600 hover:bg-gray-100'
-                            }`}
+                        }`}
                     >
                         <Users className="w-4 h-4 inline-block mr-2" />
                         Bulk Upload
@@ -322,7 +338,7 @@ const AddStaff = () => {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6 pt-6">
-
+                            
                             {/* Email */}
                             <div className="space-y-2">
                                 <Label htmlFor="email" className="text-sm font-medium text-gray-700">
@@ -444,8 +460,8 @@ const AddStaff = () => {
 
                             {/* Action Buttons */}
                             <div className="flex gap-3 pt-4">
-                                <Button
-                                    onClick={handleInviteStaff}
+                                <Button 
+                                    onClick={handleInvite} 
                                     disabled={isLoading}
                                     className="flex-1 rounded-xl bg-gradient-to-r from-green-900 to-green-900 hover:from-blue-900 hover:to-indigo-700 text-white h-12 font-medium shadow-md"
                                 >
@@ -484,7 +500,7 @@ const AddStaff = () => {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6 pt-6">
-
+                                
                                 {/* Download Template */}
                                 <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
                                     <div className="flex items-start gap-4">
@@ -496,7 +512,7 @@ const AddStaff = () => {
                                             <p className="text-sm text-gray-600 mb-3">
                                                 Get started with our CSV template. Fill in staff details and upload below.
                                             </p>
-                                            <Button
+                                            <Button 
                                                 onClick={downloadTemplate}
                                                 variant="outline"
                                                 className="rounded-xl border-blue-300 hover:bg-blue-100"
@@ -546,7 +562,7 @@ const AddStaff = () => {
                                                 {parsedStaff.length} staff members ready to invite
                                             </CardDescription>
                                         </div>
-                                        <Button
+                                        <Button 
                                             onClick={handleBulkInvite}
                                             disabled={isLoading}
                                             className="rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md"
