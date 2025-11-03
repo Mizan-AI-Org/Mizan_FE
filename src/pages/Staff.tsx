@@ -24,6 +24,7 @@ import {
 } from "lucide-react"
 
 import ShiftModal from "@/components/ShiftModal"
+import StaffAnnouncementsList from "@/pages/StaffAnnouncementsList"
 
 // Use configured API base to avoid relative path issues between environments
 const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
@@ -638,9 +639,10 @@ export default function Staff() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-md grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="schedule">Staff Schedule </TabsTrigger>
+          <TabsTrigger value="announcements">Announcements</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -804,6 +806,9 @@ export default function Staff() {
 
         <TabsContent value="schedule">
           <GoogleCalendarScheduler />
+        </TabsContent>
+        <TabsContent value="announcements">
+          <StaffAnnouncementsList />
         </TabsContent>
       </Tabs>
     </div>

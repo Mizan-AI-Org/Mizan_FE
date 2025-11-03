@@ -173,8 +173,9 @@ export default function Settings() {
     }
   }, [navigate, apiClient]);
 
-  // Restrict non-profile settings for staff users
-  const isStaff = (user?.role || "").toUpperCase() === "STAFF";
+  // Restrict non-profile settings for staff users: only admins/managers can see other tabs
+  const roleUpper = (user?.role || "").toUpperCase();
+  const isStaff = !(roleUpper === "SUPER_ADMIN" || roleUpper === "ADMIN" || roleUpper === "MANAGER");
 
   const loadCoreSettings = async () => {
     try {

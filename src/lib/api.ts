@@ -1873,17 +1873,49 @@ export class BackendService {
       schedule_for?: string;
       recipients_staff_ids?: string[];
       recipients_departments?: string[];
-    }
+      tags?: string[];
+    },
+    attachments?: File[]
   ): Promise<CreateAnnouncementResponse> {
     try {
-      const response = await fetch(`${API_BASE}/notifications/announcements/`, {
+      const formData = new FormData();
+      formData.append("title", announcementData.title);
+      formData.append("message", announcementData.message);
+      formData.append("priority", announcementData.priority);
+      if (announcementData.expires_at)
+        formData.append("expires_at", announcementData.expires_at);
+      if (announcementData.schedule_for)
+        formData.append("schedule_for", announcementData.schedule_for);
+      if (announcementData.recipients_staff_ids?.length) {
+        announcementData.recipients_staff_ids.forEach((id) =>
+          formData.append("recipients_staff_ids", id)
+        );
+      }
+      if (announcementData.recipients_departments?.length) {
+        announcementData.recipients_departments.forEach((dept) =>
+          formData.append("recipients_departments", dept)
+        );
+      }
+      if (announcementData.tags?.length) {
+        announcementData.tags.forEach((tag) => formData.append("tags", tag));
+      }
+      (attachments || []).forEach((file) =>
+        formData.append("attachments", file, file.name)
+      );
+
+      const response = await fetch(`${API_BASE}/notifications/announcements/create/`, {
         method: "POST",
-        headers: this.getHeaders(accessToken),
-        body: JSON.stringify(announcementData),
+        // Do NOT set Content-Type header for FormData; browser sets boundary
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        body: formData,
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create announcement");
+        let errorMessage = "Failed to create announcement";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {}
+        throw new Error(errorMessage);
       }
       return await response.json();
     } catch (error: any) {
