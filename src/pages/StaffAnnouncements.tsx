@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+// Using a simple rich text editor via contentEditable instead of Textarea
 import {
   Select,
   SelectContent,
@@ -34,10 +34,11 @@ interface AnnouncementFormData {
   schedule_for?: string;
   recipients_staff_ids?: string[];
   recipients_departments?: string[];
+  tags?: string[];
 }
 
 const StaffAnnouncements: React.FC = () => {
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expirationDate, setExpirationDate] = useState<Date>();
@@ -54,6 +55,12 @@ const StaffAnnouncements: React.FC = () => {
     message: "",
     priority: "MEDIUM",
   });
+  const [richHtml, setRichHtml] = useState<string>("");
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const editorRef = React.useRef<HTMLDivElement | null>(null);
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState<string>("");
+  const canCompose = hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER"]);
 
   useEffect(() => {
     const fetchProfiles = async () => {
@@ -93,7 +100,11 @@ const StaffAnnouncements: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.title.trim() || !formData.message.trim()) {
+    const plainMessage = richHtml
+      .replace(/<br\s*\/>/gi, "\n")
+      .replace(/<[^>]*>/g, "")
+      .trim();
+    if (!formData.title.trim() || !plainMessage) {
       toast({
         title: "Validation Error",
         description: "Please fill in both title and message fields.",
@@ -112,9 +123,14 @@ const StaffAnnouncements: React.FC = () => {
 
       const announcementData: AnnouncementFormData = {
         ...formData,
+        message: plainMessage,
         expires_at: expirationDate ? expirationDate.toISOString() : undefined,
         schedule_for: scheduleDate ? scheduleDate.toISOString() : undefined,
       };
+
+      if (tags.length) {
+        announcementData.tags = tags.map((t) => t.trim()).filter(Boolean);
+      }
 
       if (recipientMode === "STAFF") {
         announcementData.recipients_staff_ids = selectedStaffIds.length
@@ -133,7 +149,8 @@ const StaffAnnouncements: React.FC = () => {
 
       const result = await api.createAnnouncement(
         accessToken,
-        announcementData
+        announcementData,
+        attachments
       );
 
       toast({
@@ -147,11 +164,16 @@ const StaffAnnouncements: React.FC = () => {
         message: "",
         priority: "MEDIUM",
       });
+      setRichHtml("");
+      if (editorRef.current) editorRef.current.innerHTML = "";
       setExpirationDate(undefined);
       setScheduleDate(undefined);
       setRecipientMode("ALL");
       setSelectedStaffIds([]);
       setSelectedDepartments([]);
+      setAttachments([]);
+      setTags([]);
+      setTagInput("");
     } catch (error) {
       toast({
         title: "Error",
@@ -188,6 +210,11 @@ const StaffAnnouncements: React.FC = () => {
         <p className="text-gray-600 mt-2">
           Create and send announcements to all staff members in your restaurant.
         </p>
+        {!canCompose && (
+          <div className="mt-3 p-3 rounded-md border bg-yellow-50 text-yellow-900">
+            You do not have permission to create announcements. Please contact an administrator.
+          </div>
+        )}
       </div>
 
       <Card>
@@ -208,20 +235,197 @@ const StaffAnnouncements: React.FC = () => {
                 value={formData.title}
                 onChange={(e) => handleInputChange("title", e.target.value)}
                 required
+                disabled={!canCompose}
               />
             </div>
 
-            {/* Message Field */}
+            {/* Message Field - Rich Text Editor */}
             <div className="space-y-2">
-              <Label htmlFor="message">Message *</Label>
-              <Textarea
-                id="message"
-                placeholder="Enter your announcement message..."
-                value={formData.message}
-                onChange={(e) => handleInputChange("message", e.target.value)}
-                rows={6}
-                required
+              <Label>Message *</Label>
+              <div className="border rounded-md">
+                <div className="flex items-center gap-1 p-2 border-b">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => document.execCommand("bold")}
+                    aria-label="Bold"
+                    disabled={!canCompose}
+                  >
+                    <span className="font-bold">B</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => document.execCommand("italic")}
+                    aria-label="Italic"
+                    disabled={!canCompose}
+                  >
+                    <span className="italic">I</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => document.execCommand("underline")}
+                    aria-label="Underline"
+                    disabled={!canCompose}
+                  >
+                    <span className="underline">U</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => document.execCommand("insertUnorderedList")}
+                    aria-label="Bullet list"
+                    disabled={!canCompose}
+                  >
+                    • List
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => document.execCommand("insertOrderedList")}
+                    aria-label="Numbered list"
+                    disabled={!canCompose}
+                  >
+                    1. List
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const url = window.prompt("Enter URL");
+                      if (url) document.execCommand("createLink", false, url);
+                    }}
+                    aria-label="Insert link"
+                    disabled={!canCompose}
+                  >
+                    Link
+                  </Button>
+                </div>
+                <div
+                  ref={editorRef}
+                  className="p-3 min-h-[140px] outline-none"
+                  contentEditable
+                  onInput={(e) => {
+                    const html = (e.target as HTMLElement).innerHTML;
+                    setRichHtml(html);
+                    const plain = html
+                      .replace(/<br\s*\/>/gi, "\n")
+                      .replace(/<[^>]*>/g, "")
+                      .trim();
+                    setFormData((prev) => ({ ...prev, message: plain }));
+                  }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Basic formatting supported. Message is delivered as plain text.
+              </p>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-2">
+              <Label htmlFor="tags">Categories / Tags</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="tags"
+                  placeholder="Type a tag and press Enter"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const val = tagInput.trim();
+                      if (val && !tags.includes(val)) setTags([...tags, val]);
+                      setTagInput("");
+                    }
+                  }}
+                  disabled={!canCompose}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    const val = tagInput.trim();
+                    if (val && !tags.includes(val)) setTags([...tags, val]);
+                    setTagInput("");
+                  }}
+                  disabled={!canCompose}
+                >
+                  Add
+                </Button>
+              </div>
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-2" aria-live="polite">
+                  {tags.map((t, idx) => (
+                    <span
+                      key={`${t}-${idx}`}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-muted text-sm"
+                    >
+                      {t}
+                      <button
+                        type="button"
+                        className="ml-1 text-muted-foreground hover:text-foreground"
+                        aria-label={`Remove tag ${t}`}
+                        onClick={() => setTags(tags.filter((x) => x !== t))}
+                        disabled={!canCompose}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Attachments */}
+            <div className="space-y-2">
+              <Label>Attachments</Label>
+              <Input
+                type="file"
+                multiple
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  setAttachments(files);
+                }}
               />
+              {attachments.length > 0 && (
+                <div className="border rounded-md p-2">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {attachments.length} file(s) selected
+                  </p>
+                  <ul className="space-y-1">
+                    {attachments.map((file, idx) => (
+                      <li key={`${file.name}-${idx}`} className="flex items-center justify-between text-sm">
+                        <span className="truncate max-w-[70%]">
+                          {file.name}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {(file.size / 1024).toFixed(1)} KB
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setAttachments((prev) => prev.filter((_, i) => i !== idx))
+                            }
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             {/* Priority Field */}

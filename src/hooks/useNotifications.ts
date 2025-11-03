@@ -9,6 +9,14 @@ interface Notification {
     created_at: string;
     is_read: boolean;
     notification_type: string;
+    title?: string;
+    attachments?: Array<{
+      original_name?: string;
+      url?: string;
+      content_type?: string;
+      size?: number;
+      uploaded_at?: string;
+    }>;
 }
 
 interface WebSocketMessage {
@@ -177,6 +185,8 @@ export const useNotifications = () => {
             timestamp: n.created_at, // Map backend 'created_at' to frontend 'timestamp'
             verb: (n.notification_type || '').replace(/_/g, ' ').toLowerCase(), // Derive verb from type safely
             description: n.message, // Map backend 'message' to frontend 'description'
+            title: (n as any).title,
+            attachments: (n as any).attachments || [],
         })),
         unreadCount: normalized.filter(n => !n.is_read).length,
         isConnected,

@@ -1,15 +1,22 @@
 import React, { useState } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth } from '@/hooks/use-auth';
-import { Clock, Calendar, LogOut, User, ShoppingCart, UtensilsCrossed, LayoutDashboard, MessageSquare, Shield, Menu, X } from "lucide-react";
+import { Clock, Calendar, LogOut, User, ShoppingCart, UtensilsCrossed, LayoutDashboard, MessageSquare, Shield, Menu, X, Bell } from "lucide-react";
 import SafetyNotifications from "@/components/safety/SafetyNotifications";
 import BackLink from "@/components/BackLink";
 import BrandLogo from "@/components/BrandLogo";
+import { Button } from "@/components/ui/button";
+import { useNotifications } from "@/hooks/useNotifications";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 const StaffLayout: React.FC = () => {
     const { user, logout } = useAuth();
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const { notifications, markAllAsRead, markAsRead } = useNotifications();
+    const [openDetail, setOpenDetail] = useState(false);
+    const [selectedNotification, setSelectedNotification] = useState<any | null>(null);
 
     const navigation = [
         { name: "Dashboard", href: "/staff-dashboard", icon: User },
@@ -42,12 +49,57 @@ const StaffLayout: React.FC = () => {
                             Mizan Staff
                         </h1>
                     </div>
-                    <button
-                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                        className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
-                    >
-                        {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {/* Notifications Bell */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="relative" aria-label={`View ${notifications.filter(n => !n.read).length} notifications`}>
+                              <Bell className="h-5 w-5" />
+                              {notifications.filter(n => !n.read).length > 0 && (
+                                <span className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center rounded-full bg-red-500 text-white text-xs">
+                                  {notifications.filter(n => !n.read).length}
+                                </span>
+                              )}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-80">
+                            <div className="px-4 py-2 font-medium">Notifications</div>
+                            <DropdownMenuSeparator />
+                            {notifications.length === 0 ? (
+                              <p className="text-center text-sm text-muted-foreground py-4">No new notifications</p>
+                            ) : (
+                              notifications.map((notification) => (
+                                <DropdownMenuItem
+                                  key={notification.id}
+                                  className="flex flex-col items-start space-y-1 p-2"
+                                  onClick={() => { setSelectedNotification(notification); setOpenDetail(true); }}
+                                >
+                                  <p className="text-sm font-medium capitalize">{notification.verb.replace(/_/g, ' ')}</p>
+                                  {notification.description && (
+                                    <p className="text-xs text-muted-foreground">{notification.description}</p>
+                                  )}
+                                  <p className="text-xs text-muted-foreground">{new Date(notification.timestamp).toLocaleString()}</p>
+                                  {!notification.read && (
+                                    <Button variant="link" size="sm" onClick={(e) => { e.stopPropagation(); markAsRead(notification.id); }} className="self-end h-auto p-0 text-xs text-blue-600">
+                                      Mark as Read
+                                    </Button>
+                                  )}
+                                </DropdownMenuItem>
+                              ))
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={markAllAsRead}>
+                              Mark all as read
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <button
+                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                            className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
+                        >
+                            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -72,7 +124,50 @@ const StaffLayout: React.FC = () => {
                                 {user?.restaurant_data?.name}
                             </p>
                         </div>
-                        <div>
+                        <div className="flex items-center gap-2">
+                            {/* Notifications Bell (Desktop) */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="relative" aria-label={`View ${notifications.filter(n => !n.read).length} notifications`}>
+                                  <Bell className="h-5 w-5" />
+                                  {notifications.filter(n => !n.read).length > 0 && (
+                                    <span className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center rounded-full bg-red-500 text-white text-xs">
+                                      {notifications.filter(n => !n.read).length}
+                                    </span>
+                                  )}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-80">
+                                <div className="px-4 py-2 font-medium">Notifications</div>
+                                <DropdownMenuSeparator />
+                                {notifications.length === 0 ? (
+                                  <p className="text-center text-sm text-muted-foreground py-4">No new notifications</p>
+                                ) : (
+                                  notifications.map((notification) => (
+                                    <DropdownMenuItem
+                                      key={notification.id}
+                                      className="flex flex-col items-start space-y-1 p-2"
+                                      onClick={() => { setSelectedNotification(notification); setOpenDetail(true); }}
+                                    >
+                                      <p className="text-sm font-medium capitalize">{notification.verb.replace(/_/g, ' ')}</p>
+                                      {notification.description && (
+                                        <p className="text-xs text-muted-foreground">{notification.description}</p>
+                                      )}
+                                      <p className="text-xs text-muted-foreground">{new Date(notification.timestamp).toLocaleString()}</p>
+                                      {!notification.read && (
+                                        <Button variant="link" size="sm" onClick={(e) => { e.stopPropagation(); markAsRead(notification.id); }} className="self-end h-auto p-0 text-xs text-blue-600">
+                                          Mark as Read
+                                        </Button>
+                                      )}
+                                    </DropdownMenuItem>
+                                  ))
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={markAllAsRead}>
+                                  Mark all as read
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                             <SafetyNotifications />
                         </div>
                     </div>
@@ -135,6 +230,35 @@ const StaffLayout: React.FC = () => {
                         </div>
                     )}
                     <Outlet />
+                    <Dialog open={openDetail} onOpenChange={setOpenDetail}>
+                      <DialogContent className="sm:max-w-lg">
+                        <DialogHeader>
+                          <DialogTitle>{selectedNotification?.title || selectedNotification?.verb}</DialogTitle>
+                          {selectedNotification?.description && (
+                            <DialogDescription>{selectedNotification.description}</DialogDescription>
+                          )}
+                        </DialogHeader>
+                        {selectedNotification && (
+                          <div className="space-y-2">
+                            <p className="text-xs text-muted-foreground">{new Date(selectedNotification.timestamp).toLocaleString()}</p>
+                            {Array.isArray(selectedNotification.attachments) && selectedNotification.attachments.length > 0 && (
+                              <div className="mt-2">
+                                <p className="text-sm font-medium">Attachments</p>
+                                <ul className="list-disc list-inside space-y-1">
+                                  {selectedNotification.attachments.map((file: any, idx: number) => (
+                                    <li key={idx}>
+                                      <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                        {file.original_name || `Attachment ${idx + 1}`}
+                                      </a>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </DialogContent>
+                    </Dialog>
                 </main>
             </div>
         </div>

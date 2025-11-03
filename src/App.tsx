@@ -12,7 +12,7 @@ import RoleBasedRoute from "./components/RoleBasedRoute";
 import { useIdleTimeout } from "./hooks/use-idle-timeout";
 import React, { useEffect, useState } from "react";
 import ErrorBoundary from "./components/ErrorBoundary"; // kept at root in main.tsx
-// import usePushNotifications from "./hooks/usePushNotifications"; // Notifications disabled
+ import usePushNotifications from "./hooks/usePushNotifications"; // Notifications disabled
 import { useAuth } from "./contexts/AuthContext";
 import OfflineWarning from "./components/OfflineWarning"; // Import OfflineWarning
 import InventoryItemsPage from "./pages/inventory/InventoryItemsPage";
