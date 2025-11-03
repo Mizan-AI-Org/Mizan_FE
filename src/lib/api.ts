@@ -24,6 +24,8 @@ import {
   AttendanceReport,
   InventoryReport,
   ClockEvent,
+  StaffProfileItem,
+  CreateAnnouncementResponse,
 } from "./types"; // Updated import path
 
 const API_BASE =
@@ -91,24 +93,46 @@ export class BackendService {
     token: string,
     first_name: string,
     last_name: string,
-    password: string,
-    pin_code: string | null
+    password?: string,
+    pin_code?: string | null,
+    invitation_pin?: string | null
   ): Promise<LoginResponse> {
     try {
-      const response = await fetch(`${API_BASE}/staff/accept-invitation/`, {
+      // Decide endpoint based on provided credentials
+      const isStaffFlow = !!pin_code && !!invitation_pin;
+      const endpoint = isStaffFlow
+        ? `${API_BASE}/auth/accept-invitation/`
+        : `${API_BASE}/invitations/accept/`;
+
+      const body: Record<string, any> = {
+        token,
+        first_name,
+        last_name,
+      };
+
+      if (isStaffFlow) {
+        body.pin_code = pin_code;
+        body.invitation_pin = invitation_pin;
+      } else if (password) {
+        body.password = password;
+      } else {
+        throw new Error("Missing credentials: provide PINs for staff or password for admin.");
+      }
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: this.getHeaders(),
-        body: JSON.stringify({
-          token,
-          first_name,
-          last_name,
-          password,
-          pin_code,
-        }),
+        body: JSON.stringify(body),
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Invitation acceptance failed");
+        let message = "Invitation acceptance failed";
+        try {
+          const errorData = await response.json();
+          message = errorData.message || errorData.detail || message;
+        } catch (_) {
+          // ignore parse errors
+        }
+        throw new Error(message);
       }
       return await response.json();
     } catch (error: any) {
@@ -259,6 +283,14 @@ export class BackendService {
     }
   }
 
+  // Alias for consistency with controllers expecting inviteStaff()
+  async inviteStaff(
+    accessToken: string,
+    invitationData: InviteStaffData
+  ): Promise<StaffOperationResponse> {
+    return this.handleInviteStaff(accessToken, invitationData);
+  }
+
   async getStaffList(accessToken: string): Promise<StaffListItem[]> {
     try {
       const response = await fetch(`${API_BASE}/staff/list/`, {
@@ -271,26 +303,8 @@ export class BackendService {
       }
       return await response.json();
     } catch (error: any) {
-      // Mock data for development if API fails
-      console.error("Error fetching staff list, returning mock data:", error);
-      return [
-        {
-          id: "",
-          email: "",
-          first_name: "",
-          last_name: "",
-          role: "",
-          join_date: "",
-        },
-        {
-          id: "",
-          email: "",
-          first_name: "",
-          last_name: "",
-          role: "",
-          join_date: "",
-        },
-      ];
+      console.error("Error fetching staff list:", error);
+      throw new Error(error.message || "Failed to fetch staff list");
     }
   }
 
@@ -306,16 +320,8 @@ export class BackendService {
       }
       return await response.json();
     } catch (error: any) {
-      console.error(
-        "Error fetching staff dashboard, returning mock data:",
-        error
-      );
-      return {
-        totalStaff: 8,
-        activeShifts: 3,
-        pendingOrders: 12,
-        revenueToday: 1850,
-      };
+      console.error("Error fetching staff dashboard:", error);
+      throw new Error(error.message || "Failed to fetch staff dashboard");
     }
   }
 
@@ -1839,6 +1845,82 @@ export class BackendService {
       return await response.json();
     } catch (error: any) {
       throw new Error(error.message || "Failed to reassign task");
+    }
+  }
+
+  async getStaffProfiles(accessToken: string): Promise<StaffProfileItem[]> {
+    try {
+      const response = await fetch(`${API_BASE}/staff/profiles/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch staff profiles");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to fetch staff profiles");
+    }
+  }
+
+  async createAnnouncement(
+    accessToken: string,
+    announcementData: {
+      title: string;
+      message: string;
+      priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+      expires_at?: string;
+      schedule_for?: string;
+      recipients_staff_ids?: string[];
+      recipients_departments?: string[];
+      tags?: string[];
+    },
+    attachments?: File[]
+  ): Promise<CreateAnnouncementResponse> {
+    try {
+      const formData = new FormData();
+      formData.append("title", announcementData.title);
+      formData.append("message", announcementData.message);
+      formData.append("priority", announcementData.priority);
+      if (announcementData.expires_at)
+        formData.append("expires_at", announcementData.expires_at);
+      if (announcementData.schedule_for)
+        formData.append("schedule_for", announcementData.schedule_for);
+      if (announcementData.recipients_staff_ids?.length) {
+        announcementData.recipients_staff_ids.forEach((id) =>
+          formData.append("recipients_staff_ids", id)
+        );
+      }
+      if (announcementData.recipients_departments?.length) {
+        announcementData.recipients_departments.forEach((dept) =>
+          formData.append("recipients_departments", dept)
+        );
+      }
+      if (announcementData.tags?.length) {
+        announcementData.tags.forEach((tag) => formData.append("tags", tag));
+      }
+      (attachments || []).forEach((file) =>
+        formData.append("attachments", file, file.name)
+      );
+
+      const response = await fetch(`${API_BASE}/notifications/announcements/create/`, {
+        method: "POST",
+        // Do NOT set Content-Type header for FormData; browser sets boundary
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        body: formData,
+      });
+      if (!response.ok) {
+        let errorMessage = "Failed to create announcement";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {}
+        throw new Error(errorMessage);
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to create announcement");
     }
   }
 }

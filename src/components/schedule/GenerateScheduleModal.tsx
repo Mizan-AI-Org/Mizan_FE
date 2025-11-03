@@ -33,7 +33,7 @@ const GenerateScheduleModal: React.FC<GenerateScheduleModalProps> = ({ isOpen, o
     const { data: templates, isLoading: isLoadingTemplates, error: templatesError } = useQuery<ScheduleTemplate[]>({
         queryKey: ['schedule-templates'],
         queryFn: async () => {
-            const response = await fetch(`${API_BASE}/schedule/templates/`, {
+            const response = await fetch(`${API_BASE}/scheduling/templates/`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
                 },
@@ -52,7 +52,7 @@ const GenerateScheduleModal: React.FC<GenerateScheduleModalProps> = ({ isOpen, o
 
     const generateScheduleMutation = useMutation({
         mutationFn: async (data: { template_id: string; week_start: string }) => {
-            const response = await fetch(`${API_BASE}/schedule/generate-weekly-schedule/`, {
+            const response = await fetch(`${API_BASE}/scheduling/generate-weekly-schedule/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -72,17 +72,22 @@ const GenerateScheduleModal: React.FC<GenerateScheduleModalProps> = ({ isOpen, o
             return response.json();
         },
         onSuccess: () => {
-            queryClient.invalidateQueries(['weekly-schedule']);
+            queryClient.invalidateQueries({ queryKey: ['weekly-schedule'] });
             toast({
                 title: "Weekly schedule generated successfully!",
                 description: "The new weekly schedule has been created based on the selected template.",
             });
             onClose();
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
+            const message = error instanceof Error
+                ? error.message
+                : typeof error === 'string'
+                    ? error
+                    : 'An unexpected error occurred.';
             toast({
                 title: "Failed to generate weekly schedule.",
-                description: error.message || "An unexpected error occurred.",
+                description: message,
                 variant: "destructive",
             });
         },
@@ -148,8 +153,8 @@ const GenerateScheduleModal: React.FC<GenerateScheduleModalProps> = ({ isOpen, o
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                        <Button type="submit" disabled={generateScheduleMutation.isLoading || isLoadingTemplates || !!templatesError}>
-                            {generateScheduleMutation.isLoading ? 'Generating...' : 'Generate Schedule'}
+                        <Button type="submit" disabled={generateScheduleMutation.isPending || isLoadingTemplates || !!templatesError}>
+                            {generateScheduleMutation.isPending ? 'Generating...' : 'Generate Schedule'}
                         </Button>
                     </DialogFooter>
                 </form>

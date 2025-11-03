@@ -22,7 +22,7 @@ const usePushNotifications = (): PushNotificationHook => {
         if (!user) return;
 
         try {
-            const response = await fetch(`${API_BASE}/notifications/device-token/register/`, {
+            const response = await fetch(`${API_BASE}/notifications/device-tokens/register/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -47,7 +47,7 @@ const usePushNotifications = (): PushNotificationHook => {
         if (!user) return;
 
         try {
-            const response = await fetch(`${API_BASE}/notifications/device-token/unregister/`, {
+            const response = await fetch(`${API_BASE}/notifications/device-tokens/unregister/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

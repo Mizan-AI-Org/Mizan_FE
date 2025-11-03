@@ -2,8 +2,14 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 
 export const useStaffInvite = () => {
     return useMutation({
-        mutationFn: async (invitationData: { email: string; role: string }) => {
-            const response = await fetch('/api/staff/invite', {
+        mutationFn: async (invitationData: {
+            email: string;
+            role: string;
+            first_name?: string;
+            last_name?: string;
+            phone_number?: string;
+        }) => {
+            const response = await fetch('/api/staff/invite/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
