@@ -107,13 +107,14 @@ const GoogleCalendarScheduler = () => {
 
   // Ensure a WeeklySchedule exists for the week; create if missing, fetch if duplicate
   const ensureWeeklySchedule = async (token: string, weekStartStr: string, weekEndStr: string) => {
-    // 1) Try to find existing schedule for this week
+    // 1) Try to find existing schedule for this week (supports paginated or raw array responses)
     const listRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!listRes.ok) throw new Error("Failed to fetch weekly schedules")
-    const listData: WeeklyScheduleData[] = await listRes.json()
-    const existing = listData.find((s) => s.week_start === weekStartStr)
+    const listJson = await listRes.json()
+    const listData: WeeklyScheduleData[] = (listJson?.results ?? listJson) as WeeklyScheduleData[]
+    const existing = Array.isArray(listData) ? listData.find((s) => s.week_start === weekStartStr) : undefined
     if (existing) return existing
 
     // 2) Not found — try to create
@@ -133,8 +134,9 @@ const GoogleCalendarScheduler = () => {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (!retryListRes.ok) throw new Error("Failed to fetch weekly schedules after duplicate")
-      const retryList: WeeklyScheduleData[] = await retryListRes.json()
-      const found = retryList.find((s) => s.week_start === weekStartStr)
+      const retryJson = await retryListRes.json()
+      const retryList: WeeklyScheduleData[] = (retryJson?.results ?? retryJson) as WeeklyScheduleData[]
+      const found = Array.isArray(retryList) ? retryList.find((s) => s.week_start === weekStartStr) : undefined
       if (found) return found
     }
 
@@ -162,7 +164,8 @@ const GoogleCalendarScheduler = () => {
           },
         })
         if (!staffResponse.ok) throw new Error("Failed to fetch staff members")
-        const staffData: StaffMember[] = await staffResponse.json()
+  const staffJson = await staffResponse.json()
+  const staffData: StaffMember[] = (staffJson?.results ?? staffJson) as StaffMember[]
         // Optionally exclude admins here so dropdown only shows assignable staff
         const nonAdmins = staffData.filter(
           (s: any) => (s.role || '').toUpperCase() !== 'ADMIN' && (s.role || '').toUpperCase() !== 'SUPER_ADMIN'
@@ -296,8 +299,22 @@ const GoogleCalendarScheduler = () => {
 
   const handleSaveShift = async (shift: Shift) => {
     if (!weeklySchedule) {
-      console.error("No weekly schedule available to save shifts.")
-      return
+      try {
+        const token = localStorage.getItem("access_token")
+        if (!token) {
+          console.error("No access token found")
+          return
+        }
+        const weekStartDate = getWeekStart(currentDate)
+        const weekEndDate = getWeekEnd(currentDate)
+        const weekStartStr = toYMD(weekStartDate)
+        const weekEndStr = toYMD(weekEndDate)
+        const created = await ensureWeeklySchedule(token, weekStartStr, weekEndStr)
+        setWeeklySchedule(created)
+      } catch (e) {
+        console.error("No weekly schedule available to save shifts.")
+        return
+      }
     }
 
     // Guard: staff must be selected
