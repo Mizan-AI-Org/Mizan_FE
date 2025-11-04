@@ -232,7 +232,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                             value={pinCode}
                             onChange={(e) => setPinCode(e.target.value)}
                             className="col-span-3"
-                            maxLength={6}
+                            maxLength={4}
                             placeholder="Leave blank to keep current PIN"
                         />
                     </div>

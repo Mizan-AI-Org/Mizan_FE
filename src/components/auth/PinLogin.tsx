@@ -44,8 +44,8 @@ const PinLogin: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (pin.length !== 6) {
-            toast.error("PIN must be 6 digits.");
+        if (pin.length !== 4) {
+            toast.error("PIN must be 4 digits.");
             return;
         }
 
@@ -60,11 +60,12 @@ const PinLogin: React.FC = () => {
         }
 
         try {
-            await loginWithPin(pin, imageSrc, latitude, longitude);
+            await loginWithPin(pin, null, imageSrc, latitude, longitude);
             toast.success("Login successful!");
             navigate('/staff-dashboard'); // Redirect to staff dashboard after successful login
-        } catch (error: any) {
-            toast.error(error.message || "PIN login failed.");
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "PIN login failed.";
+            toast.error(message);
         }
     };
 
@@ -73,7 +74,7 @@ const PinLogin: React.FC = () => {
             <Card className="w-full max-w-md bg-white/5 border-gray-700 shadow-xl backdrop-blur-md">
                 <CardHeader className="text-center">
                     <CardTitle className="text-3xl font-bold text-white">Staff PIN Login</CardTitle>
-                    <CardDescription className="text-gray-400">Enter your 6-digit PIN and capture your photo.</CardDescription>
+                    <CardDescription className="text-gray-400">Enter your 4-digit PIN and capture your photo.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -83,11 +84,11 @@ const PinLogin: React.FC = () => {
                                 id="pin"
                                 name="pin"
                                 type="password"
-                                maxLength={6}
+                                maxLength={4}
                                 value={pin}
                                 onChange={(e) => setPin(e.target.value)}
                                 className="h-12 text-center text-xl tracking-widest bg-gray-800 border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="● ● ● ● ● ●"
+                                placeholder="● ● ● ●"
                                 required
                             />
                         </div>
