@@ -166,14 +166,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const loginWithPin = async (pin: string, email: string | null = null) => {
+  const loginWithPin = async (
+    pin: string,
+    email: string | null = null,
+    imageData: string | null = null,
+    latitude: number | null = null,
+    longitude: number | null = null
+  ) => {
     try {
       const response = await fetch(`${API_BASE}/auth/pin-login/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ pin_code: pin, email: email }),
+        body: JSON.stringify({
+          pin_code: pin,
+          email: email,
+          image_data: imageData ?? undefined,
+          latitude: latitude ?? undefined,
+          longitude: longitude ?? undefined,
+        }),
       });
 
       const contentType = response.headers.get("content-type") || "";

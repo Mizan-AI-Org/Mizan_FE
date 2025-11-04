@@ -18,8 +18,6 @@ const AcceptInvitation: React.FC = () => {
     const [lastName, setLastName] = useState('');
     // PIN the staff will use to log in (4 digits)
     const [pinCode, setPinCode] = useState<string>('');
-    // Invitation verification PIN from email (4 digits)
-    const [invitationPin, setInvitationPin] = useState<string>('');
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -29,11 +27,7 @@ const AcceptInvitation: React.FC = () => {
             return;
         }
 
-        // Basic client-side validations (PIN-only for staff)
-        if (!/^[0-9]{4}$/.test(invitationPin)) {
-            toast({ title: "Invalid Invitation PIN", description: "Invitation PIN must be 4 digits.", variant: "destructive" });
-            return;
-        }
+        // Basic client-side validations (Login PIN only for staff)
         if (!/^[0-9]{4}$/.test(pinCode)) {
             toast({ title: "Invalid Login PIN", description: "Login PIN must be 4 digits.", variant: "destructive" });
             return;
@@ -41,7 +35,7 @@ const AcceptInvitation: React.FC = () => {
 
         setLoading(true);
         try {
-            await acceptInvitation(token, firstName, lastName, undefined, pinCode, invitationPin);
+            await acceptInvitation(token, firstName, lastName, undefined, pinCode, null);
             toast({ title: "Success", description: "Invitation accepted! You are now logged in." });
             // Redirection handled by AuthContext
         } catch (error: unknown) {
@@ -99,19 +93,7 @@ const AcceptInvitation: React.FC = () => {
                                 required
                             />
                         </div>
-                        {/* Password is not required for staff invitations */}
-                        <div className="grid gap-2">
-                            <Label htmlFor="invitationPin">Invitation PIN (from email)</Label>
-                            <Input
-                                id="invitationPin"
-                                type="text"
-                                placeholder="XXXX"
-                                value={invitationPin}
-                                onChange={(e) => setInvitationPin(e.target.value)}
-                                maxLength={4}
-                                required
-                            />
-                        </div>
+                        {/* Password is not required for staff invitations; no Invitation PIN needed */}
                         <div className="grid gap-2">
                             <Label htmlFor="pinCode">Set Your Login PIN</Label>
                             <Input
