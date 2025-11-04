@@ -22,7 +22,6 @@ import {
   ChevronRight,
   Trash2,
 } from "lucide-react"
-
 import ShiftModal from "@/components/ShiftModal"
 import StaffAnnouncementsList from "@/pages/StaffAnnouncementsList"
 
@@ -82,6 +81,68 @@ const GoogleCalendarScheduler = () => {
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null)
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
 
+  // Helper: format date as YYYY-MM-DD (local)
+  const toYMD = (d: Date) => {
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, "0")
+    const day = String(d.getDate()).padStart(2, "0")
+    return `${year}-${month}-${day}`
+  }
+
+  // Helper: Monday of the week for a given date
+  const getWeekStart = (date: Date) => {
+    const d = new Date(date)
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    return new Date(d.setDate(diff))
+  }
+
+  // Helper: Sunday of the week for a given date
+  const getWeekEnd = (date: Date) => {
+    const start = getWeekStart(date)
+    const end = new Date(start)
+    end.setDate(start.getDate() + 6)
+    return end
+  }
+
+  // Ensure a WeeklySchedule exists for the week; create if missing, fetch if duplicate
+  const ensureWeeklySchedule = async (token: string, weekStartStr: string, weekEndStr: string) => {
+    // 1) Try to find existing schedule for this week
+    const listRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!listRes.ok) throw new Error("Failed to fetch weekly schedules")
+    const listData: WeeklyScheduleData[] = await listRes.json()
+    const existing = listData.find((s) => s.week_start === weekStartStr)
+    if (existing) return existing
+
+    // 2) Not found — try to create
+    const createRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ week_start: weekStartStr, week_end: weekEndStr, is_published: false }),
+    })
+
+    if (createRes.ok) {
+      return (await createRes.json()) as WeeklyScheduleData
+    }
+
+    // 3) If server says duplicate exists (400), fetch again and return it
+    if (createRes.status === 400) {
+      const retryListRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!retryListRes.ok) throw new Error("Failed to fetch weekly schedules after duplicate")
+      const retryList: WeeklyScheduleData[] = await retryListRes.json()
+      const found = retryList.find((s) => s.week_start === weekStartStr)
+      if (found) return found
+    }
+
+    // 4) Otherwise, throw to surface the error
+    const errText = await createRes.text()
+    throw new Error(`Failed to create weekly schedule: ${createRes.status} ${errText}`)
+  }
+
   const hours = Array.from({ length: 24 }, (_, i) => i)
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
@@ -94,45 +155,48 @@ const GoogleCalendarScheduler = () => {
           return
         }
 
-        const staffResponse = await fetch(`${API_BASE}/staff/`, {
+        // Fetch active users (staff) from accounts router
+        const staffResponse = await fetch(`${API_BASE}/users/?is_active=true`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         })
         if (!staffResponse.ok) throw new Error("Failed to fetch staff members")
         const staffData: StaffMember[] = await staffResponse.json()
-        setStaffMembers(staffData)
+        // Optionally exclude admins here so dropdown only shows assignable staff
+        const nonAdmins = staffData.filter(
+          (s: any) => (s.role || '').toUpperCase() !== 'ADMIN' && (s.role || '').toUpperCase() !== 'SUPER_ADMIN'
+        )
+        setStaffMembers(nonAdmins)
 
-        const scheduleResponse = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-        if (!scheduleResponse.ok) throw new Error("Failed to fetch weekly schedule")
-        const schedules = await scheduleResponse.json()
+        // Determine current week and ensure a schedule exists
+        const weekStartDate = getWeekStart(currentDate)
+        const weekEndDate = getWeekEnd(currentDate)
+        const weekStartStr = toYMD(weekStartDate)
+        const weekEndStr = toYMD(weekEndDate)
 
-        if (schedules.length > 0) {
-          setWeeklySchedule(schedules[0])
-          setShifts(
-            schedules[0].assigned_shifts.map((shift: BackendShift) => ({
-              id: shift.id,
-              title: shift.notes || `Shift for ${staffData.find((s: StaffMember) => s.id === shift.staff)?.first_name}`,
-              start: shift.start_time.substring(0, 5),
-              end: shift.end_time.substring(0, 5),
-              type: "confirmed" as const,
-              day: new Date(shift.shift_date).getDay() === 0 ? 6 : new Date(shift.shift_date).getDay() - 1,
-              staffId: shift.staff,
-              color: shift.color || "#6b7280",
-            })),
-          )
-        }
+        const schedule = await ensureWeeklySchedule(token, weekStartStr, weekEndStr)
+        setWeeklySchedule(schedule)
+        setShifts(
+          (schedule.assigned_shifts || []).map((shift: BackendShift) => ({
+            id: shift.id,
+            title:
+              shift.notes || `Shift for ${nonAdmins.find((s: StaffMember) => s.id === shift.staff)?.first_name}`,
+            start: shift.start_time.substring(0, 5),
+            end: shift.end_time.substring(0, 5),
+            type: "confirmed" as const,
+            day: new Date(shift.shift_date).getDay() === 0 ? 6 : new Date(shift.shift_date).getDay() - 1,
+            staffId: shift.staff,
+            color: shift.color || "#6b7280",
+          }))
+        )
       } catch (error) {
         console.error("Error fetching data:", error)
       }
     }
 
     fetchStaffAndSchedule()
-  }, [])
+  }, [currentDate])
 
   const getShiftPosition = (shift: Shift) => {
     const [startHour, startMinute] = shift.start.split(":").map(Number)
@@ -200,7 +264,7 @@ const GoogleCalendarScheduler = () => {
       }
 
       const response = await fetch(
-        `/api/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/${shiftId}/`,
+        `${API_BASE}/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/${shiftId}/`,
         {
           method: "DELETE",
           headers: {
@@ -236,13 +300,25 @@ const GoogleCalendarScheduler = () => {
       return
     }
 
+    // Guard: staff must be selected
+    if (!shift.staffId) {
+      console.error("Please select a staff member before saving.")
+      return
+    }
+
+    // Compute shift_date from Monday of the displayed week without mutating currentDate
+    const weekStart = getWeekStart(currentDate)
+    const shiftDate = new Date(weekStart)
+    shiftDate.setDate(weekStart.getDate() + shift.day)
+
+    // Ensure times include seconds (HH:MM:SS)
+    const withSeconds = (t: string) => (t && t.length === 5 ? `${t}:00` : t)
+
     const shiftDataForBackend = {
       staff: shift.staffId,
-      shift_date: new Date(currentDate.setDate(currentDate.getDate() - currentDate.getDay() + 1 + shift.day))
-        .toISOString()
-        .split("T")[0],
-      start_time: shift.start,
-      end_time: shift.end,
+      shift_date: toYMD(shiftDate),
+      start_time: withSeconds(shift.start),
+      end_time: withSeconds(shift.end),
       role: staffMembers.find((s) => s.id === shift.staffId)?.role || "",
       notes: shift.title,
       color: shift.color || "#6b7280",
@@ -257,7 +333,7 @@ const GoogleCalendarScheduler = () => {
 
       if (shifts.some((s) => s.id === shift.id)) {
         const response = await fetch(
-          `/api/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/${shift.id}/`,
+          `${API_BASE}/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/${shift.id}/`,
           {
             method: "PUT",
             headers: {
@@ -268,7 +344,11 @@ const GoogleCalendarScheduler = () => {
           },
         )
 
-        if (!response.ok) throw new Error("Failed to update shift")
+        if (!response.ok) {
+          const errText = await response.text()
+          console.error("Failed to update shift:", errText)
+          throw new Error("Failed to update shift")
+        }
         const updatedShift = await response.json()
         setShifts((prev) =>
           prev.map((s) =>
@@ -292,7 +372,7 @@ const GoogleCalendarScheduler = () => {
           ),
         )
       } else {
-        const response = await fetch(`/api/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/`, {
+        const response = await fetch(`${API_BASE}/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -301,8 +381,38 @@ const GoogleCalendarScheduler = () => {
           body: JSON.stringify(shiftDataForBackend),
         })
 
-        if (!response.ok) throw new Error("Failed to create shift")
+        if (!response.ok) {
+          const errText = await response.text()
+          console.error("Failed to create shift:", errText)
+          throw new Error("Failed to create shift")
+        }
         const newShift = await response.json()
+
+        // If the modal included manual tasks, create them now (templates are optional)
+        if ((shift as any).tasks && Array.isArray((shift as any).tasks) && (shift as any).tasks.length > 0) {
+          try {
+            await Promise.all(
+              ((shift as any).tasks as Array<{ title: string; priority: 'LOW'|'MEDIUM'|'HIGH'|'URGENT' }>).map((t) =>
+                fetch(`${API_BASE}/scheduling/shift-tasks/`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    shift: newShift.id,
+                    title: t.title,
+                    priority: t.priority || 'MEDIUM',
+                    // Optionally assign to the same staff member
+                    assigned_to: shift.staffId,
+                  }),
+                })
+              )
+            )
+          } catch (taskErr) {
+            console.warn("Shift created but creating tasks failed:", taskErr)
+          }
+        }
         setShifts((prev) => [
           ...prev,
           {
@@ -346,12 +456,7 @@ const GoogleCalendarScheduler = () => {
     setCurrentDate(new Date())
   }
 
-  const getWeekStart = (date: Date) => {
-    const d = new Date(date)
-    const day = d.getDay()
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-    return new Date(d.setDate(diff))
-  }
+  // getWeekStart defined above
 
   const weekDates = useMemo(() => {
     const dates: Date[] = []

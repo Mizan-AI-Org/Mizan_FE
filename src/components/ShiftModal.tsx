@@ -165,9 +165,10 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         onClose();
     };
 
-    const nonAdminStaffMembers = staffMembers.filter(
-        staff => staff.role && staff.role.toLowerCase() !== 'admin'
-    );
+    const nonAdminStaffMembers = staffMembers.filter((staff) => {
+        const r = (staff.role || '').toLowerCase();
+        return r !== 'admin' && r !== 'super_admin' && r !== 'super-admin';
+    });
 
     const filteredStaff = staffSearch.trim()
         ? nonAdminStaffMembers.filter(staff =>
