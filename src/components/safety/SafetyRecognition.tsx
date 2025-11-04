@@ -173,7 +173,7 @@ const SafetyRecognitionComponent: React.FC = () => {
         <div>
           <CardTitle> Recognition</CardTitle>
           <CardDescription>
-            Recognize and reward staff for excellence
+            Staff Recognition and Award for Excellence
           </CardDescription>
         </div>
       </CardHeader>

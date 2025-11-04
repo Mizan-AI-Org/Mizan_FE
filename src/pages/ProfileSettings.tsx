@@ -165,10 +165,6 @@ const ProfileSettings: React.FC = () => {
                     <Label>Role</Label>
                     <Input value={user?.role?.replace(/_/g, " ") || "N/A"} disabled />
                 </div>
-                <div>
-                    <Label>Restaurant</Label>
-                    <Input value={user?.restaurant_data?.name ?? "N/A"} disabled />
-                </div>
             </div>
 
             <div className="space-y-4">
