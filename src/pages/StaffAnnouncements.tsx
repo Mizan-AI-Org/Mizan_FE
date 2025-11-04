@@ -34,7 +34,30 @@ interface AnnouncementFormData {
   schedule_for?: string;
   recipients_staff_ids?: string[];
   recipients_departments?: string[];
+  recipients_roles?: string[];
+  recipients_shift_ids?: string[];
   tags?: string[];
+}
+
+// Lightweight type for assigned shifts returned by the API
+interface AssignedShiftItem {
+  id?: string;
+  pk?: string;
+  uuid?: string;
+  shift_date?: string;
+  date?: string;
+  start_time?: string;
+  end_time?: string;
+  role?: string;
+  position?: string;
+  staff_name?: string;
+  staff_info?: {
+    id?: string;
+    name?: string;
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  };
 }
 
 const StaffAnnouncements: React.FC = () => {
@@ -44,12 +67,16 @@ const StaffAnnouncements: React.FC = () => {
   const [expirationDate, setExpirationDate] = useState<Date>();
   const [scheduleDate, setScheduleDate] = useState<Date>();
   const [recipientMode, setRecipientMode] = useState<
-    "ALL" | "STAFF" | "DEPARTMENT"
+    "ALL" | "STAFF" | "DEPARTMENT" | "ROLE" | "SHIFT"
   >("ALL");
   const [staffProfiles, setStaffProfiles] = useState<StaffProfileItem[]>([]);
   const [isLoadingStaff, setIsLoadingStaff] = useState(false);
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
   const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedShiftIds, setSelectedShiftIds] = useState<string[]>([]);
+  const [isLoadingShifts, setIsLoadingShifts] = useState(false);
+  const [assignedShifts, setAssignedShifts] = useState<AssignedShiftItem[]>([]);
   const [formData, setFormData] = useState<AnnouncementFormData>({
     title: "",
     message: "",
@@ -86,6 +113,35 @@ const StaffAnnouncements: React.FC = () => {
     });
     return Array.from(set).sort();
   }, [staffProfiles]);
+
+  const uniqueRoles = useMemo(() => {
+    const set = new Set<string>();
+    staffProfiles.forEach((p) => {
+      if (p?.position) set.add(p.position);
+    });
+    return Array.from(set).sort();
+  }, [staffProfiles]);
+
+  useEffect(() => {
+    const maybeLoadShifts = async () => {
+      if (recipientMode !== "SHIFT") return;
+      try {
+        setIsLoadingShifts(true);
+        const accessToken = localStorage.getItem("access_token");
+        if (!accessToken) return;
+        const today = new Date();
+        const date_from = format(today, "yyyy-MM-dd");
+        const date_to = format(new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000), "yyyy-MM-dd");
+        const shifts = await api.getAssignedShifts(accessToken, { date_from, date_to });
+        setAssignedShifts(Array.isArray(shifts) ? shifts : []);
+      } catch (e) {
+        setAssignedShifts([]);
+      } finally {
+        setIsLoadingShifts(false);
+      }
+    };
+    maybeLoadShifts();
+  }, [recipientMode]);
 
   const handleInputChange = (
     field: keyof AnnouncementFormData,
@@ -137,14 +193,34 @@ const StaffAnnouncements: React.FC = () => {
           ? selectedStaffIds
           : undefined;
         announcementData.recipients_departments = undefined;
+        announcementData.recipients_roles = undefined;
+        announcementData.recipients_shift_ids = undefined;
       } else if (recipientMode === "DEPARTMENT") {
         announcementData.recipients_departments = selectedDepartments.length
           ? selectedDepartments
           : undefined;
         announcementData.recipients_staff_ids = undefined;
+        announcementData.recipients_roles = undefined;
+        announcementData.recipients_shift_ids = undefined;
+      } else if (recipientMode === "ROLE") {
+        announcementData.recipients_roles = selectedRoles.length
+          ? selectedRoles
+          : undefined;
+        announcementData.recipients_staff_ids = undefined;
+        announcementData.recipients_departments = undefined;
+        announcementData.recipients_shift_ids = undefined;
+      } else if (recipientMode === "SHIFT") {
+        announcementData.recipients_shift_ids = selectedShiftIds.length
+          ? selectedShiftIds
+          : undefined;
+        announcementData.recipients_staff_ids = undefined;
+        announcementData.recipients_departments = undefined;
+        announcementData.recipients_roles = undefined;
       } else {
         announcementData.recipients_staff_ids = undefined;
         announcementData.recipients_departments = undefined;
+        announcementData.recipients_roles = undefined;
+        announcementData.recipients_shift_ids = undefined;
       }
 
       const result = await api.createAnnouncement(
@@ -501,10 +577,12 @@ const StaffAnnouncements: React.FC = () => {
                       <SelectItem value="ALL">All Staff</SelectItem>
                       <SelectItem value="STAFF">Specific Staff</SelectItem>
                       <SelectItem value="DEPARTMENT">Departments</SelectItem>
+                      <SelectItem value="ROLE">Roles / Positions</SelectItem>
+                      <SelectItem value="SHIFT">Assigned Shifts</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Target specific staff or departments. Defaults to all staff.
+                    Target specific staff, departments, roles, or selected shifts. Defaults to all staff.
                   </p>
                 </div>
 
@@ -597,6 +675,76 @@ const StaffAnnouncements: React.FC = () => {
                       <p className="text-xs text-muted-foreground">
                         Selected: {selectedDepartments.length}
                       </p>
+                    </div>
+                  )}
+
+                  {recipientMode === "ROLE" && (
+                    <div className="space-y-2">
+                      {isLoadingStaff ? (
+                        <p className="text-sm text-muted-foreground">Loading roles…</p>
+                      ) : uniqueRoles.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No roles found.</p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-auto border rounded-md p-2">
+                          {uniqueRoles.map((role) => {
+                            const checked = selectedRoles.includes(role);
+                            return (
+                              <label key={role} className="flex items-center gap-2 py-1">
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(val) => {
+                                    setSelectedRoles((prev) => {
+                                      if (val) return [...prev, role];
+                                      return prev.filter((x) => x !== role);
+                                    });
+                                  }}
+                                />
+                                <span className="text-sm">{role}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground">Selected: {selectedRoles.length}</p>
+                    </div>
+                  )}
+
+                  {recipientMode === "SHIFT" && (
+                    <div className="space-y-2">
+                      {isLoadingShifts ? (
+                        <p className="text-sm text-muted-foreground">Loading shifts…</p>
+                      ) : assignedShifts.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No upcoming shifts found.</p>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-2 max-h-56 overflow-auto border rounded-md p-2">
+                          {assignedShifts.map((shift: AssignedShiftItem) => {
+                            const id = String(shift.id ?? shift.pk ?? shift.uuid ?? "");
+                            const checked = selectedShiftIds.includes(id);
+                            const dateLabel = shift.shift_date || shift.date;
+                            const roleLabel = shift.role || shift.position || "";
+                            const staffName = shift.staff_name || shift.staff_info?.name ||
+                              `${shift.staff_info?.first_name ?? ""} ${shift.staff_info?.last_name ?? ""}`.trim();
+                            const timeRange = `${shift.start_time ?? ""} - ${shift.end_time ?? ""}`;
+                            return (
+                              <label key={id} className="flex items-center gap-2 py-1">
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(val) => {
+                                    setSelectedShiftIds((prev) => {
+                                      if (val) return [...prev, id];
+                                      return prev.filter((x) => x !== id);
+                                    });
+                                  }}
+                                />
+                                <span className="text-sm truncate">
+                                  {dateLabel} • {roleLabel} • {staffName} • {timeRange}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground">Selected: {selectedShiftIds.length}</p>
                     </div>
                   )}
                 </div>

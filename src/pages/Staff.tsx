@@ -5,6 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { api } from "@/lib/api"
 import {
   Calendar,
   Clock,
@@ -24,7 +28,7 @@ import {
 } from "lucide-react"
 
 import ShiftModal from "@/components/ShiftModal"
-import StaffAnnouncementsList from "@/pages/StaffAnnouncementsList"
+import StaffAnnouncementsList from "@/pages/StaffAnnouncements"
 
 // Use configured API base to avoid relative path issues between environments
 const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
@@ -94,14 +98,41 @@ const GoogleCalendarScheduler = () => {
           return
         }
 
-        const staffResponse = await fetch(`${API_BASE}/staff/`, {
+        // Use unified users endpoint (tenant-filtered) to retrieve all staff under current restaurant
+        const staffResponse = await fetch(`${API_BASE}/users/`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         })
-        if (!staffResponse.ok) throw new Error("Failed to fetch staff members")
-        const staffData: StaffMember[] = await staffResponse.json()
-        setStaffMembers(staffData)
+        if (!staffResponse.ok) {
+          // Try to surface server error message for better diagnostics
+          let serverMessage = "Failed to fetch staff members"
+          try {
+            const errBody = await staffResponse.json()
+            serverMessage = errBody?.detail || errBody?.message || serverMessage
+          } catch (_) {
+            // ignore parse errors
+          }
+          throw new Error(serverMessage)
+        }
+        // Strongly type backend user response to avoid implicit any
+        const users: Array<{
+          id: string;
+          first_name: string;
+          last_name: string;
+          email: string;
+          role: string;
+          profile?: { employee_id?: string; department?: string | null };
+        }> = await staffResponse.json()
+        // Map to scheduler StaffMember shape
+        const mappedStaff: StaffMember[] = (users || []).map((u) => ({
+          id: u.id,
+          first_name: u.first_name,
+          last_name: u.last_name,
+          email: u.email,
+          role: u.role,
+        }))
+        setStaffMembers(mappedStaff)
 
         const scheduleResponse = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
           headers: {
@@ -116,7 +147,8 @@ const GoogleCalendarScheduler = () => {
           setShifts(
             schedules[0].assigned_shifts.map((shift: BackendShift) => ({
               id: shift.id,
-              title: shift.notes || `Shift for ${staffData.find((s: StaffMember) => s.id === shift.staff)?.first_name}`,
+              // Use freshly mapped staff list to resolve display name
+              title: shift.notes || `Shift for ${mappedStaff.find((s: StaffMember) => s.id === shift.staff)?.first_name || ''}`,
               start: shift.start_time.substring(0, 5),
               end: shift.end_time.substring(0, 5),
               type: "confirmed" as const,
@@ -127,7 +159,11 @@ const GoogleCalendarScheduler = () => {
           )
         }
       } catch (error) {
-        console.error("Error fetching data:", error)
+        const err = error as Error
+        console.error("fetchStaffAndSchedule error", {
+          message: err.message,
+          stack: err.stack,
+        })
       }
     }
 
@@ -622,6 +658,173 @@ const GoogleCalendarScheduler = () => {
 
 export default function Staff() {
   const [showAIRecommendations, setShowAIRecommendations] = useState(false)
+  // All Staff Tab state
+  interface StaffListExtended {
+    id: string
+    user: {
+      id: string
+      first_name: string
+      last_name: string
+      email: string
+      role: string
+      is_active: boolean
+    }
+    employee_id: string
+    date_joined: string
+    is_active: boolean
+    department: string | null
+  }
+
+  // Backend user shape returned by GET /api/users/
+  interface BackendUser {
+    id: string
+    email: string
+    first_name: string
+    last_name: string
+    role: string
+    is_active: boolean
+    created_at?: string
+    profile?: {
+      employee_id?: string
+      department?: string | null
+    }
+  }
+
+  const [staff, setStaff] = useState<StaffListExtended[]>([])
+  const [staffLoading, setStaffLoading] = useState<boolean>(false)
+  const [staffError, setStaffError] = useState<string | null>(null)
+
+  const [pendingInvites, setPendingInvites] = useState<{
+    id: string
+    email: string
+    role: string
+    invited_by: string
+    restaurant: string
+    token: string
+    is_accepted: boolean
+    created_at: string
+    expires_at: string
+  }[]>([])
+  const [invitesError, setInvitesError] = useState<string | null>(null)
+  const [invitesLoading, setInvitesLoading] = useState<boolean>(false)
+
+  const [searchQuery, setSearchQuery] = useState<string>("")
+  const [positionFilter, setPositionFilter] = useState<string>("all")
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [page, setPage] = useState<number>(1)
+  const pageSize = 10
+
+  useEffect(() => {
+    const fetchStaff = async () => {
+      try {
+        setStaffLoading(true)
+        setStaffError(null)
+        const token = localStorage.getItem("access_token") || ""
+        // Use unified users endpoint from backend (tenant-filtered)
+        const response = await fetch(`${API_BASE}/users/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        if (!response.ok) {
+          // Try to read server-provided error; fall back to generic
+          let serverMessage = "Failed to fetch staff"
+          try {
+            const data = await response.json()
+            serverMessage = (data.message || data.detail || serverMessage)
+          } catch (e) {
+            // Ignore JSON parse errors when reading error body
+            void e
+          }
+          throw new Error(serverMessage)
+        }
+        const users: BackendUser[] = await response.json()
+        // Map flat user list to StaffListExtended structure expected by UI
+        const mapped: StaffListExtended[] = (users || []).map((u: BackendUser) => ({
+          id: u.id,
+          user: {
+            id: u.id,
+            first_name: u.first_name,
+            last_name: u.last_name,
+            email: u.email,
+            role: u.role,
+            is_active: !!u.is_active,
+          },
+          employee_id: u.profile?.employee_id || "",
+          date_joined: u.created_at || "",
+          is_active: !!u.is_active,
+          department: u.profile?.department || null,
+        }))
+        setStaff(mapped)
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Failed to fetch staff"
+        setStaffError(message)
+      } finally {
+        setStaffLoading(false)
+      }
+    }
+
+    const fetchInvites = async () => {
+      try {
+        setInvitesLoading(true)
+        setInvitesError(null)
+        const token = localStorage.getItem("access_token") || ""
+        const invites = await api.getPendingStaffInvitations(token)
+        setPendingInvites(invites || [])
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Failed to fetch pending invitations"
+        setInvitesError(message)
+      } finally {
+        setInvitesLoading(false)
+      }
+    }
+
+    fetchStaff()
+    fetchInvites()
+  }, [])
+
+  const positions = useMemo(() => {
+    const set = new Set<string>()
+    staff.forEach((m) => m.user?.role && set.add(m.user.role))
+    return Array.from(set)
+  }, [staff])
+
+  const departments = useMemo(() => {
+    const set = new Set<string>()
+    staff.forEach((m) => m.department && set.add(m.department))
+    return Array.from(set)
+  }, [staff])
+
+  const filteredStaff = useMemo(() => {
+    let list = staff
+    if (statusFilter !== "all") {
+      const isActive = statusFilter === "active"
+      list = list.filter((m) => !!m.user?.is_active === isActive)
+    }
+    if (positionFilter !== "all") {
+      list = list.filter((m) => (m.user?.role || "").toLowerCase() === positionFilter.toLowerCase())
+    }
+    if (departmentFilter !== "all") {
+      list = list.filter((m) => (m.department || "").toLowerCase() === departmentFilter.toLowerCase())
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase()
+      list = list.filter((m) =>
+        `${m.user?.first_name || ""} ${m.user?.last_name || ""}`.toLowerCase().includes(q) ||
+        (m.user?.email || "").toLowerCase().includes(q)
+      )
+    }
+    return list
+  }, [staff, statusFilter, positionFilter, departmentFilter, searchQuery])
+
+  const totalPages = Math.max(1, Math.ceil(filteredStaff.length / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedStaff = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    const end = start + pageSize
+    return filteredStaff.slice(start, end)
+  }, [filteredStaff, currentPage])
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -639,8 +842,9 @@ export default function Staff() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
+        <TabsList className="grid w-full max-w-xl grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="all-staff">All Staff</TabsTrigger>
           <TabsTrigger value="schedule">Staff Schedule </TabsTrigger>
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
         </TabsList>
@@ -806,6 +1010,166 @@ export default function Staff() {
 
         <TabsContent value="schedule">
           <GoogleCalendarScheduler />
+        </TabsContent>
+        <TabsContent value="all-staff" className="space-y-6">
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle>All Staff</CardTitle>
+              <CardDescription>Browse, search, and filter staff members</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="text-sm text-muted-foreground">Search</label>
+                  <Input
+                    placeholder="Search name or email"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value)
+                      setPage(1)
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Position</label>
+                  <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(1) }}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="All" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      {positions.map((role) => (
+                        <SelectItem key={role} value={role}>{role}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Department</label>
+                  <Select value={departmentFilter} onValueChange={(v) => { setDepartmentFilter(v); setPage(1) }}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="All" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      {departments.map((d) => (
+                        <SelectItem key={d} value={d}>{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Employment Status</label>
+                  <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="All" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {staffLoading ? (
+                <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">Loading staff...</div>
+              ) : staffError ? (
+                <div className="text-red-600 text-sm">{staffError}</div>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Position</TableHead>
+                        <TableHead>Department</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedStaff.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">No staff match your filters.</TableCell>
+                        </TableRow>
+                      ) : (
+                        paginatedStaff.map((m) => (
+                          <TableRow key={m.id}>
+                            <TableCell className="whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`inline-block w-2 h-2 rounded-full ${m.user?.is_active ? "bg-green-500" : "bg-gray-400"}`}
+                                  aria-label={m.user?.is_active ? "Active" : "Inactive"}
+                                />
+                                {m.user?.first_name} {m.user?.last_name}
+                              </div>
+                            </TableCell>
+                            <TableCell className="break-all">{m.user?.email}</TableCell>
+                            <TableCell className="capitalize">{(m.user?.role || "").toLowerCase().replace(/_/g, " ")}</TableCell>
+                            <TableCell>{m.department || "—"}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={m.user?.is_active ? "text-green-700 border-green-300" : "text-gray-700 border-gray-300"}>
+                                {m.user?.is_active ? "Active" : "Inactive"}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {/* Pagination */}
+              <div className="flex items-center justify-between mt-3">
+                <div className="text-xs text-muted-foreground">Page {currentPage} of {totalPages}</div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="bg-transparent" disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" className="bg-transparent" disabled={currentPage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pending Invitations */}
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle>Pending Invitations</CardTitle>
+              <CardDescription>Invitations awaiting acceptance</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {invitesError ? (
+                <div className="text-red-600 text-sm">{invitesError}</div>
+              ) : invitesLoading ? (
+                <div className="text-sm text-muted-foreground">Loading pending invitations…</div>
+              ) : pendingInvites.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No pending invitations.</div>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Invited</TableHead>
+                        <TableHead>Expires</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pendingInvites.map((inv) => (
+                        <TableRow key={inv.id}>
+                          <TableCell className="break-all">{inv.email}</TableCell>
+                          <TableCell className="capitalize">{(inv.role || "").toLowerCase().replace(/_/g, " ")}</TableCell>
+                          <TableCell>{new Date(inv.created_at).toLocaleString()}</TableCell>
+                          <TableCell>{new Date(inv.expires_at).toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value="announcements">
           <StaffAnnouncementsList />

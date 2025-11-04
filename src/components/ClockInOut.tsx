@@ -64,6 +64,7 @@ export const ClockInOut = ({ staffId, onSuccess }: ClockInOutProps) => {
 
     let userLatitude: number | null = null;
     let userLongitude: number | null = null;
+    let userAccuracy: number | null = null;
 
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -71,6 +72,7 @@ export const ClockInOut = ({ staffId, onSuccess }: ClockInOutProps) => {
       });
       userLatitude = position.coords.latitude;
       userLongitude = position.coords.longitude;
+      userAccuracy = position.coords.accuracy ?? null;
 
       // Perform geofencing check
       if (restaurantLatitude !== null && restaurantLongitude !== null && restaurantRadius !== null) {
@@ -101,8 +103,20 @@ export const ClockInOut = ({ staffId, onSuccess }: ClockInOutProps) => {
       // Use dedicated timeclock endpoints with captured geolocation
       const result =
         action === "in"
-          ? await api.clockIn(accessToken, userLatitude!, userLongitude!)
-          : await api.clockOut(accessToken, userLatitude!, userLongitude!);
+          ? await api.webClockIn(
+              accessToken,
+              userLatitude!,
+              userLongitude!,
+              userAccuracy ?? undefined,
+              undefined,
+              imageSrc
+            )
+          : await api.webClockOut(
+              accessToken,
+              userLatitude!,
+              userLongitude!,
+              userAccuracy ?? undefined
+            );
 
       toast.success(
         result?.message ||
