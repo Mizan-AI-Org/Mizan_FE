@@ -1,14 +1,34 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useMemo } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { api } from "@/lib/api"
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { api } from "@/lib/api";
 import {
   Calendar,
   Clock,
@@ -25,77 +45,84 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
-} from "lucide-react"
+} from "lucide-react";
 
-import ShiftModal from "@/components/ShiftModal"
-import StaffAnnouncementsList from "@/pages/StaffAnnouncements"
+import ShiftModal from "@/components/ShiftModal";
+import StaffAnnouncementsList from "@/pages/StaffAnnouncements";
+import AutoScheduler, {
+  type StaffMember as AutoStaffMember,
+  type Shift as AutoShift,
+} from "@/components/AutoScheduler";
+import { toast } from "sonner";
 
 // Use configured API base to avoid relative path issues between environments
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+const API_BASE =
+  import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
-const aiRecommendations = []
+const aiRecommendations = [];
 
 interface Shift {
-  id: string
-  title: string
-  start: string
-  end: string
-  type: "confirmed" | "pending" | "tentative"
-  day: number
-  staffId: string
-  color?: string
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  type: "confirmed" | "pending" | "tentative";
+  day: number;
+  staffId: string;
+  color?: string;
 }
 
 interface StaffMember {
-  id: string
-  first_name: string
-  last_name: string
-  email: string
-  role: string
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
 }
 
 interface BackendShift {
-  id: string
-  staff: string
-  shift_date: string
-  start_time: string
-  end_time: string
-  notes: string
-  color?: string
+  id: string;
+  staff: string;
+  shift_date: string;
+  start_time: string;
+  end_time: string;
+  notes: string;
+  color?: string;
 }
 
 interface WeeklyScheduleData {
-  id: string
-  week_start: string
-  week_end: string
-  is_published: boolean
-  assigned_shifts: BackendShift[]
+  id: string;
+  week_start: string;
+  week_end: string;
+  is_published: boolean;
+  assigned_shifts: BackendShift[];
 }
 // import { useCalendar } from "./useCalendar"
 const GoogleCalendarScheduler = () => {
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [view, setView] = useState<"week" | "day" | "month">("week")
-  const [selectedShift, setSelectedShift] = useState<Shift | null>(null)
-  const [showRecurringModal, setShowRecurringModal] = useState(false)
-  const [copiedShift, setCopiedShift] = useState<Shift | null>(null)
-  const [shifts, setShifts] = useState<Shift[]>([])
-  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false)
-  const [currentShift, setCurrentShift] = useState<Shift | null>(null)
-  const [newShiftDayIndex, setNewShiftDayIndex] = useState<number>()
-  const [newShiftHour, setNewShiftHour] = useState<number>()
-  const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null)
-  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [view, setView] = useState<"week" | "day" | "month">("week");
+  const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
+  const [showRecurringModal, setShowRecurringModal] = useState(false);
+  const [copiedShift, setCopiedShift] = useState<Shift | null>(null);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
+  const [currentShift, setCurrentShift] = useState<Shift | null>(null);
+  const [newShiftDayIndex, setNewShiftDayIndex] = useState<number>();
+  const [newShiftHour, setNewShiftHour] = useState<number>();
+  const [weeklySchedule, setWeeklySchedule] =
+    useState<WeeklyScheduleData | null>(null);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
 
-  const hours = Array.from({ length: 24 }, (_, i) => i)
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
   useEffect(() => {
     const fetchStaffAndSchedule = async () => {
       try {
-        const token = localStorage.getItem("access_token")
+        const token = localStorage.getItem("access_token");
         if (!token) {
-          console.error("No access token found")
-          return
+          console.error("No access token found");
+          return;
         }
 
         // Use unified users endpoint (tenant-filtered) to retrieve all staff under current restaurant
@@ -103,17 +130,18 @@ const GoogleCalendarScheduler = () => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        })
+        });
         if (!staffResponse.ok) {
           // Try to surface server error message for better diagnostics
-          let serverMessage = "Failed to fetch staff members"
+          let serverMessage = "Failed to fetch staff members";
           try {
-            const errBody = await staffResponse.json()
-            serverMessage = errBody?.detail || errBody?.message || serverMessage
+            const errBody = await staffResponse.json();
+            serverMessage =
+              errBody?.detail || errBody?.message || serverMessage;
           } catch (_) {
             // ignore parse errors
           }
-          throw new Error(serverMessage)
+          throw new Error(serverMessage);
         }
         // Strongly type backend user response to avoid implicit any
         const users: Array<{
@@ -123,7 +151,7 @@ const GoogleCalendarScheduler = () => {
           email: string;
           role: string;
           profile?: { employee_id?: string; department?: string | null };
-        }> = await staffResponse.json()
+        }> = await staffResponse.json();
         // Map to scheduler StaffMember shape
         const mappedStaff: StaffMember[] = (users || []).map((u) => ({
           id: u.id,
@@ -131,77 +159,90 @@ const GoogleCalendarScheduler = () => {
           last_name: u.last_name,
           email: u.email,
           role: u.role,
-        }))
-        setStaffMembers(mappedStaff)
+        }));
+        setStaffMembers(mappedStaff);
 
-        const scheduleResponse = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-        if (!scheduleResponse.ok) throw new Error("Failed to fetch weekly schedule")
-        const schedules = await scheduleResponse.json()
+        const scheduleResponse = await fetch(
+          `${API_BASE}/scheduling/weekly-schedules/`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (!scheduleResponse.ok)
+          throw new Error("Failed to fetch weekly schedule");
+        const schedules = await scheduleResponse.json();
 
         if (schedules.length > 0) {
-          setWeeklySchedule(schedules[0])
+          setWeeklySchedule(schedules[0]);
           setShifts(
             schedules[0].assigned_shifts.map((shift: BackendShift) => ({
               id: shift.id,
               // Use freshly mapped staff list to resolve display name
-              title: shift.notes || `Shift for ${mappedStaff.find((s: StaffMember) => s.id === shift.staff)?.first_name || ''}`,
+              title:
+                shift.notes ||
+                `Shift for ${
+                  mappedStaff.find((s: StaffMember) => s.id === shift.staff)
+                    ?.first_name || ""
+                }`,
               start: shift.start_time.substring(0, 5),
               end: shift.end_time.substring(0, 5),
               type: "confirmed" as const,
-              day: new Date(shift.shift_date).getDay() === 0 ? 6 : new Date(shift.shift_date).getDay() - 1,
+              day:
+                new Date(shift.shift_date).getDay() === 0
+                  ? 6
+                  : new Date(shift.shift_date).getDay() - 1,
               staffId: shift.staff,
               color: shift.color || "#6b7280",
-            })),
-          )
+            }))
+          );
         }
       } catch (error) {
-        const err = error as Error
+        const err = error as Error;
         console.error("fetchStaffAndSchedule error", {
           message: err.message,
           stack: err.stack,
-        })
+        });
       }
-    }
+    };
 
-    fetchStaffAndSchedule()
-  }, [])
+    fetchStaffAndSchedule();
+  }, []);
 
   const getShiftPosition = (shift: Shift) => {
-    const [startHour, startMinute] = shift.start.split(":").map(Number)
-    const [endHour, endMinute] = shift.end.split(":").map(Number)
+    const [startHour, startMinute] = shift.start.split(":").map(Number);
+    const [endHour, endMinute] = shift.end.split(":").map(Number);
 
-    const startPosition = ((startHour * 60 + startMinute) / 60) * 80
-    const duration = (((endHour - startHour) * 60 + (endMinute - startMinute)) / 60) * 80
+    const startPosition = ((startHour * 60 + startMinute) / 60) * 80;
+    const duration =
+      (((endHour - startHour) * 60 + (endMinute - startMinute)) / 60) * 80;
 
-    return { top: startPosition, height: duration }
-  }
+    return { top: startPosition, height: duration };
+  };
 
   const handleCopyShift = (shift: Shift) => {
-    setCopiedShift(shift)
-    setSelectedShift(null)
-  }
+    setCopiedShift(shift);
+    setSelectedShift(null);
+  };
 
   const handlePasteShift = (targetDay: number) => {
-    if (!copiedShift) return
+    if (!copiedShift) return;
 
     const newShift: Shift = {
       ...copiedShift,
       id: Date.now().toString(),
       day: targetDay,
-    }
+    };
 
-    setShifts((prev) => [...prev, newShift])
-    setSelectedShift(newShift)
-  }
+    setShifts((prev) => [...prev, newShift]);
+    setSelectedShift(newShift);
+  };
 
   const handleSetRecurring = (shift: Shift) => {
-    setSelectedShift(shift)
-    setShowRecurringModal(true)
-  }
+    setSelectedShift(shift);
+    setShowRecurringModal(true);
+  };
 
   // export default function TeamMembersCard() {
   // const [staff, setStaff] = useState([]);
@@ -225,14 +266,14 @@ const GoogleCalendarScheduler = () => {
 
   const handleDeleteShift = async (shiftId: string) => {
     if (!weeklySchedule) {
-      console.error("No weekly schedule available to delete shifts.")
-      return
+      console.error("No weekly schedule available to delete shifts.");
+      return;
     }
     try {
-      const token = localStorage.getItem("access_token")
+      const token = localStorage.getItem("access_token");
       if (!token) {
-        console.error("No access token found")
-        return
+        console.error("No access token found");
+        return;
       }
 
       const response = await fetch(
@@ -242,39 +283,43 @@ const GoogleCalendarScheduler = () => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        },
-      )
+        }
+      );
 
-      if (!response.ok) throw new Error("Failed to delete shift")
+      if (!response.ok) throw new Error("Failed to delete shift");
 
-      setShifts((prev) => prev.filter((shift) => shift.id !== shiftId))
-      setSelectedShift(null)
+      setShifts((prev) => prev.filter((shift) => shift.id !== shiftId));
+      setSelectedShift(null);
     } catch (error) {
-      console.error("Error deleting shift:", error)
+      console.error("Error deleting shift:", error);
     }
-  }
+  };
 
   const handleCreateShift = (dayIndex: number, hour: number) => {
-    setCurrentShift(null)
-    setNewShiftDayIndex(dayIndex)
-    setNewShiftHour(hour)
-    setIsShiftModalOpen(true)
-  }
+    setCurrentShift(null);
+    setNewShiftDayIndex(dayIndex);
+    setNewShiftHour(hour);
+    setIsShiftModalOpen(true);
+  };
 
   const handleEditShift = (shift: Shift) => {
-    setCurrentShift(shift)
-    setIsShiftModalOpen(true)
-  }
+    setCurrentShift(shift);
+    setIsShiftModalOpen(true);
+  };
 
   const handleSaveShift = async (shift: Shift) => {
     if (!weeklySchedule) {
-      console.error("No weekly schedule available to save shifts.")
-      return
+      console.error("No weekly schedule available to save shifts.");
+      return;
     }
 
     const shiftDataForBackend = {
       staff: shift.staffId,
-      shift_date: new Date(currentDate.setDate(currentDate.getDate() - currentDate.getDay() + 1 + shift.day))
+      shift_date: new Date(
+        currentDate.setDate(
+          currentDate.getDate() - currentDate.getDay() + 1 + shift.day
+        )
+      )
         .toISOString()
         .split("T")[0],
       start_time: shift.start,
@@ -282,13 +327,13 @@ const GoogleCalendarScheduler = () => {
       role: staffMembers.find((s) => s.id === shift.staffId)?.role || "",
       notes: shift.title,
       color: shift.color || "#6b7280",
-    }
+    };
 
     try {
-      const token = localStorage.getItem("access_token")
+      const token = localStorage.getItem("access_token");
       if (!token) {
-        console.error("No access token found")
-        return
+        console.error("No access token found");
+        return;
       }
 
       if (shifts.some((s) => s.id === shift.id)) {
@@ -301,11 +346,11 @@ const GoogleCalendarScheduler = () => {
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(shiftDataForBackend),
-          },
-        )
+          }
+        );
 
-        if (!response.ok) throw new Error("Failed to update shift")
-        const updatedShift = await response.json()
+        if (!response.ok) throw new Error("Failed to update shift");
+        const updatedShift = await response.json();
         setShifts((prev) =>
           prev.map((s) =>
             s.id === updatedShift.id
@@ -313,7 +358,11 @@ const GoogleCalendarScheduler = () => {
                   id: updatedShift.id,
                   title:
                     updatedShift.notes ||
-                    `Shift for ${staffMembers.find((s: StaffMember) => s.id === updatedShift.staff)?.first_name}`,
+                    `Shift for ${
+                      staffMembers.find(
+                        (s: StaffMember) => s.id === updatedShift.staff
+                      )?.first_name
+                    }`,
                   start: updatedShift.start_time.substring(0, 5),
                   end: updatedShift.end_time.substring(0, 5),
                   type: "confirmed" as const,
@@ -324,97 +373,109 @@ const GoogleCalendarScheduler = () => {
                   staffId: updatedShift.staff,
                   color: updatedShift.color || shift.color,
                 }
-              : s,
-          ),
-        )
+              : s
+          )
+        );
       } else {
-        const response = await fetch(`/api/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(shiftDataForBackend),
-        })
+        const response = await fetch(
+          `/api/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(shiftDataForBackend),
+          }
+        );
 
-        if (!response.ok) throw new Error("Failed to create shift")
-        const newShift = await response.json()
+        if (!response.ok) throw new Error("Failed to create shift");
+        const newShift = await response.json();
         setShifts((prev) => [
           ...prev,
           {
             id: newShift.id,
             title:
               newShift.notes ||
-              `Shift for ${staffMembers.find((s: StaffMember) => s.id === newShift.staff)?.first_name}`,
+              `Shift for ${
+                staffMembers.find((s: StaffMember) => s.id === newShift.staff)
+                  ?.first_name
+              }`,
             start: newShift.start_time.substring(0, 5),
             end: newShift.end_time.substring(0, 5),
             type: "confirmed" as const,
-            day: new Date(newShift.shift_date).getDay() === 0 ? 6 : new Date(newShift.shift_date).getDay() - 1,
+            day:
+              new Date(newShift.shift_date).getDay() === 0
+                ? 6
+                : new Date(newShift.shift_date).getDay() - 1,
             staffId: newShift.staff,
             color: newShift.color || shift.color,
           },
-        ])
+        ]);
       }
     } catch (error) {
-      console.error("Error saving shift:", error)
+      console.error("Error saving shift:", error);
     }
-    setIsShiftModalOpen(false)
-    setCurrentShift(null)
-    setNewShiftDayIndex(undefined)
-    setNewShiftHour(undefined)
-  }
+    setIsShiftModalOpen(false);
+    setCurrentShift(null);
+    setNewShiftDayIndex(undefined);
+    setNewShiftHour(undefined);
+  };
 
   const navigateDate = (direction: "prev" | "next") => {
     setCurrentDate((prev) => {
-      const newDate = new Date(prev)
+      const newDate = new Date(prev);
       if (view === "week") {
-        newDate.setDate(prev.getDate() + (direction === "next" ? 7 : -7))
+        newDate.setDate(prev.getDate() + (direction === "next" ? 7 : -7));
       } else if (view === "day") {
-        newDate.setDate(prev.getDate() + (direction === "next" ? 1 : -1))
+        newDate.setDate(prev.getDate() + (direction === "next" ? 1 : -1));
       } else {
-        newDate.setMonth(prev.getMonth() + (direction === "next" ? 1 : -1))
+        newDate.setMonth(prev.getMonth() + (direction === "next" ? 1 : -1));
       }
-      return newDate
-    })
-  }
+      return newDate;
+    });
+  };
 
   const goToToday = () => {
-    setCurrentDate(new Date())
-  }
+    setCurrentDate(new Date());
+  };
 
   const getWeekStart = (date: Date) => {
-    const d = new Date(date)
-    const day = d.getDay()
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-    return new Date(d.setDate(diff))
-  }
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.setDate(diff));
+  };
 
   const weekDates = useMemo(() => {
-    const dates: Date[] = []
-    const start = getWeekStart(currentDate)
+    const dates: Date[] = [];
+    const start = getWeekStart(currentDate);
 
     for (let i = 0; i < 7; i++) {
-      const date = new Date(start)
-      date.setDate(start.getDate() + i)
-      dates.push(date)
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+      dates.push(date);
     }
 
-    return dates
-  }, [currentDate])
+    return dates;
+  }, [currentDate]);
 
   const getDateDisplay = () => {
     if (view === "week") {
-      const firstDay = weekDates[0]
-      const lastDay = weekDates[6]
-      const firstMonth = firstDay.toLocaleString("en-US", { month: "short" })
-      const lastMonth = lastDay.toLocaleString("en-US", { month: "short" })
-      const firstDate = firstDay.getDate()
-      const lastDate = lastDay.getDate()
-      const year = lastDay.getFullYear()
-      return `${firstMonth} ${firstDate} - ${lastMonth} ${lastDate}, ${year}`
+      const firstDay = weekDates[0];
+      const lastDay = weekDates[6];
+      const firstMonth = firstDay.toLocaleString("en-US", { month: "short" });
+      const lastMonth = lastDay.toLocaleString("en-US", { month: "short" });
+      const firstDate = firstDay.getDate();
+      const lastDate = lastDay.getDate();
+      const year = lastDay.getFullYear();
+      return `${firstMonth} ${firstDate} - ${lastMonth} ${lastDate}, ${year}`;
     }
-    return currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
-  }
+    return currentDate.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+  };
 
   const RecurringModal = () => (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -426,7 +487,10 @@ const GoogleCalendarScheduler = () => {
             <label htmlFor="repeat-every" className="text-sm font-medium">
               Repeat every
             </label>
-            <select id="repeat-every" className="w-full p-2 border rounded mt-1">
+            <select
+              id="repeat-every"
+              className="w-full p-2 border rounded mt-1"
+            >
               <option>Week</option>
               <option>2 Weeks</option>
               <option>Month</option>
@@ -437,7 +501,11 @@ const GoogleCalendarScheduler = () => {
             <label className="text-sm font-medium">On days</label>
             <div className="grid grid-cols-7 gap-1 mt-2">
               {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => (
-                <button key={i} className="w-8 h-8 border rounded text-sm hover:bg-gray-50" type="button">
+                <button
+                  key={i}
+                  className="w-8 h-8 border rounded text-sm hover:bg-gray-50"
+                  type="button"
+                >
                   {day}
                 </button>
               ))}
@@ -448,17 +516,24 @@ const GoogleCalendarScheduler = () => {
             <label htmlFor="end-date" className="text-sm font-medium">
               End date
             </label>
-            <input id="end-date" type="date" className="w-full p-2 border rounded mt-1" />
+            <input
+              id="end-date"
+              type="date"
+              className="w-full p-2 border rounded mt-1"
+            />
           </div>
         </div>
 
         <div className="flex justify-end space-x-3 mt-6">
-          <Button variant="outline" onClick={() => setShowRecurringModal(false)}>
+          <Button
+            variant="outline"
+            onClick={() => setShowRecurringModal(false)}
+          >
             Cancel
           </Button>
           <Button
             onClick={() => {
-              setShowRecurringModal(false)
+              setShowRecurringModal(false);
             }}
           >
             Set Recurring
@@ -466,7 +541,7 @@ const GoogleCalendarScheduler = () => {
         </div>
       </div>
     </div>
-  )
+  );
 
   return (
     <div className="bg-white rounded-lg border shadow-sm h-[600px] flex flex-col">
@@ -476,10 +551,20 @@ const GoogleCalendarScheduler = () => {
             Today
           </Button>
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="sm" className="p-2" onClick={() => navigateDate("prev")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-2"
+              onClick={() => navigateDate("prev")}
+            >
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" size="sm" className="p-2" onClick={() => navigateDate("next")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-2"
+              onClick={() => navigateDate("next")}
+            >
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
@@ -520,7 +605,11 @@ const GoogleCalendarScheduler = () => {
                 Shift Copied
               </Badge>
             )}
-            <Button size="sm" className="bg-green-700 hover:bg-green-700" onClick={() => handleCreateShift(0, 9)}>
+            <Button
+              size="sm"
+              className="bg-green-700 hover:bg-green-700"
+              onClick={() => handleCreateShift(0, 9)}
+            >
               <Plus className="w-4 h-4 mr-2" />
               Create
             </Button>
@@ -533,7 +622,10 @@ const GoogleCalendarScheduler = () => {
           <div className="w-16 flex-shrink-0">
             <div className="h-12 border-b"></div>
             {hours.map((hour) => (
-              <div key={hour} className="h-20 border-b text-xs text-gray-500 p-1">
+              <div
+                key={hour}
+                className="h-20 border-b text-xs text-gray-500 p-1"
+              >
                 {String(hour).padStart(2, "0")}:00
               </div>
             ))}
@@ -548,7 +640,10 @@ const GoogleCalendarScheduler = () => {
                 >
                   <div className="text-sm font-medium">{day}</div>
                   <div className="text-xs text-gray-500">
-                    {weekDates[dayIndex]?.toLocaleString("en-US", { month: "short" })} {weekDates[dayIndex]?.getDate()}
+                    {weekDates[dayIndex]?.toLocaleString("en-US", {
+                      month: "short",
+                    })}{" "}
+                    {weekDates[dayIndex]?.getDate()}
                   </div>
                   {copiedShift && (
                     <div className="absolute top-1 right-1">
@@ -571,10 +666,16 @@ const GoogleCalendarScheduler = () => {
                   {shifts
                     .filter((shift) => shift.day === dayIndex)
                     .map((shift) => {
-                      const position = getShiftPosition(shift)
-                      const assignedStaff = staffMembers.find((staff) => String(staff.id) === String(shift.staffId))
-                      const staffName = assignedStaff ? `${assignedStaff.first_name} ${assignedStaff.last_name}` : ""
-                      const shiftTitle = shift.title ? `${staffName} - ${shift.title}` : staffName
+                      const position = getShiftPosition(shift);
+                      const assignedStaff = staffMembers.find(
+                        (staff) => String(staff.id) === String(shift.staffId)
+                      );
+                      const staffName = assignedStaff
+                        ? `${assignedStaff.first_name} ${assignedStaff.last_name}`
+                        : "";
+                      const shiftTitle = shift.title
+                        ? `${staffName} - ${shift.title}`
+                        : staffName;
 
                       return (
                         <div
@@ -583,12 +684,16 @@ const GoogleCalendarScheduler = () => {
                           style={{
                             top: `${position.top}px`,
                             height: `${position.height}px`,
-                            backgroundColor: shift.color ? `${shift.color}20` : "#f3f4f6",
+                            backgroundColor: shift.color
+                              ? `${shift.color}20`
+                              : "#f3f4f6",
                             borderLeftColor: shift.color || "#6b7280",
                           }}
                           onClick={() => handleEditShift(shift)}
                         >
-                          <div className="text-xs font-medium truncate">{shiftTitle}</div>
+                          <div className="text-xs font-medium truncate">
+                            {shiftTitle}
+                          </div>
                           <div className="text-xs text-gray-600">
                             {shift.start} - {shift.end}
                           </div>
@@ -600,8 +705,8 @@ const GoogleCalendarScheduler = () => {
                                 size="sm"
                                 className="h-6 w-6 p-0 bg-white"
                                 onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleCopyShift(shift)
+                                  e.stopPropagation();
+                                  handleCopyShift(shift);
                                 }}
                               >
                                 <Copy className="w-3 h-3" />
@@ -611,8 +716,8 @@ const GoogleCalendarScheduler = () => {
                                 size="sm"
                                 className="h-6 w-6 p-0 bg-white"
                                 onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleSetRecurring(shift)
+                                  e.stopPropagation();
+                                  handleSetRecurring(shift);
                                 }}
                               >
                                 <Repeat className="w-3 h-3" />
@@ -622,8 +727,8 @@ const GoogleCalendarScheduler = () => {
                                 size="sm"
                                 className="h-6 w-6 p-0 bg-white"
                                 onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleDeleteShift(shift.id)
+                                  e.stopPropagation();
+                                  handleDeleteShift(shift.id);
                                 }}
                               >
                                 <Trash2 className="w-3 h-3" />
@@ -631,7 +736,7 @@ const GoogleCalendarScheduler = () => {
                             </div>
                           )}
                         </div>
-                      )
+                      );
                     })}
                 </div>
               </div>
@@ -653,178 +758,351 @@ const GoogleCalendarScheduler = () => {
         />
       )}
     </div>
-  )
-}
+  );
+};
 
 export default function Staff() {
-  const [showAIRecommendations, setShowAIRecommendations] = useState(false)
+  const navigate = useNavigate();
+  const [showAIRecommendations, setShowAIRecommendations] = useState(false);
+  const [isAutoSchedulerOpen, setIsAutoSchedulerOpen] = useState(false);
+  const [autoScheduleId, setAutoScheduleId] = useState<string | null>(null);
+  const [isPublishing, setIsPublishing] = useState<boolean>(false);
   // All Staff Tab state
   interface StaffListExtended {
-    id: string
+    id: string;
     user: {
-      id: string
-      first_name: string
-      last_name: string
-      email: string
-      role: string
-      is_active: boolean
-    }
-    employee_id: string
-    date_joined: string
-    is_active: boolean
-    department: string | null
+      id: string;
+      first_name: string;
+      last_name: string;
+      email: string;
+      role: string;
+      is_active: boolean;
+    };
+    employee_id: string;
+    date_joined: string;
+    is_active: boolean;
+    department: string | null;
   }
 
   // Backend user shape returned by GET /api/users/
   interface BackendUser {
-    id: string
-    email: string
-    first_name: string
-    last_name: string
-    role: string
-    is_active: boolean
-    created_at?: string
+    id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    role: string;
+    is_active: boolean;
+    created_at?: string;
     profile?: {
-      employee_id?: string
-      department?: string | null
-    }
+      employee_id?: string;
+      department?: string | null;
+    };
   }
 
-  const [staff, setStaff] = useState<StaffListExtended[]>([])
-  const [staffLoading, setStaffLoading] = useState<boolean>(false)
-  const [staffError, setStaffError] = useState<string | null>(null)
+  const [staff, setStaff] = useState<StaffListExtended[]>([]);
+  const [staffLoading, setStaffLoading] = useState<boolean>(false);
+  const [staffError, setStaffError] = useState<string | null>(null);
 
-  const [pendingInvites, setPendingInvites] = useState<{
-    id: string
-    email: string
-    role: string
-    invited_by: string
-    restaurant: string
-    token: string
-    is_accepted: boolean
-    created_at: string
-    expires_at: string
-  }[]>([])
-  const [invitesError, setInvitesError] = useState<string | null>(null)
-  const [invitesLoading, setInvitesLoading] = useState<boolean>(false)
+  const [pendingInvites, setPendingInvites] = useState<
+    {
+      id: string;
+      email: string;
+      role: string;
+      invited_by: string;
+      restaurant: string;
+      token: string;
+      is_accepted: boolean;
+      created_at: string;
+      expires_at: string;
+    }[]
+  >([]);
+  const [invitesError, setInvitesError] = useState<string | null>(null);
+  const [invitesLoading, setInvitesLoading] = useState<boolean>(false);
 
-  const [searchQuery, setSearchQuery] = useState<string>("")
-  const [positionFilter, setPositionFilter] = useState<string>("all")
-  const [departmentFilter, setDepartmentFilter] = useState<string>("all")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [page, setPage] = useState<number>(1)
-  const pageSize = 10
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [positionFilter, setPositionFilter] = useState<string>("all");
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [page, setPage] = useState<number>(1);
+  const pageSize = 10;
+
+  // Auto-scheduler: map staff, compute week, and persist generated shifts
+  const autoSchedulerStaff: AutoStaffMember[] = useMemo(() => {
+    return staff.map((s) => ({
+      id: s.user.id,
+      name:
+        `${s.user.first_name || ""} ${s.user.last_name || ""}`.trim() ||
+        s.user.email,
+      role: s.user.role,
+      email: s.user.email,
+      phone: "",
+      status: s.user.is_active ? "active" : "inactive",
+      weeklyHours: 40,
+      preferredShift: "morning",
+      skills: [s.user.role],
+      hourlyRate: 0,
+      maxHoursPerDay: 8,
+      unavailableDays: [],
+      taskPreferences: [],
+    }));
+  }, [staff]);
+
+  const getCurrentWeekStartEnd = () => {
+    const today = new Date();
+    const day = today.getDay(); // 0=Sun..6=Sat
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() + mondayOffset);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    const fmt = (d: Date) => d.toISOString().split("T")[0];
+    return {
+      weekStart,
+      weekEnd,
+      weekStartStr: fmt(weekStart),
+      weekEndStr: fmt(weekEnd),
+    };
+  };
+
+  const persistAutoSchedule = async (generated: AutoShift[]) => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("No access token found");
+        return;
+      }
+
+      const { weekStart, weekEnd, weekStartStr, weekEndStr } =
+        getCurrentWeekStartEnd();
+
+      const scheduleRes = await fetch(
+        `${API_BASE}/scheduling/weekly-schedules/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            week_start: weekStartStr,
+            week_end: weekEndStr,
+            is_published: false,
+          }),
+        }
+      );
+      if (!scheduleRes.ok) {
+        const err = await scheduleRes.text();
+        throw new Error(`Failed to create weekly schedule: ${err}`);
+      }
+      const schedule = await scheduleRes.json();
+      setAutoScheduleId(schedule.id);
+
+      const toISODate = (base: Date, dayIndex: number) => {
+        const d = new Date(base);
+        d.setDate(base.getDate() + dayIndex);
+        return d.toISOString().split("T")[0];
+      };
+
+      for (const sh of generated) {
+        const payload = {
+          staff: sh.staffId,
+          shift_date: toISODate(weekStart, sh.day),
+          start_time: sh.start.length === 5 ? `${sh.start}:00` : sh.start,
+          end_time: sh.end.length === 5 ? `${sh.end}:00` : sh.end,
+          role: sh.role,
+          break_duration: "00:30:00",
+          notes: sh.title,
+          color: sh.color,
+        };
+        const res = await fetch(
+          `${API_BASE}/scheduling/weekly-schedules/${schedule.id}/assigned-shifts/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          }
+        );
+        if (!res.ok) {
+          const errTxt = await res.text();
+          console.error("Failed to create assigned shift:", errTxt);
+        }
+      }
+
+      toast.success("Draft schedule created. Review and publish when ready.");
+    } catch (e) {
+      const err = e as Error;
+      toast.error(err.message || "Failed to auto-schedule");
+    }
+  };
+
+  const publishAutoSchedule = async () => {
+    if (!autoScheduleId) {
+      toast.error("No draft schedule to publish");
+      return;
+    }
+    try {
+      setIsPublishing(true);
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("No access token found");
+        setIsPublishing(false);
+        return;
+      }
+
+      const res = await fetch(
+        `${API_BASE}/scheduling/weekly-schedules/${autoScheduleId}/`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ is_published: true }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Failed to publish schedule: ${err}`);
+      }
+
+      toast.success("Schedule published to assigned staff.");
+      setIsAutoSchedulerOpen(false);
+      setAutoScheduleId(null);
+    } catch (e) {
+      const err = e as Error;
+      toast.error(err.message || "Failed to publish schedule");
+    } finally {
+      setIsPublishing(false);
+    }
+  };
 
   useEffect(() => {
     const fetchStaff = async () => {
       try {
-        setStaffLoading(true)
-        setStaffError(null)
-        const token = localStorage.getItem("access_token") || ""
+        setStaffLoading(true);
+        setStaffError(null);
+        const token = localStorage.getItem("access_token") || "";
         // Use unified users endpoint from backend (tenant-filtered)
         const response = await fetch(`${API_BASE}/users/`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        })
+        });
         if (!response.ok) {
           // Try to read server-provided error; fall back to generic
-          let serverMessage = "Failed to fetch staff"
+          let serverMessage = "Failed to fetch staff";
           try {
-            const data = await response.json()
-            serverMessage = (data.message || data.detail || serverMessage)
+            const data = await response.json();
+            serverMessage = data.message || data.detail || serverMessage;
           } catch (e) {
             // Ignore JSON parse errors when reading error body
-            void e
+            void e;
           }
-          throw new Error(serverMessage)
+          throw new Error(serverMessage);
         }
-        const users: BackendUser[] = await response.json()
+        const users: BackendUser[] = await response.json();
         // Map flat user list to StaffListExtended structure expected by UI
-        const mapped: StaffListExtended[] = (users || []).map((u: BackendUser) => ({
-          id: u.id,
-          user: {
+        const mapped: StaffListExtended[] = (users || []).map(
+          (u: BackendUser) => ({
             id: u.id,
-            first_name: u.first_name,
-            last_name: u.last_name,
-            email: u.email,
-            role: u.role,
+            user: {
+              id: u.id,
+              first_name: u.first_name,
+              last_name: u.last_name,
+              email: u.email,
+              role: u.role,
+              is_active: !!u.is_active,
+            },
+            employee_id: u.profile?.employee_id || "",
+            date_joined: u.created_at || "",
             is_active: !!u.is_active,
-          },
-          employee_id: u.profile?.employee_id || "",
-          date_joined: u.created_at || "",
-          is_active: !!u.is_active,
-          department: u.profile?.department || null,
-        }))
-        setStaff(mapped)
+            department: u.profile?.department || null,
+          })
+        );
+        setStaff(mapped);
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Failed to fetch staff"
-        setStaffError(message)
+        const message =
+          err instanceof Error ? err.message : "Failed to fetch staff";
+        setStaffError(message);
       } finally {
-        setStaffLoading(false)
+        setStaffLoading(false);
       }
-    }
+    };
 
     const fetchInvites = async () => {
       try {
-        setInvitesLoading(true)
-        setInvitesError(null)
-        const token = localStorage.getItem("access_token") || ""
-        const invites = await api.getPendingStaffInvitations(token)
-        setPendingInvites(invites || [])
+        setInvitesLoading(true);
+        setInvitesError(null);
+        const token = localStorage.getItem("access_token") || "";
+        const invites = await api.getPendingStaffInvitations(token);
+        setPendingInvites(invites || []);
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Failed to fetch pending invitations"
-        setInvitesError(message)
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch pending invitations";
+        setInvitesError(message);
       } finally {
-        setInvitesLoading(false)
+        setInvitesLoading(false);
       }
-    }
+    };
 
-    fetchStaff()
-    fetchInvites()
-  }, [])
+    fetchStaff();
+    fetchInvites();
+  }, []);
 
   const positions = useMemo(() => {
-    const set = new Set<string>()
-    staff.forEach((m) => m.user?.role && set.add(m.user.role))
-    return Array.from(set)
-  }, [staff])
+    const set = new Set<string>();
+    staff.forEach((m) => m.user?.role && set.add(m.user.role));
+    return Array.from(set);
+  }, [staff]);
 
   const departments = useMemo(() => {
-    const set = new Set<string>()
-    staff.forEach((m) => m.department && set.add(m.department))
-    return Array.from(set)
-  }, [staff])
+    const set = new Set<string>();
+    staff.forEach((m) => m.department && set.add(m.department));
+    return Array.from(set);
+  }, [staff]);
 
   const filteredStaff = useMemo(() => {
-    let list = staff
+    let list = staff;
     if (statusFilter !== "all") {
-      const isActive = statusFilter === "active"
-      list = list.filter((m) => !!m.user?.is_active === isActive)
+      const isActive = statusFilter === "active";
+      list = list.filter((m) => !!m.user?.is_active === isActive);
     }
     if (positionFilter !== "all") {
-      list = list.filter((m) => (m.user?.role || "").toLowerCase() === positionFilter.toLowerCase())
+      list = list.filter(
+        (m) =>
+          (m.user?.role || "").toLowerCase() === positionFilter.toLowerCase()
+      );
     }
     if (departmentFilter !== "all") {
-      list = list.filter((m) => (m.department || "").toLowerCase() === departmentFilter.toLowerCase())
+      list = list.filter(
+        (m) =>
+          (m.department || "").toLowerCase() === departmentFilter.toLowerCase()
+      );
     }
     if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase()
-      list = list.filter((m) =>
-        `${m.user?.first_name || ""} ${m.user?.last_name || ""}`.toLowerCase().includes(q) ||
-        (m.user?.email || "").toLowerCase().includes(q)
-      )
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter(
+        (m) =>
+          `${m.user?.first_name || ""} ${m.user?.last_name || ""}`
+            .toLowerCase()
+            .includes(q) || (m.user?.email || "").toLowerCase().includes(q)
+      );
     }
-    return list
-  }, [staff, statusFilter, positionFilter, departmentFilter, searchQuery])
+    return list;
+  }, [staff, statusFilter, positionFilter, departmentFilter, searchQuery]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredStaff.length / pageSize))
-  const currentPage = Math.min(page, totalPages)
+  const totalPages = Math.max(1, Math.ceil(filteredStaff.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
   const paginatedStaff = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
-    const end = start + pageSize
-    return filteredStaff.slice(start, end)
-  }, [filteredStaff, currentPage])
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredStaff.slice(start, end);
+  }, [filteredStaff, currentPage]);
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -861,15 +1139,24 @@ export default function Staff() {
                   <CardTitle className="text-lg">AI Insights</CardTitle>
                 </div>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  {showAIRecommendations ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  {showAIRecommendations ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
                 </Button>
               </div>
-              <CardDescription>{aiRecommendations.length} recommendations available</CardDescription>
+              <CardDescription>
+                {aiRecommendations.length} recommendations available
+              </CardDescription>
             </CardHeader>
             {showAIRecommendations && (
               <CardContent className="pt-0 space-y-3">
                 {aiRecommendations.map((rec, index) => (
-                  <div key={index} className="flex items-start p-3 bg-muted/30 rounded-lg border-l-2 border-accent">
+                  <div
+                    key={index}
+                    className="flex items-start p-3 bg-muted/30 rounded-lg border-l-2 border-accent"
+                  >
                     <AlertCircle className="w-4 h-4 text-accent mr-3 mt-0.5 flex-shrink-0" />
                     <span className="text-sm leading-relaxed">{rec}</span>
                   </div>
@@ -883,8 +1170,12 @@ export default function Staff() {
               <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs sm:text-sm font-medium">Total Staff</p>
-                    <p className="text-xl sm:text-2xl font-bold"></p>
+                    <p className="text-xs sm:text-sm font-medium">
+                      Total Staff
+                    </p>
+                    <p className="text-xl sm:text-2xl font-bold">
+                      {staff.length}
+                    </p>
                   </div>
                   <Users className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                 </div>
@@ -895,7 +1186,9 @@ export default function Staff() {
               <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs sm:text-sm font-medium">On Duty Today</p>
+                    <p className="text-xs sm:text-sm font-medium">
+                      On Duty Today
+                    </p>
                     <p className="text-xl sm:text-2xl font-bold"></p>
                   </div>
                   <UserCheck className="w-6 h-6 sm:w-8 sm:h-8 text-success" />
@@ -907,7 +1200,9 @@ export default function Staff() {
               <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs sm:text-sm font-medium">Labor Cost %</p>
+                    <p className="text-xs sm:text-sm font-medium">
+                      Labor Cost %
+                    </p>
                     <p className="text-xl sm:text-2xl font-bold"></p>
                   </div>
                   <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-warning" />
@@ -932,38 +1227,71 @@ export default function Staff() {
             <Card className="shadow-soft">
               <CardHeader>
                 <CardTitle>Team Members</CardTitle>
-                <CardDescription>Current staff roster and availability</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-                  <div className="flex items-center space-x-3 min-w-0 flex-1">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-primary-foreground font-medium text-sm">?</span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-sm sm:text-base truncate">
-                        {/* {member.name} */}
-                        </h3>
-                      <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                        {/* {member.role} */}
-                        </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {/* {member.schedule} */}
-                        </p>
-                    </div>
+              <CardContent className="space-y-3 max-h-[420px] overflow-y-auto">
+                {staffLoading ? (
+                  <div className="text-sm text-muted-foreground">
+                    Loading staff…
                   </div>
-                  <div className="text-right space-y-1 ml-2">
-                    <Badge variant="outline" className="text-xs">
-                    {/* {member.status} */}
-                    </Badge>
-                    <div className="text-xs text-muted-foreground whitespace-nowrap">
-                      {/* {member.hours}h this week */}
-                      </div>
-                    <div className="text-xs">⭐ 
-                      {/* {member.rating} */}
-                      </div>
+                ) : staffError ? (
+                  <div className="text-red-600 text-sm">{staffError}</div>
+                ) : staff.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    No staff found.
                   </div>
-                </div>
+                ) : (
+                  staff.map((m) => {
+                    const initials = `${m.user?.first_name?.[0] || "?"}`;
+                    const name =
+                      `${m.user?.first_name || ""} ${
+                        m.user?.last_name || ""
+                      }`.trim() || m.user?.email;
+                    const role = (m.user?.role || "")
+                      .toLowerCase()
+                      .replace(/_/g, " ");
+                    const statusLabel = m.user?.is_active
+                      ? "Active"
+                      : "Inactive";
+                    const statusClass = m.user?.is_active
+                      ? "text-green-700 border-green-300"
+                      : "text-gray-700 border-gray-300";
+                    return (
+                      <div
+                        key={m.id}
+                        className="flex items-center justify-between p-3 bg-secondary rounded-lg"
+                      >
+                        <div className="flex items-center space-x-3 min-w-0 flex-1">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-primary-foreground font-medium text-sm">
+                              {initials}
+                            </span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-semibold text-sm sm:text-base truncate">
+                              {name}
+                            </h3>
+                            <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                              {role || "—"}
+                            </p>
+                            {m.department && (
+                              <p className="text-xs text-muted-foreground truncate">
+                                {m.department}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right space-y-1 ml-2">
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${statusClass}`}
+                          >
+                            {statusLabel}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </CardContent>
             </Card>
 
@@ -972,9 +1300,12 @@ export default function Staff() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <CardTitle>Weekly Schedule</CardTitle>
-                    <CardDescription>Current and upcoming shifts</CardDescription>
                   </div>
-                  <Button variant="outline" size="sm" className="w-full sm:w-auto bg-transparent">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto bg-transparent"
+                  >
                     <Calendar className="w-4 h-4 mr-2" />
                     View Calendar
                   </Button>
@@ -987,21 +1318,40 @@ export default function Staff() {
           <Card className="shadow-soft">
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Common staff management tasks</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Button variant="outline" className="h-14 sm:h-16 flex flex-col gap-1 p-2 bg-transparent">
+                <Button
+                  variant="outline"
+                  className="h-14 sm:h-16 flex flex-col gap-1 p-2 bg-transparent"
+                  onClick={() => {
+                    setAutoScheduleId(null);
+                    setIsAutoSchedulerOpen(true);
+                  }}
+                >
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="text-xs sm:text-sm text-center">Auto-Schedule</span>
+                  <span className="text-xs sm:text-sm text-center">
+                    Auto-Schedule
+                  </span>
                 </Button>
-                <Button variant="outline" className="h-14 sm:h-16 flex flex-col gap-1 p-2 bg-transparent">
+                <Button
+                  variant="outline"
+                  className="h-14 sm:h-16 flex flex-col gap-1 p-2 bg-transparent"
+                >
                   <Users className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="text-xs sm:text-sm text-center">Shift Notifications</span>
+                  <span className="text-xs sm:text-sm text-center">
+                    Shift Notifications
+                  </span>
                 </Button>
-                <Button variant="outline" className="h-14 sm:h-16 flex flex-col gap-1 p-2 bg-transparent">
+                <Button
+                  variant="outline"
+                  className="h-14 sm:h-16 flex flex-col gap-1 p-2 bg-transparent"
+                  onClick={() => navigate('/dashboard/timesheets')}
+                >
                   <UserCheck className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="text-xs sm:text-sm text-center">Timesheets</span>
+                  <span className="text-xs sm:text-sm text-center">
+                    Timesheets
+                  </span>
                 </Button>
               </div>
             </CardContent>
@@ -1015,49 +1365,87 @@ export default function Staff() {
           <Card className="shadow-soft">
             <CardHeader>
               <CardTitle>All Staff</CardTitle>
-              <CardDescription>Browse, search, and filter staff members</CardDescription>
+              <CardDescription>
+                Browse, search, and filter staff members
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div>
-                  <label className="text-sm text-muted-foreground">Search</label>
+                  <label className="text-sm text-muted-foreground">
+                    Search
+                  </label>
                   <Input
                     placeholder="Search name or email"
                     value={searchQuery}
                     onChange={(e) => {
-                      setSearchQuery(e.target.value)
-                      setPage(1)
+                      setSearchQuery(e.target.value);
+                      setPage(1);
                     }}
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-muted-foreground">Position</label>
-                  <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(1) }}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="All" /></SelectTrigger>
+                  <label className="text-sm text-muted-foreground">
+                    Position
+                  </label>
+                  <Select
+                    value={positionFilter}
+                    onValueChange={(v) => {
+                      setPositionFilter(v);
+                      setPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All</SelectItem>
                       {positions.map((role) => (
-                        <SelectItem key={role} value={role}>{role}</SelectItem>
+                        <SelectItem key={role} value={role}>
+                          {role}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm text-muted-foreground">Department</label>
-                  <Select value={departmentFilter} onValueChange={(v) => { setDepartmentFilter(v); setPage(1) }}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="All" /></SelectTrigger>
+                  <label className="text-sm text-muted-foreground">
+                    Department
+                  </label>
+                  <Select
+                    value={departmentFilter}
+                    onValueChange={(v) => {
+                      setDepartmentFilter(v);
+                      setPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All</SelectItem>
                       {departments.map((d) => (
-                        <SelectItem key={d} value={d}>{d}</SelectItem>
+                        <SelectItem key={d} value={d}>
+                          {d}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm text-muted-foreground">Employment Status</label>
-                  <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="All" /></SelectTrigger>
+                  <label className="text-sm text-muted-foreground">
+                    Employment Status
+                  </label>
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(v) => {
+                      setStatusFilter(v);
+                      setPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
@@ -1068,7 +1456,9 @@ export default function Staff() {
               </div>
 
               {staffLoading ? (
-                <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">Loading staff...</div>
+                <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+                  Loading staff...
+                </div>
               ) : staffError ? (
                 <div className="text-red-600 text-sm">{staffError}</div>
               ) : (
@@ -1086,7 +1476,12 @@ export default function Staff() {
                     <TableBody>
                       {paginatedStaff.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">No staff match your filters.</TableCell>
+                          <TableCell
+                            colSpan={5}
+                            className="text-center text-sm text-muted-foreground"
+                          >
+                            No staff match your filters.
+                          </TableCell>
                         </TableRow>
                       ) : (
                         paginatedStaff.map((m) => (
@@ -1094,17 +1489,36 @@ export default function Staff() {
                             <TableCell className="whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <span
-                                  className={`inline-block w-2 h-2 rounded-full ${m.user?.is_active ? "bg-green-500" : "bg-gray-400"}`}
-                                  aria-label={m.user?.is_active ? "Active" : "Inactive"}
+                                  className={`inline-block w-2 h-2 rounded-full ${
+                                    m.user?.is_active
+                                      ? "bg-green-500"
+                                      : "bg-gray-400"
+                                  }`}
+                                  aria-label={
+                                    m.user?.is_active ? "Active" : "Inactive"
+                                  }
                                 />
                                 {m.user?.first_name} {m.user?.last_name}
                               </div>
                             </TableCell>
-                            <TableCell className="break-all">{m.user?.email}</TableCell>
-                            <TableCell className="capitalize">{(m.user?.role || "").toLowerCase().replace(/_/g, " ")}</TableCell>
+                            <TableCell className="break-all">
+                              {m.user?.email}
+                            </TableCell>
+                            <TableCell className="capitalize">
+                              {(m.user?.role || "")
+                                .toLowerCase()
+                                .replace(/_/g, " ")}
+                            </TableCell>
                             <TableCell>{m.department || "—"}</TableCell>
                             <TableCell>
-                              <Badge variant="outline" className={m.user?.is_active ? "text-green-700 border-green-300" : "text-gray-700 border-gray-300"}>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  m.user?.is_active
+                                    ? "text-green-700 border-green-300"
+                                    : "text-gray-700 border-gray-300"
+                                }
+                              >
                                 {m.user?.is_active ? "Active" : "Inactive"}
                               </Badge>
                             </TableCell>
@@ -1118,12 +1532,26 @@ export default function Staff() {
 
               {/* Pagination */}
               <div className="flex items-center justify-between mt-3">
-                <div className="text-xs text-muted-foreground">Page {currentPage} of {totalPages}</div>
+                <div className="text-xs text-muted-foreground">
+                  Page {currentPage} of {totalPages}
+                </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="bg-transparent" disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-transparent"
+                    disabled={currentPage <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
-                  <Button variant="outline" size="sm" className="bg-transparent" disabled={currentPage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-transparent"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
                     <ChevronRight className="w-4 h-4" />
                   </Button>
                 </div>
@@ -1141,9 +1569,13 @@ export default function Staff() {
               {invitesError ? (
                 <div className="text-red-600 text-sm">{invitesError}</div>
               ) : invitesLoading ? (
-                <div className="text-sm text-muted-foreground">Loading pending invitations…</div>
+                <div className="text-sm text-muted-foreground">
+                  Loading pending invitations…
+                </div>
               ) : pendingInvites.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No pending invitations.</div>
+                <div className="text-sm text-muted-foreground">
+                  No pending invitations.
+                </div>
               ) : (
                 <div className="rounded-md border">
                   <Table>
@@ -1158,10 +1590,18 @@ export default function Staff() {
                     <TableBody>
                       {pendingInvites.map((inv) => (
                         <TableRow key={inv.id}>
-                          <TableCell className="break-all">{inv.email}</TableCell>
-                          <TableCell className="capitalize">{(inv.role || "").toLowerCase().replace(/_/g, " ")}</TableCell>
-                          <TableCell>{new Date(inv.created_at).toLocaleString()}</TableCell>
-                          <TableCell>{new Date(inv.expires_at).toLocaleString()}</TableCell>
+                          <TableCell className="break-all">
+                            {inv.email}
+                          </TableCell>
+                          <TableCell className="capitalize">
+                            {(inv.role || "").toLowerCase().replace(/_/g, " ")}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(inv.created_at).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(inv.expires_at).toLocaleString()}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1175,6 +1615,36 @@ export default function Staff() {
           <StaffAnnouncementsList />
         </TabsContent>
       </Tabs>
+      {isAutoSchedulerOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-3xl mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Auto-Schedule</h3>
+              <Button
+                variant="ghost"
+                onClick={() => setIsAutoSchedulerOpen(false)}
+              >
+                Close
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <AutoScheduler
+                staffMembers={autoSchedulerStaff}
+                onSchedulesGenerated={(shifts) => persistAutoSchedule(shifts)}
+              />
+            </div>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <Button
+                variant="secondary"
+                disabled={!autoScheduleId || isPublishing}
+                onClick={publishAutoSchedule}
+              >
+                {isPublishing ? "Publishing..." : "Publish to Staff"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }
