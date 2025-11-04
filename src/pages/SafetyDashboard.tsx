@@ -55,18 +55,14 @@ const SafetyDashboard: React.FC = () => {
 
   return (
     <div className="container mx-auto py-4 md:py-6 space-y-4 md:space-y-6 px-2 md:px-6">
-      <div className="flex flex-col space-y-2">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Safety Dashboard</h1>
-        <p className="text-sm md:text-base text-muted-foreground">
-          Manage safety procedures, checklists, tasks, and recognitions
-        </p>
+      <div className="flex flex-col space-y-1">
       </div>
 
       <Alert className="bg-amber-50 border-amber-200">
         <AlertTriangle className="h-4 md:h-5 w-4 md:w-5 text-amber-600" />
         <AlertTitle className="text-sm md:text-base text-amber-800">Safety First</AlertTitle>
         <AlertDescription className="text-xs md:text-sm text-amber-700">
-          Safety is everyone's responsibility. Report concerns, follow procedures, and recognize excellence.
+          Safety is everyone's responsibility. Report concerns and follow procedures for a safe work environment.
         </AlertDescription>
       </Alert>
 

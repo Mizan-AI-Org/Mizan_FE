@@ -17,12 +17,15 @@ import { AuthContextType } from "@/contexts/AuthContext.types";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import BackLink from "@/components/BackLink";
 import BrandLogo from "@/components/BrandLogo";
+import { LanguageSelector } from "@/components/LanguangeSelector";
+import { useLanguage } from "@/hooks/use-language";
 
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth() as AuthContextType;
   const { notifications, isConnected, markAllAsRead, markAsRead } = useNotifications();
+  const { t } = useLanguage();
 
   // Derive a safe restaurant label from various possible user shapes without using `any`
   // Compute a restaurant label, but hide raw UUIDs
@@ -49,11 +52,14 @@ const DashboardLayout: React.FC = () => {
             <div className="flex items-center gap-3">
               {/* Removed mobile sidebar trigger per design */}
               <BrandLogo size="sm" />
-              <h1 className="text-2xl font-bold select-none cursor-default">Mizan</h1>
+              <h1 className="text-2xl font-bold select-none cursor-default">{t("common.brand")}</h1>
             </div>
             <div className="flex items-center gap-4">
               {/* Theme Toggle */}
               <ThemeToggle />
+
+              {/* Language Switcher */}
+              <LanguageSelector />
 
               <div className="hidden lg:flex items-center gap-2">
               </div>
@@ -61,7 +67,7 @@ const DashboardLayout: React.FC = () => {
               <div className="relative">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="relative" aria-label={`View ${notifications.filter(n => !n.read).length} notifications`}>
+                    <Button variant="ghost" size="icon" className="relative" aria-label={`${t("common.notifications.title")}`}>  
                       <Bell className="h-5 w-5" />
                       {notifications.filter(n => !n.read).length > 0 && (
                         <span className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center rounded-full bg-red-500 text-white text-xs">
@@ -71,10 +77,10 @@ const DashboardLayout: React.FC = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-80">
-                    <div className="px-4 py-2 font-medium">Notifications</div>
+                    <div className="px-4 py-2 font-medium">{t("common.notifications.title")}</div>
                     <DropdownMenuSeparator />
                     {notifications.length === 0 ? (
-                      <p className="text-center text-sm text-muted-foreground py-4">No new notifications</p>
+                      <p className="text-center text-sm text-muted-foreground py-4">{t("common.notifications.empty")}</p>
                     ) : (
                       notifications.map((notification) => (
                         <DropdownMenuItem key={notification.id} className="flex flex-col items-start space-y-1 p-2">
@@ -85,7 +91,7 @@ const DashboardLayout: React.FC = () => {
                           <p className="text-xs text-muted-foreground">{new Date(notification.timestamp).toLocaleString()}</p>
                           {!notification.read && (
                             <Button variant="link" size="sm" onClick={() => markAsRead(notification.id)} className="self-end h-auto p-0 text-xs text-blue-600">
-                              Mark as Read
+                              {t("common.notifications.mark_as_read")}
                             </Button>
                           )}
                         </DropdownMenuItem>
@@ -93,7 +99,7 @@ const DashboardLayout: React.FC = () => {
                     )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={markAllAsRead}>
-                      Mark all as read
+                      {t("common.notifications.mark_all_read")}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -116,7 +122,7 @@ const DashboardLayout: React.FC = () => {
                     <p className="text-sm font-medium">
                       {user?.first_name && user?.last_name
                         ? `${user.first_name} ${user.last_name}`
-                        : "User"}
+                        : t("common.welcome")}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {user?.email || ""}
@@ -129,9 +135,9 @@ const DashboardLayout: React.FC = () => {
                     )}
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout} className="text-destructive" aria-label="Sign out">
+                  <DropdownMenuItem onClick={logout} className="text-destructive" aria-label={t("common.sign_out")}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    Sign Out
+                    {t("common.sign_out")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -143,7 +149,7 @@ const DashboardLayout: React.FC = () => {
       <main className="flex-1">
         {location.pathname !== '/dashboard' && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-3 mb-2 border-b">
-            <BackLink fallbackPath="/dashboard">Back to Dashboard</BackLink>
+            <BackLink fallbackPath="/dashboard">{t("common.back_to_dashboard")}</BackLink>
           </div>
         )}
         <Outlet />

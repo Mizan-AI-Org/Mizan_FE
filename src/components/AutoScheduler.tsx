@@ -1,5 +1,5 @@
 // src/components/AutoScheduler.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     Card,
     CardContent,
@@ -26,6 +26,9 @@ import {
     RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
+
+const API_BASE =
+  import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 // Types
 export interface Shift {
@@ -153,72 +156,99 @@ export const AutoScheduler = ({
         },
     });
 
-    const [taskTemplates, setTaskTemplates] = useState<Task[]>([
-        {
-            id: "1",
-            name: "Opening Setup",
-            duration: 45,
-            priority: "high",
-            category: "opening",
-            completed: false,
-        },
-        {
-            id: "2",
-            name: "Inventory Check",
-            duration: 30,
-            priority: "medium",
-            category: "opening",
-            completed: false,
-        },
-        {
-            id: "3",
-            name: "Prep Station Setup",
-            duration: 60,
-            priority: "high",
-            category: "opening",
-            completed: false,
-        },
-        {
-            id: "4",
-            name: "Lunch Service",
-            duration: 240,
-            priority: "high",
-            category: "service",
-            completed: false,
-        },
-        {
-            id: "5",
-            name: "Dinner Service",
-            duration: 300,
-            priority: "high",
-            category: "service",
-            completed: false,
-        },
-        {
-            id: "6",
-            name: "Clean Kitchen",
-            duration: 60,
-            priority: "medium",
-            category: "cleaning",
-            completed: false,
-        },
-        {
-            id: "7",
-            name: "Restock Supplies",
-            duration: 30,
-            priority: "low",
-            category: "maintenance",
-            completed: false,
-        },
-        {
-            id: "8",
-            name: "Closing Procedures",
-            duration: 45,
-            priority: "high",
-            category: "closing",
-            completed: false,
-        },
-    ]);
+    const [taskTemplates, setTaskTemplates] = useState<Task[]>([]);
+
+    interface TemplateTask {
+        title?: string;
+        priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+        estimated_duration?: number;
+    }
+    interface TaskTemplateApi {
+        id: string;
+        name: string;
+        description?: string;
+        template_type?: string; // opening, service, cleaning, closing, maintenance
+        tasks?: TemplateTask[];
+    }
+
+    const mapPriority = (p?: TemplateTask["priority"]): Task["priority"] => {
+        switch (p) {
+            case "HIGH":
+                return "high";
+            case "MEDIUM":
+                return "medium";
+            case "LOW":
+                return "low";
+            case "URGENT":
+                return "high";
+            default:
+                return "medium";
+       }
+   };
+
+    const mapCategory = (c?: string): Task["category"] => {
+        const val = (c || "service").toLowerCase();
+        const categories: readonly Task['category'][] = ["opening", "closing", "service", "maintenance", "cleaning"];
+        const foundCategory = categories.find(cat => cat === val);
+        return foundCategory || "service";
+    };
+
+    useEffect(() => {
+        const loadTemplates = async () => {
+            try {
+                const res = await fetch(`${API_BASE}/scheduling/task-templates/`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+                });
+                if (!res.ok) throw new Error("Failed to load task templates");
+                const data = await res.json();
+                const items: TaskTemplateApi[] = (data.results || data || []) as TaskTemplateApi[];
+                let mapped: Task[] = [];
+                items.forEach((tpl) => {
+                    const category = mapCategory(tpl.template_type);
+                    const tasks = Array.isArray(tpl.tasks) && tpl.tasks!.length > 0
+                        ? tpl.tasks!
+                        : [{ title: tpl.name, priority: "MEDIUM", estimated_duration: 30 }];
+                    mapped = mapped.concat(
+                        tasks.map((t, idx) => ({
+                            id: `${tpl.id}-${idx}`,
+                            name: t.title || tpl.name,
+                            duration: t.estimated_duration || 30,
+                            priority: mapPriority(t.priority),
+                            category,
+                            completed: false,
+                        }))
+                    );
+                });
+                if (mapped.length === 0) {
+                    // Fallback to sensible defaults if no templates exist
+                    mapped = [
+                        { id: "fallback-1", name: "Opening Setup", duration: 45, priority: "high", category: "opening", completed: false },
+                        { id: "fallback-2", name: "Inventory Check", duration: 30, priority: "medium", category: "opening", completed: false },
+                        { id: "fallback-3", name: "Prep Station Setup", duration: 60, priority: "high", category: "opening", completed: false },
+                        { id: "fallback-4", name: "Lunch Service", duration: 240, priority: "high", category: "service", completed: false },
+                        { id: "fallback-5", name: "Dinner Service", duration: 300, priority: "high", category: "service", completed: false },
+                        { id: "fallback-6", name: "Clean Kitchen", duration: 60, priority: "medium", category: "cleaning", completed: false },
+                        { id: "fallback-7", name: "Restock Supplies", duration: 30, priority: "low", category: "maintenance", completed: false },
+                        { id: "fallback-8", name: "Closing Procedures", duration: 45, priority: "high", category: "closing", completed: false },
+                    ];
+                }
+                setTaskTemplates(mapped);
+            } catch (e) {
+                // If API fails, keep defaults for UX continuity
+                setTaskTemplates([
+                    { id: "fallback-1", name: "Opening Setup", duration: 45, priority: "high", category: "opening", completed: false },
+                    { id: "fallback-2", name: "Inventory Check", duration: 30, priority: "medium", category: "opening", completed: false },
+                    { id: "fallback-3", name: "Prep Station Setup", duration: 60, priority: "high", category: "opening", completed: false },
+                    { id: "fallback-4", name: "Lunch Service", duration: 240, priority: "high", category: "service", completed: false },
+                    { id: "fallback-5", name: "Dinner Service", duration: 300, priority: "high", category: "service", completed: false },
+                    { id: "fallback-6", name: "Clean Kitchen", duration: 60, priority: "medium", category: "cleaning", completed: false },
+                    { id: "fallback-7", name: "Restock Supplies", duration: 30, priority: "low", category: "maintenance", completed: false },
+                    { id: "fallback-8", name: "Closing Procedures", duration: 45, priority: "high", category: "closing", completed: false },
+                ]);
+            }
+        };
+        loadTemplates();
+    }, []);
 
     const simulateScheduling = async () => {
         setIsScheduling(true);
