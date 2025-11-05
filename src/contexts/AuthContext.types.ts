@@ -26,7 +26,13 @@ export interface AuthContextType {
     isLoading: boolean;
     updateUser: (user: User) => void;
     login: (email: string, password: string) => Promise<void>;
-    loginWithPin: (pin: string, email: string | null) => Promise<void>;
+    loginWithPin: (
+        pin: string,
+        email?: string | null,
+        imageData?: string | null,
+        latitude?: number | null,
+        longitude?: number | null
+    ) => Promise<void>;
     ownerSignup: (signupData: SignupData) => Promise<void>;
     acceptInvitation: (
         token: string,

@@ -9,6 +9,25 @@ import { Button } from "@/components/ui/button";
 import { useNotifications } from "@/hooks/useNotifications";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useLanguage } from "@/hooks/use-language";
+
+type NotificationAttachment = {
+  original_name?: string;
+  url?: string;
+  content_type?: string;
+  size?: number;
+  uploaded_at?: string;
+};
+
+type NotificationItem = {
+  id: string;
+  verb: string;
+  description?: string;
+  timestamp: string;
+  read?: boolean;
+  title?: string;
+  attachments?: NotificationAttachment[];
+};
 
 const StaffLayout: React.FC = () => {
     const { user, logout } = useAuth();
@@ -16,7 +35,8 @@ const StaffLayout: React.FC = () => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const { notifications, markAllAsRead, markAsRead } = useNotifications();
     const [openDetail, setOpenDetail] = useState(false);
-    const [selectedNotification, setSelectedNotification] = useState<any | null>(null);
+    const [selectedNotification, setSelectedNotification] = useState<NotificationItem | null>(null);
+    const { t } = useLanguage();
 
     const navigation = [
         { name: "Dashboard", href: "/staff-dashboard", icon: User },
@@ -164,7 +184,7 @@ const StaffLayout: React.FC = () => {
                                 )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={markAllAsRead}>
-                                  Mark all as read
+                                  {t("common.notifications.mark_all_read")}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -215,7 +235,7 @@ const StaffLayout: React.FC = () => {
                             className="flex items-center w-full px-3 py-2 text-sm text-gray-600 rounded-md hover:bg-gray-100 transition-colors"
                         >
                             <LogOut className="w-4 h-4 mr-2" />
-                            Logout
+                            {t("common.sign_out")}
                         </button>
                     </div>
                 </div>
@@ -226,7 +246,7 @@ const StaffLayout: React.FC = () => {
                 <main className="p-4 sm:p-6">
                     {location.pathname !== '/staff-dashboard' && (
                         <div className="mb-2">
-                            <BackLink fallbackPath="/staff-dashboard">Back to Dashboard</BackLink>
+                            <BackLink fallbackPath="/staff-dashboard">{t("common.back_to_dashboard")}</BackLink>
                         </div>
                     )}
                     <Outlet />
@@ -245,7 +265,7 @@ const StaffLayout: React.FC = () => {
                               <div className="mt-2">
                                 <p className="text-sm font-medium">Attachments</p>
                                 <ul className="list-disc list-inside space-y-1">
-                                  {selectedNotification.attachments.map((file: any, idx: number) => (
+                                  {selectedNotification.attachments.map((file: NotificationAttachment, idx: number) => (
                                     <li key={idx}>
                                       <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                                         {file.original_name || `Attachment ${idx + 1}`}

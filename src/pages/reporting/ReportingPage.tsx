@@ -7,26 +7,28 @@ import {
     ArrowRight
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useLanguage } from "@/hooks/use-language";
 
 export default function ReportingPage() {
+    const { t } = useLanguage();
     const reportSections = [
         {
-            title: "Daily Sales Reports",
-            description: "View daily revenue, orders, and top-selling items.",
+            title: t("reporting.sections.daily.title"),
+            description: t("reporting.sections.daily.description"),
             icon: BarChart2,
             link: "/dashboard/reports/sales/daily",
             color: "text-blue-500",
         },
         {
-            title: "Attendance Reports",
-            description: "Track staff hours, late arrivals, and absences.",
+            title: t("reporting.sections.attendance.title"),
+            description: t("reporting.sections.attendance.description"),
             icon: Users,
             link: "/dashboard/reports/attendance",
             color: "text-green-500",
         },
         {
-            title: "Inventory Reports",
-            description: "Monitor stock levels, waste costs, and adjustments.",
+            title: t("reporting.sections.inventory.title"),
+            description: t("reporting.sections.inventory.description"),
             icon: Package,
             link: "/dashboard/reports/inventory",
             color: "text-purple-500",
@@ -42,10 +44,10 @@ export default function ReportingPage() {
                             <div className="flex-1">
                                 <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
                                     <BarChart2 className="w-6 h-6 text-blue-600" />
-                                    Restaurant Reporting & Analytics
+                                    {t("reporting.title")}
                                 </CardTitle>
                                 <CardDescription className="mt-1">
-                                    Comprehensive insights into your restaurant's performance.
+                                    {t("reporting.description")}
                                 </CardDescription>
                             </div>
                         </div>

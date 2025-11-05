@@ -51,6 +51,17 @@ export class BackendService {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
+    // Propagate current UI language to backend for localized responses
+    try {
+      const lang =
+        (typeof window !== "undefined" && window.localStorage.getItem("language")) ||
+        (typeof document !== "undefined" && document.documentElement.lang) ||
+        "en";
+      headers["Accept-Language"] = lang as string;
+    } catch {
+      headers["Accept-Language"] = "en";
+    }
+
     return headers;
   }
 
@@ -99,9 +110,13 @@ export class BackendService {
   ): Promise<LoginResponse> {
     try {
       // Decide endpoint based on provided credentials
-      const isStaffFlow = !!pin_code && !!invitation_pin;
+      // Staff flow now requires only a login PIN, no invitation PIN
+      const isStaffFlow = !!pin_code && !password;
+      // Backend routes:
+      // - Staff (PIN flow):       POST /api/staff/accept-invitation/
+      // - Admin/owner (password): POST /api/invitations/accept/
       const endpoint = isStaffFlow
-        ? `${API_BASE}/auth/accept-invitation/`
+        ? `${API_BASE}/staff/accept-invitation/`
         : `${API_BASE}/invitations/accept/`;
 
       const body: Record<string, any> = {
@@ -112,11 +127,10 @@ export class BackendService {
 
       if (isStaffFlow) {
         body.pin_code = pin_code;
-        body.invitation_pin = invitation_pin;
       } else if (password) {
         body.password = password;
       } else {
-        throw new Error("Missing credentials: provide PINs for staff or password for admin.");
+        throw new Error("Missing credentials: provide PIN for staff or password for admin.");
       }
 
       const response = await fetch(endpoint, {
@@ -369,8 +383,9 @@ export class BackendService {
     accessToken: string
   ): Promise<StaffInvitation[]> {
     try {
+      // Use InvitationViewSet with filters to return only pending, non-expired invites
       const response = await fetch(
-        `${API_BASE}/accounts/staff/pending-invitations/`,
+        `${API_BASE}/invitations/?is_accepted=false&show_expired=false`,
         {
           method: "GET",
           headers: this.getHeaders(accessToken),
@@ -1559,6 +1574,53 @@ export class BackendService {
     }
   }
 
+  // Web-specific endpoints with backend geofence enforcement and optional photo
+  async webClockIn(
+    accessToken: string,
+    latitude: number,
+    longitude: number,
+    accuracy?: number,
+    photo_url?: string,
+    photo?: string
+  ): Promise<{ message: string; event: ClockEvent }> {
+    try {
+      const response = await fetch(`${API_BASE}/timeclock/web-clock-in/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify({ latitude, longitude, accuracy, photo_url, photo }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to clock in");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to clock in");
+    }
+  }
+
+  async webClockOut(
+    accessToken: string,
+    latitude?: number,
+    longitude?: number,
+    accuracy?: number
+  ): Promise<{ message: string; event: ClockEvent }> {
+    try {
+      const response = await fetch(`${API_BASE}/timeclock/web-clock-out/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify({ latitude, longitude, accuracy }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to clock out");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to clock out");
+    }
+  }
+
   async startBreak(
     accessToken: string
   ): Promise<{ message: string; event: ClockEvent }> {
@@ -1632,6 +1694,22 @@ export class BackendService {
       return await response.json();
     } catch (error: any) {
       throw new Error(error.message || "Failed to verify location");
+    }
+  }
+
+  async getRestaurantLocation(accessToken: string): Promise<{ latitude: number; longitude: number; radius: number } | any> {
+    try {
+      const response = await fetch(`${API_BASE}/timeclock/restaurant-location/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch restaurant location");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to fetch restaurant location");
     }
   }
 
@@ -1874,6 +1952,8 @@ export class BackendService {
       schedule_for?: string;
       recipients_staff_ids?: string[];
       recipients_departments?: string[];
+      recipients_roles?: string[];
+      recipients_shift_ids?: string[];
       tags?: string[];
     },
     attachments?: File[]
@@ -1897,6 +1977,16 @@ export class BackendService {
           formData.append("recipients_departments", dept)
         );
       }
+      if (announcementData.recipients_roles?.length) {
+        announcementData.recipients_roles.forEach((role) =>
+          formData.append("recipients_roles", role)
+        );
+      }
+      if (announcementData.recipients_shift_ids?.length) {
+        announcementData.recipients_shift_ids.forEach((id) =>
+          formData.append("recipients_shift_ids", id)
+        );
+      }
       if (announcementData.tags?.length) {
         announcementData.tags.forEach((tag) => formData.append("tags", tag));
       }
@@ -1913,14 +2003,61 @@ export class BackendService {
       if (!response.ok) {
         let errorMessage = "Failed to create announcement";
         try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        } catch {}
+          const clone = response.clone();
+          const errorData = await clone.json();
+          const extracted =
+            (errorData && (errorData.message || errorData.detail || errorData.error)) ||
+            null;
+          if (extracted) {
+            errorMessage = extracted;
+          }
+        } catch (parseError) {
+          try {
+            const clone = response.clone();
+            const text = await clone.text();
+            if (text && typeof text === "string") {
+              errorMessage = text;
+            }
+          } catch {
+            void 0;
+          }
+        }
         throw new Error(errorMessage);
       }
       return await response.json();
     } catch (error: any) {
       throw new Error(error.message || "Failed to create announcement");
+    }
+  }
+
+  async getAssignedShifts(
+    accessToken: string,
+    params?: { date_from?: string; date_to?: string; staff_id?: string; schedule_id?: string }
+  ): Promise<any[]> {
+    try {
+      const qp = new URLSearchParams();
+      if (params?.date_from) qp.append("date_from", params.date_from);
+      if (params?.date_to) qp.append("date_to", params.date_to);
+      if (params?.staff_id) qp.append("staff_id", params.staff_id);
+      if (params?.schedule_id) qp.append("schedule_id", params.schedule_id);
+      const url = `${API_BASE}/scheduling/assigned-shifts-v2/${qp.toString() ? `?${qp.toString()}` : ""}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
+      if (!response.ok) {
+        let message = "Failed to fetch assigned shifts";
+        try {
+          const data = await response.json();
+          message = data.message || data.detail || message;
+        } catch {
+          // ignore parse error; keep default message
+        }
+        throw new Error(message);
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to fetch assigned shifts");
     }
   }
 }
