@@ -202,10 +202,21 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         onClose();
     };
 
-    const sourceStaff = (cachedStaff.length > 0 ? cachedStaff : staffMembers);
+    const nonAdminStaffMembers = staffMembers.filter((staff) => {
+        const r = (staff.role || '').toLowerCase();
+        return r !== 'admin' && r !== 'super_admin' && r !== 'super-admin';
+    });
 
-    // Include all staff; do not filter out roles to avoid excluding valid entries
-    const allStaffMembers = sourceStaff;
+    // Use cached staff if available, otherwise fall back to prop
+    const sourceStaff: StaffMember[] = (cachedStaff && cachedStaff.length > 0)
+        ? cachedStaff
+        : staffMembers;
+
+    // Exclude admin/super-admin from assignment list
+    const allStaffMembers: StaffMember[] = sourceStaff.filter((staff) => {
+        const r = (staff.role || '').toLowerCase();
+        return r !== 'admin' && r !== 'super_admin' && r !== 'super-admin';
+    });
 
     const filteredStaff = staffSearch.trim()
         ? allStaffMembers.filter(staff => {
