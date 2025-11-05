@@ -6,20 +6,16 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import { LanguageProvider } from "./contexts/LanguageProvider";
-import StaffLayout from "./components/layout/StaffLayout";
 import StaffGridLayout from "./components/layout/StaffGridLayout";
 import RoleBasedRoute from "./components/RoleBasedRoute";
 import { useIdleTimeout } from "./hooks/use-idle-timeout";
 import React, { useEffect, useState } from "react";
-import ErrorBoundary from "./components/ErrorBoundary"; // kept at root in main.tsx
- import usePushNotifications from "./hooks/usePushNotifications"; // Notifications disabled
 import { useAuth } from "./contexts/AuthContext";
 import OfflineWarning from "./components/OfflineWarning"; // Import OfflineWarning
 import InventoryItemsPage from "./pages/inventory/InventoryItemsPage";
 import SuppliersPage from "./pages/inventory/SuppliersPage";
 import PurchaseOrdersPage from "./pages/inventory/PurchaseOrdersPage";
 import StockAdjustmentsPage from "./pages/inventory/StockAdjustmentsPage";
-import ReportingPage from "./pages/reporting/ReportingPage";
 import DailySalesReportsPage from "./pages/reporting/DailySalesReportsPage";
 import AttendanceReportsPage from "./pages/reporting/AttendanceReportsPage";
 import InventoryReportsPage from "./pages/reporting/InventoryReportsPage";
@@ -43,6 +39,7 @@ const EnhancedAIAssistant = React.lazy(
 );
 const Auth = React.lazy(() => import("./pages/Auth"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
+const Unauthorized = React.lazy(() => import("./pages/Unauthorized"));
 const StaffDashboard = React.lazy(() => import("./pages/StaffDashboard"));
 const StaffAppsPage = React.lazy(() => import("./pages/StaffAppsPage"));
 const SafetyDashboard = React.lazy(() => import("./pages/SafetyDashboard"));
@@ -79,7 +76,7 @@ const CleaningTasks = React.lazy(() => import("./pages/CleaningTasks"));
 const SupervisorDashboard = React.lazy(
   () => import("./pages/SupervisorDashboard")
 );
-const StaffChat = React.lazy(() => import("./pages/StaffChat"));
+const StaffChat = React.lazy(() => import("./pages/StaffAnnouncement"));
 const ReportsPage = React.lazy(() => import("./pages/ReportsPage"));
 const AcceptInvitation = React.lazy(() => import("./pages/AcceptInvitation"));
 const AutoSchedule = React.lazy(() => import("./pages/AutoSchedule"));
@@ -138,6 +135,7 @@ const App = () => {
             <Routes>
               {/* Public Routes for Login/ Signup*/}
               <Route path="/auth" element={<Auth />} />
+              <Route path="/unauthorized" element={<Unauthorized />} />
               <Route path="/staff-login" element={<PinLogin />} />
               <Route path="/accept-invitation" element={<AcceptInvitation />} />
 

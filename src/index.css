@@ -139,8 +139,45 @@
 
   body {
     @apply bg-background text-foreground;
+    overflow-x: hidden; /* Prevent horizontal scrolling on mobile */
+    -webkit-tap-highlight-color: transparent; /* Reduce tap highlight */
   }
+
+  /* Automatic RTL support for Darija */
+  [dir="rtl"] body {
+    direction: rtl;
+    text-align: right;
+    font-family: "Tajawal", "Noto Naskh Arabic", "Noto Sans Arabic", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  /* Ensure common UI remains usable in RTL */
+  [dir="rtl"] .flex-row {
+    flex-direction: row-reverse;
+  }
+  [dir="rtl"] .ml-2 { margin-right: 0.5rem; margin-left: 0; }
+  [dir="rtl"] .mr-2 { margin-left: 0.5rem; margin-right: 0; }
+  [dir="rtl"] .ml-1 { margin-right: 0.25rem; margin-left: 0; }
+  [dir="rtl"] .mr-1 { margin-left: 0.25rem; margin-right: 0; }
+  [dir="rtl"] .ml-3 { margin-right: 0.75rem; margin-left: 0; }
+  [dir="rtl"] .mr-3 { margin-left: 0.75rem; margin-right: 0; }
+
+  /* Optional utility to flip row layout in RTL when needed */
+  [dir="rtl"] .rtl\:flip { flex-direction: row-reverse; }
 }
+
+/* Smooth language change transition */
+html.lang-changing body {
+  transition: opacity 150ms ease-in-out;
+  opacity: 0.92;
+}
+
+/* Mobile readability improvements */
+@media (max-width: 375px) {
+  html { font-size: 16px; }
+}
+
+/* Ensure touch targets meet minimum size via utility class */
+.touch-target { min-width: 48px; min-height: 48px; }
 
 /* Elegant Animation for Fine Dining Aesthetic */
 @keyframes float {

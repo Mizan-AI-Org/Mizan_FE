@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,8 +28,9 @@ import {
   AlertDialogDescription,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Clock, DollarSign, CheckCircle, AlertCircle, Download } from 'lucide-react';
+import { Clock, DollarSign, CheckCircle, AlertCircle, Download, Edit, ArrowUpDown, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import AssignedShiftModal from '@/components/schedule/AssignedShiftModal';
 
 const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
@@ -67,6 +69,30 @@ interface Timesheet {
   entries: TimesheetEntry[];
 }
 
+// Assigned Shift interfaces for staff shift management
+interface AssignedShift {
+  id: string;
+  staff: string; // user id
+  staff_info: { id: string; first_name: string; last_name: string; email: string };
+  shift_date: string;
+  start_time: string;
+  end_time: string;
+  role: string;
+  status?: 'SCHEDULED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+  is_confirmed?: boolean;
+  actual_hours?: number;
+  notes: string | null;
+}
+
+interface BackendUserSummary {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
+  profile?: { department?: string | null };
+}
+
 const Timesheets: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,11 +100,22 @@ const Timesheets: React.FC = () => {
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const queryClient = useQueryClient();
 
+  // Staff Shifts state and filters
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [shiftStatusFilter, setShiftStatusFilter] = useState<string>('all');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all');
+  const [shiftSearch, setShiftSearch] = useState<string>('');
+  const [sortBy, setSortBy] = useState<'name' | 'time'>('time');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [selectedShiftIds, setSelectedShiftIds] = useState<Set<string>>(new Set());
+  const [editingShift, setEditingShift] = useState<AssignedShift | null>(null);
+
   // Fetch timesheets
   const { data: timesheets = [], isLoading, error } = useQuery({
     queryKey: ['timesheets', statusFilter],
     queryFn: async () => {
-      const url = new URL(`${API_BASE}/timesheets/`, window.location.origin);
+      const url = new URL(`${API_BASE}/scheduling/timesheets/`, window.location.origin);
       if (statusFilter !== 'all') {
         url.searchParams.append('status', statusFilter);
       }
@@ -102,10 +139,46 @@ const Timesheets: React.FC = () => {
     },
   });
 
+  // Fetch assigned shifts with optional date range
+  const { data: assignedShifts = [], isLoading: isLoadingShifts, error: shiftsError, refetch: refetchShifts } = useQuery<AssignedShift[]>({
+    queryKey: ['assigned-shifts', dateFrom, dateTo],
+    queryFn: async () => {
+      const qp = new URLSearchParams();
+      if (dateFrom) qp.append('date_from', dateFrom);
+      if (dateTo) qp.append('date_to', dateTo);
+      const url = `${API_BASE}/scheduling/assigned-shifts-v2/${qp.toString() ? `?${qp.toString()}` : ''}`;
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` },
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to fetch assigned shifts');
+      const data = await response.json();
+      return Array.isArray(data) ? data : data.results || [];
+    },
+  });
+
+  // Fetch users for department mapping
+  const { data: users = [] } = useQuery<BackendUserSummary[]>({
+    queryKey: ['users-for-dept'],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE}/users/`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` },
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+  });
+
+  const userDeptMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    users.forEach(u => map.set(u.id, u.profile?.department ?? null));
+    return map;
+  }, [users]);
+
   // Approve timesheet mutation
   const approveTimesheetMutation = useMutation({
     mutationFn: async (timesheetId: number) => {
-      const response = await fetch(`${API_BASE}/timesheets/${timesheetId}/approve/`, {
+      const response = await fetch(`${API_BASE}/scheduling/timesheets/${timesheetId}/approve/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -134,7 +207,7 @@ const Timesheets: React.FC = () => {
   // Mark as paid mutation
   const markAsPaidMutation = useMutation({
     mutationFn: async (timesheetId: number) => {
-      const response = await fetch(`${API_BASE}/timesheets/${timesheetId}/mark_paid/`, {
+      const response = await fetch(`${API_BASE}/scheduling/timesheets/${timesheetId}/mark_paid/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -161,6 +234,108 @@ const Timesheets: React.FC = () => {
   const filteredTimesheets = timesheets.filter((timesheet: Timesheet) =>
     timesheet.staff_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Derive filtered, searched, and sorted shifts
+  const processedShifts = useMemo(() => {
+    let list: AssignedShift[] = assignedShifts;
+    if (shiftStatusFilter !== 'all') {
+      list = list.filter(s => (s.status || (s.is_confirmed ? 'CONFIRMED' : 'SCHEDULED')) === shiftStatusFilter);
+    }
+    if (departmentFilter !== 'all') {
+      list = list.filter(s => (userDeptMap.get(s.staff_info?.id || s.staff) || '').toLowerCase() === departmentFilter.toLowerCase());
+    }
+    if (shiftSearch.trim()) {
+      const q = shiftSearch.trim().toLowerCase();
+      list = list.filter(s => `${s.staff_info?.first_name || ''} ${s.staff_info?.last_name || ''}`.toLowerCase().includes(q));
+    }
+    list = [...list].sort((a, b) => {
+      if (sortBy === 'name') {
+        const an = `${a.staff_info?.first_name || ''} ${a.staff_info?.last_name || ''}`.toLowerCase();
+        const bn = `${b.staff_info?.first_name || ''} ${b.staff_info?.last_name || ''}`.toLowerCase();
+        return sortDir === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an);
+      } else {
+        const at = `${a.shift_date} ${a.start_time}`;
+        const bt = `${b.shift_date} ${b.start_time}`;
+        return sortDir === 'asc' ? at.localeCompare(bt) : bt.localeCompare(at);
+      }
+    });
+    return list;
+  }, [assignedShifts, shiftStatusFilter, departmentFilter, shiftSearch, sortBy, sortDir, userDeptMap]);
+
+  const toggleSelectAll = (checked: boolean) => {
+    setSelectedShiftIds(checked ? new Set(processedShifts.map(s => s.id)) : new Set());
+  };
+  const toggleSelectOne = (id: string, checked: boolean) => {
+    setSelectedShiftIds(prev => {
+      const next = new Set(prev);
+      if (checked) next.add(id); else next.delete(id);
+      return next;
+    });
+  };
+
+  // Mutations for bulk actions
+  const confirmShiftMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`${API_BASE}/scheduling/assigned-shifts-v2/${id}/confirm/`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }, credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to confirm shift');
+      return res.json();
+    },
+    onSuccess: () => { toast.success('Shift confirmed'); refetchShifts(); }
+  });
+  const completeShiftMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`${API_BASE}/scheduling/assigned-shifts-v2/${id}/complete/`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }, credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to complete shift');
+      return res.json();
+    },
+    onSuccess: () => { toast.success('Shift marked completed'); refetchShifts(); }
+  });
+  const deleteShiftMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`${API_BASE}/scheduling/assigned-shifts-v2/${id}/`, {
+        method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }, credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to delete shift');
+    },
+    onSuccess: () => { toast.success('Shift deleted'); refetchShifts(); }
+  });
+
+  const bulkConfirm = () => selectedShiftIds.forEach(id => confirmShiftMutation.mutate(id));
+  const bulkComplete = () => selectedShiftIds.forEach(id => completeShiftMutation.mutate(id));
+  const bulkDelete = () => selectedShiftIds.forEach(id => deleteShiftMutation.mutate(id));
+
+  const exportCSV = () => {
+    const headers = ['Staff Name','Staff ID','Date','Start','End','Role','Status'];
+    const rows = processedShifts.map(s => [
+      `${s.staff_info?.first_name || ''} ${s.staff_info?.last_name || ''}`,
+      s.staff_info?.id || s.staff,
+      s.shift_date,
+      s.start_time,
+      s.end_time,
+      s.role,
+      s.status || (s.is_confirmed ? 'CONFIRMED' : 'SCHEDULED')
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `staff_shifts_${Date.now()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const getShiftBadgeColor = (status?: string) => {
+    switch (status) {
+      case 'CONFIRMED': return 'bg-green-100 text-green-800';
+      case 'COMPLETED': return 'bg-blue-100 text-blue-800';
+      case 'CANCELLED': return 'bg-red-100 text-red-800';
+      case 'SCHEDULED':
+      default: return 'bg-yellow-100 text-yellow-800';
+    }
+  };
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -225,58 +400,6 @@ const Timesheets: React.FC = () => {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Timesheets</h1>
         <p className="text-gray-600 mt-1">Manage and approve staff timesheets</p>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Submitted</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {timesheets.filter((t: Timesheet) => t.status === 'SUBMITTED').length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Approved</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {timesheets.filter((t: Timesheet) => t.status === 'APPROVED').length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Paid</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {timesheets.filter((t: Timesheet) => t.status === 'PAID').length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Pending Amount</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold flex items-center gap-1">
-              <DollarSign className="w-5 h-5" />
-              {formatCurrency(
-                timesheets
-                  .filter((t: Timesheet) => t.status === 'APPROVED')
-                  .reduce((sum: number, t: Timesheet) => sum + (t.total_earnings || 0), 0)
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Filters */}
@@ -400,6 +523,128 @@ const Timesheets: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Staff Shifts Management */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Staff Shifts</CardTitle>
+              <CardDescription>Comprehensive view of assigned shifts</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={exportCSV} className="flex items-center gap-2">
+                <Download className="w-4 h-4" /> Export CSV
+              </Button>
+              <Button variant="outline" onClick={() => window.print()} className="flex items-center gap-2">
+                <Download className="w-4 h-4" /> Export PDF
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="From" />
+            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="To" />
+            <Input placeholder="Search staff..." value={shiftSearch} onChange={(e) => setShiftSearch(e.target.value)} />
+            <Select value={shiftStatusFilter} onValueChange={setShiftStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="SCHEDULED">Scheduled</SelectItem>
+                <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+                <SelectItem value="COMPLETED">Completed</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Department" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
+                {Array.from(new Set(users.map(u => (u.profile?.department || '').trim()).filter(Boolean))).map(dept => (
+                  <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex gap-2 items-center">
+            <Button variant="outline" size="sm" onClick={() => setSortBy(sortBy === 'name' ? 'time' : 'name')} className="flex items-center gap-2">
+              <ArrowUpDown className="w-4 h-4" /> Sort by {sortBy === 'name' ? 'Name' : 'Time'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}>{sortDir.toUpperCase()}</Button>
+            <div className="ml-auto flex gap-2">
+              <Button size="sm" onClick={bulkConfirm} disabled={selectedShiftIds.size === 0}>Confirm Selected</Button>
+              <Button size="sm" onClick={bulkComplete} disabled={selectedShiftIds.size === 0}>Mark Completed</Button>
+              <Button size="sm" variant="destructive" onClick={bulkDelete} disabled={selectedShiftIds.size === 0} className="flex items-center gap-2">
+                <Trash2 className="w-4 h-4" /> Delete
+              </Button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox checked={selectedShiftIds.size === processedShifts.length && processedShifts.length > 0}
+                      onCheckedChange={(v) => toggleSelectAll(!!v)} aria-label="Select all" />
+                  </TableHead>
+                  <TableHead>Staff</TableHead>
+                  <TableHead>Staff ID</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Time</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoadingShifts ? (
+                  <TableRow><TableCell colSpan={8} className="py-8 text-center">Loading shifts...</TableCell></TableRow>
+                ) : shiftsError ? (
+                  <TableRow><TableCell colSpan={8} className="py-8 text-center text-red-600">Failed to load shifts</TableCell></TableRow>
+                ) : processedShifts.length === 0 ? (
+                  <TableRow><TableCell colSpan={8} className="py-8 text-center text-gray-500">No shifts found</TableCell></TableRow>
+                ) : (
+                  processedShifts.map(s => (
+                    <TableRow key={s.id} className="hover:bg-gray-50">
+                      <TableCell>
+                        <Checkbox checked={selectedShiftIds.has(s.id)} onCheckedChange={(v) => toggleSelectOne(s.id, !!v)} aria-label={`Select ${s.id}`} />
+                      </TableCell>
+                      <TableCell className="font-medium">{s.staff_info ? `${s.staff_info.first_name} ${s.staff_info.last_name}` : s.staff}</TableCell>
+                      <TableCell className="text-xs text-gray-600">{s.staff_info?.id || s.staff}</TableCell>
+                      <TableCell>{new Date(s.shift_date).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-sm text-gray-600">{s.start_time?.substring(0,5)} - {s.end_time?.substring(0,5)}</TableCell>
+                      <TableCell>{s.role}</TableCell>
+                      <TableCell>
+                        <Badge className={`${getShiftBadgeColor(s.status || (s.is_confirmed ? 'CONFIRMED' : 'SCHEDULED'))} w-fit`}>{s.status || (s.is_confirmed ? 'CONFIRMED' : 'SCHEDULED')}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" className="flex items-center gap-2" onClick={() => setEditingShift(s)}>
+                            <Edit className="w-4 h-4" /> Edit
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => confirmShiftMutation.mutate(s.id)}>Confirm</Button>
+                          <Button size="sm" variant="ghost" onClick={() => completeShiftMutation.mutate(s.id)}>Complete</Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {editingShift && (
+        <AssignedShiftModal isOpen={!!editingShift} onClose={() => setEditingShift(null)} shift={editingShift} />
+      )}
 
       {/* Timesheet Details Modal */}
       {selectedTimesheet && !showApproveDialog && (

@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, Mail, Lock } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { useLanguage } from "@/hooks/use-language";
 
 interface AuthFormProps {
   onNavigateToSignup: () => void;
@@ -21,6 +22,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
   const [passwordInput, setPasswordInput] = useState("");
   const { toast } = useToast();
   const auth = useAuth();
+  const { t } = useLanguage();
 
   const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/[^0-9]/g, "").slice(0, 4);
@@ -44,7 +46,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
     // Validate PIN for staff users
     if (userType === "staff") {
       if (!/^\d{4}$/.test(credential)) {
-        setError("PIN must be exactly 4 digits");
+        setError(t("auth.errors.pin_invalid"));
         setIsLoading(false);
         return;
       }
@@ -65,14 +67,29 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
         (auth.user?.email ? auth.user.email.split("@")[0] : "there");
 
       toast({
-        title: `Welcome back, ${displayName}!`,
-        description: "You've been signed in successfully.",
+        title: `${t("auth.toasts.welcome_back")}, ${displayName}!`,
+        description: t("auth.toasts.signed_in_success"),
       });
     } catch (error: unknown) {
       if (error instanceof Error) {
-        setError(error.message);
+        const raw = (error.message || "").toLowerCase();
+        let friendly = "";
+        if (userType === "staff") {
+          if (raw.includes("invalid pin") || raw.includes("pin login failed")) {
+            friendly = t("auth.errors.invalid_pin");
+          }
+        } else {
+          if (raw.includes("invalid email") || raw.includes("login failed")) {
+            friendly = t("auth.errors.invalid_credentials");
+          }
+        }
+        if (!friendly) {
+          if (raw.includes("server error")) friendly = t("auth.errors.server");
+          else if (raw.includes("network error")) friendly = t("auth.errors.network");
+        }
+        setError(friendly || error.message || t("auth.errors.unexpected"));
       } else {
-        setError("An unexpected error occurred during login.");
+        setError(t("auth.errors.unexpected"));
       }
     } finally {
       setIsLoading(false);
@@ -105,7 +122,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
               : "text-[#B0BEC5] hover:text-[#00E676] hover:bg-[#00E676]/5"
           }`}
         >
-          Staff
+          {t("auth.toggles.staff")}
         </button>
         <button
           type="button"
@@ -120,7 +137,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
               : "text-[#B0BEC5] hover:text-[#00E676] hover:bg-[#00E676]/5"
           }`}
         >
-          Manager/Owner
+          {t("auth.toggles.manager")}
         </button>
       </div>
 
@@ -131,7 +148,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
             htmlFor="signin-email"
             className="text-white font-semibold text-sm tracking-wider"
           >
-            Email Address
+            {t("auth.labels.email")}
           </Label>
           <div className="relative group">
             <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#00E676]/60 group-focus-within:text-[#00E676] transition-colors" />
@@ -139,7 +156,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
               id="signin-email"
               name="email"
               type="email"
-              placeholder="user@restaurant.com"
+              placeholder={t("auth.placeholders.email")}
               required
               className="pl-10 bg-[#0A0D10]/50 border border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] rounded-lg transition-all duration-300 focus:shadow-[0_0_15px_rgba(0,230,118,0.2)] backdrop-blur-sm"
             />
@@ -152,7 +169,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
             htmlFor="signin-credential"
             className="text-white font-semibold text-sm tracking-wider"
           >
-            {userType === "staff" ? "PIN" : "Password"}
+            {userType === "staff" ? t("auth.labels.pin") : t("auth.labels.password")}
           </Label>
           <div className="relative group">
             <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#00E676]/60 group-focus-within:text-[#00E676] transition-colors" />
@@ -160,7 +177,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
               <Input
                 id="signin-credential"
                 type="text"
-                placeholder="0000"
+                placeholder={t("auth.placeholders.pin")}
                 required
                 value={pinInput}
                 onChange={handlePinChange}
@@ -173,7 +190,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
                 id="signin-credential"
                 name="credential"
                 type="password"
-                placeholder="••••••••"
+                placeholder={t("auth.placeholders.password")}
                 required
                 value={passwordInput}
                 onChange={handlePasswordChange}
@@ -183,7 +200,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
           </div>
           {userType === "staff" && (
             <p className="text-xs text-[#B0BEC5] font-medium">
-              Enter your 4-digit PIN for secure access
+              {t("auth.helper.pin_hint")}
             </p>
           )}
         </div>
@@ -195,7 +212,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
           disabled={isLoading}
         >
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isLoading ? "Signing in..." : "Sign In"}
+          {isLoading ? t("auth.actions.signing_in") : t("auth.actions.sign_in")}
         </Button>
       </form>
 
@@ -206,7 +223,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
             href="#"
             className="text-[#00E676] hover:text-[#00F77B] transition-colors font-medium underline-offset-2 hover:underline"
           >
-            Forgot PIN?
+            {t("auth.misc.forgot_pin")}
           </a>
         </p>
 
@@ -217,7 +234,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
           </div>
           <div className="relative flex justify-center">
             <span className="bg-gradient-to-br from-[#121A22] to-[#0f1419] px-3 text-[#B0BEC5] font-medium text-xs tracking-wide">
-              New to Mizan?
+              {t("auth.misc.new_to_mizan")}
             </span>
           </div>
         </div>
@@ -228,7 +245,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
         onClick={onNavigateToSignup}
         className="w-full border-2 border-[#00E676]/50 text-[#00E676] hover:bg-[#00E676]/10 hover:text-[#00F77B] hover:border-[#00E676] font-semibold h-11 bg-transparent backdrop-blur-sm transition-all duration-300 mt-2"
       >
-        Create Restaurant Account
+        {t("auth.actions.create_account")}
       </Button>
     </div>
   );

@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { X } from "lucide-react";
 
 interface StaffMember {
@@ -11,6 +15,7 @@ interface StaffMember {
     first_name: string;
     last_name: string;
     role?: string;
+    avatar_url?: string;
 }
 
 interface TemplateTask {
@@ -87,6 +92,11 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         priority: "MEDIUM",
     });
     const [staffSearch, setStaffSearch] = useState("");
+    const [isFiltering, setIsFiltering] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const PAGE_SIZE = 50;
+    const [selectedIndex, setSelectedIndex] = useState<number>(0);
+    const [cachedStaff, setCachedStaff] = useState<StaffMember[]>([]);
     const [templates, setTemplates] = useState<TaskTemplate[]>([]);
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
     const [assignmentFrequency, setAssignmentFrequency] = useState<'ONE_TIME' | 'DAILY' | 'WEEKLY' | 'CUSTOM'>("ONE_TIME");
@@ -110,6 +120,33 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
             });
         }
     }, [initialShift, isOpen, dayIndex, hour, staffMembers]);
+
+    // Cache staff members locally to improve subsequent openings
+    useEffect(() => {
+        if (isOpen) {
+            if (staffMembers && staffMembers.length > 0) {
+                try {
+                    localStorage.setItem('shiftModalStaffCache', JSON.stringify({ ts: Date.now(), staff: staffMembers }));
+                    setCachedStaff(staffMembers);
+                } catch (_) {
+                    setCachedStaff(staffMembers);
+                }
+            } else {
+                try {
+                    const raw = localStorage.getItem('shiftModalStaffCache');
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        // 10 minute TTL
+                        if (parsed.ts && (Date.now() - parsed.ts) < 10 * 60 * 1000 && Array.isArray(parsed.staff)) {
+                            setCachedStaff(parsed.staff as StaffMember[]);
+                        }
+                    }
+                } catch (_) {
+                    // ignore
+                }
+            }
+        }
+    }, [isOpen, staffMembers]);
 
     useEffect(() => {
         const loadTemplates = async () => {
@@ -165,15 +202,72 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         onClose();
     };
 
-    const nonAdminStaffMembers = staffMembers.filter(
-        staff => staff.role && staff.role.toLowerCase() !== 'admin'
-    );
+    const nonAdminStaffMembers = staffMembers.filter((staff) => {
+        const r = (staff.role || '').toLowerCase();
+        return r !== 'admin' && r !== 'super_admin' && r !== 'super-admin';
+    });
+
+    // Use cached staff if available, otherwise fall back to prop
+    const sourceStaff: StaffMember[] = (cachedStaff && cachedStaff.length > 0)
+        ? cachedStaff
+        : staffMembers;
+
+    // Exclude admin/super-admin from assignment list
+    const allStaffMembers: StaffMember[] = sourceStaff.filter((staff) => {
+        const r = (staff.role || '').toLowerCase();
+        return r !== 'admin' && r !== 'super_admin' && r !== 'super-admin';
+    });
 
     const filteredStaff = staffSearch.trim()
-        ? nonAdminStaffMembers.filter(staff =>
-            `${staff.first_name} ${staff.last_name}`.toLowerCase().includes(staffSearch.toLowerCase())
-        )
-        : nonAdminStaffMembers;
+        ? allStaffMembers.filter(staff => {
+            const q = staffSearch.toLowerCase();
+            const name = `${staff.first_name} ${staff.last_name}`.toLowerCase();
+            const role = (staff.role || '').toLowerCase();
+            return name.includes(q) || role.includes(q);
+        })
+        : allStaffMembers;
+
+    const totalPages = Math.max(1, Math.ceil(filteredStaff.length / PAGE_SIZE));
+    const paginatedStaff = filteredStaff.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+    useEffect(() => {
+        // Reset pagination and selection when search changes
+        setCurrentPage(1);
+        setSelectedIndex(0);
+    }, [staffSearch]);
+
+    // Debounced filtering indicator
+    useEffect(() => {
+        if (!isOpen) return;
+        setIsFiltering(true);
+        const t = setTimeout(() => setIsFiltering(false), 150);
+        return () => clearTimeout(t);
+    }, [staffSearch, isOpen]);
+
+    const handleStaffKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (paginatedStaff.length === 0) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setSelectedIndex(prev => Math.min(prev + 1, paginatedStaff.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setSelectedIndex(prev => Math.max(prev - 1, 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            const staff = paginatedStaff[selectedIndex];
+            if (staff) {
+                handleSelectChange(staff.id, 'staffId');
+            }
+        } else if (e.key === 'PageDown') {
+            e.preventDefault();
+            setCurrentPage(prev => Math.min(prev + 1, totalPages));
+            setSelectedIndex(0);
+        } else if (e.key === 'PageUp') {
+            e.preventDefault();
+            setCurrentPage(prev => Math.max(prev - 1, 1));
+            setSelectedIndex(0);
+        }
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -203,28 +297,112 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
                     <div className="grid grid-cols-4 items-start gap-4">
                         <Label htmlFor="staffId" className="text-right pt-2">Staff <span className="text-red-500">*</span></Label>
-                        <div className="col-span-3 space-y-2">
-                            <Input
-                                placeholder="Search staff..."
-                                value={staffSearch}
-                                onChange={(e) => setStaffSearch(e.target.value)}
-                                className="text-sm"
-                            />
-                            <Select value={shiftData.staffId} onValueChange={(value) => handleSelectChange(value, 'staffId')}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Assign staff" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {filteredStaff.map(staff => (
-                                        <SelectItem key={staff.id} value={staff.id}>
-                                            {staff.first_name} {staff.last_name} ({staff.role})
-                                        </SelectItem>
-                                    ))}
-                                    {filteredStaff.length === 0 && (
-                                        <div className="p-2 text-sm text-gray-500">No staff members found</div>
-                                    )}
-                                </SelectContent>
-                            </Select>
+                        <div className="col-span-3 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    placeholder="Search by name or role..."
+                                    value={staffSearch}
+                                    onChange={(e) => setStaffSearch(e.target.value)}
+                                    className="text-sm"
+                                    aria-label="Search staff"
+                                />
+                                {isFiltering && (
+                                    <Badge variant="outline" className="text-xs">Filtering…</Badge>
+                                )}
+                            </div>
+
+                            {/* Staff list with single selection, keyboard navigation, pagination */}
+                            <div
+                                className="border rounded-md p-2 max-h-64 overflow-y-auto focus:outline-none"
+                                tabIndex={0}
+                                onKeyDown={handleStaffKeyDown}
+                                aria-label="Staff selection list"
+                                role="listbox"
+                            >
+                                {sourceStaff.length === 0 && staffSearch.trim() === "" && (
+                                    <div className="mb-2">
+                                        <Alert variant="destructive">
+                                            <AlertTitle>Failed to load staff</AlertTitle>
+                                            <AlertDescription>
+                                                Unable to load staff members. Please check your connection and try again.
+                                            </AlertDescription>
+                                        </Alert>
+                                    </div>
+                                )}
+                                {paginatedStaff.length === 0 && (
+                                    <div className="p-3 text-sm text-muted-foreground">No staff members found</div>
+                                )}
+
+                                {paginatedStaff.length === 0 && sourceStaff.length === 0 && (
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-8 w-full" />
+                                        <Skeleton className="h-8 w-full" />
+                                        <Skeleton className="h-8 w-full" />
+                                    </div>
+                                )}
+
+                                {paginatedStaff.map((staff, idx) => {
+                                    const isSelected = String(shiftData.staffId) === String(staff.id);
+                                    const isActive = selectedIndex === idx;
+                                    return (
+                                        <button
+                                            key={staff.id}
+                                            type="button"
+                                            onClick={() => handleSelectChange(staff.id, 'staffId')}
+                                            className={`w-full flex items-center gap-3 px-2 py-2 rounded-md text-left mb-1 ${
+                                                isSelected ? 'bg-primary/10 border border-primary' : 'hover:bg-muted'
+                                            } ${isActive ? 'ring-2 ring-primary' : ''}`}
+                                            role="option"
+                                            aria-selected={isSelected}
+                                        >
+                                            <Avatar className="h-8 w-8">
+                                                {staff.avatar_url ? (
+                                                    <AvatarImage src={staff.avatar_url} alt={`${staff.first_name} ${staff.last_name}`} />
+                                                ) : (
+                                                    <AvatarFallback>
+                                                        {`${staff.first_name?.[0] || ''}${staff.last_name?.[0] || ''}`}
+                                                    </AvatarFallback>
+                                                )}
+                                            </Avatar>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium truncate">
+                                                    {staff.first_name} {staff.last_name}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground truncate capitalize">{staff.role || 'Staff'}</p>
+                                            </div>
+                                            {isSelected && (
+                                                <Badge variant="secondary" className="text-xs">Selected</Badge>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {filteredStaff.length > PAGE_SIZE && (
+                                <div className="flex items-center justify-between mt-2">
+                                    <p className="text-xs text-muted-foreground">
+                                        Page {currentPage} of {totalPages} • {filteredStaff.length} staff
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                            disabled={currentPage === 1}
+                                        >
+                                            Prev
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                            disabled={currentPage === totalPages}
+                                        >
+                                            Next
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

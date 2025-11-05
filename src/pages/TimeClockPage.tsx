@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -29,7 +29,7 @@ interface ClockEvent {
 export default function TimeClockPage() {
     const { accessToken, user } = useAuth();
     const queryClient = useQueryClient();
-    const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+    const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number; accuracy?: number } | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
     const [isVerifyingLocation, setIsVerifyingLocation] = useState(false);
 
@@ -47,7 +47,14 @@ export default function TimeClockPage() {
     });
 
     const clockInMutation = useMutation({
-        mutationFn: (location: { latitude: number; longitude: number }) => api.clockIn(accessToken!, location.latitude, location.longitude),
+        mutationFn: async (location: { latitude: number; longitude: number; accuracy?: number }) => {
+            const verifyRes = await api.verifyLocation(accessToken!, location.latitude, location.longitude);
+            const withinRange = (verifyRes as any)?.within_range ?? true;
+            if (!withinRange) {
+                throw new Error("You must be within the restaurant geofence to clock in");
+            }
+            return api.webClockIn(accessToken!, location.latitude, location.longitude, location.accuracy);
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["currentSession"] });
             queryClient.invalidateQueries({ queryKey: ["attendanceHistory"] });
@@ -59,7 +66,7 @@ export default function TimeClockPage() {
     });
 
     const clockOutMutation = useMutation({
-        mutationFn: (location: { latitude: number; longitude: number }) => api.clockOut(accessToken!, location.latitude, location.longitude),
+        mutationFn: (location: { latitude: number; longitude: number; accuracy?: number }) => api.webClockOut(accessToken!, location.latitude, location.longitude, location.accuracy),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["currentSession"] });
             queryClient.invalidateQueries({ queryKey: ["attendanceHistory"] });
@@ -120,6 +127,7 @@ export default function TimeClockPage() {
                 setCurrentLocation({
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
+                    accuracy: position.coords.accuracy,
                 });
                 // Optionally verify location immediately after getting it
                 // verifyLocationMutation.mutate({ latitude: position.coords.latitude, longitude: position.coords.longitude });
@@ -133,9 +141,41 @@ export default function TimeClockPage() {
     };
 
     // Get location on component mount
-    useState(() => {
+    useEffect(() => {
         getUserLocation();
-    });
+    }, []);
+
+    // Auto clock-out watcher: if outside geofence for consecutive readings
+    useEffect(() => {
+        const isClockedIn = !!currentSession && !currentSession?.clock_out_time;
+        if (!isClockedIn || !accessToken) return;
+        let outsideCount = 0;
+        const watchId = navigator.geolocation.watchPosition(
+            async (position) => {
+                const { latitude, longitude, accuracy } = position.coords;
+                try {
+                    const verifyRes = await api.verifyLocation(accessToken!, latitude, longitude);
+                    const withinRange = (verifyRes as any)?.within_range ?? true;
+                    if (!withinRange) {
+                        outsideCount += 1;
+                        if (outsideCount >= 2) {
+                            clockOutMutation.mutate({ latitude, longitude, accuracy });
+                            outsideCount = 0;
+                        }
+                    } else {
+                        outsideCount = 0;
+                    }
+                } catch (e) {
+                    // ignore verification errors
+                }
+            },
+            () => {},
+            { enableHighAccuracy: true, maximumAge: 5000 }
+        );
+        return () => {
+            navigator.geolocation.clearWatch(watchId);
+        };
+    }, [currentSession, accessToken]);
 
     const handleClockIn = () => {
         if (currentLocation) {

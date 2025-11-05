@@ -33,11 +33,15 @@ import GeolocationMapSettings from "@/components/settings/GeolocationMapSettings
 import ProfileSettings from "./ProfileSettings";
 import { toast } from "sonner";
 import { useState, useEffect, useMemo } from "react";
+import { useLanguage } from "@/hooks/use-language";
+import { Language } from "@/contexts/LanguageContext.types";
+import { supportedLanguages } from "@/i18n";
 import axios from "axios";
 import type { AxiosError } from "axios";
 import { useNavigate } from "react-router-dom";
 import { StaffInvitation } from "@/lib/types";
 import { User } from "@/contexts/AuthContext.types";
+import { translateApiError } from "@/i18n/messages";
 
 const API_BASE =
   import.meta.env.VITE_API_URL || import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
@@ -65,6 +69,7 @@ interface AISettings {
 }
 
 export default function Settings() {
+  const { language, setLanguage: setAppLanguage, t } = useLanguage();
   const [latitude, setLatitude] = useState<number>(0);
   const [longitude, setLongitude] = useState<number>(0);
   const [radius, setRadius] = useState<number>(0);
@@ -78,7 +83,6 @@ export default function Settings() {
   const [restaurantEmail, setRestaurantEmail] = useState("");
   const [timezone, setTimezone] = useState("America/New_York");
   const [currency, setCurrency] = useState("USD");
-  const [language, setLanguage] = useState("en");
   const [operatingHours, setOperatingHours] = useState<{
     [key: string]: { open: string; close: string; isClosed: boolean };
   }>({
@@ -158,6 +162,7 @@ export default function Settings() {
     const storedUser = localStorage.getItem("user");
     if (token && storedUser) {
       apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      apiClient.defaults.headers.common["Accept-Language"] = language;
       const parsedUser: User = JSON.parse(storedUser);
       setUser(parsedUser);
       const role = (parsedUser?.role || "").toUpperCase();
@@ -171,7 +176,7 @@ export default function Settings() {
     } else {
       navigate("/auth");
     }
-  }, [navigate, apiClient]);
+  }, [navigate, apiClient, language]);
 
   // Restrict non-profile settings for staff users: only admins/managers can see other tabs
   const roleUpper = (user?.role || "").toUpperCase();
@@ -190,7 +195,11 @@ export default function Settings() {
       setRestaurantEmail(data.email || "");
       setTimezone(data.timezone || "America/New_York");
       setCurrency(data.currency || "USD");
-      setLanguage(data.language || "en");
+      setAppLanguage(
+        typeof data.language === "string" && (supportedLanguages as readonly string[]).includes(data.language)
+          ? (data.language as Language)
+          : "en"
+      );
       setOperatingHours(data.operating_hours || operatingHours);
       setAutomaticClockOut(data.automatic_clock_out || false);
       setBreakDuration(data.break_duration || 30);
@@ -231,7 +240,11 @@ export default function Settings() {
       setRestaurantEmail(data.email || "");
       setTimezone(data.timezone || "America/New_York");
       setCurrency(data.currency || "USD");
-      setLanguage(data.language || "en");
+      setAppLanguage(
+        typeof data.language === "string" && (supportedLanguages as readonly string[]).includes(data.language)
+          ? (data.language as Language)
+          : "en"
+      );
       setOperatingHours(data.operating_hours || operatingHours);
       setAutomaticClockOut(data.automatic_clock_out || false);
       setBreakDuration(data.break_duration || 30);
@@ -265,14 +278,11 @@ export default function Settings() {
       );
     } catch (error) {
       const axiosErr = error as AxiosError<{ detail?: string }>;
-      const status = axiosErr.response?.status;
-      const detail = axiosErr.response?.data?.detail;
       console.error("Failed to load unified settings:", axiosErr);
-      if (status === 401) {
-        toast.error("Unauthorized. Please sign in again.");
+      const message = translateApiError(axiosErr);
+      toast.error(message);
+      if (axiosErr.response?.status === 401) {
         navigate("/auth");
-      } else {
-        toast.error(`Failed to load unified settings${detail ? ": " + detail : ""}`);
       }
     }
   };
@@ -294,13 +304,13 @@ export default function Settings() {
         geofence_enabled: geofenceEnabled,
         geofence_polygon: geofencePolygon,
       });
-      toast.success("Location settings saved successfully!");
+      toast.success(t("settings.location.save_success"));
     } catch (error) {
       const axiosErr = error as AxiosError<{ detail?: string }>;
       const errData = axiosErr.response?.data;
       console.error("Error saving location settings:", errData ?? error);
       toast.error(
-        `Failed to save location settings${
+        `${t("settings.location.save_error")}${
           errData?.detail ? ": " + errData.detail : ""
         }`
       );
@@ -313,11 +323,11 @@ export default function Settings() {
     try {
       // Basic client-side validation
       if (!restaurantName || restaurantName.trim().length < 2) {
-        toast.error("Restaurant name must be at least 2 characters.");
+        toast.error(t("settings.general.name_minlen"));
         return;
       }
       if (restaurantEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(restaurantEmail)) {
-        toast.error("Please provide a valid email address.");
+        toast.error(t("validation.email"));
         return;
       }
 
@@ -338,12 +348,12 @@ export default function Settings() {
         settings_schema_version: settingsSchemaVersion,
       });
       if (response.status === 200) {
-        toast.success("General settings saved successfully!");
+        toast.success(t("settings.general.save_success"));
         fetchUnifiedSettings();
       } else {
         const errorData = response.data;
         toast.error(
-          `Failed to save settings: ${
+          `${t("settings.general.save_error")}: ${
             errorData.detail || errorData.error || "Unknown error"
           }`
         );
@@ -354,15 +364,13 @@ export default function Settings() {
       const detail = axiosErr.response?.data?.detail || axiosErr.message;
       console.error("Error saving general settings:", axiosErr);
       if (status === 409) {
-        toast.error(
-          `Conflict detected. Settings changed elsewhere. Reloading latest settings...`
-        );
+        toast.error(t("settings.general.conflict"));
         await fetchUnifiedSettings();
       } else if (status === 401) {
-        toast.error("Unauthorized. Please sign in again.");
+        toast.error(t("settings.general.unauthorized"));
         navigate("/auth");
       } else {
-        toast.error(`Failed to save general settings${detail ? ": " + detail : ""}`);
+        toast.error(`${t("settings.general.save_error")}${detail ? ": " + detail : ""}`);
       }
     }
   };
@@ -392,7 +400,7 @@ export default function Settings() {
 
   const handleInviteStaff = async () => {
     if (!inviteEmail || !inviteFirstName || !inviteLastName || !inviteRole) {
-      toast.error("Please fill in all staff invitation fields.");
+      toast.error(t("invitations.fill_required"));
       return;
     }
 
@@ -406,13 +414,13 @@ export default function Settings() {
       });
 
       if (response.status === 201) {
-        toast.success("Staff invitation sent successfully!");
+        toast.success(t("invitations.sent_success"));
         setInviteEmail("");
         setInviteFirstName("");
         setInviteLastName("");
         setInviteRole("STAFF");
         const updatedInvitationsResponse = await apiClient.get(
-          "/accounts/staff/pending-invitations/"
+          "/invitations/?is_accepted=false&show_expired=false"
         );
         setPendingInvitations(updatedInvitationsResponse.data);
       } else {
@@ -431,7 +439,7 @@ export default function Settings() {
 
   const testPosConnection = async () => {
     if (posSettings.pos_provider === "NONE") {
-      toast.error("Select a POS provider before testing.");
+      toast.error(t("pos.select_provider_first"));
       return;
     }
     setPosTestingConnection(true);
@@ -445,23 +453,20 @@ export default function Settings() {
       if (data.connected) {
         setPosConnectionStatus("connected");
         setPosSettings((prev) => ({ ...prev, pos_is_connected: true }));
-        toast.success("POS connection successful");
+        toast.success(t("pos.connection.success"));
       } else {
         setPosConnectionStatus("error");
         setPosSettings((prev) => ({ ...prev, pos_is_connected: false }));
         toast.error(
-          `POS connection failed${data.message ? `: ${data.message}` : ""}`
+          `${t("pos.connection.failed")}${data.message ? `: ${data.message}` : ""}`
         );
       }
     } catch (error) {
       setPosConnectionStatus("error");
       setPosSettings((prev) => ({ ...prev, pos_is_connected: false }));
       const axiosError = error as AxiosError<{ message?: string }>;
-      const message =
-        axiosError.response?.data?.message ??
-        axiosError.message ??
-        "Unknown error";
-      toast.error(`Connection test failed: ${message}`);
+      const message = translateApiError(axiosError);
+      toast.error(message);
     } finally {
       setPosTestingConnection(false);
     }
@@ -469,7 +474,7 @@ export default function Settings() {
 
   const updatePosSettings = async () => {
     if (posSettings.pos_provider === "NONE") {
-      toast.error("Select a POS provider before saving.");
+      toast.error(t("pos.select_provider_first"));
       return;
     }
     setSavingPos(true);
@@ -513,48 +518,52 @@ export default function Settings() {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <h1 className="text-3xl font-bold">Settings</h1>
-        {user && <Badge variant="outline">{user.email}</Badge>}
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold leading-tight">{t("settings.title")}</h1>
+        {user && (
+          <Badge variant="outline" className="hidden sm:inline-flex">
+            {user.email}
+          </Badge>
+        )}
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
+        <TabsList className="flex w-full flex-wrap gap-2 sm:grid sm:grid-cols-3 sm:gap-3 lg:grid-cols-5 mb-4">
           <TabsTrigger
             value="profile"
-            className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
+            className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm px-3 py-2"
           >
             <Users className="w-4 h-4" />
-            Profile
+            {t("settings.tabs.profile")}
           </TabsTrigger>
           {!isStaff && (
             <>
               <TabsTrigger
                 value="location"
-                className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
+                className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm px-3 py-2"
               >
                 <MapPin className="w-4 h-4" />
-                Geolocation
+                {t("settings.tabs.geolocation")}
               </TabsTrigger>
               <TabsTrigger
                 value="general"
-                className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
+                className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm px-3 py-2"
               >
                 <Building2 className="w-4 h-4" />
-                General
+                {t("settings.tabs.general")}
               </TabsTrigger>
               <TabsTrigger
                 value="integrations"
-                className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
+                className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm px-3 py-2"
               >
                 <Plug className="w-4 h-4" />
-                Integrations
+                {t("settings.tabs.integrations")}
               </TabsTrigger>
               <TabsTrigger
                 value="billing"
                 className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
               >
                 <CreditCardIcon className="w-4 h-4" />
-                Billing
+                {t("settings.tabs.billing")}
               </TabsTrigger>
             </>
           )}
@@ -563,11 +572,8 @@ export default function Settings() {
         <TabsContent value="profile" className="space-y-6">
           <Card className="shadow-soft">
             <CardHeader>
-              <CardTitle>Profile Settings</CardTitle>
-              <CardDescription>
-                Manage personal and emergency contact details for
-                administrators.
-              </CardDescription>
+              <CardTitle>{t("settings.profile.title")}</CardTitle>
+              <CardDescription>{t("settings.profile.description")}</CardDescription>
             </CardHeader>
             <CardContent>
               <ProfileSettings />
@@ -832,39 +838,35 @@ export default function Settings() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="language">Language</Label>
+                    <Label htmlFor="language">{t("common.language")}</Label>
                     <select
                       id="language"
                       className="w-full p-2 border rounded-lg mt-1"
                       value={language}
-                      onChange={(e) => setLanguage(e.target.value)}
-                      aria-label="Language"
+                      onChange={(e) => setAppLanguage(e.target.value as Language)}
+                      aria-label={t("common.language")}
                     >
                       <option value="en">English</option>
-                      <option value="es">Spanish</option>
-                      <option value="fr">French</option>
+                      <option value="fr">Français</option>
+                      <option value="ma">الدارجة</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="font-semibold">AI Preferences</h4>
+                  <h4 className="font-semibold">{t("settings.general.ai_prefs")}</h4>
                   <div className="space-y-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-0.5">
-                        <Label>Auto-generate purchase lists</Label>
-                        <p className="text-xs text-muted-foreground">
-                          AI creates daily purchase recommendations
-                        </p>
+                        <Label>{t("settings.general.ai_auto_purchase")}</Label>
+                        <p className="text-xs text-muted-foreground">{t("settings.general.ai_auto_purchase_desc")}</p>
                       </div>
                       <Switch defaultChecked />
                     </div>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-0.5">
-                        <Label>Smart scheduling</Label>
-                        <p className="text-xs text-muted-foreground">
-                          AI optimizes staff schedules
-                        </p>
+                        <Label>{t("settings.general.ai_smart_scheduling")}</Label>
+                        <p className="text-xs text-muted-foreground">{t("settings.general.ai_smart_scheduling_desc")}</p>
                       </div>
                       <Switch defaultChecked />
                     </div>
@@ -872,7 +874,7 @@ export default function Settings() {
                 </div>
               </div>
               <Button onClick={saveGeneralSettings} className="w-full">
-                Save General Settings
+                {t("settings.general.save_general")}
               </Button>
             </CardContent>
           </Card>
@@ -937,14 +939,14 @@ export default function Settings() {
         <TabsContent value="integrations" className="space-y-6">
           <Card className="shadow-soft">
             <CardHeader>
-              <CardTitle>POS Integration Settings</CardTitle>
+              <CardTitle>{t("pos.title")}</CardTitle>
               <CardDescription>
-                Connect your POS system for real-time transaction tracking.
+                {t("pos.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <Label htmlFor="pos-provider">POS Provider</Label>
+                <Label htmlFor="pos-provider">{t("pos.provider")}</Label>
                 <select
                   id="pos-provider"
                   value={posSettings.pos_provider}
@@ -956,16 +958,16 @@ export default function Settings() {
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
-                  <option value="NONE">Not Configured</option>
+                  <option value="NONE">{t("pos.not_configured")}</option>
                   <option value="STRIPE">Stripe</option>
                   <option value="SQUARE">Square</option>
                   <option value="CLOVER">Clover</option>
-                  <option value="CUSTOM">Custom API</option>
+                  <option value="CUSTOM">{t("pos.custom_api")}</option>
                 </select>
               </div>
 
               <div>
-                <Label htmlFor="pos-merchant">Merchant ID</Label>
+                <Label htmlFor="pos-merchant">{t("pos.merchant_id")}</Label>
                 <Input
                   id="pos-merchant"
                   value={posSettings.pos_merchant_id}
@@ -975,20 +977,20 @@ export default function Settings() {
                       pos_merchant_id: e.target.value,
                     })
                   }
-                  placeholder="Enter your merchant ID"
+                  placeholder={t("pos.merchant_id_placeholder")}
                 />
               </div>
 
               <div>
-                <Label htmlFor="pos-api-key">API Key</Label>
-                <div className="flex gap-2">
+                <Label htmlFor="pos-api-key">{t("pos.api_key")}</Label>
+                <div className="flex flex-col sm:flex-row gap-2">
                   <div className="relative flex-1">
                     <Input
                       id="pos-api-key"
                       type={showAPIKey ? "text" : "password"}
                       value={posAPIKey}
                       onChange={(e) => setPosAPIKey(e.target.value)}
-                      placeholder="Enter your API key"
+                      placeholder={t("pos.api_key_placeholder")}
                     />
                     <button
                       type="button"
@@ -1077,9 +1079,7 @@ export default function Settings() {
           <Card className="shadow-soft">
             <CardHeader>
               <CardTitle>Payment Gateway Settings</CardTitle>
-              <CardDescription>
-                Configure your payment gateway integrations.
-              </CardDescription>
+              <CardDescription>{t("settings.integrations.payment_desc")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -1103,7 +1103,7 @@ export default function Settings() {
               <div className="flex justify-end">
                 <Button onClick={saveAiSettings} disabled={savingAi} variant="default">
                   {savingAi ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  Save AI Settings
+                  {t("settings.integrations.save_ai_settings")}
                 </Button>
               </div>
             </CardContent>

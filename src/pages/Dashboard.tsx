@@ -15,6 +15,7 @@ import {
   FileText,
   Zap,
 } from "lucide-react";
+import { useLanguage } from "@/hooks/use-language";
 
 type AppItem = {
   name: string;
@@ -24,6 +25,8 @@ type AppItem = {
   description: string;
   roles?: string[];
   comingSoon?: boolean;
+  nameKey?: string;
+  descKey?: string;
 };
 
 const apps: AppItem[] = [
@@ -33,6 +36,8 @@ const apps: AppItem[] = [
     icon: BarChart3,
     gradient: "bg-gradient-to-br from-blue-500 to-cyan-500",
     description: "View analytics and insights",
+    nameKey: "app.analytics",
+    descKey: "app.analytics.desc",
     roles: ["SUPER_ADMIN", "ADMIN"],
   },
   {
@@ -41,6 +46,8 @@ const apps: AppItem[] = [
     icon: Users,
     gradient: "bg-gradient-to-br from-violet-500 to-purple-500",
     description: "Schedule and manage staff",
+    nameKey: "app.staff_schedule",
+    descKey: "app.staff_schedule.desc",
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
   },
   // {
@@ -56,6 +63,8 @@ const apps: AppItem[] = [
     icon: FileText,
     gradient: "bg-gradient-to-br from-teal-500 to-cyan-500",
     description: "Create and manage tasks",
+    nameKey: "app.tasks",
+    descKey: "app.tasks.desc",
     roles: ["SUPER_ADMIN", "ADMIN"],
   },
   {
@@ -64,6 +73,8 @@ const apps: AppItem[] = [
     icon: UtensilsCrossed,
     gradient: "bg-gradient-to-br from-purple-500 to-pink-500",
     description: "Manage kitchen orders",
+    nameKey: "app.kitchen",
+    descKey: "app.kitchen.desc",
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER", "CHEF"],
     comingSoon: true,
   },
@@ -73,6 +84,8 @@ const apps: AppItem[] = [
     icon: Package,
     gradient: "bg-gradient-to-br from-orange-500 to-amber-500",
     description: "Track stock levels",
+    nameKey: "app.inventory",
+    descKey: "app.inventory.desc",
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
     comingSoon: true,
   },
@@ -82,6 +95,8 @@ const apps: AppItem[] = [
     icon: BookOpen,
     gradient: "bg-gradient-to-br from-green-500 to-emerald-500",
     description: "Update menu items",
+    nameKey: "app.menu",
+    descKey: "app.menu.desc",
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
     comingSoon: true,
   },
@@ -91,6 +106,8 @@ const apps: AppItem[] = [
     icon: LayoutGrid,
     gradient: "bg-gradient-to-br from-indigo-500 to-blue-500",
     description: "Manage floor layouts",
+    nameKey: "app.tables",
+    descKey: "app.tables.desc",
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER", "WAITER"],
     comingSoon: true,
   },
@@ -100,6 +117,8 @@ const apps: AppItem[] = [
     icon: Brain,
     gradient: "bg-gradient-to-br from-cyan-500 to-blue-500",
     description: "Get intelligent assistance",
+    nameKey: "app.ai_assistant",
+    descKey: "app.ai_assistant.desc",
     roles: ["SUPER_ADMIN", "ADMIN"],
   },
   {
@@ -108,6 +127,8 @@ const apps: AppItem[] = [
     icon: Settings,
     gradient: "bg-gradient-to-br from-amber-500 to-orange-500",
     description: "Configure your system",
+    nameKey: "app.settings",
+    descKey: "app.settings.desc",
     roles: ["SUPER_ADMIN", "ADMIN"],
   },
 ];
@@ -116,6 +137,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuth() as AuthContextType;
   const { hasRole } = useAuth() as AuthContextType;
+  const { t } = useLanguage();
 
   console.log("Dashboard User:", user);
 
@@ -136,7 +158,7 @@ export default function Dashboard() {
               >
                 {app.comingSoon && (
                   <div className="absolute -right-8 top-4 rotate-45 bg-gradient-to-r from-primary to-primary/80 px-10 py-1 text-xs font-bold text-primary-foreground shadow-lg z-20">
-                    Coming Soon! ✨
+                    {t("common.coming_soon")}
                   </div>
                 )}
                 <CardContent className="p-6">
@@ -147,10 +169,10 @@ export default function Dashboard() {
                       <app.icon className="w-8 h-8 text-white" />
                     </div>
                     <h3 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors">
-                      {app.name}
+                      {app.nameKey ? t(app.nameKey) : app.name}
                     </h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      {app.description}
+                      {app.descKey ? t(app.descKey) : app.description}
                     </p>
                   </div>
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
