@@ -175,6 +175,24 @@ const Timesheets: React.FC = () => {
     return map;
   }, [users]);
 
+  // Map user id -> basic identity for enriching shifts lacking staff_info
+  const userInfoMap = useMemo(() => {
+    const map = new Map<string, { first_name: string; last_name: string; email: string }>();
+    users.forEach(u => map.set(u.id, { first_name: u.first_name, last_name: u.last_name, email: u.email }));
+    return map;
+  }, [users]);
+
+  // Ensure each shift has staff_info populated so UI always shows names
+  const assignedShiftsWithInfo = useMemo(() => {
+    return assignedShifts.map((s) => {
+      if (s?.staff_info && (s.staff_info.first_name || s.staff_info.last_name || s.staff_info.email)) {
+        return s;
+      }
+      const info = userInfoMap.get(s.staff) || { first_name: '', last_name: '', email: '' };
+      return { ...s, staff_info: { id: s.staff, first_name: info.first_name, last_name: info.last_name, email: info.email } } as AssignedShift;
+    });
+  }, [assignedShifts, userInfoMap]);
+
   // Approve timesheet mutation
   const approveTimesheetMutation = useMutation({
     mutationFn: async (timesheetId: number) => {
@@ -237,7 +255,7 @@ const Timesheets: React.FC = () => {
 
   // Derive filtered, searched, and sorted shifts
   const processedShifts = useMemo(() => {
-    let list: AssignedShift[] = assignedShifts;
+    let list: AssignedShift[] = assignedShiftsWithInfo;
     if (shiftStatusFilter !== 'all') {
       list = list.filter(s => (s.status || (s.is_confirmed ? 'CONFIRMED' : 'SCHEDULED')) === shiftStatusFilter);
     }
@@ -260,7 +278,7 @@ const Timesheets: React.FC = () => {
       }
     });
     return list;
-  }, [assignedShifts, shiftStatusFilter, departmentFilter, shiftSearch, sortBy, sortDir, userDeptMap]);
+  }, [assignedShiftsWithInfo, shiftStatusFilter, departmentFilter, shiftSearch, sortBy, sortDir, userDeptMap]);
 
   const toggleSelectAll = (checked: boolean) => {
     setSelectedShiftIds(checked ? new Set(processedShifts.map(s => s.id)) : new Set());
@@ -309,10 +327,9 @@ const Timesheets: React.FC = () => {
   const bulkDelete = () => selectedShiftIds.forEach(id => deleteShiftMutation.mutate(id));
 
   const exportCSV = () => {
-    const headers = ['Staff Name','Staff ID','Date','Start','End','Role','Status'];
+    const headers = ['Staff Name','Date','Start','End','Role','Status'];
     const rows = processedShifts.map(s => [
-      `${s.staff_info?.first_name || ''} ${s.staff_info?.last_name || ''}`,
-      s.staff_info?.id || s.staff,
+      `${s.staff_info?.first_name || ''} ${s.staff_info?.last_name || ''}`.trim() || (s.staff_info?.email || ''),
       s.shift_date,
       s.start_time,
       s.end_time,
@@ -595,7 +612,6 @@ const Timesheets: React.FC = () => {
                       onCheckedChange={(v) => toggleSelectAll(!!v)} aria-label="Select all" />
                   </TableHead>
                   <TableHead>Staff</TableHead>
-                  <TableHead>Staff ID</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Time</TableHead>
                   <TableHead>Role</TableHead>
@@ -605,19 +621,20 @@ const Timesheets: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {isLoadingShifts ? (
-                  <TableRow><TableCell colSpan={8} className="py-8 text-center">Loading shifts...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="py-8 text-center">Loading shifts...</TableCell></TableRow>
                 ) : shiftsError ? (
-                  <TableRow><TableCell colSpan={8} className="py-8 text-center text-red-600">Failed to load shifts</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="py-8 text-center text-red-600">Failed to load shifts</TableCell></TableRow>
                 ) : processedShifts.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="py-8 text-center text-gray-500">No shifts found</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="py-8 text-center text-gray-500">No shifts found</TableCell></TableRow>
                 ) : (
                   processedShifts.map(s => (
                     <TableRow key={s.id} className="hover:bg-gray-50">
                       <TableCell>
                         <Checkbox checked={selectedShiftIds.has(s.id)} onCheckedChange={(v) => toggleSelectOne(s.id, !!v)} aria-label={`Select ${s.id}`} />
                       </TableCell>
-                      <TableCell className="font-medium">{s.staff_info ? `${s.staff_info.first_name} ${s.staff_info.last_name}` : s.staff}</TableCell>
-                      <TableCell className="text-xs text-gray-600">{s.staff_info?.id || s.staff}</TableCell>
+                      <TableCell className="font-medium">
+                        {s.staff_info ? `${s.staff_info.first_name} ${s.staff_info.last_name}` : s.staff}
+                      </TableCell>
                       <TableCell>{new Date(s.shift_date).toLocaleDateString()}</TableCell>
                       <TableCell className="text-sm text-gray-600">{s.start_time?.substring(0,5)} - {s.end_time?.substring(0,5)}</TableCell>
                       <TableCell>{s.role}</TableCell>
