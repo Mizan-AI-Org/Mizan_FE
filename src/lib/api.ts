@@ -112,8 +112,11 @@ export class BackendService {
       // Decide endpoint based on provided credentials
       // Staff flow now requires only a login PIN, no invitation PIN
       const isStaffFlow = !!pin_code && !password;
+      // Backend routes:
+      // - Staff (PIN flow):       POST /api/staff/accept-invitation/
+      // - Admin/owner (password): POST /api/invitations/accept/
       const endpoint = isStaffFlow
-        ? `${API_BASE}/auth/accept-invitation/`
+        ? `${API_BASE}/staff/accept-invitation/`
         : `${API_BASE}/invitations/accept/`;
 
       const body: Record<string, any> = {
