@@ -21,6 +21,7 @@ import AttendanceReportsPage from "./pages/reporting/AttendanceReportsPage";
 import InventoryReportsPage from "./pages/reporting/InventoryReportsPage";
 import TimeClockPage from "./pages/TimeClockPage";
 import ShiftDetailView from "./pages/ShiftDetailView";
+import StaffAnnouncementsList from "./pages/StaffAnnouncement";
 import Staff from "./pages/Staff";
 import AddStaff from "./pages/AddStaff";
 
@@ -77,6 +78,7 @@ const SupervisorDashboard = React.lazy(
   () => import("./pages/SupervisorDashboard")
 );
 const StaffChat = React.lazy(() => import("./pages/StaffAnnouncement"));
+const StaffAnnouncements = React.lazy(() => import("./pages/StaffAnnouncements"));
 const ReportsPage = React.lazy(() => import("./pages/ReportsPage"));
 const AcceptInvitation = React.lazy(() => import("./pages/AcceptInvitation"));
 const AutoSchedule = React.lazy(() => import("./pages/AutoSchedule"));
@@ -84,7 +86,16 @@ const Timesheets = React.lazy(() => import("./pages/Timesheets"));
 const ChecklistRunDemo = React.lazy(() => import("./pages/ChecklistRunDemo"));
 const TaskChecklistRunner = React.lazy(() => import("./pages/TaskChecklistRunner"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      retry: false,
+      staleTime: 60 * 1000,
+    },
+  },
+});
 
 const App = () => {
   useIdleTimeout(); // Initialize the idle timeout hook
@@ -276,6 +287,16 @@ const App = () => {
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
                       <Staff />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/announcements"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                    >
+                      <StaffAnnouncements />
                     </RoleBasedRoute>
                   }
                 />
@@ -501,6 +522,7 @@ const App = () => {
                   }
                 />
                 <Route path="chat" element={<StaffChat />} />
+                <Route path="announcements" element={<StaffAnnouncementsList />} />
               </Route>
 
               {/* Catch-all route */}

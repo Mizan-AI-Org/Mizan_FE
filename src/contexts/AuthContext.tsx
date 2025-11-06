@@ -383,6 +383,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const value: AuthContextType = {
     user,
     isLoading,
+    accessToken: typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null,
+    refreshToken: typeof window !== "undefined" ? window.localStorage.getItem("refresh_token") : null,
     updateUser,
     login,
     loginWithPin,

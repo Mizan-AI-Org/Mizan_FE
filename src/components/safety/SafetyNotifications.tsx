@@ -11,13 +11,14 @@ import { useMediaQuery } from '../../hooks/use-media-query';
 const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 interface Notification {
-  id: number;
-  title: string;
+  id: string;
   message: string;
-  type: 'task' | 'checklist' | 'concern' | 'recognition';
-  status: 'unread' | 'read';
   created_at: string;
-  priority: 'low' | 'medium' | 'high';
+  is_read: boolean;
+  // Optional fields if backend provides them later
+  title?: string;
+  type?: 'task' | 'checklist' | 'concern' | 'recognition' | 'schedule';
+  priority?: 'low' | 'medium' | 'high';
 }
 
 const SafetyNotifications: React.FC = () => {
@@ -28,12 +29,22 @@ const SafetyNotifications: React.FC = () => {
   const { data: notifications = [], isLoading, error, refetch } = useQuery<Notification[]>({
     queryKey: ['safety-notifications'],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/staff/safety-notifications/`, {
+      const token = localStorage.getItem('access_token');
+      // If no token, treat as no notifications instead of showing an error
+      if (!token) {
+        return [];
+      }
+      const response = await fetch(`${API_BASE}/staff/notifications/`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
       });
+      // Gracefully handle auth errors by returning empty list
+      if (response.status === 401 || response.status === 403) {
+        return [];
+      }
       if (!response.ok) {
         throw new Error('Failed to fetch notifications');
       }
@@ -43,16 +54,19 @@ const SafetyNotifications: React.FC = () => {
     retry: 3,
   });
 
-  const unreadCount = notifications.filter(n => n.status === 'unread').length;
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  const markAsRead = async (id: number) => {
+  const markAsRead = async (id: string) => {
     try {
-      const response = await fetch(`${API_BASE}/staff/safety-notifications/${id}/mark-read/`, {
-        method: 'PATCH',
+      const token = localStorage.getItem('access_token');
+      if (!token) return; // No-op if not authenticated
+      const response = await fetch(`${API_BASE}/staff/notifications/${id}/mark_read/`, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
       });
       if (!response.ok) {
         throw new Error('Failed to mark notification as read');
@@ -66,12 +80,15 @@ const SafetyNotifications: React.FC = () => {
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch(`${API_BASE}/staff/safety-notifications/mark-all-read/`, {
-        method: 'PATCH',
+      const token = localStorage.getItem('access_token');
+      if (!token) return; // No-op if not authenticated
+      const response = await fetch(`${API_BASE}/staff/notifications/mark_all_read/`, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
       });
       if (!response.ok) {
         throw new Error('Failed to mark all notifications as read');
@@ -83,7 +100,7 @@ const SafetyNotifications: React.FC = () => {
     }
   };
 
-  const getNotificationIcon = (type: string) => {
+  const getNotificationIcon = (type?: string) => {
     switch (type) {
       case 'task':
         return <Calendar className="h-4 w-4 text-blue-500" />;
@@ -98,7 +115,7 @@ const SafetyNotifications: React.FC = () => {
     }
   };
 
-  const getPriorityClass = (priority: string) => {
+  const getPriorityClass = (priority?: string) => {
     switch (priority) {
       case 'high':
         return 'bg-red-100 text-red-800';
@@ -160,25 +177,25 @@ const SafetyNotifications: React.FC = () => {
               {notifications.map((notification) => (
                 <Card 
                   key={notification.id} 
-                  className={`cursor-pointer transition-colors ${notification.status === 'unread' ? 'bg-muted/50' : ''}`}
+                  className={`cursor-pointer transition-colors ${!notification.is_read ? 'bg-muted/50' : ''}`}
                   onClick={() => markAsRead(notification.id)}
                 >
                   <CardContent className="p-3">
                     <div className="flex items-start gap-3">
                       <div className="mt-1">
-                        {getNotificationIcon(notification.type)}
+                        {getNotificationIcon(notification.type || 'schedule')}
                       </div>
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium">{notification.title}</p>
-                          <Badge variant="outline" className={`text-xs ${getPriorityClass(notification.priority)}`}>
-                            {notification.priority}
+                          <p className="text-sm font-medium">{notification.title || 'Notification'}</p>
+                          <Badge variant="outline" className={`text-xs ${getPriorityClass(notification.priority || 'medium')}`}>
+                            {notification.priority || 'medium'}
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">{notification.message}</p>
                         <p className="text-xs text-muted-foreground">{formatTimeAgo(notification.created_at)}</p>
                       </div>
-                      {notification.status === 'unread' && (
+                      {!notification.is_read && (
                         <div className="h-2 w-2 rounded-full bg-blue-500" />
                       )}
                     </div>

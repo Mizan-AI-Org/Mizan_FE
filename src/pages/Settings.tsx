@@ -879,59 +879,6 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Business Hours</CardTitle>
-              <CardDescription>
-                Set your restaurant's daily operating hours.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {Object.keys(operatingHours).map((day) => (
-                <div
-                  key={day}
-                  className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <Label htmlFor={day.toLowerCase()}>{day}</Label>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Input
-                      id={`${day.toLowerCase()}-open`}
-                      type="time"
-                      value={operatingHours[day].open}
-                      onChange={(e) =>
-                        handleOperatingHoursChange(day, "open", e.target.value)
-                      }
-                      className="w-24"
-                      disabled={operatingHours[day].isClosed}
-                    />
-                    <span>-</span>
-                    <Input
-                      id={`${day.toLowerCase()}-close`}
-                      type="time"
-                      value={operatingHours[day].close}
-                      onChange={(e) =>
-                        handleOperatingHoursChange(day, "close", e.target.value)
-                      }
-                      className="w-24"
-                      disabled={operatingHours[day].isClosed}
-                    />
-                    <Switch
-                      checked={!operatingHours[day].isClosed}
-                      onCheckedChange={(checked) =>
-                        handleOperatingHoursChange(day, "isClosed", !checked)
-                      }
-                    />
-                    <Label className="w-16 text-right">
-                      {operatingHours[day].isClosed ? "Closed" : "Open"}
-                    </Label>
-                  </div>
-                </div>
-              ))}
-              <Button onClick={saveGeneralSettings} className="w-full">
-                Save Business Hours
-              </Button>
-            </CardContent>
-          </Card>
         </TabsContent>
         )}
 
