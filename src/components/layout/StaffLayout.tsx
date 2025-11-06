@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth } from '@/hooks/use-auth';
 import { Clock, Calendar, LogOut, User, ShoppingCart, UtensilsCrossed, LayoutDashboard, MessageSquare, Shield, Menu, X, Bell } from "lucide-react";
@@ -38,6 +38,22 @@ const StaffLayout: React.FC = () => {
     const [selectedNotification, setSelectedNotification] = useState<NotificationItem | null>(null);
     const { t } = useLanguage();
 
+    // Announcements-specific view state
+    const announcements = notifications.filter(n => (n.notification_type || '').toUpperCase() === 'ANNOUNCEMENT');
+    const unreadAnnouncements = announcements.filter(n => !n.read);
+    const unreadCount = unreadAnnouncements.length;
+    const [shouldShake, setShouldShake] = useState(false);
+    const prevUnreadRef = useRef<number>(unreadCount);
+
+    useEffect(() => {
+        if (unreadCount > (prevUnreadRef.current || 0)) {
+            setShouldShake(true);
+            const timer = setTimeout(() => setShouldShake(false), 900);
+            return () => clearTimeout(timer);
+        }
+        prevUnreadRef.current = unreadCount;
+    }, [unreadCount]);
+
     const navigation = [
         { name: "Dashboard", href: "/staff-dashboard", icon: User },
         {
@@ -58,6 +74,9 @@ const StaffLayout: React.FC = () => {
         navigation.push({ name: "Supervisor", href: "/staff-dashboard/supervisor", icon: LayoutDashboard });
     }
 
+    // Always show Announcements app entry
+    navigation.push({ name: "Announcements", href: "/staff-dashboard/announcements", icon: Bell });
+
     return (
         <div className="min-h-screen bg-gray-50">
         {/* Mobile menu button */}
@@ -73,22 +92,22 @@ const StaffLayout: React.FC = () => {
                         {/* Notifications Bell */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="relative" aria-label={`View ${notifications.filter(n => !n.read).length} notifications`}>
+                            <Button variant="ghost" size="icon" className={`relative ${shouldShake ? 'bell-shake' : ''}`} aria-label={`View ${unreadCount} announcements`}>
                               <Bell className="h-5 w-5" />
-                              {notifications.filter(n => !n.read).length > 0 && (
+                              {unreadCount > 0 && (
                                 <span className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center rounded-full bg-red-500 text-white text-xs">
-                                  {notifications.filter(n => !n.read).length}
+                                  {unreadCount}
                                 </span>
                               )}
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-80">
-                            <div className="px-4 py-2 font-medium">Notifications</div>
+                            <div className="px-4 py-2 font-medium">Announcements</div>
                             <DropdownMenuSeparator />
-                            {notifications.length === 0 ? (
-                              <p className="text-center text-sm text-muted-foreground py-4">No new notifications</p>
+                            {announcements.length === 0 ? (
+                              <p className="text-center text-sm text-muted-foreground py-4">No announcements</p>
                             ) : (
-                              notifications.map((notification) => (
+                              announcements.map((notification) => (
                                 <DropdownMenuItem
                                   key={notification.id}
                                   className="flex flex-col items-start space-y-1 p-2"
@@ -148,22 +167,22 @@ const StaffLayout: React.FC = () => {
                             {/* Notifications Bell (Desktop) */}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="relative" aria-label={`View ${notifications.filter(n => !n.read).length} notifications`}>
+                                <Button variant="ghost" size="icon" className={`relative ${shouldShake ? 'bell-shake' : ''}`} aria-label={`View ${unreadCount} announcements`}>
                                   <Bell className="h-5 w-5" />
-                                  {notifications.filter(n => !n.read).length > 0 && (
+                                  {unreadCount > 0 && (
                                     <span className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center rounded-full bg-red-500 text-white text-xs">
-                                      {notifications.filter(n => !n.read).length}
+                                      {unreadCount}
                                     </span>
                                   )}
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-80">
-                                <div className="px-4 py-2 font-medium">Notifications</div>
+                                <div className="px-4 py-2 font-medium">Announcements</div>
                                 <DropdownMenuSeparator />
-                                {notifications.length === 0 ? (
-                                  <p className="text-center text-sm text-muted-foreground py-4">No new notifications</p>
+                                {announcements.length === 0 ? (
+                                  <p className="text-center text-sm text-muted-foreground py-4">No announcements</p>
                                 ) : (
-                                  notifications.map((notification) => (
+                                  announcements.map((notification) => (
                                     <DropdownMenuItem
                                       key={notification.id}
                                       className="flex flex-col items-start space-y-1 p-2"

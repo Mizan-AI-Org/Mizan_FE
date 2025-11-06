@@ -46,9 +46,20 @@ export class BackendService {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+    // Resolve token from param or localStorage fallback
+    let resolvedToken = token;
+    if (!resolvedToken) {
+      try {
+        if (typeof window !== "undefined") {
+          const lsToken = window.localStorage.getItem("access_token");
+          if (lsToken) resolvedToken = lsToken;
+        }
+      } catch {
+        // ignore localStorage access errors
+      }
+    }
+    if (resolvedToken) {
+      headers["Authorization"] = `Bearer ${resolvedToken}`;
     }
 
     // Propagate current UI language to backend for localized responses
@@ -83,7 +94,7 @@ export class BackendService {
   }
 
   async ownerSignup(signupData: SignupData): Promise<LoginResponse> {
-   
+
     try {
       const response = await fetch(`${API_BASE}/api/register/`, {
         method: "POST",

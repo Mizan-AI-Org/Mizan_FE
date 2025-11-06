@@ -13,7 +13,6 @@ import {
   Users,
   Brain,
   FileText,
-  Zap,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 
@@ -50,13 +49,6 @@ const apps: AppItem[] = [
     descKey: "app.staff_schedule.desc",
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
   },
-  // {
-  //   name: "Tasks",
-  //   href: "/dashboard/tasks",
-  //   icon: Clock,
-  //   gradient: "bg-gradient-to-br from-rose-500 to-pink-500",
-  //   description: "Manage daily tasks",
-  // },
   {
     name: "Tasks",
     href: "/dashboard/task-templates",

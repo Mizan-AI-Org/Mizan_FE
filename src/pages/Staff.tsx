@@ -47,7 +47,7 @@ import {
   Trash2,
 } from "lucide-react";
 import ShiftModal from "@/components/ShiftModal";
-import StaffAnnouncementsList from "@/pages/StaffAnnouncementsList";
+import StaffAnnouncements from "@/pages/StaffAnnouncements";
 import AutoScheduler, {
   Shift as AutoShift,
   StaffMember as AutoStaffMember,
@@ -2019,7 +2019,7 @@ export default function Staff() {
           </Card>
         </TabsContent>
         <TabsContent value="announcements">
-          <StaffAnnouncementsList />
+        <StaffAnnouncements />
         </TabsContent>
       </Tabs>
       {isAutoSchedulerOpen && (

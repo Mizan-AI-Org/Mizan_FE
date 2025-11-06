@@ -132,8 +132,62 @@ const WeeklyScheduleView: React.FC = () => {
           const all: AssignedShift[] = normalizeEnvelope<AssignedShift>(asEnvelope);
           return all.filter((s) => getStaffId(s) === user.id);
         } catch {
-          // Graceful: no red error — return empty list for UI to show "No shifts"
-          return [];
+          // Final fallback: staff-friendly calendar endpoint
+          try {
+            const calRes = await fetch(
+              `${API_BASE}/scheduling/calendar/my_shifts/?start_date=${formattedWeekStart}&end_date=${formattedWeekEnd}`,
+              { headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+            if (!calRes.ok) return [];
+            const calJson = await calRes.json();
+            const events: Array<{
+              id: string;
+              title: string;
+              start: string; // ISO datetime
+              end: string;   // ISO datetime
+              status?: AssignedShift["status"];
+              is_confirmed?: boolean;
+              notes?: string | null;
+            }> = Array.isArray(calJson?.events) ? calJson.events : [];
+
+            const mapIsoToAssigned = (iso: string) => {
+              const d = new Date(iso);
+              const dateStr = format(d, "yyyy-MM-dd");
+              const hh = String(d.getHours()).padStart(2, "0");
+              const mm = String(d.getMinutes()).padStart(2, "0");
+              return { dateStr, timeStr: `${hh}:${mm}:00` };
+            };
+
+            const shifts: AssignedShift[] = events.map((e) => {
+              const startParts = mapIsoToAssigned(e.start);
+              const endParts = mapIsoToAssigned(e.end);
+              // Compute hours for display convenience
+              const diffMs = new Date(e.end).getTime() - new Date(e.start).getTime();
+              const actualHours = Math.max(0, diffMs) / (1000 * 60 * 60);
+              return {
+                id: e.id,
+                shift_date: startParts.dateStr,
+                start_time: startParts.timeStr,
+                end_time: endParts.timeStr,
+                role: "",
+                notes: e.notes || null,
+                staff_info: {
+                  id: user!.id,
+                  first_name: user!.first_name,
+                  last_name: user!.last_name,
+                  email: user!.email,
+                },
+                status: e.status,
+                is_confirmed: e.is_confirmed,
+                actual_hours: Number.isFinite(actualHours) ? actualHours : undefined,
+              } as AssignedShift;
+            });
+
+            return shifts;
+          } catch {
+            // Graceful: no red error — return empty list for UI to show "No shifts"
+            return [];
+          }
         }
       }
     },
