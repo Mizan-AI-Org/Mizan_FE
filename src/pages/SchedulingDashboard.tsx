@@ -143,14 +143,16 @@ export const SchedulingDashboard: React.FC = () => {
 
   interface TaskPayload {
     title: string;
-    description: string;
-    category: string;
-    assigned_to: string[];
-    assigned_shift: string;
+    description?: string;
+    // Backend expects TaskCategory ID or null; using null when unknown
+    category?: string | null;
+    // Single user id
+    assigned_to: string;
+    // Backend field name is 'shift'
+    shift: string;
     priority: TaskPriority;
-    due_date: string;
-    estimated_duration: number;
-    frequency?: "ONE_TIME" | "DAILY" | "WEEKLY";
+    // DurationField expects HH:MM:SS or ISO8601; we send HH:MM:SS
+    estimated_duration?: string;
   }
   const { data: templates } = useQuery<TaskTemplate[]>({
     queryKey: ["task-templates"],
@@ -237,8 +239,16 @@ export const SchedulingDashboard: React.FC = () => {
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to create task");
+        // Try JSON first, then fallback to text for better diagnostics
+        let message = "Failed to create task";
+        try {
+          const errorData = await response.json();
+          message = errorData.detail || errorData.message || message;
+        } catch {
+          const text = await response.text();
+          message = text || message;
+        }
+        throw new Error(message);
       }
       return response.json();
     },
@@ -257,31 +267,39 @@ export const SchedulingDashboard: React.FC = () => {
     },
   });
 
+  const toHHMMSS = (minutes: number): string => {
+    const m = Math.max(0, Math.floor(minutes));
+    const h = Math.floor(m / 60);
+    const mm = m % 60;
+    return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00`;
+  };
+
   const buildTaskPayloadsForShift = (
     shift: AssignedShift,
     template: TaskTemplate
   ): TaskPayload[] => {
-    const dueDate = `${shift.shift_date}T${shift.end_time}`;
     const items: TaskPayload[] = (template.tasks || []).map((t) => ({
       title: t.title || template.name,
       description: t.description || template.description || "",
-      category: template.template_type || "CUSTOM",
-      assigned_to: [shift.staff.id],
-      assigned_shift: shift.id,
+      // Unknown category mapping → send null to satisfy serializer
+      category: null,
+      assigned_to: shift.staff.id,
+      shift: shift.id,
       priority: t.priority ?? "MEDIUM",
-      due_date: dueDate,
-      estimated_duration: Number(t.estimated_duration ?? 30),
+      estimated_duration:
+        t.estimated_duration !== undefined
+          ? toHHMMSS(Number(t.estimated_duration))
+          : undefined,
     }));
     if (items.length === 0) {
       items.push({
         title: template.name,
         description: template.description || "",
-        category: template.template_type || "CUSTOM",
-        assigned_to: [shift.staff.id],
-        assigned_shift: shift.id,
+        category: null,
+        assigned_to: shift.staff.id,
+        shift: shift.id,
         priority: "MEDIUM",
-        due_date: dueDate,
-        estimated_duration: 30,
+        estimated_duration: toHHMMSS(30),
       });
     }
     return items;
@@ -317,10 +335,8 @@ export const SchedulingDashboard: React.FC = () => {
         tasks.push(...buildTaskPayloadsForShift(s, template));
       });
     } else if (assignmentFrequency === "WEEKLY") {
-      tasks = buildTaskPayloadsForShift(selectedShift, template).map((t) => ({
-        ...t,
-        frequency: "WEEKLY",
-      }));
+      // Frequency is a UI concept; backend doesn't support it on ShiftTask creation
+      tasks = buildTaskPayloadsForShift(selectedShift, template);
     }
     try {
       for (const payload of tasks) {

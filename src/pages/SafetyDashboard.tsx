@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -13,8 +14,16 @@ import TaskManagementInterface from '@/components/safety/TaskManagementInterface
 import { useAuth } from '@/hooks/use-auth';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useNavigate } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
+import type { Alert as AlertType } from '@/lib/types';
 
 const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
+
+type SopTask = {
+  id: string;
+  status: string;
+  sop?: unknown;
+};
 
 interface MyTaskItem {
   id: string;
@@ -32,19 +41,86 @@ const SafetyDashboard: React.FC = () => {
   const [myTasks, setMyTasks] = useState<MyTaskItem[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
 
+  // Helpers
+  const getAuthToken = () => localStorage.getItem('access_token') || localStorage.getItem('accessToken') || '';
+
+  // React Query: Unresolved Alerts
+  const { data: unresolvedAlerts, isLoading: alertsLoading } = useQuery({
+    queryKey: ['dashboard-unresolved-alerts'],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/dashboard/alerts/unresolved/`, {
+        headers: { 'Authorization': `Bearer ${getAuthToken()}` },
+      });
+      if (!res.ok) throw new Error('Failed to load alerts');
+      return res.json();
+    },
+    enabled: isManager,
+  });
+
+  // React Query: Task Statistics
+  const { data: taskStats, isLoading: taskStatsLoading } = useQuery({
+    queryKey: ['dashboard-task-stats'],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/dashboard/tasks/statistics/`, {
+        headers: { 'Authorization': `Bearer ${getAuthToken()}` },
+      });
+      if (!res.ok) throw new Error('Failed to load task statistics');
+      return res.json();
+    },
+    enabled: isManager,
+  });
+
+  // React Query: Checklist Dashboard Stats
+  const { data: checklistStats, isLoading: checklistStatsLoading } = useQuery({
+    queryKey: ['checklist-dashboard-stats'],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/checklists/analytics/dashboard_stats/`, {
+        headers: { 'Authorization': `Bearer ${getAuthToken()}` },
+      });
+      if (!res.ok) throw new Error('Failed to load checklist stats');
+      return res.json();
+    },
+    enabled: isManager,
+  });
+
+  // React Query: SOPs Compliance (derived from schedule tasks over recent period)
+  const { data: sopTasks, isLoading: sopTasksLoading } = useQuery({
+    queryKey: ['sop-compliance-tasks'],
+    queryFn: async () => {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - 30);
+      const startStr = start.toISOString().slice(0,10);
+      const endStr = end.toISOString().slice(0,10);
+      const res = await fetch(`${API_BASE}/staff/schedule-tasks/?start_date=${startStr}&end_date=${endStr}`, {
+        headers: { 'Authorization': `Bearer ${getAuthToken()}` },
+      });
+      if (!res.ok) throw new Error('Failed to load SOP tasks');
+      return res.json();
+    },
+    enabled: isManager,
+  });
+
   useEffect(() => {
     const fetchTasks = async () => {
       try {
         setLoadingTasks(true);
-        const token = localStorage.getItem('access_token');
-        const res = await fetch(`${API_BASE}/scheduling/my-tasks/`, {
+        const token = getAuthToken();
+        // Correct endpoint for DRF @action on ShiftTaskViewSet
+        const res = await fetch(`${API_BASE}/scheduling/shift-tasks/my_tasks/`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (!res.ok) throw new Error('Failed to load tasks');
+        if (!res.ok) {
+          const txt = await res.text();
+          console.error('Failed to load tasks', txt);
+          setMyTasks([]);
+          return;
+        }
         const data = await res.json();
-        setMyTasks(data.results || data || []);
+        setMyTasks(Array.isArray(data) ? data : (data.results || []));
       } catch (e) {
-        console.error(e);
+        console.error('Error loading my tasks', e);
+        setMyTasks([]);
       } finally {
         setLoadingTasks(false);
       }
@@ -77,29 +153,65 @@ const SafetyDashboard: React.FC = () => {
           </CardHeader>
           <CardContent className="px-3 md:px-6 py-2 md:py-3">
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-xs md:text-sm">SOPs Compliance</span>
-                <span className="font-medium text-xs md:text-sm text-green-600">92%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-green-600 h-2 rounded-full" style={{ width: '92%' }}></div>
-              </div>
-              
-              <div className="flex justify-between items-center mt-3">
-                <span className="text-xs md:text-sm">Checklist Completion</span>
-                <span className="font-medium text-xs md:text-sm text-amber-600">78%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-amber-500 h-2 rounded-full" style={{ width: '78%' }}></div>
-              </div>
-              
-              <div className="flex justify-between items-center mt-3">
-                <span className="text-xs md:text-sm">Task Completion</span>
-                <span className="font-medium text-xs md:text-sm text-blue-600">85%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-blue-600 h-2 rounded-full" style={{ width: '85%' }}></div>
-              </div>
+              {(() => {
+                // SOPs Compliance calculation
+                const itemsRaw = Array.isArray(sopTasks?.results) ? sopTasks.results : Array.isArray(sopTasks) ? sopTasks : [];
+                const items: SopTask[] = (itemsRaw as SopTask[]);
+                const sopItems = items.filter((t: SopTask) => !!t.sop);
+                const totalSop = sopItems.length;
+                const completedSop = sopItems.filter((t: SopTask) => String(t.status).toUpperCase() === 'COMPLETED').length;
+                const sopPct = totalSop ? Math.round((completedSop / totalSop) * 100) : 0;
+                const sopLoading = sopTasksLoading;
+                return (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs md:text-sm">SOPs Compliance</span>
+                      <span className="font-medium text-xs md:text-sm text-green-600">{sopLoading ? '—' : `${sopPct}%`}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-green-600 h-2 rounded-full" style={{ width: `${sopLoading ? 0 : sopPct}%` }}></div>
+                    </div>
+                  </>
+                );
+              })()}
+
+              {(() => {
+                // Checklist Completion from analytics
+                const avg = checklistStats?.average_completion_rate ?? 0;
+                const checklistLoading = checklistStatsLoading;
+                const pct = checklistLoading ? 0 : Math.round(avg);
+                return (
+                  <>
+                    <div className="flex justify-between items-center mt-3">
+                      <span className="text-xs md:text-sm">Checklist Completion</span>
+                      <span className="font-medium text-xs md:text-sm text-amber-600">{checklistLoading ? '—' : `${pct}%`}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-amber-500 h-2 rounded-full" style={{ width: `${pct}%` }}></div>
+                    </div>
+                  </>
+                );
+              })()}
+
+              {(() => {
+                // Task Completion from taskStats
+                const total = taskStats?.total_tasks ?? 0;
+                const byStatus = taskStats?.by_status ?? {};
+                const completedCount = byStatus?.COMPLETED ?? byStatus?.completed ?? 0;
+                const taskPct = total ? Math.round((completedCount / total) * 100) : 0;
+                const loading = taskStatsLoading;
+                return (
+                  <>
+                    <div className="flex justify-between items-center mt-3">
+                      <span className="text-xs md:text-sm">Task Completion</span>
+                      <span className="font-medium text-xs md:text-sm text-blue-600">{loading ? '—' : `${taskPct}%`}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${loading ? 0 : taskPct}%` }}></div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </CardContent>
         </Card>
@@ -116,17 +228,31 @@ const SafetyDashboard: React.FC = () => {
               </CardHeader>
               <CardContent className="px-3 md:px-6 py-2 md:py-3">
                 <div className="space-y-3">
-                  <div className="p-2 md:p-3 bg-red-50 border border-red-100 rounded-md">
-                    <div className="font-medium text-xs md:text-sm text-red-800">Kitchen Equipment</div>
-                    <div className="text-xs text-red-700">Oven temperature inconsistent</div>
-                    <div className="text-xs text-red-600 mt-1">Reported 2 days ago</div>
-                  </div>
-                  
-                  <div className="p-2 md:p-3 bg-amber-50 border border-amber-100 rounded-md">
-                    <div className="font-medium text-xs md:text-sm text-amber-800">Storage Area</div>
-                    <div className="text-xs text-amber-700">Heavy items stored on high shelves</div>
-                    <div className="text-xs text-amber-600 mt-1">Reported 1 day ago</div>
-                  </div>
+                  {alertsLoading && (
+                    <div className="text-xs md:text-sm text-muted-foreground">Loading concerns…</div>
+                  )}
+                  {!alertsLoading && Array.isArray(unresolvedAlerts) && unresolvedAlerts.length === 0 && (
+                    <div className="text-xs md:text-sm text-muted-foreground">No open concerns.</div>
+                  )}
+                  {!alertsLoading && Array.isArray(unresolvedAlerts) && unresolvedAlerts.slice(0, 4).map((a: AlertType) => {
+                    const isError = String(a.alert_type).toUpperCase() === 'ERROR';
+                    const isWarning = String(a.alert_type).toUpperCase() === 'WARNING';
+                    const containerClass = isError
+                      ? 'bg-red-50 border border-red-100'
+                      : isWarning
+                      ? 'bg-amber-50 border border-amber-100'
+                      : 'bg-blue-50 border border-blue-100';
+                    const titleClass = isError ? 'text-red-800' : isWarning ? 'text-amber-800' : 'text-blue-800';
+                    const descClass = isError ? 'text-red-700' : isWarning ? 'text-amber-700' : 'text-blue-700';
+                    const timeClass = isError ? 'text-red-600' : isWarning ? 'text-amber-600' : 'text-blue-600';
+                    return (
+                      <div key={a.id} className={`p-2 md:p-3 rounded-md ${containerClass}`}>
+                        <div className={`font-medium text-xs md:text-sm ${titleClass}`}>{a.restaurant?.name || 'Alert'}</div>
+                        <div className={`text-xs ${descClass}`}>{a.message}</div>
+                        <div className={`text-xs mt-1 ${timeClass}`}>Reported {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -236,17 +362,31 @@ const SafetyDashboard: React.FC = () => {
                 </CardHeader>
                 <CardContent className="px-3 py-2">
                   <div className="space-y-3">
-                    <div className="p-2 bg-red-50 border border-red-100 rounded-md">
-                      <div className="font-medium text-xs text-red-800">Kitchen Equipment</div>
-                      <div className="text-xs text-red-700">Oven temperature inconsistent</div>
-                      <div className="text-xs text-red-600 mt-1">Reported 2 days ago</div>
-                    </div>
-                    
-                    <div className="p-2 bg-amber-50 border border-amber-100 rounded-md">
-                      <div className="font-medium text-xs text-amber-800">Storage Area</div>
-                      <div className="text-xs text-amber-700">Heavy items stored on high shelves</div>
-                      <div className="text-xs text-amber-600 mt-1">Reported 1 day ago</div>
-                    </div>
+                    {alertsLoading && (
+                      <div className="text-xs text-muted-foreground">Loading concerns…</div>
+                    )}
+                    {!alertsLoading && Array.isArray(unresolvedAlerts) && unresolvedAlerts.length === 0 && (
+                      <div className="text-xs text-muted-foreground">No open concerns.</div>
+                    )}
+                    {!alertsLoading && Array.isArray(unresolvedAlerts) && unresolvedAlerts.slice(0, 4).map((a: AlertType) => {
+                      const isError = String(a.alert_type).toUpperCase() === 'ERROR';
+                      const isWarning = String(a.alert_type).toUpperCase() === 'WARNING';
+                      const containerClass = isError
+                        ? 'bg-red-50 border border-red-100'
+                        : isWarning
+                        ? 'bg-amber-50 border border-amber-100'
+                        : 'bg-blue-50 border border-blue-100';
+                      const titleClass = isError ? 'text-red-800' : isWarning ? 'text-amber-800' : 'text-blue-800';
+                      const descClass = isError ? 'text-red-700' : isWarning ? 'text-amber-700' : 'text-blue-700';
+                      const timeClass = isError ? 'text-red-600' : isWarning ? 'text-amber-600' : 'text-blue-600';
+                      return (
+                        <div key={a.id} className={`p-2 rounded-md ${containerClass}`}>
+                          <div className={`font-medium text-xs ${titleClass}`}>{a.restaurant?.name || 'Alert'}</div>
+                          <div className={`text-xs ${descClass}`}>{a.message}</div>
+                          <div className={`text-xs mt-1 ${timeClass}`}>Reported {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}</div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>

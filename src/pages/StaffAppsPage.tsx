@@ -49,7 +49,7 @@ const StaffAppsPage: React.FC = () => {
     { key: 'chat', name: 'Team Announcements', description: 'Team messaging', icon: MessageSquare, href: '/staff-dashboard/chat', category: 'Communication' },
     { key: 'cleaning', name: 'Cleaning Tasks', description: 'Assigned tasks', icon: ClipboardList, href: '/staff-dashboard/cleaning-tasks', roles: ['CLEANER'], category: 'Operations' },
     { key: 'safety', name: 'Safety Center', description: 'Checklist & reports', icon: Shield, href: '/staff-dashboard/safety', category: 'Safety' },
-    { key: 'checklist_demo', name: 'Checklist Demo', description: 'Try checklist runner', icon: ClipboardList, href: '/staff-dashboard/checklist-demo', category: 'Safety' },
+    { key: 'my_checklists', name: 'My Checklists', description: 'Assigned checklists', icon: ClipboardList, href: '/staff-dashboard/my-checklists', category: 'Safety' },
     { key: 'attendance', name: 'Attendance', description: 'History & records', icon: FileText, href: '/staff-dashboard/attendance', category: 'Management' },
     { key: 'supervisor', name: 'Supervisor Tools', description: 'Manager tools', icon: Users, href: '/supervisor', roles: ['SUPER_ADMIN','ADMIN','MANAGER'], external: true, category: 'Management' },
   ], []);
@@ -62,7 +62,7 @@ const StaffAppsPage: React.FC = () => {
     chat: { bg: '#F3E5F5', color: '#8E24AA' },
     cleaning: { bg: '#E0F2F1', color: '#26A69A' },
     safety: { bg: '#FFEBEE', color: '#E53935' },
-    checklist_demo: { bg: '#E3F2FD', color: '#1E88E5' },
+    my_checklists: { bg: '#E3F2FD', color: '#1E88E5' },
     attendance: { bg: '#E8EAF6', color: '#3F51B5' },
     supervisor: { bg: '#FFF3E0', color: '#F57C00' },
   };

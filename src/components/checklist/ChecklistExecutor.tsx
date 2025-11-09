@@ -283,6 +283,7 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
   }));
 
   const [actionOpen, setActionOpen] = useState(false);
+  const [validationMsg, setValidationMsg] = useState<string | null>(null);
   const currentStep = template.steps[record.currentIndex];
 
   const progressPct = useMemo(() => {
@@ -303,6 +304,20 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
     window.addEventListener('offline', updateOnline);
     return () => { window.removeEventListener('online', updateOnline); window.removeEventListener('offline', updateOnline); };
   }, []);
+
+  // Keyboard navigation & shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') { e.preventDefault(); nextStep(); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); prevStep(); }
+      else if (e.key.toLowerCase() === 'y' || e.key === '1') { e.preventDefault(); setResponse('YES'); }
+      else if (e.key.toLowerCase() === 'n' || e.key === '2') { e.preventDefault(); setResponse('NO'); }
+      else if (e.key.toLowerCase() === 'a' || e.key === '3') { e.preventDefault(); setResponse('NA'); }
+      else if (e.key === 'Enter') { e.preventDefault(); nextStep(); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [record.currentIndex, currentStep?.id]);
 
   const setResponse = (resp: ResponseOption) => {
     setRecord(r => {
@@ -327,6 +342,13 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
   };
 
   const nextStep = () => {
+    // Require a response before moving forward
+    const currentResp = record.stepResponses.find(sr => sr.stepId === currentStep.id)?.response;
+    if (!currentResp) {
+      setValidationMsg('Please select YES/NO/NA before proceeding.');
+      return;
+    }
+    setValidationMsg(null);
     // Conditional navigation
     const cs = currentStep.conditional?.find(c => record.stepResponses.find(sr => sr.stepId === currentStep.id)?.response === c.when);
     if (cs) {
@@ -364,7 +386,7 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
         </div>
         <div className="mt-3">
           <Progress value={progressPct} />
-          <div className="text-xs text-muted-foreground mt-1">{progressPct}% complete</div>
+          <div className="text-xs text-muted-foreground mt-1" aria-live="polite">{progressPct}% complete</div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -380,6 +402,12 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
             </div>
             <Badge variant="outline" className="text-xs">{currentStep.estimatedSeconds ? `${Math.round(currentStep.estimatedSeconds/60)}m` : '—'}</Badge>
           </div>
+
+          {validationMsg && (
+            <Alert className="mt-3">
+              <AlertDescription>{validationMsg}</AlertDescription>
+            </Alert>
+          )}
 
           {/* Response Toggle */}
           <div className="grid grid-cols-3 gap-2 mt-3">

@@ -138,7 +138,14 @@ const AttendanceHistory: React.FC = () => {
                 {attendanceHistory?.length === 0 ? (
                     <p className="text-center text-gray-500">No attendance records for this period.</p>
                 ) : (
-                    attendanceHistory?.map((record) => (
+                    // Sort newest-first by clock out (if present) falling back to clock in
+                    [...(attendanceHistory || [])]
+                        .sort((a, b) => {
+                            const aTime = parseISO(a.clock_out ?? a.clock_in).getTime();
+                            const bTime = parseISO(b.clock_out ?? b.clock_in).getTime();
+                            return bTime - aTime;
+                        })
+                        .map((record) => (
                         <Card key={record.clock_in} className="shadow-sm">
                             <CardHeader className="flex-row items-center justify-between">
                                 <CardTitle className="text-lg">{format(parseISO(record.date), 'PPP')}</CardTitle>

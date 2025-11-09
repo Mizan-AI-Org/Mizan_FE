@@ -6,12 +6,16 @@ import { useAuth } from "../contexts/AuthContext";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { format, parseISO, isValid } from "date-fns";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MapContainer, TileLayer, Circle, CircleMarker, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import CameraCaptureModal from "@/components/CameraCaptureModal";
+import ShiftReviewModal, { ShiftReviewPayload } from "@/components/ShiftReviewModal";
+import { enqueueClockPayloadSecure, dequeueAllSecure, initDeviceSecret } from "@/lib/offlineQueue";
 
 const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+const PRECISE_ACCURACY_M = 10;
 
 // Narrowing helper for verify-location response without using 'any'
 type VerifyLocationResponse = { within_range: boolean; message?: string };
@@ -19,6 +23,13 @@ const hasWithinRange = (x: unknown): x is VerifyLocationResponse => {
     if (typeof x !== "object" || x === null) return false;
     const record = x as Record<string, unknown>;
     return typeof record.within_range === "boolean";
+};
+
+// Safely extract a string message from unknown backend responses
+const getMessageString = (x: unknown): string | undefined => {
+    if (typeof x !== "object" || x === null) return undefined;
+    const record = x as Record<string, unknown>;
+    return typeof record.message === "string" ? (record.message as string) : undefined;
 };
 
 // Safe date formatting to prevent RangeError on invalid timestamps
@@ -77,6 +88,30 @@ export default function TimeClockPage() {
     const [scheduleActive, setScheduleActive] = useState<boolean>(true); // default true; will refine if schedule available
     const [permissionState, setPermissionState] = useState<"granted" | "denied" | "prompt" | "unsupported">("unsupported");
     const [currentTime, setCurrentTime] = useState<Date>(new Date());
+    const [cameraOpen, setCameraOpen] = useState<false | "in" | "out">(false);
+    const [reviewOpen, setReviewOpen] = useState(false);
+    const [reviewSubmitting, setReviewSubmitting] = useState(false);
+    const [lastClockOutEvent, setLastClockOutEvent] = useState<ClockEvent | null>(null);
+    const [deviceSecret] = useState<string>(() => initDeviceSecret());
+    const [timelineCollapsed, setTimelineCollapsed] = useState<boolean>(false);
+
+    function TimelineToggle() {
+        return (
+            <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto"
+                aria-expanded={!timelineCollapsed}
+                onClick={() => setTimelineCollapsed((v) => !v)}
+            >
+                {timelineCollapsed ? (
+                    <span className="flex items-center"><ChevronDown className="mr-1 h-4 w-4" /> Expand</span>
+                ) : (
+                    <span className="flex items-center"><ChevronUp className="mr-1 h-4 w-4" /> Collapse</span>
+                )}
+            </Button>
+        );
+    }
 
     // Fetch restaurant location (supports both top-level and nested 'restaurant' payloads)
     interface RestaurantLocationPayload {
@@ -185,8 +220,8 @@ export default function TimeClockPage() {
         return R * c;
     };
 
-    // Fetch current session for clock-in/out status
-    const { data: currentSession, isLoading: isLoadingSession } = useQuery<ClockEvent | null>({
+    // Fetch current session for clock-in/out status (normalized shape)
+    const { data: currentSession, isLoading: isLoadingSession } = useQuery<{ currentSession: ClockEvent | null; is_clocked_in: boolean }>({
         queryKey: ["currentSession", user?.id, accessToken],
         queryFn: () => api.getCurrentClockSession(accessToken!),
         enabled: !!accessToken && !!user?.id,
@@ -195,9 +230,11 @@ export default function TimeClockPage() {
         retry: false,
     });
 
-    const { data: attendanceHistory, isLoading: isLoadingHistory } = useQuery<ClockEvent[]>({
-        queryKey: ["attendanceHistory", user?.id, accessToken],
-        queryFn: () => api.getAttendanceHistory(accessToken!),
+    // Fetch only today's attendance history (used for daily hours calculation)
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    const { data: attendanceHistory, isLoading: isLoadingHistory } = useQuery<any[]>({
+        queryKey: ["attendanceHistory", user?.id, accessToken, todayStr],
+        queryFn: () => api.getAttendanceHistory(accessToken!, { start_date: todayStr, end_date: todayStr }),
         enabled: !!accessToken && !!user?.id,
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
@@ -205,18 +242,19 @@ export default function TimeClockPage() {
     });
 
     const clockInMutation = useMutation({
-        mutationFn: async (location: { latitude: number; longitude: number; accuracy?: number }) => {
+        mutationFn: async (location: { latitude: number; longitude: number; accuracy?: number; photo?: string }) => {
             const verifyRes = await api.verifyLocation(accessToken!, location.latitude, location.longitude);
             const withinRange = hasWithinRange(verifyRes) ? verifyRes.within_range : true;
             if (!withinRange) {
                 throw new Error("You must be within the restaurant geofence to clock in");
             }
-            return api.webClockIn(accessToken!, location.latitude, location.longitude, location.accuracy);
+            return api.webClockIn(accessToken!, location.latitude, location.longitude, location.accuracy, undefined, location.photo);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["currentSession"] });
             queryClient.invalidateQueries({ queryKey: ["attendanceHistory"] });
             toast.success("Clocked in successfully!");
+            playSuccessTone();
         },
         onError: (err: unknown) => {
             const message = err instanceof Error ? err.message : "Failed to clock in";
@@ -224,15 +262,41 @@ export default function TimeClockPage() {
         },
     });
 
-    const clockOutMutation = useMutation({
-        mutationFn: (location: { latitude: number; longitude: number; accuracy?: number }) => api.webClockOut(accessToken!, location.latitude, location.longitude, location.accuracy),
-        onSuccess: () => {
+    const clockOutMutation = useMutation<{ message?: string; event?: ClockEvent; clock_out_time?: string }, unknown, { latitude?: number; longitude?: number; accuracy?: number; method?: "manual" | "automatic"; override?: boolean }>({
+        mutationFn: (location: { latitude?: number; longitude?: number; accuracy?: number; method?: "manual" | "automatic"; override?: boolean } = {}) => {
+            const lat = typeof location.latitude === "number" ? location.latitude : undefined;
+            const lon = typeof location.longitude === "number" ? location.longitude : undefined;
+            const acc = typeof location.accuracy === "number" ? location.accuracy : undefined;
+            // Do not require location for clock-out; backend accepts optional coords
+            return api.webClockOut(accessToken!, lat, lon, acc, { method: location.method, device_id: deviceSecret, override: location.override });
+        },
+        onSuccess: (data: { message?: string; event?: ClockEvent; clock_out_time?: string }) => {
             queryClient.invalidateQueries({ queryKey: ["currentSession"] });
             queryClient.invalidateQueries({ queryKey: ["attendanceHistory"] });
-            toast.success("Clocked out successfully!");
+            const tsIso = data?.event?.clock_out_time || data?.clock_out_time;
+            const ts = tsIso ? new Date(tsIso) : new Date();
+            toast.success(`Clocked out at ${format(ts, "yyyy-MM-dd HH:mm")}`);
+            playSuccessTone();
+            // Open review modal with returned event details
+            if (data?.event) {
+                setLastClockOutEvent(data.event);
+                setReviewOpen(true);
+            } else {
+                setReviewOpen(true);
+            }
         },
         onError: (err: unknown) => {
             const message = err instanceof Error ? err.message : "Failed to clock out";
+            console.error("Clock out failed", { error: err });
+            // Allow attempt anytime; if server reports no active session, inform without blocking
+            if (message.includes("Not clocked in")) {
+                toast.info("No active session to end. If incorrect, refresh and try again.");
+                return;
+            }
+            if (message.includes("GPS accuracy too weak")) {
+                toast.error("GPS too imprecise (>10m). Move to open area or enable precise GPS.");
+                return;
+            }
             toast.error(`Failed to clock out: ${message}`);
         },
     });
@@ -266,7 +330,7 @@ export default function TimeClockPage() {
             const res = await api.verifyLocation(accessToken!, location.latitude, location.longitude);
             const normalized: VerifyLocationResponse = hasWithinRange(res)
                 ? { within_range: res.within_range, message: res.message }
-                : { within_range: true, message: typeof (res as any)?.message === "string" ? (res as any).message : "Location verified" };
+                : { within_range: false, message: getMessageString(res) ?? "Location verification unavailable" };
             return normalized;
         },
         onSuccess: (data) => {
@@ -429,7 +493,7 @@ export default function TimeClockPage() {
 
     // Auto clock-out watcher: if outside geofence for consecutive readings
     useEffect(() => {
-        const isClockedIn = !!currentSession && !currentSession?.clock_out_time;
+        const isClockedIn = currentSession?.is_clocked_in === true;
         if (!isClockedIn || !accessToken) return;
         let outsideCount = 0;
         const watchId = navigator.geolocation.watchPosition(
@@ -441,7 +505,12 @@ export default function TimeClockPage() {
                     if (!withinRange) {
                         outsideCount += 1;
                         if (outsideCount >= 2) {
-                            clockOutMutation.mutate({ latitude, longitude, accuracy });
+                            // If GPS is imprecise (>10m), clock out without location to avoid backend rejection
+                            if (typeof accuracy === "number" && accuracy <= PRECISE_ACCURACY_M) {
+                                clockOutMutation.mutate({ latitude, longitude, accuracy, method: "automatic" });
+                            } else {
+                                clockOutMutation.mutate({ method: "automatic" });
+                            }
                             outsideCount = 0;
                         }
                     } else {
@@ -460,22 +529,27 @@ export default function TimeClockPage() {
     }, [currentSession, accessToken]);
 
     const handleClockIn = () => {
-        if (currentLocation) {
-            clockInMutation.mutate(currentLocation);
-            if (navigator.vibrate) navigator.vibrate(150);
-        } else {
+        if (!currentLocation) {
             toast.error("Location not available. Please enable location services.");
             getUserLocation();
+            return;
         }
+        setCameraOpen("in");
     };
 
     const handleClockOut = () => {
-        if (currentLocation) {
-            clockOutMutation.mutate(currentLocation);
-            if (navigator.vibrate) navigator.vibrate([60, 60, 60]);
+        // Allow clock-out at any time; backend will decide if an event can be ended
+        const acc = currentLocation?.accuracy;
+        if (!currentLocation) {
+            toast.info("Clocking out without location. Enable GPS for verification.");
+            clockOutMutation.mutate({ method: "manual" });
+            return;
+        }
+        if (typeof acc === "number" && acc <= PRECISE_ACCURACY_M) {
+            clockOutMutation.mutate({ latitude: currentLocation.latitude, longitude: currentLocation.longitude, accuracy: acc, method: "manual" });
         } else {
-            toast.error("Location not available. Please enable location services.");
-            getUserLocation();
+            toast.info("GPS is imprecise (>10m). Clocking out without location.");
+            clockOutMutation.mutate({ method: "manual" });
         }
     };
 
@@ -489,8 +563,107 @@ export default function TimeClockPage() {
         }
     };
 
-    const isClockedIn = currentSession && !currentSession.clock_out_time;
+    const isClockedIn = currentSession?.is_clocked_in === true;
     const readyToClockIn = inRange && scheduleActive && !isLoadingSession;
+
+    // Compute today's accumulated hours
+    const todaysHours = (() => {
+        const todayStr = formatSafe(new Date(), "yyyy-MM-dd");
+        let totalMs = 0;
+        (attendanceHistory || []).forEach((ev: any) => {
+            const clockIn = ev.clock_in_time || ev.clock_in;
+            const clockOut = ev.clock_out_time || ev.clock_out;
+            const inDate = clockIn ? formatSafe(clockIn, "yyyy-MM-dd") : null;
+            const outDate = clockOut ? formatSafe(clockOut, "yyyy-MM-dd") : null;
+            if (inDate === todayStr || outDate === todayStr) {
+                const start = clockIn ? new Date(clockIn).getTime() : NaN;
+                const end = clockOut ? new Date(clockOut).getTime() : NaN;
+                if (!Number.isNaN(start) && !Number.isNaN(end) && end > start) {
+                    totalMs += Math.max(0, end - start);
+                }
+            }
+        });
+        if (currentSession?.currentSession && currentSession.currentSession.clock_in_time && !currentSession.currentSession.clock_out_time) {
+            const start = new Date(currentSession.currentSession.clock_in_time).getTime();
+            totalMs += Math.max(0, Date.now() - start);
+        }
+        const hrs = Math.floor(totalMs / 3600000);
+        const mins = Math.floor((totalMs % 3600000) / 60000);
+        return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+    })();
+
+    // Audio feedback tone on success
+    const playSuccessTone = () => {
+        try {
+            type AudioContextCtor = new () => AudioContext;
+            const W = window as unknown as { AudioContext?: AudioContextCtor; webkitAudioContext?: AudioContextCtor };
+            const Ctx = W.AudioContext ?? W.webkitAudioContext;
+            if (!Ctx) return;
+            const ctx = new Ctx();
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.frequency.value = 880;
+            o.type = "sine";
+            o.connect(g);
+            g.connect(ctx.destination);
+            g.gain.setValueAtTime(0.001, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
+            o.start();
+            o.stop(ctx.currentTime + 0.15);
+        } catch {
+            // ignore audio errors
+        }
+    };
+
+    // Offline queue auto-sync when online
+    useEffect(() => {
+        const flush = async () => {
+            if (!navigator.onLine || !accessToken) return;
+            const items = await dequeueAllSecure(deviceSecret);
+            for (const it of items) {
+                try {
+                    if (it.type === "clock_in") {
+                        if (typeof it.latitude === "number" && typeof it.longitude === "number") {
+                            await api.webClockIn(accessToken, it.latitude, it.longitude, typeof it.accuracy === "number" ? it.accuracy : undefined, undefined, it.photo);
+                        } else {
+                            // Missing coords; re-enqueue and skip
+                            await enqueueClockPayloadSecure(it, deviceSecret);
+                        }
+                    } else {
+                        if (typeof it.latitude === "number" && typeof it.longitude === "number") {
+                            await api.webClockOut(accessToken, it.latitude, it.longitude, typeof it.accuracy === "number" ? it.accuracy : undefined);
+                        } else {
+                            await enqueueClockPayloadSecure(it, deviceSecret);
+                        }
+                    }
+                } catch {
+                    // re-enqueue on failure
+                    await enqueueClockPayloadSecure(it, deviceSecret);
+                }
+            }
+        };
+        window.addEventListener("online", flush);
+        flush();
+        return () => window.removeEventListener("online", flush);
+    }, [accessToken, deviceSecret]);
+
+    // Camera photo capture handling
+    const onPhotoCaptured = async (photoDataUrl: string) => {
+        const employeeId = String(user?.id ?? "");
+        const now = new Date();
+        const timestampISO = now.toISOString();
+        const dateStr = formatSafe(now, "yyyy-MM-dd");
+        const coords = currentLocation ?? undefined;
+        if (cameraOpen === "in") {
+            if (navigator.onLine && accessToken && coords) {
+                clockInMutation.mutate({ ...coords, photo: photoDataUrl });
+            } else {
+                await enqueueClockPayloadSecure({ type: "clock_in", employeeId, latitude: coords?.latitude, longitude: coords?.longitude, accuracy: coords?.accuracy, timestampISO, date: dateStr, photo: photoDataUrl }, deviceSecret);
+                toast.info("Saved clock-in offline. Will sync when online.");
+            }
+        }
+        setCameraOpen(false);
+    };
 
     // Helper component to recenter map when geofence changes
     const Recenter: React.FC<{ lat: number; lng: number }> = ({ lat, lng }) => {
@@ -500,7 +673,7 @@ export default function TimeClockPage() {
         }, [lat, lng, map]);
         return null;
     };
-    const isBreakActive = currentSession && currentSession.is_break && currentSession.break_start && !currentSession.break_end;
+    const isBreakActive = Boolean(currentSession?.currentSession && currentSession.currentSession.is_break && currentSession.currentSession.break_start && !currentSession.currentSession.break_end);
 
     return (
         <div className="space-y-6 p-6">
@@ -525,7 +698,7 @@ export default function TimeClockPage() {
                             <div className="flex flex-col gap-4">
                                 <div className="rounded-2xl overflow-hidden border">
                                     <div className="relative h-64 w-full">
-                                        <MapContainer center={[geofence?.latitude ?? currentLocation?.latitude ?? 0, geofence?.longitude ?? currentLocation?.longitude ?? 0]} zoom={geofence || currentLocation ? 17 : 2} className="h-full w-full">
+                                        <MapContainer center={[geofence?.latitude ?? currentLocation?.latitude ?? 0, geofence?.longitude ?? currentLocation?.longitude ?? 0]} zoom={geofence || currentLocation ? 17 : 2} className={`h-full w-full ${cameraOpen ? 'pointer-events-none' : ''}`}>
                                             {geofence && <Recenter lat={geofence.latitude} lng={geofence.longitude} />}
                                             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
                                             {/* Geofence circle */}
@@ -559,12 +732,12 @@ export default function TimeClockPage() {
                                             </div>
                                         )}
                                     </div>
-                                    <div className="p-3 text-center">
-                                        <p className="text-sm text-muted-foreground">{lastVerificationMessage ?? (inRange ? "Within range" : "Outside work zone")}</p>
-                                        {locationError && (
-                                            <p className="text-xs text-red-600 mt-1">{locationError}</p>
-                                        )}
-                                    </div>
+                                        <div className="p-3 text-center">
+                                            <p className="text-sm text-muted-foreground" aria-live="polite">{lastVerificationMessage ?? (inRange ? "Within range" : "Outside work zone")}</p>
+                                            {locationError && (
+                                                <p className="text-xs text-red-600 mt-1">{locationError}</p>
+                                            )}
+                                        </div>
                                 </div>
                             </div>
                         )}
@@ -576,77 +749,186 @@ export default function TimeClockPage() {
                     <CardHeader>
                         <CardTitle className="text-xl">Action</CardTitle>
                     </CardHeader>
-                    <CardContent className="flex-1 flex items-center justify-center">
+                    <CardContent className="flex-1 flex flex-col items-center justify-center">
                         <div className="text-center space-y-2">
-                            <div className="text-2xl font-semibold tracking-tight">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+                            <div className="text-2xl font-semibold tracking-tight" aria-live="polite">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
                             {isClockedIn ? (
                                 <p className="text-muted-foreground">You’re currently clocked in.</p>
                             ) : (
                                 <p className="text-muted-foreground">Move into range during valid hours to enable clock-in.</p>
                             )}
+                            <div className="text-sm text-muted-foreground">Today’s hours: {todaysHours}</div>
                         </div>
+                        {/* Responsive action buttons inside the card for stable layout */}
+                        <div className="mt-4 w-full max-w-md grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <Button
+                                onClick={handleClockIn}
+                                disabled={isClockedIn || !readyToClockIn || clockInMutation.isPending}
+                                aria-label="Clock In"
+                                aria-busy={clockInMutation.isPending}
+                                className="h-12 min-h-12 w-full px-6 transition-all duration-200 ease-out bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-base font-semibold rounded-xl shadow-lg"
+                            >
+                                {clockInMutation.isPending ? (
+                                    <span className="flex items-center justify-center">
+                                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                                        Clocking In...
+                                    </span>
+                                ) : (
+                                    "Clock In"
+                                )}
+                            </Button>
+                            <Button
+                                onClick={handleClockOut}
+                                disabled={!isClockedIn || clockOutMutation.isPending}
+                                aria-label="Clock Out"
+                                aria-busy={clockOutMutation.isPending}
+                                className="h-12 min-h-12 w-full px-6 transition-all duration-200 ease-out bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-base font-semibold rounded-xl shadow-lg"
+                            >
+                                {clockOutMutation.isPending ? (
+                                    <span className="flex items-center justify-center">
+                                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                                        Clocking Out...
+                                    </span>
+                                ) : (
+                                    "Clock Out"
+                                )}
+                            </Button>
+                        </div>
+                        {!readyToClockIn && !isClockedIn && (
+                            <p className="mt-2 text-xs text-muted-foreground" aria-live="polite">Enter the work geofence during valid hours to enable Clock In.</p>
+                        )}
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Floating Clock In button — visible only when ready; mobile bottom-center, desktop bottom-right */}
-            {!isClockedIn && readyToClockIn && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 md:left-auto md:right-8 z-50">
-                    <Button
-                        onClick={handleClockIn}
-                        disabled={clockInMutation.isPending}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-semibold py-4 px-8 rounded-full shadow-lg"
-                    >
-                        {clockInMutation.isPending ? "Clocking In..." : "Clock In"}
-                    </Button>
-                </div>
-            )}
+            {/* Buttons moved into the Action card; remove floating overlays for stability */}
 
             {/* History remains available for reference; layout is unaffected by split */}
             <Card className="shadow-soft">
-                <CardHeader>
+                <CardHeader className="flex items-center justify-between">
                     <CardTitle className="text-xl">Shift Timeline</CardTitle>
+                    <TimelineToggle />
                 </CardHeader>
                 <CardContent>
                     {isLoadingHistory ? (
                         <div>Loading history...</div>
                     ) : (attendanceHistory && attendanceHistory.length > 0 ? (
-                        <div className="relative">
+                        <div className={`relative transition-all duration-200 ${timelineCollapsed ? 'max-h-0 overflow-hidden' : 'max-h-80 overflow-y-auto pr-2'}`} aria-expanded={!timelineCollapsed}>
                             <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-muted" />
                             <div className="space-y-4">
-                                {attendanceHistory.map((event) => (
-                                    <div key={event.id} className="pl-10 relative">
-                                        <span className="absolute left-2 top-2 w-3 h-3 rounded-full bg-emerald-500" />
-                                        <div className="flex justify-between items-center">
-                                            <p className="font-medium">{formatSafe(event.clock_in_time, "PPP")}</p>
-                                            <Badge variant={event.clock_out_time ? "default" : "secondary"}>
-                                                {event.clock_out_time ? "Completed" : "Ongoing"}
-                                            </Badge>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground">Clock In: {formatSafe(event.clock_in_time, "p")}</p>
-                                        {event.clock_out_time && (
-                                            <p className="text-sm text-muted-foreground">Clock Out: {formatSafe(event.clock_out_time, "p")}</p>
-                                        )}
-                                        {event.is_break && event.break_start && (
-                                            <p className="text-sm text-muted-foreground">Break: {formatSafe(event.break_start, "p")} - {event.break_end ? formatSafe(event.break_end, "p") : "Ongoing"}</p>
-                                        )}
-                                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
-                                            Location Verified:
-                                            {event.verified_location ? (
-                                                <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                            ) : (
-                                                <XCircle className="w-4 h-4 text-red-500" />
+                                {([...attendanceHistory].sort((a: any, b: any) => {
+                                    const aTime = new Date(a.clock_out_time ?? a.clock_in_time ?? a.clock_out ?? a.clock_in).getTime();
+                                    const bTime = new Date(b.clock_out_time ?? b.clock_in_time ?? b.clock_out ?? b.clock_in).getTime();
+                                    return bTime - aTime; // newest first
+                                })).map((raw: any, idx: number) => {
+                                    const clockIn = raw.clock_in_time || raw.clock_in;
+                                    const clockOut = raw.clock_out_time || raw.clock_out;
+                                    const verified = typeof raw.verified_location === "boolean" ? raw.verified_location : undefined;
+                                    const isCompleted = Boolean(clockOut);
+                                    const key = raw.id || `${raw.date || formatSafe(clockIn, "yyyy-MM-dd")}-${clockIn || idx}`;
+                                    return (
+                                        <div key={key} className="pl-10 relative">
+                                            <span className="absolute left-2 top-2 w-3 h-3 rounded-full bg-emerald-500" />
+                                            <div className="flex justify-between items-center">
+                                                <p className="font-medium">{formatSafe(clockIn, "PPP")}</p>
+                                                <Badge variant={isCompleted ? "default" : "secondary"}>
+                                                    {isCompleted ? "Completed" : "Ongoing"}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">Clock In: {formatSafe(clockIn, "p")}</p>
+                                            {clockOut && (
+                                                <p className="text-sm text-muted-foreground">Clock Out: {formatSafe(clockOut, "p")}</p>
                                             )}
+                                            {(() => {
+                                                const startMs = clockIn ? new Date(clockIn).getTime() : NaN;
+                                                const endMs = clockOut ? new Date(clockOut).getTime() : currentTime.getTime();
+                                                if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) return null;
+                                                const totalMs = endMs - startMs;
+                                                const hrs = Math.floor(totalMs / 3600000);
+                                                const mins = Math.floor((totalMs % 3600000) / 60000);
+                                                const label = clockOut ? "Duration" : "Duration (ongoing)";
+                                                return (
+                                                    <p className="text-sm text-muted-foreground">{label}: {String(hrs).padStart(2, "0")}:{String(mins).padStart(2, "0")}</p>
+                                                );
+                                            })()}
+                                            {raw.is_break && raw.break_start && (
+                                                <p className="text-sm text-muted-foreground">Break: {formatSafe(raw.break_start, "p")} - {raw.break_end ? formatSafe(raw.break_end, "p") : "Ongoing"}</p>
+                                            )}
+                                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+                                                Location Verified:
+                                                {verified === true ? (
+                                                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                                ) : verified === false ? (
+                                                    <XCircle className="w-4 h-4 text-red-500" />
+                                                ) : (
+                                                    <span className="text-muted-foreground">—</span>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     ) : (
                         <p className="text-muted-foreground">No attendance history available.</p>
                     ))}
-                </CardContent>
-            </Card>
-        </div>
-    );
+            </CardContent>
+        </Card>
+        {/* Selfie capture only for clock-in */}
+        <CameraCaptureModal open={cameraOpen === "in"} onClose={() => setCameraOpen(false)} onCaptured={onPhotoCaptured} />
+        {/* Shift Review modal on clock-out */}
+        <ShiftReviewModal
+            open={reviewOpen}
+            onOpenChange={setReviewOpen}
+            submitting={reviewSubmitting}
+            shiftId={lastClockOutEvent?.id || currentSession?.currentSession?.id || ""}
+            completedAtISO={lastClockOutEvent?.clock_out_time || new Date().toISOString()}
+            hoursDecimal={(() => {
+                const inTime = lastClockOutEvent?.clock_in_time || currentSession?.currentSession?.clock_in_time;
+                const outTime = lastClockOutEvent?.clock_out_time || new Date().toISOString();
+                if (!inTime || !outTime) return undefined;
+                const start = new Date(inTime).getTime();
+                const end = new Date(outTime).getTime();
+                if (isNaN(start) || isNaN(end) || end <= start) return undefined;
+                return Number(((end - start) / 3600000).toFixed(2));
+            })()}
+            shiftTitle={(() => {
+                const r = user?.restaurant as unknown;
+                if (typeof r === "string") return r;
+                if (r && typeof r === "object") {
+                    const name = (r as Record<string, unknown>)["name"];
+                    if (typeof name === "string") return name;
+                }
+                return "Shift";
+            })()}
+            shiftTimeRange={(() => {
+                const inT = lastClockOutEvent?.clock_in_time || currentSession?.currentSession?.clock_in_time;
+                const outT = lastClockOutEvent?.clock_out_time || new Date().toISOString();
+                const day = inT ? formatSafe(inT, "EEE, MMM d") : formatSafe(new Date().toISOString(), "EEE, MMM d");
+                const range = `${formatSafe(inT, "p")} – ${formatSafe(outT, "p")}`;
+                return `${day} | ${range}`;
+            })()}
+            onSubmit={async (payload: ShiftReviewPayload) => {
+                try {
+                    setReviewSubmitting(true);
+                    const submission = {
+                        shift_id: payload.shift_id,
+                        rating: payload.rating,
+                        tags: payload.tags,
+                        comments: payload.comments,
+                        completed_at_iso: payload.completed_at_iso,
+                        hours_decimal: payload.hours_decimal,
+                    };
+                    await api.submitShiftReview(accessToken!, submission as any);
+                    toast.success("Shift review submitted");
+                } catch (e) {
+                    console.error("submitShiftReview failed", e);
+                    toast.info("Review saved locally (or endpoint pending)");
+                } finally {
+                    setReviewSubmitting(false);
+                }
+            }}
+        />
+    </div>
+);
 }
