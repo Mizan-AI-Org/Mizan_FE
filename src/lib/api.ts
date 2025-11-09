@@ -26,6 +26,7 @@ import {
   ClockEvent,
   StaffProfileItem,
   CreateAnnouncementResponse,
+  ShiftReviewSubmission,
 } from "./types"; // Updated import path
 
 const API_BASE =
@@ -45,6 +46,7 @@ export class BackendService {
   private getHeaders(token?: string): Record<string, string> {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      Accept: "application/json",
     };
     // Resolve token from param or localStorage fallback
     let resolvedToken = token;
@@ -285,6 +287,27 @@ export class BackendService {
       return await response.json();
     } catch (error: any) {
       throw new Error(error.message || "Failed to update task status");
+    }
+  }
+
+  async updateTask(
+    accessToken: string,
+    taskId: string,
+    updates: Partial<Pick<Task, "status" | "due_date" | "assigned_to" | "priority" | "title" | "description">>
+  ): Promise<Task> {
+    try {
+      const response = await fetch(`${API_BASE}/dashboard/tasks/${taskId}/`, {
+        method: "PATCH",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(updates),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update task");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to update task");
     }
   }
 
@@ -1600,12 +1623,55 @@ export class BackendService {
         headers: this.getHeaders(accessToken),
         body: JSON.stringify({ latitude, longitude, accuracy, photo_url, photo }),
       });
+      const ct = response.headers.get("content-type") || "";
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to clock in");
+        let errorMessage = "Failed to clock in";
+        if (ct.includes("application/json")) {
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+            console.error("webClockIn error", {
+              status: response.status,
+              statusText: response.statusText,
+              errorData,
+              payload: { latitude, longitude, accuracy, hasPhoto: Boolean(photo) },
+            });
+          } catch (parseErr) {
+            console.error("webClockIn error (JSON parse failed)", {
+              status: response.status,
+              statusText: response.statusText,
+              parseErr,
+            });
+          }
+        } else {
+          const text = await response.text().catch(() => "<non-json response>");
+          console.error("webClockIn error (non-JSON)", {
+            status: response.status,
+            statusText: response.statusText,
+            contentType: ct,
+            snippet: text?.slice(0, 200),
+            payload: { latitude, longitude, accuracy, hasPhoto: Boolean(photo) },
+          });
+          errorMessage =
+            "Service responded unexpectedly. Please try again or contact support.";
+        }
+        throw new Error(errorMessage);
+      }
+      if (!ct.includes("application/json")) {
+        const text = await response.text().catch(() => "");
+        console.error("webClockIn success but non-JSON", {
+          status: response.status,
+          statusText: response.statusText,
+          contentType: ct,
+          snippet: text?.slice(0, 200),
+        });
+        throw new Error(
+          "Unexpected response format from server (not JSON). Please retry."
+        );
       }
       return await response.json();
     } catch (error: any) {
+      console.error("webClockIn exception", { error });
       throw new Error(error.message || "Failed to clock in");
     }
   }
@@ -1614,21 +1680,40 @@ export class BackendService {
     accessToken: string,
     latitude?: number,
     longitude?: number,
-    accuracy?: number
+    accuracy?: number,
+    opts?: { method?: "manual" | "automatic"; device_id?: string; override?: boolean }
   ): Promise<{ message: string; event: ClockEvent }> {
     try {
       const response = await fetch(`${API_BASE}/timeclock/web-clock-out/`, {
         method: "POST",
         headers: this.getHeaders(accessToken),
+        // Backend expects only latitude, longitude, accuracy. Extra fields are ignored server-side.
         body: JSON.stringify({ latitude, longitude, accuracy }),
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to clock out");
+        let errorMessage = "Failed to clock out";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+          // Log payload and server error for diagnostics
+          console.error("webClockOut error", {
+            status: response.status,
+            statusText: response.statusText,
+            errorData,
+            payload: { latitude, longitude, accuracy, opts },
+          });
+        } catch (parseErr) {
+          console.error("webClockOut error (unparsable)", {
+            status: response.status,
+            statusText: response.statusText,
+          });
+        }
+        throw new Error(errorMessage);
       }
       return await response.json();
     } catch (error: any) {
-      throw new Error(error.message || "Failed to clock out");
+      console.error("webClockOut exception", { error });
+      throw new Error(error?.message || "Failed to clock out");
     }
   }
 
@@ -1670,18 +1755,41 @@ export class BackendService {
 
   async getCurrentClockSession(
     accessToken: string
-  ): Promise<ClockEvent | null> {
+  ): Promise<{ currentSession: ClockEvent | null; is_clocked_in: boolean }> {
     try {
       const response = await fetch(`${API_BASE}/timeclock/current-session/`, {
         method: "GET",
         headers: this.getHeaders(accessToken),
       });
       if (!response.ok) {
-        if (response.status === 404) return null; // No current session
-        const errorData = await response.json();
+        if (response.status === 404) {
+          // Normalize 404 (no active session) into a stable shape
+          return { currentSession: null, is_clocked_in: false };
+        }
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || "Failed to fetch current session");
       }
-      return await response.json();
+      const data = await response.json();
+      // Normalize various possible backend shapes
+      if (data && typeof data === "object") {
+        // Preferred shape: { currentSession: ClockEvent | null, is_clocked_in: boolean }
+        if ("currentSession" in data || "is_clocked_in" in data) {
+          return {
+            currentSession: (data as any).currentSession ?? null,
+            is_clocked_in: Boolean((data as any).is_clocked_in),
+          };
+        }
+        // Fallback: backend returns the ClockEvent directly
+        if ("clock_in_time" in data) {
+          const ev = data as ClockEvent;
+          return {
+            currentSession: ev ?? null,
+            is_clocked_in: ev ? !ev.clock_out_time : false,
+          };
+        }
+      }
+      // Final fallback: treat unknown payload as no active session
+      return { currentSession: null, is_clocked_in: false };
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch current session");
     }
@@ -1724,20 +1832,32 @@ export class BackendService {
     }
   }
 
-  async getAttendanceHistory(accessToken: string): Promise<ClockEvent[]> {
+  async getAttendanceHistory(
+    accessToken: string,
+    params: { start_date: string; end_date: string; user_id?: string }
+  ): Promise<ClockEvent[]> {
     try {
+      const qs = new URLSearchParams();
+      qs.set("start_date", params.start_date);
+      qs.set("end_date", params.end_date);
+      if (params.user_id) qs.set("user_id", params.user_id);
+
       const response = await fetch(
-        `${API_BASE}/timeclock/attendance-history/`,
+        `${API_BASE}/timeclock/attendance-history/?${qs.toString()}`,
         {
           method: "GET",
           headers: this.getHeaders(accessToken),
         }
       );
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Failed to fetch attendance history"
-        );
+        let message = "Failed to fetch attendance history";
+        try {
+          const errorData = await response.json();
+          message = errorData.message || errorData.detail || message;
+        } catch (_) {
+          // ignore parse errors
+        }
+        throw new Error(message);
       }
       return await response.json();
     } catch (error: any) {
@@ -1937,6 +2057,234 @@ export class BackendService {
     }
   }
 
+  // =========================
+  // Checklist API (frontend)
+  // =========================
+
+  async ensureChecklistForTask(taskId: string): Promise<any> {
+    try {
+      const response = await fetch(
+        `${API_BASE}/checklists/executions/ensure_for_task/`,
+        {
+          method: "POST",
+          headers: this.getHeaders(),
+          body: JSON.stringify({ task_id: taskId }),
+        }
+      );
+      if (!response.ok) {
+        let message = "Failed to ensure checklist for task";
+        try {
+          const err = await response.json();
+          message = err.error || err.detail || message;
+        } catch {
+          // Ignore JSON parse error; retain default message
+        }
+        throw new Error(message);
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to ensure checklist for task");
+    }
+  }
+
+  /**
+   * Fetch all shift tasks assigned to a user, ensure each has a checklist execution,
+   * and return enriched items with execution details for UI rendering.
+   */
+  async getAssignedTasksAsChecklists(
+    accessToken: string,
+    userId: string,
+    status?: string
+  ): Promise<
+    Array<{
+      task_id: string;
+      execution_id: string;
+      title: string;
+      description?: string;
+      priority?: string;
+      due_date?: string | null;
+      status?: string;
+      template?: { id: string; name: string; description?: string } | null;
+    }>
+  > {
+    const tasks = await this.getShiftTasks(accessToken, {
+      assigned_to: userId,
+      status,
+    });
+
+    const results: Array<{
+      task_id: string;
+      execution_id: string;
+      title: string;
+      description?: string;
+      priority?: string;
+      due_date?: string | null;
+      status?: string;
+      template?: { id: string; name: string; description?: string } | null;
+    }> = [];
+
+    for (const t of tasks) {
+      try {
+        const ensured = await this.ensureChecklistForTask(t.id);
+        const executionId =
+          ensured?.execution?.id || ensured?.id || ensured?.execution_id;
+        if (!executionId) {
+          // If we cannot derive execution id, skip gracefully
+          console.warn("Checklist execution missing for task", t.id, ensured);
+          continue;
+        }
+        const execution = await this.getChecklistExecution(String(executionId));
+        results.push({
+          task_id: t.id,
+          execution_id: String(executionId),
+          title: t.title || t.name || execution?.template?.name || "Task",
+          description: t.description || execution?.template?.description || undefined,
+          priority: t.priority || undefined,
+          due_date: t.due_date || execution?.due_date || null,
+          status: execution?.status || t.status || undefined,
+          template: execution?.template
+            ? {
+                id: execution.template.id,
+                name: execution.template.name,
+                description: execution.template.description,
+              }
+            : null,
+        });
+      } catch (err) {
+        console.error("Failed to ensure checklist for task", t?.id, err);
+      }
+    }
+
+    return results;
+  }
+
+  async getChecklistExecution(executionId: string): Promise<any> {
+    try {
+      const response = await fetch(
+        `${API_BASE}/checklists/executions/${executionId}/`,
+        { headers: this.getHeaders() }
+      );
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Failed to load checklist execution: ${err}`);
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to load checklist execution");
+    }
+  }
+
+  async startChecklistExecution(executionId: string): Promise<any> {
+    try {
+      const response = await fetch(
+        `${API_BASE}/checklists/executions/${executionId}/start/`,
+        { method: "POST", headers: this.getHeaders() }
+      );
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Failed to start checklist: ${err}`);
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to start checklist");
+    }
+  }
+
+  async completeChecklistExecution(
+    executionId: string,
+    completion_notes?: string
+  ): Promise<any> {
+    try {
+      const response = await fetch(
+        `${API_BASE}/checklists/executions/${executionId}/complete/`,
+        {
+          method: "POST",
+          headers: this.getHeaders(),
+          body: JSON.stringify({ completion_notes }),
+        }
+      );
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Failed to complete checklist: ${err}`);
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to complete checklist");
+    }
+  }
+
+  async updateStepResponse(
+    stepResponseId: string,
+    payload: { response_value?: string; notes?: string }
+  ): Promise<any> {
+    try {
+      const response = await fetch(
+        `${API_BASE}/checklists/step-responses/${stepResponseId}/`,
+        {
+          method: "PUT",
+          headers: this.getHeaders(),
+          body: JSON.stringify(payload),
+        }
+      );
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Failed to update step: ${err}`);
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to update step");
+    }
+  }
+
+  async addStepEvidence(stepResponseId: string, file: File): Promise<any> {
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const headers = this.getHeaders();
+      // Remove explicit JSON content-type for multipart
+      delete headers["Content-Type"];
+      const response = await fetch(
+        `${API_BASE}/checklists/step-responses/${stepResponseId}/add-evidence/`,
+        { method: "POST", headers, body: form }
+      );
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Failed to attach evidence: ${err}`);
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to attach evidence");
+    }
+  }
+
+  async getMyChecklists(statusOrOpts?: string | { status?: string; page?: number; page_size?: number }): Promise<{ results: any[]; next?: string | null; previous?: string | null; count?: number } | any[]> {
+    try {
+      const opts = typeof statusOrOpts === "string" ? { status: statusOrOpts } : (statusOrOpts || {});
+      const url = new URL(`${API_BASE}/checklists/executions/my_checklists/`);
+      if (opts.status) url.searchParams.set("status", opts.status);
+      if (opts.page) url.searchParams.set("page", String(opts.page));
+      if (opts.page_size) url.searchParams.set("page_size", String(opts.page_size));
+      const response = await fetch(url.toString(), { headers: this.getHeaders() });
+      if (!response.ok) {
+        let message = "Failed to load my checklists";
+        try {
+          const clone = response.clone();
+          const json = await clone.json();
+          message = json.message || json.detail || json.error || message;
+        } catch {
+          // Avoid dumping HTML error pages into the UI toast
+          message = `${message} (${response.status})`;
+        }
+        throw new Error(message);
+      }
+      const data = await response.json();
+      // Prefer paginated envelope if available
+      return typeof data === "object" && data && "results" in data ? data : (data.results || data);
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to load my checklists");
+    }
+  }
+
   async getStaffProfiles(accessToken: string): Promise<StaffProfileItem[]> {
     try {
       const response = await fetch(`${API_BASE}/staff/profiles/`, {
@@ -2070,6 +2418,114 @@ export class BackendService {
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch assigned shifts");
     }
+  }
+
+  // --- Shift Reviews ---
+  async submitShiftReview(
+    accessToken: string,
+    payload: ShiftReviewSubmission
+  ): Promise<{ id: string; message?: string }> {
+    try {
+      const response = await fetch(`${API_BASE}/attendance/shift-reviews/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        let message = "Failed to submit shift review";
+        try {
+          const err = await response.json();
+          message = err.message || err.detail || message;
+        } catch {
+          // Ignore JSON parse error; retain default message
+        }
+        throw new Error(message);
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to submit shift review");
+    }
+  }
+
+  async getShiftReviews(
+    accessToken: string,
+    params?: { date_from?: string; date_to?: string; staff_id?: string; rating?: number }
+  ): Promise<any[]> {
+    try {
+      const url = new URL(`${API_BASE}/attendance/shift-reviews/`);
+      if (params) {
+        Object.entries(params).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && String(v).length > 0) url.searchParams.set(k, String(v));
+        });
+      }
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
+      if (!response.ok) {
+        let message = "Failed to fetch shift reviews";
+        try {
+          const err = await response.json();
+          message = err.message || err.detail || message;
+        } catch {
+          // Ignore JSON parse error; retain default message
+        }
+        throw new Error(message);
+      }
+      const json = await response.json();
+      // Unwrap paginated responses transparently; tolerate both array and {results: []}
+      if (Array.isArray(json)) return json;
+      if (json && Array.isArray(json.results)) return json.results;
+      return [];
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to fetch shift reviews");
+    }
+  }
+
+  async likeShiftReview(accessToken: string, reviewId: string): Promise<{ liked: boolean; likes_count: number }> {
+    const url = `${API_BASE}/attendance/shift-reviews/${reviewId}/like/`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: this.getHeaders(accessToken),
+    });
+    if (!response.ok) {
+      let message = "Failed to like review";
+      try {
+        const err = await response.json();
+        message = err.message || err.detail || message;
+      } catch {
+        // Ignore JSON parse error; retain default message
+      }
+      throw new Error(message);
+    }
+    return await response.json();
+  }
+
+  async getShiftReviewStats(
+    accessToken: string,
+    params?: { date_from?: string; date_to?: string }
+  ): Promise<{ by_rating: Array<{ rating: number; count: number }>; total_reviews: number; total_likes: number; tag_counts: Record<string, number> }> {
+    const url = new URL(`${API_BASE}/attendance/shift-reviews/stats/`);
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && String(v).length > 0) url.searchParams.set(k, String(v));
+      });
+    }
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: this.getHeaders(accessToken),
+    });
+    if (!response.ok) {
+      let message = "Failed to fetch review stats";
+      try {
+        const err = await response.json();
+        message = err.message || err.detail || message;
+      } catch {
+        // Ignore JSON parse error; retain default message
+      }
+      throw new Error(message);
+    }
+    return await response.json();
   }
 }
 

@@ -50,6 +50,14 @@ const apps: AppItem[] = [
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
   },
   {
+    name: "Shift Reviews",
+    href: "/dashboard/shift-reviews",
+    icon: FileText,
+    gradient: "bg-gradient-to-br from-emerald-500 to-green-500",
+    description: "View and filter staff shift feedback",
+    roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
+  },
+  {
     name: "Tasks",
     href: "/dashboard/task-templates",
     icon: FileText,
@@ -93,17 +101,6 @@ const apps: AppItem[] = [
     comingSoon: true,
   },
   {
-    name: "Tables",
-    href: "/dashboard/floors",
-    icon: LayoutGrid,
-    gradient: "bg-gradient-to-br from-indigo-500 to-blue-500",
-    description: "Manage floor layouts",
-    nameKey: "app.tables",
-    descKey: "app.tables.desc",
-    roles: ["SUPER_ADMIN", "ADMIN", "MANAGER", "WAITER"],
-    comingSoon: true,
-  },
-  {
     name: "AI Assistant",
     href: "/dashboard/assistant",
     icon: Brain,
@@ -122,6 +119,17 @@ const apps: AppItem[] = [
     nameKey: "app.settings",
     descKey: "app.settings.desc",
     roles: ["SUPER_ADMIN", "ADMIN"],
+  },
+  {
+    name: "Tables",
+    href: "/dashboard/floors",
+    icon: LayoutGrid,
+    gradient: "bg-gradient-to-br from-indigo-500 to-blue-500",
+    description: "Manage floor layouts",
+    nameKey: "app.tables",
+    descKey: "app.tables.desc",
+    roles: ["SUPER_ADMIN", "ADMIN", "MANAGER", "WAITER"],
+    comingSoon: true,
   },
 ];
 

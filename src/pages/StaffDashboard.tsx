@@ -370,7 +370,12 @@ const StaffDashboard: React.FC = () => {
             }
         } catch (error: unknown) {
             console.error('Clock out error:', error);
-            setLocationError((error as Error).message || 'Failed to clock out');
+            const msg = (error as Error)?.message || 'Failed to clock out';
+            if (msg.includes('Not clocked in')) {
+                setLocationError('No active session to end. If incorrect, refresh and try again.');
+            } else {
+                setLocationError(msg);
+            }
         } finally {
             setIsClocking(false);
         }
@@ -628,6 +633,13 @@ const StaffDashboard: React.FC = () => {
                                 <p className="text-xs text-gray-500 text-center">
                                     {clockInReady ? 'All conditions met' : getClockInDisableReason()}
                                 </p>
+                                <button
+                                    onClick={clockOut}
+                                    disabled={isClocking}
+                                    className="mt-3 w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    {isClocking ? 'Clocking Out...' : 'Clock Out'}
+                                </button>
                             </div>
                         )}
                         {isClockedIn && isOnBreak ? (

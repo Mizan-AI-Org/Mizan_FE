@@ -85,6 +85,12 @@ const AutoSchedule = React.lazy(() => import("./pages/AutoSchedule"));
 const Timesheets = React.lazy(() => import("./pages/Timesheets"));
 const ChecklistRunDemo = React.lazy(() => import("./pages/ChecklistRunDemo"));
 const TaskChecklistRunner = React.lazy(() => import("./pages/TaskChecklistRunner"));
+const MyChecklistsPage = React.lazy(() => import("./pages/MyChecklistsPage"));
+const ChecklistRunner = React.lazy(() => import("./pages/ChecklistRunner"));
+const AdminChecklistTemplates = React.lazy(() => import("./pages/AdminChecklistTemplates"));
+  const ShiftReviewsAdminPage = React.lazy(
+    () => import("./pages/ShiftReviewsAdminPage")
+  );
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -215,6 +221,16 @@ const App = () => {
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
                       <PurchaseOrdersPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/shift-reviews"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                    >
+                      <ShiftReviewsAdminPage />
                     </RoleBasedRoute>
                   }
                 />
@@ -353,6 +369,14 @@ const App = () => {
                       <React.Suspense fallback={<div>Loading...</div>}>
                         <TaskTemplates />
                       </React.Suspense>
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/checklists/templates"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <AdminChecklistTemplates />
                     </RoleBasedRoute>
                   }
                 />
@@ -501,8 +525,10 @@ const App = () => {
                 <Route path="schedule/:id" element={<ShiftDetailView />} />
                 <Route path="attendance" element={<AttendanceHistory />} />
                 <Route path="safety" element={<SafetyDashboard />} />
+                <Route path="my-checklists" element={<MyChecklistsPage />} />
                 <Route path="checklist-demo" element={<ChecklistRunDemo />} />
                 <Route path="task-checklist/:taskId" element={<TaskChecklistRunner />} />
+                <Route path="run-checklist/:executionId" element={<ChecklistRunner />} />
                 <Route
                   path="kitchen"
                   element={
