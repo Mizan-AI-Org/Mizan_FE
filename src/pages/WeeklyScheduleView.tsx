@@ -9,6 +9,7 @@ import {
 import { useAuth } from "../hooks/use-auth"; // Corrected import path
 import { User } from "../contexts/AuthContext.types";
 import { api } from "@/lib/api";
+import StaffShiftDetailsModal from "@/components/schedule/StaffShiftDetailsModal";
 
 const API_BASE =
   import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
@@ -66,6 +67,7 @@ const WeeklyScheduleView: React.FC = () => {
   const [currentWeek, setCurrentWeek] = useState(
     startOfWeek(new Date(), { weekStartsOn: 1 })
   ); // Monday as start of week
+  const [selectedShift, setSelectedShift] = useState<{ id: string } | null>(null);
 
   const getStaffId = (s: AssignedShift): string | undefined => {
     if (s.staff_info?.id) return s.staff_info.id;
@@ -335,10 +337,19 @@ const WeeklyScheduleView: React.FC = () => {
                   })();
 
                   return (
-                    <a
+                    <button
                       key={shift.id}
-                      href={`/staff-dashboard/schedule/${shift.id}`}
-                      className="block bg-white rounded-md shadow-sm p-3 mb-3 border border-gray-200 hover:border-blue-300 hover:shadow"
+                      type="button"
+                      onClick={() => setSelectedShift({ id: String(shift.id) })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedShift({ id: String(shift.id) });
+                        }
+                      }}
+                      aria-label={`View details for shift on ${format(new Date(typeof shift.shift_date === 'string' ? shift.shift_date : shift.shift_date), "PPP")}`}
+                      aria-haspopup="dialog"
+                      className="w-full text-left bg-white rounded-md shadow-sm p-3 mb-3 border border-gray-200 hover:border-blue-300 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
                       <p className="font-semibold text-gray-900">
                         {getStaffName(shift) || ""}
@@ -366,7 +377,7 @@ const WeeklyScheduleView: React.FC = () => {
                       {shift.notes && (
                         <p className="text-xs text-gray-500 italic truncate">{shift.notes}</p>
                       )}
-                    </a>
+                    </button>
                   );
                 })
               ) : (
@@ -377,6 +388,14 @@ const WeeklyScheduleView: React.FC = () => {
           );
         })}
       </div>
+
+      {/* Shift details modal */}
+      <StaffShiftDetailsModal
+        open={!!selectedShift?.id}
+        shiftId={selectedShift?.id || null}
+        onClose={() => setSelectedShift(null)}
+        initialShift={selectedShift || null}
+      />
     </div>
   );
 };

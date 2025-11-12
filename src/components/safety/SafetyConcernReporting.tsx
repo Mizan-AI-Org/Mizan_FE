@@ -48,7 +48,7 @@ const SafetyConcernReporting: React.FC = () => {
     status: 'reported',
   });
 
-  // Fetch Safety Concerns
+  // Fetch Incidents
   const { data: concerns, isLoading } = useQuery({
     queryKey: ['safety-concerns'],
     queryFn: async () => {
@@ -60,7 +60,7 @@ const SafetyConcernReporting: React.FC = () => {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to fetch safety concerns');
+        throw new Error('Failed to fetch incidents');
       }
       
       return response.json();
@@ -80,7 +80,7 @@ const SafetyConcernReporting: React.FC = () => {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to create safety concern');
+        throw new Error('Failed to create incident');
       }
       
       return response.json();
@@ -97,13 +97,13 @@ const SafetyConcernReporting: React.FC = () => {
       });
       toast({
         title: 'Success',
-        description: 'Safety concern reported successfully',
+        description: 'Incident reported successfully',
       });
     },
     onError: (error) => {
       toast({
         title: 'Error',
-        description: `Failed to report safety concern: ${error.message}`,
+        description: `Failed to report incident: ${error.message}`,
         variant: 'destructive',
       });
     },
@@ -146,18 +146,18 @@ const SafetyConcernReporting: React.FC = () => {
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Safety Concern Reporting</CardTitle>
+          <CardTitle>Incident Reporting</CardTitle>
           <CardDescription>
-            Report and track safety concerns in your restaurant
+            Report and track Incidents and safety concerns in your restaurant
           </CardDescription>
         </div>
         <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Report Concern
+          <Plus className="mr-2 h-4 w-4" /> Report Incidents
         </Button>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex justify-center p-4">Loading safety concerns...</div>
+          <div className="flex justify-center p-4">Loading Incidence & Safety...</div>
         ) : (
           <Table>
             <TableHeader>
@@ -199,13 +199,13 @@ const SafetyConcernReporting: React.FC = () => {
                   <TableCell colSpan={6} className="text-center py-4">
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <AlertCircle className="h-8 w-8 mb-2" />
-                      <p>No safety concerns reported</p>
+                      <p>No incidents reported</p>
                       <Button 
                         variant="outline" 
                         className="mt-2"
                         onClick={() => setIsModalOpen(true)}
                       >
-                        Report your first safety concern
+                        Report your first incident
                       </Button>
                     </div>
                   </TableCell>

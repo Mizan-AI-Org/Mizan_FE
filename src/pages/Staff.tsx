@@ -53,31 +53,15 @@ import AutoScheduler, {
   StaffMember as AutoStaffMember,
 } from "@/components/AutoScheduler";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { AuthContextType } from "@/contexts/AuthContext.types";
+import type { Shift, Task, TaskFrequency } from "@/types/schedule";
 
 // Use configured API base to avoid relative path issues between environments
 const API_BASE =
   import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 const aiRecommendations = [];
-
-interface Shift {
-  id: string;
-  title: string;
-  start: string;
-  end: string;
-  day: number;
-  staffId: string;
-  color?: string;
-  // Optional status for local display; not required by ShiftModal
-  type?: "confirmed" | "pending" | "tentative";
-  // Match ShiftModal's Task shape
-  tasks?: Array<{
-    id: string;
-    title: string;
-    priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-    frequency?: "ONE_TIME" | "DAILY" | "WEEKLY" | "CUSTOM";
-  }>;
-}
 
 interface StaffMember {
   id: string;
@@ -97,15 +81,81 @@ interface BackendShift {
   color?: string;
 }
 
-interface WeeklyScheduleData {
-  id: string;
-  week_start: string;
-  week_end: string;
-  is_published: boolean;
-  assigned_shifts: BackendShift[];
-}
+  interface WeeklyScheduleData {
+    id: string;
+    week_start: string;
+    week_end: string;
+    is_published: boolean;
+    assigned_shifts: BackendShift[];
+  }
+
+  // API response types (broader than BackendShift) to avoid explicit 'any'
+  interface ApiAssignedShift {
+    id: string | number;
+    staff:
+      | string
+      | {
+          id: string;
+          first_name?: string;
+          last_name?: string;
+          email?: string;
+        };
+    shift_date: string | Date;
+    start_time: string;
+    end_time: string;
+    notes?: string | null;
+    color?: string;
+  }
+
+  interface WeeklyScheduleV2 {
+    assigned_shifts?: ApiAssignedShift[];
+  }
+
+  // Normalize envelopes like { results: T[] } or T[] into a T[]
+  function normalizeEnvelope<T>(input: unknown): T[] {
+    if (Array.isArray(input)) {
+      return input as T[];
+    }
+    if (input && typeof input === "object") {
+      const obj = input as Record<string, unknown>;
+      const results = obj["results"];
+      if (Array.isArray(results)) {
+        return results as T[];
+      }
+    }
+    return [];
+  }
+
+  const formatLocalDateStr = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${dd}`;
+  };
+
+  const normalizeApiShift = (s: ApiAssignedShift): BackendShift => {
+    const staffId =
+      typeof s.staff === "object" && s.staff && "id" in s.staff
+        ? String((s.staff as { id: string }).id)
+        : String(s.staff);
+    const dateStr =
+      typeof s.shift_date === "string"
+        ? s.shift_date.split("T")[0]
+        : formatLocalDateStr(s.shift_date as Date);
+    return {
+      id: String(s.id),
+      staff: staffId,
+      shift_date: dateStr,
+      start_time: String(s.start_time),
+      end_time: String(s.end_time),
+      notes: s.notes ?? "",
+      color: s.color,
+    };
+  };
 // import { useCalendar } from "./useCalendar"
 const GoogleCalendarScheduler = () => {
+  const { isAdmin, isSuperAdmin } = useAuth() as AuthContextType;
+  const canEditShifts = (isAdmin?.() ?? false) || (isSuperAdmin?.() ?? false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<"week" | "day" | "month">("week");
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
@@ -260,6 +310,7 @@ const GoogleCalendarScheduler = () => {
               }`,
             start: shift.start_time.substring(0, 5),
             end: shift.end_time.substring(0, 5),
+            date: shift.shift_date,
             type: "confirmed" as const,
             day:
               new Date(shift.shift_date).getDay() === 0
@@ -374,8 +425,50 @@ const GoogleCalendarScheduler = () => {
   };
 
   const handleEditShift = (shift: Shift) => {
-    setCurrentShift(shift);
-    setIsShiftModalOpen(true);
+    // Fetch tasks for the selected shift so the modal shows them
+    void (async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+          console.error("No access token found");
+          setCurrentShift(shift);
+          setIsShiftModalOpen(true);
+          return;
+        }
+        const res = await fetch(
+          `${API_BASE}/scheduling/shift-tasks/?shift_id=${shift.id}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!res.ok) {
+          setCurrentShift(shift);
+        } else {
+          const tasksJson = await res.json();
+          const items = (tasksJson?.results ?? tasksJson) as Array<{
+            id: string;
+            title: string;
+            priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+            notes?: string;
+          }>;
+          setCurrentShift({
+            ...shift,
+            tasks: items.map((t) => ({
+              id: String(t.id),
+              title: t.title,
+              priority: t.priority,
+              // Attempt to preserve frequency (stored in notes as FREQ:<VALUE>)
+              frequency:
+                t.notes && t.notes.startsWith("FREQ:")
+                  ? (t.notes.substring(5) as TaskFrequency)
+                  : undefined,
+            })),
+          });
+        }
+      } catch (_) {
+        setCurrentShift(shift);
+      } finally {
+        setIsShiftModalOpen(true);
+      }
+    })();
   };
 
   const handleSaveShift = (shift: Shift) => {
@@ -419,7 +512,7 @@ const GoogleCalendarScheduler = () => {
 
       const shiftDataForBackend = {
         staff: shift.staffId,
-        shift_date: toYMD(shiftDate),
+        shift_date: shift.date || toYMD(shiftDate),
         start_time: withSeconds(shift.start),
         end_time: withSeconds(shift.end),
         role: staffMembers.find((s) => s.id === shift.staffId)?.role || "",
@@ -453,6 +546,112 @@ const GoogleCalendarScheduler = () => {
             throw new Error("Failed to update shift");
           }
           const updatedShift = await response.json();
+
+          // Diff tasks: delete removed ones and create only new ones to avoid duplicates
+          try {
+            // Fetch existing tasks attached to this shift
+            const existingRes = await fetch(
+              `${API_BASE}/scheduling/shift-tasks/?shift_id=${updatedShift.id}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (existingRes.ok) {
+              const tasksJson = await existingRes.json();
+              const existingItems = (tasksJson?.results ?? tasksJson) as Array<{
+                id: string | number;
+                title: string;
+                priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+                notes?: string;
+              }>;
+
+              const existingIds = new Set(existingItems.map((t) => String(t.id)));
+              const desiredIds = new Set(
+                (shift.tasks || []).map((t) => String(t.id))
+              );
+
+              // Determine deletions: anything existing that is not in desired
+              const toDelete = existingItems.filter(
+                (t) => !desiredIds.has(String(t.id))
+              );
+
+              // Determine creations: any desired task whose id is not in existing
+              const toCreate = (shift.tasks || []).filter(
+                (t) => !existingIds.has(String(t.id))
+              );
+
+              // Perform deletions first so removed tasks don't come back
+              if (toDelete.length > 0) {
+                await Promise.all(
+                  toDelete.map((t) =>
+                    fetch(
+                      `${API_BASE}/scheduling/shift-tasks/${String(t.id)}/`,
+                      {
+                        method: "DELETE",
+                        headers: { Authorization: `Bearer ${token}` },
+                      }
+                    )
+                  )
+                );
+              }
+
+              // Create only new tasks
+              if (toCreate.length > 0) {
+                await Promise.all(
+                  toCreate.map((t) =>
+                    fetch(`${API_BASE}/scheduling/shift-tasks/`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                      body: JSON.stringify({
+                        shift: updatedShift.id,
+                        title: t.title,
+                        priority: t.priority || "MEDIUM",
+                        assigned_to: shift.staffId,
+                        // Persist frequency choice in notes; backend lacks frequency field
+                        notes: t.frequency ? `FREQ:${t.frequency}` : undefined,
+                      }),
+                    })
+                  )
+                );
+              }
+            }
+          } catch (taskErr) {
+            console.warn(
+              "Shift updated; task sync encountered an issue (deletes/creates):",
+              taskErr
+            );
+          }
+
+          // Reload tasks from backend so UI shows persisted tasks
+          let attachedTasks: Task[] = [];
+          try {
+            const tasksRes = await fetch(
+              `${API_BASE}/scheduling/shift-tasks/?shift_id=${updatedShift.id}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (tasksRes.ok) {
+              const tasksJson = await tasksRes.json();
+              const items = (tasksJson?.results ?? tasksJson) as Array<{
+                id: string;
+                title: string;
+                priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+                notes?: string;
+              }>;
+              attachedTasks = items.map((t) => ({
+                id: String(t.id),
+                title: t.title,
+                priority: t.priority,
+                frequency:
+                  t.notes && t.notes.startsWith("FREQ:")
+                    ? (t.notes.substring(5) as TaskFrequency)
+                    : undefined,
+              }));
+            }
+          } catch (err) {
+            console.warn("Failed to fetch tasks for updated shift:", err);
+          }
+
           setShifts((prev) =>
             prev.map((s) =>
               s.id === updatedShift.id
@@ -467,6 +666,7 @@ const GoogleCalendarScheduler = () => {
                       }`,
                     start: updatedShift.start_time.substring(0, 5),
                     end: updatedShift.end_time.substring(0, 5),
+                    date: updatedShift.shift_date,
                     type: "confirmed" as const,
                     day:
                       new Date(updatedShift.shift_date).getDay() === 0
@@ -474,6 +674,7 @@ const GoogleCalendarScheduler = () => {
                         : new Date(updatedShift.shift_date).getDay() - 1,
                     staffId: updatedShift.staff,
                     color: updatedShift.color || shift.color,
+                    tasks: attachedTasks,
                   }
                 : s
             )
@@ -499,11 +700,7 @@ const GoogleCalendarScheduler = () => {
           const newShift = await response.json();
 
           // If the modal included manual tasks, create them now (templates are optional)
-          if (
-            shift.tasks &&
-            Array.isArray(shift.tasks) &&
-            shift.tasks.length > 0
-          ) {
+          if (shift.tasks && Array.isArray(shift.tasks) && shift.tasks.length > 0) {
             try {
               await Promise.all(
                 shift.tasks.map((t) =>
@@ -517,8 +714,9 @@ const GoogleCalendarScheduler = () => {
                       shift: newShift.id,
                       title: t.title,
                       priority: t.priority || "MEDIUM",
-                      // Optionally assign to the same staff member
                       assigned_to: shift.staffId,
+                      // Persist frequency choice in notes; backend lacks frequency field
+                      notes: t.frequency ? `FREQ:${t.frequency}` : undefined,
                     }),
                   })
                 )
@@ -526,6 +724,35 @@ const GoogleCalendarScheduler = () => {
             } catch (taskErr) {
               console.warn("Shift created but creating tasks failed:", taskErr);
             }
+          }
+
+          // Reload tasks from backend so UI shows persisted tasks
+          let attachedTasks: Task[] = [];
+          try {
+            const tasksRes = await fetch(
+              `${API_BASE}/scheduling/shift-tasks/?shift_id=${newShift.id}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (tasksRes.ok) {
+              const tasksJson = await tasksRes.json();
+              const items = (tasksJson?.results ?? tasksJson) as Array<{
+                id: string;
+                title: string;
+                priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+                notes?: string;
+              }>;
+              attachedTasks = items.map((t) => ({
+                id: String(t.id),
+                title: t.title,
+                priority: t.priority,
+                frequency:
+                  t.notes && t.notes.startsWith("FREQ:")
+                    ? (t.notes.substring(5) as TaskFrequency)
+                    : undefined,
+              }));
+            }
+          } catch (err) {
+            console.warn("Failed to fetch tasks for new shift:", err);
           }
           setShifts((prev) => [
             ...prev,
@@ -539,6 +766,7 @@ const GoogleCalendarScheduler = () => {
                 }`,
               start: newShift.start_time.substring(0, 5),
               end: newShift.end_time.substring(0, 5),
+              date: newShift.shift_date,
               type: "confirmed" as const,
               day:
                 new Date(newShift.shift_date).getDay() === 0
@@ -546,6 +774,7 @@ const GoogleCalendarScheduler = () => {
                   : new Date(newShift.shift_date).getDay() - 1,
               staffId: newShift.staff,
               color: newShift.color || shift.color,
+              tasks: attachedTasks,
             },
           ]);
         }
@@ -591,6 +820,19 @@ const GoogleCalendarScheduler = () => {
 
     return dates;
   }, [currentDate]);
+
+  // Show selected template count per staff from ShiftModal local storage
+  const getTemplateSelectionCount = (staffId: string): number => {
+    try {
+      const raw = localStorage.getItem('shiftModalTemplateSelections');
+      if (!raw) return 0;
+      const map = JSON.parse(raw) as Record<string, string[]>;
+      const ids = map[String(staffId)] || [];
+      return Array.isArray(ids) ? ids.length : 0;
+    } catch (_: unknown) {
+      return 0;
+    }
+  };
 
   const getDateDisplay = () => {
     if (view === "week") {
@@ -821,14 +1063,34 @@ const GoogleCalendarScheduler = () => {
                               : "#f3f4f6",
                             borderLeftColor: shift.color || "#6b7280",
                           }}
-                          onClick={() => handleEditShift(shift)}
+                          onClick={() => {
+                            if (canEditShifts) {
+                              handleEditShift(shift);
+                            } else {
+                              toast.error("You don't have permission to edit shifts.");
+                            }
+                          }}
                         >
                           <div className="text-xs font-medium truncate">
                             {shiftTitle}
                           </div>
+                          <div className="text-[11px] text-gray-500">
+                            {new Date(shift.date).toLocaleString("en-US", { month: "short" })} {new Date(shift.date).getDate()}
+                          </div>
                           <div className="text-xs text-gray-600">
                             {shift.start} - {shift.end}
                           </div>
+                          {shift.tasks && shift.tasks.length > 0 && (
+                            <Badge variant="outline" className="text-[10px] mt-1">
+                              {shift.tasks.length} tasks
+                            </Badge>
+                          )}
+
+                          {getTemplateSelectionCount(shift.staffId) > 0 && (
+                            <Badge variant="outline" className="text-[10px] mt-1">
+                              Templates {getTemplateSelectionCount(shift.staffId)}
+                            </Badge>
+                          )}
 
                           {selectedShift?.id === shift.id && (
                             <div className="absolute top-1 right-1 flex space-x-1">
@@ -1025,18 +1287,26 @@ export default function Staff() {
     weekStart.setDate(today.getDate() + mondayOffset);
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
-    const fmt = (d: Date) => d.toISOString().split("T")[0];
+    const fmtLocal = (d: Date) => {
+      // Format as local date string yyyy-MM-dd to avoid UTC off-by-one
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${dd}`;
+    };
     return {
       weekStart,
       weekEnd,
-      weekStartStr: fmt(weekStart),
-      weekEndStr: fmt(weekEnd),
+      weekStartStr: fmtLocal(weekStart),
+      weekEndStr: fmtLocal(weekEnd),
     };
   };
 
   const getDayIndex = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const jsDay = d.getDay(); // 0=Sun..6=Sat
+    // Parse date in local time to avoid UTC shifting "YYYY-MM-DD" to previous day
+    const [y, m, d] = dateStr.split("-").map((n) => parseInt(n, 10));
+    const localDate = new Date(y, (m || 1) - 1, d || 1);
+    const jsDay = localDate.getDay(); // 0=Sun..6=Sat
     return jsDay === 0 ? 6 : jsDay - 1; // Mon=0..Sun=6
   };
 
@@ -1050,35 +1320,65 @@ export default function Staff() {
       if (!token) {
         throw new Error("No access token found");
       }
+      const { weekStartStr, weekEndStr } = getCurrentWeekStartEnd();
 
-      const { weekStartStr } = getCurrentWeekStartEnd();
-
-      // Fetch weekly schedules and find the current week
-      const listRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!listRes.ok) {
-        const err = await listRes.text();
-        throw new Error(`Failed to load weekly schedules: ${err}`);
+      // Primary: v2 endpoint filtered by date range (more reliable)
+      let assigned: BackendShift[] | null = null;
+      try {
+        const v2Res = await fetch(
+          `${API_BASE}/scheduling/weekly-schedules-v2/?date_from=${weekStartStr}&date_to=${weekEndStr}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (v2Res.ok) {
+          const v2Json = await v2Res.json();
+          const schedulesV2 = normalizeEnvelope<WeeklyScheduleV2>(v2Json);
+          const schedule: WeeklyScheduleV2 = schedulesV2[0] ?? (v2Json as WeeklyScheduleV2);
+          const rawShifts: ApiAssignedShift[] = schedule?.assigned_shifts ?? [];
+          assigned = rawShifts.map(normalizeApiShift);
+        }
+      } catch {
+        // ignore v2 errors and try v1
       }
-      const listJson = await listRes.json();
-      const schedules: WeeklyScheduleData[] = (listJson?.results ??
-        listJson) as WeeklyScheduleData[];
-      const current = schedules.find((s) => s.week_start === weekStartStr);
 
-      if (!current) {
-        setWeeklyOverviewShifts([]);
-      } else {
-        const assigned = current.assigned_shifts ?? [];
-        // Sort by day index then start_time
-        const sorted = [...assigned].sort((a, b) => {
-          const da = getDayIndex(a.shift_date);
-          const db = getDayIndex(b.shift_date);
-          if (da !== db) return da - db;
-          return a.start_time.localeCompare(b.start_time);
+      // Fallback: v1 list + nested assigned-shifts
+      if (!assigned || assigned.length === 0) {
+        const listRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        setWeeklyOverviewShifts(sorted);
+        if (!listRes.ok) {
+          const err = await listRes.text();
+          throw new Error(`Failed to load weekly schedules: ${err}`);
+        }
+        const listJson = await listRes.json();
+        const schedules: WeeklyScheduleData[] = (listJson?.results ?? listJson) as WeeklyScheduleData[];
+        const current = schedules.find((s) => s.week_start === weekStartStr);
+        if (current) {
+          try {
+            const asRes = await fetch(
+              `${API_BASE}/scheduling/weekly-schedules/${current.id}/assigned-shifts/`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (asRes.ok) {
+              const asJson = await asRes.json();
+              const raw = normalizeEnvelope<ApiAssignedShift>(asJson);
+              assigned = raw.map(normalizeApiShift);
+            }
+          } catch {
+            // leave assigned as null or []
+          }
+        } else {
+          assigned = [];
+        }
       }
+
+      const final = Array.isArray(assigned) ? assigned : [];
+      const sorted = [...final].sort((a, b) => {
+        const da = getDayIndex(a.shift_date);
+        const db = getDayIndex(b.shift_date);
+        if (da !== db) return da - db;
+        return a.start_time.localeCompare(b.start_time);
+      });
+      setWeeklyOverviewShifts(sorted);
     } catch (e) {
       const err = e as Error;
       setWeeklyOverviewError(err.message || "Failed to load shifts");
@@ -1772,9 +2072,6 @@ export default function Staff() {
           <Card className="shadow-soft">
             <CardHeader>
               <CardTitle>All Staff</CardTitle>
-              <CardDescription>
-                Browse, search, and filter staff members
-              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

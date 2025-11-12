@@ -219,9 +219,9 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                             </SelectTrigger>
                             <SelectContent>
                                 {isLoadingStaff ? (
-                                    <SelectItem value="" disabled>Loading staff...</SelectItem>
+                                    <SelectItem value="__loading_staff__" disabled>Loading staff...</SelectItem>
                                 ) : staffError ? (
-                                    <SelectItem value="" disabled>Error loading staff</SelectItem>
+                                    <SelectItem value="__staff_error__" disabled>Error loading staff</SelectItem>
                                 ) : (
                                     staffMembers?.map((s) => (
                                         <SelectItem key={s.id} value={s.id}>{`${s.user.first_name} ${s.user.last_name}`}</SelectItem>

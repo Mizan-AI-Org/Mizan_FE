@@ -1056,38 +1056,7 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Payment Gateway Settings</CardTitle>
-              <CardDescription>{t("settings.integrations.payment_desc")}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <Button variant="outline" className="w-full">
-                  <CreditCardIcon className="w-4 h-4 mr-2" />
-                  Stripe
-                </Button>
-                <Button variant="outline" className="w-full">
-                  <CreditCardIcon className="w-4 h-4 mr-2" />
-                  PayPal
-                </Button>
-                <Button variant="outline" className="w-full">
-                  <CreditCardIcon className="w-4 h-4 mr-2" />
-                  Square
-                </Button>
-                <Button variant="outline" className="w-full">
-                  <CreditCardIcon className="w-4 h-4 mr-2" />
-                  Authorize.net
-                </Button>
-              </div>
-              <div className="flex justify-end">
-                <Button onClick={saveAiSettings} disabled={savingAi} variant="default">
-                  {savingAi ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  {t("settings.integrations.save_ai_settings")}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          
         </TabsContent>
         )}
 
@@ -1105,7 +1074,7 @@ export default function Settings() {
                 <div>
                   <h4 className="font-semibold">Current Plan</h4>
                   <p className="text-sm text-muted-foreground">
-                    Pro Plan - $29/month
+                    
                   </p>
                 </div>
                 <Button variant="outline" className="w-full sm:w-auto">
@@ -1114,12 +1083,12 @@ export default function Settings() {
               </div>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>
-                  Next billing date: <strong>November 22, 2025</strong>
+                  Next billing date: <strong></strong>
                 </p>
                 <p>
-                  Amount: <strong>$29.00</strong>
+                  Amount: <strong></strong>
                 </p>
-                <p>Payment method: Visa ending in 4242</p>
+                <p></p>
               </div>
               <Separator />
               <div className="space-y-2">
@@ -1127,7 +1096,7 @@ export default function Settings() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
                     <CreditCardIcon className="w-6 h-6 text-muted-foreground" />
-                    <p className="text-sm">Visa ending in 4242</p>
+                    <p className="text-sm"></p>
                   </div>
                   <Button variant="outline" className="w-full sm:w-auto">
                     Update

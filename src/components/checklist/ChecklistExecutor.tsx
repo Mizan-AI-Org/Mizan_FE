@@ -133,7 +133,15 @@ const EvidencePanel: React.FC<{
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label>Digital Signature</Label>
+          <div className="flex items-center gap-2">
+            <Label>Digital Signature</Label>
+            {step.requiresSignature && evidence.every(ev => String(ev.type).toLowerCase() !== 'signature') && (
+              <Badge variant="destructive" className="w-fit">Signature required</Badge>
+            )}
+            {evidence.some(ev => String(ev.type).toLowerCase() === 'signature') && (
+              <Badge className="w-fit bg-green-100 text-green-700">Signed</Badge>
+            )}
+          </div>
           <Button variant="ghost" size="sm" onClick={() => setShowSignature((s) => !s)}>
             {showSignature ? <X className="h-4 w-4 mr-2" /> : <PenTool className="h-4 w-4 mr-2" />} {showSignature ? 'Hide' : 'Add Signature'}
           </Button>

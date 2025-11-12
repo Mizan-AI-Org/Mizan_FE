@@ -64,6 +64,7 @@ const TaskManagementBoard = React.lazy(
   () => import("./pages/TaskManagementBoard")
 );
 const TaskTemplates = React.lazy(() => import("./pages/TaskTemplates"));
+const Processes = React.lazy(() => import("./pages/Processes"));
 const ManagerSwapRequests = React.lazy(
   () => import("./pages/ManagerSwapRequests")
 );
@@ -78,19 +79,28 @@ const SupervisorDashboard = React.lazy(
   () => import("./pages/SupervisorDashboard")
 );
 const StaffChat = React.lazy(() => import("./pages/StaffAnnouncement"));
-const StaffAnnouncements = React.lazy(() => import("./pages/StaffAnnouncements"));
+const StaffAnnouncements = React.lazy(
+  () => import("./pages/StaffAnnouncements")
+);
 const ReportsPage = React.lazy(() => import("./pages/ReportsPage"));
 const AcceptInvitation = React.lazy(() => import("./pages/AcceptInvitation"));
 const AutoSchedule = React.lazy(() => import("./pages/AutoSchedule"));
 const Timesheets = React.lazy(() => import("./pages/Timesheets"));
 const ChecklistRunDemo = React.lazy(() => import("./pages/ChecklistRunDemo"));
-const TaskChecklistRunner = React.lazy(() => import("./pages/TaskChecklistRunner"));
+const TaskChecklistRunner = React.lazy(
+  () => import("./pages/TaskChecklistRunner")
+);
 const MyChecklistsPage = React.lazy(() => import("./pages/MyChecklistsPage"));
+const StaffMyTasks = React.lazy(() => import("./pages/StaffMyTasks"));
 const ChecklistRunner = React.lazy(() => import("./pages/ChecklistRunner"));
-const AdminChecklistTemplates = React.lazy(() => import("./pages/AdminChecklistTemplates"));
-  const ShiftReviewsAdminPage = React.lazy(
-    () => import("./pages/ShiftReviewsAdminPage")
-  );
+const AdminChecklistTemplates = React.lazy(
+  () => import("./pages/AdminChecklistTemplates")
+);
+const StaffChecklistBoard = React.lazy(() => import("@/pages/StaffChecklistBoard"));
+
+const ShiftReviewsAdminPage = React.lazy(
+  () => import("./pages/ShiftReviewsAdminPage")
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -203,7 +213,7 @@ const App = () => {
                 <Route
                   path="dashboard/inventory/items"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
                       <InventoryItemsPage />
                     </RoleBasedRoute>
                   }
@@ -211,7 +221,7 @@ const App = () => {
                 <Route
                   path="dashboard/inventory/suppliers"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
                       <SuppliersPage />
                     </RoleBasedRoute>
                   }
@@ -219,7 +229,7 @@ const App = () => {
                 <Route
                   path="dashboard/inventory/purchase-orders"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
                       <PurchaseOrdersPage />
                     </RoleBasedRoute>
                   }
@@ -360,6 +370,16 @@ const App = () => {
                     <React.Suspense fallback={<div>Loading...</div>}>
                       <TaskManagementBoard />
                     </React.Suspense>
+                  }
+                />
+                <Route
+                  path="dashboard/processes"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                      <React.Suspense fallback={<div>Loading...</div>}>
+                        <Processes />
+                      </React.Suspense>
+                    </RoleBasedRoute>
                   }
                 />
                 <Route
@@ -517,18 +537,23 @@ const App = () => {
                 }
               >
                 <Route index element={<StaffAppsPage />} />
-                <Route
-                  path="time-tracking"
-                  element={<TimeClockPage />}
-                />
+                <Route path="time-tracking" element={<TimeClockPage />} />
                 <Route path="schedule" element={<WeeklyScheduleView />} />
                 <Route path="schedule/:id" element={<ShiftDetailView />} />
                 <Route path="attendance" element={<AttendanceHistory />} />
                 <Route path="safety" element={<SafetyDashboard />} />
-                <Route path="my-checklists" element={<MyChecklistsPage />} />
+                <Route path="my-checklists" element={<StaffMyTasks />} />
+                <Route path="my-tasks" element={<StaffMyTasks />} />
+                <Route path="staff-checklists" element={<StaffChecklistBoard />} />
                 <Route path="checklist-demo" element={<ChecklistRunDemo />} />
-                <Route path="task-checklist/:taskId" element={<TaskChecklistRunner />} />
-                <Route path="run-checklist/:executionId" element={<ChecklistRunner />} />
+                <Route
+                  path="task-checklist/:taskId"
+                  element={<TaskChecklistRunner />}
+                />
+                <Route
+                  path="run-checklist/:executionId"
+                  element={<ChecklistRunner />}
+                />
                 <Route
                   path="kitchen"
                   element={
@@ -548,7 +573,10 @@ const App = () => {
                   }
                 />
                 <Route path="chat" element={<StaffChat />} />
-                <Route path="announcements" element={<StaffAnnouncementsList />} />
+                <Route
+                  path="announcements"
+                  element={<StaffAnnouncementsList />}
+                />
               </Route>
 
               {/* Catch-all route */}
