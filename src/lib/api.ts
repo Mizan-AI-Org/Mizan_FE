@@ -2061,6 +2061,143 @@ export class BackendService {
   // Checklist API (frontend)
   // =========================
 
+  /**
+   * Create a checklist template with steps.
+   * Backend: POST `/checklists/templates/` using ChecklistTemplateCreateSerializer
+   */
+  async createChecklistTemplate(
+    accessToken: string,
+    payload: {
+      name: string;
+      description?: string;
+      category: string;
+      version?: string;
+      estimated_duration?: number;
+      requires_supervisor_approval?: boolean;
+      steps: Array<{
+        title: string;
+        description?: string;
+        step_type?: string;
+        order: number;
+        is_required?: boolean;
+        requires_photo?: boolean;
+        requires_note?: boolean;
+        requires_signature?: boolean;
+        measurement_type?: string | null;
+        measurement_unit?: string | null;
+        min_value?: number | null;
+        max_value?: number | null;
+        target_value?: number | string | null;
+        conditional_logic?: Record<string, any> | null;
+        depends_on_step?: string | null;
+        validation_rules?: Record<string, any> | null;
+      }>;
+    }
+  ): Promise<any> {
+    try {
+      const response = await fetch(`${API_BASE}/checklists/templates/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        let message = "Failed to create checklist template";
+        try {
+          const err = await response.json();
+          message = err.message || err.detail || err.error || message;
+        } catch {
+          message = `${message} (${response.status})`;
+        }
+        throw new Error(message);
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to create checklist template");
+    }
+  }
+
+  /** List checklist templates for current restaurant */
+  async getChecklistTemplates(accessToken: string, params?: { category?: string; is_active?: boolean; search?: string }): Promise<any[]> {
+    try {
+      const url = new URL(`${API_BASE}/checklists/templates/`);
+      if (params?.category) url.searchParams.set("category", params.category);
+      if (typeof params?.is_active === "boolean") url.searchParams.set("is_active", String(params.is_active));
+      if (params?.search) url.searchParams.set("search", params.search);
+      const response = await fetch(url.toString(), { headers: this.getHeaders(accessToken) });
+      if (!response.ok) {
+        let msg = "Failed to fetch checklist templates";
+        try {
+          const err = await response.json();
+          msg = err.message || err.detail || err.error || msg;
+        } catch (e) {
+          // Fallback to status code when response JSON cannot be parsed
+          msg = `${msg} (${response.status})`;
+        }
+        throw new Error(msg);
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to fetch checklist templates");
+    }
+  }
+
+  /** Duplicate an existing checklist template */
+  async duplicateChecklistTemplate(accessToken: string, templateId: string): Promise<any> {
+    try {
+      const response = await fetch(`${API_BASE}/checklists/templates/${templateId}/duplicate/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+      });
+      if (!response.ok) {
+        let msg = "Failed to duplicate checklist template";
+        try {
+          const err = await response.json();
+          msg = err.message || err.detail || err.error || msg;
+        } catch (e) {
+          // Fallback to status code when response JSON cannot be parsed
+          msg = `${msg} (${response.status})`;
+        }
+        throw new Error(msg);
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to duplicate checklist template");
+    }
+  }
+
+  /**
+   * Assign a checklist template to a staff member.
+   * Backend: POST `/checklists/templates/{id}/assign/` with { user_id, due_date? }
+   */
+  async assignChecklistTemplate(
+    accessToken: string,
+    templateId: string,
+    userId: string,
+    dueDateISO?: string
+  ): Promise<any> {
+    try {
+      const response = await fetch(`${API_BASE}/checklists/templates/${templateId}/assign/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify({ user_id: userId, due_date: dueDateISO || undefined }),
+      });
+      if (!response.ok) {
+        let msg = "Failed to assign checklist template";
+        try {
+          const err = await response.json();
+          msg = err.message || err.detail || err.error || msg;
+        } catch (e) {
+          // Fallback to status code when response JSON cannot be parsed
+          msg = `${msg} (${response.status})`;
+        }
+        throw new Error(msg);
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to assign checklist template");
+    }
+  }
+
   async ensureChecklistForTask(taskId: string): Promise<any> {
     try {
       const response = await fetch(
@@ -2104,6 +2241,7 @@ export class BackendService {
       priority?: string;
       due_date?: string | null;
       status?: string;
+      assigned_to?: string | { id?: string; name?: string } | Array<{ id?: string; name?: string }> | null;
       template?: { id: string; name: string; description?: string } | null;
     }>
   > {
@@ -2120,6 +2258,7 @@ export class BackendService {
       priority?: string;
       due_date?: string | null;
       status?: string;
+      assigned_to?: string | { id?: string; name?: string } | Array<{ id?: string; name?: string }> | null;
       template?: { id: string; name: string; description?: string } | null;
     }> = [];
 
@@ -2142,6 +2281,7 @@ export class BackendService {
           priority: t.priority || undefined,
           due_date: t.due_date || execution?.due_date || null,
           status: execution?.status || t.status || undefined,
+          assigned_to: (t.assigned_to ?? t.assignees ?? t.owner ?? null) as any,
           template: execution?.template
             ? {
                 id: execution.template.id,
@@ -2151,11 +2291,55 @@ export class BackendService {
             : null,
         });
       } catch (err) {
-        console.error("Failed to ensure checklist for task", t?.id, err);
+        console.warn("Failed to ensure checklist for task", t?.id, err);
       }
     }
 
     return results;
+  }
+
+  /**
+   * Unified tasks for the current user: direct assignments + template-embedded tasks.
+   * Backend: GET `/scheduling/tasks/my_combined/`
+   */
+  async getMyCombinedTasks(
+    accessToken: string,
+    params?: { status?: string; priority?: string; ordering?: string; due_from?: string; due_to?: string; page_size?: number }
+  ): Promise<Array<{
+    id: string;
+    title: string;
+    description?: string | null;
+    priority?: string | null;
+    status?: string | null;
+    due_date?: string | null;
+    source: 'SHIFT_TASK' | 'TEMPLATE_TASK';
+    associated_shift?: { id?: string; shift_date?: string; role?: string } | null;
+    associated_template?: { id?: string; name?: string; type?: string } | null;
+  }>> {
+    const url = new URL(`${API_BASE}/scheduling/tasks/my_combined/`);
+    if (params?.status) url.searchParams.set('status', params.status);
+    if (params?.priority) url.searchParams.set('priority', params.priority);
+    if (params?.ordering) url.searchParams.set('ordering', params.ordering);
+    if (params?.due_from) url.searchParams.set('due_from', params.due_from);
+    if (params?.due_to) url.searchParams.set('due_to', params.due_to);
+    if (params?.page_size) url.searchParams.set('page_size', String(params.page_size));
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: this.getHeaders(accessToken),
+    });
+    if (!response.ok) {
+      let message = 'Failed to fetch combined tasks';
+      try {
+        const err = await response.json();
+        message = err.message || err.detail || err.error || message;
+      } catch {
+        message = `${message} (${response.status})`;
+      }
+      throw new Error(message);
+    }
+    const data = await response.json();
+    return Array.isArray(data) ? data : (data?.results || []);
   }
 
   async getChecklistExecution(executionId: string): Promise<any> {
@@ -2291,13 +2475,36 @@ export class BackendService {
         method: "GET",
         headers: this.getHeaders(accessToken),
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch staff profiles");
+
+      // Read raw body first to allow graceful handling of non-JSON responses
+      const raw = await response.text();
+      let parsed: any;
+      try {
+        parsed = raw ? JSON.parse(raw) : null;
+      } catch {
+        parsed = null;
       }
-      return await response.json();
+
+      if (!response.ok) {
+        const message = (parsed && (parsed.message || parsed.detail))
+          || `Failed to fetch staff profiles (${response.status})`;
+        // Include short snippet for easier debugging when server returns HTML/text
+        const snippet = raw?.slice(0, 160)?.replace(/\s+/g, " ")?.trim();
+        if (snippet) console.warn("Staff profiles error response:", snippet);
+        throw new Error(message);
+      }
+
+      if (parsed) {
+        // Prefer array or paginated envelope
+        return Array.isArray(parsed?.results) ? parsed.results : (Array.isArray(parsed) ? parsed : []);
+      }
+
+      // Non-JSON success response. Log and return empty list to keep UI stable
+      const snippet = raw?.slice(0, 160)?.replace(/\s+/g, " ")?.trim();
+      if (snippet) console.warn("Non-JSON staff profiles response:", snippet);
+      return [];
     } catch (error: any) {
-      throw new Error(error.message || "Failed to fetch staff profiles");
+      throw new Error(error?.message || "Failed to fetch staff profiles");
     }
   }
 

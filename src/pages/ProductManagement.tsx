@@ -350,9 +350,9 @@ const ProductManagement: React.FC = () => {
                                             </FormControl>
                                             <SelectContent>
                                                 {isLoadingCategories ? (
-                                                    <SelectItem value="" disabled>Loading categories...</SelectItem>
+                                                    <SelectItem value="__loading_categories__" disabled>Loading categories...</SelectItem>
                                                 ) : categories.length === 0 ? (
-                                                    <SelectItem value="" disabled>No categories available</SelectItem>
+                                                    <SelectItem value="__no_categories__" disabled>No categories available</SelectItem>
                                                 ) : (
                                                     categories.map(category => (
                                                         <SelectItem key={category.id} value={category.id}>
@@ -459,9 +459,9 @@ const ProductManagement: React.FC = () => {
                                             </FormControl>
                                             <SelectContent>
                                                 {isLoadingCategories ? (
-                                                    <SelectItem value="" disabled>Loading categories...</SelectItem>
+                                                    <SelectItem value="__loading_categories__" disabled>Loading categories...</SelectItem>
                                                 ) : categories.length === 0 ? (
-                                                    <SelectItem value="" disabled>No categories available</SelectItem>
+                                                    <SelectItem value="__no_categories__" disabled>No categories available</SelectItem>
                                                 ) : (
                                                     categories.map(category => (
                                                         <SelectItem key={category.id} value={category.id}>

@@ -35,6 +35,7 @@ const ChecklistRunner: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [template, setTemplate] = useState<TemplateDefinition | null>(null);
+  const [lastFetchedAt, setLastFetchedAt] = useState<number>(Date.now());
 
   useEffect(() => {
     const loadExecution = async () => {
@@ -90,10 +91,71 @@ const ChecklistRunner: React.FC = () => {
         toast.error(msg);
       } finally {
         setLoading(false);
+        setLastFetchedAt(Date.now());
       }
     };
     loadExecution();
   }, [executionId]);
+
+  // Live refresh to reflect template changes in real-time
+  useEffect(() => {
+    if (!executionId) return;
+    const interval = setInterval(async () => {
+      try {
+        const execution = await api.getChecklistExecution(String(executionId));
+        const t = execution?.template as BackendTemplate | undefined;
+        if (!t) return;
+        const stepsSource: BackendStep[] = Array.isArray(t.steps) ? (t.steps as BackendStep[]) : [];
+        const steps: StepDefinition[] = stepsSource
+          .sort((a, b) => ((a.order ?? 0) - (b.order ?? 0)))
+          .map((s, idx) => {
+            let measurements: StepDefinition["measurements"] | undefined;
+            if (s.measurement_type) {
+              let thresholdType: "min" | "max" | "range" | undefined;
+              const min = s.min_value ?? undefined;
+              const max = s.max_value ?? undefined;
+              if (min != null && max != null) thresholdType = "range";
+              else if (min != null) thresholdType = "min";
+              else if (max != null) thresholdType = "max";
+              measurements = [
+                {
+                  label: s.measurement_type || "",
+                  unit: s.measurement_unit || undefined,
+                  min,
+                  max,
+                  thresholdType,
+                },
+              ];
+            }
+            return {
+              id: String(s.id || idx + 1),
+              title: s.title || `Step ${idx + 1}`,
+              instruction: s.description ?? undefined,
+              requiresPhoto: !!s.requires_photo,
+              requiresSignature: !!s.requires_signature,
+              measurements,
+              estimatedSeconds: undefined,
+            };
+          });
+        const nextTemplate: TemplateDefinition = {
+          id: t.id,
+          name: t.name,
+          description: t.description ?? undefined,
+          steps,
+          category: t.template_type || undefined,
+        };
+        // Update only if structure changed to avoid unnecessary re-renders
+        const currentStepCount = template?.steps?.length || 0;
+        if (!template || currentStepCount !== steps.length) {
+          setTemplate(nextTemplate);
+          setLastFetchedAt(Date.now());
+        }
+      } catch (err) {
+        // Ignore refresh errors silently
+      }
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [executionId, template]);
 
   const onSubmit = async (record: ExecutionRecord) => {
     if (!executionId || !template) return;

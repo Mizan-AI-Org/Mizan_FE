@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,7 +8,7 @@ import { Shield, AlertTriangle, CheckCircle, ClipboardList } from 'lucide-react'
 import { Badge } from '@/components/ui/badge';
 import StandardOperatingProcedureList from '@/components/safety/StandardOperatingProcedureList';
 import SafetyChecklistComponent from '@/components/safety/SafetyChecklistComponent';
-import ScheduleTaskManager from '@/components/safety/ScheduleTaskManager';
+// Tasks tab removed per requirements
 import SafetyConcernReporting from '@/components/safety/SafetyConcernReporting';
 import SafetyRecognitionComponent from '@/components/safety/SafetyRecognition';
 import TaskManagementInterface from '@/components/safety/TaskManagementInterface';
@@ -135,10 +136,9 @@ const SafetyDashboard: React.FC = () => {
       </div>
 
       <Alert className="bg-amber-50 border-amber-200">
-        <AlertTriangle className="h-4 md:h-5 w-4 md:w-5 text-amber-600" />
-        <AlertTitle className="text-sm md:text-base text-amber-800">Safety First</AlertTitle>
+        <AlertTriangle className="h-2 md:h-4 w-4 md:w-5 text-amber-600" />
         <AlertDescription className="text-xs md:text-sm text-amber-700">
-          Safety is everyone's responsibility. Report concerns and follow procedures for a safe work environment.
+          Report all Incidents and Safety concerns and follow procedures for a safe work environment.
         </AlertDescription>
       </Alert>
 
@@ -222,19 +222,19 @@ const SafetyDashboard: React.FC = () => {
               <CardHeader className="pb-2 px-3 md:px-6 py-3 md:py-4">
                 <CardTitle className="flex items-center text-base md:text-lg">
                   <AlertTriangle className="mr-2 h-4 w-4 md:h-5 md:w-5 text-red-600" />
-                  Open Concerns
+                  Open Incidents
                 </CardTitle>
-                <CardDescription className="text-xs md:text-sm">Unresolved safety issues</CardDescription>
+                <CardDescription className="text-xs md:text-sm">Unresolved incident cases</CardDescription>
               </CardHeader>
               <CardContent className="px-3 md:px-6 py-2 md:py-3">
                 <div className="space-y-3">
                   {alertsLoading && (
-                    <div className="text-xs md:text-sm text-muted-foreground">Loading concerns…</div>
+                    <div className="text-xs md:text-sm text-muted-foreground">Loading incidents…</div>
                   )}
                   {!alertsLoading && Array.isArray(unresolvedAlerts) && unresolvedAlerts.length === 0 && (
-                    <div className="text-xs md:text-sm text-muted-foreground">No open concerns.</div>
+                    <div className="text-xs md:text-sm text-muted-foreground">No open incidents.</div>
                   )}
-                  {!alertsLoading && Array.isArray(unresolvedAlerts) && unresolvedAlerts.slice(0, 4).map((a: AlertType) => {
+                  {!alertsLoading && Array.isArray(unresolvedAlerts) && unresolvedAlerts.map((a: AlertType) => {
                     const isError = String(a.alert_type).toUpperCase() === 'ERROR';
                     const isWarning = String(a.alert_type).toUpperCase() === 'WARNING';
                     const containerClass = isError
@@ -245,9 +245,10 @@ const SafetyDashboard: React.FC = () => {
                     const titleClass = isError ? 'text-red-800' : isWarning ? 'text-amber-800' : 'text-blue-800';
                     const descClass = isError ? 'text-red-700' : isWarning ? 'text-amber-700' : 'text-blue-700';
                     const timeClass = isError ? 'text-red-600' : isWarning ? 'text-amber-600' : 'text-blue-600';
+                    const restaurantName = typeof (a as any).restaurant === 'string' ? (a as any).restaurant : (a as any).restaurant?.name;
                     return (
                       <div key={a.id} className={`p-2 md:p-3 rounded-md ${containerClass}`}>
-                        <div className={`font-medium text-xs md:text-sm ${titleClass}`}>{a.restaurant?.name || 'Alert'}</div>
+                        <div className={`font-medium text-xs md:text-sm ${titleClass}`}>{restaurantName || 'Alert'}</div>
                         <div className={`text-xs ${descClass}`}>{a.message}</div>
                         <div className={`text-xs mt-1 ${timeClass}`}>Reported {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}</div>
                       </div>
@@ -273,27 +274,31 @@ const SafetyDashboard: React.FC = () => {
                   {!loadingTasks && myTasks.length === 0 && (
                     <div className="text-xs md:text-sm text-muted-foreground">No tasks assigned today.</div>
                   )}
-                  {!loadingTasks && myTasks.slice(0,5).map((t) => {
-                    const badgeClass =
-                      t.status === 'COMPLETED'
-                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                        : t.status === 'IN_PROGRESS'
-                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                        : t.status === 'CANCELLED'
-                        ? 'bg-red-50 text-red-700 border border-red-200'
-                        : 'bg-gray-100 text-gray-700 border border-gray-200';
-                    return (
-                      <button
-                        key={t.id}
-                        className="flex items-center w-full text-left hover:bg-gray-50 rounded-md p-2"
-                        onClick={() => navigate(`/task-checklist/${t.id}`)}
-                      >
-                        <div className={`h-3 w-3 md:h-4 md:w-4 rounded-full mr-2 flex-shrink-0 border ${t.status === 'COMPLETED' ? 'bg-blue-500 border-blue-500' : 'border-blue-500'}`}></div>
-                        <span className={`text-xs md:text-sm ${t.status === 'COMPLETED' ? 'line-through text-muted-foreground' : ''}`}>{t.title}</span>
-                        <Badge className={`ml-auto text-[10px] md:text-[11px] px-2 py-0.5 rounded-full ${badgeClass}`}>{Math.round(t.progress_percentage ?? 0)}%</Badge>
-                      </button>
-                    );
-                  })}
+                  {!loadingTasks && myTasks.length > 0 && (
+                    <div className="max-h-40 md:max-h-44 overflow-y-auto pr-1 -mr-1" aria-label="Today's tasks list">
+                      {myTasks.map((t, idx) => {
+                        const badgeClass =
+                          t.status === 'COMPLETED'
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                            : t.status === 'IN_PROGRESS'
+                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                            : t.status === 'CANCELLED'
+                            ? 'bg-red-50 text-red-700 border border-red-200'
+                            : 'bg-gray-100 text-gray-700 border border-gray-200';
+                        return (
+                          <button
+                            key={t.id}
+                            className={`flex items-center w-full text-left hover:bg-gray-50 rounded-md p-2 ${idx > 0 ? 'mt-2' : ''}`}
+                            onClick={() => navigate(`/task-checklist/${t.id}`)}
+                          >
+                            <div className={`h-3 w-3 md:h-4 md:w-4 rounded-full mr-2 flex-shrink-0 border ${t.status === 'COMPLETED' ? 'bg-blue-500 border-blue-500' : 'border-blue-500'}`}></div>
+                            <span className={`text-xs md:text-sm ${t.status === 'COMPLETED' ? 'line-through text-muted-foreground' : ''}`}>{t.title}</span>
+                            <Badge className={`ml-auto text-[10px] md:text-[11px] px-2 py-0.5 rounded-full ${badgeClass}`}>{Math.round(t.progress_percentage ?? 0)}%</Badge>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -301,18 +306,17 @@ const SafetyDashboard: React.FC = () => {
         )}
       </div>
 
-      <Tabs defaultValue={isManager ? "procedures" : "tasks"} className="w-full">
-        <TabsList className={`grid ${isMobile ? 'grid-cols-3' : isManager ? 'grid-cols-6' : 'grid-cols-3'} mb-4`}>
+      <Tabs defaultValue={isManager ? "procedures" : "incidence"} className="w-full">
+        <TabsList className={`grid ${isMobile ? 'grid-cols-3' : isManager ? 'grid-cols-5' : 'grid-cols-2'} mb-4`}>
           {isManager && <TabsTrigger value="procedures">SOPs</TabsTrigger>}
           {isManager && <TabsTrigger value="checklists">Checklists</TabsTrigger>}
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
           {isMobile ? (
             isManager ? (
               <TabsTrigger value="more" className="md:hidden">More</TabsTrigger>
             ) : null
           ) : (
             <>
-              <TabsTrigger value="concerns">Concerns</TabsTrigger>
+              <TabsTrigger value="incidence">Incidence</TabsTrigger>
               <TabsTrigger value="recognition">Recognition</TabsTrigger>
               {isManager && <TabsTrigger value="management">Management</TabsTrigger>}
             </>
@@ -331,11 +335,7 @@ const SafetyDashboard: React.FC = () => {
           </TabsContent>
         )}
         
-        <TabsContent value="tasks" className="mt-0">
-          <ScheduleTaskManager />
-        </TabsContent>
-        
-        <TabsContent value="concerns" className="mt-0">
+        <TabsContent value="incidence" className="mt-0">
           <SafetyConcernReporting />
         </TabsContent>
         
@@ -356,19 +356,19 @@ const SafetyDashboard: React.FC = () => {
                 <CardHeader className="pb-2 px-3 py-3">
                   <CardTitle className="flex items-center text-base">
                     <AlertTriangle className="mr-2 h-4 w-4 text-red-600" />
-                    Open Concerns
+                    Open Incidents
                   </CardTitle>
                   <CardDescription className="text-xs">Unresolved safety issues</CardDescription>
                 </CardHeader>
                 <CardContent className="px-3 py-2">
                   <div className="space-y-3">
                     {alertsLoading && (
-                      <div className="text-xs text-muted-foreground">Loading concerns…</div>
+                      <div className="text-xs text-muted-foreground">Loading incidents…</div>
                     )}
                     {!alertsLoading && Array.isArray(unresolvedAlerts) && unresolvedAlerts.length === 0 && (
-                      <div className="text-xs text-muted-foreground">No open concerns.</div>
+                      <div className="text-xs text-muted-foreground">No open incidents.</div>
                     )}
-                    {!alertsLoading && Array.isArray(unresolvedAlerts) && unresolvedAlerts.slice(0, 4).map((a: AlertType) => {
+                    {!alertsLoading && Array.isArray(unresolvedAlerts) && unresolvedAlerts.map((a: AlertType) => {
                       const isError = String(a.alert_type).toUpperCase() === 'ERROR';
                       const isWarning = String(a.alert_type).toUpperCase() === 'WARNING';
                       const containerClass = isError
@@ -379,9 +379,10 @@ const SafetyDashboard: React.FC = () => {
                       const titleClass = isError ? 'text-red-800' : isWarning ? 'text-amber-800' : 'text-blue-800';
                       const descClass = isError ? 'text-red-700' : isWarning ? 'text-amber-700' : 'text-blue-700';
                       const timeClass = isError ? 'text-red-600' : isWarning ? 'text-amber-600' : 'text-blue-600';
+                      const restaurantName = typeof (a as any).restaurant === 'string' ? (a as any).restaurant : (a as any).restaurant?.name;
                       return (
                         <div key={a.id} className={`p-2 rounded-md ${containerClass}`}>
-                          <div className={`font-medium text-xs ${titleClass}`}>{a.restaurant?.name || 'Alert'}</div>
+                          <div className={`font-medium text-xs ${titleClass}`}>{restaurantName || 'Alert'}</div>
                           <div className={`text-xs ${descClass}`}>{a.message}</div>
                           <div className={`text-xs mt-1 ${timeClass}`}>Reported {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}</div>
                         </div>
@@ -407,27 +408,31 @@ const SafetyDashboard: React.FC = () => {
                     {!loadingTasks && myTasks.length === 0 && (
                       <div className="text-xs text-muted-foreground">No tasks assigned today.</div>
                     )}
-                    {!loadingTasks && myTasks.slice(0,5).map((t) => {
-                      const badgeClass =
-                        t.status === 'COMPLETED'
-                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                          : t.status === 'IN_PROGRESS'
-                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                          : t.status === 'CANCELLED'
-                          ? 'bg-red-50 text-red-700 border border-red-200'
-                          : 'bg-gray-100 text-gray-700 border border-gray-200';
-                      return (
-                        <button
-                          key={t.id}
-                          className="flex items-center w-full text-left hover:bg-gray-50 rounded-md p-2"
-                          onClick={() => navigate(`/task-checklist/${t.id}`)}
-                        >
-                          <div className={`h-3 w-3 rounded-full border mr-2 flex-shrink-0 ${t.status === 'COMPLETED' ? 'bg-blue-500 border-blue-500' : 'border-blue-500'}`}></div>
-                          <span className={`text-xs ${t.status === 'COMPLETED' ? 'line-through text-muted-foreground' : ''}`}>{t.title}</span>
-                          <Badge className={`ml-auto text-[10px] px-2 py-0.5 rounded-full ${badgeClass}`}>{Math.round(t.progress_percentage ?? 0)}%</Badge>
-                        </button>
-                      );
-                    })}
+                    {!loadingTasks && myTasks.length > 0 && (
+                      <div className="max-h-40 overflow-y-auto pr-1 -mr-1" aria-label="Today's tasks list">
+                        {myTasks.map((t, idx) => {
+                          const badgeClass =
+                            t.status === 'COMPLETED'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : t.status === 'IN_PROGRESS'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : t.status === 'CANCELLED'
+                              ? 'bg-red-50 text-red-700 border border-red-200'
+                              : 'bg-gray-100 text-gray-700 border border-gray-200';
+                          return (
+                            <button
+                              key={t.id}
+                              className={`flex items-center w-full text-left hover:bg-gray-50 rounded-md p-2 ${idx > 0 ? 'mt-2' : ''}`}
+                              onClick={() => navigate(`/task-checklist/${t.id}`)}
+                            >
+                              <div className={`h-3 w-3 rounded-full border mr-2 flex-shrink-0 ${t.status === 'COMPLETED' ? 'bg-blue-500 border-blue-500' : 'border-blue-500'}`}></div>
+                              <span className={`text-xs ${t.status === 'COMPLETED' ? 'line-through text-muted-foreground' : ''}`}>{t.title}</span>
+                              <Badge className={`ml-auto text-[10px] px-2 py-0.5 rounded-full ${badgeClass}`}>{Math.round(t.progress_percentage ?? 0)}%</Badge>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -436,7 +441,7 @@ const SafetyDashboard: React.FC = () => {
                 <div className="p-4 bg-white rounded-lg shadow-sm">
                   <h3 className="text-base font-medium mb-3 flex items-center">
                     <AlertTriangle className="mr-2 h-4 w-4 text-red-600" />
-                    Safety Concerns
+                    Incidence
                   </h3>
                   <SafetyConcernReporting />
                 </div>

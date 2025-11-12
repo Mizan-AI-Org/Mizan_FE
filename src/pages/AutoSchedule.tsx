@@ -175,17 +175,17 @@ export const AutoSchedule: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {templatesLoading ? (
-                        <SelectItem value="" disabled>
+                        <SelectItem value="__loading_templates__" disabled>
                           Loading...
                         </SelectItem>
                       ) : templates && templates.length > 0 ? (
-                        templates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))
+                          templates.map((template) => (
+                            <SelectItem key={template.id} value={template.id}>
+                              {template.name}
+                            </SelectItem>
+                          ))
                       ) : (
-                        <SelectItem value="" disabled>
+                        <SelectItem value="__no_templates__" disabled>
                           No templates available
                         </SelectItem>
                       )}

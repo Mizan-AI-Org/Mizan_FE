@@ -231,9 +231,9 @@ export default function TaskTemplateManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Task Templates</h1>
+          <h1 className="text-3xl font-bold">Processes & Tasks </h1>
           <p className="text-muted-foreground">
-            Create and manage reusable task templates for your restaurant operations
+            Create and manage reusable Processes and Task templates for your restaurant operations
           </p>
         </div>
         

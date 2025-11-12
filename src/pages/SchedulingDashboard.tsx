@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -40,6 +41,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
+import { api } from "@/lib/api";
 
 const API_BASE =
   import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
@@ -154,7 +156,7 @@ export const SchedulingDashboard: React.FC = () => {
     // DurationField expects HH:MM:SS or ISO8601; we send HH:MM:SS
     estimated_duration?: string;
   }
-  const { data: templates } = useQuery<TaskTemplate[]>({
+  const { data: templates, isLoading: templatesLoading } = useQuery<TaskTemplate[]>({
     queryKey: ["task-templates"],
     queryFn: async () => {
       const response = await fetch(`${API_BASE}/scheduling/task-templates/`, {
@@ -339,10 +341,39 @@ export const SchedulingDashboard: React.FC = () => {
       tasks = buildTaskPayloadsForShift(selectedShift, template);
     }
     try {
+      const createdTaskIds: string[] = [];
       for (const payload of tasks) {
         // eslint-disable-next-line no-await-in-loop
-        await createTaskMutation.mutateAsync(payload);
+        const created: any = await createTaskMutation.mutateAsync(payload);
+        const taskId = created?.id || created?.task?.id || created?.task_id;
+        if (taskId) createdTaskIds.push(String(taskId));
+        // Send a targeted notification to the assignee for each created task
+        try {
+          const accessToken = localStorage.getItem("access_token") || undefined;
+          if (accessToken) {
+            await api.createAnnouncement(accessToken, {
+              title: `Checklist assigned: ${template.name}`,
+              message: `You have new checklist items for your shift on ${selectedShift.shift_date} (${selectedShift.start_time}–${selectedShift.end_time}). Open My Checklists to begin.`,
+              priority: "MEDIUM",
+              recipients_staff_ids: [payload.assigned_to],
+              tags: ["checklist", "shift", "template"],
+            });
+          }
+        } catch (err) {
+          // Silently ignore announcement errors to avoid blocking assignment
+        }
       }
+
+      // Ensure a checklist execution exists for each created task so it's immediately accessible
+      try {
+        for (const id of createdTaskIds) {
+          // eslint-disable-next-line no-await-in-loop
+          await api.ensureChecklistForTask(String(id));
+        }
+      } catch (err) {
+        // Non-blocking: checklist ensures are also performed when staff opens My Checklists
+      }
+
       setAssignModalOpen(false);
       setSelectedTemplateId("");
       setAssignmentFrequency("ONE_TIME");
@@ -686,10 +717,11 @@ export const SchedulingDashboard: React.FC = () => {
                     <SelectValue placeholder="Choose a template" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(!templates || templates.length === 0) && (
-                      <SelectItem value="" disabled>
-                        No templates available
-                      </SelectItem>
+                    {templatesLoading && (
+                      <SelectItem value="__loading_templates__" disabled>Loading templates…</SelectItem>
+                    )}
+                    {!templatesLoading && (!templates || templates.length === 0) && (
+                      <SelectItem value="__no_templates__" disabled>No templates available</SelectItem>
                     )}
                     {templates?.map((t) => (
                       <SelectItem key={String(t.id)} value={String(t.id)}>
@@ -713,12 +745,8 @@ export const SchedulingDashboard: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ONE_TIME">One time</SelectItem>
-                      <SelectItem value="DAILY">
-                        Every day (this week)
-                      </SelectItem>
-                      <SelectItem value="WEEKLY">
-                        Weekly (same weekday)
-                      </SelectItem>
+                      <SelectItem value="DAILY">Every day (this week)</SelectItem>
+                      <SelectItem value="WEEKLY">Weekly (same weekday)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
