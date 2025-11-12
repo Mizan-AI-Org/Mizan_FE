@@ -236,7 +236,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const ownerSignup = async (signupData: SignupData) => {
-    const response = await fetch(`${API_BASE}/auth/signup/owner/`, {
+    const response = await fetch(`${API_BASE}/register/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
