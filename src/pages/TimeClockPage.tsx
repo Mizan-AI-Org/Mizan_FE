@@ -93,6 +93,8 @@ export default function TimeClockPage() {
     const [reviewOpen, setReviewOpen] = useState(false);
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
     const [lastClockOutEvent, setLastClockOutEvent] = useState<ClockEvent | null>(null);
+    // Reliable session id for submitting shift reviews
+    const [sessionIdForReview, setSessionIdForReview] = useState<string>("");
     const [deviceSecret] = useState<string>(() => initDeviceSecret());
     const [timelineCollapsed, setTimelineCollapsed] = useState<boolean>(false);
 
@@ -251,7 +253,12 @@ export default function TimeClockPage() {
             }
             return api.webClockIn(accessToken!, location.latitude, location.longitude, location.accuracy, undefined, location.photo);
         },
-        onSuccess: () => {
+        onSuccess: (data: any) => {
+            // Capture session id from response shape: prefer event.id, then top-level session_id
+            const sid: string | undefined = data?.event?.id || data?.session_id;
+            if (typeof sid === "string" && sid.length > 0) {
+                setSessionIdForReview(sid);
+            }
             queryClient.invalidateQueries({ queryKey: ["currentSession"] });
             queryClient.invalidateQueries({ queryKey: ["attendanceHistory"] });
             toast.success("Clocked in successfully!");
@@ -281,6 +288,7 @@ export default function TimeClockPage() {
             // Open review modal with returned event details
             if (data?.event) {
                 setLastClockOutEvent(data.event);
+                if (data.event.id) setSessionIdForReview(data.event.id);
                 setReviewOpen(true);
             } else {
                 setReviewOpen(true);
@@ -878,11 +886,17 @@ export default function TimeClockPage() {
         {/* Selfie capture only for clock-in */}
         <CameraCaptureModal open={cameraOpen === "in"} onClose={() => setCameraOpen(false)} onCaptured={onPhotoCaptured} />
         {/* Shift Review modal on clock-out */}
-        <ShiftReviewModal
-            open={reviewOpen}
-            onOpenChange={setReviewOpen}
-            submitting={reviewSubmitting}
-            shiftId={lastClockOutEvent?.id || currentSession?.currentSession?.id || ""}
+        {/** Derive sessionId for review: prefer stored sessionIdForReview, then current-session id, then lastClockOutEvent id */}
+        {(() => {
+            const activeSessionId = currentSession?.currentSession?.id;
+            const endedSessionId = lastClockOutEvent?.id;
+            const resolvedSessionId = sessionIdForReview || activeSessionId || endedSessionId || "";
+            return (
+                <ShiftReviewModal
+                    open={reviewOpen}
+                    onOpenChange={setReviewOpen}
+                    submitting={reviewSubmitting}
+                    sessionId={resolvedSessionId}
             completedAtISO={lastClockOutEvent?.clock_out_time || new Date().toISOString()}
             hoursDecimal={(() => {
                 const inTime = lastClockOutEvent?.clock_in_time || currentSession?.currentSession?.clock_in_time;
@@ -913,7 +927,7 @@ export default function TimeClockPage() {
                 try {
                     setReviewSubmitting(true);
                     const submission = {
-                        shift_id: payload.shift_id,
+                                session_id: payload.session_id,
                         rating: payload.rating,
                         tags: payload.tags,
                         comments: payload.comments,
@@ -929,7 +943,9 @@ export default function TimeClockPage() {
                     setReviewSubmitting(false);
                 }
             }}
-        />
+                />
+            );
+        })()}
     </div>
 );
 }

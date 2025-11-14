@@ -12,7 +12,7 @@ import { format } from "date-fns";
 
 type ReviewItem = {
   id: string;
-  shift_id: string;
+  session_id: string;
   staff_name?: string;
   staff_id?: string;
   department?: string;
@@ -31,7 +31,7 @@ type ReviewItem = {
 // Typed row for CSV export to avoid any usage
 type CsvRow = {
   id: string;
-  shift_id: string;
+  session_id: string;
   staff_name: string;
   staff_id: string;
   department: string;
@@ -78,8 +78,8 @@ export default function ShiftReviewsAdminPage() {
   };
 
   const normalize = (r: any): ReviewItem => {
-    const id: string = r?.id ?? r?.review_id ?? r?.uuid ?? String(r?.shift_id ?? Math.random());
-    const shift_id: string = r?.shift_id ?? r?.shift ?? r?.shift_uuid ?? "";
+  const id: string = r?.id ?? r?.review_id ?? r?.uuid ?? String(r?.session_id ?? r?.shift_id ?? Math.random());
+  const session_id: string = r?.session_id ?? r?.shift_id ?? r?.shift ?? r?.shift_uuid ?? "";
     const staff_name: string | undefined = r?.staff_name ?? r?.staff ?? r?.employee_name ?? (r?.staff?.first_name && r?.staff?.last_name ? `${r.staff.first_name} ${r.staff.last_name}` : undefined);
     const staff_id: string | undefined = r?.staff_id ?? r?.user_id ?? r?.user ?? r?.staff?.id;
     const department: string | undefined = r?.department ?? r?.department_name ?? r?.dept;
@@ -114,7 +114,7 @@ export default function ShiftReviewsAdminPage() {
     const verified_location: boolean | undefined = typeof r?.verified_location === "boolean" ? r.verified_location : (typeof r?.verified === "boolean" ? r.verified : undefined);
     const flags: string[] | undefined = Array.isArray(r?.flags) ? r.flags : Array.isArray(r?.flag_list) ? r.flag_list : undefined;
 
-    return { id, shift_id, staff_name, staff_id, department, rating, tags, comments, completed_at_iso, hours_decimal, likes_count, duration_hms, duration_seconds, verified_location, flags };
+  return { id, session_id, staff_name, staff_id, department, rating, tags, comments, completed_at_iso, hours_decimal, likes_count, duration_hms, duration_seconds, verified_location, flags };
   };
 
   const reviews: ReviewItem[] = useMemo(() => {
@@ -264,7 +264,7 @@ export default function ShiftReviewsAdminPage() {
               onClick={() => {
                 const rows: CsvRow[] = filteredSorted.map(r => ({
                   id: r.id,
-                  shift_id: r.shift_id,
+                  session_id: (r as any).session_id || (r as any).shift_id || "",
                   staff_name: r.staff_name || "",
                   staff_id: r.staff_id || "",
                   department: r.department || "",
@@ -279,7 +279,7 @@ export default function ShiftReviewsAdminPage() {
                 }));
                 const header: Array<keyof CsvRow> = [
                   "id",
-                  "shift_id",
+                  "session_id",
                   "staff_name",
                   "staff_id",
                   "department",

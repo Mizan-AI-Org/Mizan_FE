@@ -7,7 +7,7 @@ import { Loader2, Frown, Meh, Smile, Laugh, Angry } from "lucide-react";
 export type ShiftFeeling = 1 | 2 | 3 | 4 | 5; // 1 awful -> 5 great
 
 export interface ShiftReviewPayload {
-  shift_id: string;
+  session_id: string;
   rating: ShiftFeeling;
   tags: string[];
   comments?: string;
@@ -22,7 +22,7 @@ interface ShiftReviewModalProps {
   submitting?: boolean;
   shiftTitle?: string; // e.g. "Dustin's Pizza"
   shiftTimeRange?: string; // e.g. "Mon, Aug 25 | 12:00am – 12:00pm"
-  shiftId: string;
+  sessionId: string;
   completedAtISO: string;
   hoursDecimal?: number;
 }
@@ -43,7 +43,7 @@ export default function ShiftReviewModal({
   submitting,
   shiftTitle,
   shiftTimeRange,
-  shiftId,
+  sessionId,
   completedAtISO,
   hoursDecimal,
 }: ShiftReviewModalProps) {
@@ -69,14 +69,17 @@ export default function ShiftReviewModal({
   };
 
   const handleSubmit = async () => {
+    
     const payload: ShiftReviewPayload = {
-      shift_id: shiftId,
+      session_id: sessionId,
       rating,
       tags: selectedTags,
       comments: comments.trim() || undefined,
       completed_at_iso: completedAtISO,
       hours_decimal: typeof hoursDecimal === "number" ? hoursDecimal : undefined,
     };
+    console.log("session_id: ", sessionId);
+    console.log(payload);
     await onSubmit(payload);
     onOpenChange(false);
   };
