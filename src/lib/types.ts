@@ -358,7 +358,7 @@ export interface CreateAnnouncementResponse {
 // Extended dataset for transmitting comprehensive shift review and attendance details
 export interface ShiftReviewSubmission {
     // Core feedback
-    shift_id: string;
+    session_id: string;
     rating: number; // 1-5
     tags?: string[];
     comments?: string;
