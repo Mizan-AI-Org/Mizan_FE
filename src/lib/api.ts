@@ -331,6 +331,70 @@ export class BackendService {
     }
   }
 
+  // Shift Template Selections
+  async saveShiftTemplateSelections(
+    accessToken: string,
+    staffId: string,
+    templateIds: string[]
+  ): Promise<{ message: string }> {
+    try {
+      const response = await fetch(`${API_BASE}/scheduling/shift-template-selections/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify({ staff_id: staffId, template_ids: templateIds }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to save template selections");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to save template selections");
+    }
+  }
+
+  async getShiftTemplateSelections(
+    accessToken: string,
+    staffId: string
+  ): Promise<{ staff_id: string; template_ids: string[] }> {
+    try {
+      const response = await fetch(
+        `${API_BASE}/scheduling/shift-template-selections/?staff_id=${staffId}`,
+        {
+          method: "GET",
+          headers: this.getHeaders(accessToken),
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to get template selections");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to get template selections");
+    }
+  }
+
+  async clearShiftTemplateSelections(
+    accessToken: string,
+    staffId: string
+  ): Promise<{ message: string }> {
+    try {
+      const response = await fetch(`${API_BASE}/scheduling/shift-template-selections/`, {
+        method: "DELETE",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify({ staff_id: staffId }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to clear template selections");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to clear template selections");
+    }
+  }
+
   // Alias for consistency with controllers expecting inviteStaff()
   async inviteStaff(
     accessToken: string,
