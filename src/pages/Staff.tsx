@@ -471,239 +471,229 @@ const GoogleCalendarScheduler = () => {
     })();
   };
 
-  const handleSaveShift = (shift: Shift) => {
-    void (async () => {
-      if (!weeklySchedule) {
-        try {
-          const token = localStorage.getItem("access_token");
-          if (!token) {
-            console.error("No access token found");
-            return;
-          }
-          const weekStartDate = getWeekStart(currentDate);
-          const weekEndDate = getWeekEnd(currentDate);
-          const weekStartStr = toYMD(weekStartDate);
-          const weekEndStr = toYMD(weekEndDate);
-          const created = await ensureWeeklySchedule(
-            token,
-            weekStartStr,
-            weekEndStr
-          );
-          setWeeklySchedule(created);
-        } catch (e) {
-          console.error("No weekly schedule available to save shifts.");
-          return;
-        }
-      }
+// This is the key fix for the handleSaveShift function
+// Replace the entire handleSaveShift function in your GoogleCalendarScheduler component
 
-      // Guard: staff must be selected
-      if (!shift.staffId) {
-        console.error("Please select a staff member before saving.");
+const handleSaveShift = (shift: Shift) => {
+  void (async () => {
+    // VALIDATION: Ensure required fields
+    if (!shift.staffId) {
+      toast.error("Please select a staff member before saving.");
+      return;
+    }
+    
+    if (!shift.start || !shift.end) {
+      toast.error("Please set shift start and end times.");
+      return;
+    }
+
+    const isUpdate = shifts.some((s) => s.id === shift.id);
+    
+    if (!isUpdate) {
+      // Check if staff already has a shift on this date
+      const shiftDateStr = shift.date || toYMD(shiftDate);
+      const existingShiftOnSameDay = shifts.find(
+        (s) => s.staffId === shift.staffId && s.date === shiftDateStr
+      );
+
+      if (existingShiftOnSameDay) {
+        toast.error(
+          `${staffMember?.first_name} ${staffMember?.last_name} already has a shift on ${shiftDateStr}. Please edit the existing shift instead.`
+        );
         return;
       }
+    }
 
-      // Compute shift_date from Monday of the displayed week without mutating currentDate
-      const weekStart = getWeekStart(currentDate);
-      const shiftDate = new Date(weekStart);
-      shiftDate.setDate(weekStart.getDate() + shift.day);
-
-      // Ensure times include seconds (HH:MM:SS)
-      const withSeconds = (t: string) => (t && t.length === 5 ? `${t}:00` : t);
-
-      const shiftDataForBackend = {
-        staff: shift.staffId,
-        shift_date: shift.date || toYMD(shiftDate),
-        start_time: withSeconds(shift.start),
-        end_time: withSeconds(shift.end),
-        role: staffMembers.find((s) => s.id === shift.staffId)?.role || "",
-        notes: shift.title,
-        color: shift.color || "#6b7280",
-      };
-
+    // Ensure we have a weekly schedule
+    if (!weeklySchedule) {
       try {
         const token = localStorage.getItem("access_token");
         if (!token) {
-          console.error("No access token found");
+          toast.error("No access token found");
           return;
         }
+        const weekStartDate = getWeekStart(currentDate);
+        const weekEndDate = getWeekEnd(currentDate);
+        const weekStartStr = toYMD(weekStartDate);
+        const weekEndStr = toYMD(weekEndDate);
+        const created = await ensureWeeklySchedule(
+          token,
+          weekStartStr,
+          weekEndStr
+        );
+        setWeeklySchedule(created);
+      } catch (e) {
+        toast.error("Failed to create weekly schedule");
+        console.error("Weekly schedule creation error:", e);
+        return;
+      }
+    }
 
-        if (shifts.some((s) => s.id === shift.id)) {
-          const response = await fetch(
-            `${API_BASE}/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/${shift.id}/`,
-            {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify(shiftDataForBackend),
+    // Compute shift_date from Monday of the displayed week
+    const weekStart = getWeekStart(currentDate);
+    const shiftDate = new Date(weekStart);
+    shiftDate.setDate(weekStart.getDate() + shift.day);
+
+    // Ensure times include seconds (HH:MM:SS)
+    const withSeconds = (t: string) => (t && t.length === 5 ? `${t}:00` : t);
+
+    // Find staff member to get role
+    const staffMember = staffMembers.find((s) => s.id === shift.staffId);
+    const role = staffMember?.role || "STAFF";
+
+    const shiftDataForBackend = {
+      staff: shift.staffId,
+      shift_date: shift.date || toYMD(shiftDate),
+      start_time: withSeconds(shift.start),
+      end_time: withSeconds(shift.end),
+      role: role,
+      break_duration: "00:30:00",
+      notes: shift.title || "",
+      color: shift.color || "#6b7280",
+    };
+
+    console.log("Sending shift data:", shiftDataForBackend); // Debug log
+
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("No access token found");
+        return;
+      }
+
+      const weekStartStr = toYMD(getWeekStart(currentDate));
+      const weekEndStr = toYMD(getWeekEnd(currentDate));
+      let scheduleId = weeklySchedule?.id;
+
+      // Ensure we have a valid schedule ID
+      if (!scheduleId || String(scheduleId).startsWith("calendar-")) {
+        const createRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            week_start: weekStartStr,
+            week_end: weekEndStr,
+            is_published: false,
+          }),
+        });
+
+        if (createRes.ok) {
+          const created = await createRes.json();
+          setWeeklySchedule(created);
+          scheduleId = created.id;
+        } else if (createRes.status === 400) {
+          // Schedule might already exist, fetch it
+          const listRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (listRes.ok) {
+            const listJson = await listRes.json();
+            const listData: WeeklyScheduleData[] = (listJson?.results ?? listJson) as WeeklyScheduleData[];
+            const existing = Array.isArray(listData)
+              ? listData.find((s) => s.week_start === weekStartStr)
+              : undefined;
+            if (existing) {
+              setWeeklySchedule(existing);
+              scheduleId = existing.id;
             }
-          );
-
-          if (!response.ok) {
-            const errText = await response.text();
-            console.error("Failed to update shift:", errText);
-            throw new Error("Failed to update shift");
           }
-          const updatedShift = await response.json();
+        }
+      }
 
-          // Diff tasks: delete removed ones and create only new ones to avoid duplicates
+      if (!scheduleId) {
+        toast.error("Could not create or find weekly schedule");
+        return;
+      }
+
+      // Check if this is an UPDATE or CREATE
+      const isUpdate = shifts.some((s) => s.id === shift.id);
+
+      if (isUpdate) {
+        // UPDATE existing shift
+        const response = await fetch(
+          `${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/${shift.id}/`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(shiftDataForBackend),
+          }
+        );
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error("Failed to update shift:", response.status, errText);
+          
+          // Try to parse error details
           try {
-            // Fetch existing tasks attached to this shift
-            const existingRes = await fetch(
-              `${API_BASE}/scheduling/shift-tasks/?shift_id=${updatedShift.id}`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            if (existingRes.ok) {
-              const tasksJson = await existingRes.json();
-              const existingItems = (tasksJson?.results ?? tasksJson) as Array<{
-                id: string | number;
-                title: string;
-                priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-                notes?: string;
-              }>;
-
-              const existingIds = new Set(existingItems.map((t) => String(t.id)));
-              const desiredIds = new Set(
-                (shift.tasks || []).map((t) => String(t.id))
-              );
-
-              // Determine deletions: anything existing that is not in desired
-              const toDelete = existingItems.filter(
-                (t) => !desiredIds.has(String(t.id))
-              );
-
-              // Determine creations: any desired task whose id is not in existing
-              const toCreate = (shift.tasks || []).filter(
-                (t) => !existingIds.has(String(t.id))
-              );
-
-              // Perform deletions first so removed tasks don't come back
-              if (toDelete.length > 0) {
-                await Promise.all(
-                  toDelete.map((t) =>
-                    fetch(
-                      `${API_BASE}/scheduling/shift-tasks/${String(t.id)}/`,
-                      {
-                        method: "DELETE",
-                        headers: { Authorization: `Bearer ${token}` },
-                      }
-                    )
-                  )
-                );
-              }
-
-              // Create only new tasks
-              if (toCreate.length > 0) {
-                await Promise.all(
-                  toCreate.map((t) =>
-                    fetch(`${API_BASE}/scheduling/shift-tasks/`, {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                      },
-                      body: JSON.stringify({
-                        shift: updatedShift.id,
-                        title: t.title,
-                        priority: t.priority || "MEDIUM",
-                        assigned_to: shift.staffId,
-                        // Persist frequency choice in notes; backend lacks frequency field
-                        notes: t.frequency ? `FREQ:${t.frequency}` : undefined,
-                      }),
-                    })
-                  )
-                );
-              }
-            }
-          } catch (taskErr) {
-            console.warn(
-              "Shift updated; task sync encountered an issue (deletes/creates):",
-              taskErr
-            );
+            const errJson = JSON.parse(errText);
+            const errorMessage = errJson.detail || errJson.message || "Failed to update shift";
+            const errorDetails = errJson.errors ? JSON.stringify(errJson.errors) : "";
+            toast.error(`${errorMessage}${errorDetails ? `: ${errorDetails}` : ""}`);
+          } catch {
+            toast.error(`Failed to update shift: ${response.status}`);
           }
+          return;
+        }
+        
+        const updatedShift = await response.json();
+        toast.success("Shift updated successfully");
 
-          // Reload tasks from backend so UI shows persisted tasks
-          let attachedTasks: Task[] = [];
-          try {
-            const tasksRes = await fetch(
-              `${API_BASE}/scheduling/shift-tasks/?shift_id=${updatedShift.id}`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            if (tasksRes.ok) {
-              const tasksJson = await tasksRes.json();
-              const items = (tasksJson?.results ?? tasksJson) as Array<{
-                id: string;
-                title: string;
-                priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-                notes?: string;
-              }>;
-              attachedTasks = items.map((t) => ({
-                id: String(t.id),
-                title: t.title,
-                priority: t.priority,
-                frequency:
-                  t.notes && t.notes.startsWith("FREQ:")
-                    ? (t.notes.substring(5) as TaskFrequency)
-                    : undefined,
-              }));
-            }
-          } catch (err) {
-            console.warn("Failed to fetch tasks for updated shift:", err);
-          }
-
-          setShifts((prev) =>
-            prev.map((s) =>
-              s.id === updatedShift.id
-                ? {
-                    id: updatedShift.id,
-                    title:
-                      updatedShift.notes ||
-                      `Shift for ${
-                        staffMembers.find(
-                          (s: StaffMember) => s.id === updatedShift.staff
-                        )?.first_name
-                      }`,
-                    start: updatedShift.start_time.substring(0, 5),
-                    end: updatedShift.end_time.substring(0, 5),
-                    date: updatedShift.shift_date,
-                    type: "confirmed" as const,
-                    day:
-                      new Date(updatedShift.shift_date).getDay() === 0
-                        ? 6
-                        : new Date(updatedShift.shift_date).getDay() - 1,
-                    staffId: updatedShift.staff,
-                    color: updatedShift.color || shift.color,
-                    tasks: attachedTasks,
-                  }
-                : s
-            )
+        // Handle task updates (diff tasks: delete removed ones and create only new ones)
+        try {
+          // Fetch existing tasks attached to this shift
+          const existingRes = await fetch(
+            `${API_BASE}/scheduling/shift-tasks/?shift_id=${updatedShift.id}`,
+            { headers: { Authorization: `Bearer ${token}` } }
           );
-        } else {
-          const response = await fetch(
-            `${API_BASE}/scheduling/weekly-schedules/${weeklySchedule.id}/assigned-shifts/`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify(shiftDataForBackend),
-            }
-          );
+          if (existingRes.ok) {
+            const tasksJson = await existingRes.json();
+            const existingItems = (tasksJson?.results ?? tasksJson) as Array<{
+              id: string | number;
+              title: string;
+              priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+              notes?: string;
+            }>;
 
-          if (!response.ok) {
-            const errText = await response.text();
-            console.error("Failed to create shift:", errText);
-            throw new Error("Failed to create shift");
-          }
-          const newShift = await response.json();
+            const existingIds = new Set(existingItems.map((t) => String(t.id)));
+            const desiredIds = new Set(
+              (shift.tasks || []).map((t) => String(t.id))
+            );
 
-          // If the modal included manual tasks, create them now (templates are optional)
-          if (shift.tasks && Array.isArray(shift.tasks) && shift.tasks.length > 0) {
-            try {
+            // Determine deletions: anything existing that is not in desired
+            const toDelete = existingItems.filter(
+              (t) => !desiredIds.has(String(t.id))
+            );
+
+            // Determine creations: any desired task whose id is not in existing
+            const toCreate = (shift.tasks || []).filter(
+              (t) => !existingIds.has(String(t.id))
+            );
+
+            // Perform deletions first
+            if (toDelete.length > 0) {
               await Promise.all(
-                shift.tasks.map((t) =>
+                toDelete.map((t) =>
+                  fetch(
+                    `${API_BASE}/scheduling/shift-tasks/${String(t.id)}/`,
+                    {
+                      method: "DELETE",
+                      headers: { Authorization: `Bearer ${token}` },
+                    }
+                  )
+                )
+              );
+            }
+
+            // Create only new tasks
+            if (toCreate.length > 0) {
+              await Promise.all(
+                toCreate.map((t) =>
                   fetch(`${API_BASE}/scheduling/shift-tasks/`, {
                     method: "POST",
                     headers: {
@@ -711,82 +701,202 @@ const GoogleCalendarScheduler = () => {
                       Authorization: `Bearer ${token}`,
                     },
                     body: JSON.stringify({
-                      shift: newShift.id,
+                      shift: updatedShift.id,
                       title: t.title,
                       priority: t.priority || "MEDIUM",
                       assigned_to: shift.staffId,
-                      // Persist frequency choice in notes; backend lacks frequency field
                       notes: t.frequency ? `FREQ:${t.frequency}` : undefined,
                     }),
                   })
                 )
               );
-            } catch (taskErr) {
-              console.warn("Shift created but creating tasks failed:", taskErr);
             }
           }
-
-          // Reload tasks from backend so UI shows persisted tasks
-          let attachedTasks: Task[] = [];
-          try {
-            const tasksRes = await fetch(
-              `${API_BASE}/scheduling/shift-tasks/?shift_id=${newShift.id}`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            if (tasksRes.ok) {
-              const tasksJson = await tasksRes.json();
-              const items = (tasksJson?.results ?? tasksJson) as Array<{
-                id: string;
-                title: string;
-                priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-                notes?: string;
-              }>;
-              attachedTasks = items.map((t) => ({
-                id: String(t.id),
-                title: t.title,
-                priority: t.priority,
-                frequency:
-                  t.notes && t.notes.startsWith("FREQ:")
-                    ? (t.notes.substring(5) as TaskFrequency)
-                    : undefined,
-              }));
-            }
-          } catch (err) {
-            console.warn("Failed to fetch tasks for new shift:", err);
-          }
-          setShifts((prev) => [
-            ...prev,
-            {
-              id: newShift.id,
-              title:
-                newShift.notes ||
-                `Shift for ${
-                  staffMembers.find((s: StaffMember) => s.id === newShift.staff)
-                    ?.first_name
-                }`,
-              start: newShift.start_time.substring(0, 5),
-              end: newShift.end_time.substring(0, 5),
-              date: newShift.shift_date,
-              type: "confirmed" as const,
-              day:
-                new Date(newShift.shift_date).getDay() === 0
-                  ? 6
-                  : new Date(newShift.shift_date).getDay() - 1,
-              staffId: newShift.staff,
-              color: newShift.color || shift.color,
-              tasks: attachedTasks,
-            },
-          ]);
+        } catch (taskErr) {
+          console.warn(
+            "Shift updated; task sync encountered an issue:",
+            taskErr
+          );
         }
-      } catch (error) {
-        console.error("Error saving shift:", error);
+
+        // Reload tasks from backend
+        let attachedTasks: Task[] = [];
+        try {
+          const tasksRes = await fetch(
+            `${API_BASE}/scheduling/shift-tasks/?shift_id=${updatedShift.id}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (tasksRes.ok) {
+            const tasksJson = await tasksRes.json();
+            const items = (tasksJson?.results ?? tasksJson) as Array<{
+              id: string;
+              title: string;
+              priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+              notes?: string;
+            }>;
+            attachedTasks = items.map((t) => ({
+              id: String(t.id),
+              title: t.title,
+              priority: t.priority,
+              frequency:
+                t.notes && t.notes.startsWith("FREQ:")
+                  ? (t.notes.substring(5) as TaskFrequency)
+                  : undefined,
+            }));
+          }
+        } catch (err) {
+          console.warn("Failed to fetch tasks for updated shift:", err);
+        }
+
+        // Update local state
+        setShifts((prev) =>
+          prev.map((s) =>
+            s.id === updatedShift.id
+              ? {
+                  id: updatedShift.id,
+                  title:
+                    updatedShift.notes ||
+                    `Shift for ${
+                      staffMembers.find(
+                        (s: StaffMember) => s.id === updatedShift.staff
+                      )?.first_name
+                    }`,
+                  start: updatedShift.start_time.substring(0, 5),
+                  end: updatedShift.end_time.substring(0, 5),
+                  date: updatedShift.shift_date,
+                  type: "confirmed" as const,
+                  day:
+                    new Date(updatedShift.shift_date).getDay() === 0
+                      ? 6
+                      : new Date(updatedShift.shift_date).getDay() - 1,
+                  staffId: updatedShift.staff,
+                  color: updatedShift.color || shift.color,
+                  tasks: attachedTasks,
+                }
+              : s
+          )
+        );
+      } else {
+        // CREATE new shift
+        const response = await fetch(
+          `${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(shiftDataForBackend),
+          }
+        );
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error("Failed to create shift:", response.status, errText);
+          
+          // Try to parse error details
+          try {
+            const errJson = JSON.parse(errText);
+            const errorMessage = errJson.detail || errJson.message || "Failed to create shift";
+            const errorDetails = errJson.errors ? JSON.stringify(errJson.errors) : "";
+            toast.error(`${errorMessage}${errorDetails ? `: ${errorDetails}` : ""}`);
+          } catch {
+            toast.error(`Failed to create shift: ${response.status}`);
+          }
+          return;
+        }
+        
+        const newShift = await response.json();
+        toast.success("Shift created successfully");
+
+        // Create tasks if any were specified
+        if (shift.tasks && Array.isArray(shift.tasks) && shift.tasks.length > 0) {
+          try {
+            await Promise.all(
+              shift.tasks.map((t) =>
+                fetch(`${API_BASE}/scheduling/shift-tasks/`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    shift: newShift.id,
+                    title: t.title,
+                    priority: t.priority || "MEDIUM",
+                    assigned_to: shift.staffId,
+                    notes: t.frequency ? `FREQ:${t.frequency}` : undefined,
+                  }),
+                })
+              )
+            );
+          } catch (taskErr) {
+            console.warn("Shift created but creating tasks failed:", taskErr);
+          }
+        }
+
+        // Reload tasks from backend
+        let attachedTasks: Task[] = [];
+        try {
+          const tasksRes = await fetch(
+            `${API_BASE}/scheduling/shift-tasks/?shift_id=${newShift.id}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (tasksRes.ok) {
+            const tasksJson = await tasksRes.json();
+            const items = (tasksJson?.results ?? tasksJson) as Array<{
+              id: string;
+              title: string;
+              priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+              notes?: string;
+            }>;
+            attachedTasks = items.map((t) => ({
+              id: String(t.id),
+              title: t.title,
+              priority: t.priority,
+              frequency:
+                t.notes && t.notes.startsWith("FREQ:")
+                  ? (t.notes.substring(5) as TaskFrequency)
+                  : undefined,
+            }));
+          }
+        } catch (err) {
+          console.warn("Failed to fetch tasks for new shift:", err);
+        }
+
+        // Add to local state
+        setShifts((prev) => [
+          ...prev,
+          {
+            id: newShift.id,
+            title:
+              newShift.notes ||
+              `Shift for ${staffMember?.first_name}`,
+            start: newShift.start_time.substring(0, 5),
+            end: newShift.end_time.substring(0, 5),
+            date: newShift.shift_date,
+            type: "confirmed" as const,
+            day:
+              new Date(newShift.shift_date).getDay() === 0
+                ? 6
+                : new Date(newShift.shift_date).getDay() - 1,
+            staffId: newShift.staff,
+            color: newShift.color || shift.color,
+            tasks: attachedTasks,
+          },
+        ]);
       }
+    } catch (error) {
+      console.error("Error saving shift:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to save shift");
+    } finally {
       setIsShiftModalOpen(false);
       setCurrentShift(null);
       setNewShiftDayIndex(undefined);
       setNewShiftHour(undefined);
-    })();
-  };
+    }
+  })();
+};
 
   const navigateDate = (direction: "prev" | "next") => {
     setCurrentDate((prev) => {
