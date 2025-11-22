@@ -33,12 +33,12 @@
   "common.language": "اللغة",
   "common.brand": "ميزان",
   "common.back_to_dashboard": "العودة إلى لوحة التحكم",
-  "common.coming_soon": "قريباً! ✨",
+  "common.coming_soon": "قريبًا! ✨",
   "common.notifications.title": "الإشعارات",
   "common.notifications.empty": "لا توجد إشعارات جديدة",
   "common.notifications.mark_as_read": "وضع علامة مقروء",
-  "common.notifications.mark_all_read": "وضع علامة مقروء للجميع"
-  ,
+  "common.notifications.mark_all_read": "وضع علامة مقروء للجميع",
+
   "reporting.title": "تقارير وتحليلات المطعم",
   "reporting.description": "رؤى شاملة حول أداء المطعم.",
   "reporting.sections.daily.title": "تقارير المبيعات اليومية",
@@ -47,26 +47,24 @@
   "reporting.sections.attendance.description": "تتبع ساعات العمل والتأخيرات والغيابات لدى الفريق.",
   "reporting.sections.inventory.title": "تقارير المخزون",
   "reporting.sections.inventory.description": "مراقبة مستويات المخزون وتكاليف الهدر والتعديلات.",
+
   "settings.title": "الإعدادات",
   "settings.tabs.profile": "الملف الشخصي",
   "settings.tabs.geolocation": "تحديد الموقع",
   "settings.tabs.general": "عام",
   "settings.tabs.integrations": "التكاملات",
   "settings.tabs.billing": "الفوترة",
-
   "settings.profile.title": "إعدادات الملف الشخصي",
   "settings.profile.description": "إدارة المعلومات الشخصية وجهات الاتصال للطوارئ للمسؤولين.",
-
   "settings.general.ai_prefs": "تفضيلات الذكاء الاصطناعي",
   "settings.general.ai_auto_purchase": "توليد قوائم الشراء تلقائيًا",
   "settings.general.ai_auto_purchase_desc": "ينشئ الذكاء الاصطناعي توصيات شراء يومية",
   "settings.general.ai_smart_scheduling": "الجدولة الذكية",
   "settings.general.ai_smart_scheduling_desc": "ينظّم الذكاء الاصطناعي جداول عمل الموظفين",
   "settings.general.save_general": "حفظ الإعدادات العامة",
-
   "settings.integrations.payment_desc": "تهيئة تكاملات بوابات الدفع.",
   "settings.integrations.save_ai_settings": "حفظ إعدادات الذكاء الاصطناعي",
-  
+
   "pos.title": "إعدادات ربط نقاط البيع",
   "pos.description": "ربط نظام نقاط البيع لتتبع العمليات في الوقت الحقيقي.",
   "pos.provider": "مزود نقاط البيع",
@@ -75,8 +73,8 @@
   "pos.merchant_id": "معرّف التاجر",
   "pos.merchant_id_placeholder": "أدخل معرّف التاجر الخاص بك",
   "pos.api_key": "مفتاح API",
-  "pos.api_key_placeholder": "أدخل مفتاح API الخاص بك"
-  ,
+  "pos.api_key_placeholder": "أدخل مفتاح API الخاص بك",
+
   "auth.toggles.staff": "موظف",
   "auth.toggles.manager": "مدير/مالك",
   "auth.labels.email": "البريد الإلكتروني",
@@ -89,7 +87,7 @@
   "auth.actions.sign_in": "تسجيل الدخول",
   "auth.actions.signing_in": "جارٍ تسجيل الدخول...",
   "auth.actions.create_account": "إنشاء حساب للمطعم",
-  "auth.misc.forgot_pin": "نسيت الـ PIN؟",
+  "auth.misc.forgot_pin": "نسيت رمز PIN؟",
   "auth.misc.new_to_mizan": "جديد على ميزان؟",
   "auth.toasts.welcome_back": "مرحبًا بعودتك",
   "auth.toasts.signed_in_success": "تم تسجيل الدخول بنجاح.",
@@ -98,8 +96,8 @@
   "auth.errors.invalid_pin": "رمز PIN أو المستخدم غير صحيح.",
   "auth.errors.server": "مشكلة في الخادم. حاول مجددًا.",
   "auth.errors.network": "مشكلة في الشبكة. تأكد من الخادم.",
-  "auth.errors.unexpected": "حدث خطأ غير متوقع أثناء تسجيل الدخول."
-  ,
+  "auth.errors.unexpected": "حدث خطأ غير متوقع أثناء تسجيل الدخول.",
+
   "validation.required": "هذا الحقل مطلوب",
   "validation.email": "أدخل بريدًا إلكترونيًا صحيحًا",
   "validation.min_length": "يجب ألا يقل عن {{min}} حرفًا",

@@ -6,10 +6,10 @@
   "dashboard.contact_owner": "Veuillez contacter le propriétaire du restaurant pour vous attribuer des rôles et des permissions.",
 
   "app.analytics": "Tableaux de Bord",
-  "app.analytics.desc": "Voir les analyses et les insights",
+  "app.analytics.desc": "Afficher les analyses et les indicateurs",
   "app.pos_integration": "Intégration POS",
-  "app.pos_integration.desc": "Connecter aux systèmes POS existants",
-  "app.kitchen": "Affichage Cuisine",
+  "app.pos_integration.desc": "Se connecter aux systèmes de point de vente (POS) existants",
+  "app.kitchen": "Écran de cuisine",
   "app.kitchen.desc": "Gérer les commandes de cuisine",
   "app.inventory": "Inventaire",
   "app.inventory.desc": "Suivre les niveaux de stock",
@@ -28,7 +28,7 @@
   "app.tasks.desc": "Créer et gérer des tâches",
 
   "common.sign_out": "Déconnexion",
-  "common.profile": "Paramètres du Profil",
+  "common.profile": "Paramètres du profil",
   "common.welcome": "Bienvenue",
   "common.language": "Langue",
   "common.brand": "Mizan",

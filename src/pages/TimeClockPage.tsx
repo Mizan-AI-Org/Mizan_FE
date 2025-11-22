@@ -1066,7 +1066,8 @@ export default function TimeClockPage() {
                                 }
                             } catch (e) {
                                 logError({ feature: "shift-review", action: "submit-error" }, e as unknown);
-                                toast.info("Feedback saved locally; will retry when online");
+                                const msg = (e as any)?.message || "Feedback submission failed";
+                                toast.error(msg);
                             } finally {
                                 setReviewSubmitting(false);
                             }
