@@ -168,7 +168,11 @@ const ChecklistTree: React.FC<ChecklistTreeProps> = ({ executionId, template, as
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ execution_id: executionId, step_responses }),
       });
-      if (!syncRes.ok) throw new Error('Sync failed');
+      if (!syncRes.ok) {
+        const err = await syncRes.json().catch(() => ({} as any));
+        const msg = err?.detail || err?.error || err?.message || 'Sync failed';
+        throw new Error(msg);
+      }
 
       await api.startChecklistExecution(executionId);
 

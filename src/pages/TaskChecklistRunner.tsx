@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import ChecklistExecutor from "@/components/checklist/ChecklistExecutor";
 import type {
   TemplateDefinition,
@@ -9,6 +10,7 @@ import type {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { logError, logInfo } from "@/lib/logging";
 
 const API_BASE =
   import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
@@ -99,6 +101,7 @@ const TaskChecklistRunner: React.FC = () => {
     ensureExecution();
   }, [taskId]);
 
+  const queryClient = useQueryClient();
   const onSubmit = async (record: ExecutionRecord) => {
     if (!executionId || !template) return;
     try {
@@ -107,13 +110,14 @@ const TaskChecklistRunner: React.FC = () => {
       // Build minimal sync payload
       const step_responses = record.stepResponses.map((sr) => ({
         step_id: sr.stepId,
+        response: sr.response || undefined,
         status: sr.response ? "COMPLETED" : "PENDING",
-        notes:
-          (sr.evidence || []).find((e) => e.type === "note")?.note || undefined,
-        measurement_value:
-          sr.measurements && sr.measurements[0]
-            ? sr.measurements[0].value
-            : undefined,
+        responded_at: sr.respondedAt || undefined,
+        notes: (sr.evidence || []).find((e) => e.type === "note")?.note || undefined,
+        measurement_value: sr.measurements && sr.measurements[0] ? sr.measurements[0].value : undefined,
+        measurements: (sr.measurements || []).map(m => ({ label: m.label, unit: m.unit, value: m.value, min: m.min, max: m.max })),
+        evidence: (sr.evidence || []).map(ev => ({ type: ev.type, url: ev.url, note: ev.note })),
+        attachments: (sr.evidence || []).map(ev => ({ type: ev.type, url: ev.url, note: ev.note })),
       }));
 
       const syncRes = await fetch(
@@ -127,7 +131,12 @@ const TaskChecklistRunner: React.FC = () => {
           body: JSON.stringify({ execution_id: executionId, step_responses }),
         }
       );
-      if (!syncRes.ok) throw new Error("Sync failed");
+      if (!syncRes.ok) {
+        const err = await syncRes.json().catch(() => ({} as any));
+        const msg = err?.detail || err?.error || err?.message || "Sync failed";
+        throw new Error(msg);
+      }
+      logInfo({ feature: 'task-checklist-runner', action: 'sync' }, 'Sync OK');
 
       // Determine completion
       const total = template.steps.length;
@@ -145,6 +154,7 @@ const TaskChecklistRunner: React.FC = () => {
         // 400 might mean already started
         throw new Error("Failed to start checklist");
       }
+      logInfo({ feature: 'task-checklist-runner', action: 'start' }, 'Start OK');
 
       if (completed >= total) {
         const completeRes = await fetch(
@@ -161,11 +171,20 @@ const TaskChecklistRunner: React.FC = () => {
           }
         );
         if (!completeRes.ok) throw new Error("Failed to complete checklist");
+        logInfo({ feature: 'task-checklist-runner', action: 'complete' }, 'Complete OK');
+        try {
+          await api.notifyChecklistSubmission(String(executionId), { title: 'Checklist Submitted', message: 'A checklist was submitted' });
+          await api.logChecklistSubmissionAttempt(String(executionId), { status: 'COMPLETED', message: 'Checklist submission complete' });
+          logInfo({ feature: 'task-checklist-runner', action: 'submit' }, 'Checklist completed');
+          queryClient.invalidateQueries({ queryKey: ["manager-submitted-checklists"] });
+        } catch {/* ignore */}
       }
 
       toast.success("Checklist submitted");
       navigate("/staff-dashboard/safety");
     } catch (e: any) {
+      logError({ feature: 'task-checklist-runner', action: 'submit' }, e, { executionId });
+      try { await api.logChecklistSubmissionAttempt(String(executionId!), { status: 'FAILED', message: e?.message || 'Submission failed' }); } catch {/* ignore */}
       toast.error(e.message || "Submission failed");
     }
   };

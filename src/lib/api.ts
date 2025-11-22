@@ -29,8 +29,10 @@ import {
   ShiftReviewSubmission,
 } from "./types"; // Updated import path
 
-const API_BASE =
+export const API_BASE =
   import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+
+export const TELEMETRY_ENABLED = String(import.meta.env.VITE_ENABLE_CHECKLIST_TELEMETRY || "false").toLowerCase() === "true";
 
 export class BackendService {
   // In a real frontend application, HttpService and ConfigService would not be used directly
@@ -405,18 +407,51 @@ export class BackendService {
 
   async getStaffList(accessToken: string): Promise<StaffListItem[]> {
     try {
-      const response = await fetch(`${API_BASE}/staff/list/`, {
+      const primary = await fetch(`${API_BASE}/staff/list/`, {
         method: "GET",
         headers: this.getHeaders(accessToken),
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch staff list");
+      const rawPrimary = await primary.text();
+      let parsedPrimary: any = null;
+      try {
+        parsedPrimary = rawPrimary ? JSON.parse(rawPrimary) : null;
+      } catch {
+        parsedPrimary = null;
       }
-      return await response.json();
+      if (!primary.ok) {
+        const msg = (parsedPrimary && (parsedPrimary.message || parsedPrimary.detail)) || "Failed to fetch staff list";
+        throw new Error(msg);
+      }
+      if (parsedPrimary) {
+        const arr = Array.isArray(parsedPrimary?.results) ? parsedPrimary.results : (Array.isArray(parsedPrimary) ? parsedPrimary : []);
+        return arr as StaffListItem[];
+      }
+      const fallback = await fetch(`${API_BASE}/users/?is_active=true`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
+      const rawFallback = await fallback.text();
+      let parsedFallback: any = null;
+      try {
+        parsedFallback = rawFallback ? JSON.parse(rawFallback) : null;
+      } catch {
+        parsedFallback = null;
+      }
+      if (!fallback.ok) {
+        const msg = (parsedFallback && (parsedFallback.message || parsedFallback.detail)) || "Failed to fetch staff list";
+        throw new Error(msg);
+      }
+      const list: any[] = Array.isArray(parsedFallback?.results) ? parsedFallback.results : (Array.isArray(parsedFallback) ? parsedFallback : []);
+      return list.map((u: any) => ({
+        id: String(u?.id ?? ""),
+        email: String(u?.email ?? ""),
+        first_name: String(u?.first_name ?? ""),
+        last_name: String(u?.last_name ?? ""),
+        role: String(u?.role ?? ""),
+        join_date: String(u?.join_date ?? u?.created_at ?? ""),
+      }));
     } catch (error: any) {
-      console.error("Error fetching staff list:", error);
-      throw new Error(error.message || "Failed to fetch staff list");
+      throw new Error(error?.message || "Failed to fetch staff list");
     }
   }
 
@@ -2288,6 +2323,47 @@ export class BackendService {
     }
   }
 
+  async createChecklistExecution(
+    templateId: string,
+    assignedShiftId?: string
+  ): Promise<any> {
+    try {
+      const body: any = { template_id: templateId };
+      if (assignedShiftId) body.assigned_shift = assignedShiftId;
+
+      // Get token from localStorage
+      const token = localStorage.getItem('access_token') || '';
+
+      const response = await fetch(`${API_BASE}/checklists/executions/`, {
+        method: "POST",
+        headers: this.getHeaders(token),
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || err.detail || "Failed to create checklist execution");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to create checklist execution");
+    }
+  }
+
+  async getCurrentSession(): Promise<any> {
+    try {
+      const response = await fetch(`${API_BASE}/timeclock/current-session/`, {
+        headers: this.getHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch session');
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to fetch session");
+    }
+  }
+
   /**
    * Fetch all shift tasks assigned to a user, ensure each has a checklist execution,
    * and return enriched items with execution details for UI rendering.
@@ -2328,34 +2404,101 @@ export class BackendService {
 
     for (const t of tasks) {
       try {
-        const ensured = await this.ensureChecklistForTask(t.id);
-        const executionId =
-          ensured?.execution?.id || ensured?.id || ensured?.execution_id;
+        let ensured = await this.ensureChecklistForTask(t.id);
+        let executionId = ensured?.execution?.id || ensured?.id || ensured?.execution_id;
         if (!executionId) {
-          // If we cannot derive execution id, skip gracefully
           console.warn("Checklist execution missing for task", t.id, ensured);
+        }
+        if (!executionId) {
+          const msg = String((err as any)?.message || "");
+        }
+        if (!executionId) {
+          // Fallback: auto-create a minimal template by task category and retry ensure
+          const categoryName = String(
+            (t?.category_name || (t?.category && t?.category.name) || 'CHECKLIST')
+          );
+          try {
+            const existing = await this.getChecklistTemplates(accessToken, { category: categoryName, is_active: true });
+            let template = Array.isArray(existing) ? existing[0] : null;
+            if (!template) {
+              template = await this.createChecklistTemplate(accessToken, {
+                name: `${categoryName} Checklist`,
+                description: 'Auto-generated default checklist linked to shift tasks.',
+                category: categoryName,
+                steps: [
+                  { title: 'Start checklist', description: 'Open and review task requirements.', order: 1, is_required: true },
+                  { title: 'Perform task steps', description: 'Complete all required actions safely.', order: 2, is_required: true },
+                  { title: 'Finish and confirm', description: 'Verify completion and leave notes.', order: 3, is_required: true },
+                ],
+              });
+            }
+            ensured = await this.ensureChecklistForTask(String(t.id));
+            executionId = ensured?.execution?.id || ensured?.id || ensured?.execution_id;
+          } catch (innerErr) {
+            console.warn('Auto-create template fallback failed', innerErr);
+          }
+        }
+        if (!executionId) {
           continue;
         }
         const execution = await this.getChecklistExecution(String(executionId));
         results.push({
           task_id: t.id,
           execution_id: String(executionId),
-          title: t.title || t.name || execution?.template?.name || "Task",
+          title: t.title || t.name || execution?.template?.name || 'Task',
           description: t.description || execution?.template?.description || undefined,
           priority: t.priority || undefined,
           due_date: t.due_date || execution?.due_date || null,
           status: execution?.status || t.status || undefined,
           assigned_to: (t.assigned_to ?? t.assignees ?? t.owner ?? null) as any,
           template: execution?.template
-            ? {
-                id: execution.template.id,
-                name: execution.template.name,
-                description: execution.template.description,
-              }
+            ? { id: execution.template.id, name: execution.template.name, description: execution.template.description }
             : null,
         });
       } catch (err) {
-        console.warn("Failed to ensure checklist for task", t?.id, err);
+        const emsg = String((err as any)?.message || '');
+        if (emsg.toLowerCase().includes('no active checklist template')) {
+          try {
+            const categoryName = String(
+              (t?.category_name || (t?.category && t?.category.name) || 'CHECKLIST')
+            );
+            const existing = await this.getChecklistTemplates(accessToken, { category: categoryName, is_active: true });
+            let template = Array.isArray(existing) ? existing[0] : null;
+            if (!template) {
+              template = await this.createChecklistTemplate(accessToken, {
+                name: `${categoryName} Checklist`,
+                description: 'Auto-generated default checklist linked to shift tasks.',
+                category: categoryName,
+                steps: [
+                  { title: 'Start checklist', description: 'Open and review task requirements.', order: 1, is_required: true },
+                  { title: 'Perform task steps', description: 'Complete all required actions safely.', order: 2, is_required: true },
+                  { title: 'Finish and confirm', description: 'Verify completion and leave notes.', order: 3, is_required: true },
+                ],
+              });
+            }
+            const ensured = await this.ensureChecklistForTask(String(t.id));
+            const executionId = ensured?.execution?.id || ensured?.id || ensured?.execution_id;
+            if (!executionId) continue;
+            const execution = await this.getChecklistExecution(String(executionId));
+            results.push({
+              task_id: t.id,
+              execution_id: String(executionId),
+              title: t.title || t.name || execution?.template?.name || 'Task',
+              description: t.description || execution?.template?.description || undefined,
+              priority: t.priority || undefined,
+              due_date: t.due_date || execution?.due_date || null,
+              status: execution?.status || t.status || undefined,
+              assigned_to: (t.assigned_to ?? t.assignees ?? t.owner ?? null) as any,
+              template: execution?.template
+                ? { id: execution.template.id, name: execution.template.name, description: execution.template.description }
+                : null,
+            });
+          } catch (innerErr) {
+            console.warn('Fallback ensure after creating template failed', innerErr);
+          }
+        } else {
+          console.warn('Failed to ensure checklist for task', t?.id, err);
+        }
       }
     }
 
@@ -2461,6 +2604,100 @@ export class BackendService {
     }
   }
 
+  async notifyChecklistSubmission(
+    executionId: string,
+    payload: { title?: string; message?: string; submitter_id?: string; submitter_name?: string; channels?: Array<'in_app' | 'email' | 'push'> }
+  ): Promise<void> {
+    if (!TELEMETRY_ENABLED) return;
+    const headers = this.getHeaders();
+    try {
+      // Prefer a dedicated endpoint if available
+      const res = await fetch(`${API_BASE}/notifications/checklists/submission/`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ execution_id: executionId, ...payload }),
+      });
+      if (res.ok) return;
+    } catch {
+      // fallthrough to announcement
+    }
+    try {
+      const title = payload.title || 'Checklist Submitted';
+      const message = payload.message || 'A checklist was submitted.';
+      await this.createAnnouncement(localStorage.getItem('access_token') || '', {
+        title,
+        message,
+        priority: 'HIGH',
+        recipients_roles: ['MANAGER'],
+      } as any);
+    } catch {
+      // No-op to avoid breaking submission flow
+    }
+  }
+
+  async notifyEvent(
+    payload: { event_type: 'DOCUMENT_SIGNED' | 'FIELD_EDITED' | 'AUTO_SAVE'; execution_id?: string; severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'; message?: string }
+  ): Promise<void> {
+    const headers = this.getHeaders();
+    try {
+      const res = await fetch(`${API_BASE}/notifications/events/`, { method: 'POST', headers, body: JSON.stringify(payload) });
+      if (res.ok) return;
+    } catch {
+      // fallback to announcement for managers
+    }
+    try {
+      await this.createAnnouncement(localStorage.getItem('access_token') || '', {
+        title: payload.event_type.replace('_', ' ') + (payload.severity ? ` [${payload.severity}]` : ''),
+        message: payload.message || 'Checklist activity',
+        priority: (payload.severity === 'CRITICAL' ? 'URGENT' : payload.severity === 'HIGH' ? 'HIGH' : 'MEDIUM') as any,
+        recipients_roles: ['MANAGER'],
+      } as any);
+    } catch {
+      // ignore
+    }
+  }
+
+  async logChecklistSubmissionAttempt(
+    executionId: string,
+    payload: { status: 'STARTED' | 'COMPLETED' | 'FAILED'; message?: string; submitter_id?: string }
+  ): Promise<void> {
+    if (!TELEMETRY_ENABLED) return;
+    const headers = this.getHeaders();
+    try {
+      const res = await fetch(`${API_BASE}/checklists/executions/${executionId}/submission_log/`, {
+        method: 'POST', headers, body: JSON.stringify(payload)
+      });
+      if (res.ok) return;
+    } catch {
+      // ignore
+    }
+    try {
+      await fetch(`${API_BASE}/audits/events/`, {
+        method: 'POST', headers, body: JSON.stringify({
+          event_type: 'CHECKLIST_SUBMISSION',
+          execution_id: executionId,
+          status: payload.status,
+          message: payload.message || '',
+          submitter_id: payload.submitter_id || '',
+        })
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  async logAdminAction(taskId: string, payload: { action: string; message?: string }): Promise<void> {
+    const headers = this.getHeaders();
+    try {
+      const res = await fetch(`${API_BASE}/audits/admin-actions/`, {
+        method: 'POST', headers, body: JSON.stringify({ task_id: taskId, ...payload })
+      });
+      if (res.ok) return;
+    } catch {
+      // ignore
+    }
+  }
+
   async updateStepResponse(
     stepResponseId: string,
     payload: { response_value?: string; notes?: string }
@@ -2505,13 +2742,14 @@ export class BackendService {
     }
   }
 
-  async getMyChecklists(statusOrOpts?: string | { status?: string; page?: number; page_size?: number }): Promise<{ results: any[]; next?: string | null; previous?: string | null; count?: number } | any[]> {
+  async getMyChecklists(statusOrOpts?: string | { status?: string; page?: number; page_size?: number; ordering?: string }): Promise<{ results: any[]; next?: string | null; previous?: string | null; count?: number } | any[]> {
     try {
       const opts = typeof statusOrOpts === "string" ? { status: statusOrOpts } : (statusOrOpts || {});
       const url = new URL(`${API_BASE}/checklists/executions/my_checklists/`);
       if (opts.status) url.searchParams.set("status", opts.status);
       if (opts.page) url.searchParams.set("page", String(opts.page));
       if (opts.page_size) url.searchParams.set("page_size", String(opts.page_size));
+      if (opts.ordering) url.searchParams.set("ordering", String(opts.ordering));
       const response = await fetch(url.toString(), { headers: this.getHeaders() });
       if (!response.ok) {
         let message = "Failed to load my checklists";

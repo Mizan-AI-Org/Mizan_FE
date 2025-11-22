@@ -8,7 +8,7 @@ import { ClipboardList, Loader2, Clock, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useQueries } from "@tanstack/react-query";
-import { logError } from "@/lib/logging";
+import { logError, logInfo } from "@/lib/logging";
 import { deriveSignatureMeta, SignatureMeta } from "@/lib/checklists/signature";
 import { formatAssignees, detectNewAssignments } from "@/lib/tasks/assignees";
 import type { AssignedShape } from "@/lib/tasks/assignees";
@@ -24,6 +24,20 @@ type ChecklistExecutionItem = {
   template?: { id: string; name: string; description?: string };
   assigned_to?: string | { id?: string; name?: string } | Array<{ id?: string; name?: string }> | null;
 };
+
+interface ShiftTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  template_type?: string;
+  shift_id: string;
+  shift_date: string;
+  shift_role: string;
+  checklist_template_id?: string;
+  execution_id?: string;
+  execution_status?: string;
+  execution_progress?: number;
+}
 
 type TemplateStep = {
   id?: string;
@@ -79,8 +93,9 @@ const MyChecklistsPage: React.FC = () => {
   const pageSize = 12;
   const token = accessToken || localStorage.getItem("access_token") || undefined;
   const userId = user?.id ? String(user?.id) : undefined;
+  const [errorDismissed, setErrorDismissed] = useState(false);
 
-  const { data: myChecklistsData, isFetching: loadingChecklists } = useQuery<ChecklistExecutionItem[], Error>({
+  const { data: myChecklistsData, isFetching: loadingChecklists, error: myChecklistsError } = useQuery<ChecklistExecutionItem[], Error>({
     queryKey: ["my-checklists", { status, page, pageSize }],
     queryFn: async () => {
       try {
@@ -105,8 +120,8 @@ const MyChecklistsPage: React.FC = () => {
       try {
         return await api.getStaffProfiles(String(token));
       } catch (e) {
-        logError({ feature: "staff-profiles", action: "fetch" }, e);
-        throw e as Error;
+        logInfo({ feature: "staff-profiles", action: "fetch" }, "profiles unavailable");
+        return [] as StaffProfileItem[];
       }
     },
     staleTime: 5 * 60 * 1000,
@@ -118,31 +133,86 @@ const MyChecklistsPage: React.FC = () => {
     return userId ? String(userId) : "";
   }, [userId]);
 
-  const { data: tasksAsChecklistsData, isFetching: loadingTasksAsChecklists, error: tasksError } = useQuery<ChecklistExecutionItem[], Error>({
-    enabled: Boolean(token && assignedUserId),
-    queryKey: ["assigned-tasks-as-checklists", { assignedUserId, status }],
+
+
+  // Fetch task templates assigned to user's shifts
+  console.log('[MyChecklistsPage] Query setup - token:', !!token, 'user:', !!user, 'enabled:', Boolean(token && user));
+
+  const { data: shiftTemplates, isFetching: loadingShiftTemplates, error: shiftTemplatesError, refetch: refetchTemplates } = useQuery<ShiftTemplate[], Error>({
+    enabled: Boolean(token && user),
+    queryKey: ["my-shift-templates"],
     queryFn: async () => {
       try {
-        const tasksAsChecklists = await api.getAssignedTasksAsChecklists(String(token), String(assignedUserId), status || undefined);
-        const enriched = tasksAsChecklists.map((t) => ({
-          id: t.execution_id,
-          status: t.status,
-          started_at: undefined,
-          completed_at: undefined,
-          due_date: t.due_date || undefined,
-          priority: t.priority || null,
-          template: t.template || { id: t.task_id, name: t.title, description: t.description },
-          assigned_to: (t.assigned_to ?? null) as AssignedShape,
-        })) as ChecklistExecutionItem[];
-        return enriched;
+        const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
+        console.log('[MyChecklistsPage] Fetching shift templates from:', `${API_BASE}/scheduling/assigned-shifts-v2/my_shift_templates/`);
+        const response = await fetch(`${API_BASE}/scheduling/assigned-shifts-v2/my_shift_templates/`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (!response.ok) {
+          console.error('[MyChecklistsPage] Failed to fetch shift templates:', response.status, response.statusText);
+          throw new Error('Failed to fetch shift templates');
+        }
+        const data = await response.json();
+        console.log('[MyChecklistsPage] Shift templates received:', data);
+        console.log('[MyChecklistsPage] Number of templates:', Array.isArray(data) ? data.length : 0);
+        return data;
       } catch (e) {
-        logError({ feature: "assigned-tasks", action: "fetch-as-checklists" }, e);
+        console.error('[MyChecklistsPage] Error fetching shift templates:', e);
+        logError({ feature: "shift-templates", action: "fetch" }, e);
         throw e as Error;
       }
     },
-    refetchInterval: 15000,
-    staleTime: 60 * 1000,
+    refetchInterval: 5000, // Refetch every 5 seconds
+    staleTime: 0, // Always consider data stale
   });
+
+  console.log('[MyChecklistsPage] Query state - data:', shiftTemplates, 'loading:', loadingShiftTemplates, 'error:', shiftTemplatesError);
+
+  // Debug: Log when shiftTemplates changes
+  useEffect(() => {
+    console.log('[MyChecklistsPage] shiftTemplates changed:', shiftTemplates);
+    if (shiftTemplates) {
+      console.log('[MyChecklistsPage] Templates count:', shiftTemplates.length);
+      shiftTemplates.forEach((t, i) => {
+        console.log(`  [${i}] ${t.name} - checklist_template_id: ${t.checklist_template_id}`);
+      });
+    }
+  }, [shiftTemplates]);
+
+  // Fetch clock-in status
+  const { data: sessionData, isFetching: loadingSession } = useQuery({
+    queryKey: ["current-session"],
+    queryFn: () => api.getCurrentSession(),
+    refetchInterval: 30000,
+    enabled: Boolean(token && user),
+  });
+
+  const handleShiftTemplateClick = async (template: ShiftTemplate) => {
+    console.log('[MyChecklistsPage] Template clicked:', template);
+    console.log('[MyChecklistsPage] execution_id:', template.execution_id);
+    console.log('[MyChecklistsPage] checklist_template_id:', template.checklist_template_id);
+    console.log('[MyChecklistsPage] shift_id:', template.shift_id);
+
+    if (template.execution_id) {
+      navigate(`/staff-dashboard/run-checklist/${template.execution_id}`);
+    } else if (template.checklist_template_id) {
+      try {
+        console.log('[MyChecklistsPage] Creating execution for template:', template.checklist_template_id, 'shift:', template.shift_id);
+        const newExec = await api.createChecklistExecution(template.checklist_template_id, template.shift_id);
+        console.log('[MyChecklistsPage] Execution created:', newExec);
+        navigate(`/staff-dashboard/run-checklist/${newExec.id}`);
+      } catch (e) {
+        console.error('[MyChecklistsPage] Failed to create execution:', e);
+        console.error('[MyChecklistsPage] Error details:', e instanceof Error ? e.message : String(e));
+        toast({ title: "Error", description: "Failed to start checklist", variant: "destructive" });
+      }
+    } else {
+      console.error('[MyChecklistsPage] No checklist_template_id found for template:', template);
+      toast({ title: "Error", description: "No checklist template found for this task", variant: "destructive" });
+    }
+  };
 
   const staffNameById: Record<string, string> = useMemo(() => {
     const map: Record<string, string> = {};
@@ -163,35 +233,16 @@ const MyChecklistsPage: React.FC = () => {
     return map;
   }, [staffProfiles]);
 
+  // Notification for new assignments
   // Merge and de-duplicate by execution id, then filter
   const mergedItems = useMemo(() => {
     const baseItems: ChecklistExecutionItem[] = Array.isArray(myChecklistsData) ? (myChecklistsData as ChecklistExecutionItem[]) : [];
-    const enriched: ChecklistExecutionItem[] = Array.isArray(tasksAsChecklistsData) ? (tasksAsChecklistsData as ChecklistExecutionItem[]) : [];
     const mergedMap = new Map<string, ChecklistExecutionItem>();
-    [...baseItems, ...enriched].forEach((it) => {
+    baseItems.forEach((it) => {
       if (it?.id) mergedMap.set(String(it.id), it);
     });
     return Array.from(mergedMap.values());
-  }, [myChecklistsData, tasksAsChecklistsData]);
-
-  // Notification for new assignments
-  useEffect(() => {
-    try {
-      const ASSIGNED_SEEN_KEY = "checklist_assigned_seen_v1";
-      const raw = localStorage.getItem(ASSIGNED_SEEN_KEY);
-      const seen = new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
-      const currentIds = (Array.isArray(tasksAsChecklistsData) ? tasksAsChecklistsData : []).map((i) => String(i.id));
-      const unseen = detectNewAssignments(seen, currentIds);
-      if (unseen.length > 0) {
-        toast({
-          title: "New assignments",
-          description: `${unseen.length} new task${unseen.length > 1 ? "s" : ""} assigned to you`,
-        });
-        const updated = Array.from(new Set([...Array.from(seen.values()), ...currentIds]));
-        localStorage.setItem(ASSIGNED_SEEN_KEY, JSON.stringify(updated));
-      }
-    } catch {/* ignore */}
-  }, [tasksAsChecklistsData, toast]);
+  }, [myChecklistsData]);
 
   // Fetch per-execution details to derive signature meta
   const executionDetailQueries = useQueries({
@@ -249,7 +300,7 @@ const MyChecklistsPage: React.FC = () => {
     setHistory(entries);
     try {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
-    } catch {/* ignore */}
+    } catch {/* ignore */ }
   };
 
   const toggleTaskCompletion = (executionId: string, taskId: string, next: boolean) => {
@@ -258,7 +309,7 @@ const MyChecklistsPage: React.FC = () => {
     if (next && exists) return; // prevent duplicate entries
     if (!next && !exists) return; // nothing to remove
     const updated = next
-      ? [...history, { executionId, taskId, completedAt: new Date().toISOString() }]
+      ? [...history, { executionId: executionId, taskId: taskId, completedAt: new Date().toISOString() }]
       : history.filter((e) => !keyMatch(e));
     saveHistory(updated);
   };
@@ -305,6 +356,27 @@ const MyChecklistsPage: React.FC = () => {
     return ["", ...Array.from(set.values())];
   }, [tasksByExecutionId]);
 
+  const detailQueries = useQueries({
+    queries: (mergedItems || []).map((it) => ({
+      queryKey: ["checklist-exec", it.id, "details"],
+      queryFn: async () => api.getChecklistExecution(String(it.id)) as Promise<ExecutionDetails>,
+      staleTime: 60 * 1000,
+      refetchInterval: 60 * 1000,
+      enabled: !!it?.id,
+    })),
+  });
+
+  const detailsById: Record<string, ExecutionDetails | undefined> = useMemo(() => {
+    const map: Record<string, ExecutionDetails | undefined> = {};
+    const queriesArr = detailQueries as unknown as Array<{ data?: ExecutionDetails }>; // typed narrowing for useQueries
+    queriesArr.forEach((q, idx) => {
+      const id = mergedItems[idx]?.id;
+      if (!id) return;
+      map[String(id)] = q?.data;
+    });
+    return map;
+  }, [detailQueries, mergedItems]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const items = mergedItems.filter((it) => {
@@ -342,6 +414,24 @@ const MyChecklistsPage: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
+      {(() => {
+        const err = myChecklistsError || shiftTemplatesError || staffProfilesQuery.error || null;
+        if (!err || errorDismissed) return null;
+        const src = myChecklistsError ? "checklists" : shiftTemplatesError ? "templates" : staffProfilesQuery.error ? "profiles" : "";
+        const raw = String(err.message || "An error occurred while loading data");
+        const cleaned = raw.replace(/\s*\(\d{3}\)\s*$/, "");
+        const msg = src === "profiles"
+          ? "Unable to load staff information right now. You can continue using checklists."
+          : src === "templates"
+            ? "Unable to load assigned checklists. Please refresh or try again later."
+            : cleaned || "Something went wrong. Please try again.";
+        return (
+          <div className="mb-3 p-3 rounded-md border border-red-200 bg-red-50 text-red-700 text-sm flex items-center justify-between" role="alert" aria-live="polite">
+            <span>{msg}</span>
+            <button className="ml-3 px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-100" onClick={() => setErrorDismissed(true)} aria-label="Dismiss error">Dismiss</button>
+          </div>
+        );
+      })()}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-blue-50">
@@ -379,145 +469,93 @@ const MyChecklistsPage: React.FC = () => {
         })()}
       </div>
 
-      {/* Dedicated section: Assigned Processes & Tasks (always rendered) */}
+      {/* NEW: Shift-Assigned Task Templates Section */}
       {(() => {
-        const count = Array.isArray(tasksAsChecklistsData) ? tasksAsChecklistsData.length : 0;
-        return (
-          <div className="space-y-2" aria-label="Assigned Processes & Tasks">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <h3 className="text-sm font-semibold">Assigned Processes & Tasks</h3>
-              <Badge variant="secondary" className="rounded-full">{count}</Badge>
-            </div>
+        const templateCount = Array.isArray(shiftTemplates) ? shiftTemplates.length : 0;
+        const isClockedIn = sessionData?.is_clocked_in;
+        const showDisabled = !loadingSession && !isClockedIn;
 
-            {tasksError ? (
-              <Card className="shadow-sm">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Failed to load assigned tasks</CardTitle>
-                  <CardDescription className="text-sm">{String(tasksError.message || 'Unexpected error')}</CardDescription>
-                </CardHeader>
-              </Card>
-            ) : loadingTasksAsChecklists ? (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" /> Loading assigned tasks…
-              </div>
-            ) : count === 0 ? (
-              <Card className="shadow-sm">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">No tasks assigned</CardTitle>
-                  <CardDescription className="text-sm">You currently have no assigned processes or tasks.</CardDescription>
-                </CardHeader>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(tasksAsChecklistsData || []).map((it) => {
-                  const statusLabel = it.status || "PENDING";
-                  const name = it.template?.name || "Checklist";
-                  const desc = it.template?.description || "";
-                  const due = it.due_date ? new Date(it.due_date).toLocaleString() : undefined;
-                  const statusColor =
-                    statusLabel === "COMPLETED" ? "bg-green-100 text-green-700" :
-                    statusLabel === "IN_PROGRESS" ? "bg-blue-100 text-blue-700" :
-                    statusLabel === "OVERDUE" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700";
-                  const assignees = formatAssignees(it.assigned_to, staffNameById);
-                  return (
-                    <Card key={`assigned-${it.id}`} className="shadow-sm">
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-base truncate">{name}</CardTitle>
-                          <Badge className={`rounded-full ${statusColor}`}>{statusLabel.replace(/_/g, ' ')}</Badge>
-                        </div>
-                        {desc && <CardDescription className="text-xs truncate">{desc}</CardDescription>}
-                        <div className="flex flex-wrap items-center gap-2 text-xs mt-1">
-                          {it.priority && (<Badge variant="outline" className="rounded-full">{String(it.priority).toUpperCase()}</Badge>)}
-                          {due && (
-                            <div className="flex items-center gap-1 text-muted-foreground"><Clock className="w-3 h-3" /> {due}</div>
-                          )}
-                          {assignees.length > 0 && (
-                            <div className="flex items-center gap-1"><Users className="w-3 h-3 text-muted-foreground" />
-                              <span className="text-muted-foreground">{assignees.join(', ')}</span>
-                            </div>
-                          )}
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <div className="flex items-center justify-between">
-                          <Button variant="secondary" size="sm" onClick={() => goRun(String(it.id))}>Open</Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+        console.log('[MyChecklistsPage] Rendering templates section:');
+        console.log('  - shiftTemplates:', shiftTemplates);
+        console.log('  - templateCount:', templateCount);
+        console.log('  - loadingShiftTemplates:', loadingShiftTemplates);
+        console.log('  - isClockedIn:', isClockedIn);
+        console.log('  - showDisabled:', showDisabled);
+
+        return (
+          <div className="space-y-2" aria-label="Assigned Checklists from Shifts">
+            {showDisabled && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md flex items-center text-yellow-800 text-sm">
+                <Clock className="w-4 h-4 mr-2" />
+                <span>You must be clocked in to access your checklists.</span>
               </div>
             )}
+
+            <div className={showDisabled ? "opacity-50 pointer-events-none grayscale transition-all duration-200" : ""}>
+              <div className="flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold">Assigned Checklists</h3>
+                <Badge variant="secondary" className="rounded-full">{templateCount}</Badge>
+              </div>
+
+              {loadingShiftTemplates ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Loading shift templates…
+                </div>
+              ) : templateCount === 0 ? (
+                <Card className="shadow-sm">
+                  <CardContent className="py-8 text-center text-muted-foreground">
+                    No checklist assigned yet
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {shiftTemplates?.map((template) => {
+                    const statusColor = template.execution_status === "COMPLETED" ? "bg-green-100 text-green-700" :
+                      template.execution_status === "IN_PROGRESS" ? "bg-blue-100 text-blue-700" : "bg-secondary text-secondary-foreground";
+                    const statusLabel = template.execution_status ? template.execution_status.replace(/_/g, ' ') : "Not Started";
+
+                    return (
+                      <Card key={`${template.id}-${template.shift_id}`} className="shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleShiftTemplateClick(template)}>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-base">{template.name}</CardTitle>
+                            {template.execution_status && <Badge className={`rounded-full ${statusColor}`}>{statusLabel}</Badge>}
+                          </div>
+                          {template.description && (
+                            <CardDescription className="text-sm line-clamp-2">{template.description}</CardDescription>
+                          )}
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-1 text-xs text-muted-foreground">
+                            {template.shift_date && (
+                              <div>Shift: {new Date(template.shift_date).toLocaleDateString()}</div>
+                            )}
+                            {template.shift_role && (
+                              <div>Role: {template.shift_role}</div>
+                            )}
+                            {template.template_type && (
+                              <Badge variant="outline" className="text-xs">{template.template_type}</Badge>
+                            )}
+                            {template.execution_progress !== undefined && template.execution_progress > 0 && (
+                              <div className="mt-2">Progress: {template.execution_progress}%</div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         );
       })()}
 
-      {loadingChecklists || loadingTasksAsChecklists ? (
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="w-4 h-4 animate-spin" /> Loading your checklists…
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((it) => {
-            const statusLabel = it.status || "PENDING";
-            const name = it.template?.name || "Checklist";
-            const desc = it.template?.description || "";
-            const due = it.due_date ? new Date(it.due_date).toLocaleString() : undefined;
-            const started = it.started_at ? new Date(it.started_at).toLocaleString() : undefined;
-            const completed = it.completed_at ? new Date(it.completed_at).toLocaleString() : undefined;
-            const sigMeta = signatureMetaById[String(it.id)] || { isSigned: false, requiresSignature: false };
-            const statusColor =
-              statusLabel === "COMPLETED" ? "bg-green-100 text-green-700" :
-              statusLabel === "IN_PROGRESS" ? "bg-blue-100 text-blue-700" :
-              statusLabel === "OVERDUE" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700";
-            const tasks = tasksByExecutionId[String(it.id)] || [];
-            const totalTasks = tasks.length;
-            const completedTasks = tasks.filter((t) => t.completed).length;
-            const progressPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-            const dueSoon = it.due_date ? (new Date(it.due_date).getTime() - Date.now()) < 24 * 60 * 60 * 1000 : false;
-            return (
-              <Card key={it.id} className="shadow-sm">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base truncate">{name}</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Badge className={`rounded-full ${statusColor}`}>{statusLabel.replace(/_/g, ' ')}</Badge>
-                      {sigMeta.isSigned ? (
-                        <Badge className="rounded-full bg-green-100 text-green-700">Signed</Badge>
-                      ) : sigMeta.requiresSignature ? (
-                        <Badge className="rounded-full bg-amber-100 text-amber-700">Signature Required</Badge>
-                      ) : null}
-                      {dueSoon && (
-                        <Badge className="rounded-full bg-amber-100 text-amber-700">Due Soon</Badge>
-                      )}
-                    </div>
-                  </div>
-                  {desc && <CardDescription className="text-xs truncate">{desc}</CardDescription>}
-                  {it.priority && (
-                    <div className="mt-1">
-                      <Badge variant="outline" className="text-[10px]">Priority: {String(it.priority).toUpperCase()}</Badge>
-                    </div>
-                  )}
-                  {(() => {
-                    const assignees = formatAssignees(it.assigned_to, staffNameById);
-                    return assignees.length > 0 ? (
-                      <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                        <Users className="w-3 h-3" /> Assigned: {assignees.join(', ')}
-                      </div>
-                    ) : null;
-                  })()}
-                </CardHeader>
-                <CardContent className="pt-0" />
-              </Card>
-            );
-          })}
-        </div>
-      )}
 
-      {/* Pagination removed in simplified view */}
-    </div>
+
+
+    </div >
   );
 };
 

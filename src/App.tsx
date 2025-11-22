@@ -24,6 +24,7 @@ import ShiftDetailView from "./pages/ShiftDetailView";
 import StaffAnnouncementsList from "./pages/StaffAnnouncement";
 import Staff from "./pages/Staff";
 import AddStaff from "./pages/AddStaff";
+import CleaningTasks from "./pages/CleaningTasks";
 
 // Lazy-loaded components
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
@@ -35,13 +36,9 @@ const InventoryManagement = React.lazy(
 const MenuManagement = React.lazy(() => import("./pages/MenuManagement"));
 const FloorManagement = React.lazy(() => import("./pages/FloorManagement"));
 const Inventory = React.lazy(() => import("./pages/Inventory"));
-const EnhancedAIAssistant = React.lazy(
-  () => import("./pages/EnhancedAIAssistant")
-);
 const Auth = React.lazy(() => import("./pages/Auth"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
 const Unauthorized = React.lazy(() => import("./pages/Unauthorized"));
-const StaffDashboard = React.lazy(() => import("./pages/StaffDashboard"));
 const StaffAppsPage = React.lazy(() => import("./pages/StaffAppsPage"));
 const SafetyDashboard = React.lazy(() => import("./pages/SafetyDashboard"));
 const PinLogin = React.lazy(() => import("./components/auth/PinLogin"));
@@ -52,6 +49,7 @@ const SchedulingAnalytics = React.lazy(
   () => import("./pages/SchedulingAnalytics")
 );
 const ProfileSettings = React.lazy(() => import("./pages/ProfileSettings"));
+const AdminEmergencyAvailability = React.lazy(() => import("./pages/AdminEmergencyAvailability"));
 const AdvancedSettings = React.lazy(() => import("./pages/Settings"));
 const StaffManagement = React.lazy(() => import("./pages/StaffManagement"));
 const ScheduleManagement = React.lazy(
@@ -74,7 +72,6 @@ const CategoryManagement = React.lazy(
   () => import("./pages/CategoryManagement")
 );
 const ProductManagement = React.lazy(() => import("./pages/ProductManagement"));
-const CleaningTasks = React.lazy(() => import("./pages/CleaningTasks"));
 const SupervisorDashboard = React.lazy(
   () => import("./pages/SupervisorDashboard")
 );
@@ -86,17 +83,18 @@ const ReportsPage = React.lazy(() => import("./pages/ReportsPage"));
 const AcceptInvitation = React.lazy(() => import("./pages/AcceptInvitation"));
 const AutoSchedule = React.lazy(() => import("./pages/AutoSchedule"));
 const Timesheets = React.lazy(() => import("./pages/Timesheets"));
-const ChecklistRunDemo = React.lazy(() => import("./pages/ChecklistRunDemo"));
 const TaskChecklistRunner = React.lazy(
   () => import("./pages/TaskChecklistRunner")
 );
-const MyChecklistsPage = React.lazy(() => import("./pages/MyChecklistsPage"));
 const StaffMyTasks = React.lazy(() => import("./pages/StaffMyTasks"));
+const MyChecklistsPage = React.lazy(() => import("./pages/MyChecklistsPage"));
 const ChecklistRunner = React.lazy(() => import("./pages/ChecklistRunner"));
 const AdminChecklistTemplates = React.lazy(
   () => import("./pages/AdminChecklistTemplates")
 );
 const StaffChecklistBoard = React.lazy(() => import("@/pages/StaffChecklistBoard"));
+const ManagerReviewDashboard = React.lazy(() => import("./pages/ManagerReviewDashboard"));
+const StaffSubmittedChecklists = React.lazy(() => import("./pages/StaffSubmittedChecklists"));
 
 const ShiftReviewsAdminPage = React.lazy(
   () => import("./pages/ShiftReviewsAdminPage")
@@ -355,10 +353,6 @@ const App = () => {
                   }
                 />
                 <Route
-                  path="dashboard/assistant"
-                  element={<EnhancedAIAssistant />}
-                />
-                <Route
                   path="dashboard/settings"
                   element={<AdvancedSettings />}
                 />
@@ -421,6 +415,22 @@ const App = () => {
                       <React.Suspense fallback={<div>Loading...</div>}>
                         <SchedulingAnalytics />
                       </React.Suspense>
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/reviews/checklists"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                      <ManagerReviewDashboard />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/emergency-availability"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                      <AdminEmergencyAvailability />
                     </RoleBasedRoute>
                   }
                 />
@@ -542,10 +552,10 @@ const App = () => {
                 <Route path="schedule/:id" element={<ShiftDetailView />} />
                 <Route path="attendance" element={<AttendanceHistory />} />
                 <Route path="safety" element={<SafetyDashboard />} />
-                <Route path="my-checklists" element={<StaffMyTasks />} />
+                <Route path="my-checklists" element={<MyChecklistsPage />} />
                 <Route path="my-tasks" element={<StaffMyTasks />} />
                 <Route path="staff-checklists" element={<StaffChecklistBoard />} />
-                <Route path="checklist-demo" element={<ChecklistRunDemo />} />
+                <Route path="submissions" element={<StaffSubmittedChecklists />} />
                 <Route
                   path="task-checklist/:taskId"
                   element={<TaskChecklistRunner />}

@@ -37,6 +37,7 @@ interface AssignedShift {
     break_duration?: string; // ISO 8601 duration string, e.g., "PT30M"
     role: string;
     notes: string | null;
+    task_templates?: string[]; // Array of task template IDs
 }
 
 interface AssignedShiftModalProps {
@@ -59,6 +60,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
     const [endTime, setEndTime] = useState(shift?.end_time?.substring(0, 5) || '17:00');
     const [role, setRole] = useState(shift?.role || '');
     const [notes, setNotes] = useState(shift?.notes || '');
+    const [selectedTemplates, setSelectedTemplates] = useState<string[]>(shift?.task_templates || []);
 
     useEffect(() => {
         if (shift) {
@@ -68,6 +70,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             setEndTime(shift.end_time?.substring(0, 5) || '');
             setRole(shift.role || '');
             setNotes(shift.notes || '');
+            setSelectedTemplates(shift.task_templates || []);
         } else {
             setSelectedStaffId('');
             setShiftDate(initialDate ? format(initialDate, 'yyyy-MM-dd') : '');
@@ -75,6 +78,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             setEndTime('17:00');
             setRole('');
             setNotes('');
+            setSelectedTemplates([]);
         }
     }, [shift, initialDate]);
 
@@ -106,6 +110,26 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             }
             const data = await response.json();
             return data.map((s: any) => ({ id: s.user.id, user: { id: s.user.id, first_name: s.user.first_name, last_name: s.user.last_name } }));
+        },
+    });
+
+    const { data: taskTemplates, isLoading: isLoadingTemplates } = useQuery<any[]>({
+        queryKey: ['task-templates'],
+        queryFn: async () => {
+            const response = await fetch(`${API_BASE}/scheduling/task-templates/`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                },
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    logout();
+                    throw new Error('Session expired');
+                }
+                throw new Error('Failed to fetch task templates');
+            }
+            return response.json();
         },
     });
 
@@ -196,6 +220,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             end_time: endTime,
             role: role,
             notes: notes,
+            task_templates: selectedTemplates,
             ...(weeklyScheduleId && { schedule: weeklyScheduleId }),
         };
         createUpdateShiftMutation.mutate(shiftData);
@@ -275,6 +300,57 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                 ))}
                             </SelectContent>
                         </Select>
+                    </div>
+                    <div className="grid grid-cols-4 items-start gap-4">
+                        <Label htmlFor="templates" className="text-right pt-2">Task Templates</Label>
+                        <div className="col-span-3">
+                            <Select
+                                value={selectedTemplates.length > 0 ? selectedTemplates[0] : undefined}
+                                onValueChange={(value) => {
+                                    if (!selectedTemplates.includes(value)) {
+                                        setSelectedTemplates([...selectedTemplates, value]);
+                                    }
+                                }}
+                            >
+                                <SelectTrigger id="templates">
+                                    <SelectValue placeholder={selectedTemplates.length > 0 ? `${selectedTemplates.length} template(s) selected` : "Select task templates"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {isLoadingTemplates ? (
+                                        <SelectItem value="__loading_templates__" disabled>Loading templates...</SelectItem>
+                                    ) : (
+                                        taskTemplates?.map((template) => (
+                                            <SelectItem
+                                                key={template.id}
+                                                value={template.id}
+                                                disabled={selectedTemplates.includes(template.id)}
+                                            >
+                                                {template.name}
+                                            </SelectItem>
+                                        ))
+                                    )}
+                                </SelectContent>
+                            </Select>
+                            {selectedTemplates.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {selectedTemplates.map((templateId) => {
+                                        const template = taskTemplates?.find(t => t.id === templateId);
+                                        return (
+                                            <div key={templateId} className="flex items-center gap-1 bg-secondary text-secondary-foreground px-2 py-1 rounded-md text-sm">
+                                                <span>{template?.name || 'Unknown'}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedTemplates(selectedTemplates.filter(id => id !== templateId))}
+                                                    className="hover:text-destructive ml-1"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <div className="grid grid-cols-4 items-start gap-4">
                         <Label htmlFor="notes" className="text-right">Notes (Optional)</Label>

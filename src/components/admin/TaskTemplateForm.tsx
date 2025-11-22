@@ -234,8 +234,19 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
         return {} as TaskTemplate;
       }
     },
-    onSuccess: () => {
+    onSuccess: async (resp: any) => {
       toast.success(template?.id ? 'Template updated successfully' : 'Template created successfully');
+      try {
+        const token = localStorage.getItem('access_token') || '';
+        const tplName = (resp?.name || formData.name || 'Template');
+        await api.createAnnouncement(token, {
+          title: `Template updated: ${tplName}`,
+          message: `A template has been ${template?.id ? 'updated' : 'created'} and is available to use.`,
+          priority: 'MEDIUM',
+          tags: ['template_update']
+        });
+      } catch {
+      }
       onSuccess();
     },
     onError: (error) => {
@@ -538,21 +549,30 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                     <div className="flex items-center justify-between w-full">
                       <div className="flex items-center gap-3">
                         <span className="h-3 w-3 rounded-full" style={{ backgroundColor: process.color }} aria-hidden />
+                        <span className="text-sm font-medium">{process.name}</span>
+                        <Badge variant="outline">{process.tasks.length} tasks</Badge>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+
+                  <AccordionContent className="px-2 md:px-4 pb-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: process.color }} aria-hidden />
                         <Input
                           value={process.name}
                           onChange={(e) => updateProcessName(process.id, e.target.value)}
                           className="h-8 w-56"
                           aria-label={`Process name ${process.name}`}
                         />
-                        <Badge variant="outline">{process.tasks.length} tasks</Badge>
                       </div>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => removeProcess(process.id)} className="text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{process.tasks.length} tasks</Badge>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeProcess(process.id)} className="text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </AccordionTrigger>
-
-                  <AccordionContent className="px-2 md:px-4 pb-4">
                     {/* Add task within this process */}
                     <Card className="border-dashed">
                       <CardContent className="pt-6">

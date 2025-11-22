@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -9,6 +11,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Loader2, ArrowUpDown, ThumbsUp } from "lucide-react";
 import { format } from "date-fns";
+import { logError, logInfo } from "@/lib/logging";
 
 type ReviewItem = {
   id: string;
@@ -59,12 +62,37 @@ export default function ShiftReviewsAdminPage() {
     queryFn: () => api.getShiftReviewStats(accessToken!),
     enabled: !!accessToken,
     refetchOnWindowFocus: false,
+    refetchInterval: 5000,
   });
 
   // Fetch raw review items and normalize to our ReviewItem shape to tolerate backend field variations
   const { data: rawReviews, isLoading, isError, error } = useQuery<any[]>({
     queryKey: ["shiftReviews", accessToken],
     queryFn: () => api.getShiftReviews(accessToken!),
+    enabled: !!accessToken,
+    refetchOnWindowFocus: false,
+    refetchInterval: 5000,
+    onSuccess: (data) => {
+      const count = Array.isArray(data) ? data.length : 0;
+      logInfo({ feature: "shift-reviews-admin", action: "fetch-success" }, `count=${count}`);
+    },
+    onError: (e) => {
+      logError({ feature: "shift-reviews-admin", action: "fetch-error" }, e);
+    },
+  });
+
+  // Fetch staff profiles to map IDs -> full names for display
+  const { data: staffProfiles } = useQuery({
+    queryKey: ["staffProfiles", accessToken],
+    queryFn: () => api.getStaffProfiles(accessToken!),
+    enabled: !!accessToken,
+    refetchOnWindowFocus: false,
+  });
+
+  // Fetch concise staff list (id, first_name, last_name) for robust ID→name mapping
+  const { data: staffList } = useQuery({
+    queryKey: ["staffList", accessToken],
+    queryFn: () => api.getStaffList(accessToken!),
     enabled: !!accessToken,
     refetchOnWindowFocus: false,
   });
@@ -80,7 +108,7 @@ export default function ShiftReviewsAdminPage() {
   const normalize = (r: any): ReviewItem => {
   const id: string = r?.id ?? r?.review_id ?? r?.uuid ?? String(r?.session_id ?? r?.shift_id ?? Math.random());
   const session_id: string = r?.session_id ?? r?.shift_id ?? r?.shift ?? r?.shift_uuid ?? "";
-    const staff_name: string | undefined = r?.staff_name ?? r?.staff ?? r?.employee_name ?? (r?.staff?.first_name && r?.staff?.last_name ? `${r.staff.first_name} ${r.staff.last_name}` : undefined);
+    const staff_name: string | undefined = r?.staff_name ?? r?.staff ?? (r?.staff?.first_name && r?.staff?.last_name ? `${r.staff.first_name} ${r.staff.last_name}` : undefined);
     const staff_id: string | undefined = r?.staff_id ?? r?.user_id ?? r?.user ?? r?.staff?.id;
     const department: string | undefined = r?.department ?? r?.department_name ?? r?.dept;
     const rating: number = typeof r?.rating === "number" ? r.rating : Number(r?.stars ?? r?.score ?? 0) || 0;
@@ -118,8 +146,34 @@ export default function ShiftReviewsAdminPage() {
   };
 
   const reviews: ReviewItem[] = useMemo(() => {
-    return Array.isArray(rawReviews) ? rawReviews.map(normalize) : [];
-  }, [rawReviews]);
+    const base = Array.isArray(rawReviews) ? rawReviews.map(normalize) : [];
+    const nameById = new Map<string, string>();
+    if (Array.isArray(staffProfiles)) {
+      for (const p of staffProfiles as any[]) {
+        const full = [p?.user_details?.first_name, p?.user_details?.last_name].filter(Boolean).join(" ").trim();
+        const uid = p?.user_details?.id ? String(p.user_details.id) : undefined;
+        const pid = p?.id ? String(p.id) : undefined;
+        if (uid && full) nameById.set(uid, full);
+        if (pid && full && !nameById.has(pid)) nameById.set(pid, full);
+      }
+    }
+    if (Array.isArray(staffList)) {
+      for (const s of staffList as any[]) {
+        const full = [s?.first_name, s?.last_name].filter(Boolean).join(" ").trim();
+        const sid = s?.id ? String(s.id) : undefined;
+        if (sid && full && !nameById.has(sid)) nameById.set(sid, full);
+      }
+    }
+    const isUuid = (v: string | undefined) => {
+      if (!v) return false;
+      const s = String(v).trim();
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+    };
+    return base.map((r) => {
+      const resolved = (!isUuid(r.staff_name || undefined) && r.staff_name) || (r.staff_id ? nameById.get(String(r.staff_id)) : undefined);
+      return { ...r, staff_name: resolved };
+    });
+  }, [rawReviews, staffProfiles, staffList, normalize]);
 
   const filteredSorted = useMemo(() => {
     const base = (reviews || []).filter((r) => {
@@ -163,7 +217,6 @@ export default function ShiftReviewsAdminPage() {
       <Card>
         <CardHeader>
           <CardTitle>Shift Review Analytics</CardTitle>
-          <CardDescription>Aggregates across submitted feedback.</CardDescription>
         </CardHeader>
         <CardContent>
           {statsError && (
@@ -207,7 +260,6 @@ export default function ShiftReviewsAdminPage() {
               )}
               {Array.isArray(reviews) && reviews.length > 0 && (
                 <div className="md:col-span-3">
-                  <div className="text-sm text-muted-foreground">Location Verification</div>
                   <div className="flex items-center gap-3 mt-2">
                     {(() => {
                       const verifiedCount = reviews.filter(r => r.verified_location === true).length;
@@ -217,11 +269,6 @@ export default function ShiftReviewsAdminPage() {
                       const uPct = total ? 100 - vPct : 0;
                       return (
                         <>
-                          <div className="flex-1 h-3 bg-gray-200 rounded overflow-hidden">
-                            <div className="h-3 bg-green-500" style={{ width: `${vPct}%` }} />
-                          </div>
-                          <div className="text-xs">Verified: {verifiedCount} ({vPct}%)</div>
-                          <div className="text-xs">Unverified: {unverifiedCount} ({uPct}%)</div>
                         </>
                       );
                     })()}
@@ -249,14 +296,6 @@ export default function ShiftReviewsAdminPage() {
                 <SelectItem value="3">Decent (3)</SelectItem>
                 <SelectItem value="2">Bad (2)</SelectItem>
                 <SelectItem value="1">Awful (1)</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={verified} onValueChange={setVerified}>
-              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Location" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Locations</SelectItem>
-                <SelectItem value="verified">Verified Only</SelectItem>
-                <SelectItem value="unverified">Unverified Only</SelectItem>
               </SelectContent>
             </Select>
             <Button
@@ -329,7 +368,7 @@ export default function ShiftReviewsAdminPage() {
                     <div className="flex items-center">Date <ArrowUpDown className="ml-2 h-4 w-4" /></div>
                   </TableHead>
                   <TableHead onClick={() => toggleSort("staff")}>
-                    <div className="flex items-center">Employee <ArrowUpDown className="ml-2 h-4 w-4" /></div>
+                    <div className="flex items-center">Staff Name <ArrowUpDown className="ml-2 h-4 w-4" /></div>
                   </TableHead>
                   <TableHead onClick={() => toggleSort("rating")}>
                     <div className="flex items-center">Rating <ArrowUpDown className="ml-2 h-4 w-4" /></div>
@@ -337,11 +376,6 @@ export default function ShiftReviewsAdminPage() {
                   <TableHead>Department</TableHead>
                   <TableHead>Tags</TableHead>
                   <TableHead>Comments</TableHead>
-                  <TableHead className="text-right">Hours</TableHead>
-                  <TableHead className="text-right">Duration</TableHead>
-                  <TableHead>Verified</TableHead>
-                  <TableHead>Flags</TableHead>
-                  <TableHead className="text-right">Likes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -351,30 +385,17 @@ export default function ShiftReviewsAdminPage() {
                       const t = new Date(r.completed_at_iso);
                       return isNaN(t.getTime()) ? (r.completed_at_iso || "—") : format(t, "PPpp");
                     })()}</TableCell>
-                    <TableCell className="whitespace-nowrap">{r.staff_name || r.staff_id || "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap">{
+                      (() => {
+                        const fallback = ((r as any)?.staff?.first_name || "") + (" ") + (((r as any)?.staff?.last_name) || "");
+                        const name = r.staff_name || fallback.trim();
+                        return name && name.length > 0 ? name : "—";
+                      })()
+                    }</TableCell>
                     <TableCell>{r.rating}</TableCell>
                     <TableCell className="whitespace-nowrap">{r.department || "—"}</TableCell>
                     <TableCell className="max-w-[280px] truncate">{(r.tags || []).join(", ")}</TableCell>
                     <TableCell className="max-w-[320px] truncate">{r.comments || ""}</TableCell>
-                    <TableCell className="text-right">{typeof r.hours_decimal === "number" ? r.hours_decimal.toFixed(2) : "—"}</TableCell>
-                    <TableCell className="text-right">{r.duration_hms || "—"}</TableCell>
-                    <TableCell>{r.verified_location === true ? "Yes" : r.verified_location === false ? "No" : "—"}</TableCell>
-                    <TableCell className="max-w-[240px] truncate">{(r.flags || []).join(", ")}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          await api.likeShiftReview(accessToken!, r.id);
-                          // Refetch reviews to update like counts
-                          // Using window-focused query keys to keep simple here
-                          // Prefer QueryClient in a larger refactor
-                          location.reload();
-                        }}
-                      >
-                        <ThumbsUp className="mr-2 h-4 w-4" />{r.likes_count ?? 0}
-                      </Button>
-                    </TableCell>
                   </TableRow>
                 ))}
                 {filteredSorted.length === 0 && (

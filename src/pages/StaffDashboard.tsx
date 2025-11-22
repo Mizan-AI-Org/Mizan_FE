@@ -180,7 +180,7 @@ const StaffDashboard: React.FC = () => {
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 15000,
+                    timeout: 30000,
                     maximumAge: 5000,
                 }
             );
@@ -249,7 +249,7 @@ const StaffDashboard: React.FC = () => {
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 10000,
+                    timeout: 30000,
                     maximumAge: 0
                 }
             );
@@ -617,17 +617,17 @@ const StaffDashboard: React.FC = () => {
                                         title={clockInReady ? 'Ready to Clock In' : getClockInDisableReason()}
                                         className={`py-4 px-6 rounded-lg transition-colors font-bold text-lg shadow-md flex items-center ${clockInReady ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}
                                     >
-                                    {isClocking ? (
-                                        <>
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                            Getting Location...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Navigation className="w-4 h-4 mr-2" />
-                                            {clockInReady ? 'Ready to Clock In' : 'Outside Work Zone'}
-                                        </>
-                                    )}
+                                        {isClocking ? (
+                                            <>
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                                Getting Location...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Navigation className="w-4 h-4 mr-2" />
+                                                {clockInReady ? 'Ready to Clock In' : 'Outside Work Zone'}
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                                 <p className="text-xs text-gray-500 text-center">

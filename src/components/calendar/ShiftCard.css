@@ -1,0 +1,165 @@
+/* ShiftCard Component Styles */
+
+.shift-card {
+  position: absolute;
+  border-radius: 0.375rem;
+  padding: 0.5rem;
+  cursor: pointer;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+}
+
+.shift-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transform: scale(1.02);
+}
+
+.shift-card:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+.shift-card.selected {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+.shift-card.hovered {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transform: scale(1.02);
+}
+
+.shift-card.compact {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.shift-card.standard {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+/* Shift Card Content Styles */
+.shift-card-title {
+  font-weight: 500;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.shift-card-time {
+  font-size: 0.75rem;
+  color: #4b5563;
+  margin-top: 0.25rem;
+}
+
+.shift-card-details {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Tooltip Styles */
+.shift-tooltip {
+  position: absolute;
+  background-color: #1f2937;
+  color: white;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  max-width: 20rem;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.shift-tooltip-title {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.shift-tooltip-content {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.shift-tooltip-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.shift-tooltip-item:last-child {
+  margin-bottom: 0;
+}
+
+.shift-tooltip-icon {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+}
+
+.shift-tooltip-footer {
+  font-size: 0.75rem;
+  color: #d1d5db;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #374151;
+}
+
+/* Timezone Indicator Styles */
+.timezone-indicator {
+  display: flex;
+  align-items: center;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.timezone-indicator-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-right: 0.25rem;
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .shift-card {
+    padding: 0.375rem;
+  }
+  
+  .shift-card.compact {
+    font-size: 0.625rem;
+  }
+  
+  .shift-card.standard {
+    font-size: 0.75rem;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .shift-card {
+    border-width: 2px;
+  }
+  
+  .shift-card.selected {
+    box-shadow: 0 0 0 3px #3b82f6;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .shift-card {
+    transition: none;
+  }
+  
+  .shift-card:hover {
+    transform: none;
+  }
+}

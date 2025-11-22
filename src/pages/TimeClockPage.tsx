@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import { MapContainer, TileLayer, Circle, CircleMarker, useMap } from "react-lea
 import "leaflet/dist/leaflet.css";
 import CameraCaptureModal from "@/components/CameraCaptureModal";
 import ShiftReviewModal, { ShiftReviewPayload } from "@/components/ShiftReviewModal";
+import { logError, logInfo } from "@/lib/logging";
 import { enqueueClockPayloadSecure, dequeueAllSecure, initDeviceSecret } from "@/lib/offlineQueue";
 
 const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
@@ -369,72 +370,172 @@ export default function TimeClockPage() {
         }
     };
 
-    const tryLowAccuracyLocation = () => {
-        navigator.geolocation.getCurrentPosition(
+    const watchIdRef = useRef<number | null>(null);
+
+    // Cleanup watcher on unmount
+    useEffect(() => {
+        return () => {
+            if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+        };
+    }, []);
+
+    const startWatcher = (enableHighAccuracy: boolean) => {
+        if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+
+        watchIdRef.current = navigator.geolocation.watchPosition(
             (position) => {
                 setCurrentLocation({
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
                     accuracy: position.coords.accuracy,
                 });
-                if (geofence) {
-                    const d = haversineDistance(position.coords.latitude, position.coords.longitude, geofence.latitude, geofence.longitude);
-                    const within = d <= geofence.radius;
-                    setInRange(within);
-                    setLastVerificationMessage(within ? "Within range" : "Outside work zone");
-                }
+            },
+            (error) => {
+                console.warn("Watcher error", error);
+                // If watcher fails, we don't necessarily want to kill the UI if we had a location.
+                // But if it's a persistent failure, we might want to know.
+                // For now, let's just log it. If the user moves and we lose track, 
+                // the stale location might be an issue, but better than "Position unavailable" blocking everything.
+            },
+            { enableHighAccuracy, maximumAge: 5000, timeout: 20000 }
+        );
+    };
+
+    // Check geofence whenever location or geofence changes
+    useEffect(() => {
+        if (currentLocation && geofence) {
+            const d = haversineDistance(currentLocation.latitude, currentLocation.longitude, geofence.latitude, geofence.longitude);
+            const within = d <= geofence.radius;
+            setInRange(within);
+            setLastVerificationMessage(within ? "Within range" : "Outside work zone");
+        } else if (currentLocation && !geofence) {
+            setLastVerificationMessage("GPS live");
+        }
+    }, [currentLocation, geofence]);
+
+    const [locationSource, setLocationSource] = useState<"GPS (High Accuracy)" | "GPS (Low Accuracy)" | "IP (Approximate)" | null>(null);
+
+    const tryLowAccuracyLocation = () => {
+        console.log("Attempting low accuracy location...");
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                console.log("Low accuracy location success");
+                setLocationSource("GPS (Low Accuracy)");
+                setCurrentLocation({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    accuracy: position.coords.accuracy,
+                });
+
+                // Start watching with low accuracy
+                startWatcher(false);
+
                 if (accessToken) {
                     setIsVerifyingLocation(true);
                     api
                         .verifyLocation(accessToken, position.coords.latitude, position.coords.longitude)
                         .then((res) => {
                             const withinRange = hasWithinRange(res) ? res.within_range : true;
-                            setInRange(withinRange);
+                            // setInRange handled by useEffect
                             const message = hasWithinRange(res) && res.message ? res.message : withinRange ? "Within range" : "Outside work zone";
-                            setLastVerificationMessage(message);
+                            // setLastVerificationMessage handled by useEffect mostly, but backend message is authoritative
+                            if (hasWithinRange(res) && res.message) setLastVerificationMessage(res.message);
                             setLocationError(withinRange ? null : message);
                         })
                         .catch((err: unknown) => {
                             const message = err instanceof Error ? err.message : "Location verification failed";
                             setLocationError(message);
-                            setInRange(false);
                             setLastVerificationMessage(message);
                         })
                         .finally(() => setIsVerifyingLocation(false));
                 }
             },
             (error) => {
-                const msg = geoErrorMessage(error);
-                setLocationError(msg);
-                setInRange(false);
-                setLastVerificationMessage(msg);
+                console.warn("Low accuracy location failed", error);
+                // If low accuracy fails, try IP location as last resort
+                ipLocate();
             },
             { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 }
         );
+    };
+
+    // Last-resort approximate location via IP-based geolocation (CORS-safe)
+    const ipLocate = async () => {
+        // Clear watcher if we are falling back to IP
+        if (watchIdRef.current !== null) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+        }
+
+        try {
+            console.log("Attempting IP location...");
+            const resp = await fetch("https://ipwho.is/", { mode: "cors", cache: "no-store" });
+            if (!resp.ok) throw new Error("IP location unavailable");
+            const data = await resp.json();
+            const lat = Number(data?.latitude);
+            const lon = Number(data?.longitude);
+            if (Number.isFinite(lat) && Number.isFinite(lon)) {
+                console.log("IP location success");
+                setLocationSource("IP (Approximate)");
+                const approx = { latitude: lat, longitude: lon, accuracy: 5000 };
+                setCurrentLocation(approx);
+
+                setLastVerificationMessage("Approximate location detected via network");
+                setLocationError(null);
+                // Ask backend to authoritatively verify, which may allow clock-in
+                if (accessToken) {
+                    try {
+                        setIsVerifyingLocation(true);
+                        const res = await api.verifyLocation(accessToken, lat, lon);
+                        const withinRange = hasWithinRange(res) ? res.within_range : true;
+                        // setInRange handled by useEffect
+                        const message = hasWithinRange(res) && res.message ? res.message : withinRange ? "Within range" : "Outside work zone";
+                        if (hasWithinRange(res) && res.message) setLastVerificationMessage(res.message);
+                        setLocationError(withinRange ? null : message);
+                    } catch (err: unknown) {
+                        const message = err instanceof Error ? err.message : "Location verification failed";
+                        setLocationError(message);
+                        setLastVerificationMessage(message);
+                    } finally {
+                        setIsVerifyingLocation(false);
+                    }
+                }
+            } else {
+                throw new Error("Invalid IP location data");
+            }
+        } catch (e) {
+            console.debug("IP-based approximate geolocation failed", e);
+            const msg = "Unable to determine location. Please enable Wi-Fi or GPS.";
+            setLocationError(msg);
+            setLastVerificationMessage(msg);
+        }
     };
 
     const getUserLocation = () => {
         if (!navigator.geolocation) {
             setLocationError("Geolocation is not supported by your browser.");
             toast.error("Geolocation not supported.");
+            // Try IP location if Geolocation API is missing
+            ipLocate();
             return;
         }
 
         setLocationError(null);
+        setLocationSource(null); // Reset source while fetching
+        console.log("Attempting high accuracy location...");
         navigator.geolocation.getCurrentPosition(
             (position) => {
+                console.log("High accuracy location success");
+                setLocationSource("GPS (High Accuracy)");
                 setCurrentLocation({
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
                     accuracy: position.coords.accuracy,
                 });
-                // Compute quick geofence detection client-side
-                if (geofence) {
-                    const d = haversineDistance(position.coords.latitude, position.coords.longitude, geofence.latitude, geofence.longitude);
-                    const within = d <= geofence.radius;
-                    setInRange(within);
-                    setLastVerificationMessage(within ? "Within range" : "Outside work zone");
-                }
+
+                // Start watching with high accuracy
+                startWatcher(true);
+
                 // Verify via backend for authoritative check
                 if (accessToken) {
                     setIsVerifyingLocation(true);
@@ -442,63 +543,33 @@ export default function TimeClockPage() {
                         .verifyLocation(accessToken, position.coords.latitude, position.coords.longitude)
                         .then((res) => {
                             const withinRange = hasWithinRange(res) ? res.within_range : true;
-                            setInRange(withinRange);
+                            // setInRange handled by useEffect
                             const message = hasWithinRange(res) && res.message ? res.message : withinRange ? "Within range" : "Outside work zone";
-                            setLastVerificationMessage(message);
+                            if (hasWithinRange(res) && res.message) setLastVerificationMessage(res.message);
                             setLocationError(withinRange ? null : message);
                         })
                         .catch((err: unknown) => {
                             const message = err instanceof Error ? err.message : "Location verification failed";
                             setLocationError(message);
-                            setInRange(false);
                             setLastVerificationMessage(message);
                         })
                         .finally(() => setIsVerifyingLocation(false));
                 }
             },
             (error) => {
-                const msg = geoErrorMessage(error);
-                setLocationError(msg);
-                toast.error(`Failed to get location: ${msg}`);
-                setInRange(false);
-                setLastVerificationMessage(msg);
+                console.warn("High accuracy location failed", error);
+                // Don't set error yet, try fallback first
                 // Fallback: attempt low-accuracy location with caching
                 tryLowAccuracyLocation();
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
         );
     };
 
-    // Get location on component mount and start watch for live updates
+    // Get location on component mount
     useEffect(() => {
         getUserLocation();
-        if (!("geolocation" in navigator)) return;
-        let watchId: number | null = null;
-        watchId = navigator.geolocation.watchPosition(
-            (position) => {
-                setCurrentLocation({
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                    accuracy: position.coords.accuracy,
-                });
-                if (geofence) {
-                    const d = haversineDistance(position.coords.latitude, position.coords.longitude, geofence.latitude, geofence.longitude);
-                    const within = d <= geofence.radius;
-                    setInRange(within);
-                    setLastVerificationMessage(within ? "Within range" : "Outside work zone");
-                }
-            },
-            (error) => {
-                const msg = geoErrorMessage(error);
-                setLocationError(msg);
-                setLastVerificationMessage(msg);
-            },
-            { enableHighAccuracy: true, maximumAge: 5000 }
-        );
-        return () => {
-            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-        };
-    }, [geofence]);
+    }, []);
 
     // Auto clock-out watcher: if outside geofence for consecutive readings
     useEffect(() => {
@@ -529,7 +600,7 @@ export default function TimeClockPage() {
                     // ignore verification errors
                 }
             },
-            () => {},
+            () => { },
             { enableHighAccuracy: true, maximumAge: 5000 }
         );
         return () => {
@@ -573,7 +644,8 @@ export default function TimeClockPage() {
     };
 
     const isClockedIn = currentSession?.is_clocked_in === true;
-    const readyToClockIn = inRange && scheduleActive && !isLoadingSession;
+    // Allow clock-in when within geofence regardless of schedule window
+    const readyToClockIn = inRange && !isLoadingSession;
 
     // Compute today's accumulated hours
     const todaysHours = (() => {
@@ -674,12 +746,29 @@ export default function TimeClockPage() {
         setCameraOpen(false);
     };
 
-    // Helper component to recenter map when geofence changes
-    const Recenter: React.FC<{ lat: number; lng: number }> = ({ lat, lng }) => {
+    // Helper component to update map view dynamically
+    const MapEffects = ({ geofence, currentLocation }: { geofence: any, currentLocation: any }) => {
         const map = useMap();
+
         useEffect(() => {
-            map.setView([lat, lng], 17);
-        }, [lat, lng, map]);
+            if (!map) return;
+
+            if (geofence && currentLocation) {
+                // Create bounds that include both the geofence center and the user
+                const bounds = [
+                    [geofence.latitude, geofence.longitude],
+                    [currentLocation.latitude, currentLocation.longitude]
+                ] as [number, number][];
+
+                // If user is very close to center, fitBounds might zoom too much, so we limit maxZoom
+                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 17, animate: true });
+            } else if (geofence) {
+                map.setView([geofence.latitude, geofence.longitude], 17);
+            } else if (currentLocation) {
+                map.setView([currentLocation.latitude, currentLocation.longitude], 17);
+            }
+        }, [geofence, currentLocation, map]);
+
         return null;
     };
     const isBreakActive = Boolean(currentSession?.currentSession && currentSession.currentSession.is_break && currentSession.currentSession.break_start && !currentSession.currentSession.break_end);
@@ -708,7 +797,7 @@ export default function TimeClockPage() {
                                 <div className="rounded-2xl overflow-hidden border">
                                     <div className="relative h-64 w-full">
                                         <MapContainer center={[geofence?.latitude ?? currentLocation?.latitude ?? 0, geofence?.longitude ?? currentLocation?.longitude ?? 0]} zoom={geofence || currentLocation ? 17 : 2} className={`h-full w-full ${cameraOpen ? 'pointer-events-none' : ''}`}>
-                                            {geofence && <Recenter lat={geofence.latitude} lng={geofence.longitude} />}
+                                            <MapEffects geofence={geofence} currentLocation={currentLocation} />
                                             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
                                             {/* Geofence circle */}
                                             {geofence && (
@@ -717,9 +806,17 @@ export default function TimeClockPage() {
                                             {/* User location + accuracy halo */}
                                             {currentLocation && (
                                                 <>
-                                                    <CircleMarker center={[currentLocation.latitude, currentLocation.longitude]} radius={8} pathOptions={{ color: "#2563eb", fillColor: "#2563eb", fillOpacity: 0.9 }} />
+                                                    <CircleMarker
+                                                        center={[currentLocation.latitude, currentLocation.longitude]}
+                                                        radius={5}
+                                                        pathOptions={{ color: "#2563eb", fillColor: "#2563eb", fillOpacity: 0.9, weight: 2, opacity: 0.8 }}
+                                                    />
                                                     {typeof currentLocation.accuracy === "number" && currentLocation.accuracy > 0 && (
-                                                        <Circle center={[currentLocation.latitude, currentLocation.longitude]} radius={currentLocation.accuracy} pathOptions={{ color: "#60a5fa", fillColor: "#60a5fa", fillOpacity: 0.1 }} />
+                                                        <Circle
+                                                            center={[currentLocation.latitude, currentLocation.longitude]}
+                                                            radius={currentLocation.accuracy}
+                                                            pathOptions={{ color: "#60a5fa", fillColor: "#60a5fa", fillOpacity: 0.05, weight: 1 }}
+                                                        />
                                                     )}
                                                 </>
                                             )}
@@ -741,12 +838,18 @@ export default function TimeClockPage() {
                                             </div>
                                         )}
                                     </div>
-                                        <div className="p-3 text-center">
-                                            <p className="text-sm text-muted-foreground" aria-live="polite">{lastVerificationMessage ?? (inRange ? "Within range" : "Outside work zone")}</p>
-                                            {locationError && (
-                                                <p className="text-xs text-red-600 mt-1">{locationError}</p>
-                                            )}
-                                        </div>
+                                    <div className="p-3 text-center">
+                                        <p className="text-sm text-muted-foreground" aria-live="polite">{lastVerificationMessage ?? (inRange ? "Within range" : "Outside work zone")}</p>
+                                        {locationSource && (
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                Source: {locationSource}
+                                                {currentLocation?.accuracy && ` (±${Math.round(currentLocation.accuracy)}m)`}
+                                            </p>
+                                        )}
+                                        {locationError && (
+                                            <p className="text-xs text-red-600 mt-1">{locationError}</p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -763,8 +866,10 @@ export default function TimeClockPage() {
                             <div className="text-2xl font-semibold tracking-tight" aria-live="polite">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
                             {isClockedIn ? (
                                 <p className="text-muted-foreground">You’re currently clocked in.</p>
+                            ) : inRange ? (
+                                <p className="text-muted-foreground">You’re within range. {scheduleActive ? "You can clock in." : "Outside scheduled hours — clock-in permitted."}</p>
                             ) : (
-                                <p className="text-muted-foreground">Move into range during valid hours to enable clock-in.</p>
+                                <p className="text-muted-foreground">Move into range to enable clock-in.</p>
                             )}
                             <div className="text-sm text-muted-foreground">Today’s hours: {todaysHours}</div>
                         </div>
@@ -804,7 +909,9 @@ export default function TimeClockPage() {
                             </Button>
                         </div>
                         {!readyToClockIn && !isClockedIn && (
-                            <p className="mt-2 text-xs text-muted-foreground" aria-live="polite">Enter the work geofence during valid hours to enable Clock In.</p>
+                            <p className="mt-2 text-xs text-muted-foreground" aria-live="polite">
+                                {inRange ? (scheduleActive ? "Loading status…" : "Outside scheduled hours. Clock-in is allowed.") : "Enter the work geofence to enable Clock In."}
+                            </p>
                         )}
                     </CardContent>
                 </Card>
@@ -881,71 +988,92 @@ export default function TimeClockPage() {
                     ) : (
                         <p className="text-muted-foreground">No attendance history available.</p>
                     ))}
-            </CardContent>
-        </Card>
-        {/* Selfie capture only for clock-in */}
-        <CameraCaptureModal open={cameraOpen === "in"} onClose={() => setCameraOpen(false)} onCaptured={onPhotoCaptured} />
-        {/* Shift Review modal on clock-out */}
-        {/** Derive sessionId for review: prefer stored sessionIdForReview, then current-session id, then lastClockOutEvent id */}
-        {(() => {
-            const activeSessionId = currentSession?.currentSession?.id;
-            const endedSessionId = lastClockOutEvent?.id;
-            const resolvedSessionId = sessionIdForReview || activeSessionId || endedSessionId || "";
-            return (
-                <ShiftReviewModal
-                    open={reviewOpen}
-                    onOpenChange={setReviewOpen}
-                    submitting={reviewSubmitting}
-                    sessionId={resolvedSessionId}
-            completedAtISO={lastClockOutEvent?.clock_out_time || new Date().toISOString()}
-            hoursDecimal={(() => {
-                const inTime = lastClockOutEvent?.clock_in_time || currentSession?.currentSession?.clock_in_time;
-                const outTime = lastClockOutEvent?.clock_out_time || new Date().toISOString();
-                if (!inTime || !outTime) return undefined;
-                const start = new Date(inTime).getTime();
-                const end = new Date(outTime).getTime();
-                if (isNaN(start) || isNaN(end) || end <= start) return undefined;
-                return Number(((end - start) / 3600000).toFixed(2));
+                </CardContent>
+            </Card>
+            {/* Selfie capture only for clock-in */}
+            <CameraCaptureModal open={cameraOpen === "in"} onClose={() => setCameraOpen(false)} onCaptured={onPhotoCaptured} />
+            {/* Shift Review modal on clock-out */}
+            {/** Derive sessionId for review: prefer stored sessionIdForReview, then current-session id, then lastClockOutEvent id */}
+            {(() => {
+                const activeSessionId = currentSession?.currentSession?.id;
+                const endedSessionId = lastClockOutEvent?.id;
+                const resolvedSessionId = sessionIdForReview || activeSessionId || endedSessionId || "";
+                return (
+                    <ShiftReviewModal
+                        open={reviewOpen}
+                        onOpenChange={setReviewOpen}
+                        submitting={reviewSubmitting}
+                        sessionId={resolvedSessionId}
+                        completedAtISO={lastClockOutEvent?.clock_out_time || new Date().toISOString()}
+                        hoursDecimal={(() => {
+                            const inTime = lastClockOutEvent?.clock_in_time || currentSession?.currentSession?.clock_in_time;
+                            const outTime = lastClockOutEvent?.clock_out_time || new Date().toISOString();
+                            if (!inTime || !outTime) return undefined;
+                            const start = new Date(inTime).getTime();
+                            const end = new Date(outTime).getTime();
+                            if (isNaN(start) || isNaN(end) || end <= start) return undefined;
+                            return Number(((end - start) / 3600000).toFixed(2));
+                        })()}
+                        shiftTitle={(() => {
+                            const r = user?.restaurant as unknown;
+                            if (typeof r === "string") return r;
+                            if (r && typeof r === "object") {
+                                const name = (r as Record<string, unknown>)["name"];
+                                if (typeof name === "string") return name;
+                            }
+                            return "Shift";
+                        })()}
+                        shiftTimeRange={(() => {
+                            const inT = lastClockOutEvent?.clock_in_time || currentSession?.currentSession?.clock_in_time;
+                            const outT = lastClockOutEvent?.clock_out_time || new Date().toISOString();
+                            const day = inT ? formatSafe(inT, "EEE, MMM d") : formatSafe(new Date().toISOString(), "EEE, MMM d");
+                            const range = `${formatSafe(inT, "p")} – ${formatSafe(outT, "p")}`;
+                            return `${day} | ${range}`;
+                        })()}
+                        onSubmit={async (payload: ShiftReviewPayload) => {
+                            try {
+                                setReviewSubmitting(true);
+                                const submission = {
+                                    session_id: payload.session_id,
+                                    rating: payload.rating,
+                                    tags: payload.tags,
+                                    comments: payload.comments,
+                                    completed_at_iso: payload.completed_at_iso,
+                                    hours_decimal: payload.hours_decimal,
+                                };
+                                const res = await api.submitShiftReview(accessToken!, submission as any);
+                                toast.success("Shift feedback submitted");
+                                logInfo({ feature: "shift-review", action: "submit" }, `id=${res?.id || "unknown"}`);
+                                try {
+                                    queryClient.invalidateQueries({ queryKey: ["shiftReviews"] });
+                                    queryClient.invalidateQueries({ queryKey: ["shiftReviewStats"] });
+                                } catch (err) {
+                                    logInfo({ feature: "shift-review", action: "invalidate-queries" }, "handled");
+                                }
+                                try {
+                                    const today = new Date();
+                                    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+                                    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
+                                    const list = await api.getShiftReviews(accessToken!, { date_from: start, date_to: end, staff_id: String(user?.id || "") } as any);
+                                    const found = Array.isArray(list) && list.some((r: any) => String(r?.session_id || r?.shift_id || "") === String(payload.session_id));
+                                    if (found) {
+                                        toast.success("Feedback synced and visible to admins");
+                                    } else {
+                                        toast.message("Feedback saved; syncing to admin view shortly");
+                                    }
+                                } catch (err) {
+                                    logError({ feature: "shift-review", action: "post-submit-verify" }, err as unknown);
+                                }
+                            } catch (e) {
+                                logError({ feature: "shift-review", action: "submit-error" }, e as unknown);
+                                toast.info("Feedback saved locally; will retry when online");
+                            } finally {
+                                setReviewSubmitting(false);
+                            }
+                        }}
+                    />
+                );
             })()}
-            shiftTitle={(() => {
-                const r = user?.restaurant as unknown;
-                if (typeof r === "string") return r;
-                if (r && typeof r === "object") {
-                    const name = (r as Record<string, unknown>)["name"];
-                    if (typeof name === "string") return name;
-                }
-                return "Shift";
-            })()}
-            shiftTimeRange={(() => {
-                const inT = lastClockOutEvent?.clock_in_time || currentSession?.currentSession?.clock_in_time;
-                const outT = lastClockOutEvent?.clock_out_time || new Date().toISOString();
-                const day = inT ? formatSafe(inT, "EEE, MMM d") : formatSafe(new Date().toISOString(), "EEE, MMM d");
-                const range = `${formatSafe(inT, "p")} – ${formatSafe(outT, "p")}`;
-                return `${day} | ${range}`;
-            })()}
-            onSubmit={async (payload: ShiftReviewPayload) => {
-                try {
-                    setReviewSubmitting(true);
-                    const submission = {
-                                session_id: payload.session_id,
-                        rating: payload.rating,
-                        tags: payload.tags,
-                        comments: payload.comments,
-                        completed_at_iso: payload.completed_at_iso,
-                        hours_decimal: payload.hours_decimal,
-                    };
-                    await api.submitShiftReview(accessToken!, submission as any);
-                    toast.success("Shift review submitted");
-                } catch (e) {
-                    console.error("submitShiftReview failed", e);
-                    toast.info("Review saved locally (or endpoint pending)");
-                } finally {
-                    setReviewSubmitting(false);
-                }
-            }}
-                />
-            );
-        })()}
-    </div>
-);
+        </div>
+    );
 }
