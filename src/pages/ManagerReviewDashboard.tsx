@@ -5,7 +5,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useNotifications } from "@/hooks/useNotifications";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -99,7 +98,7 @@ const ManagerReviewDashboard: React.FC = () => {
     staleTime: 0,
   });
 
-  const { notifications, unreadCount, isConnected } = useNotifications();
+  const { notifications } = useNotifications();
 
   const approveMutation = useMutation({
     mutationFn: async (vars: { id: string; reason?: string }) => {
@@ -216,32 +215,7 @@ const ManagerReviewDashboard: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Completion</CardTitle><CardDescription className="text-xs">Live status</CardDescription></CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between text-sm"><div>{completed} of {total} completed</div><div>{completionPct}%</div></div>
-            <Progress value={completionPct} className="mt-2" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Notifications</CardTitle><CardDescription className="text-xs">Realtime</CardDescription></CardHeader>
-          <CardContent>
-            <div className="text-sm">Unread: {unreadCount}</div>
-            <div className="text-xs text-muted-foreground">WebSocket: {isConnected ? 'Connected' : 'Offline'}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Quality Control</CardTitle><CardDescription className="text-xs">Markers</CardDescription></CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2 text-xs">
-              <Badge variant="outline">Signed</Badge>
-              <Badge variant="outline">Evidence OK</Badge>
-              <Badge variant="outline">Timely</Badge>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Submissions Trend</CardTitle>

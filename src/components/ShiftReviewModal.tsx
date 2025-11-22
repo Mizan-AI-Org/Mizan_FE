@@ -69,6 +69,7 @@ export default function ShiftReviewModal({
   };
 
   const handleSubmit = async () => {
+    if (!sessionId) return;
     
     const payload: ShiftReviewPayload = {
       session_id: sessionId,
@@ -151,7 +152,7 @@ export default function ShiftReviewModal({
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={!!submitting}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={!!submitting} className="min-w-[160px]">
+            <Button onClick={handleSubmit} disabled={!!submitting || !sessionId} className="min-w-[160px]">
               {submitting ? (
                 <span className="flex items-center justify-center">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…
