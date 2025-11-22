@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Camera, Check, Circle, CircleOff, FileText, PenTool, Plus, Save, X } from 'lucide-react';
+import { api } from '@/lib/api';
 import type { TemplateDefinition, StepDefinition, ExecutionRecord, StepResponse, ResponseOption, EvidenceAttachment, PriorityLevel, ActionItem } from '@/types/checklist';
 
 type Props = {
@@ -60,11 +61,11 @@ const SignaturePad: React.FC<{ onSave: (dataUrl: string) => void } & React.HTMLA
 
   return (
     <div {...rest} className={`space-y-2 ${rest.className || ''}`}>
-      <div className="border rounded-md overflow-hidden bg-white">
+      <div className="border rounded-md overflow-hidden bg-white max-w-sm">
         <canvas
           ref={canvasRef}
-          width={600}
-          height={200}
+          width={320}
+          height={120}
           onMouseDown={handleDown}
           onMouseMove={handleMove}
           onMouseUp={handleUp}
@@ -74,7 +75,7 @@ const SignaturePad: React.FC<{ onSave: (dataUrl: string) => void } & React.HTMLA
       <div className="flex gap-2">
         <Button variant="secondary" onClick={() => {
           const ctx = canvasRef.current!.getContext('2d')!;
-          ctx.clearRect(0, 0, 600, 200);
+          ctx.clearRect(0, 0, 320, 120);
         }}>Clear</Button>
         <Button onClick={() => onSave(canvasRef.current!.toDataURL('image/png'))}>
           <PenTool className="h-4 w-4 mr-2" /> Save Signature
@@ -88,47 +89,48 @@ const EvidencePanel: React.FC<{
   step: StepDefinition;
   evidence: EvidenceAttachment[];
   onAddEvidence: (e: EvidenceAttachment) => void;
-}> = ({ step, evidence, onAddEvidence }) => {
+  locked?: boolean;
+}> = ({ step, evidence, onAddEvidence, locked }) => {
   const [note, setNote] = useState('');
   const [showSignature, setShowSignature] = useState(false);
 
-  const addNote = () => {
+  const addNoteAuto = () => {
     if (!note.trim()) return;
     onAddEvidence({ id: crypto.randomUUID(), type: 'note', note, createdAt: new Date().toISOString() });
-    setNote('');
+    void (async () => { try { await api.notifyEvent({ event_type: 'FIELD_EDITED', severity: 'MEDIUM', message: 'Note added' }); } catch (e) { /* silent fail */ } })();
   };
 
-  const handleFile = (ev: React.ChangeEvent<HTMLInputElement>, type: 'photo' | 'video') => {
+  const handleFile = (ev: React.ChangeEvent<HTMLInputElement>, type: 'photo' | 'video' | 'document') => {
     const file = ev.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
-    onAddEvidence({ id: crypto.randomUUID(), type, url, createdAt: new Date().toISOString(), metadata: { name: file.name, size: file.size } });
+    if (!locked) onAddEvidence({ id: crypto.randomUUID(), type, url, createdAt: new Date().toISOString(), metadata: { name: file.name, size: file.size } });
+    void (async () => { try { await api.notifyEvent({ event_type: 'FIELD_EDITED', severity: 'MEDIUM', message: `${type} added` }); } catch (e) { /* silent fail */ } })();
   };
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Add Note</Label>
-          <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Details, observations, or context" />
-          <Button variant="secondary" onClick={addNote}>
-            <FileText className="h-4 w-4 mr-2" /> Save with Timestamp
-          </Button>
+          <Textarea value={note} onChange={(e) => setNote(e.target.value)} onBlur={addNoteAuto} placeholder="Details, observations, or context" disabled={!!locked} />
         </div>
         <div className="space-y-2">
           <Label>Attach Photo</Label>
-          <Input type="file" accept="image/*" capture="environment" onChange={(e) => handleFile(e, 'photo')} />
+          <Input type="file" accept="image/*" capture="environment" onChange={(e) => handleFile(e, 'photo')} disabled={!!locked} />
           {step.requiresPhoto && (
             <Badge variant="destructive" className="w-fit">Photo required</Badge>
           )}
         </div>
         <div className="space-y-2">
           <Label>Attach Video</Label>
-          <Input type="file" accept="video/*" capture="environment" onChange={(e) => handleFile(e, 'video')} />
-          {step.requiresVideo && (
-            <Badge variant="destructive" className="w-fit">Video required</Badge>
-          )}
+          <Input type="file" accept="video/*" onChange={(e) => handleFile(e, 'video')} disabled={!!locked} />
         </div>
+        <div className="space-y-2">
+          <Label>Attach Document</Label>
+          <Input type="file" accept="application/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={(e) => handleFile(e, 'document')} disabled={!!locked} />
+        </div>
+
       </div>
 
       <div className="space-y-2">
@@ -142,12 +144,15 @@ const EvidencePanel: React.FC<{
               <Badge className="w-fit bg-green-100 text-green-700">Signed</Badge>
             )}
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setShowSignature((s) => !s)}>
+          <Button variant="ghost" size="sm" onClick={() => setShowSignature((s) => !s)} aria-label="Toggle signature pad" disabled={!!locked}>
             {showSignature ? <X className="h-4 w-4 mr-2" /> : <PenTool className="h-4 w-4 mr-2" />} {showSignature ? 'Hide' : 'Add Signature'}
           </Button>
         </div>
-        {showSignature && (
-          <SignaturePad onSave={(dataUrl) => onAddEvidence({ id: crypto.randomUUID(), type: 'signature', url: dataUrl, createdAt: new Date().toISOString() })} />
+        {showSignature && !locked && (
+          <SignaturePad onSave={(dataUrl) => {
+            onAddEvidence({ id: crypto.randomUUID(), type: 'signature', url: dataUrl, createdAt: new Date().toISOString() });
+            void (async () => { try { await api.notifyEvent({ event_type: 'DOCUMENT_SIGNED', severity: 'HIGH', message: 'Document signed' }); } catch (e) { /* silent fail */ } })();
+          }} />
         )}
       </div>
 
@@ -159,8 +164,14 @@ const EvidencePanel: React.FC<{
               <div key={ev.id} className="border rounded-md p-2 text-xs">
                 <div className="font-medium capitalize">{ev.type}</div>
                 {ev.url ? (
-                  ev.type === 'photo' ? <img src={ev.url} alt="Photo evidence" className="w-full h-20 object-cover" /> : (
-                    <video src={ev.url} className="w-full h-20" controls title="Video evidence" />
+                  ev.type === 'photo' ? (
+                    <img src={ev.url} alt="Photo evidence" className="w-full h-20 object-cover" />
+                  ) : ev.type === 'video' ? (
+                    <video src={ev.url} controls className="w-full h-20 object-cover" />
+                  ) : ev.type === 'document' ? (
+                    <a href={ev.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center gap-1"><FileText className="h-3 w-3" /> Open document</a>
+                  ) : (
+                    <div className="text-muted-foreground">{ev.note}</div>
                   )
                 ) : (
                   <div className="text-muted-foreground">{ev.note}</div>
@@ -300,11 +311,17 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
     return Math.round((completed / total) * 100);
   }, [record.stepResponses, template.steps.length]);
 
-  // Autosave
+  // Autosave with timestamp + notification
+  const [lastAutoNotify, setLastAutoNotify] = useState<number>(0);
   useEffect(() => {
     const payload = { ...record, updatedAt: new Date().toISOString() };
     localStorage.setItem(storageKey(template.id), JSON.stringify(payload));
-  }, [record, template.id]);
+    const now = Date.now();
+    if (now - lastAutoNotify > 15000) {
+      setLastAutoNotify(now);
+      void (async () => { try { await api.notifyEvent({ event_type: 'AUTO_SAVE', severity: 'LOW', message: 'Checklist autosaved' }); } catch (e) { /* silent fail */ } })();
+    }
+  }, [record, template.id, lastAutoNotify]);
 
   useEffect(() => {
     const updateOnline = () => setRecord(r => ({ ...r, offline: !navigator.onLine }));
@@ -335,25 +352,35 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
         existing.response = resp; existing.respondedAt = now;
         return { ...r, stepResponses: [...r.stepResponses] };
       }
-      const sr: StepResponse = { stepId: currentStep.id, response: resp, respondedAt: now, evidence: [], measurements: currentStep.measurements?.map(m => ({ ...m })) };
+      const sr: StepResponse = { stepId: currentStep.id, response: resp, respondedAt: now, evidence: [] };
       return { ...r, stepResponses: [...r.stepResponses, sr] };
     });
   };
 
   const addEvidence = (ev: EvidenceAttachment) => {
     setRecord(r => {
-      const resp = r.stepResponses.find(sr => sr.stepId === currentStep.id) || { stepId: currentStep.id, evidence: [], measurements: currentStep.measurements?.map(m => ({ ...m })) } as StepResponse;
+      const resp = r.stepResponses.find(sr => sr.stepId === currentStep.id) || { stepId: currentStep.id, evidence: [] } as StepResponse;
       if (!r.stepResponses.find(sr => sr.stepId === currentStep.id)) r.stepResponses.push(resp);
       resp.evidence.push(ev);
       return { ...r, stepResponses: [...r.stepResponses] };
     });
+    if (ev.type === 'photo' || ev.type === 'note') {
+      void (async () => { try { await api.notifyEvent({ event_type: 'FIELD_EDITED', severity: 'MEDIUM', message: `Evidence added: ${ev.type}` }); } catch (e) { /* silent fail */ } })();
+    }
+  };
+
+  const isStepRequirementsMet = (step: StepDefinition, stepId: string) => {
+    const resp = record.stepResponses.find(sr => sr.stepId === stepId);
+    const hasResponse = !!resp?.response;
+    const hasPhotoIfRequired = !step.requiresPhoto || (resp?.evidence || []).some(ev => ev.type === 'photo');
+    const hasSigIfRequired = !step.requiresSignature || (resp?.evidence || []).some(ev => ev.type === 'signature');
+    return hasResponse && hasPhotoIfRequired && hasSigIfRequired;
   };
 
   const nextStep = () => {
     // Require a response before moving forward
-    const currentResp = record.stepResponses.find(sr => sr.stepId === currentStep.id)?.response;
-    if (!currentResp) {
-      setValidationMsg('Please select YES/NO/NA before proceeding.');
+    if (!isStepRequirementsMet(currentStep, currentStep.id)) {
+      setValidationMsg('Please complete required response and evidence before proceeding.');
       return;
     }
     setValidationMsg(null);
@@ -368,10 +395,40 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
 
   const prevStep = () => setRecord(r => ({ ...r, currentIndex: Math.max(0, r.currentIndex - 1) }));
 
+  const allStepsSatisfied = useMemo(() => {
+    return template.steps.every(s => isStepRequirementsMet(s, s.id));
+  }, [template.steps, record.stepResponses]);
+
+  const hasAnySignature = useMemo(() => {
+    return record.stepResponses.some(sr => (sr.evidence || []).some(ev => ev.type === 'signature'));
+  }, [record.stepResponses]);
+
+  const [locked, setLocked] = useState<boolean>(!!record.completedAt);
+  const [quickNote, setQuickNote] = useState('');
+  const [showQuickNote, setShowQuickNote] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const completedCount = useMemo(() => {
+    return template.steps.filter(s => isStepRequirementsMet(s, s.id)).length;
+  }, [template.steps, record.stepResponses]);
+  const overallPct = useMemo(() => {
+    const total = template.steps.length || 1;
+    return Math.round((completedCount / total) * 100);
+  }, [completedCount, template.steps.length]);
+
+  useEffect(() => {
+    const allDone = template.steps.every(s => isStepRequirementsMet(s, s.id));
+    if (allDone || record.completedAt) setLocked(true);
+  }, [template.steps, record.stepResponses, record.completedAt]);
+
   const handleSubmit = async () => {
-    const completed = record.stepResponses.length >= template.steps.length;
+    if (!allStepsSatisfied || !hasAnySignature) {
+      setValidationMsg('All tasks must be completed and signed before submission.');
+      return;
+    }
     const final = { ...record, completedAt: new Date().toISOString() };
     setRecord(final);
+    setLocked(true);
     if (onSubmit) await onSubmit(final);
   };
 
@@ -380,35 +437,33 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
   };
 
   return (
-    <Card className="max-w-xl mx-auto shadow-soft">
-      <CardHeader>
-        <div className="flex items-center justify-between">
+    <Card className="max-w-4xl w-full mx-auto shadow-soft">
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <CardTitle className="text-base sm:text-lg">{template.name}</CardTitle>
-            <CardDescription className="text-xs">Quick, mobile-first checklist executor</CardDescription>
+            <CardTitle className="text-lg sm:text-xl">{template.name}</CardTitle>
+            <CardDescription className="text-sm">Quick, mobile-first checklist executor</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant={record.offline ? 'destructive' : 'secondary'}>{record.offline ? 'Offline' : 'Online'}</Badge>
-            <Button variant="outline" size="sm" onClick={handleSubmit}><Save className="h-4 w-4 mr-2" /> Submit</Button>
-          </div>
+          <Badge variant={record.offline ? 'destructive' : 'secondary'}>{record.offline ? 'Offline' : 'Online'}</Badge>
         </div>
-        <div className="mt-3">
-          <Progress value={progressPct} />
-          <div className="text-xs text-muted-foreground mt-1" aria-live="polite">{progressPct}% complete</div>
+        <div>
+          <div className="text-sm font-medium mb-2">Overall Progress</div>
+          <Progress value={overallPct} className="h-2" />
+          <div className="text-xs text-muted-foreground mt-1.5" aria-live="polite">{completedCount} of {template.steps.length} tasks completed</div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Step Card */}
-        <div className="border rounded-md p-3">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="text-sm font-medium">Step {record.currentIndex + 1} of {template.steps.length}</div>
-              <div className="text-base font-semibold">{currentStep.title}</div>
+        <div className="border rounded-lg p-4 sm:p-5 bg-white shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <div className="text-xs font-medium text-muted-foreground mb-1">Step {record.currentIndex + 1} of {template.steps.length}</div>
+              <div className="text-lg font-semibold text-gray-900">{currentStep.title}</div>
               {currentStep.instruction && (
-                <p className="text-sm text-muted-foreground mt-1">{currentStep.instruction}</p>
+                <p className="text-sm text-muted-foreground mt-2">{currentStep.instruction}</p>
               )}
             </div>
-            <Badge variant="outline" className="text-xs">{currentStep.estimatedSeconds ? `${Math.round(currentStep.estimatedSeconds/60)}m` : '—'}</Badge>
+            <Badge variant="outline" className="text-xs whitespace-nowrap">{currentStep.estimatedSeconds ? `${Math.round(currentStep.estimatedSeconds / 60)}m` : '—'}</Badge>
           </div>
 
           {validationMsg && (
@@ -418,11 +473,21 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
           )}
 
           {/* Response Toggle */}
-          <div className="grid grid-cols-3 gap-2 mt-3">
-            {(['YES','NO','NA'] as ResponseOption[]).map((opt) => {
+          <div className="grid grid-cols-3 gap-3 mt-4">
+            {(['YES', 'NO', 'NA'] as ResponseOption[]).map((opt) => {
               const selected = record.stepResponses.find(sr => sr.stepId === currentStep.id)?.response === opt;
+              const base = "w-full h-12 text-base font-semibold rounded-md transition-colors";
+              const yesCls = selected ? "bg-green-600 hover:bg-green-700 text-white" : "bg-green-50 text-green-700 hover:bg-green-100";
+              const noCls = selected ? "bg-red-600 hover:bg-red-700 text-white" : "bg-red-50 text-red-700 hover:bg-red-100";
+              const naCls = selected ? "bg-gray-600 hover:bg-gray-700 text-white" : "bg-gray-100 text-gray-800 hover:bg-gray-200";
+              const cls = opt === 'YES' ? yesCls : opt === 'NO' ? noCls : naCls;
               return (
-                <Button key={opt} variant={selected ? 'default' : 'secondary'} className="w-full" onClick={() => setResponse(opt)}>
+                <Button
+                  key={opt}
+                  className={`${base} ${cls}`}
+                  onClick={() => setResponse(opt)}
+                  disabled={locked}
+                >
                   {responseIcon(opt)}
                   <span className="ml-2">{opt}</span>
                 </Button>
@@ -430,58 +495,42 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
             })}
           </div>
 
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 mt-4">
+            <Button variant="outline" size="default" className="flex-1 h-11" onClick={() => setShowQuickNote(true)} disabled={locked}><FileText className="h-4 w-4 mr-2" /> Add Comment</Button>
+            <Button variant="outline" size="default" className="flex-1 h-11" onClick={() => fileRef.current?.click()} disabled={locked}><Camera className="h-4 w-4 mr-2" /> Attach Photo</Button>
+            <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) {
+                const url = URL.createObjectURL(f);
+                addEvidence({ id: crypto.randomUUID(), type: 'photo', url, createdAt: new Date().toISOString() });
+                e.currentTarget.value = '';
+              }
+            }} />
+          </div>
+
+          {showQuickNote && (
+            <div className="mt-3 space-y-2">
+              <Textarea value={quickNote} onChange={(e) => setQuickNote(e.target.value)} placeholder="Add a comment" />
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={() => { if (quickNote.trim()) { addEvidence({ id: crypto.randomUUID(), type: 'note', note: quickNote, createdAt: new Date().toISOString() }); setQuickNote(''); } }} disabled={locked}><Save className="h-4 w-4 mr-2" /> Save Comment</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setShowQuickNote(false); setQuickNote(''); }} disabled={locked}>Cancel</Button>
+              </div>
+            </div>
+          )}
+
+          {currentStep.requiresPhoto && !(record.stepResponses.find(sr => sr.stepId === currentStep.id)?.evidence || []).some(ev => ev.type === 'photo') && (
+            <div className="mt-3 rounded-md border bg-amber-50 text-amber-800 px-3 py-2 text-sm">Photo evidence is required to complete this task</div>
+          )}
+
           {/* Evidence Panel */}
           <div className="mt-4">
             <Tabs defaultValue="evidence">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="evidence">Evidence</TabsTrigger>
-                <TabsTrigger value="measurements">Measurements</TabsTrigger>
                 <TabsTrigger value="actions">Actions</TabsTrigger>
               </TabsList>
               <TabsContent value="evidence" className="mt-3">
-                <EvidencePanel step={currentStep} evidence={record.stepResponses.find(sr => sr.stepId === currentStep.id)?.evidence || []} onAddEvidence={addEvidence} />
-              </TabsContent>
-              <TabsContent value="measurements" className="mt-3">
-                {currentStep.measurements?.length ? (
-                  <div className="space-y-3">
-                    {currentStep.measurements.map((m, idx) => (
-                      <div key={idx} className="grid grid-cols-3 gap-2 items-end">
-                        <div>
-                          <Label>{m.label}</Label>
-                          <Input type="number" step="0.1" onChange={(e) => {
-                            const v = parseFloat(e.target.value);
-                            setRecord(r => {
-                              const resp = r.stepResponses.find(sr => sr.stepId === currentStep.id) || { stepId: currentStep.id, evidence: [], measurements: currentStep.measurements?.map(mm => ({ ...mm })) } as StepResponse;
-                              if (!r.stepResponses.find(sr => sr.stepId === currentStep.id)) r.stepResponses.push(resp);
-                              const target = (resp.measurements || []).find(mm => mm.label === m.label);
-                              if (target) target.value = v; else (resp.measurements || []).push({ ...m, value: v });
-                              return { ...r, stepResponses: [...r.stepResponses] };
-                            });
-                          }} />
-                        </div>
-                        <div>
-                          <Label>Unit</Label>
-                          <Input value={m.unit || ''} readOnly />
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {m.thresholdType === 'range' && m.min !== undefined && m.max !== undefined && (
-                            <span>Threshold: {m.min}–{m.max} {m.unit || ''}</span>
-                          )}
-                          {m.thresholdType === 'min' && m.min !== undefined && (
-                            <span>Min: ≥ {m.min} {m.unit || ''}</span>
-                          )}
-                          {m.thresholdType === 'max' && m.max !== undefined && (
-                            <span>Max: ≤ {m.max} {m.unit || ''}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <Alert>
-                    <AlertDescription>No measurements for this step.</AlertDescription>
-                  </Alert>
-                )}
+                <EvidencePanel step={currentStep} evidence={record.stepResponses.find(sr => sr.stepId === currentStep.id)?.evidence || []} onAddEvidence={locked ? () => { } : addEvidence} locked={locked} />
               </TabsContent>
               <TabsContent value="actions" className="mt-3">
                 <Button onClick={() => setActionOpen(true)}>
@@ -504,17 +553,22 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
             </Tabs>
           </div>
 
-          {/* Navigation */}
-          <div className="flex items-center justify-between mt-4">
-            <Button variant="secondary" onClick={prevStep}>Previous</Button>
-            <div className="text-xs text-muted-foreground">Save happens automatically</div>
-            <Button onClick={nextStep}>Next</Button>
+          <div className="flex items-center justify-between gap-3 mt-6 pt-4 border-t">
+            <Button variant="secondary" size="lg" onClick={prevStep} disabled={locked} className="h-11 px-6" aria-label="Previous step">Previous</Button>
+            <div className="hidden sm:block text-xs text-muted-foreground flex-shrink-0" aria-live="polite">Auto-saved</div>
+            {!hasAnySignature ? (
+              <Button size="lg" onClick={nextStep} disabled={locked || !isStepRequirementsMet(currentStep, currentStep.id)} className="h-11 px-6 transition-colors" aria-label="Next step">Next</Button>
+            ) : (
+              <Button size="lg" onClick={handleSubmit} disabled={locked || !allStepsSatisfied} className="h-11 px-6 bg-green-600 hover:bg-green-700 text-white transition-colors animate-in fade-in slide-in-from-right" aria-label="Submit checklist">
+                <Save className="h-4 w-4 mr-2" /> Submit
+              </Button>
+            )}
           </div>
         </div>
 
         <ActionModal open={actionOpen} onOpenChange={setActionOpen} onCreate={createAction} />
       </CardContent>
-    </Card>
+    </Card >
   );
 };
 

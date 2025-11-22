@@ -304,8 +304,13 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
             }
             // Persist selections before saving the shift
             await persistTemplateSelections();
+            // Include task_templates in the shift data
+            const shiftWithTemplates = {
+                ...shiftData,
+                task_templates: selectedTemplateIds
+            };
             // Support both synchronous and Promise returns without truthiness checks
-            await Promise.resolve(onSave(shiftData));
+            await Promise.resolve(onSave(shiftWithTemplates));
             onClose();
         } finally {
             setIsSubmitting(false);
@@ -464,9 +469,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                             key={staff.id}
                                             type="button"
                                             onClick={() => handleSelectChange(staff.id, 'staffId')}
-                                            className={`w-full flex items-center gap-3 px-2 py-2 rounded-md text-left mb-1 ${
-                                                isSelected ? 'bg-primary/10 border border-primary' : 'hover:bg-muted'
-                                            } ${isActive ? 'ring-2 ring-primary' : ''}`}
+                                            className={`w-full flex items-center gap-3 px-2 py-2 rounded-md text-left mb-1 ${isSelected ? 'bg-primary/10 border border-primary' : 'hover:bg-muted'
+                                                } ${isActive ? 'ring-2 ring-primary' : ''}`}
                                             role="option"
                                             aria-selected={isSelected}
                                         >

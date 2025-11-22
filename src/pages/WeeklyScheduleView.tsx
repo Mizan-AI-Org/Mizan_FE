@@ -105,92 +105,73 @@ const WeeklyScheduleView: React.FC = () => {
     queryFn: async () => {
       if (!user) return Promise.reject("No user");
       const accessToken = localStorage.getItem("access_token") || "";
-      // Primary: v2 assigned shifts filtered by current user and week range
+
+      // Use calendar/my_shifts endpoint - designed for staff access
+      console.log('[WeeklySchedule] Fetching for week:', formattedWeekStart, 'to', formattedWeekEnd, 'for user:', user.id);
       try {
-        const shiftsResp: AssignedShiftsResponse = await api.getAssignedShifts(accessToken, {
-          staff_id: user.id,
-          date_from: formattedWeekStart,
-          date_to: formattedWeekEnd,
-        });
-        return normalizeEnvelope<AssignedShift>(shiftsResp);
-      } catch (e) {
-        // Fallback: v1 weekly schedules -> nested assigned shifts
-        try {
-          const listRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          if (!listRes.ok) throw new Error("Failed to fetch weekly schedules");
-          const listJson = await listRes.json();
-          const schedulesEnvelope: WeeklySchedulesResponse = listJson as WeeklySchedulesResponse;
-          const schedules: WeeklyScheduleData[] = normalizeEnvelope<WeeklyScheduleData>(schedulesEnvelope);
-          const current = schedules?.find((s) => s.week_start === formattedWeekStart);
-          if (!current) return [];
-          const asRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/${current.id}/assigned-shifts/`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          if (!asRes.ok) return [];
-          const asJson = await asRes.json();
-          const asEnvelope: AssignedShiftsResponse = asJson as AssignedShiftsResponse;
-          const all: AssignedShift[] = normalizeEnvelope<AssignedShift>(asEnvelope);
-          return all.filter((s) => getStaffId(s) === user.id);
-        } catch {
-          // Final fallback: staff-friendly calendar endpoint
-          try {
-            const calRes = await fetch(
-              `${API_BASE}/scheduling/calendar/my_shifts/?start_date=${formattedWeekStart}&end_date=${formattedWeekEnd}`,
-              { headers: { Authorization: `Bearer ${accessToken}` } }
-            );
-            if (!calRes.ok) return [];
-            const calJson = await calRes.json();
-            const events: Array<{
-              id: string;
-              title: string;
-              start: string; // ISO datetime
-              end: string;   // ISO datetime
-              status?: AssignedShift["status"];
-              is_confirmed?: boolean;
-              notes?: string | null;
-            }> = Array.isArray(calJson?.events) ? calJson.events : [];
+        const calRes = await fetch(
+          `${API_BASE}/scheduling/calendar/my_shifts/?start_date=${formattedWeekStart}&end_date=${formattedWeekEnd}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
 
-            const mapIsoToAssigned = (iso: string) => {
-              const d = new Date(iso);
-              const dateStr = format(d, "yyyy-MM-dd");
-              const hh = String(d.getHours()).padStart(2, "0");
-              const mm = String(d.getMinutes()).padStart(2, "0");
-              return { dateStr, timeStr: `${hh}:${mm}:00` };
-            };
+        console.log('[WeeklySchedule] Calendar API response status:', calRes.status);
 
-            const shifts: AssignedShift[] = events.map((e) => {
-              const startParts = mapIsoToAssigned(e.start);
-              const endParts = mapIsoToAssigned(e.end);
-              // Compute hours for display convenience
-              const diffMs = new Date(e.end).getTime() - new Date(e.start).getTime();
-              const actualHours = Math.max(0, diffMs) / (1000 * 60 * 60);
-              return {
-                id: e.id,
-                shift_date: startParts.dateStr,
-                start_time: startParts.timeStr,
-                end_time: endParts.timeStr,
-                role: "",
-                notes: e.notes || null,
-                staff_info: {
-                  id: user!.id,
-                  first_name: user!.first_name,
-                  last_name: user!.last_name,
-                  email: user!.email,
-                },
-                status: e.status,
-                is_confirmed: e.is_confirmed,
-                actual_hours: Number.isFinite(actualHours) ? actualHours : undefined,
-              } as AssignedShift;
-            });
-
-            return shifts;
-          } catch {
-            // Graceful: no red error — return empty list for UI to show "No shifts"
-            return [];
-          }
+        if (!calRes.ok) {
+          const errorText = await calRes.text();
+          console.error('[WeeklySchedule] Calendar API error:', calRes.status, errorText);
+          return [];
         }
+
+        const calJson = await calRes.json();
+        console.log('[WeeklySchedule] Calendar API response:', calJson);
+
+        const events: Array<{
+          id: string;
+          title: string;
+          start: string;
+          end: string;
+          status?: AssignedShift["status"];
+          is_confirmed?: boolean;
+          notes?: string | null;
+        }> = Array.isArray(calJson?.events) ? calJson.events : [];
+
+        const mapIsoToAssigned = (iso: string) => {
+          const d = new Date(iso);
+          const dateStr = format(d, "yyyy-MM-dd");
+          const hh = String(d.getHours()).padStart(2, "0");
+          const mm = String(d.getMinutes()).padStart(2, "0");
+          return { dateStr, timeStr: `${hh}:${mm}:00` };
+        };
+
+        const shifts: AssignedShift[] = events.map((e) => {
+          const startParts = mapIsoToAssigned(e.start);
+          const endParts = mapIsoToAssigned(e.end);
+          const diffMs = new Date(e.end).getTime() - new Date(e.start).getTime();
+          const actualHours = Math.max(0, diffMs) / (1000 * 60 * 60);
+          return {
+            id: e.id,
+            shift_date: startParts.dateStr,
+            start_time: startParts.timeStr,
+            end_time: endParts.timeStr,
+            role: "",
+            notes: e.notes || null,
+            staff_info: {
+              id: user!.id,
+              first_name: user!.first_name,
+              last_name: user!.last_name,
+              email: user!.email,
+            },
+            status: e.status,
+            is_confirmed: e.is_confirmed,
+            actual_hours: Number.isFinite(actualHours) ? actualHours : undefined,
+          } as AssignedShift;
+        });
+
+        console.log('[WeeklySchedule] Mapped shifts:', shifts.length, shifts);
+        return shifts;
+      } catch (error) {
+        console.error('[WeeklySchedule] Error fetching calendar shifts:', error);
+        return [];
       }
     },
     enabled: !!user,
@@ -253,7 +234,7 @@ const WeeklyScheduleView: React.FC = () => {
       if (!shiftsByDay[dateKey]) {
         shiftsByDay[dateKey] = [];
       }
-  shiftsByDay[dateKey].push(shift);
+      shiftsByDay[dateKey].push(shift);
     });
 
   const getDurationLabel = (start: string, end: string) => {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from './use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -26,6 +27,7 @@ interface WebSocketMessage {
 
 const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 const WS_BASE = import.meta.env.VITE_REACT_APP_WS_URL || 'ws://localhost:8000/ws';
+const WS_ENABLED = String(import.meta.env.VITE_ENABLE_NOTIFICATIONS_WS || 'false').toLowerCase() === 'true';
 
 export const useNotifications = () => {
     const { user, logout } = useAuth();
@@ -121,6 +123,10 @@ export const useNotifications = () => {
                 ws.current.close();
                 ws.current = null;
             }
+            return;
+        }
+
+        if (!WS_ENABLED) {
             return;
         }
 

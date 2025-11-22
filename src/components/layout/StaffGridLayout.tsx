@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
-import { ChefHat, Bell, LogOut, Search, User as UserIcon, SunMoon } from "lucide-react";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Bell, LogOut, Search, User as UserIcon, SunMoon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -10,19 +10,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import SafetyNotifications from "@/components/safety/SafetyNotifications";
 import { useAuth } from "@/hooks/use-auth";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import BackLink from "@/components/BackLink";
 import BrandLogo from "@/components/BrandLogo";
+import { LanguageSelector } from "@/components/LanguangeSelector";
+import { useNotifications } from "@/hooks/useNotifications";
 
 // Grid-based staff layout using a top navbar and main content area.
 // Mirrors admin layout spacing and components, while switching to grid navigation.
 const StaffGridLayout: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
   const [query, setQuery] = useState("");
+  const { notifications, markAllAsRead, markAsRead } = useNotifications();
 
   const userInitials = useMemo(() => {
     const f = user?.first_name?.[0] ?? "U";
@@ -60,7 +63,46 @@ const StaffGridLayout: React.FC = () => {
 
             {/* Notifications and Profile */}
             <div className="flex items-center gap-3 text-sm">
-              <SafetyNotifications />
+              <ThemeToggle />
+              <LanguageSelector />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
+                    <Bell className="h-5 w-5" />
+                    {notifications.filter(n => !n.read).length > 0 && (
+                      <span className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center rounded-full bg-red-500 text-white text-xs">
+                        {notifications.filter(n => !n.read).length}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80">
+                  <div className="px-4 py-2 font-medium">Notifications</div>
+                  <DropdownMenuSeparator />
+                  {notifications.length === 0 ? (
+                    <p className="text-center text-sm text-muted-foreground py-4">No notifications</p>
+                  ) : (
+                    notifications.map((notification) => (
+                      <DropdownMenuItem key={notification.id} className="flex flex-col items-start space-y-1 p-2">
+                        <p className="text-sm font-medium capitalize">{notification.verb.replace(/_/g, ' ')}</p>
+                        {notification.description && (
+                          <p className="text-xs text-muted-foreground">{notification.description}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">{new Date(notification.timestamp).toLocaleString()}</p>
+                        {!notification.read && (
+                          <Button variant="link" size="sm" onClick={() => markAsRead(notification.id)} className="self-end h-auto p-0 text-xs text-blue-600">
+                            Mark as Read
+                          </Button>
+                        )}
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={markAllAsRead}>
+                    Mark all as read
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

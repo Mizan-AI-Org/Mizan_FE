@@ -242,9 +242,64 @@ export default function GeolocationMapSettings({
         toast.success("Location detected successfully.");
       },
       () => {
-        toast.error("Failed to get current location. Please enter manually.");
-        setIsGettingLocation(false);
-      }
+        navigator.geolocation.getCurrentPosition(
+          (lowAcc) => {
+            const newLat = lowAcc.coords.latitude;
+            const newLng = lowAcc.coords.longitude;
+            setLat(newLat);
+            setLng(newLng);
+            setLatInput(newLat.toString());
+            setLngInput(newLng.toString());
+            setIsGettingLocation(false);
+            toast.success("Location detected successfully.");
+          },
+          () => {
+            let cleared = false;
+            const watchId = navigator.geolocation.watchPosition(
+              (pos) => {
+                if (cleared) return;
+                cleared = true;
+                navigator.geolocation.clearWatch(watchId);
+                const wLat = pos.coords.latitude;
+                const wLng = pos.coords.longitude;
+                setLat(wLat);
+                setLng(wLng);
+                setLatInput(wLat.toString());
+                setLngInput(wLng.toString());
+                setIsGettingLocation(false);
+                toast.success("Location detected successfully.");
+              },
+              async () => {
+                // Final fallback: approximate IP-based location (CORS-safe)
+                try {
+                  const resp = await fetch("https://ipwho.is/", { mode: "cors", cache: "no-store" });
+                  if (resp.ok) {
+                    const data = await resp.json();
+                    const ipLat = Number(data?.latitude);
+                    const ipLng = Number(data?.longitude);
+                    if (Number.isFinite(ipLat) && Number.isFinite(ipLng)) {
+                      setLat(ipLat);
+                      setLng(ipLng);
+                      setLatInput(ipLat.toString());
+                      setLngInput(ipLng.toString());
+                      setIsGettingLocation(false);
+                      toast.info("Approximate location detected via network. Verify before saving.");
+                      return;
+                    }
+                  }
+                } catch (error) {
+                  console.debug("IP geolocation fallback failed", error);
+                }
+                setIsGettingLocation(false);
+                toast.error("Failed to get current location. Please enter manually.");
+              },
+              { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+            );
+          },
+          { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 }
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   }, []);
 
@@ -257,6 +312,14 @@ export default function GeolocationMapSettings({
       Number.isNaN(radiusMeters)
     ) {
       toast.error("Please fill in all location fields.");
+      return;
+    }
+    if (parsedLat < -90 || parsedLat > 90) {
+      toast.error("Latitude must be between -90 and 90.");
+      return;
+    }
+    if (parsedLng < -180 || parsedLng > 180) {
+      toast.error("Longitude must be between -180 and 180.");
       return;
     }
     if (radiusMeters < 5 || radiusMeters > 100) {
@@ -428,7 +491,7 @@ export default function GeolocationMapSettings({
               {geofenceEnabled ? "Geofencing Active" : "Geofencing Disabled"}
             </p>
             <p className="text-xs text-muted-foreground">
-              Staff must clock in within {radiusInKm} km of the map marker. 
+              Staff must clock in within {radiusInKm} km of the map marker.
             </p>
           </div>
         </div>
