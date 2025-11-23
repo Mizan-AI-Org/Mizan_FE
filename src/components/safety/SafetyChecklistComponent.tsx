@@ -59,17 +59,17 @@ const SafetyChecklistComponent: React.FC = () => {
   const { data: checklists, isLoading } = useQuery({
     queryKey: ['safety-checklists'],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/safety-checklists/`, {
+      const response = await fetch(`${API_BASE}/staff/safety-checklists/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch safety checklists');
       }
-      
+
       return response.json();
     },
   });
@@ -77,7 +77,7 @@ const SafetyChecklistComponent: React.FC = () => {
   // Create Checklist mutation
   const createChecklistMutation = useMutation({
     mutationFn: async (data: Partial<ChecklistItem>) => {
-      const response = await fetch(`${API_BASE}/safety-checklists/`, {
+      const response = await fetch(`${API_BASE}/staff/safety-checklists/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -85,11 +85,11 @@ const SafetyChecklistComponent: React.FC = () => {
         },
         body: JSON.stringify(data),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to create checklist item');
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -118,7 +118,7 @@ const SafetyChecklistComponent: React.FC = () => {
   // Toggle completion status mutation
   const toggleCompletionMutation = useMutation({
     mutationFn: async ({ id, is_completed }: { id: string; is_completed: boolean }) => {
-      const response = await fetch(`${API_BASE}/safety-checklists/${id}/`, {
+      const response = await fetch(`${API_BASE}/staff/safety-checklists/${id}/`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -126,11 +126,11 @@ const SafetyChecklistComponent: React.FC = () => {
         },
         body: JSON.stringify({ is_completed }),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to update checklist status');
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -169,7 +169,7 @@ const SafetyChecklistComponent: React.FC = () => {
       'OPENING': 'Opening',
       'CLOSING': 'Closing',
     };
-    
+
     return categories[category] || category;
   };
 
@@ -181,7 +181,7 @@ const SafetyChecklistComponent: React.FC = () => {
       'QUARTERLY': 'Quarterly',
       'YEARLY': 'Yearly',
     };
-    
+
     return frequencies[frequency] || frequency;
   };
 
@@ -262,8 +262,8 @@ const SafetyChecklistComponent: React.FC = () => {
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <AlertCircle className="h-8 w-8 mb-2" />
                       <p>No safety checklist items found</p>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="mt-2"
                         onClick={() => setIsModalOpen(true)}
                       >

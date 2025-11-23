@@ -28,11 +28,16 @@ import {
   CheckCircle,
   AlertCircle,
 } from "lucide-react";
+import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import MenuScanner from "@/components/MenuScanner";
-import GeolocationMapSettings from "@/components/settings/GeolocationMapSettings";
-import ProfileSettings from "./ProfileSettings";
+// Lazy-load heavy settings sections for better mobile performance
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - dynamic import types resolved at runtime
+const ProfileSettings = lazy(() => import("./ProfileSettings"));
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - dynamic import types resolved at runtime
+const GeolocationMapSettings = lazy(() => import("@/components/settings/GeolocationMapSettings"));
 import { toast } from "sonner";
-import { useState, useEffect, useMemo } from "react";
 import { useLanguage } from "@/hooks/use-language";
 import { Language } from "@/contexts/LanguageContext.types";
 import { supportedLanguages } from "@/i18n";
@@ -145,6 +150,8 @@ export default function Settings() {
     },
   });
   const [savingAi, setSavingAi] = useState(false);
+  // Controlled tabs for better state management on mobile
+  const [activeTab, setActiveTab] = useState<string>("profile");
 
   const apiClient = useMemo(
     () =>
@@ -526,43 +533,51 @@ export default function Settings() {
         )}
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="flex w-full flex-wrap gap-2 sm:grid sm:grid-cols-3 sm:gap-3 lg:grid-cols-5 mb-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList
+          className="mb-4 flex w-full gap-2 overflow-x-auto whitespace-nowrap scroll-smooth snap-x snap-mandatory [-webkit-overflow-scrolling:touch] sm:grid sm:grid-cols-3 sm:gap-3 lg:grid-cols-5"
+          aria-label="Settings sections"
+        >
           <TabsTrigger
             value="profile"
-            className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm px-3 py-2"
+            aria-label="Profile settings"
+            className="flex min-w-[150px] snap-start items-center justify-center gap-2 rounded-full border px-4 py-3 text-xs sm:justify-start sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
           >
-            <Users className="w-4 h-4" />
+            <Users className="w-4 h-4" aria-hidden="true" />
             {t("settings.tabs.profile")}
           </TabsTrigger>
           {!isStaff && (
             <>
               <TabsTrigger
                 value="location"
-                className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm px-3 py-2"
+                aria-label="Geolocation settings"
+                className="flex min-w-[170px] snap-start items-center justify-center gap-2 rounded-full border px-4 py-3 text-xs sm:justify-start sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
-                <MapPin className="w-4 h-4" />
+                <MapPin className="w-4 h-4" aria-hidden="true" />
                 {t("settings.tabs.geolocation")}
               </TabsTrigger>
               <TabsTrigger
                 value="general"
-                className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm px-3 py-2"
+                aria-label="General settings"
+                className="flex min-w-[150px] snap-start items-center justify-center gap-2 rounded-full border px-4 py-3 text-xs sm:justify-start sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
-                <Building2 className="w-4 h-4" />
+                <Building2 className="w-4 h-4" aria-hidden="true" />
                 {t("settings.tabs.general")}
               </TabsTrigger>
               <TabsTrigger
                 value="integrations"
-                className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm px-3 py-2"
+                aria-label="Integrations"
+                className="flex min-w-[170px] snap-start items-center justify-center gap-2 rounded-full border px-4 py-3 text-xs sm:justify-start sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
-                <Plug className="w-4 h-4" />
+                <Plug className="w-4 h-4" aria-hidden="true" />
                 {t("settings.tabs.integrations")}
               </TabsTrigger>
               <TabsTrigger
                 value="billing"
-                className="flex items-center justify-center gap-2 text-xs sm:justify-start sm:text-sm"
+                aria-label="Billing"
+                className="flex min-w-[130px] snap-start items-center justify-center gap-2 rounded-full border px-4 py-3 text-xs sm:justify-start sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
-                <CreditCardIcon className="w-4 h-4" />
+                <CreditCardIcon className="w-4 h-4" aria-hidden="true" />
                 {t("settings.tabs.billing")}
               </TabsTrigger>
             </>
@@ -576,13 +591,30 @@ export default function Settings() {
               <CardDescription>{t("settings.profile.description")}</CardDescription>
             </CardHeader>
             <CardContent>
-              <ProfileSettings />
+              <Suspense
+                fallback={
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>{t("loading") || "Loading"}…</span>
+                  </div>
+                }
+              >
+                <ProfileSettings />
+              </Suspense>
             </CardContent>
           </Card>
         </TabsContent>
 
         {!isStaff && (
           <TabsContent value="location" className="space-y-6">
+            <Suspense
+              fallback={
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>{t("loading") || "Loading"}…</span>
+                </div>
+              }
+            >
             <GeolocationMapSettings
               latitude={latitude}
               longitude={longitude}
@@ -594,6 +626,7 @@ export default function Settings() {
               onSave={saveLocationSettings}
               isSaving={savingGeolocation}
             />
+            </Suspense>
           </TabsContent>
         )}
 
@@ -879,59 +912,6 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Business Hours</CardTitle>
-              <CardDescription>
-                Set your restaurant's daily operating hours.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {Object.keys(operatingHours).map((day) => (
-                <div
-                  key={day}
-                  className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <Label htmlFor={day.toLowerCase()}>{day}</Label>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Input
-                      id={`${day.toLowerCase()}-open`}
-                      type="time"
-                      value={operatingHours[day].open}
-                      onChange={(e) =>
-                        handleOperatingHoursChange(day, "open", e.target.value)
-                      }
-                      className="w-24"
-                      disabled={operatingHours[day].isClosed}
-                    />
-                    <span>-</span>
-                    <Input
-                      id={`${day.toLowerCase()}-close`}
-                      type="time"
-                      value={operatingHours[day].close}
-                      onChange={(e) =>
-                        handleOperatingHoursChange(day, "close", e.target.value)
-                      }
-                      className="w-24"
-                      disabled={operatingHours[day].isClosed}
-                    />
-                    <Switch
-                      checked={!operatingHours[day].isClosed}
-                      onCheckedChange={(checked) =>
-                        handleOperatingHoursChange(day, "isClosed", !checked)
-                      }
-                    />
-                    <Label className="w-16 text-right">
-                      {operatingHours[day].isClosed ? "Closed" : "Open"}
-                    </Label>
-                  </div>
-                </div>
-              ))}
-              <Button onClick={saveGeneralSettings} className="w-full">
-                Save Business Hours
-              </Button>
-            </CardContent>
-          </Card>
         </TabsContent>
         )}
 
@@ -1076,38 +1056,7 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Payment Gateway Settings</CardTitle>
-              <CardDescription>{t("settings.integrations.payment_desc")}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <Button variant="outline" className="w-full">
-                  <CreditCardIcon className="w-4 h-4 mr-2" />
-                  Stripe
-                </Button>
-                <Button variant="outline" className="w-full">
-                  <CreditCardIcon className="w-4 h-4 mr-2" />
-                  PayPal
-                </Button>
-                <Button variant="outline" className="w-full">
-                  <CreditCardIcon className="w-4 h-4 mr-2" />
-                  Square
-                </Button>
-                <Button variant="outline" className="w-full">
-                  <CreditCardIcon className="w-4 h-4 mr-2" />
-                  Authorize.net
-                </Button>
-              </div>
-              <div className="flex justify-end">
-                <Button onClick={saveAiSettings} disabled={savingAi} variant="default">
-                  {savingAi ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  {t("settings.integrations.save_ai_settings")}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          
         </TabsContent>
         )}
 
@@ -1125,7 +1074,7 @@ export default function Settings() {
                 <div>
                   <h4 className="font-semibold">Current Plan</h4>
                   <p className="text-sm text-muted-foreground">
-                    Pro Plan - $29/month
+                    
                   </p>
                 </div>
                 <Button variant="outline" className="w-full sm:w-auto">
@@ -1134,12 +1083,12 @@ export default function Settings() {
               </div>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>
-                  Next billing date: <strong>November 22, 2025</strong>
+                  Next billing date: <strong></strong>
                 </p>
                 <p>
-                  Amount: <strong>$29.00</strong>
+                  Amount: <strong></strong>
                 </p>
-                <p>Payment method: Visa ending in 4242</p>
+                <p></p>
               </div>
               <Separator />
               <div className="space-y-2">
@@ -1147,7 +1096,7 @@ export default function Settings() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
                     <CreditCardIcon className="w-6 h-6 text-muted-foreground" />
-                    <p className="text-sm">Visa ending in 4242</p>
+                    <p className="text-sm"></p>
                   </div>
                   <Button variant="outline" className="w-full sm:w-auto">
                     Update

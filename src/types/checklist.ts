@@ -4,7 +4,7 @@ export type PriorityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export interface EvidenceAttachment {
   id: string;
-  type: 'photo' | 'video' | 'note' | 'signature';
+  type: 'photo' | 'video' | 'document' | 'note' | 'signature';
   url?: string;
   note?: string;
   createdAt: string; // ISO timestamp
@@ -25,7 +25,6 @@ export interface StepDefinition {
   title: string;
   instruction?: string;
   requiresPhoto?: boolean;
-  requiresVideo?: boolean;
   requiresSignature?: boolean;
   measurements?: MeasurementField[];
   // Basic conditional logic: if response === value then goTo step id

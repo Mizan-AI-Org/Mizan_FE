@@ -354,3 +354,41 @@ export interface CreateAnnouncementResponse {
     notification_count: number;
     announcement_id?: string;
 }
+
+// Extended dataset for transmitting comprehensive shift review and attendance details
+export interface ShiftReviewSubmission {
+    // Core feedback
+    session_id: string;
+    rating: number; // 1-5
+    tags?: string[];
+    comments?: string;
+    completed_at_iso: string;
+    hours_decimal?: number;
+
+    // Raw timestamps and timezone
+    clock_in_time_iso?: string;
+    clock_out_time_iso?: string;
+    timezone?: string; // IANA timezone name
+    timezone_offset_minutes?: number; // minutes offset from UTC
+
+    // Calculated durations
+    duration_hms?: string; // HH:MM:SS
+    duration_seconds?: number;
+
+    // Employee and restaurant details
+    employee?: { id: string; name?: string; department?: string };
+    restaurant?: { id?: string; name?: string };
+
+    // Location details
+    location?: {
+        in_latitude?: number;
+        in_longitude?: number;
+        out_latitude?: number | null;
+        out_longitude?: number | null;
+        verified_location?: boolean;
+    };
+
+    // Shift info and anomaly flags
+    shift_info?: { start_time?: string; end_time?: string; section?: string; notes?: string };
+    flags?: string[]; // e.g., EARLY_CLOCK_IN, LATE_CLOCK_OUT, MISSING_PUNCHES, LOCATION_UNVERIFIED
+}

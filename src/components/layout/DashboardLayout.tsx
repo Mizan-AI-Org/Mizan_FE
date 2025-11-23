@@ -19,6 +19,7 @@ import BackLink from "@/components/BackLink";
 import BrandLogo from "@/components/BrandLogo";
 import { LanguageSelector } from "@/components/LanguangeSelector";
 import { useLanguage } from "@/hooks/use-language";
+import { LuaWidget } from "@/components/LuaWidget";
 
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ const DashboardLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-sm border-b shadow-soft">
+      <header className="sticky top-0 z-[2000] bg-card/95 backdrop-blur-sm border-b shadow-soft">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -67,7 +68,7 @@ const DashboardLayout: React.FC = () => {
               <div className="relative">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="relative" aria-label={`${t("common.notifications.title")}`}>  
+                    <Button variant="ghost" size="icon" className="relative" aria-label={`${t("common.notifications.title")}`}>
                       <Bell className="h-5 w-5" />
                       {notifications.filter(n => !n.read).length > 0 && (
                         <span className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center rounded-full bg-red-500 text-white text-xs">
@@ -154,6 +155,7 @@ const DashboardLayout: React.FC = () => {
         )}
         <Outlet />
       </main>
+      <LuaWidget />
     </div>
   );
 };

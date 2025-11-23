@@ -250,7 +250,7 @@ const Auth = () => {
               </div>
               <h1 className="text-3xl font-bold text-white mb-2">Mizan</h1>
               <p className="text-[#B0BEC5]">
-                Your Restaurant Operation on Auto Pilot
+                Your Restaurant Operations on Auto Pilot
               </p>
             </div>
 

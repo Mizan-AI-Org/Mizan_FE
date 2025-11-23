@@ -180,7 +180,7 @@ const StaffDashboard: React.FC = () => {
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 15000,
+                    timeout: 30000,
                     maximumAge: 5000,
                 }
             );
@@ -249,7 +249,7 @@ const StaffDashboard: React.FC = () => {
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 10000,
+                    timeout: 30000,
                     maximumAge: 0
                 }
             );
@@ -370,7 +370,12 @@ const StaffDashboard: React.FC = () => {
             }
         } catch (error: unknown) {
             console.error('Clock out error:', error);
-            setLocationError((error as Error).message || 'Failed to clock out');
+            const msg = (error as Error)?.message || 'Failed to clock out';
+            if (msg.includes('Not clocked in')) {
+                setLocationError('No active session to end. If incorrect, refresh and try again.');
+            } else {
+                setLocationError(msg);
+            }
         } finally {
             setIsClocking(false);
         }
@@ -605,27 +610,36 @@ const StaffDashboard: React.FC = () => {
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                <button
-                                    onClick={clockIn}
-                                    disabled={isClocking || !clockInReady}
-                                    title={clockInReady ? 'Ready to Clock In' : getClockInDisableReason()}
-                                    className={`w-full py-3 px-4 rounded-md transition-colors font-semibold flex items-center justify-center ${clockInReady ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}
-                                >
-                                    {isClocking ? (
-                                        <>
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                            Getting Location...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Navigation className="w-4 h-4 mr-2" />
-                                            {clockInReady ? 'Ready to Clock In' : 'Outside Work Zone'}
-                                        </>
-                                    )}
-                                </button>
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={clockIn}
+                                        disabled={isClocking || !clockInReady}
+                                        title={clockInReady ? 'Ready to Clock In' : getClockInDisableReason()}
+                                        className={`py-4 px-6 rounded-lg transition-colors font-bold text-lg shadow-md flex items-center ${clockInReady ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}
+                                    >
+                                        {isClocking ? (
+                                            <>
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                                Getting Location...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Navigation className="w-4 h-4 mr-2" />
+                                                {clockInReady ? 'Ready to Clock In' : 'Outside Work Zone'}
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                                 <p className="text-xs text-gray-500 text-center">
                                     {clockInReady ? 'All conditions met' : getClockInDisableReason()}
                                 </p>
+                                <button
+                                    onClick={clockOut}
+                                    disabled={isClocking}
+                                    className="mt-3 w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    {isClocking ? 'Clocking Out...' : 'Clock Out'}
+                                </button>
                             </div>
                         )}
                         {isClockedIn && isOnBreak ? (

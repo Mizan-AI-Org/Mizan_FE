@@ -11,9 +11,7 @@ import {
   Package,
   Settings,
   Users,
-  Brain,
   FileText,
-  Zap,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 
@@ -50,13 +48,16 @@ const apps: AppItem[] = [
     descKey: "app.staff_schedule.desc",
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
   },
-  // {
-  //   name: "Tasks",
-  //   href: "/dashboard/tasks",
-  //   icon: Clock,
-  //   gradient: "bg-gradient-to-br from-rose-500 to-pink-500",
-  //   description: "Manage daily tasks",
-  // },
+  {
+    name: "Shift Reviews",
+    href: "/dashboard/shift-reviews",
+    icon: FileText,
+    gradient: "bg-gradient-to-br from-emerald-500 to-green-500",
+    description: "View and filter staff shift feedback",
+    nameKey: "app.shift_reviews",
+    descKey: "app.shift_reviews.desc",
+    roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
+  },
   {
     name: "Tasks",
     href: "/dashboard/task-templates",
@@ -110,16 +111,6 @@ const apps: AppItem[] = [
     descKey: "app.tables.desc",
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER", "WAITER"],
     comingSoon: true,
-  },
-  {
-    name: "AI Assistant",
-    href: "/dashboard/assistant",
-    icon: Brain,
-    gradient: "bg-gradient-to-br from-cyan-500 to-blue-500",
-    description: "Get intelligent assistance",
-    nameKey: "app.ai_assistant",
-    descKey: "app.ai_assistant.desc",
-    roles: ["SUPER_ADMIN", "ADMIN"],
   },
   {
     name: "Settings",

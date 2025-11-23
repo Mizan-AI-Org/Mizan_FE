@@ -4,11 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Search, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Search,
   Filter,
   Copy,
   Play,
@@ -89,7 +89,7 @@ const templateTypeIcons = {
 
 const priorityColors = {
   LOW: "bg-blue-100 text-blue-800 border-blue-200",
-  MEDIUM: "bg-yellow-100 text-yellow-800 border-yellow-200", 
+  MEDIUM: "bg-yellow-100 text-yellow-800 border-yellow-200",
   HIGH: "bg-orange-100 text-orange-800 border-orange-200",
   URGENT: "bg-red-100 text-red-800 border-red-200",
 };
@@ -109,7 +109,7 @@ export default function TaskTemplateManagement() {
   const [filterFrequency, setFilterFrequency] = useState<string>('all');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<TaskTemplate | null>(null);
-  
+
   const queryClient = useQueryClient();
 
   // Fetch task templates
@@ -117,7 +117,7 @@ export default function TaskTemplateManagement() {
     queryKey: ['task-templates'],
     queryFn: async () => {
       const response = await fetch(`${API_BASE}/scheduling/task-templates/`, {
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json',
         },
@@ -128,12 +128,135 @@ export default function TaskTemplateManagement() {
     },
   });
 
+  const builtInTemplates: Array<{
+    name: string;
+    description: string;
+    template_type: string;
+    frequency: TaskTemplate['frequency'];
+    tasks: TemplateTask[];
+  }> = [
+      {
+        name: 'Restaurant Opening',
+        description: 'Complete all tasks before restaurant opens for service',
+        template_type: 'OPENING',
+        frequency: 'DAILY',
+        tasks: [
+          { title: 'Check refrigeration temperatures', priority: 'HIGH', estimated_duration: 5 },
+          { title: 'Verify food storage compliance', priority: 'HIGH', estimated_duration: 5 },
+          { title: 'Test cooking equipment', priority: 'MEDIUM', estimated_duration: 5 },
+          { title: 'Check hand washing stations', priority: 'MEDIUM', estimated_duration: 5 },
+          { title: 'Prep kitchen stations', priority: 'MEDIUM', estimated_duration: 10 },
+          { title: 'Inspect dining area cleanliness', priority: 'MEDIUM', estimated_duration: 10 },
+          { title: 'Stock bar essentials', priority: 'MEDIUM', estimated_duration: 10 },
+          { title: 'Run POS opening procedures', priority: 'MEDIUM', estimated_duration: 5 },
+          { title: 'Verify safety compliance signage', priority: 'LOW', estimated_duration: 5 },
+          { title: 'Brief staff on service notes', priority: 'LOW', estimated_duration: 5 },
+          { title: 'Unlock entrances and enable music', priority: 'LOW', estimated_duration: 5 },
+        ],
+      },
+      {
+        name: 'Restaurant Closing',
+        description: 'End of day shutdown and cleaning procedures',
+        template_type: 'CLOSING',
+        frequency: 'DAILY',
+        tasks: [
+          { title: 'Cash reconciliation and deposits', priority: 'HIGH', estimated_duration: 10 },
+          { title: 'Kitchen deep clean and sanitization', priority: 'HIGH', estimated_duration: 30 },
+          { title: 'Bar cleanup and inventory check', priority: 'MEDIUM', estimated_duration: 20 },
+          { title: 'Dining area cleaning and trash removal', priority: 'MEDIUM', estimated_duration: 20 },
+          { title: 'Secure inventory and lock storage', priority: 'MEDIUM', estimated_duration: 10 },
+          { title: 'Update closing notes', priority: 'LOW', estimated_duration: 5 },
+        ],
+      },
+      {
+        name: 'Kitchen Prep',
+        description: 'Morning prep checklist for kitchen staff',
+        template_type: 'SOP',
+        frequency: 'DAILY',
+        tasks: [
+          { title: 'Prepare mise en place', priority: 'MEDIUM', estimated_duration: 30 },
+          { title: 'Thaw and portion proteins', priority: 'HIGH', estimated_duration: 20 },
+          { title: 'Check prep inventory levels', priority: 'MEDIUM', estimated_duration: 10 },
+          { title: 'Label and date prepared items', priority: 'MEDIUM', estimated_duration: 10 },
+        ],
+      },
+      {
+        name: 'Bar Setup',
+        description: 'Daily bar preparation and inventory check',
+        template_type: 'SOP',
+        frequency: 'DAILY',
+        tasks: [
+          { title: 'Prepare garnishes', priority: 'MEDIUM', estimated_duration: 15 },
+          { title: 'Check spirits and mixers inventory', priority: 'MEDIUM', estimated_duration: 10 },
+          { title: 'Clean glassware and bar surface', priority: 'LOW', estimated_duration: 10 },
+          { title: 'Update menu specials', priority: 'LOW', estimated_duration: 5 },
+        ],
+      },
+      {
+        name: 'Health & Safety Inspection',
+        description: 'Weekly health and safety compliance check',
+        template_type: 'HEALTH',
+        frequency: 'WEEKLY',
+        tasks: [
+          { title: 'Verify food storage temperatures', priority: 'HIGH', estimated_duration: 10 },
+          { title: 'Check sanitation logs', priority: 'MEDIUM', estimated_duration: 10 },
+          { title: 'Inspect fire safety equipment', priority: 'MEDIUM', estimated_duration: 10 },
+          { title: 'Review staff hygiene practices', priority: 'MEDIUM', estimated_duration: 10 },
+        ],
+      },
+      {
+        name: 'Equipment Maintenance',
+        description: 'Monthly equipment inspection and maintenance',
+        template_type: 'MAINTENANCE',
+        frequency: 'MONTHLY',
+        tasks: [
+          { title: 'Clean and descale coffee machines', priority: 'LOW', estimated_duration: 20 },
+          { title: 'Service refrigeration units', priority: 'MEDIUM', estimated_duration: 30 },
+          { title: 'Grease hood filters', priority: 'MEDIUM', estimated_duration: 20 },
+          { title: 'Calibrate cooking equipment', priority: 'HIGH', estimated_duration: 30 },
+        ],
+      },
+    ];
+
+  const seedTemplatesMutation = useMutation({
+    mutationFn: async () => {
+      const token = localStorage.getItem('access_token') || '';
+      for (const tpl of builtInTemplates) {
+        const response = await fetch(`${API_BASE}/scheduling/task-templates/`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: tpl.name,
+            description: tpl.description,
+            template_type: tpl.template_type,
+            frequency: tpl.frequency,
+            tasks: tpl.tasks,
+          }),
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.detail || err.message || 'Failed to create built-in template');
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task-templates'] });
+      toast.success('Built-in templates loaded');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to load built-in templates');
+    },
+  });
+
   // Delete template mutation
   const deleteTemplateMutation = useMutation({
     mutationFn: async (templateId: string) => {
       const response = await fetch(`${API_BASE}/scheduling/task-templates/${templateId}/`, {
         method: 'DELETE',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
         },
       });
@@ -154,7 +277,7 @@ export default function TaskTemplateManagement() {
     mutationFn: async (templateId: string) => {
       const response = await fetch(`${API_BASE}/scheduling/task-templates/${templateId}/duplicate/`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json',
         },
@@ -177,7 +300,7 @@ export default function TaskTemplateManagement() {
     mutationFn: async (templateId: string) => {
       const response = await fetch(`${API_BASE}/scheduling/task-templates/${templateId}/generate_tasks/`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json',
         },
@@ -197,10 +320,10 @@ export default function TaskTemplateManagement() {
   // Filter templates
   const filteredTemplates = templates?.filter(template => {
     const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         template.description.toLowerCase().includes(searchTerm.toLowerCase());
+      template.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || template.template_type === filterType;
     const matchesFrequency = filterFrequency === 'all' || template.frequency === filterFrequency;
-    
+
     return matchesSearch && matchesType && matchesFrequency;
   }) || [];
 
@@ -231,32 +354,41 @@ export default function TaskTemplateManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Task Templates</h1>
+          <h1 className="text-3xl font-bold">Processes & Tasks </h1>
           <p className="text-muted-foreground">
-            Create and manage reusable task templates for your restaurant operations
+            Create and manage reusable Processes and Task templates for your restaurant operations
           </p>
         </div>
-        
-        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-          <DialogTrigger asChild>
-            <Button className="premium-button">
-              <Plus className="h-4 w-4 mr-2" />
-              New Template
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Template</DialogTitle>
-              <DialogDescription>
-                Create a new task template that can be reused across shifts and schedules.
-              </DialogDescription>
-            </DialogHeader>
-            <TaskTemplateForm 
-              onSuccess={handleFormSuccess}
-              onCancel={() => setIsCreateModalOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+
+        <div className="flex items-center gap-2">
+          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+            <DialogTrigger asChild>
+              <Button className="premium-button">
+                <Plus className="h-4 w-4 mr-2" />
+                New Template
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create New Template</DialogTitle>
+                <DialogDescription>
+                  Create a new task template that can be reused across shifts and schedules.
+                </DialogDescription>
+              </DialogHeader>
+              <TaskTemplateForm
+                onSuccess={handleFormSuccess}
+                onCancel={() => setIsCreateModalOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+          <Button
+            variant="outline"
+            onClick={() => seedTemplatesMutation.mutate()}
+            disabled={seedTemplatesMutation.isPending}
+          >
+            Load Built-in Templates
+          </Button>
+        </div>
       </div>
 
       {/* Filters and Search */}
@@ -274,7 +406,7 @@ export default function TaskTemplateManagement() {
                 />
               </div>
             </div>
-            
+
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger className="w-full sm:w-48">
                 <Filter className="h-4 w-4 mr-2" />
@@ -343,7 +475,7 @@ export default function TaskTemplateManagement() {
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">No templates found</h3>
             <p className="text-muted-foreground mb-4">
-              {searchTerm || filterType !== 'all' || filterFrequency !== 'all' 
+              {searchTerm || filterType !== 'all' || filterFrequency !== 'all'
                 ? 'Try adjusting your search or filters'
                 : 'Create your first task template to get started'
               }
@@ -381,21 +513,21 @@ export default function TaskTemplateManagement() {
                   </div>
                 </div>
               </CardHeader>
-              
+
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground line-clamp-2">
                   {template.description}
                 </p>
-                
+
                 <div className="flex flex-wrap gap-2">
-                  <Badge 
-                    variant="outline" 
+                  <Badge
+                    variant="outline"
                     className={`text-xs ${priorityColors[template.priority_level]}`}
                   >
                     {template.priority_level}
                   </Badge>
-                  <Badge 
-                    variant="outline" 
+                  <Badge
+                    variant="outline"
                     className={`text-xs ${frequencyColors[template.frequency]}`}
                   >
                     {template.frequency.replace('_', ' ')}
@@ -419,7 +551,7 @@ export default function TaskTemplateManagement() {
                     <Edit className="h-3 w-3 mr-1" />
                     Edit
                   </Button>
-                  
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -428,7 +560,7 @@ export default function TaskTemplateManagement() {
                   >
                     <Copy className="h-3 w-3" />
                   </Button>
-                  
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -437,7 +569,7 @@ export default function TaskTemplateManagement() {
                   >
                     <Play className="h-3 w-3" />
                   </Button>
-                  
+
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
@@ -483,7 +615,7 @@ export default function TaskTemplateManagement() {
                 Update the template details and tasks.
               </DialogDescription>
             </DialogHeader>
-            <TaskTemplateForm 
+            <TaskTemplateForm
               template={editingTemplate}
               onSuccess={handleFormSuccess}
               onCancel={() => setEditingTemplate(null)}

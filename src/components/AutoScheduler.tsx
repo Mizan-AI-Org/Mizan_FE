@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
     Select,
     SelectContent,
@@ -26,6 +27,8 @@ import {
     RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
+import TaskTemplateSelector from "@/components/schedule/TaskTemplateSelector";
+import { useTaskTemplates } from "@/hooks/useTaskTemplates";
 
 const API_BASE =
   import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
@@ -157,6 +160,8 @@ export const AutoScheduler = ({
     });
 
     const [taskTemplates, setTaskTemplates] = useState<Task[]>([]);
+    const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
+    const { templates, error: templatesError } = useTaskTemplates({ pollIntervalMs: 10000 });
 
     interface TemplateTask {
         title?: string;
@@ -169,6 +174,10 @@ export const AutoScheduler = ({
         description?: string;
         template_type?: string; // opening, service, cleaning, closing, maintenance
         tasks?: TemplateTask[];
+        // Optional top-level fields present on some templates
+        estimated_duration?: number;
+        priority_level?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+        frequency?: string;
     }
 
     const mapPriority = (p?: TemplateTask["priority"]): Task["priority"] => {
@@ -193,49 +202,37 @@ export const AutoScheduler = ({
         return foundCategory || "service";
     };
 
+    // Map templates from shared hook into local Task[] used by scheduler
     useEffect(() => {
-        const loadTemplates = async () => {
-            try {
-                const res = await fetch(`${API_BASE}/scheduling/task-templates/`, {
-                    headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-                });
-                if (!res.ok) throw new Error("Failed to load task templates");
-                const data = await res.json();
-                const items: TaskTemplateApi[] = (data.results || data || []) as TaskTemplateApi[];
-                let mapped: Task[] = [];
-                items.forEach((tpl) => {
-                    const category = mapCategory(tpl.template_type);
-                    const tasks = Array.isArray(tpl.tasks) && tpl.tasks!.length > 0
-                        ? tpl.tasks!
-                        : [{ title: tpl.name, priority: "MEDIUM", estimated_duration: 30 }];
-                    mapped = mapped.concat(
-                        tasks.map((t, idx) => ({
-                            id: `${tpl.id}-${idx}`,
-                            name: t.title || tpl.name,
-                            duration: t.estimated_duration || 30,
-                            priority: mapPriority(t.priority),
-                            category,
-                            completed: false,
-                        }))
-                    );
-                });
-                if (mapped.length === 0) {
-                    // Fallback to sensible defaults if no templates exist
-                    mapped = [
-                        { id: "fallback-1", name: "Opening Setup", duration: 45, priority: "high", category: "opening", completed: false },
-                        { id: "fallback-2", name: "Inventory Check", duration: 30, priority: "medium", category: "opening", completed: false },
-                        { id: "fallback-3", name: "Prep Station Setup", duration: 60, priority: "high", category: "opening", completed: false },
-                        { id: "fallback-4", name: "Lunch Service", duration: 240, priority: "high", category: "service", completed: false },
-                        { id: "fallback-5", name: "Dinner Service", duration: 300, priority: "high", category: "service", completed: false },
-                        { id: "fallback-6", name: "Clean Kitchen", duration: 60, priority: "medium", category: "cleaning", completed: false },
-                        { id: "fallback-7", name: "Restock Supplies", duration: 30, priority: "low", category: "maintenance", completed: false },
-                        { id: "fallback-8", name: "Closing Procedures", duration: 45, priority: "high", category: "closing", completed: false },
-                    ];
-                }
-                setTaskTemplates(mapped);
-            } catch (e) {
-                // If API fails, keep defaults for UX continuity
-                setTaskTemplates([
+        try {
+            let mapped: Task[] = [];
+            const allTemplates = (templates || []) as TaskTemplateApi[];
+            const activeTemplates: TaskTemplateApi[] =
+                selectedTemplateIds && selectedTemplateIds.length > 0
+                    ? allTemplates.filter((t) => selectedTemplateIds.includes(String(t.id)))
+                    : allTemplates;
+            activeTemplates.forEach((tpl) => {
+                const category = mapCategory(tpl.template_type || undefined);
+                const tasks: TemplateTask[] = Array.isArray(tpl.tasks) && tpl.tasks.length > 0
+                    ? tpl.tasks
+                    : [{
+                        title: tpl.name,
+                        priority: tpl.priority_level ?? "MEDIUM",
+                        estimated_duration: typeof tpl.estimated_duration === "number" ? tpl.estimated_duration : 30,
+                    }];
+                mapped = mapped.concat(
+                    tasks.map((t, idx) => ({
+                        id: `${tpl.id}-${idx}`,
+                        name: t.title || tpl.name,
+                        duration: typeof t.estimated_duration === "number" ? t.estimated_duration : 30,
+                        priority: mapPriority(t.priority),
+                        category,
+                        completed: false,
+                    }))
+                );
+            });
+            if (mapped.length === 0) {
+                mapped = [
                     { id: "fallback-1", name: "Opening Setup", duration: 45, priority: "high", category: "opening", completed: false },
                     { id: "fallback-2", name: "Inventory Check", duration: 30, priority: "medium", category: "opening", completed: false },
                     { id: "fallback-3", name: "Prep Station Setup", duration: 60, priority: "high", category: "opening", completed: false },
@@ -244,11 +241,13 @@ export const AutoScheduler = ({
                     { id: "fallback-6", name: "Clean Kitchen", duration: 60, priority: "medium", category: "cleaning", completed: false },
                     { id: "fallback-7", name: "Restock Supplies", duration: 30, priority: "low", category: "maintenance", completed: false },
                     { id: "fallback-8", name: "Closing Procedures", duration: 45, priority: "high", category: "closing", completed: false },
-                ]);
+                ];
             }
-        };
-        loadTemplates();
-    }, []);
+            setTaskTemplates(mapped);
+        } catch {
+            // ignore mapping errors
+        }
+    }, [templates, selectedTemplateIds]);
 
     const simulateScheduling = async () => {
         setIsScheduling(true);
@@ -380,10 +379,6 @@ export const AutoScheduler = ({
             {/* Configuration Panel */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Settings className="w-5 h-5" />
-                        Auto-Scheduler Configuration
-                    </CardTitle>
                     <CardDescription>
                         Configure rules and constraints for automatic staff scheduling
                     </CardDescription>
@@ -555,29 +550,21 @@ export const AutoScheduler = ({
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {taskTemplates.map((task) => (
-                            <div key={task.id} className="p-3 border rounded-lg">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="font-medium">{task.name}</span>
-                                    <Badge
-                                        variant={
-                                            task.priority === "high"
-                                                ? "destructive"
-                                                : task.priority === "medium"
-                                                    ? "secondary"
-                                                    : "outline"
-                                        }
-                                    >
-                                        {task.priority}
-                                    </Badge>
-                                </div>
-                                <div className="flex justify-between text-sm text-muted-foreground">
-                                    <span>{task.category}</span>
-                                    <span>{task.duration} min</span>
-                                </div>
-                            </div>
-                        ))}
+                    <div className="space-y-3">
+                        <TaskTemplateSelector
+                            multiselect
+                            selectedIds={selectedTemplateIds}
+                            onChangeSelected={setSelectedTemplateIds}
+                        />
+
+                        {templatesError && (
+                            <Alert variant="destructive" role="alert">
+                                <AlertTitle>Failed to load templates</AlertTitle>
+                                <AlertDescription>{templatesError}</AlertDescription>
+                            </Alert>
+                        )}
+
+                        {/* Removed card grid; using scrollable multi-select list above */}
                     </div>
                 </CardContent>
             </Card>

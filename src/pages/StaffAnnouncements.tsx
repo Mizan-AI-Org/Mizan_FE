@@ -131,8 +131,14 @@ const StaffAnnouncements: React.FC = () => {
         if (!accessToken) return;
         const today = new Date();
         const date_from = format(today, "yyyy-MM-dd");
-        const date_to = format(new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000), "yyyy-MM-dd");
-        const shifts = await api.getAssignedShifts(accessToken, { date_from, date_to });
+        const date_to = format(
+          new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000),
+          "yyyy-MM-dd"
+        );
+        const shifts = await api.getAssignedShifts(accessToken, {
+          date_from,
+          date_to,
+        });
         setAssignedShifts(Array.isArray(shifts) ? shifts : []);
       } catch (e) {
         setAssignedShifts([]);
@@ -288,14 +294,14 @@ const StaffAnnouncements: React.FC = () => {
         </p>
         {!canCompose && (
           <div className="mt-3 p-3 rounded-md border bg-yellow-50 text-yellow-900">
-            You do not have permission to create announcements. Please contact an administrator.
+            You do not have permission to create announcements. Please contact
+            an administrator.
           </div>
         )}
       </div>
 
       <Card>
-        <CardHeader>
-        </CardHeader>
+        <CardHeader></CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Title Field */}
@@ -474,7 +480,10 @@ const StaffAnnouncements: React.FC = () => {
                   </p>
                   <ul className="space-y-1">
                     {attachments.map((file, idx) => (
-                      <li key={`${file.name}-${idx}`} className="flex items-center justify-between text-sm">
+                      <li
+                        key={`${file.name}-${idx}`}
+                        className="flex items-center justify-between text-sm"
+                      >
                         <span className="truncate max-w-[70%]">
                           {file.name}
                         </span>
@@ -487,7 +496,9 @@ const StaffAnnouncements: React.FC = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() =>
-                              setAttachments((prev) => prev.filter((_, i) => i !== idx))
+                              setAttachments((prev) =>
+                                prev.filter((_, i) => i !== idx)
+                              )
                             }
                           >
                             Remove
@@ -578,7 +589,8 @@ const StaffAnnouncements: React.FC = () => {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Target specific staff, departments, roles, or selected shifts. Defaults to all staff.
+                    Target specific staff, departments, roles, or selected
+                    shifts. Defaults to all staff.
                   </p>
                 </div>
 
@@ -677,15 +689,22 @@ const StaffAnnouncements: React.FC = () => {
                   {recipientMode === "ROLE" && (
                     <div className="space-y-2">
                       {isLoadingStaff ? (
-                        <p className="text-sm text-muted-foreground">Loading roles…</p>
+                        <p className="text-sm text-muted-foreground">
+                          Loading roles…
+                        </p>
                       ) : uniqueRoles.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No roles found.</p>
+                        <p className="text-sm text-muted-foreground">
+                          No roles found.
+                        </p>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-auto border rounded-md p-2">
                           {uniqueRoles.map((role) => {
                             const checked = selectedRoles.includes(role);
                             return (
-                              <label key={role} className="flex items-center gap-2 py-1">
+                              <label
+                                key={role}
+                                className="flex items-center gap-2 py-1"
+                              >
                                 <Checkbox
                                   checked={checked}
                                   onCheckedChange={(val) => {
@@ -701,28 +720,46 @@ const StaffAnnouncements: React.FC = () => {
                           })}
                         </div>
                       )}
-                      <p className="text-xs text-muted-foreground">Selected: {selectedRoles.length}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Selected: {selectedRoles.length}
+                      </p>
                     </div>
                   )}
 
                   {recipientMode === "SHIFT" && (
                     <div className="space-y-2">
                       {isLoadingShifts ? (
-                        <p className="text-sm text-muted-foreground">Loading shifts…</p>
+                        <p className="text-sm text-muted-foreground">
+                          Loading shifts…
+                        </p>
                       ) : assignedShifts.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No upcoming shifts found.</p>
+                        <p className="text-sm text-muted-foreground">
+                          No upcoming shifts found.
+                        </p>
                       ) : (
                         <div className="grid grid-cols-1 gap-2 max-h-56 overflow-auto border rounded-md p-2">
                           {assignedShifts.map((shift: AssignedShiftItem) => {
-                            const id = String(shift.id ?? shift.pk ?? shift.uuid ?? "");
+                            const id = String(
+                              shift.id ?? shift.pk ?? shift.uuid ?? ""
+                            );
                             const checked = selectedShiftIds.includes(id);
                             const dateLabel = shift.shift_date || shift.date;
-                            const roleLabel = shift.role || shift.position || "";
-                            const staffName = shift.staff_name || shift.staff_info?.name ||
-                              `${shift.staff_info?.first_name ?? ""} ${shift.staff_info?.last_name ?? ""}`.trim();
-                            const timeRange = `${shift.start_time ?? ""} - ${shift.end_time ?? ""}`;
+                            const roleLabel =
+                              shift.role || shift.position || "";
+                            const staffName =
+                              shift.staff_name ||
+                              shift.staff_info?.name ||
+                              `${shift.staff_info?.first_name ?? ""} ${
+                                shift.staff_info?.last_name ?? ""
+                              }`.trim();
+                            const timeRange = `${shift.start_time ?? ""} - ${
+                              shift.end_time ?? ""
+                            }`;
                             return (
-                              <label key={id} className="flex items-center gap-2 py-1">
+                              <label
+                                key={id}
+                                className="flex items-center gap-2 py-1"
+                              >
                                 <Checkbox
                                   checked={checked}
                                   onCheckedChange={(val) => {
@@ -733,14 +770,17 @@ const StaffAnnouncements: React.FC = () => {
                                   }}
                                 />
                                 <span className="text-sm truncate">
-                                  {dateLabel} • {roleLabel} • {staffName} • {timeRange}
+                                  {dateLabel} • {roleLabel} • {staffName} •{" "}
+                                  {timeRange}
                                 </span>
                               </label>
                             );
                           })}
                         </div>
                       )}
-                      <p className="text-xs text-muted-foreground">Selected: {selectedShiftIds.length}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Selected: {selectedShiftIds.length}
+                      </p>
                     </div>
                   )}
                 </div>
