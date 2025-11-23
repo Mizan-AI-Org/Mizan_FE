@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { X } from "lucide-react";
+import TaskTemplateSelector from "@/components/schedule/TaskTemplateSelector";
+import { useTaskTemplates } from "@/hooks/useTaskTemplates";
+import type { Shift, Task } from "@/types/schedule";
 
 interface StaffMember {
     id: string;
@@ -32,23 +35,7 @@ interface TaskTemplate {
     tasks?: TemplateTask[];
 }
 
-interface Task {
-    id: string;
-    title: string;
-    priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-    frequency?: 'ONE_TIME' | 'DAILY' | 'WEEKLY' | 'CUSTOM';
-}
-
-interface Shift {
-    id: string;
-    title: string;
-    start: string;
-    end: string;
-    day: number;
-    staffId: string;
-    color?: string;
-    tasks?: Task[];
-}
+// Use shared Task and Shift interfaces from types/schedule
 
 interface ShiftModalProps {
     isOpen: boolean;
@@ -58,6 +45,8 @@ interface ShiftModalProps {
     dayIndex?: number;
     hour?: number;
     staffMembers: StaffMember[];
+    // Testing-only: allow preselecting a template to avoid brittle UI interaction
+    testDefaultTemplateId?: string;
 }
 
 const ShiftModal: React.FC<ShiftModalProps> = ({
@@ -68,18 +57,41 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
     dayIndex,
     hour,
     staffMembers,
+    testDefaultTemplateId,
 }) => {
+    // Helpers for date handling
+    const toYMD = (d: Date) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+    const getWeekStart = (d: Date) => {
+        const date = new Date(d);
+        const day = date.getDay(); // 0=Sun, 1=Mon
+        const diff = day === 0 ? -6 : 1 - day; // Monday as start
+        date.setDate(date.getDate() + diff);
+        date.setHours(0, 0, 0, 0);
+        return date;
+    };
     const [shiftData, setShiftData] = useState<Shift>(() => {
-        if (initialShift) return initialShift;
+        if (initialShift && initialShift.date) return initialShift;
 
         const startHour = hour !== undefined ? String(hour).padStart(2, '0') : '09';
         const endHour = hour !== undefined ? String(hour + 1).padStart(2, '0') : '10';
+
+        // Default date based on dayIndex within current week, or today
+        const today = new Date();
+        const monday = getWeekStart(today);
+        const base = new Date(monday);
+        base.setDate(monday.getDate() + (dayIndex !== undefined ? dayIndex : 0));
 
         return {
             id: Date.now().toString(),
             title: "",
             start: `${startHour}:00`,
             end: `${endHour}:00`,
+            date: toYMD(base),
             day: dayIndex !== undefined ? dayIndex : 0,
             staffId: staffMembers.length > 0 ? staffMembers[0].id : "",
             color: "#6b7280",
@@ -97,22 +109,58 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
     const PAGE_SIZE = 50;
     const [selectedIndex, setSelectedIndex] = useState<number>(0);
     const [cachedStaff, setCachedStaff] = useState<StaffMember[]>([]);
-    const [templates, setTemplates] = useState<TaskTemplate[]>([]);
+    const {
+        templates,
+        loading: templatesLoading,
+        error: templatesError,
+        selectedId: selectedTemplateIdFromHook,
+        setSelectedId: setSelectedTemplateIdFromHook,
+    } = useTaskTemplates({ pollIntervalMs: 10000 });
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+    // Multi-select template management and persistence
+    const MAX_SELECTION = 10;
+    const STORAGE_KEY = 'shiftModalTemplateSelections';
+    const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
+    const [templateSelectionError, setTemplateSelectionError] = useState<string | null>(null);
+    const [persistingSelections, setPersistingSelections] = useState<boolean>(false);
+    const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+    // Preselect a template in tests to avoid interacting with Radix Select
+    useEffect(() => {
+        if (testDefaultTemplateId) {
+            setSelectedTemplateId(String(testDefaultTemplateId));
+        }
+    }, [testDefaultTemplateId]);
     const [assignmentFrequency, setAssignmentFrequency] = useState<'ONE_TIME' | 'DAILY' | 'WEEKLY' | 'CUSTOM'>("ONE_TIME");
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
     useEffect(() => {
         if (initialShift) {
-            setShiftData(initialShift);
+            // If editing and date missing for some reason, derive from day index
+            if (!initialShift.date) {
+                const today = new Date();
+                const monday = getWeekStart(today);
+                const base = new Date(monday);
+                base.setDate(monday.getDate() + (initialShift.day ?? 0));
+                setShiftData({ ...initialShift, date: toYMD(base) });
+            } else {
+                setShiftData(initialShift);
+            }
         } else if (isOpen) {
             const startHour = hour !== undefined ? String(hour).padStart(2, '0') : '09';
             const endHour = hour !== undefined ? String(hour + 1).padStart(2, '0') : '10';
+
+            const today = new Date();
+            const monday = getWeekStart(today);
+            const base = new Date(monday);
+            base.setDate(monday.getDate() + (dayIndex !== undefined ? dayIndex : 0));
 
             setShiftData({
                 id: Date.now().toString(),
                 title: "",
                 start: `${startHour}:00`,
                 end: `${endHour}:00`,
+                date: toYMD(base),
                 day: dayIndex !== undefined ? dayIndex : 0,
                 staffId: staffMembers.length > 0 ? staffMembers[0].id : "",
                 color: "#6b7280",
@@ -121,6 +169,21 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         }
     }, [initialShift, isOpen, dayIndex, hour, staffMembers]);
 
+    // Load persisted template selections per staff when modal opens
+    useEffect(() => {
+        if (!isOpen) return;
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                const map = JSON.parse(raw) as Record<string, string[]>;
+                const ids = map[String(shiftData.staffId)] || [];
+                setSelectedTemplateIds(ids.map(String));
+            }
+        } catch (_: unknown) {
+            // ignore
+        }
+    }, [isOpen, shiftData.staffId]);
+
     // Cache staff members locally to improve subsequent openings
     useEffect(() => {
         if (isOpen) {
@@ -128,7 +191,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                 try {
                     localStorage.setItem('shiftModalStaffCache', JSON.stringify({ ts: Date.now(), staff: staffMembers }));
                     setCachedStaff(staffMembers);
-                } catch (_) {
+                } catch (_: unknown) {
                     setCachedStaff(staffMembers);
                 }
             } else {
@@ -141,7 +204,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                             setCachedStaff(parsed.staff as StaffMember[]);
                         }
                     }
-                } catch (_) {
+                } catch (_: unknown) {
                     // ignore
                 }
             }
@@ -149,21 +212,14 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
     }, [isOpen, staffMembers]);
 
     useEffect(() => {
-        const loadTemplates = async () => {
-            try {
-                const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
-                const res = await fetch(`${API_BASE}/scheduling/task-templates/`, {
-                    headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
-                });
-                if (!res.ok) return;
-                const data = await res.json();
-                setTemplates((data.results || data || []) as TaskTemplate[]);
-            } catch (e) {
-                // silently ignore for now
-            }
-        };
-        if (isOpen) loadTemplates();
-    }, [isOpen]);
+        if (!isOpen) return;
+        if (testDefaultTemplateId) {
+            setSelectedTemplateId(String(testDefaultTemplateId));
+            setSelectedTemplateIdFromHook(String(testDefaultTemplateId));
+        } else if (!selectedTemplateId && selectedTemplateIdFromHook) {
+            setSelectedTemplateId(String(selectedTemplateIdFromHook));
+        }
+    }, [isOpen, testDefaultTemplateId, selectedTemplateIdFromHook]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { id, value } = e.target;
@@ -178,6 +234,46 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
             ...prev,
             [id]: value,
         }));
+    };
+
+    const updateTemplateSelectionStorage = (ids: string[]) => {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            const map = raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
+            map[String(shiftData.staffId)] = ids.map(String);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+        } catch (_: unknown) {
+            // ignore storage errors
+        }
+    };
+
+    const handleTemplateIdsChange = (ids: string[]) => {
+        if (ids.length > MAX_SELECTION) {
+            setTemplateSelectionError(`You can select up to ${MAX_SELECTION} templates`);
+            return;
+        }
+        setTemplateSelectionError(null);
+        setSelectedTemplateIds(ids.map(String));
+        updateTemplateSelectionStorage(ids);
+    };
+
+    const persistTemplateSelections = async () => {
+        setPersistingSelections(true);
+        setSaveFeedback(null);
+        try {
+            const res = await fetch('/api/shift-template-selections', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ staffId: shiftData.staffId, templateIds: selectedTemplateIds }),
+            });
+            if (!res.ok) throw new Error(`Failed to save selections (${res.status})`);
+            setSaveFeedback({ type: 'success', message: 'Template selections saved' });
+        } catch (e: unknown) {
+            const errMsg = e instanceof Error ? e.message : 'Failed to save template selections';
+            setSaveFeedback({ type: 'error', message: errMsg });
+        } finally {
+            setPersistingSelections(false);
+        }
     };
 
     const handleAddTask = () => {
@@ -197,9 +293,28 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         }));
     };
 
-    const handleSubmit = () => {
-        onSave(shiftData);
-        onClose();
+    const handleSubmit = async () => {
+        setIsSubmitting(true);
+        try {
+            // Basic validation: require date
+            if (!shiftData.date || String(shiftData.date).trim() === "") {
+                setSaveFeedback({ type: 'error', message: 'Please select a date for the shift.' });
+                setIsSubmitting(false);
+                return;
+            }
+            // Persist selections before saving the shift
+            await persistTemplateSelections();
+            // Include task_templates in the shift data
+            const shiftWithTemplates = {
+                ...shiftData,
+                task_templates: selectedTemplateIds
+            };
+            // Support both synchronous and Promise returns without truthiness checks
+            await Promise.resolve(onSave(shiftWithTemplates));
+            onClose();
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const nonAdminStaffMembers = staffMembers.filter((staff) => {
@@ -282,6 +397,11 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                     </div>
 
                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="date" className="text-right">Date <span className="text-red-500">*</span></Label>
+                        <Input id="date" type="date" value={shiftData.date} onChange={handleChange} className="col-span-3" />
+                    </div>
+
+                    <div className="grid grid-cols-4 items-center gap-4">
                         <Label className="text-right">Time</Label>
                         <div className="col-span-3 flex gap-2">
                             <div className="flex-1">
@@ -349,9 +469,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                             key={staff.id}
                                             type="button"
                                             onClick={() => handleSelectChange(staff.id, 'staffId')}
-                                            className={`w-full flex items-center gap-3 px-2 py-2 rounded-md text-left mb-1 ${
-                                                isSelected ? 'bg-primary/10 border border-primary' : 'hover:bg-muted'
-                                            } ${isActive ? 'ring-2 ring-primary' : ''}`}
+                                            className={`w-full flex items-center gap-3 px-2 py-2 rounded-md text-left mb-1 ${isSelected ? 'bg-primary/10 border border-primary' : 'hover:bg-muted'
+                                                } ${isActive ? 'ring-2 ring-primary' : ''}`}
                                             role="option"
                                             aria-selected={isSelected}
                                         >
@@ -415,60 +534,55 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                         <Label className="text-right pt-2">Tasks</Label>
                         <div className="col-span-3 space-y-3">
                             {/* Templates and Frequency */}
-                            <div className="space-y-2">
-                                <div className="grid grid-cols-3 gap-2 items-center">
-                                    <div className="col-span-2">
-                                        <Label className="text-xs text-gray-600">Template</Label>
-                                        <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select task template" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {templates.map(t => (
-                                                    <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                            <div className="space-y-2" aria-busy={persistingSelections}>
+                                <Label className="text-xs text-gray-600">Templates</Label>
+                                {selectedTemplateIds.length > 0 && (
+                                    <div className="flex flex-wrap gap-2">
+                                        {(templates || []).filter(t => selectedTemplateIds.includes(String(t.id))).map(t => (
+                                            <Badge key={String(t.id)} variant="secondary" className="text-xs">
+                                                {t.name}
+                                                <button
+                                                    type="button"
+                                                    className="ml-2 inline-flex items-center"
+                                                    onClick={() => handleTemplateIdsChange(selectedTemplateIds.filter(x => x !== String(t.id)))}
+                                                    aria-label={`Remove ${t.name}`}
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            </Badge>
+                                        ))}
                                     </div>
-                                    <div>
-                                        <Label className="text-xs text-gray-600">Frequency</Label>
-                                        <Select value={assignmentFrequency} onValueChange={(v) => setAssignmentFrequency(v as 'ONE_TIME' | 'DAILY' | 'WEEKLY' | 'CUSTOM')}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Frequency" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="ONE_TIME">One time</SelectItem>
-                                                <SelectItem value="DAILY">Every day</SelectItem>
-                                                <SelectItem value="WEEKLY">Weekly</SelectItem>
-                                                <SelectItem value="CUSTOM">Custom</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                )}
+
+                                <TaskTemplateSelector
+                                    multiselect
+                                    selectedIds={selectedTemplateIds}
+                                    onChangeSelected={handleTemplateIdsChange}
+                                    showFilters
+                                />
+
+                                {templatesLoading && (
+                                    <div className="space-y-1">
+                                        <Skeleton className="h-6 w-full" />
+                                        <Skeleton className="h-6 w-3/4" />
                                     </div>
-                                </div>
-                                <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    onClick={() => {
-                                        const tpl = templates.find(t => String(t.id) === selectedTemplateId);
-                                        if (!tpl) return;
-                                        const items: TemplateTask[] = (tpl.tasks || []).length > 0 ? (tpl.tasks as TemplateTask[]) : [{ title: tpl.name, priority: 'MEDIUM', estimated_duration: 30 }];
-                                        setShiftData(prev => ({
-                                            ...prev,
-                                            tasks: [
-                                                ...(prev.tasks || []),
-                                                ...items.map((t) => ({
-                                                    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                                                    title: t.title || tpl.name,
-                                                    priority: ((t.priority || 'MEDIUM') as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'),
-                                                    frequency: assignmentFrequency,
-                                                })),
-                                            ],
-                                        }));
-                                    }}
-                                    disabled={!selectedTemplateId}
-                                >
-                                    Add from Template
-                                </Button>
+                                )}
+                                {templatesError && (
+                                    <div className="mt-2">
+                                        <Alert variant="destructive" role="alert">
+                                            <AlertTitle>Failed to load templates</AlertTitle>
+                                            <AlertDescription>{templatesError}</AlertDescription>
+                                        </Alert>
+                                    </div>
+                                )}
+                                {templateSelectionError && (
+                                    <div className="mt-2">
+                                        <Alert variant="destructive" role="alert">
+                                            <AlertTitle>Selection limit reached</AlertTitle>
+                                            <AlertDescription>{templateSelectionError}</AlertDescription>
+                                        </Alert>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-2">
@@ -490,7 +604,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                             <SelectItem value="URGENT">Urgent</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    <Button size="sm" onClick={handleAddTask}>Add</Button>
+                                    <Button size="sm" onClick={handleAddTask} aria-label="Add manual task">Add</Button>
                                 </div>
                             </div>
 
@@ -513,6 +627,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                                 variant="ghost"
                                                 onClick={() => handleRemoveTask(task.id)}
                                                 className="ml-2 h-6 w-6 p-0"
+                                                aria-label={`Remove task ${task.title}`}
                                             >
                                                 <X className="h-4 w-4" />
                                             </Button>
@@ -524,8 +639,10 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button onClick={handleSubmit}>Save Changes</Button>
+                    <Button variant="outline" onClick={onClose} aria-label="Cancel and close">Cancel</Button>
+                    <Button onClick={handleSubmit} disabled={isSubmitting} aria-busy={isSubmitting} aria-label="Save shift changes">
+                        {isSubmitting ? 'Saving…' : 'Save Changes'}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

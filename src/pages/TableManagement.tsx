@@ -353,9 +353,9 @@ const TableManagement: React.FC = () => {
                                 </SelectTrigger>
                                 <SelectContent>
                                     {isLoadingPendingOrders ? (
-                                        <SelectItem value="" disabled>Loading orders...</SelectItem>
+                                        <SelectItem value="__loading_orders__" disabled>Loading orders...</SelectItem>
                                     ) : pendingOrders?.length === 0 ? (
-                                        <SelectItem value="" disabled>No pending orders</SelectItem>
+                                        <SelectItem value="__no_orders__" disabled>No pending orders</SelectItem>
                                     ) : (
                                         pendingOrders?.map(order => (
                                             <SelectItem key={order.id} value={order.id}>

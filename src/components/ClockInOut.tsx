@@ -68,7 +68,7 @@ export const ClockInOut = ({ staffId, onSuccess }: ClockInOutProps) => {
 
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
       });
       userLatitude = position.coords.latitude;
       userLongitude = position.coords.longitude;
@@ -104,23 +104,23 @@ export const ClockInOut = ({ staffId, onSuccess }: ClockInOutProps) => {
       const result =
         action === "in"
           ? await api.webClockIn(
-              accessToken,
-              userLatitude!,
-              userLongitude!,
-              userAccuracy ?? undefined,
-              undefined,
-              imageSrc
-            )
+            accessToken,
+            userLatitude!,
+            userLongitude!,
+            userAccuracy ?? undefined,
+            undefined,
+            imageSrc
+          )
           : await api.webClockOut(
-              accessToken,
-              userLatitude!,
-              userLongitude!,
-              userAccuracy ?? undefined
-            );
+            accessToken,
+            userLatitude!,
+            userLongitude!,
+            userAccuracy ?? undefined
+          );
 
       toast.success(
         result?.message ||
-          `Clocked ${action === "in" ? "in" : "out"} at ${new Date().toLocaleTimeString()}`
+        `Clocked ${action === "in" ? "in" : "out"} at ${new Date().toLocaleTimeString()}`
       );
       setIsClockedIn(action === "in");
       setShowCamera(false);

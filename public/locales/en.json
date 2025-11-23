@@ -4,7 +4,6 @@
   "dashboard.select": "Select an application to get started",
   "dashboard.no_apps": "No Applications Available",
   "dashboard.contact_owner": "Please contact your restaurant owner to assign you roles and permissions.",
-
   "app.analytics": "Dashboards",
   "app.analytics.desc": "View analytics and insights",
   "app.pos_integration": "POS Integration",
@@ -21,14 +20,15 @@
   "app.staff_schedule.desc": "Schedule and manage staff",
   "app.staff_management": "Staff Management",
   "app.staff_management.desc": "Create accounts and assign roles",
-  "app.ai_assistant": "AI Assistant",
-  "app.ai_assistant.desc": "Get intelligent assistance",
   "app.settings": "Settings",
   "app.settings.desc": "Configure your system",
-
   "app.tasks": "Tasks",
   "app.tasks.desc": "Create and manage tasks",
-
+  "app.shift_reviews": "Shift Reviews",
+  "app.shift_reviews.desc": "View and filter staff shift feedback",
+  "ai.chat_button": "🤖 Chat with AI",
+  "ai.chat_title": "AI Assistant",
+  "ai.chat_placeholder": "Ask me anything...",
   "common.sign_out": "Sign Out",
   "common.profile": "Profile Settings",
   "common.welcome": "Welcome",
@@ -39,8 +39,7 @@
   "common.notifications.title": "Notifications",
   "common.notifications.empty": "No new notifications",
   "common.notifications.mark_as_read": "Mark as Read",
-  "common.notifications.mark_all_read": "Mark all as read"
-  ,
+  "common.notifications.mark_all_read": "Mark all as read",
   "reporting.title": "Restaurant Reporting & Analytics",
   "reporting.description": "Comprehensive insights into your restaurant's performance.",
   "reporting.sections.daily.title": "Daily Sales Reports",
@@ -65,7 +64,6 @@
   "settings.general.save_general": "Save General Settings",
   "settings.integrations.payment_desc": "Configure your payment gateway integrations.",
   "settings.integrations.save_ai_settings": "Save AI Settings",
-  
   "pos.title": "POS Integration Settings",
   "pos.description": "Connect your POS system for real-time transaction tracking.",
   "pos.provider": "POS Provider",
@@ -74,8 +72,7 @@
   "pos.merchant_id": "Merchant ID",
   "pos.merchant_id_placeholder": "Enter your merchant ID",
   "pos.api_key": "API Key",
-  "pos.api_key_placeholder": "Enter your API key"
-  ,
+  "pos.api_key_placeholder": "Enter your API key",
   "auth.toggles.staff": "Staff",
   "auth.toggles.manager": "Manager/Owner",
   "auth.labels.email": "Email Address",
@@ -97,14 +94,12 @@
   "auth.errors.invalid_pin": "Invalid PIN or user.",
   "auth.errors.server": "Server error. Please try again.",
   "auth.errors.network": "Network error. Please check backend server.",
-  "auth.errors.unexpected": "An unexpected error occurred during login."
-  ,
+  "auth.errors.unexpected": "An unexpected error occurred during login.",
   "validation.required": "This field is required",
   "validation.email": "Please enter a valid email address",
   "validation.min_length": "Must be at least {{min}} characters",
   "validation.max_length": "Must be at most {{max}} characters",
   "validation.pattern": "Invalid format",
-
   "errors.network": "Network error. Check your connection.",
   "errors.timeout": "Request timed out. Try again.",
   "errors.unknown": "Unexpected error occurred.",
@@ -116,18 +111,15 @@
   "errors.http.429": "Too many requests",
   "errors.http.500": "Server error",
   "errors.http.503": "Service unavailable",
-
   "status.pending": "Pending",
   "status.in_progress": "In progress",
   "status.completed": "Completed",
   "status.cancelled": "Cancelled",
   "status.failed": "Failed",
   "status.paid": "Paid",
-
   "pos.connection.success": "POS connection successful",
   "pos.connection.failed": "POS connection failed",
   "pos.select_provider_first": "Select a POS provider first.",
-
   "settings.location.save_success": "Location settings saved successfully!",
   "settings.location.save_error": "Failed to save location settings",
   "settings.general.name_minlen": "Restaurant name must be at least 2 characters.",
@@ -136,7 +128,6 @@
   "settings.general.save_error": "Failed to save general settings",
   "settings.general.conflict": "Conflict detected. Settings changed elsewhere. Reloading latest settings...",
   "settings.general.unauthorized": "Unauthorized. Please sign in again.",
-
   "invitations.fill_required": "Please fill in all staff invitation fields.",
   "invitations.sent_success": "Staff invitation sent successfully!"
 }

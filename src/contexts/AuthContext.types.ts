@@ -24,6 +24,8 @@ export interface AuthContextType {
     [x: string]: any;
     user: User | null;
     isLoading: boolean;
+    accessToken: string | null;
+    refreshToken: string | null;
     updateUser: (user: User) => void;
     login: (email: string, password: string) => Promise<void>;
     loginWithPin: (

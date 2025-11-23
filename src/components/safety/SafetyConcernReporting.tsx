@@ -23,9 +23,10 @@ interface SafetyConcern {
   severity: string;
   status: string;
   created_at: string;
-  created_by: {
+  is_anonymous?: boolean;
+  reporter_details?: {
     id: string;
-    username: string;
+    username?: string;
     first_name: string;
     last_name: string;
   };
@@ -36,7 +37,7 @@ interface SafetyConcern {
 }
 
 const SafetyConcernReporting: React.FC = () => {
-  const { user, token } = useAuth();
+  const { user, accessToken } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,42 +48,67 @@ const SafetyConcernReporting: React.FC = () => {
     severity: 'medium',
     status: 'reported',
   });
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
-  // Fetch Safety Concerns
+  // Fetch Incidents
   const { data: concerns, isLoading } = useQuery({
     queryKey: ['safety-concerns'],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/safety-concerns/`, {
+      const response = await fetch(`${API_BASE}/staff/safety-concerns/`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${accessToken || localStorage.getItem('access_token') || ''}`,
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to fetch safety concerns');
+        throw new Error('Failed to fetch incidents');
       }
-      
+
       return response.json();
     },
   });
 
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const totalItems = Array.isArray(concerns) ? concerns.length : 0;
+  const totalPages = totalItems ? Math.ceil(totalItems / pageSize) : 1;
+  const startIndex = (page - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pageConcerns = Array.isArray(concerns) ? concerns.slice(startIndex, endIndex) : [];
+
   // Create Safety Concern mutation
   const createConcernMutation = useMutation({
     mutationFn: async (data: Partial<SafetyConcern>) => {
-      const response = await fetch(`${API_BASE}/safety-concerns/`, {
+      const form = new FormData();
+      form.append('title', data.title || '');
+      form.append('description', data.description || '');
+      form.append('location', data.location || '');
+      form.append('severity', (data.severity || 'medium').toUpperCase());
+      form.append('status', (data.status || 'reported').toUpperCase());
+      form.append('is_anonymous', 'false');
+      if (photoFile) {
+        form.append('photo', photoFile);
+      }
+
+      const response = await fetch(`${API_BASE}/staff/safety-concerns/`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken || localStorage.getItem('access_token') || ''}`,
         },
-        body: JSON.stringify(data),
+        body: form,
       });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to create safety concern');
+        let message = 'Failed to create incident';
+        try {
+          const err = await response.json();
+          message = err?.message || err?.detail || err?.error || message;
+        } catch { void 0; }
+        throw new Error(message);
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -95,15 +121,17 @@ const SafetyConcernReporting: React.FC = () => {
         severity: 'medium',
         status: 'reported',
       });
+      setPhotoFile(null);
+      setPhotoPreview(null);
       toast({
         title: 'Success',
-        description: 'Safety concern reported successfully',
+        description: 'Incident reported successfully',
       });
     },
     onError: (error) => {
       toast({
         title: 'Error',
-        description: `Failed to report safety concern: ${error.message}`,
+        description: `Failed to report incident: ${error.message}`,
         variant: 'destructive',
       });
     },
@@ -114,8 +142,15 @@ const SafetyConcernReporting: React.FC = () => {
     createConcernMutation.mutate(formData);
   };
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setPhotoFile(file);
+    setPhotoPreview(file ? URL.createObjectURL(file) : null);
+  };
+
   const getSeverityBadge = (severity: string) => {
-    switch (severity) {
+    const sev = (severity || '').toLowerCase();
+    switch (sev) {
       case 'high':
         return <Badge variant="destructive">High</Badge>;
       case 'medium':
@@ -128,10 +163,12 @@ const SafetyConcernReporting: React.FC = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
+    const s = (status || '').toLowerCase();
+    switch (s) {
       case 'reported':
         return <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">Reported</Badge>;
       case 'investigating':
+      case 'under_review':
         return <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">Investigating</Badge>;
       case 'resolved':
         return <Badge className="bg-green-100 text-green-800 border-green-200">Resolved</Badge>;
@@ -146,19 +183,20 @@ const SafetyConcernReporting: React.FC = () => {
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Safety Concern Reporting</CardTitle>
+          <CardTitle>Incident Reporting</CardTitle>
           <CardDescription>
-            Report and track safety concerns in your restaurant
+            Report and track Incidents and safety concerns in your restaurant
           </CardDescription>
         </div>
         <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Report Concern
+          <Plus className="mr-2 h-4 w-4" /> Report Incidents
         </Button>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex justify-center p-4">Loading safety concerns...</div>
+          <div className="flex justify-center p-4">Loading Incidence & Safety...</div>
         ) : (
+          <>
           <Table>
             <TableHeader>
               <TableRow>
@@ -166,13 +204,12 @@ const SafetyConcernReporting: React.FC = () => {
                 <TableHead>Location</TableHead>
                 <TableHead>Severity</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Reported By</TableHead>
                 <TableHead>Reported At</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {concerns && concerns.length > 0 ? (
-                concerns.map((concern: SafetyConcern) => (
+              {pageConcerns && pageConcerns.length > 0 ? (
+                pageConcerns.map((concern: SafetyConcern) => (
                   <TableRow key={concern.id}>
                     <TableCell className="font-medium">
                       <div className="flex items-center">
@@ -184,9 +221,6 @@ const SafetyConcernReporting: React.FC = () => {
                     <TableCell>{getSeverityBadge(concern.severity)}</TableCell>
                     <TableCell>{getStatusBadge(concern.status)}</TableCell>
                     <TableCell>
-                      {concern.created_by.first_name} {concern.created_by.last_name}
-                    </TableCell>
-                    <TableCell>
                       <div className="flex items-center">
                         <Clock className="mr-2 h-3 w-3 text-muted-foreground" />
                         {new Date(concern.created_at).toLocaleDateString()}
@@ -196,16 +230,16 @@ const SafetyConcernReporting: React.FC = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-4">
+                  <TableCell colSpan={5} className="text-center py-4">
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <AlertCircle className="h-8 w-8 mb-2" />
-                      <p>No safety concerns reported</p>
-                      <Button 
-                        variant="outline" 
+                      <p>No incidents reported</p>
+                      <Button
+                        variant="outline"
                         className="mt-2"
                         onClick={() => setIsModalOpen(true)}
                       >
-                        Report your first safety concern
+                        Report your first incident
                       </Button>
                     </div>
                   </TableCell>
@@ -213,6 +247,19 @@ const SafetyConcernReporting: React.FC = () => {
               )}
             </TableBody>
           </Table>
+          <div className="flex items-center justify-between mt-3">
+            <div className="text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Previous</Button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <Button key={p} variant={p === page ? 'default' : 'outline'} onClick={() => setPage(p)}>{p}</Button>
+              ))}
+              <Button variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</Button>
+            </div>
+          </div>
+          </>
         )}
       </CardContent>
 
@@ -253,13 +300,14 @@ const SafetyConcernReporting: React.FC = () => {
                   Severity
                 </Label>
                 <Select
-                  value={formData.severity}
-                  onValueChange={(value) => setFormData({ ...formData, severity: value })}
+                  value={formData.severity ?? 'medium'}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, severity: value }))}
                 >
-                  <SelectTrigger className="col-span-3">
+                  <SelectTrigger id="severity" className="col-span-3">
                     <SelectValue placeholder="Select severity" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="critical">Critical</SelectItem>
                     <SelectItem value="high">High</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
                     <SelectItem value="low">Low</SelectItem>
@@ -278,6 +326,25 @@ const SafetyConcernReporting: React.FC = () => {
                   rows={5}
                   required
                 />
+              </div>
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="photo" className="text-right">
+                  Photo
+                </Label>
+                <div className="col-span-3 space-y-2">
+                  <Input
+                    id="photo"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handlePhotoChange}
+                  />
+                  {photoPreview && (
+                    <div className="border rounded-md p-2">
+                      <img src={photoPreview} alt="Preview" className="max-h-48 rounded" />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <DialogFooter>

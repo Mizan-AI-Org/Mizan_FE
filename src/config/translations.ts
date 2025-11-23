@@ -26,8 +26,6 @@ const translations: Record<Language, Record<string, string>> = {
         'app.staff_schedule.desc': 'Schedule and manage staff',
         'app.staff_management': 'Staff Management',
         'app.staff_management.desc': 'Create accounts and assign roles',
-        'app.ai_assistant': 'AI Assistant',
-        'app.ai_assistant.desc': 'Get intelligent assistance',
         'app.settings': 'Settings',
         'app.settings.desc': 'Configure your system',
 
@@ -61,8 +59,6 @@ const translations: Record<Language, Record<string, string>> = {
         'app.staff_schedule.desc': 'Planifier et gérer le personnel',
         'app.staff_management': 'Gestion du Personnel',
         'app.staff_management.desc': 'Créer des comptes et attribuer des rôles',
-        'app.ai_assistant': 'Assistant IA',
-        'app.ai_assistant.desc': 'Obtenir une assistance intelligente',
         'app.settings': 'Paramètres',
         'app.settings.desc': 'Configurer votre système',
 
@@ -96,8 +92,6 @@ const translations: Record<Language, Record<string, string>> = {
         'app.staff_schedule.desc': 'جدولة وإدارة الموظفين',
         'app.staff_management': 'إدارة الموظفين',
         'app.staff_management.desc': 'إنشاء الحسابات وتعيين الأدوار',
-        'app.ai_assistant': 'المساعد الذكي',
-        'app.ai_assistant.desc': 'احصل على مساعدة ذكية',
         'app.settings': 'الإعدادات',
         'app.settings.desc': 'تكوين النظام الخاص بك',
 

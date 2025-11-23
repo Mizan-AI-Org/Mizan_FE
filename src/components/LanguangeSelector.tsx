@@ -1,10 +1,10 @@
 import { useLanguage } from '../hooks/use-language';
 import { Button } from '@/components/ui/button';
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Languages } from 'lucide-react';
 
@@ -14,7 +14,7 @@ export function LanguageSelector() {
   const languages = [
     { code: 'en' as const, name: 'English', flag: '🇺🇸' },
     { code: 'fr' as const, name: 'Français', flag: '🇫🇷' },
-    { code: 'ma' as const, name: 'الدارجة', flag: '🇲🇦' },
+    { code: 'ar' as const, name: 'العربية', flag: '🇲🇦' },
   ];
 
   return (

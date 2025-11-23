@@ -211,3 +211,19 @@ html.lang-changing body {
     opacity: 0.5;
   }
 }
+
+/* Bell shake animation for new announcements */
+@keyframes bell-shake {
+  0% { transform: rotate(0deg); }
+  15% { transform: rotate(-15deg); }
+  30% { transform: rotate(10deg); }
+  45% { transform: rotate(-8deg); }
+  60% { transform: rotate(6deg); }
+  75% { transform: rotate(-4deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.bell-shake {
+  animation: bell-shake 0.8s var(--animation-bounce);
+  transform-origin: 50% 0%;
+}
