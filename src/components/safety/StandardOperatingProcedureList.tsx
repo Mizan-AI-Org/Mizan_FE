@@ -50,17 +50,17 @@ const StandardOperatingProcedureList: React.FC = () => {
   const { data: sops, isLoading } = useQuery({
     queryKey: ['sops'],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/sops/`, {
+      const response = await fetch(`${API_BASE}/staff/sops/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch SOPs');
       }
-      
+
       return response.json();
     },
   });
@@ -68,7 +68,7 @@ const StandardOperatingProcedureList: React.FC = () => {
   // Create SOP mutation
   const createSOPMutation = useMutation({
     mutationFn: async (data: Partial<SOP>) => {
-      const response = await fetch(`${API_BASE}/sops/`, {
+      const response = await fetch(`${API_BASE}/staff/sops/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -76,11 +76,11 @@ const StandardOperatingProcedureList: React.FC = () => {
         },
         body: JSON.stringify(data),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to create SOP');
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -132,7 +132,7 @@ const StandardOperatingProcedureList: React.FC = () => {
       'CUSTOMER_SERVICE': 'Customer Service',
       'EMERGENCY': 'Emergency',
     };
-    
+
     return categories[category] || category;
   };
 
@@ -189,8 +189,8 @@ const StandardOperatingProcedureList: React.FC = () => {
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <AlertCircle className="h-8 w-8 mb-2" />
                       <p>No standard operating procedures found</p>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="mt-2"
                         onClick={() => setIsModalOpen(true)}
                       >

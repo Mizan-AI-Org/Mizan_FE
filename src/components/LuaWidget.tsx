@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '@/contexts/AuthContext.types';
+import { useLanguage } from '@/hooks/use-language';
+import { logError } from '@/lib/logging';
 
 declare global {
     interface Window {
@@ -12,7 +14,9 @@ declare global {
 
 export const LuaWidget: React.FC = () => {
     const { user } = useAuth() as AuthContextType;
+    const { t } = useLanguage();
     const initialized = useRef(false);
+    const agentId = import.meta.env.VITE_LUA_AGENT_ID as string | undefined;
 
     useEffect(() => {
         if (!user) return;
@@ -21,15 +25,24 @@ export const LuaWidget: React.FC = () => {
         const allowedRoles = ['ADMIN', 'SUPER_ADMIN'];
         if (!allowedRoles.includes(user.role)) return;
 
+        if (!agentId) {
+            logError({ feature: 'lua-widget', action: 'init' }, new Error('Missing VITE_LUA_AGENT_ID'));
+            return;
+        }
+
         if (window.LuaPop && !initialized.current) {
             window.LuaPop.init({
-                agentId: "baseAgent_agent_1762796132079_ob3ln5fkl",
+                agentId,
+                environment: "production",
+                apiUrl: "https://api.heylua.ai",
+                // Embed context in sessionId as a workaround for missing metadata support
+                sessionId: `tenant-${user.restaurant_data?.id || user.restaurant}-name-${btoa(encodeURIComponent(user.restaurant_data?.name || "Unknown Restaurant"))}-user-${user.id}`,
 
                 // Floating button position
                 position: "bottom-right",
 
                 // Button - Using emoji in text instead of buttonIcon to avoid broken image issues
-                buttonText: "🤖 Chat with AI",
+                buttonText: t("ai.chat_button"),
                 buttonColor: "#1cc774ff",
 
                 // Button custom styles
@@ -50,7 +63,7 @@ export const LuaWidget: React.FC = () => {
                 },
 
                 // Chat header
-                chatTitle: "AI Assistant",
+                chatTitle: t("ai.chat_title"),
                 chatTitleHeaderStyles: {
                     background: "linear-gradient(135deg, #00E676 0%, #00C853 100%)",
                     color: "white",
@@ -68,12 +81,12 @@ export const LuaWidget: React.FC = () => {
                 },
 
                 // Input
-                chatInputPlaceholder: "Ask me anything..."
+                chatInputPlaceholder: t("ai.chat_placeholder")
             });
 
             initialized.current = true;
         }
-    }, [user]);
+    }, [user, t, agentId]);
 
     return null;
 };

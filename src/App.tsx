@@ -24,7 +24,6 @@ import ShiftDetailView from "./pages/ShiftDetailView";
 import StaffAnnouncementsList from "./pages/StaffAnnouncement";
 import Staff from "./pages/Staff";
 import AddStaff from "./pages/AddStaff";
-import CleaningTasks from "./pages/CleaningTasks";
 
 // Lazy-loaded components
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
@@ -571,14 +570,6 @@ const App = () => {
                       allowedRoles={["SUPER_ADMIN", "ADMIN", "CHEF"]}
                     >
                       <KitchenDisplay />
-                    </RoleBasedRoute>
-                  }
-                />
-                <Route
-                  path="cleaning-tasks"
-                  element={
-                    <RoleBasedRoute allowedRoles={["CLEANER"]}>
-                      <CleaningTasks />
                     </RoleBasedRoute>
                   }
                 />
