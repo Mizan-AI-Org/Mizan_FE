@@ -54,6 +54,8 @@ const apps: AppItem[] = [
     icon: FileText,
     gradient: "bg-gradient-to-br from-emerald-500 to-green-500",
     description: "View and filter staff shift feedback",
+    nameKey: "app.shift_reviews",
+    descKey: "app.shift_reviews.desc",
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
   },
   {

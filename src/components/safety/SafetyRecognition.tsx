@@ -65,17 +65,17 @@ const SafetyRecognitionComponent: React.FC = () => {
   const { data: recognitions, isLoading: recognitionsLoading } = useQuery({
     queryKey: ['safety-recognitions'],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/safety-recognitions/`, {
+      const response = await fetch(`${API_BASE}/staff/safety-recognitions/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch safety recognitions');
       }
-      
+
       return response.json();
     },
   });
@@ -84,17 +84,17 @@ const SafetyRecognitionComponent: React.FC = () => {
   const { data: leaderboard, isLoading: leaderboardLoading } = useQuery({
     queryKey: ['safety-leaderboard'],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/safety-recognitions/leaderboard/`, {
+      const response = await fetch(`${API_BASE}/staff/safety-recognitions/leaderboard/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch safety leaderboard');
       }
-      
+
       return response.json();
     },
   });
@@ -109,11 +109,11 @@ const SafetyRecognitionComponent: React.FC = () => {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch staff');
       }
-      
+
       return response.json();
     },
   });
@@ -121,7 +121,7 @@ const SafetyRecognitionComponent: React.FC = () => {
   // Create Recognition mutation
   const createRecognitionMutation = useMutation({
     mutationFn: async (data: Partial<SafetyRecognition>) => {
-      const response = await fetch(`${API_BASE}/safety-recognitions/`, {
+      const response = await fetch(`${API_BASE}/staff/safety-recognitions/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -129,11 +129,11 @@ const SafetyRecognitionComponent: React.FC = () => {
         },
         body: JSON.stringify(data),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to create recognition');
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -183,7 +183,7 @@ const SafetyRecognitionComponent: React.FC = () => {
             <TabsTrigger value="recognitions">Recent Recognitions</TabsTrigger>
             <TabsTrigger value="leaderboard">Safety Leaderboard</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="recognitions">
             {isLoading ? (
               <div className="flex justify-center p-4">Loading recognitions...</div>
@@ -241,7 +241,7 @@ const SafetyRecognitionComponent: React.FC = () => {
               </Table>
             )}
           </TabsContent>
-          
+
           <TabsContent value="leaderboard">
             {isLoading ? (
               <div className="flex justify-center p-4">Loading leaderboard...</div>

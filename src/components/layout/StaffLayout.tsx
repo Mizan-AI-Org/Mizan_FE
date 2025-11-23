@@ -65,9 +65,6 @@ const StaffLayout: React.FC = () => {
     { name: "Chat", href: "/staff-dashboard/chat", icon: MessageSquare },
   ];
 
-  if (user?.role === 'CLEANER') {
-    navigation.push({ name: "Cleaning Tasks", href: "/staff-dashboard/cleaning-tasks", icon: UtensilsCrossed });
-  }
 
   if (user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MANAGER') {
     navigation.push({ name: "Supervisor", href: "/staff-dashboard/supervisor", icon: LayoutDashboard });

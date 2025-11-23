@@ -4,7 +4,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { ClipboardList, Loader2, Clock, Users } from "lucide-react";
+ 
+import { ClipboardList, Loader2, Clock } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useQueries } from "@tanstack/react-query";
@@ -443,118 +444,116 @@ const MyChecklistsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Filters and search removed per simplified staff checklist app */}
+      <div className="space-y-4">
+          {/* Filters and search removed per simplified staff checklist app */}
 
-      {/* Progress summary header */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {(() => {
-          const counts = filtered.reduce((acc, it) => {
-            const s = String(it.status || "PENDING");
-            acc.total += 1;
-            if (s === "COMPLETED") acc.completed += 1;
-            else if (s === "IN_PROGRESS") acc.inprogress += 1;
-            else if (s === "OVERDUE") acc.overdue += 1;
-            else acc.pending += 1;
-            return acc;
-          }, { total: 0, pending: 0, inprogress: 0, completed: 0, overdue: 0 });
-          const pct = counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0;
-          return (
-            <>
-              <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">Total <span className="font-semibold">{counts.total}</span></div></CardContent></Card>
-              <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">In Progress <span className="font-semibold">{counts.inprogress}</span></div></CardContent></Card>
-              <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">Completed <span className="font-semibold">{counts.completed}</span></div></CardContent></Card>
-              <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">Overall Progress <span className="font-semibold">{pct}%</span></div></CardContent></Card>
-            </>
-          );
-        })()}
-      </div>
-
-      {/* NEW: Shift-Assigned Task Templates Section */}
-      {(() => {
-        const templateCount = Array.isArray(shiftTemplates) ? shiftTemplates.length : 0;
-        const isClockedIn = sessionData?.is_clocked_in;
-        const showDisabled = !loadingSession && !isClockedIn;
-
-        console.log('[MyChecklistsPage] Rendering templates section:');
-        console.log('  - shiftTemplates:', shiftTemplates);
-        console.log('  - templateCount:', templateCount);
-        console.log('  - loadingShiftTemplates:', loadingShiftTemplates);
-        console.log('  - isClockedIn:', isClockedIn);
-        console.log('  - showDisabled:', showDisabled);
-
-        return (
-          <div className="space-y-2" aria-label="Assigned Checklists from Shifts">
-            {showDisabled && (
-              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md flex items-center text-yellow-800 text-sm">
-                <Clock className="w-4 h-4 mr-2" />
-                <span>You must be clocked in to access your checklists.</span>
-              </div>
-            )}
-
-            <div className={showDisabled ? "opacity-50 pointer-events-none grayscale transition-all duration-200" : ""}>
-              <div className="flex items-center gap-2">
-                <ClipboardList className="w-4 h-4 text-muted-foreground" />
-                <h3 className="text-sm font-semibold">Assigned Checklists</h3>
-                <Badge variant="secondary" className="rounded-full">{templateCount}</Badge>
-              </div>
-
-              {loadingShiftTemplates ? (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin" /> Loading shift templates…
-                </div>
-              ) : templateCount === 0 ? (
-                <Card className="shadow-sm">
-                  <CardContent className="py-8 text-center text-muted-foreground">
-                    No checklist assigned yet
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {shiftTemplates?.map((template) => {
-                    const statusColor = template.execution_status === "COMPLETED" ? "bg-green-100 text-green-700" :
-                      template.execution_status === "IN_PROGRESS" ? "bg-blue-100 text-blue-700" : "bg-secondary text-secondary-foreground";
-                    const statusLabel = template.execution_status ? template.execution_status.replace(/_/g, ' ') : "Not Started";
-
-                    return (
-                      <Card key={`${template.id}-${template.shift_id}`} className="shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleShiftTemplateClick(template)}>
-                        <CardHeader className="pb-2">
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-base">{template.name}</CardTitle>
-                            {template.execution_status && <Badge className={`rounded-full ${statusColor}`}>{statusLabel}</Badge>}
-                          </div>
-                          {template.description && (
-                            <CardDescription className="text-sm line-clamp-2">{template.description}</CardDescription>
-                          )}
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-1 text-xs text-muted-foreground">
-                            {template.shift_date && (
-                              <div>Shift: {new Date(template.shift_date).toLocaleDateString()}</div>
-                            )}
-                            {template.shift_role && (
-                              <div>Role: {template.shift_role}</div>
-                            )}
-                            {template.template_type && (
-                              <Badge variant="outline" className="text-xs">{template.template_type}</Badge>
-                            )}
-                            {template.execution_progress !== undefined && template.execution_progress > 0 && (
-                              <div className="mt-2">Progress: {template.execution_progress}%</div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+          {/* Progress summary header */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {(() => {
+              const counts = filtered.reduce((acc, it) => {
+                const s = String(it.status || "PENDING");
+                acc.total += 1;
+                if (s === "COMPLETED") acc.completed += 1;
+                else if (s === "IN_PROGRESS") acc.inprogress += 1;
+                else if (s === "OVERDUE") acc.overdue += 1;
+                else acc.pending += 1;
+                return acc;
+              }, { total: 0, pending: 0, inprogress: 0, completed: 0, overdue: 0 });
+              const pct = counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0;
+              return (
+                <>
+                  <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">Total <span className="font-semibold">{counts.total}</span></div></CardContent></Card>
+                  <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">In Progress <span className="font-semibold">{counts.inprogress}</span></div></CardContent></Card>
+                  <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">Completed <span className="font-semibold">{counts.completed}</span></div></CardContent></Card>
+                  <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">Overall Progress <span className="font-semibold">{pct}%</span></div></CardContent></Card>
+                </>
+              );
+            })()}
           </div>
-        );
-      })()}
 
+          {/* NEW: Shift-Assigned Task Templates Section */}
+          {(() => {
+            const templateCount = Array.isArray(shiftTemplates) ? shiftTemplates.length : 0;
+            const isClockedIn = sessionData?.is_clocked_in;
+            const showDisabled = !loadingSession && !isClockedIn;
 
+            console.log('[MyChecklistsPage] Rendering templates section:');
+            console.log('  - shiftTemplates:', shiftTemplates);
+            console.log('  - templateCount:', templateCount);
+            console.log('  - loadingShiftTemplates:', loadingShiftTemplates);
+            console.log('  - isClockedIn:', isClockedIn);
+            console.log('  - showDisabled:', showDisabled);
 
+            return (
+              <div className="space-y-2" aria-label="Assigned Checklists from Shifts">
+                {showDisabled && (
+                  <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md flex items-center text-yellow-800 text-sm">
+                    <Clock className="w-4 h-4 mr-2" />
+                    <span>You must be clocked in to access your checklists.</span>
+                  </div>
+                )}
 
+                <div className={showDisabled ? "opacity-50 pointer-events-none grayscale transition-all duration-200" : ""}>
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="w-4 h-4 text-muted-foreground" />
+                    <h3 className="text-sm font-semibold">Assigned Checklists</h3>
+                    <Badge variant="secondary" className="rounded-full">{templateCount}</Badge>
+                  </div>
+
+                  {loadingShiftTemplates ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Loading shift templates…
+                    </div>
+                  ) : templateCount === 0 ? (
+                    <Card className="shadow-sm">
+                      <CardContent className="py-8 text-center text-muted-foreground">
+                        No checklist assigned yet
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {shiftTemplates?.map((template) => {
+                        const statusColor = template.execution_status === "COMPLETED" ? "bg-green-100 text-green-700" :
+                          template.execution_status === "IN_PROGRESS" ? "bg-blue-100 text-blue-700" : "bg-secondary text-secondary-foreground";
+                        const statusLabel = template.execution_status ? template.execution_status.replace(/_/g, ' ') : "Not Started";
+
+                        return (
+                          <Card key={`${template.id}-${template.shift_id}`} className="shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleShiftTemplateClick(template)}>
+                            <CardHeader className="pb-2">
+                              <div className="flex items-center justify-between">
+                                <CardTitle className="text-base">{template.name}</CardTitle>
+                                {template.execution_status && <Badge className={`rounded-full ${statusColor}`}>{statusLabel}</Badge>}
+                              </div>
+                              {template.description && (
+                                <CardDescription className="text-sm line-clamp-2">{template.description}</CardDescription>
+                              )}
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-1 text-xs text-muted-foreground">
+                                {template.shift_date && (
+                                  <div>Shift: {new Date(template.shift_date).toLocaleDateString()}</div>
+                                )}
+                                {template.shift_role && (
+                                  <div>Role: {template.shift_role}</div>
+                                )}
+                                {template.template_type && (
+                                  <Badge variant="outline" className="text-xs">{template.template_type}</Badge>
+                                )}
+                                {template.execution_progress !== undefined && template.execution_progress > 0 && (
+                                  <div className="mt-2">Progress: {template.execution_progress}%</div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+      </div>
     </div >
   );
 };

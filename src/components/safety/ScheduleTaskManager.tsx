@@ -92,17 +92,17 @@ const ScheduleTaskManager: React.FC = () => {
   const { data: tasks, isLoading: tasksLoading } = useQuery({
     queryKey: ['schedule-tasks'],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/schedule-tasks/`, {
+      const response = await fetch(`${API_BASE}/staff/schedule-tasks/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch tasks');
       }
-      
+
       return response.json();
     },
   });
@@ -117,11 +117,11 @@ const ScheduleTaskManager: React.FC = () => {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch staff');
       }
-      
+
       return response.json();
     },
   });
@@ -129,7 +129,7 @@ const ScheduleTaskManager: React.FC = () => {
   // Create Task mutation
   const createTaskMutation = useMutation({
     mutationFn: async (data: Partial<ScheduleTask>) => {
-      const response = await fetch(`${API_BASE}/schedule-tasks/`, {
+      const response = await fetch(`${API_BASE}/staff/schedule-tasks/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -137,11 +137,11 @@ const ScheduleTaskManager: React.FC = () => {
         },
         body: JSON.stringify(data),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to create task');
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -172,18 +172,18 @@ const ScheduleTaskManager: React.FC = () => {
   // Complete Task mutation
   const completeTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
-      const response = await fetch(`${API_BASE}/schedule-tasks/${taskId}/complete_task/`, {
+      const response = await fetch(`${API_BASE}/staff/schedule-tasks/${taskId}/complete_task/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to complete task');
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -253,7 +253,7 @@ const ScheduleTaskManager: React.FC = () => {
       // Use current list task as initial details until full detail loads
       setSelectedTaskDetails(task as SelectedTaskDetail);
       setIsDetailsOpen(true);
-      const response = await fetch(`${API_BASE}/schedule-tasks/${task.id}/`, {
+      const response = await fetch(`${API_BASE}/staff/schedule-tasks/${task.id}/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -351,8 +351,8 @@ const ScheduleTaskManager: React.FC = () => {
                       <AlertCircle className="h-8 w-8 mb-2" />
                       <p>No tasks found</p>
                       {canCreateTasks && (
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           className="mt-2"
                           onClick={() => setIsModalOpen(true)}
                         >
@@ -558,7 +558,7 @@ const ScheduleTaskManager: React.FC = () => {
                   </div>
                 </div>
               )}
-          </div>
+            </div>
           ) : (
             <div className="py-4 text-sm text-muted-foreground">Loading details…</div>
           )}

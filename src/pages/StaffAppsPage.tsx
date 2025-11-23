@@ -47,7 +47,6 @@ const StaffAppsPage: React.FC = () => {
     { key: 'schedule', name: 'My Schedule', description: 'View weekly shifts', icon: Calendar, href: '/staff-dashboard/schedule', category: 'Operations' },
     { key: 'kitchen', name: 'Kitchen Display', description: 'Orders view', icon: ChefHat, href: '/staff-dashboard/kitchen', roles: ['SUPER_ADMIN','ADMIN','CHEF'], category: 'Operations' },
     { key: 'chat', name: 'Team Announcements', description: 'Team messaging', icon: MessageSquare, href: '/staff-dashboard/chat', category: 'Communication' },
-    { key: 'cleaning', name: 'Cleaning Tasks', description: 'Assigned tasks', icon: ClipboardList, href: '/staff-dashboard/cleaning-tasks', roles: ['CLEANER'], category: 'Operations' },
     { key: 'safety', name: 'Incidents and Safety', description: 'Incidents & reports', icon: Shield, href: '/staff-dashboard/safety', category: 'Safety' },
     { key: 'my_checklists', name: 'My Checklists', description: 'Assigned checklists', icon: ClipboardList, href: '/staff-dashboard/my-checklists', category: 'Safety' },
     { key: 'attendance', name: 'Attendance', description: 'History & records', icon: FileText, href: '/staff-dashboard/attendance', category: 'Management' },
