@@ -516,7 +516,6 @@ export class BackendService {
     accessToken: string
   ): Promise<StaffInvitation[]> {
     try {
-      // Use InvitationViewSet with filters to return only pending, non-expired invites
       const response = await fetch(
         `${API_BASE}/invitations/?is_accepted=false&show_expired=false`,
         {
@@ -524,16 +523,36 @@ export class BackendService {
           headers: this.getHeaders(accessToken),
         }
       );
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Failed to fetch pending staff invitations"
-        );
+      if (response.ok) {
+        return await response.json();
       }
-      return await response.json();
+
+      // Fallback to legacy endpoint and client-side filter
+      const fallback = await fetch(`${API_BASE}/staff/invitations/`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
+      if (!fallback.ok) {
+        let msg = "Failed to fetch pending staff invitations";
+        try {
+          const err = await fallback.json();
+          msg = err.message || err.detail || err.error || msg;
+        } catch {
+          // ignore parse error
+        }
+        throw new Error(msg);
+      }
+      const allInvites: StaffInvitation[] = await fallback.json();
+      const now = Date.now();
+      return (allInvites || []).filter((i: any) => {
+        const accepted = Boolean(i?.is_accepted);
+        const expiresAt = i?.expires_at ? Date.parse(i.expires_at) : 0;
+        return !accepted && expiresAt > now;
+      });
     } catch (error: any) {
-      console.error("Error fetching pending staff invitations:", error);
-      return []; // Return empty array on error for graceful degradation
+      const message =
+        error?.message || "Failed to fetch pending staff invitations";
+      throw new Error(message);
     }
   }
 
@@ -2752,22 +2771,13 @@ export class BackendService {
       if (opts.ordering) url.searchParams.set("ordering", String(opts.ordering));
       const response = await fetch(url.toString(), { headers: this.getHeaders() });
       if (!response.ok) {
-        let message = "Failed to load my checklists";
-        try {
-          const clone = response.clone();
-          const json = await clone.json();
-          message = json.message || json.detail || json.error || message;
-        } catch {
-          // Avoid dumping HTML error pages into the UI toast
-          message = `${message} (${response.status})`;
-        }
-        throw new Error(message);
+        return [];
       }
       const data = await response.json();
       // Prefer paginated envelope if available
       return typeof data === "object" && data && "results" in data ? data : (data.results || data);
     } catch (error: any) {
-      throw new Error(error.message || "Failed to load my checklists");
+      return [];
     }
   }
 
