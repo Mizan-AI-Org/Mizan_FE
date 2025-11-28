@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '@/contexts/AuthContext.types';
@@ -13,7 +14,7 @@ declare global {
 }
 
 export const LuaWidget: React.FC = () => {
-    const { user } = useAuth() as AuthContextType;
+    const { user, accessToken } = useAuth() as AuthContextType;
     const { t } = useLanguage();
     const initialized = useRef(false);
     const agentId = import.meta.env.VITE_LUA_AGENT_ID as string | undefined;
@@ -35,8 +36,16 @@ export const LuaWidget: React.FC = () => {
                 agentId,
                 environment: "production",
                 apiUrl: "https://api.heylua.ai",
-                // Embed context in sessionId as a workaround for missing metadata support
+                // Embed context in sessionId 
                 sessionId: `tenant-${user.restaurant_data?.id || user.restaurant}-name-${btoa(encodeURIComponent(user.restaurant_data?.name || "Unknown Restaurant"))}-user-${user.id}`,
+
+                // Pass auth token and context metadata
+                metadata: {
+                    token: accessToken,
+                    restaurantId: user.restaurant_data?.id || user.restaurant,
+                    userId: user.id,
+                    role: user.role
+                },
 
                 // Floating button position
                 position: "bottom-right",
@@ -76,7 +85,7 @@ export const LuaWidget: React.FC = () => {
                 chatHeaderSubtitle: {
                     visible: true,
                     brandName: "Mizan AI",
-                    iconUrl: "/favicon.ico",
+                    iconUrl: "",
                     linkUrl: ""
                 },
 

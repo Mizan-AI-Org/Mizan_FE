@@ -386,7 +386,7 @@ export default function TaskTemplateManagement() {
             onClick={() => seedTemplatesMutation.mutate()}
             disabled={seedTemplatesMutation.isPending}
           >
-            Load Built-in Templates
+            Load Pre-Built Templates
           </Button>
         </div>
       </div>
