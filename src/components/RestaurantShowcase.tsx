@@ -30,7 +30,7 @@ export const RestaurantShowcase: React.FC = () => {
   const stats = [
     {
       icon: Users,
-      number: "500+",
+      number: "10+",
       label: "Professional Staff",
     },
     {
@@ -91,10 +91,10 @@ export const RestaurantShowcase: React.FC = () => {
           alt={currentImage.alt}
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
         />
-        
+
         {/* Dark gradient overlay for text legibility */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-transparent" />
-        
+
         {/* Additional overlay for better text contrast */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
 
@@ -155,11 +155,10 @@ export const RestaurantShowcase: React.FC = () => {
               <button
                 key={index}
                 onClick={() => setCurrentSlide(index)}
-                className={`transition-all ${
-                  currentSlide === index
+                className={`transition-all ${currentSlide === index
                     ? "w-8 h-2 bg-[#00E676] rounded-full"
                     : "w-2 h-2 bg-[#00E676]/40 rounded-full hover:bg-[#00E676]/60"
-                }`}
+                  }`}
                 aria-label={`Go to image ${index + 1}`}
               />
             ))}
