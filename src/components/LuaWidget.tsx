@@ -36,6 +36,7 @@ export const LuaWidget: React.FC = () => {
                 agentId,
                 environment: "production",
                 apiUrl: "https://api.heylua.ai",
+                voiceModeEnabled: true,
                 // Embed context in sessionId 
                 sessionId: `tenant-${user.restaurant_data?.id || user.restaurant}-name-${btoa(encodeURIComponent(user.restaurant_data?.name || "Unknown Restaurant"))}-user-${user.id}`,
 
@@ -90,7 +91,18 @@ export const LuaWidget: React.FC = () => {
                 },
 
                 // Input
-                chatInputPlaceholder: t("ai.chat_placeholder")
+                chatInputPlaceholder: t("ai.chat_placeholder"),
+
+                // Voice Config
+                voice: {
+                    enabled: true,
+                },
+
+                // UI preferences
+                showBotIcon: false,
+                buttonIcon: "", // Ensure no default icon
+                showLauncherIcon: false, // Valid for some versions
+                botAvatar: "", // Hide avatar in chat if possible
             });
 
             initialized.current = true;

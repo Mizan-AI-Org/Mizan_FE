@@ -576,8 +576,8 @@ const StaffAnnouncements: React.FC = () => {
                         {recipientMode === "ALL"
                           ? "All Staff"
                           : recipientMode === "STAFF"
-                          ? "Specific Staff"
-                          : "Departments"}
+                            ? "Specific Staff"
+                            : "Departments"}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -608,9 +608,8 @@ const StaffAnnouncements: React.FC = () => {
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-auto border rounded-md p-2">
                           {staffProfiles.map((profile) => {
-                            const name = `${
-                              profile.user_details?.first_name ?? ""
-                            } ${profile.user_details?.last_name ?? ""}`.trim();
+                            const name = `${profile.user_details?.first_name ?? ""
+                              } ${profile.user_details?.last_name ?? ""}`.trim();
                             const id = profile.user_details?.id || profile.id;
                             const checked = selectedStaffIds.includes(id);
                             return (
@@ -749,12 +748,10 @@ const StaffAnnouncements: React.FC = () => {
                             const staffName =
                               shift.staff_name ||
                               shift.staff_info?.name ||
-                              `${shift.staff_info?.first_name ?? ""} ${
-                                shift.staff_info?.last_name ?? ""
-                              }`.trim();
-                            const timeRange = `${shift.start_time ?? ""} - ${
-                              shift.end_time ?? ""
-                            }`;
+                              `${shift.staff_info?.first_name ?? ""} ${shift.staff_info?.last_name ?? ""
+                                }`.trim();
+                            const timeRange = `${shift.start_time ?? ""} - ${shift.end_time ?? ""
+                              }`;
                             return (
                               <label
                                 key={id}
@@ -901,20 +898,6 @@ const StaffAnnouncements: React.FC = () => {
           </form>
         </CardContent>
       </Card>
-
-      {/* Help Text */}
-      <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <h3 className="font-semibold text-blue-900 mb-2">How it works:</h3>
-        <ul className="text-sm text-blue-800 space-y-1">
-          <li>
-            • Announcements are sent to all staff members in your restaurant
-          </li>
-          <li>• Staff will receive notifications on their devices</li>
-          <li>• Use priority levels to indicate urgency</li>
-          <li>• Set expiration dates for time-sensitive announcements</li>
-          <li>• Schedule announcements to be sent at a later time</li>
-        </ul>
-      </div>
     </div>
   );
 };

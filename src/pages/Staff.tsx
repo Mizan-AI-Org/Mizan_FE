@@ -1429,6 +1429,7 @@ export default function Staff() {
       email: string;
       role: string;
       is_active: boolean;
+      phone?: string;
     };
     employee_id: string;
     date_joined: string;
@@ -1444,6 +1445,7 @@ export default function Staff() {
     last_name: string;
     role: string;
     is_active: boolean;
+    phone?: string;
     created_at?: string;
     profile?: {
       employee_id?: string;
@@ -1612,7 +1614,7 @@ export default function Staff() {
           const v2Assigned = raw.map(normalizeApiShift);
           final.splice(0, final.length, ...v2Assigned);
         }
-      } catch {}
+      } catch { }
       const sorted = [...final].sort((a, b) => {
         const da = getDayIndex(a.shift_date);
         const db = getDayIndex(b.shift_date);
@@ -1648,7 +1650,7 @@ export default function Staff() {
         const mapped = raw.map(normalizeApiShift);
         const ids = new Set(mapped.map((s) => s.staff));
         setOnDutyTodayCountState(ids.size);
-      } catch {}
+      } catch { }
     })();
   }, []);
 
@@ -1837,6 +1839,7 @@ export default function Staff() {
               email: u.email,
               role: u.role,
               is_active: !!u.is_active,
+              phone: u.phone,
             },
             employee_id: u.profile?.employee_id || "",
             date_joined: u.created_at || "",
@@ -2443,6 +2446,7 @@ export default function Staff() {
                       <TableRow>
                         <TableHead>Name</TableHead>
                         <TableHead>Email</TableHead>
+                        <TableHead>WhatsApp</TableHead>
                         <TableHead>Position</TableHead>
                         <TableHead>Department</TableHead>
                         <TableHead>Status</TableHead>
@@ -2452,7 +2456,7 @@ export default function Staff() {
                       {paginatedStaff.length === 0 ? (
                         <TableRow>
                           <TableCell
-                            colSpan={5}
+                            colSpan={6}
                             className="text-center text-sm text-muted-foreground"
                           >
                             No staff match your filters.
@@ -2476,7 +2480,10 @@ export default function Staff() {
                               </div>
                             </TableCell>
                             <TableCell className="break-all">
-                              {m.user?.email}
+                              {m.user?.email && !m.user?.email.includes('@no-email.com') ? m.user?.email : "—"}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap">
+                              {m.user?.phone || "—"}
                             </TableCell>
                             <TableCell className="capitalize">
                               {(m.user?.role || "")
@@ -2555,29 +2562,47 @@ export default function Staff() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Name</TableHead>
                         <TableHead>Email</TableHead>
+                        <TableHead>WhatsApp</TableHead>
                         <TableHead>Role</TableHead>
                         <TableHead>Invited</TableHead>
                         <TableHead>Expires</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pendingInvites.map((inv) => (
-                        <TableRow key={inv.id}>
-                          <TableCell className="break-all">
-                            {inv.email}
-                          </TableCell>
-                          <TableCell className="capitalize">
-                            {(inv.role || "").toLowerCase().replace(/_/g, " ")}
-                          </TableCell>
-                          <TableCell>
-                            {new Date(inv.created_at).toLocaleString()}
-                          </TableCell>
-                          <TableCell>
-                            {new Date(inv.expires_at).toLocaleString()}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {pendingInvites.map((inv) => {
+                        const isDummyEmail = inv.email.startsWith("wa.") && inv.email.endsWith("@no-email.com");
+                        return (
+                          <TableRow key={inv.id}>
+                            <TableCell className="font-medium">
+                              {inv.first_name
+                                ? `${inv.first_name} ${inv.last_name || ""}`
+                                : isDummyEmail
+                                  ? `Staff (${inv.email.split("@")[0].slice(3)})`
+                                  : "Invited Staff"}
+                            </TableCell>
+                            <TableCell className="break-all">
+                              {isDummyEmail ? "-" : inv.email}
+                            </TableCell>
+                            <TableCell>
+                              {inv.extra_data?.phone ||
+                                (isDummyEmail
+                                  ? "+" + inv.email.split("@")[0].slice(3)
+                                  : "-")}
+                            </TableCell>
+                            <TableCell className="capitalize">
+                              {(inv.role || "").toLowerCase().replace(/_/g, " ")}
+                            </TableCell>
+                            <TableCell>
+                              {new Date(inv.created_at).toLocaleString()}
+                            </TableCell>
+                            <TableCell>
+                              {new Date(inv.expires_at).toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
