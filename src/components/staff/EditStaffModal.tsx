@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '../../contexts/AuthContext.types';
+import { API_BASE } from "@/lib/api";
 
 interface StaffMember {
     id: string;
@@ -34,7 +35,6 @@ interface EditStaffModalProps {
     staffMember: StaffMember | null;
 }
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffMember }) => {
     const queryClient = useQueryClient();

@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import type { TemplateDefinition, StepDefinition, EvidenceAttachment } from "@/types/checklist";
 import { CheckCircle, Circle, FileText, Paperclip, Plus, Save, PenTool, X } from "lucide-react";
+import { API_BASE } from "@/lib/api";
 
 type GroupedProcess = {
   name: string;
@@ -162,7 +163,6 @@ const ChecklistTree: React.FC<ChecklistTreeProps> = ({ executionId, template, as
         };
       });
 
-      const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
       const syncRes = await fetch(`${API_BASE}/checklists/executions/${executionId}/sync/`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },

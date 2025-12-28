@@ -48,8 +48,7 @@ import { StaffInvitation } from "@/lib/types";
 import { User } from "@/contexts/AuthContext.types";
 import { translateApiError } from "@/i18n/messages";
 
-const API_BASE =
-  import.meta.env.VITE_API_URL || import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+import { API_BASE } from "@/lib/api";
 
 type PosConnectionStatus = "idle" | "connected" | "error";
 
@@ -317,8 +316,7 @@ export default function Settings() {
       const errData = axiosErr.response?.data;
       console.error("Error saving location settings:", errData ?? error);
       toast.error(
-        `${t("settings.location.save_error")}${
-          errData?.detail ? ": " + errData.detail : ""
+        `${t("settings.location.save_error")}${errData?.detail ? ": " + errData.detail : ""
         }`
       );
     } finally {
@@ -360,8 +358,7 @@ export default function Settings() {
       } else {
         const errorData = response.data;
         toast.error(
-          `${t("settings.general.save_error")}: ${
-            errorData.detail || errorData.error || "Unknown error"
+          `${t("settings.general.save_error")}: ${errorData.detail || errorData.error || "Unknown error"
           }`
         );
       }
@@ -433,8 +430,7 @@ export default function Settings() {
       } else {
         const errorData = response.data;
         toast.error(
-          `Failed to send invitation: ${
-            errorData.detail || errorData.error || "Unknown error"
+          `Failed to send invitation: ${errorData.detail || errorData.error || "Unknown error"
           }`
         );
       }
@@ -615,512 +611,511 @@ export default function Settings() {
                 </div>
               }
             >
-            <GeolocationMapSettings
-              latitude={latitude}
-              longitude={longitude}
-              radius={radius}
-              geofenceEnabled={geofenceEnabled}
-              geofencePolygon={geofencePolygon}
-              onToggleGeofence={setGeofenceEnabled}
-              onPolygonChange={setGeofencePolygon}
-              onSave={saveLocationSettings}
-              isSaving={savingGeolocation}
-            />
+              <GeolocationMapSettings
+                latitude={latitude}
+                longitude={longitude}
+                radius={radius}
+                geofenceEnabled={geofenceEnabled}
+                geofencePolygon={geofencePolygon}
+                onToggleGeofence={setGeofenceEnabled}
+                onPolygonChange={setGeofencePolygon}
+                onSave={saveLocationSettings}
+                isSaving={savingGeolocation}
+              />
             </Suspense>
           </TabsContent>
         )}
 
         {!isStaff && (
-        <TabsContent value="general" className="space-y-6">
-          {/* Quick Settings - concise, responsive controls */}
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Quick Settings</CardTitle>
-              <CardDescription>Common controls at a glance.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-8">
-              {/* Notifications */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <Bell className="w-4 h-4" />
-                  <span>Notifications</span>
-                </div>
-                <div className="divide-y rounded-lg border">
-                  <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Email Notifications</p>
-                      <p className="text-xs text-muted-foreground">
-                        Receive email updates about your account
-                      </p>
-                    </div>
-                    <Switch
-                      checked={emailNotifications.aiInsights}
-                      onCheckedChange={(checked) =>
-                        handleNotificationChange("email", "aiInsights", checked)
-                      }
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Push Notifications</p>
-                      <p className="text-xs text-muted-foreground">
-                        Receive push notifications on your device
-                      </p>
-                    </div>
-                    <Switch
-                      checked={pushNotifications.aiInsights}
-                      onCheckedChange={(checked) =>
-                        handleNotificationChange("push", "aiInsights", checked)
-                      }
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium">SMS Notifications</p>
-                      <p className="text-xs text-muted-foreground">
-                        Receive text message alerts
-                      </p>
-                    </div>
-                    <Switch
-                      checked={smsNotificationsEnabled}
-                      onCheckedChange={setSmsNotificationsEnabled}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Security */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <Shield className="w-4 h-4" />
-                  <span>Security</span>
-                </div>
-                <div className="divide-y rounded-lg border">
-                  <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium">
-                        Two-Factor Authentication
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Add an extra layer of security to your account
-                      </p>
-                    </div>
-                    <Switch
-                      checked={twoFactorEnabled}
-                      onCheckedChange={setTwoFactorEnabled}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* AI Features */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <Sparkles className="w-4 h-4" />
-                  <span>AI Features</span>
-                </div>
-                <div className="divide-y rounded-lg border">
-                  <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium">
-                        AI-Powered Suggestions
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Get intelligent recommendations and insights
-                      </p>
-                    </div>
-                    <Switch
-                      checked={!!aiSettings.features_enabled.insights}
-                      onCheckedChange={(checked) =>
-                        setAiSettings((prev) => ({
-                          ...prev,
-                          features_enabled: {
-                            ...prev.features_enabled,
-                            insights: checked,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Smart Scheduling</p>
-                      <p className="text-xs text-muted-foreground">
-                        Let AI optimize staff schedules automatically
-                      </p>
-                    </div>
-                    <Switch
-                      checked={!!aiSettings.features_enabled.recommendations}
-                      onCheckedChange={(checked) =>
-                        setAiSettings((prev) => ({
-                          ...prev,
-                          features_enabled: {
-                            ...prev.features_enabled,
-                            recommendations: checked,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium">
-                        Predictive Analytics
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Enable AI-driven forecasting and predictions
-                      </p>
-                    </div>
-                    <Switch
-                      checked={!!aiSettings.features_enabled.reports}
-                      onCheckedChange={(checked) =>
-                        setAiSettings((prev) => ({
-                          ...prev,
-                          features_enabled: {
-                            ...prev.features_enabled,
-                            reports: checked,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-soft">
-          <CardHeader>
-            <CardTitle>Restaurant Information</CardTitle>
-              <CardDescription>
-                Manage your restaurant's basic details.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <TabsContent value="general" className="space-y-6">
+            {/* Quick Settings - concise, responsive controls */}
+            <Card className="shadow-soft">
+              <CardHeader>
+                <CardTitle>Quick Settings</CardTitle>
+                <CardDescription>Common controls at a glance.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-8">
+                {/* Notifications */}
                 <div className="space-y-4">
-                  <Label htmlFor="restaurant-name">Restaurant Name</Label>
-                  <Input
-                    id="restaurant-name"
-                    value={restaurantName}
-                    onChange={(e) => setRestaurantName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-4">
-                  <Label htmlFor="address">Address</Label>
-                  <Input
-                    id="address"
-                    value={restaurantAddress}
-                    onChange={(e) => setRestaurantAddress(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-4">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={restaurantPhone}
-                    onChange={(e) => setRestaurantPhone(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-4">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={restaurantEmail}
-                    onChange={(e) => setRestaurantEmail(e.target.value)}
-                  />
-                </div>
-              </div>
-              <Separator />
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div className="space-y-4">
-                  <h4 className="font-semibold">Time & Language</h4>
-                  <div className="space-y-2">
-                    <Label htmlFor="timezone">Timezone</Label>
-                    <select
-                      id="timezone"
-                      className="w-full p-2 border rounded-lg mt-1"
-                      value={timezone}
-                      onChange={(e) => setTimezone(e.target.value)}
-                      aria-label="Timezone"
-                    >
-                      <option value="America/New_York">America/New_York</option>
-                      <option value="America/Chicago">America/Chicago</option>
-                      <option value="America/Denver">America/Denver</option>
-                      <option value="America/Los_Angeles">
-                        America/Los_Angeles
-                      </option>
-                      <option value="Europe/London">Europe/London</option>
-                      <option value="Asia/Tokyo">Asia/Tokyo</option>
-                    </select>
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Bell className="w-4 h-4" />
+                    <span>Notifications</span>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="currency">Currency</Label>
-                    <select
-                      id="currency"
-                      className="w-full p-2 border rounded-lg mt-1"
-                      value={currency}
-                      onChange={(e) => setCurrency(e.target.value)}
-                      aria-label="Currency"
-                    >
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                      <option value="GBP">GBP</option>
-                      <option value="JPY">JPY</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="language">{t("common.language")}</Label>
-                    <select
-                      id="language"
-                      className="w-full p-2 border rounded-lg mt-1"
-                      value={language}
-                      onChange={(e) => setAppLanguage(e.target.value as Language)}
-                      aria-label={t("common.language")}
-                    >
-                      <option value="en">English</option>
-                      <option value="fr">Français</option>
-                      <option value="ma">الدارجة</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="font-semibold">{t("settings.general.ai_prefs")}</h4>
-                  <div className="space-y-3">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="space-y-0.5">
-                        <Label>{t("settings.general.ai_auto_purchase")}</Label>
-                        <p className="text-xs text-muted-foreground">{t("settings.general.ai_auto_purchase_desc")}</p>
+                  <div className="divide-y rounded-lg border">
+                    <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Email Notifications</p>
+                        <p className="text-xs text-muted-foreground">
+                          Receive email updates about your account
+                        </p>
                       </div>
-                      <Switch defaultChecked />
+                      <Switch
+                        checked={emailNotifications.aiInsights}
+                        onCheckedChange={(checked) =>
+                          handleNotificationChange("email", "aiInsights", checked)
+                        }
+                      />
                     </div>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="space-y-0.5">
-                        <Label>{t("settings.general.ai_smart_scheduling")}</Label>
-                        <p className="text-xs text-muted-foreground">{t("settings.general.ai_smart_scheduling_desc")}</p>
+                    <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Push Notifications</p>
+                        <p className="text-xs text-muted-foreground">
+                          Receive push notifications on your device
+                        </p>
                       </div>
-                      <Switch defaultChecked />
+                      <Switch
+                        checked={pushNotifications.aiInsights}
+                        onCheckedChange={(checked) =>
+                          handleNotificationChange("push", "aiInsights", checked)
+                        }
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium">SMS Notifications</p>
+                        <p className="text-xs text-muted-foreground">
+                          Receive text message alerts
+                        </p>
+                      </div>
+                      <Switch
+                        checked={smsNotificationsEnabled}
+                        onCheckedChange={setSmsNotificationsEnabled}
+                      />
                     </div>
                   </div>
                 </div>
-              </div>
-              <Button onClick={saveGeneralSettings} className="w-full">
-                {t("settings.general.save_general")}
-              </Button>
-            </CardContent>
-          </Card>
 
-        </TabsContent>
-        )}
+                {/* Security */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Shield className="w-4 h-4" />
+                    <span>Security</span>
+                  </div>
+                  <div className="divide-y rounded-lg border">
+                    <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium">
+                          Two-Factor Authentication
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Add an extra layer of security to your account
+                        </p>
+                      </div>
+                      <Switch
+                        checked={twoFactorEnabled}
+                        onCheckedChange={setTwoFactorEnabled}
+                      />
+                    </div>
+                  </div>
+                </div>
 
-        {!isStaff && (
-        <TabsContent value="integrations" className="space-y-6">
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>{t("pos.title")}</CardTitle>
-              <CardDescription>
-                {t("pos.description")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <Label htmlFor="pos-provider">{t("pos.provider")}</Label>
-                <select
-                  id="pos-provider"
-                  value={posSettings.pos_provider}
-                  onChange={(e) =>
-                    setPosSettings({
-                      ...posSettings,
-                      pos_provider: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="NONE">{t("pos.not_configured")}</option>
-                  <option value="STRIPE">Stripe</option>
-                  <option value="SQUARE">Square</option>
-                  <option value="CLOVER">Clover</option>
-                  <option value="CUSTOM">{t("pos.custom_api")}</option>
-                </select>
-              </div>
+                {/* AI Features */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Sparkles className="w-4 h-4" />
+                    <span>AI Features</span>
+                  </div>
+                  <div className="divide-y rounded-lg border">
+                    <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium">
+                          AI-Powered Suggestions
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Get intelligent recommendations and insights
+                        </p>
+                      </div>
+                      <Switch
+                        checked={!!aiSettings.features_enabled.insights}
+                        onCheckedChange={(checked) =>
+                          setAiSettings((prev) => ({
+                            ...prev,
+                            features_enabled: {
+                              ...prev.features_enabled,
+                              insights: checked,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Smart Scheduling</p>
+                        <p className="text-xs text-muted-foreground">
+                          Let AI optimize staff schedules automatically
+                        </p>
+                      </div>
+                      <Switch
+                        checked={!!aiSettings.features_enabled.recommendations}
+                        onCheckedChange={(checked) =>
+                          setAiSettings((prev) => ({
+                            ...prev,
+                            features_enabled: {
+                              ...prev.features_enabled,
+                              recommendations: checked,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium">
+                          Predictive Analytics
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Enable AI-driven forecasting and predictions
+                        </p>
+                      </div>
+                      <Switch
+                        checked={!!aiSettings.features_enabled.reports}
+                        onCheckedChange={(checked) =>
+                          setAiSettings((prev) => ({
+                            ...prev,
+                            features_enabled: {
+                              ...prev.features_enabled,
+                              reports: checked,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-              <div>
-                <Label htmlFor="pos-merchant">{t("pos.merchant_id")}</Label>
-                <Input
-                  id="pos-merchant"
-                  value={posSettings.pos_merchant_id}
-                  onChange={(e) =>
-                    setPosSettings({
-                      ...posSettings,
-                      pos_merchant_id: e.target.value,
-                    })
-                  }
-                  placeholder={t("pos.merchant_id_placeholder")}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="pos-api-key">{t("pos.api_key")}</Label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="relative flex-1">
+            <Card className="shadow-soft">
+              <CardHeader>
+                <CardTitle>Restaurant Information</CardTitle>
+                <CardDescription>
+                  Manage your restaurant's basic details.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div className="space-y-4">
+                    <Label htmlFor="restaurant-name">Restaurant Name</Label>
                     <Input
-                      id="pos-api-key"
-                      type={showAPIKey ? "text" : "password"}
-                      value={posAPIKey}
-                      onChange={(e) => setPosAPIKey(e.target.value)}
-                      placeholder={t("pos.api_key_placeholder")}
+                      id="restaurant-name"
+                      value={restaurantName}
+                      onChange={(e) => setRestaurantName(e.target.value)}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowAPIKey(!showAPIKey)}
-                      className="absolute right-3 top-2.5 text-gray-600"
-                    >
-                      {showAPIKey ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <Label htmlFor="address">Address</Label>
+                    <Input
+                      id="address"
+                      value={restaurantAddress}
+                      onChange={(e) => setRestaurantAddress(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-4">
+                    <Label htmlFor="phone">Phone</Label>
+                    <Input
+                      id="phone"
+                      value={restaurantPhone}
+                      onChange={(e) => setRestaurantPhone(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-4">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={restaurantEmail}
+                      onChange={(e) => setRestaurantEmail(e.target.value)}
+                    />
                   </div>
                 </div>
-              </div>
+                <Separator />
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div className="space-y-4">
+                    <h4 className="font-semibold">Time & Language</h4>
+                    <div className="space-y-2">
+                      <Label htmlFor="timezone">Timezone</Label>
+                      <select
+                        id="timezone"
+                        className="w-full p-2 border rounded-lg mt-1"
+                        value={timezone}
+                        onChange={(e) => setTimezone(e.target.value)}
+                        aria-label="Timezone"
+                      >
+                        <option value="America/New_York">America/New_York</option>
+                        <option value="America/Chicago">America/Chicago</option>
+                        <option value="America/Denver">America/Denver</option>
+                        <option value="America/Los_Angeles">
+                          America/Los_Angeles
+                        </option>
+                        <option value="Europe/London">Europe/London</option>
+                        <option value="Asia/Tokyo">Asia/Tokyo</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="currency">Currency</Label>
+                      <select
+                        id="currency"
+                        className="w-full p-2 border rounded-lg mt-1"
+                        value={currency}
+                        onChange={(e) => setCurrency(e.target.value)}
+                        aria-label="Currency"
+                      >
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="JPY">JPY</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="language">{t("common.language")}</Label>
+                      <select
+                        id="language"
+                        className="w-full p-2 border rounded-lg mt-1"
+                        value={language}
+                        onChange={(e) => setAppLanguage(e.target.value as Language)}
+                        aria-label={t("common.language")}
+                      >
+                        <option value="en">English</option>
+                        <option value="fr">Français</option>
+                        <option value="ma">الدارجة</option>
+                      </select>
+                    </div>
+                  </div>
 
-              <div className="flex gap-2">
-                <Button
-                  onClick={updatePosSettings}
-                  disabled={savingPos || posSettings.pos_provider === "NONE"}
-                  className="flex-1"
-                >
-                  {savingPos ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
-                  Save & Test
-                </Button>
-                <Button
-                  onClick={testPosConnection}
-                  variant="outline"
-                  disabled={
-                    posTestingConnection || posSettings.pos_provider === "NONE"
-                  }
-                >
-                  {posTestingConnection ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plug className="mr-2 h-4 w-4" />
-                  )}
-                  Test Connection
-                </Button>
-              </div>
-
-              {posConnectionStatus !== "idle" && (
-                <div
-                  className={`flex items-center gap-2 p-3 rounded-lg ${
-                    posConnectionStatus === "connected"
-                      ? "bg-green-50 border border-green-200"
-                      : "bg-red-50 border border-red-200"
-                  }`}
-                >
-                  {posConnectionStatus === "connected" ? (
-                    <>
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span className="text-green-800">
-                        POS connection successful
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="w-5 h-5 text-red-600" />
-                      <span className="text-red-800">
-                        POS connection failed
-                      </span>
-                    </>
-                  )}
+                  <div className="space-y-4">
+                    <h4 className="font-semibold">{t("settings.general.ai_prefs")}</h4>
+                    <div className="space-y-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="space-y-0.5">
+                          <Label>{t("settings.general.ai_auto_purchase")}</Label>
+                          <p className="text-xs text-muted-foreground">{t("settings.general.ai_auto_purchase_desc")}</p>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="space-y-0.5">
+                          <Label>{t("settings.general.ai_smart_scheduling")}</Label>
+                          <p className="text-xs text-muted-foreground">{t("settings.general.ai_smart_scheduling_desc")}</p>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                <Button onClick={saveGeneralSettings} className="w-full">
+                  {t("settings.general.save_general")}
+                </Button>
+              </CardContent>
+            </Card>
 
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Menu Scanner</CardTitle>
-              <CardDescription>
-                Scan physical menus to digitize them.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <MenuScanner />
-            </CardContent>
-          </Card>
-
-          
-        </TabsContent>
+          </TabsContent>
         )}
 
         {!isStaff && (
-        <TabsContent value="billing">
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>Billing Information</CardTitle>
-              <CardDescription>
-                Manage your subscription and payment methods.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <TabsContent value="integrations" className="space-y-6">
+            <Card className="shadow-soft">
+              <CardHeader>
+                <CardTitle>{t("pos.title")}</CardTitle>
+                <CardDescription>
+                  {t("pos.description")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
                 <div>
-                  <h4 className="font-semibold">Current Plan</h4>
-                  <p className="text-sm text-muted-foreground">
-                    
-                  </p>
+                  <Label htmlFor="pos-provider">{t("pos.provider")}</Label>
+                  <select
+                    id="pos-provider"
+                    value={posSettings.pos_provider}
+                    onChange={(e) =>
+                      setPosSettings({
+                        ...posSettings,
+                        pos_provider: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="NONE">{t("pos.not_configured")}</option>
+                    <option value="STRIPE">Stripe</option>
+                    <option value="SQUARE">Square</option>
+                    <option value="CLOVER">Clover</option>
+                    <option value="CUSTOM">{t("pos.custom_api")}</option>
+                  </select>
                 </div>
-                <Button variant="outline" className="w-full sm:w-auto">
-                  Change Plan
-                </Button>
-              </div>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>
-                  Next billing date: <strong></strong>
-                </p>
-                <p>
-                  Amount: <strong></strong>
-                </p>
-                <p></p>
-              </div>
-              <Separator />
-              <div className="space-y-2">
-                <h4 className="font-semibold">Payment Method</h4>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-3">
-                    <CreditCardIcon className="w-6 h-6 text-muted-foreground" />
-                    <p className="text-sm"></p>
+
+                <div>
+                  <Label htmlFor="pos-merchant">{t("pos.merchant_id")}</Label>
+                  <Input
+                    id="pos-merchant"
+                    value={posSettings.pos_merchant_id}
+                    onChange={(e) =>
+                      setPosSettings({
+                        ...posSettings,
+                        pos_merchant_id: e.target.value,
+                      })
+                    }
+                    placeholder={t("pos.merchant_id_placeholder")}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="pos-api-key">{t("pos.api_key")}</Label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        id="pos-api-key"
+                        type={showAPIKey ? "text" : "password"}
+                        value={posAPIKey}
+                        onChange={(e) => setPosAPIKey(e.target.value)}
+                        placeholder={t("pos.api_key_placeholder")}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAPIKey(!showAPIKey)}
+                        className="absolute right-3 top-2.5 text-gray-600"
+                      >
+                        {showAPIKey ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
-                  <Button variant="outline" className="w-full sm:w-auto">
-                    Update
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={updatePosSettings}
+                    disabled={savingPos || posSettings.pos_provider === "NONE"}
+                    className="flex-1"
+                  >
+                    {savingPos ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Save & Test
+                  </Button>
+                  <Button
+                    onClick={testPosConnection}
+                    variant="outline"
+                    disabled={
+                      posTestingConnection || posSettings.pos_provider === "NONE"
+                    }
+                  >
+                    {posTestingConnection ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plug className="mr-2 h-4 w-4" />
+                    )}
+                    Test Connection
                   </Button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card className="shadow-soft border-destructive/20">
-            <CardHeader>
-              <CardTitle className="text-destructive">Danger Zone</CardTitle>
-              <CardDescription>
-                Permanently delete your account and all associated data. This
-                action cannot be undone.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="destructive" className="w-full">
-                Delete Account
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                {posConnectionStatus !== "idle" && (
+                  <div
+                    className={`flex items-center gap-2 p-3 rounded-lg ${posConnectionStatus === "connected"
+                        ? "bg-green-50 border border-green-200"
+                        : "bg-red-50 border border-red-200"
+                      }`}
+                  >
+                    {posConnectionStatus === "connected" ? (
+                      <>
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                        <span className="text-green-800">
+                          POS connection successful
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-5 h-5 text-red-600" />
+                        <span className="text-red-800">
+                          POS connection failed
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-soft">
+              <CardHeader>
+                <CardTitle>Menu Scanner</CardTitle>
+                <CardDescription>
+                  Scan physical menus to digitize them.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <MenuScanner />
+              </CardContent>
+            </Card>
+
+
+          </TabsContent>
+        )}
+
+        {!isStaff && (
+          <TabsContent value="billing">
+            <Card className="shadow-soft">
+              <CardHeader>
+                <CardTitle>Billing Information</CardTitle>
+                <CardDescription>
+                  Manage your subscription and payment methods.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h4 className="font-semibold">Current Plan</h4>
+                    <p className="text-sm text-muted-foreground">
+
+                    </p>
+                  </div>
+                  <Button variant="outline" className="w-full sm:w-auto">
+                    Change Plan
+                  </Button>
+                </div>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p>
+                    Next billing date: <strong></strong>
+                  </p>
+                  <p>
+                    Amount: <strong></strong>
+                  </p>
+                  <p></p>
+                </div>
+                <Separator />
+                <div className="space-y-2">
+                  <h4 className="font-semibold">Payment Method</h4>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <CreditCardIcon className="w-6 h-6 text-muted-foreground" />
+                      <p className="text-sm"></p>
+                    </div>
+                    <Button variant="outline" className="w-full sm:w-auto">
+                      Update
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-soft border-destructive/20">
+              <CardHeader>
+                <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                <CardDescription>
+                  Permanently delete your account and all associated data. This
+                  action cannot be undone.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button variant="destructive" className="w-full">
+                  Delete Account
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
         )}
       </Tabs>
     </div>

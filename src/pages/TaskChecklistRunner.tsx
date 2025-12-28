@@ -11,8 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { logError, logInfo } from "@/lib/logging";
+import { API_BASE } from "@/lib/api";
 
-const API_BASE =
   import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 const TaskChecklistRunner: React.FC = () => {

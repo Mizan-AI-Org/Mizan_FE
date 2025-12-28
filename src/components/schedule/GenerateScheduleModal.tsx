@@ -9,6 +9,7 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '../../contexts/AuthContext.types';
 import { format, startOfWeek } from 'date-fns';
+import { API_BASE } from "@/lib/api";
 
 interface ScheduleTemplate {
     id: string;
@@ -21,7 +22,6 @@ interface GenerateScheduleModalProps {
     onClose: () => void;
 }
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 const GenerateScheduleModal: React.FC<GenerateScheduleModalProps> = ({ isOpen, onClose }) => {
     const queryClient = useQueryClient();

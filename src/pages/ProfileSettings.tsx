@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 
-const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+import { API_BASE } from "@/lib/api";
 
 const ProfileSettings: React.FC = () => {
     const { user, updateUser } = useAuth() as AuthContextType;
@@ -22,7 +22,7 @@ const ProfileSettings: React.FC = () => {
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    
+
     // Update form when user data changes
     useEffect(() => {
         if (user) {
@@ -96,7 +96,7 @@ const ProfileSettings: React.FC = () => {
             if (!response.ok) {
                 throw new Error(responseData.detail || responseData.message || "Failed to update profile");
             }
-            
+
             // Update user in auth context so UI reflects latest profile details
             if (typeof updateUser === "function") {
                 updateUser(responseData);
@@ -114,8 +114,8 @@ const ProfileSettings: React.FC = () => {
                 error instanceof Error
                     ? error.message
                     : typeof error === "string"
-                    ? error
-                    : "An unexpected error occurred.";
+                        ? error
+                        : "An unexpected error occurred.";
             toast({
                 title: "Profile update failed.",
                 description: message,

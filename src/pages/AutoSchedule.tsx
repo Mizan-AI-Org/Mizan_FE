@@ -17,8 +17,8 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "../hooks/use-auth";
 import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { API_BASE } from "@/lib/api";
 
-const API_BASE =
   import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 interface ScheduleTemplate {

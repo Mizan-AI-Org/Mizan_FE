@@ -10,8 +10,8 @@ import { useAuth } from "../hooks/use-auth"; // Corrected import path
 import { User } from "../contexts/AuthContext.types";
 import { api } from "@/lib/api";
 import StaffShiftDetailsModal from "@/components/schedule/StaffShiftDetailsModal";
+import { API_BASE } from "@/lib/api";
 
-const API_BASE =
   import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 // Normalize API responses that may be arrays or `{ results: [...] }` envelopes

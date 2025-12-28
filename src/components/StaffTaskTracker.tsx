@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { 
+import { API_BASE } from "@/lib/api";
   Camera,
   CheckCircle,
   Circle,
@@ -27,7 +28,6 @@ import {
   ClipboardList
 } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 interface Task {
   id: string;
