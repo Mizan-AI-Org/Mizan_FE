@@ -12,7 +12,6 @@ import { api } from "@/lib/api";
 import StaffShiftDetailsModal from "@/components/schedule/StaffShiftDetailsModal";
 import { API_BASE } from "@/lib/api";
 
-  import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 // Normalize API responses that may be arrays or `{ results: [...] }` envelopes
 function normalizeEnvelope<T>(input: T[] | { results?: T[] } | unknown): T[] {

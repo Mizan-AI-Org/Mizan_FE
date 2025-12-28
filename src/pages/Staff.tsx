@@ -66,7 +66,7 @@ import { API_BASE } from "@/lib/api";
 
 // Use configured API base to avoid relative path issues between environments
 
-  import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+// Use configured API base to avoid relative path issues between environments
 
 const aiRecommendations = [];
 

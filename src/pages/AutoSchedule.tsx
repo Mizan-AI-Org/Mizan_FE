@@ -19,7 +19,6 @@ import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE } from "@/lib/api";
 
-  import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 interface ScheduleTemplate {
   id: string;
@@ -179,11 +178,11 @@ export const AutoSchedule: React.FC = () => {
                           Loading...
                         </SelectItem>
                       ) : templates && templates.length > 0 ? (
-                          templates.map((template) => (
-                            <SelectItem key={template.id} value={template.id}>
-                              {template.name}
-                            </SelectItem>
-                          ))
+                        templates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))
                       ) : (
                         <SelectItem value="__no_templates__" disabled>
                           No templates available
