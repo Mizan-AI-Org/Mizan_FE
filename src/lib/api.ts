@@ -29,8 +29,7 @@ import {
   ShiftReviewSubmission,
 } from "./types"; // Updated import path
 
-export const API_BASE =
-  import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+export const API_BASE = "/api";
 
 export const TELEMETRY_ENABLED = String(import.meta.env.VITE_ENABLE_CHECKLIST_TELEMETRY || "false").toLowerCase() === "true";
 
