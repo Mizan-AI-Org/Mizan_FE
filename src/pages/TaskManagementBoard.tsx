@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { 
+import { API_BASE } from "@/lib/api";
   Plus,
   Loader2,
   Trash2,
@@ -20,7 +21,6 @@ import {
   ArrowRight
 } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 interface Task {
   id: string;

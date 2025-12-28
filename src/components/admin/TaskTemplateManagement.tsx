@@ -47,8 +47,8 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import TaskTemplateForm from './TaskTemplateForm';
+import { API_BASE } from "@/lib/api";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 interface TemplateTask {
   title: string;

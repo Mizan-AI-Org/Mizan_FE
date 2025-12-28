@@ -1,6 +1,6 @@
+import { API_BASE } from "@/lib/api";
 // Frontend API service for Processes and ProcessTasks
 
-const API_BASE =
   import.meta.env.VITE_REACT_APP_API_URL ||
   import.meta.env.VITE_API_BASE_URL ||
   'http://localhost:8000/api';

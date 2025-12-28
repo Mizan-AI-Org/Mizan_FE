@@ -14,8 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { ChevronLeft, ChevronRight, Plus, Trash2, Calendar, Clock, AlertCircle, CheckCircle, Loader2, RefreshCw } from "lucide-react";
+import { API_BASE } from "@/lib/api";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 interface StaffMember {
   id: string;

@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Download, Calendar } from "lucide-react";
 import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
 import {
+import { API_BASE } from "@/lib/api";
   BarChart,
   Bar,
   LineChart,
@@ -22,7 +23,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 // Chart color palette
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];

@@ -12,8 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, AlertTriangle, AlertCircle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { API_BASE } from "@/lib/api";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 interface SafetyConcern {
   id: string;

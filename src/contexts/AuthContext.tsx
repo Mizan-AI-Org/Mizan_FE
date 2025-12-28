@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { SignupData } from "../lib/types";
 import { AuthContext } from "./AuthContext";
 import { AuthContextType, User } from "./AuthContext.types";
-import { api } from "../lib/api";
+import { api, API_BASE } from "../lib/api";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -14,11 +14,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Centralized API base, consistent with other pages
-  const API_BASE =
-    import.meta.env.VITE_API_URL ||
-    import.meta.env.VITE_REACT_APP_API_URL ||
-    "http://localhost:8000/api";
+  // API_BASE is now imported from ../lib/api
 
   const clearAuth = useCallback(() => {
     localStorage.removeItem("user");

@@ -12,8 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Loader2, User, Phone, Mail, Calendar, Clock, Award, ChevronRight, Edit, Save, X } from "lucide-react";
+import { API_BASE } from "@/lib/api";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 interface StaffProfile {
   id: string;

@@ -15,8 +15,8 @@ import { useAuth } from '@/hooks/use-auth';
 import CreateSwapRequest from '@/components/CreateSwapRequest';
 import { api } from '@/lib/api';
 import { listProcessTasks, ProcessTask } from '@/services/process';
+import { API_BASE } from "@/lib/api";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 export interface AssignedShiftDetail {
   id: string;

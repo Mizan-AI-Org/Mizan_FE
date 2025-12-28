@@ -25,9 +25,10 @@ import {
   FolderMinus
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { API_BASE } from "@/lib/api";
 
 // Prefer the common frontend API base env var, fall back to legacy, then localhost
-const API_BASE =
+
   import.meta.env.VITE_REACT_APP_API_URL ||
   import.meta.env.VITE_API_BASE_URL ||
   'http://localhost:8000/api';

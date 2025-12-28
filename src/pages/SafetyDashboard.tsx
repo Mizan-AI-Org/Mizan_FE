@@ -18,8 +18,8 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import type { Alert as AlertType } from '@/lib/types';
+import { API_BASE } from "@/lib/api";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 type SopTask = {
   id: string;

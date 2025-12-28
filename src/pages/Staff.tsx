@@ -62,9 +62,10 @@ import { useCalendar } from "@/hooks/useCalendar";
 import { ShiftCard, ShiftTooltip, TimezoneIndicator } from "@/components/calendar/ShiftCard";
 import { getUserTimezone, formatShiftTime, getShiftDurationText } from "@/utils/calendarUtils";
 import { format, parseISO } from "date-fns";
+import { API_BASE } from "@/lib/api";
 
 // Use configured API base to avoid relative path issues between environments
-const API_BASE =
+
   import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 const aiRecommendations = [];

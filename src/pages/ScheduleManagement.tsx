@@ -10,8 +10,8 @@ import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
 import ScheduleTemplateModal from '../components/schedule/ScheduleTemplateModal';
 import GenerateScheduleModal from '../components/schedule/GenerateScheduleModal';
 import AssignedShiftModal from '../components/schedule/AssignedShiftModal';
+import { API_BASE } from "@/lib/api";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 interface AssignedShift {
     id: string;
