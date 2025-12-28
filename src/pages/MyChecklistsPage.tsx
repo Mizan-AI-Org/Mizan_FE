@@ -14,6 +14,7 @@ import { deriveSignatureMeta, SignatureMeta } from "@/lib/checklists/signature";
 import { formatAssignees, detectNewAssignments } from "@/lib/tasks/assignees";
 import type { AssignedShape } from "@/lib/tasks/assignees";
 import type { StaffProfileItem } from "@/lib/types";
+import { API_BASE } from "@/lib/api";
 
 type ChecklistExecutionItem = {
   id: string;
@@ -144,7 +145,7 @@ const MyChecklistsPage: React.FC = () => {
     queryKey: ["my-shift-templates"],
     queryFn: async () => {
       try {
-        const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
+
         console.log('[MyChecklistsPage] Fetching shift templates from:', `${API_BASE}/scheduling/assigned-shifts-v2/my_shift_templates/`);
         const response = await fetch(`${API_BASE}/scheduling/assigned-shifts-v2/my_shift_templates/`, {
           headers: {

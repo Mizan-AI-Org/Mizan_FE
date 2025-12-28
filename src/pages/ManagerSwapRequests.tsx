@@ -7,8 +7,8 @@ import { Loader2, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { AssignedShift } from './WeeklyScheduleView'; // Reuse interface from WeeklyScheduleView
+import { API_BASE } from "@/lib/api";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 interface ShiftSwapRequest {
     id: string;

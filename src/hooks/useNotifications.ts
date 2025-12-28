@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from './use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { API_BASE } from "@/lib/api";
 
 interface Notification {
     id: string;
@@ -25,7 +26,6 @@ interface WebSocketMessage {
     message: Notification;
 }
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 const WS_BASE = import.meta.env.VITE_REACT_APP_WS_URL || 'ws://localhost:8000/ws';
 const WS_ENABLED = String(import.meta.env.VITE_ENABLE_NOTIFICATIONS_WS || 'false').toLowerCase() === 'true';
 

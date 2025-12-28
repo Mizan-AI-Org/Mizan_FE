@@ -11,6 +11,7 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '../../contexts/AuthContext.types';
 import { Card } from '@/components/ui/card';
+import { API_BASE } from "@/lib/api";
 
 interface TemplateShift {
     id?: string;
@@ -34,7 +35,6 @@ interface ScheduleTemplateModalProps {
     template?: ScheduleTemplate | null;
 }
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 const ScheduleTemplateModal: React.FC<ScheduleTemplateModalProps> = ({ isOpen, onClose, template }) => {
     const queryClient = useQueryClient();

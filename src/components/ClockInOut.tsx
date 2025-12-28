@@ -8,9 +8,10 @@ import { supabase } from "@/integrations/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "../lib/api";
+import { API_BASE } from "@/lib/api";
 
 // Use the same API base convention as the shared API helper
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+
 
 interface ClockInOutProps {
   staffId?: string; // Made optional

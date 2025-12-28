@@ -11,6 +11,7 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '../../contexts/AuthContext.types';
 import { format } from 'date-fns';
+import { API_BASE } from "@/lib/api";
 
 interface StaffMember {
     id: string;
@@ -48,7 +49,6 @@ interface AssignedShiftModalProps {
     initialDate?: Date;
 }
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose, shift, weeklyScheduleId, initialDate }) => {
     const queryClient = useQueryClient();

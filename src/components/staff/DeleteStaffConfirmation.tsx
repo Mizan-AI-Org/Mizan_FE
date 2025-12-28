@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '../../contexts/AuthContext.types';
+import { API_BASE } from "@/lib/api";
 
 interface DeleteStaffConfirmationProps {
     isOpen: boolean;
@@ -14,7 +15,6 @@ interface DeleteStaffConfirmationProps {
     staffName: string | null;
 }
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 const DeleteStaffConfirmation: React.FC<DeleteStaffConfirmationProps> = ({ isOpen, onClose, staffId, staffName }) => {
     const queryClient = useQueryClient();

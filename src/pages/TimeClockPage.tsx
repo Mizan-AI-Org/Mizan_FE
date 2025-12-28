@@ -15,8 +15,8 @@ import CameraCaptureModal from "@/components/CameraCaptureModal";
 import ShiftReviewModal, { ShiftReviewPayload } from "@/components/ShiftReviewModal";
 import { logError, logInfo } from "@/lib/logging";
 import { enqueueClockPayloadSecure, dequeueAllSecure, initDeviceSecret } from "@/lib/offlineQueue";
+import { API_BASE } from "@/lib/api";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 const PRECISE_ACCURACY_M = 10;
 
 // Narrowing helper for verify-location response without using 'any'

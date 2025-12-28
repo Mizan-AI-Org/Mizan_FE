@@ -42,8 +42,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
+import { API_BASE } from "@/lib/api";
 
-const API_BASE =
   import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 interface AssignedShift {

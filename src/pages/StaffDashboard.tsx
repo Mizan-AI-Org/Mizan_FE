@@ -4,8 +4,8 @@ import { User } from '../contexts/AuthContext.types';
 import { useQuery } from '@tanstack/react-query';
 import { Clock, Calendar, Coffee, MapPin, Navigation, Wifi, WifiOff, PhoneCall } from 'lucide-react';
 import CreateSwapRequest from '../components/CreateSwapRequest';
+import { API_BASE } from "@/lib/api";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 // Calculate distance in meters between two coordinates using Haversine formula
 const haversineDistance = (
