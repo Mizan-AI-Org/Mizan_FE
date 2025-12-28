@@ -15,8 +15,8 @@ import EditStaffModal from "@/components/staff/EditStaffModal";
 import InviteStaffModal from "@/components/staff/InviteStaffModal";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
+import { API_BASE } from "@/lib/api";
 
-const API_BASE =
     import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 interface StaffMember {

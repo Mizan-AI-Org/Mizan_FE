@@ -31,8 +31,8 @@ import {
 import { Clock, DollarSign, CheckCircle, AlertCircle, Download, Edit, ArrowUpDown, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import AssignedShiftModal from '@/components/schedule/AssignedShiftModal';
+import { API_BASE } from "@/lib/api";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 interface TimesheetEntry {
   id: number;

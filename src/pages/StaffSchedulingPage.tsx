@@ -6,8 +6,8 @@ import { Calendar, Clock, CheckSquare, BarChart, Settings } from "lucide-react";
 import EnhancedScheduleView from "@/components/schedule/EnhancedScheduleView";
 import TaskManagementBoard from "@/components/schedule/TaskManagementBoard";
 import { useQuery } from "@tanstack/react-query";
+import { API_BASE } from "@/lib/api";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 const StaffSchedulingPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("schedule");

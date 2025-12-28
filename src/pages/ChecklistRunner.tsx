@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { logError, logInfo } from "@/lib/logging";
 import { api } from "@/lib/api";
+import { API_BASE } from "@/lib/api";
 
 // Backend response shapes used for mapping into ChecklistExecutor types
 interface BackendStep {
@@ -295,7 +296,7 @@ const ChecklistRunner: React.FC = () => {
 
       // Sync, start, and conditionally complete via API helpers
       const token = localStorage.getItem("access_token");
-      const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+
 
       const syncRes = await fetch(`${API_BASE}/checklists/executions/${executionId}/sync/`, {
         method: "POST",

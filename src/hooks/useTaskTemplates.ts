@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { API_BASE } from "@/lib/api";
 
 export interface TemplateTaskMeta {
   title?: string;
@@ -18,7 +19,6 @@ export interface TaskTemplateItem {
   tasks?: TemplateTaskMeta[];
 }
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 const STORAGE_KEY = "selectedTaskTemplateId";
 
 export function useTaskTemplates(opts?: { pollIntervalMs?: number; autoStart?: boolean }) {

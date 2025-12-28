@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { API_BASE } from "@/lib/api";
 
 interface FormErrors {
     [key: string]: string;
@@ -93,7 +94,7 @@ const AddStaff = () => {
         }
 
         try {
-            const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+
             // We use camelCase payload for JSON stringify usually, but let's check what I sent before.
             // Before: email, role, first_name, last_name, phone_number
             // The backend serializer uses fields = ['email', 'role', ... 'phone' (in extra_data?)] 
@@ -267,7 +268,6 @@ const AddStaff = () => {
         reader.readAsText(file);
     };
 
-    const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
     const handleBulkInvite = async () => {
         if (!csvText) return;

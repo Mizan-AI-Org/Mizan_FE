@@ -3,8 +3,8 @@ import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { app } from '../firebase-config'; // Import the Firebase app instance
 import { useAuth } from './use-auth'; // Assuming you have an AuthContext to get user info
 import { toast } from 'sonner'; // For displaying notifications
+import { API_BASE } from "@/lib/api";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api';
 
 interface PushNotificationHook {
     requestPermissionAndGetToken: () => Promise<void>;

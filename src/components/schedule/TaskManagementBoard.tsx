@@ -14,6 +14,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "react-router-dom";
 import { 
+import { API_BASE } from "@/lib/api";
   Plus, 
   Clock, 
   CheckCircle, 
@@ -28,7 +29,6 @@ import {
   MessageSquarePlus
 } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 interface TemplateTask {
   title: string;
