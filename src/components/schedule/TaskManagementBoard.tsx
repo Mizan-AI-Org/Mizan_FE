@@ -13,14 +13,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "react-router-dom";
-import { 
 import { API_BASE } from "@/lib/api";
-  Plus, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle, 
-  Trash2, 
-  Edit, 
+import {
+  Plus,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  Trash2,
+  Edit,
   Calendar,
   ClipboardList,
   Thermometer,
@@ -164,9 +164,9 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
   const [templateName, setTemplateName] = useState<string>("");
   const [templateDescription, setTemplateDescription] = useState<string>("");
   const [templateType, setTemplateType] = useState<string>("CUSTOM");
-  const [templateFrequency, setTemplateFrequency] = useState<"DAILY"|"WEEKLY"|"MONTHLY"|"QUARTERLY"|"ANNUALLY"|"CUSTOM">("DAILY");
+  const [templateFrequency, setTemplateFrequency] = useState<"DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "ANNUALLY" | "CUSTOM">("DAILY");
   const [templateTasks, setTemplateTasks] = useState<TemplateTask[]>([]);
-  const [newTemplateTask, setNewTemplateTask] = useState<{ title: string; priority: "LOW"|"MEDIUM"|"HIGH"|"URGENT"; estimated_duration: number }>({ title: "", priority: "MEDIUM", estimated_duration: 30 });
+  const [newTemplateTask, setNewTemplateTask] = useState<{ title: string; priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"; estimated_duration: number }>({ title: "", priority: "MEDIUM", estimated_duration: 30 });
 
   // Fetch tasks
   const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({
@@ -510,11 +510,11 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
   // Filter tasks based on current filters
   const filteredTasks = tasks
     ? tasks.filter((task) => {
-        if (taskFilter.status !== "all" && task.status !== taskFilter.status) return false;
-        if (taskFilter.priority !== "all" && task.priority !== taskFilter.priority) return false;
-        if (taskFilter.category !== "all" && task.category !== taskFilter.category) return false;
-        return true;
-      })
+      if (taskFilter.status !== "all" && task.status !== taskFilter.status) return false;
+      if (taskFilter.priority !== "all" && task.priority !== taskFilter.priority) return false;
+      if (taskFilter.category !== "all" && task.category !== taskFilter.category) return false;
+      return true;
+    })
     : [];
 
   // Group tasks by status for Kanban view
@@ -720,7 +720,7 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
                 <Card key={template.id} className="overflow-hidden">
                   <CardHeader className="pb-2">
                     <div className="flex items-center">
-                      {templateTypeIcons[template.template_type as keyof typeof templateTypeIcons] || 
+                      {templateTypeIcons[template.template_type as keyof typeof templateTypeIcons] ||
                         templateTypeIcons.CUSTOM}
                       <CardTitle className="text-lg">{template.name}</CardTitle>
                     </div>
@@ -763,8 +763,8 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
                 <Card key={category.id} className="overflow-hidden">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center">
-                      <div 
-                        className="w-4 h-4 rounded-full mr-2" 
+                      <div
+                        className="w-4 h-4 rounded-full mr-2"
                         style={{ backgroundColor: category.color || '#3b82f6' }}
                       ></div>
                       {category.name}

@@ -2427,9 +2427,7 @@ export class BackendService {
         if (!executionId) {
           console.warn("Checklist execution missing for task", t.id, ensured);
         }
-        if (!executionId) {
-          const msg = String((err as any)?.message || "");
-        }
+
         if (!executionId) {
           // Fallback: auto-create a minimal template by task category and retry ensure
           const categoryName = String(
