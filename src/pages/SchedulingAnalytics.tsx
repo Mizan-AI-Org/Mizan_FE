@@ -6,8 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQuery } from "@tanstack/react-query";
 import { Download, Calendar } from "lucide-react";
 import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
-import {
 import { API_BASE } from "@/lib/api";
+import {
   BarChart,
   Bar,
   LineChart,
@@ -82,15 +82,15 @@ const PieChartComponent = ({ data }: { data: any[] }) => (
 const SchedulingAnalytics: React.FC = () => {
   const [dateRange, setDateRange] = useState<string>("week");
   const [reportType, setReportType] = useState<string>("pdf");
-  
+
   // Calculate date range for queries
   const today = new Date();
-  const startDate = dateRange === "week" 
+  const startDate = dateRange === "week"
     ? startOfWeek(today).toISOString().split('T')[0]
-    : dateRange === "month" 
+    : dateRange === "month"
       ? new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
       : subDays(today, 90).toISOString().split('T')[0];
-  
+
   const endDate = dateRange === "week"
     ? endOfWeek(today).toISOString().split('T')[0]
     : dateRange === "month"
@@ -154,7 +154,7 @@ const SchedulingAnalytics: React.FC = () => {
               <SelectItem value="quarter">Last 90 Days</SelectItem>
             </SelectContent>
           </Select>
-          
+
           <Select value={reportType} onValueChange={setReportType}>
             <SelectTrigger className="w-[120px]">
               <SelectValue placeholder="Report Format" />
@@ -164,7 +164,7 @@ const SchedulingAnalytics: React.FC = () => {
               <SelectItem value="excel">Excel</SelectItem>
             </SelectContent>
           </Select>
-          
+
           <Button onClick={handleExportReport}>
             <Download className="h-4 w-4 mr-2" /> Export
           </Button>
@@ -186,7 +186,7 @@ const SchedulingAnalytics: React.FC = () => {
           <TabsTrigger value="tasks">Task Completion</TabsTrigger>
           <TabsTrigger value="labor">Labor Costs</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="staff" className="space-y-4">
           <Card>
             <CardHeader>
@@ -206,7 +206,7 @@ const SchedulingAnalytics: React.FC = () => {
               ) : (
                 <BarChartComponent data={staffPerformance} />
               )}
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                 <Card>
                   <CardHeader className="py-2">
@@ -239,7 +239,7 @@ const SchedulingAnalytics: React.FC = () => {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="tasks" className="space-y-4">
           <Card>
             <CardHeader>
@@ -259,7 +259,7 @@ const SchedulingAnalytics: React.FC = () => {
               ) : (
                 <LineChartComponent data={taskCompletion} />
               )}
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                 <Card>
                   <CardHeader className="py-2">
@@ -292,7 +292,7 @@ const SchedulingAnalytics: React.FC = () => {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="labor" className="space-y-4">
           <Card>
             <CardHeader>
@@ -312,7 +312,7 @@ const SchedulingAnalytics: React.FC = () => {
               ) : (
                 <PieChartComponent data={laborCosts} />
               )}
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                 <Card>
                   <CardHeader className="py-2">
