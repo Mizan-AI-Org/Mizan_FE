@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { 
 import { API_BASE } from "@/lib/api";
+import {
   Plus,
   Loader2,
   Trash2,
@@ -60,7 +60,7 @@ export default function TaskManagementBoard() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [shifts, setShifts] = useState<ShiftOption[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  
+
   // New task form state
   const [newTask, setNewTask] = useState({
     title: '',
@@ -71,27 +71,27 @@ export default function TaskManagementBoard() {
     category_id: '',
     assigned_to_id: ''
   });
-  
+
   useEffect(() => {
     loadTasks();
     loadShifts();
     loadCategories();
   }, []);
-  
+
   const loadTasks = async () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('access_token');
       const params = new URLSearchParams();
-      
+
       if (priorityFilter) params.append('priority', priorityFilter);
       if (statusFilter) params.append('status', statusFilter);
-      
+
       const response = await fetch(
         `${API_BASE}/dashboard/tasks/?${params.toString()}`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         setTasks(data.results || data);
@@ -102,7 +102,7 @@ export default function TaskManagementBoard() {
       setIsLoading(false);
     }
   };
-  
+
   const loadShifts = async () => {
     try {
       const token = localStorage.getItem('access_token');
@@ -110,7 +110,7 @@ export default function TaskManagementBoard() {
         `${API_BASE}/scheduling/assigned-shifts/`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         setShifts(data.results || data);
@@ -119,7 +119,7 @@ export default function TaskManagementBoard() {
       console.error('Failed to load shifts:', error);
     }
   };
-  
+
   const loadCategories = async () => {
     try {
       const token = localStorage.getItem('access_token');
@@ -127,7 +127,7 @@ export default function TaskManagementBoard() {
         `${API_BASE}/dashboard/task-categories/`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         setCategories(data.results || data);
@@ -136,13 +136,13 @@ export default function TaskManagementBoard() {
       console.error('Failed to load categories:', error);
     }
   };
-  
+
   const createTask = async () => {
     if (!newTask.title.trim() || !newTask.shift_id) {
       toast.error('Please fill in required fields');
       return;
     }
-    
+
     try {
       const token = localStorage.getItem('access_token');
       const response = await fetch(`${API_BASE}/dashboard/tasks/`, {
@@ -153,7 +153,7 @@ export default function TaskManagementBoard() {
         },
         body: JSON.stringify(newTask)
       });
-      
+
       if (response.ok) {
         toast.success('Task created successfully');
         setNewTask({
@@ -174,7 +174,7 @@ export default function TaskManagementBoard() {
       toast.error(error.message);
     }
   };
-  
+
   const updateTaskStatus = async (taskId: string, newStatus: Task['status']) => {
     try {
       const token = localStorage.getItem('access_token');
@@ -186,7 +186,7 @@ export default function TaskManagementBoard() {
         },
         body: JSON.stringify({ status: newStatus })
       });
-      
+
       if (response.ok) {
         toast.success(`Task status updated to ${newStatus}`);
         loadTasks();
@@ -195,7 +195,7 @@ export default function TaskManagementBoard() {
       toast.error('Failed to update task');
     }
   };
-  
+
   const markTaskCompleted = async (taskId: string) => {
     try {
       const token = localStorage.getItem('access_token');
@@ -203,7 +203,7 @@ export default function TaskManagementBoard() {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
+
       if (response.ok) {
         toast.success('Task marked as completed');
         loadTasks();
@@ -212,17 +212,17 @@ export default function TaskManagementBoard() {
       toast.error('Failed to mark task as completed');
     }
   };
-  
+
   const deleteTask = async (taskId: string) => {
     if (!window.confirm('Are you sure you want to delete this task?')) return;
-    
+
     try {
       const token = localStorage.getItem('access_token');
       const response = await fetch(`${API_BASE}/dashboard/tasks/${taskId}/`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
+
       if (response.ok) {
         toast.success('Task deleted');
         loadTasks();
@@ -231,7 +231,7 @@ export default function TaskManagementBoard() {
       toast.error('Failed to delete task');
     }
   };
-  
+
   const getStatusIcon = (status: Task['status']) => {
     switch (status) {
       case 'COMPLETED':
@@ -244,7 +244,7 @@ export default function TaskManagementBoard() {
         return <Circle className="w-4 h-4 text-gray-400" />;
     }
   };
-  
+
   const getPriorityColor = (priority: Task['priority']) => {
     switch (priority) {
       case 'URGENT':
@@ -259,20 +259,20 @@ export default function TaskManagementBoard() {
         return 'bg-gray-100 text-gray-800';
     }
   };
-  
+
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      task.description?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
-  
+
   // Group tasks by status
   const tasksByStatus = {
     'TODO': filteredTasks.filter(t => t.status === 'TODO'),
     'IN_PROGRESS': filteredTasks.filter(t => t.status === 'IN_PROGRESS'),
     'COMPLETED': filteredTasks.filter(t => t.status === 'COMPLETED')
   };
-  
+
   return (
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
@@ -280,7 +280,7 @@ export default function TaskManagementBoard() {
           <h1 className="text-3xl font-bold">Task Management</h1>
           <p className="text-gray-600 mt-2">Organize and track all your tasks</p>
         </div>
-        
+
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -292,34 +292,34 @@ export default function TaskManagementBoard() {
             <DialogHeader>
               <DialogTitle>Create New Task</DialogTitle>
             </DialogHeader>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Task Title *</label>
                 <Input
                   value={newTask.title}
-                  onChange={(e) => setNewTask({...newTask, title: e.target.value})}
+                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                   placeholder="Enter task title"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Description</label>
                 <textarea
                   value={newTask.description}
-                  onChange={(e) => setNewTask({...newTask, description: e.target.value})}
+                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                   placeholder="Enter task description"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   rows={3}
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">Priority</label>
                   <select
                     value={newTask.priority}
-                    onChange={(e) => setNewTask({...newTask, priority: e.target.value as any})}
+                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   >
                     <option value="LOW">Low</option>
@@ -328,12 +328,12 @@ export default function TaskManagementBoard() {
                     <option value="URGENT">Urgent</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium mb-1">Category</label>
                   <select
                     value={newTask.category_id}
-                    onChange={(e) => setNewTask({...newTask, category_id: e.target.value})}
+                    onChange={(e) => setNewTask({ ...newTask, category_id: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   >
                     <option value="">Select category</option>
@@ -343,12 +343,12 @@ export default function TaskManagementBoard() {
                   </select>
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Shift *</label>
                 <select
                   value={newTask.shift_id}
-                  onChange={(e) => setNewTask({...newTask, shift_id: e.target.value})}
+                  onChange={(e) => setNewTask({ ...newTask, shift_id: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="">Select shift</option>
@@ -359,7 +359,7 @@ export default function TaskManagementBoard() {
                   ))}
                 </select>
               </div>
-              
+
               <Button onClick={createTask} className="w-full">
                 Create Task
               </Button>
@@ -367,7 +367,7 @@ export default function TaskManagementBoard() {
           </DialogContent>
         </Dialog>
       </div>
-      
+
       {/* Search and Filter */}
       <div className="flex flex-col md:flex-row gap-2">
         <div className="flex-1 relative">
@@ -379,7 +379,7 @@ export default function TaskManagementBoard() {
             className="pl-10"
           />
         </div>
-        
+
         <select
           value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value)}
@@ -392,7 +392,7 @@ export default function TaskManagementBoard() {
           <option value="URGENT">Urgent</option>
         </select>
       </div>
-      
+
       {/* Kanban Board */}
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -413,7 +413,7 @@ export default function TaskManagementBoard() {
                   {tasksByStatus[status as keyof typeof tasksByStatus].length}
                 </Badge>
               </div>
-              
+
               <div className="space-y-3 min-h-96">
                 {tasksByStatus[status as keyof typeof tasksByStatus].map(task => (
                   <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow">
@@ -427,25 +427,25 @@ export default function TaskManagementBoard() {
                             )}
                           </div>
                         </div>
-                        
+
                         <div className="flex flex-wrap gap-1">
                           <Badge className={`text-xs ${getPriorityColor(task.priority)}`}>
                             {task.priority}
                           </Badge>
                           {task.category && (
-                            <Badge style={{backgroundColor: task.category.color, opacity: 0.8}} className="text-xs text-white">
+                            <Badge style={{ backgroundColor: task.category.color, opacity: 0.8 }} className="text-xs text-white">
                               {task.category.name}
                             </Badge>
                           )}
                         </div>
-                        
+
                         {task.assigned_to && (
                           <div className="flex items-center gap-1 text-xs text-gray-600">
                             <Users className="w-3 h-3" />
                             {task.assigned_to.first_name} {task.assigned_to.last_name}
                           </div>
                         )}
-                        
+
                         <div className="flex gap-1 pt-2 border-t pt-2">
                           {status !== 'COMPLETED' && (
                             <Button
