@@ -8,6 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, AlertCircle, CheckCircle, Archive, RotateCcw } from "lucide-react";
 import { format } from 'date-fns';
 import { useToast } from "@/components/ui/use-toast";
+import { API_BASE } from "@/lib/api";
 
 interface BackupHistoryItem {
   filename: string;
@@ -29,7 +30,7 @@ const ScheduleBackupManager: React.FC<ScheduleBackupManagerProps> = ({ scheduleI
   const { data: backupHistory, isLoading, error, refetch } = useQuery({
     queryKey: ['backupHistory', scheduleId],
     queryFn: async () => {
-      const response = await axios.get(`/api/staff/schedules/${scheduleId}/backup_history/`);
+      const response = await axios.get(`${API_BASE}/staff/schedules/${scheduleId}/backup_history/`);
       return response.data as BackupHistoryItem[];
     }
   });
@@ -37,7 +38,7 @@ const ScheduleBackupManager: React.FC<ScheduleBackupManagerProps> = ({ scheduleI
   // Create backup mutation
   const createBackupMutation = useMutation({
     mutationFn: async () => {
-      const response = await axios.post(`/api/staff/schedules/${scheduleId}/create_backup/`);
+      const response = await axios.post(`${API_BASE}/staff/schedules/${scheduleId}/create_backup/`);
       return response.data;
     },
     onSuccess: () => {
@@ -61,7 +62,7 @@ const ScheduleBackupManager: React.FC<ScheduleBackupManagerProps> = ({ scheduleI
   // Restore backup mutation
   const restoreBackupMutation = useMutation({
     mutationFn: async (backupFile: string) => {
-      const response = await axios.post(`/api/staff/schedules/${scheduleId}/restore_backup/`, {
+      const response = await axios.post(`${API_BASE}/staff/schedules/${scheduleId}/restore_backup/`, {
         backup_file: backupFile
       });
       return response.data;
@@ -127,8 +128,8 @@ const ScheduleBackupManager: React.FC<ScheduleBackupManagerProps> = ({ scheduleI
         )}
 
         <div className="mb-4">
-          <Button 
-            onClick={handleCreateBackup} 
+          <Button
+            onClick={handleCreateBackup}
             disabled={createBackupMutation.isPending}
             className="flex items-center gap-2"
           >

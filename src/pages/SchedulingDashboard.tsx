@@ -44,7 +44,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { API_BASE } from "@/lib/api";
 
-  import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+
 
 interface AssignedShift {
   id: string;
@@ -519,9 +519,8 @@ export const SchedulingDashboard: React.FC = () => {
               return (
                 <Card
                   key={format(date, "yyyy-MM-dd")}
-                  className={`cursor-pointer transition ${
-                    isToday ? "ring-2 ring-blue-500" : ""
-                  }`}
+                  className={`cursor-pointer transition ${isToday ? "ring-2 ring-blue-500" : ""
+                    }`}
                   onClick={() => setSelectedDate(date)}
                 >
                   <CardHeader className="pb-3">
@@ -587,11 +586,10 @@ export const SchedulingDashboard: React.FC = () => {
                         </div>
                         <div className="text-right space-y-2">
                           <span
-                            className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                              shift.is_confirmed
+                            className={`inline-block px-2 py-1 rounded text-xs font-medium ${shift.is_confirmed
                                 ? "bg-green-100 text-green-800"
                                 : "bg-yellow-100 text-yellow-800"
-                            }`}
+                              }`}
                           >
                             {shift.status}
                           </span>
@@ -664,11 +662,10 @@ export const SchedulingDashboard: React.FC = () => {
                         <td className="px-4 py-3">{shift.actual_hours}</td>
                         <td className="px-4 py-3">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${
-                              shift.is_confirmed
+                            className={`px-2 py-1 rounded text-xs font-medium ${shift.is_confirmed
                                 ? "bg-green-100 text-green-800"
                                 : "bg-yellow-100 text-yellow-800"
-                            }`}
+                              }`}
                           >
                             {shift.status}
                           </span>
