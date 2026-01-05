@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { API_BASE } from "../lib/api";
 
 export const useStaffInvite = () => {
     return useMutation({
@@ -9,7 +10,7 @@ export const useStaffInvite = () => {
             last_name?: string;
             phone_number?: string;
         }) => {
-            const response = await fetch('/api/staff/invite/', {
+            const response = await fetch(`${API_BASE}/staff/invite/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -32,7 +33,7 @@ export const useStaffList = () => {
     return useQuery({
         queryKey: ['staff-list'],
         queryFn: async () => {
-            const response = await fetch('/api/staff/list', {
+            const response = await fetch(`${API_BASE}/staff/list`, {
                 credentials: 'include',
             });
 
