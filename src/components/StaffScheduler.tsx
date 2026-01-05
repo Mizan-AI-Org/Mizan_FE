@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from "date-fns";
 import { Clock, Plus, X, User } from "lucide-react";
 import ScheduleCreationModal from "./schedule/ScheduleCreationModal"; // Import the new modal
+import { API_BASE } from "@/lib/api";
 
 interface StaffMember {
   id: string;
@@ -63,7 +64,7 @@ export default function StaffScheduler() {
 
     // Replace with API call to Django backend
     try {
-      const response = await fetch(`http://localhost:8000/staff/schedules/?start_date=${format(start, "yyyy-MM-dd")}&end_date=${format(end, "yyyy-MM-dd")}`);
+      const response = await fetch(`${API_BASE}/staff/schedules/?start_date=${format(start, "yyyy-MM-dd")}&end_date=${format(end, "yyyy-MM-dd")}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -90,8 +91,8 @@ export default function StaffScheduler() {
     try {
       const method = editingSchedule ? 'PUT' : 'POST';
       const url = editingSchedule
-        ? `http://localhost:8000/staff/schedules/${editingSchedule.id}/`
-        : `http://localhost:8000/staff/schedules/`;
+        ? `${API_BASE}/staff/schedules/${editingSchedule.id}/`
+        : `${API_BASE}/staff/schedules/`;
 
       const response = await fetch(url, {
         method,
@@ -124,7 +125,7 @@ export default function StaffScheduler() {
 
   const handleDeleteSchedule = async (scheduleId: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/staff/schedules/${scheduleId}/`, {
+      const response = await fetch(`${API_BASE}/staff/schedules/${scheduleId}/`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -244,7 +245,7 @@ export default function StaffScheduler() {
                                 <User className="w-5 h-5 text-white" />
                               </div>
                               <div>
-                                <h4 className="font-semibold">{schedule.staff?.full_name || schedule.staff?.username}</h4>
+                                <h4 className="font-semibold">{schedule.staff?.full_name}</h4>
                                 <p className="text-sm text-muted-foreground">{schedule.title}</p>
                                 <div className="flex items-center space-x-2 mt-1">
                                   <Clock className="w-3 h-3 text-muted-foreground" />
@@ -317,7 +318,7 @@ export default function StaffScheduler() {
                                 <User className="w-4 h-4 text-white" />
                               </div>
                               <div>
-                                <p className="font-medium">{schedule.staff?.full_name || schedule.staff?.username}</p>
+                                <p className="font-medium">{schedule.staff?.full_name}</p>
                                 <p className="text-xs text-muted-foreground">{schedule.title}</p>
                               </div>
                             </div>

@@ -12,9 +12,9 @@ import { Switch } from '@/components/ui/switch';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Plus, 
-  Trash2, 
+import {
+  Plus,
+  Trash2,
   GripVertical,
   Clock,
   AlertTriangle,
@@ -25,13 +25,11 @@ import {
   FolderMinus
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { API_BASE } from "@/lib/api";
+import { API_BASE, api } from "@/lib/api";
 
 // Prefer the common frontend API base env var, fall back to legacy, then localhost
 
-  import.meta.env.VITE_REACT_APP_API_URL ||
-  import.meta.env.VITE_API_BASE_URL ||
-  'http://localhost:8000/api';
+// Prefer the common frontend API base env var, fall back to legacy, then localhost
 
 interface TemplateTask {
   title: string;
@@ -163,12 +161,12 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
   // Create/Update template mutation
   const saveTemplateMutation = useMutation({
     mutationFn: async (templateData: TaskTemplate) => {
-      const url = template?.id 
+      const url = template?.id
         ? `${API_BASE}/scheduling/task-templates/${template.id}/`
         : `${API_BASE}/scheduling/task-templates/`;
-      
+
       const method = template?.id ? 'PUT' : 'POST';
-      
+
       const response = await fetch(url, {
         method,
         headers: {
@@ -178,7 +176,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
         },
         body: JSON.stringify(templateData),
       });
-      
+
       // Safely parse JSON if available, otherwise read text
       const contentType = response.headers.get('content-type') || '';
       const isJson = contentType.includes('application/json');
@@ -292,7 +290,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       toast.error('Please fix the form errors');
       return;
@@ -740,8 +738,8 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           disabled={saveTemplateMutation.isPending}
           className="premium-button"
         >

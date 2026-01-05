@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { API_BASE } from "@/lib/api";
 
 interface StaffMember {
     id: string;
@@ -48,7 +49,7 @@ const ScheduleCreationModal: React.FC<ScheduleCreationModalProps> = ({
     useEffect(() => {
         const fetchStaffList = async () => {
             try {
-                const response = await fetch('http://localhost:8000/accounts/staff/');
+                const response = await fetch(`${API_BASE}/accounts/staff/`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }

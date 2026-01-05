@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from './use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { API_BASE } from "@/lib/api";
+import { API_BASE, WS_BASE } from "@/lib/api";
 
 interface Notification {
     id: string;
@@ -13,11 +13,11 @@ interface Notification {
     notification_type: string;
     title?: string;
     attachments?: Array<{
-      original_name?: string;
-      url?: string;
-      content_type?: string;
-      size?: number;
-      uploaded_at?: string;
+        original_name?: string;
+        url?: string;
+        content_type?: string;
+        size?: number;
+        uploaded_at?: string;
     }>;
 }
 
@@ -26,7 +26,7 @@ interface WebSocketMessage {
     message: Notification;
 }
 
-const WS_BASE = import.meta.env.VITE_REACT_APP_WS_URL || 'ws://localhost:8000/ws';
+// WS_BASE imported from @/lib/api
 const WS_ENABLED = String(import.meta.env.VITE_ENABLE_NOTIFICATIONS_WS || 'false').toLowerCase() === 'true';
 
 export const useNotifications = () => {

@@ -29,7 +29,21 @@ import {
   ShiftReviewSubmission,
 } from "./types"; // Updated import path
 
-export const API_BASE = "/api";
+export const API_BASE =
+  import.meta.env.VITE_BACKEND_URL
+    ? `${import.meta.env.VITE_BACKEND_URL}/api`
+    : "http://localhost:8000/api";
+
+// Derive WS_BASE from API_BASE or VITE_BACKEND_URL
+// If API_BASE starts with http, replace with ws. If https, replace with wss.
+const getWsBase = () => {
+  if (import.meta.env.VITE_BACKEND_URL) {
+    return import.meta.env.VITE_BACKEND_URL.replace(/^http/, 'ws');
+  }
+  return "ws://localhost:8000";
+};
+
+export const WS_BASE = import.meta.env.VITE_REACT_APP_WS_URL || getWsBase();
 
 export const TELEMETRY_ENABLED = String(import.meta.env.VITE_ENABLE_CHECKLIST_TELEMETRY || "false").toLowerCase() === "true";
 
@@ -99,7 +113,7 @@ export class BackendService {
   async ownerSignup(signupData: SignupData): Promise<LoginResponse> {
 
     try {
-      const response = await fetch(`${API_BASE}/api/register/`, {
+      const response = await fetch(`${API_BASE}/register/`, {
         method: "POST",
         headers: this.getHeaders(),
         body: JSON.stringify(signupData),
