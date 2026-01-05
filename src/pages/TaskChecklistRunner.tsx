@@ -11,9 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { logError, logInfo } from "@/lib/logging";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, api } from "@/lib/api";
 
-  import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+
 
 const TaskChecklistRunner: React.FC = () => {
   const { taskId } = useParams();
@@ -177,14 +177,14 @@ const TaskChecklistRunner: React.FC = () => {
           await api.logChecklistSubmissionAttempt(String(executionId), { status: 'COMPLETED', message: 'Checklist submission complete' });
           logInfo({ feature: 'task-checklist-runner', action: 'submit' }, 'Checklist completed');
           queryClient.invalidateQueries({ queryKey: ["manager-submitted-checklists"] });
-        } catch {/* ignore */}
+        } catch {/* ignore */ }
       }
 
       toast.success("Checklist submitted");
       navigate("/staff-dashboard/safety");
     } catch (e: any) {
       logError({ feature: 'task-checklist-runner', action: 'submit' }, e, { executionId });
-      try { await api.logChecklistSubmissionAttempt(String(executionId!), { status: 'FAILED', message: e?.message || 'Submission failed' }); } catch {/* ignore */}
+      try { await api.logChecklistSubmissionAttempt(String(executionId!), { status: 'FAILED', message: e?.message || 'Submission failed' }); } catch {/* ignore */ }
       toast.error(e.message || "Submission failed");
     }
   };

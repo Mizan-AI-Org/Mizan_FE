@@ -12,6 +12,7 @@ import { X } from "lucide-react";
 import TaskTemplateSelector from "@/components/schedule/TaskTemplateSelector";
 import { useTaskTemplates } from "@/hooks/useTaskTemplates";
 import type { Shift, Task } from "@/types/schedule";
+import { API_BASE } from "@/lib/api";
 
 interface StaffMember {
     id: string;
@@ -261,7 +262,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         setPersistingSelections(true);
         setSaveFeedback(null);
         try {
-            const res = await fetch('/api/shift-template-selections', {
+            const res = await fetch(`${API_BASE}/shift-template-selections`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ staffId: shiftData.staffId, templateIds: selectedTemplateIds }),

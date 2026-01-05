@@ -17,7 +17,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { API_BASE } from "@/lib/api";
 
-    import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+
 
 interface StaffMember {
     id: string;
@@ -28,6 +28,7 @@ interface StaffMember {
         email: string;
         role: string;
         is_active: boolean;
+        phone: string;
     };
     employee_id: string;
     date_joined: string;

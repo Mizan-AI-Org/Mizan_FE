@@ -31,7 +31,7 @@ import TaskTemplateSelector from "@/components/schedule/TaskTemplateSelector";
 import { useTaskTemplates } from "@/hooks/useTaskTemplates";
 import { API_BASE } from "@/lib/api";
 
-  import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
+
 
 // Types
 export interface Shift {
@@ -192,8 +192,8 @@ export const AutoScheduler = ({
                 return "high";
             default:
                 return "medium";
-       }
-   };
+        }
+    };
 
     const mapCategory = (c?: string): Task["category"] => {
         const val = (c || "service").toLowerCase();
