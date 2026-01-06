@@ -2,7 +2,7 @@
     "rewrites": [
         {
             "source": "/api/:path*",
-            "destination": "http://35.91.88.135/api/:path*"
+            "destination": "https://api.heymizan.ai/api/:path*"
         },
         {
             "source": "/(.*)",
