@@ -154,14 +154,7 @@ const AddStaff = () => {
             const inviteToken = responseData.invitation_token || responseData.invitation?.invitation_token || responseData.token;
 
             if (inviteViaWhatsapp && inviteToken && phoneNumber) {
-                const baseUrl = window.location.origin;
-                const inviteLink = `${baseUrl}/accept-invitation?token=${inviteToken}`;
-                const message = `Hi ${firstName}, you have been invited to join Mizan. Click here to accept: ${inviteLink}`;
-                const encodedMessage = encodeURIComponent(message);
-                const whatsappUrl = `https://wa.me/${phoneNumber.replace(/[^0-9]/g, '')}?text=${encodedMessage}`;
-
-                window.open(whatsappUrl, '_blank');
-                alert(`Invitation prepared for ${firstName}. WhatsApp opened!`);
+                alert(`Invitation sent to ${firstName}. The system will now send the WhatsApp invite automatically.`);
             } else {
                 alert(`Invitation sent to ${firstName} ${lastName}`);
             }
@@ -729,76 +722,22 @@ const AddStaff = () => {
                                 Send WhatsApp Invites
                             </CardTitle>
                             <CardDescription>
-                                Successfully created invitations. Click to send via WhatsApp.
+                                Successfully created invitations. The system is now sending WhatsApp invites automatically.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="pt-6">
                             <div className="space-y-3">
                                 {bulkInviteResults.map((invite) => {
-                                    // invite object comes from backend StaffInvitationSerializer
-                                    // It might not have phone directly if it's in extra_data, 
-                                    // but let's check how backend saves it. 
-                                    // The backend `StaffInvitation` has `extra_data`.
-                                    // But `StaffInvitationSerializer` fields are ['id', 'email', 'role', ... 'invitation_token'] 
-                                    // It does NOT explicitly include `extra_data` in the default fields in the serializer I saw earlier (lines 28-30 of serializers.py).
-                                    // Wait, the backend serializer I read was:
-                                    // fields = ['id', 'email', 'role', 'restaurant', 'invited_by', 'invitation_token', 'is_accepted', 'created_at', 'expires_at']
-                                    // So `extra_data` or `phone` might be missing in the response unless I request it or inferred it.
-                                    // The bulk invite returns `StaffInvitationSerializer(inv).data`.
-                                    // If `extra_data` is not in fields, I can't get the phone number to send the WhatsApp message!
-                                    // I need to patch the backend serializer OR rely on the user manually inputting it? No, that defeats the purpose.
-                                    // Actually, let's assume I can't easily change the backend *right now* partially because the plan said backend is manual/skipped.
-                                    // BUT, I can rely on the fact that I just uploaded the CSV with phone numbers!
-                                    // The `bulkInviteResults` usually has the order preserved? Or I can match by Email.
-
-                                    // Let's match by email from the `parsedStaff` if possible? But `parsedStaff` is cleared.
-                                    // I should NOT clear `parsedStaff` immediately if I want to match. 
-                                    // Or better, I should keep `parsedStaff` until I'm done.
-
-                                    // Let's update the strategy:
-                                    // 1. We know the email from `invite.email`.
-                                    // 2. We can try to find the phone number from the original CSV upload if we persisted it?
-                                    //    But I cleared it. 
-                                    //    Let's *not* clear parsedStaff? Or store the phone mapping.
-
-                                    // Correct approach:
-                                    // I will modify the previous step to NOT clear `parsedStaff` if there are results, OR save metadata.
-                                    // But wait! `StaffInvitation` model has `extra_data`. 
-                                    // `StaffInvitationSerializer` in `mizan-backend/accounts/serializers.py` did NOT have `extra_data` in fields.
-                                    // So the frontend won't get the phone number back.
-
-                                    // Quick fix: I will modify `handleBulkInvite` to SAVE the phone number mapping (Email -> Phone) in a state before clearing/sending.
-
                                     return (
                                         <div key={invite.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                                             <div>
                                                 <p className="font-semibold text-gray-900">{invite.email}</p>
                                                 <p className="text-sm text-gray-500">{invite.role}</p>
                                             </div>
-                                            <Button
-                                                onClick={() => {
-                                                    const token = invite.invitation_token;
-                                                    const baseUrl = window.location.origin;
-                                                    const link = `${baseUrl}/accept-invitation?token=${token}`;
-                                                    const msg = encodeURIComponent(`You are invited to Mizan! Join here: ${link}`);
-
-                                                    // Use enriched phone number if available
-                                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                                    const phone = (invite as any).phone;
-
-                                                    if (phone) {
-                                                        const cleanPhone = phone.replace(/[^0-9]/g, '');
-                                                        window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
-                                                    } else {
-                                                        window.open(`https://wa.me/?text=${msg}`, '_blank');
-                                                    }
-                                                }}
-                                                variant="outline"
-                                                className="border-green-600 text-green-700 hover:bg-green-50"
-                                            >
-                                                <MessageCircle className="w-4 h-4 mr-2" />
-                                                Send WhatsApp
-                                            </Button>
+                                            <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
+                                                <Check className="w-4 h-4" />
+                                                Queued
+                                            </div>
                                         </div>
                                     );
                                 })}
