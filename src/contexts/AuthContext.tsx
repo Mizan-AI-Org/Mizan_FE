@@ -287,7 +287,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     last_name: string,
     password?: string,
     pin_code?: string | null,
-    invitation_pin?: string | null
+    invitation_pin?: string | null,
+    email?: string
   ) => {
     // Use the API client’s logic to hit the right endpoint
     const data = await api.acceptInvitation(
@@ -296,7 +297,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       last_name,
       password,
       pin_code,
-      invitation_pin
+      invitation_pin,
+      email
     );
     setUser(data.user);
     localStorage.setItem("user", JSON.stringify(data.user));

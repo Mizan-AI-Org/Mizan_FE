@@ -12,7 +12,6 @@ import { X } from "lucide-react";
 import TaskTemplateSelector from "@/components/schedule/TaskTemplateSelector";
 import { useTaskTemplates } from "@/hooks/useTaskTemplates";
 import type { Shift, Task } from "@/types/schedule";
-import { API_BASE } from "@/lib/api";
 
 interface StaffMember {
     id: string;
@@ -42,6 +41,7 @@ interface ShiftModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (shift: Shift) => void;
+    onDelete?: (shiftId: string) => void;
     initialShift?: Shift | null;
     dayIndex?: number;
     hour?: number;
@@ -50,10 +50,31 @@ interface ShiftModalProps {
     testDefaultTemplateId?: string;
 }
 
+const getStaffColor = (staffId: string) => {
+    const colors = [
+        '#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6',
+        '#6366F1', '#8B5CF6', '#EC4899', '#14B8A6', '#F43F5E'
+    ];
+    try {
+        // Match backend logic: int(uuid, 16) % len(colors)
+        const idx = Number(BigInt('0x' + staffId.replace(/-/g, '')) % BigInt(colors.length));
+        return colors[idx];
+    } catch (e) {
+        // Fallback for non-UUIDs
+        let hash = 0;
+        for (let i = 0; i < staffId.length; i++) {
+            hash = staffId.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const index = Math.abs(hash) % colors.length;
+        return colors[index];
+    }
+};
+
 const ShiftModal: React.FC<ShiftModalProps> = ({
     isOpen,
     onClose,
     onSave,
+    onDelete,
     initialShift,
     dayIndex,
     hour,
@@ -95,7 +116,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
             date: toYMD(base),
             day: dayIndex !== undefined ? dayIndex : 0,
             staffId: staffMembers.length > 0 ? staffMembers[0].id : "",
-            color: "#6b7280",
+            color: staffMembers.length > 0 ? getStaffColor(staffMembers[0].id) : "#6b7280",
             tasks: [],
         };
     });
@@ -164,7 +185,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                 date: toYMD(base),
                 day: dayIndex !== undefined ? dayIndex : 0,
                 staffId: staffMembers.length > 0 ? staffMembers[0].id : "",
-                color: "#6b7280",
+                color: staffMembers.length > 0 ? getStaffColor(staffMembers[0].id) : "#6b7280",
                 tasks: [],
             });
         }
@@ -231,10 +252,13 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
     };
 
     const handleSelectChange = (value: string, id: string) => {
-        setShiftData(prev => ({
-            ...prev,
-            [id]: value,
-        }));
+        setShiftData(prev => {
+            const updates: any = { [id]: value };
+            if (id === 'staffId') {
+                updates.color = getStaffColor(value);
+            }
+            return { ...prev, ...updates };
+        });
     };
 
     const updateTemplateSelectionStorage = (ids: string[]) => {
@@ -262,13 +286,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         setPersistingSelections(true);
         setSaveFeedback(null);
         try {
-            const res = await fetch(`${API_BASE}/shift-template-selections`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ staffId: shiftData.staffId, templateIds: selectedTemplateIds }),
-            });
-            if (!res.ok) throw new Error(`Failed to save selections (${res.status})`);
-            setSaveFeedback({ type: 'success', message: 'Template selections saved' });
+            updateTemplateSelectionStorage(selectedTemplateIds);
+            setSaveFeedback({ type: 'success', message: 'Template selections saved locally' });
         } catch (e: unknown) {
             const errMsg = e instanceof Error ? e.message : 'Failed to save template selections';
             setSaveFeedback({ type: 'error', message: errMsg });
@@ -526,10 +545,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="color" className="text-right">Color</Label>
-                        <Input id="color" type="color" value={shiftData.color} onChange={handleChange} className="col-span-3 h-8" />
-                    </div>
+
 
                     <div className="grid grid-cols-4 gap-4">
                         <Label className="text-right pt-2">Tasks</Label>
@@ -639,11 +655,28 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                         </div>
                     </div>
                 </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={onClose} aria-label="Cancel and close">Cancel</Button>
-                    <Button onClick={handleSubmit} disabled={isSubmitting} aria-busy={isSubmitting} aria-label="Save shift changes">
-                        {isSubmitting ? 'Saving…' : 'Save Changes'}
-                    </Button>
+                <DialogFooter className="w-full flex items-center gap-8">
+                    {initialShift && onDelete && (
+                        <Button
+                            variant="destructive"
+                            onClick={() => {
+                                if (confirm("Are you sure you want to delete this shift?")) {
+                                    onDelete(initialShift.id);
+                                    onClose();
+                                }
+                            }}
+                            aria-label="Delete shift"
+                        >
+                            Delete Shift
+                        </Button>
+                    )}
+                    <div className="flex-1" />
+                    <div className="flex gap-2 justify-end">
+                        <Button variant="outline" onClick={onClose} aria-label="Cancel and close">Cancel</Button>
+                        <Button onClick={handleSubmit} disabled={isSubmitting} aria-busy={isSubmitting} aria-label="Save shift changes">
+                            {isSubmitting ? 'Saving…' : 'Save Changes'}
+                        </Button>
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

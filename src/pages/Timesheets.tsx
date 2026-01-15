@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -111,6 +111,24 @@ const Timesheets: React.FC = () => {
   const [selectedShiftIds, setSelectedShiftIds] = useState<Set<string>>(new Set());
   const [editingShift, setEditingShift] = useState<AssignedShift | null>(null);
 
+  // Initialize date range to current week to keep Timesheet and Staff Shifts in sync
+  useEffect(() => {
+    if (!dateFrom && !dateTo) {
+      const base = new Date();
+      const day = base.getDay(); // 0=Sun..6=Sat
+      const weekStart = new Date(base); weekStart.setDate(base.getDate() - day);
+      const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
+      const toYMD = (d: Date) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dd}`;
+      };
+      setDateFrom(toYMD(weekStart));
+      setDateTo(toYMD(weekEnd));
+    }
+  }, []);
+
   // Fetch timesheets
   const { data: timesheets = [], isLoading, error } = useQuery({
     queryKey: ['timesheets', statusFilter],
@@ -119,7 +137,7 @@ const Timesheets: React.FC = () => {
       if (statusFilter !== 'all') {
         url.searchParams.append('status', statusFilter);
       }
-      
+
       const response = await fetch(url.toString(), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -157,6 +175,41 @@ const Timesheets: React.FC = () => {
     },
   });
 
+  // Manager's weekly grid view helpers
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const weekRange = useMemo(() => {
+    const base = dateFrom ? new Date(dateFrom) : new Date();
+    const day = base.getDay(); // 0=Sun..6=Sat
+    const weekStart = new Date(base); weekStart.setDate(base.getDate() - day);
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStart); d.setDate(weekStart.getDate() + i);
+      return d;
+    });
+    const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+    return { weekStart, days, label: `${fmt(days[0])} – ${fmt(days[6])}` };
+  }, [dateFrom]);
+
+  const roleColor = (role?: string) => {
+    const r = (role || '').toUpperCase();
+    if (r.includes('CHEF')) return 'bg-green-100 border-green-300 text-green-800';
+    if (r.includes('WAITER')) return 'bg-blue-100 border-blue-300 text-blue-800';
+    if (r.includes('CASHIER')) return 'bg-yellow-100 border-yellow-300 text-yellow-800';
+    if (r.includes('CLEAN')) return 'bg-red-100 border-red-300 text-red-800';
+    return 'bg-muted/30 border-muted text-foreground';
+  };
+
+  const hhmm = (s?: string) => (s ? s.substring(11, 16) || s.substring(0, 5) : '');
+  const hoursBetween = (start?: string, end?: string) => {
+    try {
+      if (!start || !end) return 0;
+      const a = new Date(start);
+      const b = new Date(end);
+      return Math.max(0, (b.getTime() - a.getTime()) / 3600000);
+    } catch { return 0; }
+  };
+
+
+
   // Fetch users for department mapping
   const { data: users = [] } = useQuery<BackendUserSummary[]>({
     queryKey: ['users-for-dept'],
@@ -192,6 +245,26 @@ const Timesheets: React.FC = () => {
       return { ...s, staff_info: { id: s.staff, first_name: info.first_name, last_name: info.last_name, email: info.email } } as AssignedShift;
     });
   }, [assignedShifts, userInfoMap]);
+
+  const weeklyByStaff = useMemo(() => {
+    const map = new Map<string, { name: string; days: Record<number, AssignedShift[]>; total: number }>();
+    const startYMD = weekRange.days[0].toISOString().slice(0, 10);
+    const endYMD = weekRange.days[6].toISOString().slice(0, 10);
+    const inWeek = (d: string) => d >= startYMD && d <= endYMD;
+    for (const s of assignedShiftsWithInfo) {
+      const ymd = s.shift_date.slice(0, 10);
+      if (!inWeek(ymd)) continue;
+      const key = s.staff_info ? s.staff_info.id : s.staff;
+      const fullName = `${s.staff_info?.first_name || ''} ${s.staff_info?.last_name || ''}`.trim();
+      const name = fullName || s.staff_info?.email || s.staff;
+      const dayIdx = new Date(ymd).getDay();
+      const rec = map.get(key) || { name, days: {}, total: 0 };
+      (rec.days[dayIdx] ||= []).push(s);
+      rec.total += s.actual_hours ?? hoursBetween(s.start_time, s.end_time);
+      map.set(key, rec);
+    }
+    return Array.from(map.entries()).map(([id, v]) => ({ id, ...v }));
+  }, [assignedShiftsWithInfo, weekRange]);
 
   // Approve timesheet mutation
   const approveTimesheetMutation = useMutation({
@@ -256,6 +329,14 @@ const Timesheets: React.FC = () => {
   // Derive filtered, searched, and sorted shifts
   const processedShifts = useMemo(() => {
     let list: AssignedShift[] = assignedShiftsWithInfo;
+    // Ensure list aligns with current week when dateFrom/dateTo are set
+    if (dateFrom && dateTo) {
+      const inRange = (d: string) => {
+        const ymd = d.slice(0, 10);
+        return ymd >= dateFrom && ymd <= dateTo;
+      };
+      list = list.filter(s => inRange(s.shift_date));
+    }
     if (shiftStatusFilter !== 'all') {
       list = list.filter(s => (s.status || (s.is_confirmed ? 'CONFIRMED' : 'SCHEDULED')) === shiftStatusFilter);
     }
@@ -278,7 +359,7 @@ const Timesheets: React.FC = () => {
       }
     });
     return list;
-  }, [assignedShiftsWithInfo, shiftStatusFilter, departmentFilter, shiftSearch, sortBy, sortDir, userDeptMap]);
+  }, [assignedShiftsWithInfo, dateFrom, dateTo, shiftStatusFilter, departmentFilter, shiftSearch, sortBy, sortDir, userDeptMap]);
 
   const toggleSelectAll = (checked: boolean) => {
     setSelectedShiftIds(checked ? new Set(processedShifts.map(s => s.id)) : new Set());
@@ -327,7 +408,7 @@ const Timesheets: React.FC = () => {
   const bulkDelete = () => selectedShiftIds.forEach(id => deleteShiftMutation.mutate(id));
 
   const exportCSV = () => {
-    const headers = ['Staff Name','Date','Start','End','Role','Status'];
+    const headers = ['Staff Name', 'Date', 'Start', 'End', 'Role', 'Status'];
     const rows = processedShifts.map(s => [
       `${s.staff_info?.first_name || ''} ${s.staff_info?.last_name || ''}`.trim() || (s.staff_info?.email || ''),
       s.shift_date,
@@ -413,106 +494,63 @@ const Timesheets: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Timesheets</h1>
         <p className="text-gray-600 mt-1">Manage and approve staff timesheets</p>
       </div>
-      {/* Timesheets Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Timesheets</CardTitle>
-          <CardDescription>
-            {filteredTimesheets.length} timesheet{filteredTimesheets.length !== 1 ? 's' : ''} found
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Staff Member</TableHead>
-                  <TableHead>Period</TableHead>
-                  <TableHead>Hours</TableHead>
-                  <TableHead>Earnings</TableHead>
-                  <TableHead>Rate/Hour</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTimesheets.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                      No timesheets found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredTimesheets.map((timesheet: Timesheet) => (
-                    <TableRow key={timesheet.id} className="hover:bg-gray-50">
-                      <TableCell className="font-medium">{timesheet.staff_name}</TableCell>
-                      <TableCell className="text-sm text-gray-600">
-                        {formatDate(timesheet.start_date)} - {formatDate(timesheet.end_date)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-4 h-4 text-gray-500" />
-                          {timesheet.total_hours.toFixed(1)}h
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-semibold">
-                        {formatCurrency(timesheet.total_earnings)}
-                      </TableCell>
-                      <TableCell>{formatCurrency(timesheet.hourly_rate)}/h</TableCell>
-                      <TableCell>
-                        <Badge className={`${getStatusBadgeColor(timesheet.status)} flex items-center gap-1 w-fit`}>
-                          {getStatusIcon(timesheet.status)}
-                          {timesheet.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          {timesheet.status === 'SUBMITTED' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedTimesheet(timesheet);
-                                setShowApproveDialog(true);
-                              }}
-                              disabled={approveTimesheetMutation.isPending}
-                            >
-                              Approve
-                            </Button>
-                          )}
-                          {timesheet.status === 'APPROVED' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => markAsPaidMutation.mutate(timesheet.id)}
-                              disabled={markAsPaidMutation.isPending}
-                            >
-                              Mark Paid
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setSelectedTimesheet(timesheet)}
-                          >
-                            View
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+      {/* Timesheet (Weekly Grid) */}
+      <div className="border rounded-lg shadow-sm">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <div>
+            <div className="text-lg font-semibold">Timesheet</div>
+            <div className="text-xs text-muted-foreground">{weekRange.label}</div>
           </div>
-        </CardContent>
-      </Card>
-
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs sm:text-sm">
+            <thead>
+              <tr className="bg-muted/40">
+                <th className="p-2 text-left">Staff</th>
+                {weekRange.days.map((d, i) => (
+                  <th key={i} className="p-2 text-center">
+                    <div className="font-medium">{dayNames[d.getDay()]}</div>
+                    <div className="text-xs text-muted-foreground hidden md:block">{d.toLocaleDateString()}</div>
+                  </th>
+                ))}
+                <th className="p-2 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {weeklyByStaff.length === 0 ? (
+                <tr><td className="p-4 text-center text-muted-foreground" colSpan={weekRange.days.length + 2}>No shifts in selected week</td></tr>
+              ) : weeklyByStaff.map(row => (
+                <tr key={row.id} className="border-t">
+                  <td className="p-2 font-medium">{row.name}</td>
+                  {weekRange.days.map((d, i) => {
+                    const idx = d.getDay();
+                    const shifts = row.days[idx] || [];
+                    return (
+                      <td key={i} className="p-1 align-top">
+                        {shifts.length === 0 ? (
+                          <div className="h-10" />
+                        ) : shifts.map((s) => (
+                          <div key={s.id} className={`border rounded px-2 py-1 mb-1 ${roleColor(s.role)}`}>
+                            <div className="font-medium">{hhmm(s.start_time)} – {hhmm(s.end_time)}</div>
+                            <div className="text-xs">{s.role}</div>
+                          </div>
+                        ))}
+                      </td>
+                    );
+                  })}
+                  <td className="p-2 text-right font-semibold">{row.total.toFixed(0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {/* Timesheets Table */}
       {/* Staff Shifts Management */}
       <Card>
         <CardHeader>
@@ -532,7 +570,7 @@ const Timesheets: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
             <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="From" />
             <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="To" />
             <Input placeholder="Search staff..." value={shiftSearch} onChange={(e) => setShiftSearch(e.target.value)} />
@@ -566,7 +604,7 @@ const Timesheets: React.FC = () => {
               <ArrowUpDown className="w-4 h-4" /> Sort by {sortBy === 'name' ? 'Name' : 'Time'}
             </Button>
             <Button variant="outline" size="sm" onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}>{sortDir.toUpperCase()}</Button>
-            <div className="ml-auto flex gap-2">
+            <div className="ml-auto flex gap-2 flex-wrap justify-end">
               <Button size="sm" onClick={bulkConfirm} disabled={selectedShiftIds.size === 0}>Confirm Selected</Button>
               <Button size="sm" onClick={bulkComplete} disabled={selectedShiftIds.size === 0}>Mark Completed</Button>
               <Button size="sm" variant="destructive" onClick={bulkDelete} disabled={selectedShiftIds.size === 0} className="flex items-center gap-2">
@@ -608,7 +646,7 @@ const Timesheets: React.FC = () => {
                         {s.staff_info ? `${s.staff_info.first_name} ${s.staff_info.last_name}` : s.staff}
                       </TableCell>
                       <TableCell>{new Date(s.shift_date).toLocaleDateString()}</TableCell>
-                      <TableCell className="text-sm text-gray-600">{s.start_time?.substring(0,5)} - {s.end_time?.substring(0,5)}</TableCell>
+                      <TableCell className="text-sm text-gray-600">{s.start_time?.substring(0, 5)} - {s.end_time?.substring(0, 5)}</TableCell>
                       <TableCell>{s.role}</TableCell>
                       <TableCell>
                         <Badge className={`${getShiftBadgeColor(s.status || (s.is_confirmed ? 'CONFIRMED' : 'SCHEDULED'))} w-fit`}>{s.status || (s.is_confirmed ? 'CONFIRMED' : 'SCHEDULED')}</Badge>
@@ -628,6 +666,8 @@ const Timesheets: React.FC = () => {
               </TableBody>
             </Table>
           </div>
+
+
         </CardContent>
       </Card>
 
@@ -759,7 +799,7 @@ const Timesheets: React.FC = () => {
               <div className="space-y-2">
                 <p>Are you sure you want to approve the timesheet for {selectedTimesheet.staff_name}?</p>
                 <p className="font-semibold">
-                  Total Hours: {selectedTimesheet.total_hours.toFixed(2)}h | 
+                  Total Hours: {selectedTimesheet.total_hours.toFixed(2)}h |
                   Total Earnings: {formatCurrency(selectedTimesheet.total_earnings)}
                 </p>
               </div>

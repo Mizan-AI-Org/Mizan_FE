@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft, Users, Mail, User, Upload, Download, FileSpreadsheet, X, Check, MessageCircle } from "lucide-react";
+import { ArrowLeft, Users, Mail, User, Upload, Download, FileSpreadsheet, X, Check, Copy, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { API_BASE } from "@/lib/api";
+import { toast } from "sonner";
 
 interface FormErrors {
     [key: string]: string;
@@ -45,33 +45,35 @@ const AddStaff = () => {
     const [lastName, setLastName] = useState('');
     const [role, setRole] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
-    const [inviteViaWhatsapp, setInviteViaWhatsapp] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [sendWhatsApp, setSendWhatsApp] = useState(false);
     const [errors, setErrors] = useState<FormErrors>({});
     const [uploadedFile, setUploadedFile] = useState<File | null>(null);
     const [parsedStaff, setParsedStaff] = useState<StaffMember[]>([]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [bulkInviteResults, setBulkInviteResults] = useState<any[]>([]);
+
+    // WhatsApp invite state
+    const [inviteLink, setInviteLink] = useState<string | null>(null);
+    const [invitedStaffName, setInvitedStaffName] = useState<string>("");
 
     const validateForm = () => {
         const newErrors: FormErrors = {};
 
-        if (!inviteViaWhatsapp) {
+        if (!sendWhatsApp) {
             if (!email) {
                 newErrors.email = "Email is required";
             } else if (!/\S+@\S+\.\S+/.test(email)) {
                 newErrors.email = "Email is invalid";
             }
         }
+        if (sendWhatsApp) {
+            if (!phoneNumber) {
+                newErrors.phoneNumber = "Phone number is required for WhatsApp";
+            }
+        }
 
         if (!firstName) newErrors.firstName = "First name is required";
         if (!lastName) newErrors.lastName = "Last name is required";
         if (!role) newErrors.role = "Role is required";
-        if (inviteViaWhatsapp && !phoneNumber) {
-            newErrors.phone = "Phone number is required for WhatsApp invite";
-            // Force phone field error if we need to show it there
-            setErrors(prev => ({ ...prev, phone: "Required for WhatsApp" }));
-        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -86,46 +88,36 @@ const AddStaff = () => {
         // 1. Get the token from localStorage
         const token = localStorage.getItem('access_token');
 
-        let finalEmail = email;
-        if (inviteViaWhatsapp && !email && phoneNumber) {
-            // Generate placeholder email for backend requirement
-            const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
-            finalEmail = `wa.${cleanPhone}@no-email.com`;
-        }
+        // We use snake_case for the payload to match
+        // common Django REST Framework conventions
+        const payload: Record<string, any> = {
+            first_name: firstName,
+            last_name: lastName,
+            role: role,
+        };
+        if (email) payload.email = email;
+        if (phoneNumber) payload.phone_number = phoneNumber;
 
         try {
-
-            // We use camelCase payload for JSON stringify usually, but let's check what I sent before.
-            // Before: email, role, first_name, last_name, phone_number
-            // The backend serializer uses fields = ['email', 'role', ... 'phone' (in extra_data?)] 
-            // Wait, the backend serializer I viewed in `accounts/views_invitations.py` uses `serializer = self.get_serializer(data=request.data)`
-            // and `StaffInvitationSerializer` fields.
-            // And `create` method manually extracts `phone` from request.data to put in `extra_data`.
-
+            const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
             const resp = await fetch(`${API_BASE}/staff/invite/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
                 },
                 body: JSON.stringify({
-                    email: finalEmail,
-                    role,
-                    first_name: firstName,
-                    last_name: lastName,
-                    phone_number: phoneNumber || undefined,
-                    phone: phoneNumber || undefined, // Send both keys just in case
+                    ...payload,
+                    send_whatsapp: sendWhatsApp,
                 }),
             });
 
             // Safely parse response: handle non-JSON (e.g., HTML error pages)
             type InviteResponse = {
                 message?: string;
-                token?: string;
+                invitation_token?: string;
                 error?: string;
                 detail?: string;
-                invitation_token?: string;
-                invitation?: { invitation_token?: string };
             };
             const contentType = resp.headers.get('content-type') || '';
             let data: InviteResponse | null = null;
@@ -133,12 +125,12 @@ const AddStaff = () => {
                 try {
                     data = await resp.json();
                 } catch (parseErr) {
-                    // ignore
+                    const text = await resp.text();
+                    data = { message: text };
                 }
             } else {
                 const text = await resp.text();
-                // data = { message: text }; 
-                // Don't set data if not json? 
+                data = { message: text };
             }
 
             if (!resp.ok) {
@@ -148,15 +140,16 @@ const AddStaff = () => {
                 );
             }
 
-            // Extract the token - it might be at root or inside 'invitation' object
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const responseData = data as any;
-            const inviteToken = responseData.invitation_token || responseData.invitation?.invitation_token || responseData.token;
+            const channel = sendWhatsApp ? 'WhatsApp' : 'email';
+            toast.success(`Invitation sent to ${firstName} ${lastName} via ${channel}`);
 
-            if (inviteViaWhatsapp && inviteToken && phoneNumber) {
-                alert(`Invitation sent to ${firstName}. The system will now send the WhatsApp invite automatically.`);
+            // Generate WhatsApp Link if WhatsApp is selected and we have the token
+            if (sendWhatsApp && data?.invitation_token) {
+                const link = `${window.location.origin}/accept-invitation?token=${data.invitation_token}`;
+                setInviteLink(link);
+                setInvitedStaffName(`${firstName} ${lastName}`);
             } else {
-                alert(`Invitation sent to ${firstName} ${lastName}`);
+                setInviteLink(null);
             }
 
             setEmail('');
@@ -164,13 +157,27 @@ const AddStaff = () => {
             setLastName('');
             setRole('');
             setPhoneNumber('');
-            setInviteViaWhatsapp(false);
             setErrors({});
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Failed to send invitation';
-            alert(message);
+            toast.error(message);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const copyToClipboard = () => {
+        if (inviteLink) {
+            navigator.clipboard.writeText(inviteLink);
+            toast.success("Link copied to clipboard");
+        }
+    };
+
+    const shareViaWhatsApp = () => {
+        if (inviteLink) {
+            const message = `Hello ${invitedStaffName}, you have been invited to join our team. Please accept your invitation here: ${inviteLink}`;
+            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank');
         }
     };
 
@@ -234,23 +241,11 @@ const AddStaff = () => {
                     lastName: values[headers.indexOf('lastname')] || values[headers.indexOf('last name')] || '',
                     role: values[headers.indexOf('role')] || '',
                     department: values[headers.indexOf('department')] || '',
-                    // Look for 'whatsapp' or 'phone' or 'phonenumber'
-                    phoneNumber: values[headers.indexOf('whatsapp')] || values[headers.indexOf('phone')] || values[headers.indexOf('phonenumber')] || '',
+                    phoneNumber: values[headers.indexOf('phone')] || values[headers.indexOf('phonenumber')] || '',
                     status: 'pending'
                 };
 
-                // Allow if email OR phone is present (for WhatsApp invites via bulk, we might need a similar dummy email logic?)
-                // The backend bulk endpoint 'bulk_invite_from_csv' validates email strictly: "if not email or '@' not in email: ... Invalid email".
-                // So if I upload a CSV without Email, the backend will reject it.
-                // I need to intercept and inject dummy emails in `handleBulkInvite` or here?
-                // `handleBulkInvite` sends `csv_content` string.
-                // So I must Modify the `serverCsv` string if I want to support phone-only CSVs.
-                // OR I rely on the user to put dummy emails in CSV.
-                // But user wants "WhatsApp" header.
-                // If I modify `serverCsv` here, `handleBulkInvite` will use it.
-
-                // Let's stick to parsing for `parsedStaff` display first.
-                if (staffMember.email || staffMember.phoneNumber) {
+                if (staffMember.email) {
                     staff.push(staffMember);
                 }
             }
@@ -261,24 +256,10 @@ const AddStaff = () => {
         reader.readAsText(file);
     };
 
+    const API_BASE = import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
     const handleBulkInvite = async () => {
         if (!csvText) return;
-
-        // If we want to support no-email CSVs, we need to regenerate the CSV content with dummy emails if missing.
-        // We can reconstruct it from `parsedStaff`?
-        // Let's do a quick pass if `parsedStaff` has items with missing emails but present phone.
-        let payloadCsv = csvText;
-        if (parsedStaff.some(p => !p.email && p.phoneNumber)) {
-            // Rebuild CSV with dummy emails
-            const header = "email,first_name,last_name,role,department,phone";
-            const rows = parsedStaff.map(p => {
-                const e = p.email || `wa.${p.phoneNumber.replace(/[^0-9]/g, '')}@no-email.com`;
-                return `${e},${p.firstName},${p.lastName},${p.role},${p.department},${p.phoneNumber}`;
-            });
-            payloadCsv = [header, ...rows].join('\n');
-        }
-
         setIsLoading(true);
         try {
             const resp = await fetch(`${API_BASE}/invitations/bulk/`, {
@@ -287,35 +268,18 @@ const AddStaff = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
                 },
-                body: JSON.stringify({ type: 'csv', csv_content: payloadCsv }),
+                body: JSON.stringify({ type: 'csv', csv_content: csvText }),
             });
             const data = await resp.json();
             if (!resp.ok) {
                 throw new Error(data?.detail || 'Bulk invite failed');
             }
-            alert(`Processed ${data.success + data.failed} invites. Success: ${data.success}, Failed: ${data.failed}`);
-
-            if (data.invitations && data.invitations.length > 0) {
-                // Map phone numbers from parsedStaff to the results
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const enrichedInvites = data.invitations.map((invite: any) => {
-                    const originalStr = parsedStaff.find(p =>
-                        (p.email && p.email.toLowerCase() === invite.email.toLowerCase()) ||
-                        (!p.email && `wa.${p.phoneNumber.replace(/[^0-9]/g, '')}@no-email.com`.toLowerCase() === invite.email.toLowerCase())
-                    );
-                    return {
-                        ...invite,
-                        phone: originalStr?.phoneNumber || ''
-                    };
-                });
-                setBulkInviteResults(enrichedInvites);
-            }
-
+            toast.success(`Processed ${data.success + data.failed} invites. Success: ${data.success}, Failed: ${data.failed}`);
             setUploadedFile(null);
             setParsedStaff([]);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Bulk invite failed';
-            alert(message);
+            toast.error(message);
         } finally {
             setIsLoading(false);
         }
@@ -323,10 +287,9 @@ const AddStaff = () => {
 
     const downloadTemplate = () => {
         // Excel-friendly: include delimiter directive and use BOM + CRLF
-        // USER REQUEST: clearly say WhatsApp instead of 'Phone'
         const lines = [
             'sep=,',
-            'email,firstname,lastname,role,department,whatsapp',
+            'email,firstname,lastname,role,department,phone',
             'example@email.com,John,Doe,WAITER,Kitchen,+1234567890'
         ];
         const csv = lines.join('\r\n');
@@ -412,7 +375,7 @@ const AddStaff = () => {
                             {/* Email */}
                             <div className="space-y-2">
                                 <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                                    Email Address {inviteViaWhatsapp && <span className="text-gray-400 font-normal">(Optional)</span>}
+                                    Email Address {sendWhatsApp ? '(optional when WhatsApp selected)' : ''}
                                 </Label>
                                 <Input
                                     id="email"
@@ -420,10 +383,13 @@ const AddStaff = () => {
                                     placeholder="Hamza.Hadni@example.com"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className={`rounded-xl ${errors.email ? "border-red-500" : ""}`}
+                                    className={`rounded-xl ${errors.email && !sendWhatsApp ? "border-red-500" : ""}`}
                                 />
-                                {errors.email && (
+                                {!sendWhatsApp && errors.email && (
                                     <p className="text-sm text-red-600">{errors.email}</p>
+                                )}
+                                {sendWhatsApp && (
+                                    <p className="text-xs text-gray-500">Email becomes optional when sending via WhatsApp. Ensure the phone number is correct.</p>
                                 )}
                             </div>
 
@@ -487,7 +453,7 @@ const AddStaff = () => {
 
                                 <div className="space-y-2">
                                     <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
-                                        Phone Number {(inviteViaWhatsapp) && <span className="text-red-500">*</span>}
+                                        Phone Number (Optional)
                                     </Label>
                                     <Input
                                         id="phone"
@@ -495,16 +461,20 @@ const AddStaff = () => {
                                         placeholder="+212 (555) 000-0000"
                                         value={phoneNumber}
                                         onChange={(e) => setPhoneNumber(e.target.value)}
-                                        className={`rounded-xl ${errors.phone ? "border-red-500" : ""}`}
+                                        className="rounded-xl"
                                     />
-                                    {errors.phone && (
-                                        <p className="text-sm text-red-600">{errors.phone}</p>
+                                    {sendWhatsApp && errors.phoneNumber && (
+                                        <p className="text-sm text-red-600">{errors.phoneNumber}</p>
                                     )}
+                                    <div className="flex items-center gap-2 pt-2">
+                                        <input id="whatsapp" type="checkbox" checked={sendWhatsApp} onChange={(e) => setSendWhatsApp(e.target.checked)} />
+                                        <Label htmlFor="whatsapp" className="text-sm">Send invite via WhatsApp</Label>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Preview Card */}
-                            {(firstName || lastName || email || phoneNumber) && (
+                            {(firstName || lastName || email) && (
                                 <div className="bg-gradient-to-br from-green-50 to-indigo-50 rounded-2xl p-6 border border-green-100">
                                     <p className="text-sm font-medium text-gray-700 mb-3">Preview</p>
                                     <div className="flex items-center gap-4">
@@ -519,8 +489,7 @@ const AddStaff = () => {
                                                 {firstName || 'First'} {lastName || 'Last'}
                                             </p>
                                             <p className="text-sm text-gray-600 truncate">
-                                                {/* Show Phone if it's a WhatsApp invite OR if phone is present and email is empty */}
-                                                {(inviteViaWhatsapp || !email) && phoneNumber ? phoneNumber : (email || 'email@example.com')}
+                                                {email || (sendWhatsApp ? phoneNumber : '')}
                                             </p>
                                             {selectedRoleData && (
                                                 <Badge className={`${selectedRoleData.color} text-xs mt-2`}>
@@ -533,25 +502,11 @@ const AddStaff = () => {
                             )}
 
                             {/* Action Buttons */}
-                            <div className="flex flex-col gap-4 pt-4">
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        id="whatsapp-invite"
-                                        checked={inviteViaWhatsapp}
-                                        onChange={(e) => setInviteViaWhatsapp(e.target.checked)}
-                                        className="rounded border-gray-300 text-green-600 focus:ring-green-500 w-4 h-4"
-                                    />
-                                    <Label htmlFor="whatsapp-invite" className="text-sm text-gray-700 cursor-pointer select-none flex items-center gap-2">
-                                        <MessageCircle className="w-4 h-4 text-green-600" />
-                                        Send invite link via WhatsApp
-                                    </Label>
-                                </div>
-
+                            <div className="flex gap-3 pt-4">
                                 <Button
                                     onClick={handleInvite}
                                     disabled={isLoading}
-                                    className="w-full rounded-xl bg-gradient-to-r from-green-900 to-green-900 hover:from-blue-900 hover:to-indigo-700 text-white h-12 font-medium shadow-md"
+                                    className="flex-1 rounded-xl bg-gradient-to-r from-green-900 to-green-900 hover:from-blue-900 hover:to-indigo-700 text-white h-12 font-medium shadow-md"
                                 >
                                     {isLoading ? (
                                         <>
@@ -566,6 +521,45 @@ const AddStaff = () => {
                                     )}
                                 </Button>
                             </div>
+
+                            {/* WhatsApp Share Section */}
+                            {inviteLink && (
+                                <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl">
+                                    <div className="flex items-start gap-4">
+                                        <div className="p-2 bg-green-100 rounded-lg">
+                                            <Share2 className="w-6 h-6 text-green-600" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className="font-semibold text-green-900">Invitation Sent!</h3>
+                                            <p className="text-sm text-green-700 mt-1">
+                                                Share the invitation link directly via WhatsApp or copy it to your clipboard.
+                                            </p>
+
+                                            <div className="flex flex-wrap gap-2 mt-4">
+                                                <Button
+                                                    onClick={shareViaWhatsApp}
+                                                    className="bg-[#25D366] hover:bg-[#128C7E] text-white border-none shadow-sm"
+                                                >
+                                                    <Share2 className="w-4 h-4 mr-2" />
+                                                    Share on WhatsApp
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={copyToClipboard}
+                                                    className="bg-white border-green-200 text-green-700 hover:bg-green-50"
+                                                >
+                                                    <Copy className="w-4 h-4 mr-2" />
+                                                    Copy Link
+                                                </Button>
+                                            </div>
+
+                                            <div className="mt-3 p-2 bg-white rounded border border-green-100 text-xs text-gray-600 break-all font-mono">
+                                                {inviteLink}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                         </CardContent>
                     </Card>
@@ -710,40 +704,6 @@ const AddStaff = () => {
                             </Card>
                         )}
                     </div>
-                )}
-
-                {activeTab === 'bulk' && bulkInviteResults.length > 0 && (
-                    <Card className="shadow-sm border-gray-200 rounded-2xl mt-6">
-                        <CardHeader className="border-b border-gray-100 pb-6">
-                            <CardTitle className="text-xl font-semibold flex items-center gap-2">
-                                <div className="p-2 bg-green-100 rounded-xl">
-                                    <MessageCircle className="w-5 h-5 text-green-700" />
-                                </div>
-                                Send WhatsApp Invites
-                            </CardTitle>
-                            <CardDescription>
-                                Successfully created invitations. The system is now sending WhatsApp invites automatically.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="pt-6">
-                            <div className="space-y-3">
-                                {bulkInviteResults.map((invite) => {
-                                    return (
-                                        <div key={invite.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                                            <div>
-                                                <p className="font-semibold text-gray-900">{invite.email}</p>
-                                                <p className="text-sm text-gray-500">{invite.role}</p>
-                                            </div>
-                                            <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
-                                                <Check className="w-4 h-4" />
-                                                Queued
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </CardContent>
-                    </Card>
                 )}
 
             </div>

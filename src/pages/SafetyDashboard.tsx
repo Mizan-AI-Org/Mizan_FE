@@ -56,9 +56,11 @@ const SafetyDashboard: React.FC = () => {
     },
     enabled: true,
   });
-  const openConcerns = Array.isArray(allConcerns)
-    ? (allConcerns as any[]).filter((c) => String(c.status).toUpperCase() !== 'RESOLVED')
-    : [];
+  const concernsData = Array.isArray(allConcerns)
+    ? allConcerns
+    : (allConcerns?.results || []);
+
+  const openConcerns = concernsData.filter((c: any) => String(c.status).toUpperCase() !== 'RESOLVED');
 
   // React Query: Task Statistics
   const { data: taskStats, isLoading: taskStatsLoading } = useQuery({
@@ -93,8 +95,8 @@ const SafetyDashboard: React.FC = () => {
       const end = new Date();
       const start = new Date();
       start.setDate(end.getDate() - 30);
-      const startStr = start.toISOString().slice(0,10);
-      const endStr = end.toISOString().slice(0,10);
+      const startStr = start.toISOString().slice(0, 10);
+      const endStr = end.toISOString().slice(0, 10);
       const res = await fetch(`${API_BASE}/staff/schedule-tasks/?start_date=${startStr}&end_date=${endStr}`, {
         headers: { 'Authorization': `Bearer ${getAuthToken()}` },
       });
@@ -203,46 +205,46 @@ const SafetyDashboard: React.FC = () => {
         </Card>
 
         <Card id="card-open-incidents" className="shadow-sm order-2">
-            <CardHeader className="pb-2 px-3 md:px-6 py-3 md:py-4">
-              <CardTitle className="flex items-center text-base md:text-lg">
-                <AlertTriangle className="mr-2 h-4 w-4 md:h-5 md:w-5 text-red-600" />
-                Open Incidents
-              </CardTitle>
-              <CardDescription className="text-xs md:text-sm">Unresolved incident cases</CardDescription>
-            </CardHeader>
-            <CardContent className="px-3 md:px-6 py-2 md:py-3">
-              <div className="space-y-3">
-                {concernsLoading && (
-                  <div className="text-xs md:text-sm text-muted-foreground">Loading incidents…</div>
-                )}
-                {!concernsLoading && openConcerns.length === 0 && (
-                  <div className="text-xs md:text-sm text-muted-foreground">No open incidents.</div>
-                )}
-                {!concernsLoading && openConcerns.length > 0 && openConcerns.map((c: any) => {
-                  const sev = String(c.severity).toUpperCase();
-                  const containerClass = sev === 'CRITICAL'
-                    ? 'bg-red-50 border border-red-100'
-                    : sev === 'HIGH'
+          <CardHeader className="pb-2 px-3 md:px-6 py-3 md:py-4">
+            <CardTitle className="flex items-center text-base md:text-lg">
+              <AlertTriangle className="mr-2 h-4 w-4 md:h-5 md:w-5 text-red-600" />
+              Open Incidents
+            </CardTitle>
+            <CardDescription className="text-xs md:text-sm">Unresolved incident cases</CardDescription>
+          </CardHeader>
+          <CardContent className="px-3 md:px-6 py-2 md:py-3">
+            <div className="space-y-3">
+              {concernsLoading && (
+                <div className="text-xs md:text-sm text-muted-foreground">Loading incidents…</div>
+              )}
+              {!concernsLoading && openConcerns.length === 0 && (
+                <div className="text-xs md:text-sm text-muted-foreground">No open incidents.</div>
+              )}
+              {!concernsLoading && openConcerns.length > 0 && openConcerns.map((c: any) => {
+                const sev = String(c.severity).toUpperCase();
+                const containerClass = sev === 'CRITICAL'
+                  ? 'bg-red-50 border border-red-100'
+                  : sev === 'HIGH'
                     ? 'bg-orange-50 border border-orange-100'
                     : sev === 'MEDIUM'
-                    ? 'bg-yellow-50 border border-yellow-100'
-                    : 'bg-gray-50 border border-gray-100';
-                  const titleClass = sev === 'CRITICAL' ? 'text-red-800' : sev === 'HIGH' ? 'text-orange-800' : sev === 'MEDIUM' ? 'text-amber-800' : 'text-gray-800';
-                  const descClass = sev === 'CRITICAL' ? 'text-red-700' : sev === 'HIGH' ? 'text-orange-700' : sev === 'MEDIUM' ? 'text-amber-700' : 'text-gray-700';
-                  const timeClass = sev === 'CRITICAL' ? 'text-red-600' : sev === 'HIGH' ? 'text-orange-600' : sev === 'MEDIUM' ? 'text-amber-600' : 'text-gray-600';
-                  const snippetBase = String(c.description || '').slice(0, 100);
-                  const snippet = `${sev} • ${new Date(c.created_at).toLocaleString()} — ${snippetBase}${(c.description || '').length > 100 ? '…' : ''}`;
-                  return (
-                    <button key={c.id} className={`p-2 md:p-3 rounded-md w-full text-left ${containerClass}`} onClick={() => setSelectedIncident(c.id)}>
-                      <div className={`font-medium text-xs md:text-sm ${titleClass}`}>{c.title}</div>
-                      <div className={`text-xs ${descClass}`}>{snippet}</div>
-                      <div className={`text-xs mt-1 ${timeClass}`}>Reported {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</div>
-                    </button>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                      ? 'bg-yellow-50 border border-yellow-100'
+                      : 'bg-gray-50 border border-gray-100';
+                const titleClass = sev === 'CRITICAL' ? 'text-red-800' : sev === 'HIGH' ? 'text-orange-800' : sev === 'MEDIUM' ? 'text-amber-800' : 'text-gray-800';
+                const descClass = sev === 'CRITICAL' ? 'text-red-700' : sev === 'HIGH' ? 'text-orange-700' : sev === 'MEDIUM' ? 'text-amber-700' : 'text-gray-700';
+                const timeClass = sev === 'CRITICAL' ? 'text-red-600' : sev === 'HIGH' ? 'text-orange-600' : sev === 'MEDIUM' ? 'text-amber-600' : 'text-gray-600';
+                const snippetBase = String(c.description || '').slice(0, 100);
+                const snippet = `${sev} • ${new Date(c.created_at).toLocaleString()} — ${snippetBase}${(c.description || '').length > 100 ? '…' : ''}`;
+                return (
+                  <button key={c.id} className={`p-2 md:p-3 rounded-md w-full text-left ${containerClass}`} onClick={() => setSelectedIncident(c.id)}>
+                    <div className={`font-medium text-xs md:text-sm ${titleClass}`}>{c.title}</div>
+                    <div className={`text-xs ${descClass}`}>{snippet}</div>
+                    <div className={`text-xs mt-1 ${timeClass}`}>Reported {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs defaultValue={isManager ? "procedures" : "incidence"} className="w-full">
@@ -261,23 +263,23 @@ const SafetyDashboard: React.FC = () => {
             </>
           )}
         </TabsList>
-        
+
         {isManager && (
           <TabsContent value="procedures" className="mt-0">
             <StandardOperatingProcedureList />
           </TabsContent>
         )}
-        
+
         {isManager && (
           <TabsContent value="checklists" className="mt-0">
             <SafetyChecklistComponent />
           </TabsContent>
         )}
-        
+
         <TabsContent value="incidence" className="mt-0">
           <SafetyConcernReporting />
         </TabsContent>
-        
+
         <TabsContent value="recognition" className="mt-0">
           <SafetyRecognitionComponent />
         </TabsContent>
@@ -301,7 +303,7 @@ const SafetyDashboard: React.FC = () => {
                   </h3>
                   <SafetyConcernReporting />
                 </div>
-                
+
                 <div className="p-4 bg-white rounded-lg shadow-sm">
                   <h3 className="text-base font-medium mb-3 flex items-center">
                     <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
@@ -309,7 +311,7 @@ const SafetyDashboard: React.FC = () => {
                   </h3>
                   <SafetyRecognitionComponent />
                 </div>
-                
+
                 <div className="p-4 bg-white rounded-lg shadow-sm">
                   <h3 className="text-base font-medium mb-3 flex items-center">
                     <ClipboardList className="mr-2 h-4 w-4 text-blue-600" />

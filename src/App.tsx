@@ -41,6 +41,9 @@ const Unauthorized = React.lazy(() => import("./pages/Unauthorized"));
 const StaffAppsPage = React.lazy(() => import("./pages/StaffAppsPage"));
 const SafetyDashboard = React.lazy(() => import("./pages/SafetyDashboard"));
 const PinLogin = React.lazy(() => import("./components/auth/PinLogin"));
+const StaffApp = React.lazy(() => import("./pages/StaffApp"));
+const ProcessesTasksApp = React.lazy(() => import("./pages/ProcessesTasksApp"));
+const StaffSchedulesApp = React.lazy(() => import("./pages/StaffSchedulesApp"));
 const StaffSchedulingPage = React.lazy(
   () => import("./pages/StaffSchedulingPage")
 );
@@ -237,7 +240,7 @@ const App = () => {
                     <RoleBasedRoute
                       allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
                     >
-                      <ShiftReviewsAdminPage />
+                      <StaffSchedulesApp />
                     </RoleBasedRoute>
                   }
                 />
@@ -310,6 +313,22 @@ const App = () => {
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
                       <Staff />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/staff-app"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                      <StaffApp />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/processes-tasks-app"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                      <ProcessesTasksApp />
                     </RoleBasedRoute>
                   }
                 />

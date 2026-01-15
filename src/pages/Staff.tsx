@@ -62,11 +62,10 @@ import { useCalendar } from "@/hooks/useCalendar";
 import { ShiftCard, ShiftTooltip, TimezoneIndicator } from "@/components/calendar/ShiftCard";
 import { getUserTimezone, formatShiftTime, getShiftDurationText } from "@/utils/calendarUtils";
 import { format, parseISO } from "date-fns";
-import { API_BASE } from "@/lib/api";
 
 // Use configured API base to avoid relative path issues between environments
-
-// Use configured API base to avoid relative path issues between environments
+const API_BASE =
+  import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 const aiRecommendations = [];
 
@@ -246,7 +245,36 @@ const GoogleCalendarScheduler = () => {
     const listRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!listRes.ok) throw new Error("Failed to fetch weekly schedules");
+    if (!listRes.ok) {
+      const ctErr = listRes.headers.get("content-type") || "";
+      let message = "Unable to load weekly schedules. Please try again.";
+      if (ctErr.includes("application/json")) {
+        try {
+          const errJson = await listRes.json();
+          const detail = (errJson && (errJson.detail || errJson.error)) as string | undefined;
+          const fieldErr = (() => {
+            if (!errJson || typeof errJson !== "object") return undefined;
+            const keys = Object.keys(errJson);
+            for (const k of keys) {
+              const v = (errJson as any)[k];
+              if (Array.isArray(v) && v.length > 0 && typeof v[0] === "string") return v[0];
+            }
+            return undefined;
+          })();
+          if (detail) message = detail;
+          else if (fieldErr) message = fieldErr;
+        } catch { }
+      }
+      if (listRes.status === 401) message = "Session expired. Please sign in.";
+      else if (listRes.status === 403) message = "You do not have permission to view schedules.";
+      else if (listRes.status >= 500) message = "Server error while loading schedules.";
+      throw new Error(message);
+    }
+    const contentType = listRes.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      const errTxt = await listRes.text();
+      throw new Error("Failed to fetch weekly schedules (unexpected response)");
+    }
     const listJson = await listRes.json();
     const listData: WeeklyScheduleData[] = (listJson?.results ??
       listJson) as WeeklyScheduleData[];
@@ -270,7 +298,11 @@ const GoogleCalendarScheduler = () => {
     });
 
     if (createRes.ok) {
-      return (await createRes.json()) as WeeklyScheduleData;
+      const ct = createRes.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
+        return (await createRes.json()) as WeeklyScheduleData;
+      }
+      throw new Error("Failed to create weekly schedule (unexpected response)");
     }
 
     // 3) If server says duplicate exists (400), fetch again and return it
@@ -283,6 +315,10 @@ const GoogleCalendarScheduler = () => {
       );
       if (!retryListRes.ok)
         throw new Error("Failed to fetch weekly schedules after duplicate");
+      const ct2 = retryListRes.headers.get("content-type") || "";
+      if (!ct2.includes("application/json")) {
+        throw new Error("Failed to fetch weekly schedules (unexpected response)");
+      }
       const retryJson = await retryListRes.json();
       const retryList: WeeklyScheduleData[] = (retryJson?.results ??
         retryJson) as WeeklyScheduleData[];
@@ -292,11 +328,29 @@ const GoogleCalendarScheduler = () => {
       if (found) return found;
     }
 
-    // 4) Otherwise, throw to surface the error
-    const errText = await createRes.text();
-    throw new Error(
-      `Failed to create weekly schedule: ${createRes.status} ${errText}`
-    );
+    const ctCreate = createRes.headers.get("content-type") || "";
+    let createMsg = "Unable to create weekly schedule. Please try again.";
+    if (ctCreate.includes("application/json")) {
+      try {
+        const errJson = await createRes.json();
+        const detail = (errJson && (errJson.detail || errJson.error)) as string | undefined;
+        const fieldErr = (() => {
+          if (!errJson || typeof errJson !== "object") return undefined;
+          const keys = Object.keys(errJson);
+          for (const k of keys) {
+            const v = (errJson as any)[k];
+            if (Array.isArray(v) && v.length > 0 && typeof v[0] === "string") return v[0];
+          }
+          return undefined;
+        })();
+        if (detail) createMsg = detail;
+        else if (fieldErr) createMsg = fieldErr;
+      } catch { }
+    }
+    if (createRes.status === 401) createMsg = "Session expired. Please sign in.";
+    else if (createRes.status === 403) createMsg = "You do not have permission to create schedules.";
+    else if (createRes.status >= 500) createMsg = "Server error while creating schedule.";
+    throw new Error(createMsg);
   };
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
@@ -312,7 +366,7 @@ const GoogleCalendarScheduler = () => {
         }
 
         // Fetch active users (staff) from accounts router
-        const staffResponse = await fetch(`${API_BASE}/users/?is_active=true`, {
+        const staffResponse = await fetch(`${API_BASE}/users/?is_active=true&page_size=1000`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -634,7 +688,6 @@ const GoogleCalendarScheduler = () => {
 
       // Find staff member to get role
       const staffMember = staffMembers.find((s) => s.id === shift.staffId);
-      const role = staffMember?.role || "STAFF";
 
       const makeISO = (dateStr: string, timeStr: string) => {
         const ts = withSeconds(timeStr);
@@ -648,24 +701,22 @@ const GoogleCalendarScheduler = () => {
       };
 
       const dateStr = shift.date || toYMD(shiftDate);
-      const payloadISO = {
+      const payloadISO: any = {
         staff: shift.staffId,
         shift_date: dateStr,
         start_time: makeISO(dateStr, shift.start),
         end_time: makeISO(dateStr, shift.end),
-        role: role,
         break_duration: "00:30:00",
         notes: shift.title || "",
         color: shift.color || "#6b7280",
         task_templates: (shift as any).task_templates || [],
       };
 
-      const payloadTime = {
+      const payloadTime: any = {
         staff: shift.staffId,
         shift_date: dateStr,
         start_time: withSeconds(shift.start),
         end_time: withSeconds(shift.end),
-        role: role,
         break_duration: "00:30:00",
         notes: shift.title || "",
         color: shift.color || "#6b7280",
@@ -925,65 +976,108 @@ const GoogleCalendarScheduler = () => {
             )
           );
         } else {
-          // CREATE new shift with format fallback
-          let response = await fetch(
-            `${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify(payloadISO),
-            }
-          );
-
-          if (!response.ok) {
-            const errText = await response.text();
-            const needsTime = /combine\(\) argument 2 must be datetime\.time/.test(errText);
-            const needsDatetime = /Datetime has wrong format/.test(errText);
-
-            if (needsTime) {
-              response = await fetch(
-                `${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify(payloadTime),
-                }
-              );
-            } else if (needsDatetime && response.status === 400) {
-              response = await fetch(
-                `${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify(payloadISO),
-                }
-              );
-            }
+          // CREATE new shift with format fallback, then v2 endpoint fallback on failure/network error
+          let newShift: any = null;
+          try {
+            let response = await fetch(
+              `${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(payloadISO),
+              }
+            );
 
             if (!response.ok) {
-              const errText2 = await response.text();
-              try {
-                const errJson = JSON.parse(errText2);
-                const errorMessage = errJson.detail || errJson.message || "Failed to create shift";
-                const errorDetails = errJson.errors ? JSON.stringify(errJson.errors) : "";
-                toast.error(`${errorMessage}${errorDetails ? `: ${errorDetails}` : ""}`);
-              } catch {
-                toast.error(`Failed to create shift: ${response.status}`);
+              let errText = "";
+              try { errText = await response.text(); } catch { }
+              const needsTime = /combine\(\) argument 2 must be datetime\.time/.test(errText);
+              const needsDatetime = /Datetime has wrong format/.test(errText);
+              let retried = false;
+              if (needsTime) {
+                response = await fetch(
+                  `${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(payloadTime),
+                  }
+                );
+                retried = true;
+              } else if (needsDatetime && response.status === 400) {
+                response = await fetch(
+                  `${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(payloadISO),
+                  }
+                );
+                retried = true;
               }
-              return;
+
+              if (!response.ok) {
+                // Fallback to v2 create
+                const v2 = await fetch(
+                  `${API_BASE}/scheduling/assigned-shifts-v2/`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ ...payloadISO, schedule: scheduleId }),
+                  }
+                );
+                if (!v2.ok) {
+                  const errPayloadText = retried ? await response.text() : errText;
+                  try {
+                    const errJson = JSON.parse(errPayloadText || "{}");
+                    const errorMessage = errJson.detail || errJson.message || "Failed to create shift";
+                    const errorDetails = errJson.errors ? JSON.stringify(errJson.errors) : "";
+                    toast.error(`${errorMessage}${errorDetails ? `: ${errorDetails}` : ""}`);
+                  } catch {
+                    toast.error(`Failed to create shift: ${response.status}`);
+                  }
+                  return;
+                }
+                newShift = await v2.json();
+              }
+            }
+
+            if (!newShift) newShift = await response.json();
+          } catch (networkErr) {
+            // Network error fallback to v2
+            try {
+              const v2 = await fetch(
+                `${API_BASE}/scheduling/assigned-shifts-v2/`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({ ...payloadISO, schedule: scheduleId }),
+                }
+              );
+              if (!v2.ok) throw new Error(`Failed to create shift (${v2.status})`);
+              newShift = await v2.json();
+            } catch (e) {
+              console.error("Error creating shift (network):", networkErr);
+              throw e instanceof Error ? e : new Error("Failed to create shift");
             }
           }
 
-          const newShift = await response.json();
+          toast.success("Shift created successfully");
           toast.success("Shift created successfully");
 
           // Create tasks if any were specified
@@ -1366,6 +1460,7 @@ const GoogleCalendarScheduler = () => {
           isOpen={isShiftModalOpen}
           onClose={() => setIsShiftModalOpen(false)}
           onSave={handleSaveShift}
+          onDelete={handleDeleteShift}
           initialShift={currentShift}
           dayIndex={newShiftDayIndex}
           hour={newShiftHour}
@@ -1428,9 +1523,9 @@ export default function Staff() {
       first_name: string;
       last_name: string;
       email: string;
+      phone?: string;
       role: string;
       is_active: boolean;
-      phone?: string;
     };
     employee_id: string;
     date_joined: string;
@@ -1444,9 +1539,9 @@ export default function Staff() {
     email: string;
     first_name: string;
     last_name: string;
+    phone?: string;
     role: string;
     is_active: boolean;
-    phone?: string;
     created_at?: string;
     profile?: {
       employee_id?: string;
@@ -1462,6 +1557,10 @@ export default function Staff() {
     {
       id: string;
       email: string;
+      first_name?: string;
+      last_name?: string;
+      phone_number?: string;
+      extra_data?: { phone?: string };
       role: string;
       invited_by: string;
       restaurant: string;
@@ -1490,7 +1589,7 @@ export default function Staff() {
         s.user.email,
       role: s.user.role,
       email: s.user.email,
-      phone: "",
+      phone: s.user.phone || "",
       status: s.user.is_active ? "active" : "inactive",
       weeklyHours: 40,
       preferredShift: "morning",
@@ -1570,9 +1669,38 @@ export default function Staff() {
       const listRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      const ct = listRes.headers.get("content-type") || "";
       if (!listRes.ok) {
-        const err = await listRes.text();
-        throw new Error(`Failed to load weekly schedules: ${err}`);
+        let message = "Unable to load weekly schedules. Please try again.";
+        if (ct.includes("application/json")) {
+          try {
+            const errJson = await listRes.json();
+            const detail = (errJson && (errJson.detail || errJson.error)) as string | undefined;
+            const fieldErr = (() => {
+              if (!errJson || typeof errJson !== "object") return undefined;
+              const keys = Object.keys(errJson);
+              for (const k of keys) {
+                const v = (errJson as any)[k];
+                if (Array.isArray(v) && v.length > 0 && typeof v[0] === "string") return v[0];
+              }
+              return undefined;
+            })();
+            if (detail) message = detail;
+            else if (fieldErr) message = fieldErr;
+          } catch { }
+        } else {
+          try {
+            const txt = await listRes.text();
+            if (txt) message = "Server error while loading schedules.";
+          } catch { }
+        }
+        if (listRes.status === 401) message = "Session expired. Please sign in.";
+        else if (listRes.status === 403) message = "You do not have permission to view schedules.";
+        else if (listRes.status >= 500) message = "Server error while loading schedules.";
+        throw new Error(message);
+      }
+      if (!ct.includes("application/json")) {
+        throw new Error("Unable to load weekly schedules. Please try again.");
       }
       const listJson = await listRes.json();
       const schedules: WeeklyScheduleData[] = (listJson?.results ?? listJson) as WeeklyScheduleData[];
@@ -1671,6 +1799,19 @@ export default function Staff() {
         .map((s) => s.staff)
     );
     return ids.size;
+  }, [weeklyOverviewShifts]);
+
+  // Ensure the card reflects latest overview data even if the separate count fetch failed
+  useEffect(() => {
+    const todayStr = formatLocalDateStr(new Date());
+    const ids = new Set(
+      (weeklyOverviewShifts || [])
+        .filter((s) => s.shift_date === todayStr)
+        .map((s) => String(s.staff))
+    );
+    if (ids.size > 0) {
+      setOnDutyTodayCountState(ids.size);
+    }
   }, [weeklyOverviewShifts]);
 
   const persistAutoSchedule = async (generated: AutoShift[]) => {
@@ -1838,9 +1979,9 @@ export default function Staff() {
               first_name: u.first_name,
               last_name: u.last_name,
               email: u.email,
+              phone: u.phone || "",
               role: u.role,
               is_active: !!u.is_active,
-              phone: u.phone,
             },
             employee_id: u.profile?.employee_id || "",
             date_joined: u.created_at || "",
@@ -2447,7 +2588,7 @@ export default function Staff() {
                       <TableRow>
                         <TableHead>Name</TableHead>
                         <TableHead>Email</TableHead>
-                        <TableHead>WhatsApp</TableHead>
+                        <TableHead>WhatsApp No.</TableHead>
                         <TableHead>Position</TableHead>
                         <TableHead>Department</TableHead>
                         <TableHead>Status</TableHead>
@@ -2481,9 +2622,9 @@ export default function Staff() {
                               </div>
                             </TableCell>
                             <TableCell className="break-all">
-                              {m.user?.email && !m.user?.email.includes('@no-email.com') ? m.user?.email : "—"}
+                              {m.user?.email}
                             </TableCell>
-                            <TableCell className="whitespace-nowrap">
+                            <TableCell className="break-all">
                               {m.user?.phone || "—"}
                             </TableCell>
                             <TableCell className="capitalize">
@@ -2565,45 +2706,35 @@ export default function Staff() {
                       <TableRow>
                         <TableHead>Name</TableHead>
                         <TableHead>Email</TableHead>
-                        <TableHead>WhatsApp</TableHead>
+                        <TableHead>WhatsApp No.</TableHead>
                         <TableHead>Role</TableHead>
                         <TableHead>Invited</TableHead>
                         <TableHead>Expires</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pendingInvites.map((inv) => {
-                        const isDummyEmail = inv.email.startsWith("wa.") && inv.email.endsWith("@no-email.com");
-                        return (
-                          <TableRow key={inv.id}>
-                            <TableCell className="font-medium">
-                              {inv.first_name
-                                ? `${inv.first_name} ${inv.last_name || ""}`
-                                : isDummyEmail
-                                  ? `Staff (${inv.email.split("@")[0].slice(3)})`
-                                  : "Invited Staff"}
-                            </TableCell>
-                            <TableCell className="break-all">
-                              {isDummyEmail ? "-" : inv.email}
-                            </TableCell>
-                            <TableCell>
-                              {inv.extra_data?.phone ||
-                                (isDummyEmail
-                                  ? "+" + inv.email.split("@")[0].slice(3)
-                                  : "-")}
-                            </TableCell>
-                            <TableCell className="capitalize">
-                              {(inv.role || "").toLowerCase().replace(/_/g, " ")}
-                            </TableCell>
-                            <TableCell>
-                              {new Date(inv.created_at).toLocaleString()}
-                            </TableCell>
-                            <TableCell>
-                              {new Date(inv.expires_at).toLocaleString()}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                      {pendingInvites.map((inv) => (
+                        <TableRow key={inv.id}>
+                          <TableCell className="break-all">
+                            {`${(inv as any).first_name || (inv.extra_data && (inv.extra_data as any).first_name) || ''} ${(inv as any).last_name || (inv.extra_data && (inv.extra_data as any).last_name) || ''}`.trim() || '—'}
+                          </TableCell>
+                          <TableCell className="break-all">
+                            {inv.email || "—"}
+                          </TableCell>
+                          <TableCell className="break-all">
+                            {inv.phone_number || (inv.extra_data && inv.extra_data.phone) || "—"}
+                          </TableCell>
+                          <TableCell className="capitalize">
+                            {(inv.role || "").toLowerCase().replace(/_/g, " ")}
+                          </TableCell>
+                          <TableCell>
+                            {new Date((inv as any).sent_at || (inv as any).created_at).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(inv.expires_at).toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
