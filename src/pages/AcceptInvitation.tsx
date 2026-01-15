@@ -19,6 +19,7 @@ const AcceptInvitation: React.FC = () => {
     // PIN the staff will use to log in (4 digits)
     const [pinCode, setPinCode] = useState<string>('');
     const [loading, setLoading] = useState(false);
+    const [email, setEmail] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -35,7 +36,10 @@ const AcceptInvitation: React.FC = () => {
 
         setLoading(true);
         try {
-            await acceptInvitation(token, firstName, lastName, undefined, pinCode, null);
+            const data: any = await fetch(`${import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api'}/invitations/by-token/?token=${encodeURIComponent(token)}`)
+                .then(res => res.ok ? res.json() : null).catch(() => null);
+            const requireEmail = !data || !data.email;
+            await acceptInvitation(token, firstName, lastName, undefined, pinCode, null, requireEmail ? email : undefined);
             toast({ title: "Success", description: "Invitation accepted! You are now logged in." });
             // Redirection handled by AuthContext
         } catch (error: unknown) {
@@ -104,6 +108,16 @@ const AcceptInvitation: React.FC = () => {
                                 onChange={(e) => setPinCode(e.target.value)}
                                 maxLength={4}
                                 required
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="email">Email (required only if not provided in invite)</Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                placeholder="you@example.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                             />
                         </div>
                         <Button type="submit" className="w-full" disabled={loading}>

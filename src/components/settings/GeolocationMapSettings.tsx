@@ -19,6 +19,7 @@ import {
   Save,
   AlertCircle,
   Loader2,
+  Search,
 } from "lucide-react";
 import { Circle, Marker, Polygon, TileLayer } from "react-leaflet";
 import { useMap, useMapEvents } from "react-leaflet/hooks";
@@ -76,6 +77,8 @@ export default function GeolocationMapSettings({
   const [polygonPoints, setPolygonPoints] =
     useState<Array<[number, number]>>(geofencePolygon);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [addressInput, setAddressInput] = useState("");
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
 
   useEffect(() => {
     setLat(fallbackCenter.lat);
@@ -224,83 +227,148 @@ export default function GeolocationMapSettings({
     toast.success("Geolock zone cleared.");
   };
 
+  const searchAddress = useCallback(async () => {
+    if (!addressInput.trim()) return;
+
+    setIsSearchingAddress(true);
+    try {
+      const encodedAddress = encodeURIComponent(addressInput.trim());
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`,
+        {
+          headers: {
+            "Accept": "application/json",
+            "User-Agent": "MizanApp/1.0",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Geocoding request failed");
+      }
+
+      const results = await response.json();
+
+      if (results && results.length > 0) {
+        const result = results[0];
+        const newLat = parseFloat(result.lat);
+        const newLng = parseFloat(result.lon);
+
+        setLat(newLat);
+        setLng(newLng);
+        setLatInput(newLat.toString());
+        setLngInput(newLng.toString());
+        toast.success(`Location found: ${result.display_name.substring(0, 50)}...`);
+      } else {
+        toast.error("Address not found. Try a more specific address.");
+      }
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      toast.error("Failed to search address. Please try again.");
+    } finally {
+      setIsSearchingAddress(false);
+    }
+  }, [addressInput]);
+
   const getCurrentLocation = useCallback(() => {
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
       toast.error("Geolocation is not supported by your browser.");
       return;
     }
     setIsGettingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const newLat = position.coords.latitude;
-        const newLng = position.coords.longitude;
-        setLat(newLat);
-        setLng(newLng);
-        setLatInput(newLat.toString());
-        setLngInput(newLng.toString());
-        setIsGettingLocation(false);
-        toast.success("Location detected successfully.");
-      },
-      () => {
-        navigator.geolocation.getCurrentPosition(
-          (lowAcc) => {
-            const newLat = lowAcc.coords.latitude;
-            const newLng = lowAcc.coords.longitude;
-            setLat(newLat);
-            setLng(newLng);
-            setLatInput(newLat.toString());
-            setLngInput(newLng.toString());
-            setIsGettingLocation(false);
-            toast.success("Location detected successfully.");
-          },
-          () => {
-            let cleared = false;
-            const watchId = navigator.geolocation.watchPosition(
-              (pos) => {
-                if (cleared) return;
-                cleared = true;
-                navigator.geolocation.clearWatch(watchId);
-                const wLat = pos.coords.latitude;
-                const wLng = pos.coords.longitude;
-                setLat(wLat);
-                setLng(wLng);
-                setLatInput(wLat.toString());
-                setLngInput(wLng.toString());
-                setIsGettingLocation(false);
-                toast.success("Location detected successfully.");
-              },
-              async () => {
-                // Final fallback: approximate IP-based location (CORS-safe)
-                try {
-                  const resp = await fetch("https://ipwho.is/", { mode: "cors", cache: "no-store" });
-                  if (resp.ok) {
-                    const data = await resp.json();
-                    const ipLat = Number(data?.latitude);
-                    const ipLng = Number(data?.longitude);
-                    if (Number.isFinite(ipLat) && Number.isFinite(ipLng)) {
-                      setLat(ipLat);
-                      setLng(ipLng);
-                      setLatInput(ipLat.toString());
-                      setLngInput(ipLng.toString());
-                      setIsGettingLocation(false);
-                      toast.info("Approximate location detected via network. Verify before saving.");
-                      return;
-                    }
-                  }
-                } catch (error) {
-                  console.debug("IP geolocation fallback failed", error);
-                }
-                setIsGettingLocation(false);
-                toast.error("Failed to get current location. Please enter manually.");
-              },
-              { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-            );
-          },
-          { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 }
-        );
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+
+    const setLocation = (lat: number, lng: number, accuracy: number | null, message: string, isInfo = false) => {
+      setLat(lat);
+      setLng(lng);
+      setLatInput(lat.toString());
+      setLngInput(lng.toString());
+      setIsGettingLocation(false);
+      const accuracyText = accuracy ? ` (±${Math.round(accuracy)}m)` : "";
+      if (isInfo) {
+        toast.info(message + accuracyText);
+      } else {
+        toast.success(message + accuracyText);
+      }
+    };
+
+    const tryIpFallback = async () => {
+      try {
+        const resp = await fetch("https://ipwho.is/", { mode: "cors", cache: "no-store" });
+        if (resp.ok) {
+          const data = await resp.json();
+          const ipLat = Number(data?.latitude);
+          const ipLng = Number(data?.longitude);
+          if (Number.isFinite(ipLat) && Number.isFinite(ipLng)) {
+            setLocation(ipLat, ipLng, null, "Approximate location via IP. Please verify before saving.", true);
+            return;
+          }
+        }
+      } catch (error) {
+        console.debug("IP geolocation fallback failed", error);
+      }
+      setIsGettingLocation(false);
+      toast.error("Failed to get current location. Please enter manually.");
+    };
+
+    const tryLowAccuracy = () => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, "Location detected (low accuracy).");
+        },
+        () => {
+          tryIpFallback();
+        },
+        { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 }
+      );
+    };
+
+    // Use watchPosition to collect multiple readings and pick the best one
+    const tryHighAccuracyWatch = () => {
+      let bestPosition: GeolocationPosition | null = null;
+      let cleared = false;
+
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          if (cleared) return;
+          // Keep the most accurate reading
+          if (!bestPosition || pos.coords.accuracy < bestPosition.coords.accuracy) {
+            bestPosition = pos;
+          }
+          // If we get a very accurate reading (< 50m), use it immediately
+          if (pos.coords.accuracy < 50) {
+            cleared = true;
+            navigator.geolocation.clearWatch(watchId);
+            setLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, "Location detected successfully.");
+          }
+        },
+        () => {
+          if (cleared) return;
+          cleared = true;
+          navigator.geolocation.clearWatch(watchId);
+          if (bestPosition) {
+            setLocation(bestPosition.coords.latitude, bestPosition.coords.longitude, bestPosition.coords.accuracy, "Location detected.");
+          } else {
+            tryLowAccuracy();
+          }
+        },
+        { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
+      );
+
+      // After 10 seconds, use the best position we have
+      setTimeout(() => {
+        if (cleared) return;
+        cleared = true;
+        navigator.geolocation.clearWatch(watchId);
+        if (bestPosition) {
+          setLocation(bestPosition.coords.latitude, bestPosition.coords.longitude, bestPosition.coords.accuracy, "Best available location detected.");
+        } else {
+          tryLowAccuracy();
+        }
+      }, 10000);
+    };
+
+    // Start with watchPosition to collect the best reading
+    tryHighAccuracyWatch();
   }, []);
 
   const handleSave = async () => {
@@ -387,24 +455,36 @@ export default function GeolocationMapSettings({
           </div>
         </div>
 
-        <Button
-          onClick={getCurrentLocation}
-          disabled={isGettingLocation}
-          variant="outline"
-          className="w-full"
-        >
-          {isGettingLocation ? (
-            <>
-              <Navigation className="w-4 h-4 mr-2 animate-spin" />
-              Detecting Location...
-            </>
-          ) : (
-            <>
-              <Crosshair className="w-4 h-4 mr-2" />
-              Use Current Location
-            </>
-          )}
-        </Button>
+        <div className="space-y-2">
+          <Label htmlFor="address">Search by Address</Label>
+          <div className="flex gap-2">
+            <Input
+              id="address"
+              type="text"
+              value={addressInput}
+              onChange={(e) => setAddressInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && addressInput.trim()) {
+                  e.preventDefault();
+                  searchAddress();
+                }
+              }}
+              placeholder="e.g., 123 Main St, Marrakech, Morocco"
+              className="flex-1"
+            />
+            <Button
+              onClick={searchAddress}
+              disabled={isSearchingAddress || !addressInput.trim()}
+              variant="outline"
+            >
+              {isSearchingAddress ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Search className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
+        </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -445,7 +525,7 @@ export default function GeolocationMapSettings({
             <MapInteractions />
             <TileLayer
               url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution="&copy; OpenStreetMap contributors"
+              attribution=""
               maxZoom={19}
               detectRetina
               crossOrigin="anonymous"

@@ -48,7 +48,8 @@ import { StaffInvitation } from "@/lib/types";
 import { User } from "@/contexts/AuthContext.types";
 import { translateApiError } from "@/i18n/messages";
 
-import { API_BASE } from "@/lib/api";
+const API_BASE =
+  import.meta.env.VITE_API_URL || import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 type PosConnectionStatus = "idle" | "connected" | "error";
 
@@ -116,6 +117,8 @@ export default function Settings() {
   const [inviteFirstName, setInviteFirstName] = useState("");
   const [inviteLastName, setInviteLastName] = useState("");
   const [inviteRole, setInviteRole] = useState("STAFF");
+  const [invitePhone, setInvitePhone] = useState("");
+  const [inviteSendWhatsApp, setInviteSendWhatsApp] = useState(false);
   const [pendingInvitations, setPendingInvitations] = useState<
     StaffInvitation[]
   >([]);
@@ -403,19 +406,30 @@ export default function Settings() {
   };
 
   const handleInviteStaff = async () => {
-    if (!inviteEmail || !inviteFirstName || !inviteLastName || !inviteRole) {
+    if (!inviteFirstName || !inviteLastName || !inviteRole) {
       toast.error(t("invitations.fill_required"));
+      return;
+    }
+    if (!inviteSendWhatsApp && !inviteEmail) {
+      toast.error(t("validation.email"));
+      return;
+    }
+    if (inviteSendWhatsApp && !invitePhone) {
+      toast.error("Phone number is required when sending via WhatsApp.");
       return;
     }
 
     try {
       // Align with backend: /api/staff/invite/
-      const response = await apiClient.post("/staff/invite/", {
-        email: inviteEmail,
+      const payload: Record<string, any> = {
         first_name: inviteFirstName,
         last_name: inviteLastName,
         role: inviteRole,
-      });
+        send_whatsapp: inviteSendWhatsApp,
+      };
+      if (inviteEmail) payload.email = inviteEmail;
+      if (invitePhone) payload.phone_number = invitePhone;
+      const response = await apiClient.post("/staff/invite/", payload);
 
       if (response.status === 201) {
         toast.success(t("invitations.sent_success"));
@@ -423,6 +437,8 @@ export default function Settings() {
         setInviteFirstName("");
         setInviteLastName("");
         setInviteRole("STAFF");
+        setInvitePhone("");
+        setInviteSendWhatsApp(false);
         const updatedInvitationsResponse = await apiClient.get(
           "/invitations/?is_accepted=false&show_expired=false"
         );
@@ -849,6 +865,7 @@ export default function Settings() {
                         </option>
                         <option value="Europe/London">Europe/London</option>
                         <option value="Asia/Tokyo">Asia/Tokyo</option>
+                        <option value="Africa/Casablanca">Africa/Casablanca</option>
                       </select>
                     </div>
                     <div className="space-y-2">
@@ -864,6 +881,7 @@ export default function Settings() {
                         <option value="EUR">EUR</option>
                         <option value="GBP">GBP</option>
                         <option value="JPY">JPY</option>
+                        <option value="MAD">MAD</option>
                       </select>
                     </div>
                     <div className="space-y-2">
@@ -1015,8 +1033,8 @@ export default function Settings() {
                 {posConnectionStatus !== "idle" && (
                   <div
                     className={`flex items-center gap-2 p-3 rounded-lg ${posConnectionStatus === "connected"
-                        ? "bg-green-50 border border-green-200"
-                        : "bg-red-50 border border-red-200"
+                      ? "bg-green-50 border border-green-200"
+                      : "bg-red-50 border border-red-200"
                       }`}
                   >
                     {posConnectionStatus === "connected" ? (

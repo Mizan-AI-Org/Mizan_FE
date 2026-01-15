@@ -131,19 +131,37 @@ export default function TimeClockPage() {
         };
     }
 
-    const { data: restaurantLoc } = useQuery<RestaurantLocationPayload | null>({
+    const { data: restaurantLoc, error: restaurantLocError, isLoading: isLoadingRestaurantLoc } = useQuery<RestaurantLocationPayload | null>({
         queryKey: ["restaurantLocation", accessToken],
-        queryFn: () => api.getRestaurantLocation(accessToken!),
+        queryFn: async () => {
+            const result = await api.getRestaurantLocation(accessToken!);
+            console.log("[TimeClockPage] Raw API response:", result);
+            return result;
+        },
         enabled: !!accessToken,
-        refetchOnWindowFocus: false,
+        refetchOnWindowFocus: true,
+        refetchOnMount: "always",
+        staleTime: 0,
+        gcTime: 0,
     });
 
+    // Debug log for API error
     useEffect(() => {
-        if (!restaurantLoc) return;
+        if (restaurantLocError) {
+            console.error("[TimeClockPage] Restaurant location API error:", restaurantLocError);
+        }
+    }, [restaurantLocError]);
+
+    useEffect(() => {
+        if (!restaurantLoc) {
+            console.log("[TimeClockPage] restaurantLoc is null/undefined");
+            return;
+        }
         const payload = restaurantLoc.restaurant ?? restaurantLoc;
         const lat = payload.latitude;
         const lon = payload.longitude;
         const rad = (payload.geofence_radius ?? payload.radius ?? 100);
+        console.log("[TimeClockPage] Setting geofence:", { lat, lon, rad, payload });
         if (typeof lat === "number" && typeof lon === "number") {
             setGeofence({ latitude: lat, longitude: lon, radius: Number(rad) });
         }
@@ -798,7 +816,7 @@ export default function TimeClockPage() {
                                     <div className="relative h-64 w-full">
                                         <MapContainer center={[geofence?.latitude ?? currentLocation?.latitude ?? 0, geofence?.longitude ?? currentLocation?.longitude ?? 0]} zoom={geofence || currentLocation ? 17 : 2} className={`h-full w-full ${cameraOpen ? 'pointer-events-none' : ''}`}>
                                             <MapEffects geofence={geofence} currentLocation={currentLocation} />
-                                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
+                                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="" />
                                             {/* Geofence circle */}
                                             {geofence && (
                                                 <Circle center={[geofence.latitude, geofence.longitude]} radius={geofence.radius} pathOptions={{ color: inRange ? "#10b981" : "#ef4444", fillColor: inRange ? "#10b981" : "#ef4444", fillOpacity: 0.15 }} />

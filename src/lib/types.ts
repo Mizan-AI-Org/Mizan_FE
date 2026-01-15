@@ -73,17 +73,17 @@ export interface StaffInvitation {
     id: string;
     email: string;
     role: string;
-    invitation_token: string;
+    invited_by: string; // User ID of the inviter
+    restaurant: string; // Restaurant ID
+    token: string;
     is_accepted: boolean;
-    created_at: string;
+    sent_at?: string;
+    created_at?: string;
     expires_at: string;
     first_name?: string;
     last_name?: string;
-    extra_data?: {
-        phone?: string;
-        department?: string;
-        [key: string]: any;
-    };
+    phone_number?: string;
+    extra_data?: { phone?: string;[key: string]: any };
 }
 
 export interface DailyKPI {

@@ -134,7 +134,8 @@ export class BackendService {
     last_name: string,
     password?: string,
     pin_code?: string | null,
-    invitation_pin?: string | null
+    invitation_pin?: string | null,
+    email?: string
   ): Promise<LoginResponse> {
     try {
       // Decide endpoint based on provided credentials
@@ -155,6 +156,7 @@ export class BackendService {
 
       if (isStaffFlow) {
         body.pin_code = pin_code;
+        if (email) body.email = email;
       } else if (password) {
         body.password = password;
       } else {

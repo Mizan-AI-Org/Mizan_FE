@@ -135,32 +135,91 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
 
     const createUpdateShiftMutation = useMutation({
         mutationFn: async (data: AssignedShift) => {
-            const url = shift?.id
-                ? `${API_BASE}/scheduling/assigned-shifts-v2/${shift.id}/`
-                : `${API_BASE}/scheduling/assigned-shifts-v2/`;
-            const method = shift?.id ? 'PUT' : 'POST';
+            const token = localStorage.getItem('access_token');
+            if (!token) throw new Error('No access token');
 
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-                },
-                body: JSON.stringify(data),
-            });
+            const withSeconds = (t: string) => (t?.length === 5 ? `${t}:00` : t);
+            const makeISO = (dateStr: string, timeStr: string) => {
+                const ts = withSeconds(timeStr);
+                const d = new Date(`${dateStr}T${ts}`);
+                const offsetMin = -d.getTimezoneOffset();
+                const sign = offsetMin >= 0 ? '+' : '-';
+                const abs = Math.abs(offsetMin);
+                const hh = String(Math.floor(abs / 60)).padStart(2, '0');
+                const mm = String(abs % 60).padStart(2, '0');
+                return `${dateStr}T${ts}${sign}${hh}:${mm}`;
+            };
+            const toYMD = (d: Date) => d.toISOString().slice(0, 10);
+            const getWeekStart = (dateStr: string) => {
+                const d = new Date(dateStr);
+                const day = d.getDay();
+                const start = new Date(d);
+                start.setDate(d.getDate() - day);
+                return start;
+            };
 
-            if (!response.ok) {
-                if (response.status === 401) {
-                    logout();
-                    throw new Error('Session expired');
+            const dateStr = data.shift_date;
+            const payloadISO = { ...data, start_time: makeISO(dateStr, data.start_time), end_time: makeISO(dateStr, data.end_time), break_duration: data.break_duration ?? '00:30:00' };
+            const payloadTime = { ...data, start_time: withSeconds(data.start_time), end_time: withSeconds(data.end_time), break_duration: data.break_duration ?? '00:30:00' };
+
+            if (shift?.id) {
+                const url = `${API_BASE}/scheduling/assigned-shifts-v2/${shift.id}/`;
+                let response = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(payloadISO) });
+                if (!response.ok) {
+                    if (response.status === 401) { logout(); throw new Error('Session expired'); }
+                    let errText = ''; try { errText = await response.text(); } catch { }
+                    const needsTime = /combine\(\) argument 2 must be datetime\.time/.test(errText);
+                    const needsDatetime = /Datetime has wrong format/.test(errText) || /datetime/i.test(errText);
+                    let retried = false;
+                    if (needsTime) { response = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(payloadTime) }); retried = true; }
+                    else if (needsDatetime && response.status === 400) { response = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(payloadISO) }); retried = true; }
+                    if (!response.ok) { let finalText = ''; try { finalText = retried ? await response.text() : errText; } catch { } throw new Error(finalText || 'Failed to update shift'); }
                 }
-                const errorData = await response.json();
-                throw new Error(errorData.detail || errorData.message || `Failed to ${shift?.id ? 'update' : 'create'} shift`);
+                return response.json();
+            }
+
+            let scheduleId = weeklyScheduleId;
+            if (!scheduleId) {
+                const weekStart = getWeekStart(dateStr);
+                const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
+                const weekStartStr = toYMD(weekStart);
+                const weekEndStr = toYMD(weekEnd);
+                const listRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, { headers: { Authorization: `Bearer ${token}` } });
+                if (listRes.ok) {
+                    const listJson = await listRes.json();
+                    const arr = Array.isArray(listJson?.results) ? listJson.results : listJson;
+                    const existing = Array.isArray(arr) ? arr.find((s: any) => s.week_start === weekStartStr) : undefined;
+                    if (existing) scheduleId = existing.id;
+                }
+                if (!scheduleId) {
+                    const createRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ week_start: weekStartStr, week_end: weekEndStr, is_published: false }) });
+                    if (createRes.ok) {
+                        const created = await createRes.json(); scheduleId = created.id;
+                    } else if (createRes.status === 400) {
+                        const retryListRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, { headers: { Authorization: `Bearer ${token}` } });
+                        if (retryListRes.ok) { const retryJson = await retryListRes.json(); const arr = Array.isArray(retryJson?.results) ? retryJson.results : retryJson; const existing = Array.isArray(arr) ? arr.find((s: any) => s.week_start === weekStartStr) : undefined; if (existing) scheduleId = existing.id; }
+                    } else {
+                        throw new Error(`Failed to ensure weekly schedule (${createRes.status})`);
+                    }
+                }
+            }
+            if (!scheduleId) throw new Error('No weekly schedule available');
+
+            let response = await fetch(`${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...payloadISO, schedule: scheduleId }) });
+            if (!response.ok) {
+                let errText = ''; try { errText = await response.text(); } catch { }
+                const needsTime = /combine\(\) argument 2 must be datetime\.time/.test(errText);
+                const needsDatetime = /Datetime has wrong format/.test(errText) || /datetime/i.test(errText);
+                let retried = false;
+                if (needsTime) { response = await fetch(`${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...payloadTime, schedule: scheduleId }) }); retried = true; }
+                else if (needsDatetime && response.status === 400) { response = await fetch(`${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...payloadISO, schedule: scheduleId }) }); retried = true; }
+                if (!response.ok) { let finalText = ''; try { finalText = retried ? await response.text() : errText; } catch { } throw new Error(finalText || 'Failed to create shift'); }
             }
             return response.json();
         },
         onSuccess: () => {
             queryClient.invalidateQueries(['weekly-schedule']);
+            queryClient.invalidateQueries({ queryKey: ['assigned-shifts'] });
             toast({
                 title: `Shift ${shift?.id ? 'updated' : 'created'} successfully!`,
                 description: `The shift has been ${shift?.id ? 'updated' : 'created'}.`,
@@ -170,7 +229,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
         onError: (error: any) => {
             toast({
                 title: `Failed to ${shift?.id ? 'update' : 'create'} shift.`,
-                description: error.message || "An unexpected error occurred.",
+                description: error?.message || "An unexpected error occurred.",
                 variant: "destructive",
             });
         },
@@ -213,6 +272,26 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        const toMinutes = (t: string) => {
+            const [h, m] = t.split(':').map(Number);
+            return h * 60 + m;
+        };
+        if (!selectedStaffId || !shiftDate || !startTime || !endTime || !role) {
+            toast({ title: 'Missing required fields', description: 'Please select staff, date, start, end, and role.', variant: 'destructive' });
+            return;
+        }
+        const startM = toMinutes(startTime);
+        const endM = toMinutes(endTime);
+        if (endM <= startM) {
+            toast({ title: 'Invalid time range', description: 'End time must be after start time for the same day.', variant: 'destructive' });
+            return;
+        }
+        const durationH = (endM - startM) / 60;
+        if (durationH < 1 || durationH > 12) {
+            toast({ title: 'Invalid shift duration', description: 'Shift must be between 1 and 12 hours per company policy.', variant: 'destructive' });
+            return;
+        }
+
         const shiftData: AssignedShift = {
             staff: selectedStaffId,
             shift_date: shiftDate,
@@ -223,7 +302,22 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             task_templates: selectedTemplates,
             ...(weeklyScheduleId && { schedule: weeklyScheduleId }),
         };
-        createUpdateShiftMutation.mutate(shiftData);
+
+        const token = localStorage.getItem('access_token');
+        const params = new URLSearchParams({ staff_id: selectedStaffId, shift_date: shiftDate, start_time: `${startTime}:00`, end_time: `${endTime}:00` });
+        fetch(`${API_BASE}/scheduling/assigned-shifts-v2/detect_conflicts/?${params.toString()}`, { headers: { 'Authorization': `Bearer ${token}` } })
+            .then(async (res) => {
+                if (!res.ok) throw new Error(await res.text());
+                return res.json();
+            })
+            .then((conf) => {
+                if (conf?.has_conflicts) {
+                    toast({ title: 'Scheduling conflict', description: 'This staff has overlapping shifts at the selected time.', variant: 'destructive' });
+                } else {
+                    createUpdateShiftMutation.mutate(shiftData);
+                }
+            })
+            .catch(() => createUpdateShiftMutation.mutate(shiftData));
     };
 
     return (
@@ -361,7 +455,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                             className="col-span-3"
                         />
                     </div>
-                    <DialogFooter className="mt-4">
+                    <DialogFooter className="mt-4 w-full flex items-center gap-8">
                         {shift && (
                             <Button
                                 type="button"
@@ -372,10 +466,13 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                 {deleteShiftMutation.isLoading ? 'Deleting...' : 'Delete Shift'}
                             </Button>
                         )}
-                        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                        <Button type="submit" disabled={createUpdateShiftMutation.isLoading}>
-                            {createUpdateShiftMutation.isLoading ? 'Saving...' : 'Save Shift'}
-                        </Button>
+                        <div className="flex-1" />
+                        <div className="flex gap-2 justify-end">
+                            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                            <Button type="submit" disabled={createUpdateShiftMutation.isLoading}>
+                                {createUpdateShiftMutation.isLoading ? 'Saving...' : 'Save Shift'}
+                            </Button>
+                        </div>
                     </DialogFooter>
                 </form>
             </DialogContent>
