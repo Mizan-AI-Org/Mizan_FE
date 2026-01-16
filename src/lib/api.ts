@@ -48,6 +48,7 @@ export const WS_BASE = import.meta.env.VITE_REACT_APP_WS_URL || getWsBase();
 export const TELEMETRY_ENABLED = String(import.meta.env.VITE_ENABLE_CHECKLIST_TELEMETRY || "false").toLowerCase() === "true";
 
 export class BackendService {
+  [x: string]: any;
   // In a real frontend application, HttpService and ConfigService would not be used directly
   // Instead, you would use fetch or a library like Axios directly.
   // These are kept for now to avoid breaking existing structure but should be refactored for a pure frontend.
@@ -527,6 +528,48 @@ export class BackendService {
     }
   }
 
+  async updateStaffProfile(
+    accessToken: string,
+    staffId: string,
+    profileData: Partial<StaffProfileItem | any>
+  ): Promise<StaffOperationResponse> {
+    try {
+      const response = await fetch(`${API_BASE}/staff/profile/${staffId}/update/`, {
+        method: "PUT",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(profileData),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.detail || "Failed to update staff profile");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to update staff profile");
+    }
+  }
+
+  async resetStaffPassword(
+    accessToken: string,
+    staffId: string,
+    password: string
+  ): Promise<{ message: string }> {
+    try {
+      const response = await fetch(`${API_BASE}/staff/profile/${staffId}/reset-password/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify({ password }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.detail || "Failed to reset password");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to reset password");
+    }
+  }
+
   async getPendingStaffInvitations(
     accessToken: string
   ): Promise<StaffInvitation[]> {
@@ -568,6 +611,69 @@ export class BackendService {
       const message =
         error?.message || "Failed to fetch pending staff invitations";
       throw new Error(message);
+    }
+  }
+
+  async getStaffDocuments(accessToken: string, staffId: string): Promise<any[]> {
+    try {
+      const response = await fetch(`${API_BASE}/staff/documents/?staff_id=${staffId}`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.detail || "Failed to fetch staff documents");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to fetch staff documents");
+    }
+  }
+
+  async uploadStaffDocument(
+    accessToken: string,
+    staffId: string,
+    file: File,
+    title: string
+  ): Promise<any> {
+    try {
+      const formData = new FormData();
+      formData.append("staff", staffId);
+      formData.append("title", title);
+      formData.append("file", file);
+
+      const response = await fetch(`${API_BASE}/staff/documents/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.detail || "Failed to upload document");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to upload document");
+    }
+  }
+
+  async deleteStaffDocument(
+    accessToken: string,
+    docId: string
+  ): Promise<void> {
+    try {
+      const response = await fetch(`${API_BASE}/staff/documents/${docId}/`, {
+        method: "DELETE",
+        headers: this.getHeaders(accessToken),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.detail || "Failed to delete document");
+      }
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to delete document");
     }
   }
 

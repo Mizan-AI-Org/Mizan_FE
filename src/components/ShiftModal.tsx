@@ -1,22 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { X } from "lucide-react";
-import TaskTemplateSelector from "@/components/schedule/TaskTemplateSelector";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { X, Search, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useTaskTemplates } from "@/hooks/useTaskTemplates";
-import type { Shift, Task } from "@/types/schedule";
+import { useAuth } from "@/hooks/use-auth";
+import { AuthContextType } from "@/contexts/AuthContext.types";
+import type { Shift } from "@/types/schedule";
 
 interface StaffMember {
     id: string;
-    first_name: string;
-    last_name: string;
+    user?: {
+        id: string;
+        first_name: string;
+        last_name: string;
+    };
+    first_name?: string;
+    last_name?: string;
     role?: string;
     avatar_url?: string;
 }
@@ -35,8 +39,6 @@ interface TaskTemplate {
     tasks?: TemplateTask[];
 }
 
-// Use shared Task and Shift interfaces from types/schedule
-
 interface ShiftModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -46,7 +48,6 @@ interface ShiftModalProps {
     dayIndex?: number;
     hour?: number;
     staffMembers: StaffMember[];
-    // Testing-only: allow preselecting a template to avoid brittle UI interaction
     testDefaultTemplateId?: string;
 }
 
@@ -56,11 +57,9 @@ const getStaffColor = (staffId: string) => {
         '#6366F1', '#8B5CF6', '#EC4899', '#14B8A6', '#F43F5E'
     ];
     try {
-        // Match backend logic: int(uuid, 16) % len(colors)
         const idx = Number(BigInt('0x' + staffId.replace(/-/g, '')) % BigInt(colors.length));
         return colors[idx];
     } catch (e) {
-        // Fallback for non-UUIDs
         let hash = 0;
         for (let i = 0; i < staffId.length; i++) {
             hash = staffId.charCodeAt(i) + ((hash << 5) - hash);
@@ -81,7 +80,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
     staffMembers,
     testDefaultTemplateId,
 }) => {
-    // Helpers for date handling
+    const { user } = useAuth() as AuthContextType;
+
     const toYMD = (d: Date) => {
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -90,19 +90,17 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
     };
     const getWeekStart = (d: Date) => {
         const date = new Date(d);
-        const day = date.getDay(); // 0=Sun, 1=Mon
-        const diff = day === 0 ? -6 : 1 - day; // Monday as start
+        const day = date.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
         date.setDate(date.getDate() + diff);
         date.setHours(0, 0, 0, 0);
         return date;
     };
+
     const [shiftData, setShiftData] = useState<Shift>(() => {
         if (initialShift && initialShift.date) return initialShift;
-
         const startHour = hour !== undefined ? String(hour).padStart(2, '0') : '09';
         const endHour = hour !== undefined ? String(hour + 1).padStart(2, '0') : '10';
-
-        // Default date based on dayIndex within current week, or today
         const today = new Date();
         const monday = getWeekStart(today);
         const base = new Date(monday);
@@ -125,40 +123,22 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         title: "",
         priority: "MEDIUM",
     });
-    const [staffSearch, setStaffSearch] = useState("");
-    const [isFiltering, setIsFiltering] = useState(false);
-    const [currentPage, setCurrentPage] = useState(1);
-    const PAGE_SIZE = 50;
-    const [selectedIndex, setSelectedIndex] = useState<number>(0);
-    const [cachedStaff, setCachedStaff] = useState<StaffMember[]>([]);
     const {
         templates,
         loading: templatesLoading,
-        error: templatesError,
         selectedId: selectedTemplateIdFromHook,
         setSelectedId: setSelectedTemplateIdFromHook,
     } = useTaskTemplates({ pollIntervalMs: 10000 });
-    const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
-    // Multi-select template management and persistence
-    const MAX_SELECTION = 10;
-    const STORAGE_KEY = 'shiftModalTemplateSelections';
-    const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
-    const [templateSelectionError, setTemplateSelectionError] = useState<string | null>(null);
-    const [persistingSelections, setPersistingSelections] = useState<boolean>(false);
-    const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-    // Preselect a template in tests to avoid interacting with Radix Select
-    useEffect(() => {
-        if (testDefaultTemplateId) {
-            setSelectedTemplateId(String(testDefaultTemplateId));
-        }
-    }, [testDefaultTemplateId]);
-    const [assignmentFrequency, setAssignmentFrequency] = useState<'ONE_TIME' | 'DAILY' | 'WEEKLY' | 'CUSTOM'>("ONE_TIME");
+    const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
+    const [staffSearch, setStaffSearch] = useState('');
+    const [templateSearch, setTemplateSearch] = useState('');
+    const [templateSelectionError, setTemplateSelectionError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     useEffect(() => {
         if (initialShift) {
-            // If editing and date missing for some reason, derive from day index
             if (!initialShift.date) {
                 const today = new Date();
                 const monday = getWeekStart(today);
@@ -171,12 +151,10 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         } else if (isOpen) {
             const startHour = hour !== undefined ? String(hour).padStart(2, '0') : '09';
             const endHour = hour !== undefined ? String(hour + 1).padStart(2, '0') : '10';
-
             const today = new Date();
             const monday = getWeekStart(today);
             const base = new Date(monday);
             base.setDate(monday.getDate() + (dayIndex !== undefined ? dayIndex : 0));
-
             setShiftData({
                 id: Date.now().toString(),
                 title: "",
@@ -191,65 +169,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         }
     }, [initialShift, isOpen, dayIndex, hour, staffMembers]);
 
-    // Load persisted template selections per staff when modal opens
-    useEffect(() => {
-        if (!isOpen) return;
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (raw) {
-                const map = JSON.parse(raw) as Record<string, string[]>;
-                const ids = map[String(shiftData.staffId)] || [];
-                setSelectedTemplateIds(ids.map(String));
-            }
-        } catch (_: unknown) {
-            // ignore
-        }
-    }, [isOpen, shiftData.staffId]);
-
-    // Cache staff members locally to improve subsequent openings
-    useEffect(() => {
-        if (isOpen) {
-            if (staffMembers && staffMembers.length > 0) {
-                try {
-                    localStorage.setItem('shiftModalStaffCache', JSON.stringify({ ts: Date.now(), staff: staffMembers }));
-                    setCachedStaff(staffMembers);
-                } catch (_: unknown) {
-                    setCachedStaff(staffMembers);
-                }
-            } else {
-                try {
-                    const raw = localStorage.getItem('shiftModalStaffCache');
-                    if (raw) {
-                        const parsed = JSON.parse(raw);
-                        // 10 minute TTL
-                        if (parsed.ts && (Date.now() - parsed.ts) < 10 * 60 * 1000 && Array.isArray(parsed.staff)) {
-                            setCachedStaff(parsed.staff as StaffMember[]);
-                        }
-                    }
-                } catch (_: unknown) {
-                    // ignore
-                }
-            }
-        }
-    }, [isOpen, staffMembers]);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        if (testDefaultTemplateId) {
-            setSelectedTemplateId(String(testDefaultTemplateId));
-            setSelectedTemplateIdFromHook(String(testDefaultTemplateId));
-        } else if (!selectedTemplateId && selectedTemplateIdFromHook) {
-            setSelectedTemplateId(String(selectedTemplateIdFromHook));
-        }
-    }, [isOpen, testDefaultTemplateId, selectedTemplateIdFromHook]);
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { id, value } = e.target;
-        setShiftData(prev => ({
-            ...prev,
-            [id]: value,
-        }));
-    };
+    const allStaffMembers: StaffMember[] = staffMembers;
 
     const handleSelectChange = (value: string, id: string) => {
         setShiftData(prev => {
@@ -261,75 +181,26 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         });
     };
 
-    const updateTemplateSelectionStorage = (ids: string[]) => {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            const map = raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
-            map[String(shiftData.staffId)] = ids.map(String);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-        } catch (_: unknown) {
-            // ignore storage errors
-        }
-    };
-
-    const handleTemplateIdsChange = (ids: string[]) => {
-        if (ids.length > MAX_SELECTION) {
-            setTemplateSelectionError(`You can select up to ${MAX_SELECTION} templates`);
-            return;
-        }
-        setTemplateSelectionError(null);
-        setSelectedTemplateIds(ids.map(String));
-        updateTemplateSelectionStorage(ids);
-    };
-
-    const persistTemplateSelections = async () => {
-        setPersistingSelections(true);
-        setSaveFeedback(null);
-        try {
-            updateTemplateSelectionStorage(selectedTemplateIds);
-            setSaveFeedback({ type: 'success', message: 'Template selections saved locally' });
-        } catch (e: unknown) {
-            const errMsg = e instanceof Error ? e.message : 'Failed to save template selections';
-            setSaveFeedback({ type: 'error', message: errMsg });
-        } finally {
-            setPersistingSelections(false);
-        }
-    };
-
-    const handleAddTask = () => {
-        if (newTask.title.trim()) {
-            setShiftData(prev => ({
-                ...prev,
-                tasks: [...(prev.tasks || []), { id: Date.now().toString(), ...newTask, frequency: assignmentFrequency }],
-            }));
-            setNewTask({ title: "", priority: "MEDIUM" });
-        }
-    };
-
-    const handleRemoveTask = (taskId: string) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { id, value } = e.target;
         setShiftData(prev => ({
             ...prev,
-            tasks: (prev.tasks || []).filter(t => t.id !== taskId),
+            [id]: value,
         }));
     };
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
         try {
-            // Basic validation: require date
             if (!shiftData.date || String(shiftData.date).trim() === "") {
                 setSaveFeedback({ type: 'error', message: 'Please select a date for the shift.' });
                 setIsSubmitting(false);
                 return;
             }
-            // Persist selections before saving the shift
-            await persistTemplateSelections();
-            // Include task_templates in the shift data
             const shiftWithTemplates = {
                 ...shiftData,
                 task_templates: selectedTemplateIds
             };
-            // Support both synchronous and Promise returns without truthiness checks
             await Promise.resolve(onSave(shiftWithTemplates));
             onClose();
         } finally {
@@ -337,347 +208,247 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         }
     };
 
-    const nonAdminStaffMembers = staffMembers.filter((staff) => {
-        const r = (staff.role || '').toLowerCase();
-        return r !== 'admin' && r !== 'super_admin' && r !== 'super-admin';
-    });
-
-    // Use cached staff if available, otherwise fall back to prop
-    const sourceStaff: StaffMember[] = (cachedStaff && cachedStaff.length > 0)
-        ? cachedStaff
-        : staffMembers;
-
-    // Exclude admin/super-admin from assignment list
-    const allStaffMembers: StaffMember[] = sourceStaff.filter((staff) => {
-        const r = (staff.role || '').toLowerCase();
-        return r !== 'admin' && r !== 'super_admin' && r !== 'super-admin';
-    });
-
-    const filteredStaff = staffSearch.trim()
-        ? allStaffMembers.filter(staff => {
-            const q = staffSearch.toLowerCase();
-            const name = `${staff.first_name} ${staff.last_name}`.toLowerCase();
-            const role = (staff.role || '').toLowerCase();
-            return name.includes(q) || role.includes(q);
-        })
-        : allStaffMembers;
-
-    const totalPages = Math.max(1, Math.ceil(filteredStaff.length / PAGE_SIZE));
-    const paginatedStaff = filteredStaff.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
-    useEffect(() => {
-        // Reset pagination and selection when search changes
-        setCurrentPage(1);
-        setSelectedIndex(0);
-    }, [staffSearch]);
-
-    // Debounced filtering indicator
-    useEffect(() => {
-        if (!isOpen) return;
-        setIsFiltering(true);
-        const t = setTimeout(() => setIsFiltering(false), 150);
-        return () => clearTimeout(t);
-    }, [staffSearch, isOpen]);
-
-    const handleStaffKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-        if (paginatedStaff.length === 0) return;
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            setSelectedIndex(prev => Math.min(prev + 1, paginatedStaff.length - 1));
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            setSelectedIndex(prev => Math.max(prev - 1, 0));
-        } else if (e.key === 'Enter') {
-            e.preventDefault();
-            const staff = paginatedStaff[selectedIndex];
-            if (staff) {
-                handleSelectChange(staff.id, 'staffId');
-            }
-        } else if (e.key === 'PageDown') {
-            e.preventDefault();
-            setCurrentPage(prev => Math.min(prev + 1, totalPages));
-            setSelectedIndex(0);
-        } else if (e.key === 'PageUp') {
-            e.preventDefault();
-            setCurrentPage(prev => Math.max(prev - 1, 1));
-            setSelectedIndex(0);
-        }
-    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>{initialShift ? "Edit Shift" : "Create New Shift"}</DialogTitle>
+            <DialogContent className="sm:max-w-[700px] bg-white rounded-3xl p-5 border-none shadow-2xl overflow-hidden max-h-[85vh] overflow-y-auto">
+                <DialogHeader className="pb-2">
+                    <DialogTitle className="text-xl font-bold text-[#1F2937]">Create Schedule</DialogTitle>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="title" className="text-right">Title</Label>
-                        <Input id="title" placeholder="New Shift" value={shiftData.title} onChange={handleChange} className="col-span-3" />
-                    </div>
 
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="date" className="text-right">Date <span className="text-red-500">*</span></Label>
-                        <Input id="date" type="date" value={shiftData.date} onChange={handleChange} className="col-span-3" />
-                    </div>
-
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label className="text-right">Time</Label>
-                        <div className="col-span-3 flex gap-2">
-                            <div className="flex-1">
-                                <Label htmlFor="start" className="text-xs text-gray-600">Start</Label>
-                                <Input id="start" type="time" value={shiftData.start} onChange={handleChange} />
-                            </div>
-                            <div className="flex-1">
-                                <Label htmlFor="end" className="text-xs text-gray-600">End</Label>
-                                <Input id="end" type="time" value={shiftData.end} onChange={handleChange} />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-4 items-start gap-4">
-                        <Label htmlFor="staffId" className="text-right pt-2">Staff <span className="text-red-500">*</span></Label>
-                        <div className="col-span-3 space-y-3">
-                            <div className="flex items-center gap-2">
-                                <Input
-                                    placeholder="Search by name or role..."
-                                    value={staffSearch}
-                                    onChange={(e) => setStaffSearch(e.target.value)}
-                                    className="text-sm"
-                                    aria-label="Search staff"
-                                />
-                                {isFiltering && (
-                                    <Badge variant="outline" className="text-xs">Filtering…</Badge>
-                                )}
-                            </div>
-
-                            {/* Staff list with single selection, keyboard navigation, pagination */}
-                            <div
-                                className="border rounded-md p-2 max-h-64 overflow-y-auto focus:outline-none"
-                                tabIndex={0}
-                                onKeyDown={handleStaffKeyDown}
-                                aria-label="Staff selection list"
-                                role="listbox"
-                            >
-                                {sourceStaff.length === 0 && staffSearch.trim() === "" && (
-                                    <div className="mb-2">
-                                        <Alert variant="destructive">
-                                            <AlertTitle>Failed to load staff</AlertTitle>
-                                            <AlertDescription>
-                                                Unable to load staff members. Please check your connection and try again.
-                                            </AlertDescription>
-                                        </Alert>
-                                    </div>
-                                )}
-                                {paginatedStaff.length === 0 && (
-                                    <div className="p-3 text-sm text-muted-foreground">No staff members found</div>
-                                )}
-
-                                {paginatedStaff.length === 0 && sourceStaff.length === 0 && (
-                                    <div className="space-y-2">
-                                        <Skeleton className="h-8 w-full" />
-                                        <Skeleton className="h-8 w-full" />
-                                        <Skeleton className="h-8 w-full" />
-                                    </div>
-                                )}
-
-                                {paginatedStaff.map((staff, idx) => {
-                                    const isSelected = String(shiftData.staffId) === String(staff.id);
-                                    const isActive = selectedIndex === idx;
-                                    return (
-                                        <button
-                                            key={staff.id}
-                                            type="button"
-                                            onClick={() => handleSelectChange(staff.id, 'staffId')}
-                                            className={`w-full flex items-center gap-3 px-2 py-2 rounded-md text-left mb-1 ${isSelected ? 'bg-primary/10 border border-primary' : 'hover:bg-muted'
-                                                } ${isActive ? 'ring-2 ring-primary' : ''}`}
-                                            role="option"
-                                            aria-selected={isSelected}
-                                        >
-                                            <Avatar className="h-8 w-8">
-                                                {staff.avatar_url ? (
-                                                    <AvatarImage src={staff.avatar_url} alt={`${staff.first_name} ${staff.last_name}`} />
-                                                ) : (
-                                                    <AvatarFallback>
-                                                        {`${staff.first_name?.[0] || ''}${staff.last_name?.[0] || ''}`}
-                                                    </AvatarFallback>
-                                                )}
-                                            </Avatar>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium truncate">
-                                                    {staff.first_name} {staff.last_name}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground truncate capitalize">{staff.role || 'Staff'}</p>
-                                            </div>
-                                            {isSelected && (
-                                                <Badge variant="secondary" className="text-xs">Selected</Badge>
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            {filteredStaff.length > PAGE_SIZE && (
-                                <div className="flex items-center justify-between mt-2">
-                                    <p className="text-xs text-muted-foreground">
-                                        Page {currentPage} of {totalPages} • {filteredStaff.length} staff
-                                    </p>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                            disabled={currentPage === 1}
-                                        >
-                                            Prev
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                            disabled={currentPage === totalPages}
-                                        >
-                                            Next
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-
-
-                    <div className="grid grid-cols-4 gap-4">
-                        <Label className="text-right pt-2">Tasks</Label>
-                        <div className="col-span-3 space-y-3">
-                            {/* Templates and Frequency */}
-                            <div className="space-y-2" aria-busy={persistingSelections}>
-                                <Label className="text-xs text-gray-600">Templates</Label>
-                                {selectedTemplateIds.length > 0 && (
-                                    <div className="flex flex-wrap gap-2">
-                                        {(templates || []).filter(t => selectedTemplateIds.includes(String(t.id))).map(t => (
-                                            <Badge key={String(t.id)} variant="secondary" className="text-xs">
-                                                {t.name}
-                                                <button
-                                                    type="button"
-                                                    className="ml-2 inline-flex items-center"
-                                                    onClick={() => handleTemplateIdsChange(selectedTemplateIds.filter(x => x !== String(t.id)))}
-                                                    aria-label={`Remove ${t.name}`}
-                                                >
-                                                    <X className="h-3 w-3" />
-                                                </button>
-                                            </Badge>
-                                        ))}
-                                    </div>
-                                )}
-
-                                <TaskTemplateSelector
-                                    multiselect
-                                    selectedIds={selectedTemplateIds}
-                                    onChangeSelected={handleTemplateIdsChange}
-                                    showFilters
-                                />
-
-                                {templatesLoading && (
-                                    <div className="space-y-1">
-                                        <Skeleton className="h-6 w-full" />
-                                        <Skeleton className="h-6 w-3/4" />
-                                    </div>
-                                )}
-                                {templatesError && (
-                                    <div className="mt-2">
-                                        <Alert variant="destructive" role="alert">
-                                            <AlertTitle>Failed to load templates</AlertTitle>
-                                            <AlertDescription>{templatesError}</AlertDescription>
-                                        </Alert>
-                                    </div>
-                                )}
-                                {templateSelectionError && (
-                                    <div className="mt-2">
-                                        <Alert variant="destructive" role="alert">
-                                            <AlertTitle>Selection limit reached</AlertTitle>
-                                            <AlertDescription>{templateSelectionError}</AlertDescription>
-                                        </Alert>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="space-y-2">
-                                <div className="flex gap-2">
+                <div className="space-y-3 mt-2">
+                    <div className="space-y-1">
+                        <Label className="text-sm font-semibold text-[#1F2937]">Staff Member</Label>
+                        <Select
+                            value={shiftData.staffId}
+                            onValueChange={(value) => handleSelectChange(value, 'staffId')}
+                        >
+                            <SelectTrigger className="w-full h-10 bg-[#F6AD55] hover:bg-[#ED8936] text-white border-none rounded-xl px-4 text-sm font-medium transition-colors shadow-sm [&>span]:text-white">
+                                <SelectValue placeholder="Select staff member..." />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl shadow-2xl border-gray-100 z-[9999]">
+                                <div className="p-2 border-b">
                                     <Input
-                                        placeholder="Task title..."
-                                        value={newTask.title}
-                                        onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
-                                        className="flex-1"
+                                        placeholder="Search staff..."
+                                        value={staffSearch}
+                                        onChange={(e) => setStaffSearch(e.target.value)}
+                                        className="h-8 text-sm"
+                                        onClick={(e) => e.stopPropagation()}
                                     />
-                                    <Select value={newTask.priority} onValueChange={(value) => setNewTask(prev => ({ ...prev, priority: value as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' }))}>
-                                        <SelectTrigger className="w-24">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="LOW">Low</SelectItem>
-                                            <SelectItem value="MEDIUM">Medium</SelectItem>
-                                            <SelectItem value="HIGH">High</SelectItem>
-                                            <SelectItem value="URGENT">Urgent</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Button size="sm" onClick={handleAddTask} aria-label="Add manual task">Add</Button>
                                 </div>
-                            </div>
-
-                            {shiftData.tasks && shiftData.tasks.length > 0 && (
-                                <div className="space-y-2 bg-gray-50 p-3 rounded">
-                                    {shiftData.tasks.map(task => (
-                                        <div key={task.id} className="flex items-center justify-between bg-white p-2 rounded border border-gray-200">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium truncate">{task.title}</p>
-                                                <p className="text-xs text-gray-500">
-                                                    {task.priority === 'LOW' && 'Low Priority'}
-                                                    {task.priority === 'MEDIUM' && 'Medium Priority'}
-                                                    {task.priority === 'HIGH' && 'High Priority'}
-                                                    {task.priority === 'URGENT' && 'Urgent'}
-                                                    {task.frequency && ` • ${task.frequency}`}
-                                                </p>
-                                            </div>
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() => handleRemoveTask(task.id)}
-                                                className="ml-2 h-6 w-6 p-0"
-                                                aria-label={`Remove task ${task.title}`}
+                                <div className="max-h-[200px] overflow-y-auto">
+                                    {allStaffMembers
+                                        .filter(s => String(s.user?.id) !== String(user?.id))
+                                        .filter(s => {
+                                            if (!staffSearch) return true;
+                                            const name = `${s.user?.first_name || s.first_name || ''} ${s.user?.last_name || s.last_name || ''}`.toLowerCase();
+                                            const role = (s.role || '').toLowerCase();
+                                            return name.includes(staffSearch.toLowerCase()) || role.includes(staffSearch.toLowerCase());
+                                        })
+                                        .map((s) => (
+                                            <SelectItem
+                                                key={s.id}
+                                                value={s.id}
+                                                className="cursor-pointer"
                                             >
-                                                <X className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
+                                                <div className="flex items-center gap-2">
+                                                    <Avatar className="h-5 w-5">
+                                                        <AvatarFallback className="text-[9px] bg-orange-100 text-orange-700">
+                                                            {`${(s.user?.first_name || s.first_name || '')[0] || ''}${(s.user?.last_name || s.last_name || '')[0] || ''}`}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                    <span className="text-sm">{`${s.user?.first_name || s.first_name || ''} ${s.user?.last_name || s.last_name || ''}`}</span>
+                                                    {s.role && <span className="text-xs text-gray-500">• {s.role}</span>}
+                                                </div>
+                                            </SelectItem>
+                                        ))}
                                 </div>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                        <Label className="text-sm font-semibold text-[#1F2937]">Shift Title</Label>
+                        <Input
+                            id="title"
+                            placeholder="e.g. Morning Shift, Dinner Service"
+                            value={shiftData.title}
+                            onChange={handleChange}
+                            className="h-10 rounded-xl border-gray-200 focus:ring-[#106B4E] focus:border-[#106B4E]"
+                        />
+                    </div>
+
+                    <div className="space-y-1">
+                        <Label className="text-sm font-semibold text-[#1F2937]">Description (Optional)</Label>
+                        <textarea
+                            id="notes"
+                            placeholder="Additional notes for this shift..."
+                            className="w-full min-h-[60px] rounded-xl border border-gray-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#106B4E]/20 focus:border-[#106B4E] transition-all resize-none"
+                            value={(shiftData as any).notes || ""}
+                            onChange={(e) => setShiftData(prev => ({ ...prev, notes: e.target.value } as any))}
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                            <Label className="text-sm font-semibold text-[#1F2937]">Date</Label>
+                            <Input
+                                type="date"
+                                value={shiftData.date}
+                                onChange={(e) => setShiftData(prev => ({ ...prev, date: e.target.value }))}
+                                className="h-10 rounded-xl border-gray-200 focus:ring-[#106B4E]"
+                                required
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                                <Label className="text-sm font-semibold text-[#1F2937]">Start</Label>
+                                <Select
+                                    value={shiftData.start}
+                                    onValueChange={(value) => setShiftData(prev => ({ ...prev, start: value }))}
+                                >
+                                    <SelectTrigger className="h-10 rounded-xl border-gray-200">
+                                        <SelectValue placeholder="Start" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-[200px] z-[9999]">
+                                        {Array.from({ length: 48 }, (_, i) => {
+                                            const hour24 = Math.floor(i / 2);
+                                            const min = i % 2 === 0 ? '00' : '30';
+                                            const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+                                            const ampm = hour24 < 12 ? 'AM' : 'PM';
+                                            const value = `${String(hour24).padStart(2, '0')}:${min}`;
+                                            return (
+                                                <SelectItem key={value} value={value}>
+                                                    {hour12}:{min} {ampm}
+                                                </SelectItem>
+                                            );
+                                        })}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-sm font-semibold text-[#1F2937]">End</Label>
+                                <Select
+                                    value={shiftData.end}
+                                    onValueChange={(value) => setShiftData(prev => ({ ...prev, end: value }))}
+                                >
+                                    <SelectTrigger className="h-10 rounded-xl border-gray-200">
+                                        <SelectValue placeholder="End" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-[200px] z-[9999]">
+                                        {Array.from({ length: 48 }, (_, i) => {
+                                            const hour24 = Math.floor(i / 2);
+                                            const min = i % 2 === 0 ? '00' : '30';
+                                            const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+                                            const ampm = hour24 < 12 ? 'AM' : 'PM';
+                                            const value = `${String(hour24).padStart(2, '0')}:${min}`;
+                                            return (
+                                                <SelectItem key={value} value={value}>
+                                                    {hour12}:{min} {ampm}
+                                                </SelectItem>
+                                            );
+                                        })}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-sm font-semibold text-[#1F2937]">Process & Task Templates</Label>
+                            <div className="relative w-48">
+                                <Input
+                                    placeholder="Search templates..."
+                                    value={templateSearch}
+                                    onChange={(e) => setTemplateSearch(e.target.value)}
+                                    className="h-8 rounded-lg border-gray-200 pl-8 pr-2 text-xs focus:ring-[#106B4E]"
+                                />
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                            </div>
+                        </div>
+                        <div className="bg-[#F9FAFB] border border-gray-100 rounded-xl p-2 max-h-[100px] overflow-y-auto space-y-1">
+                            {templatesLoading ? (
+                                <p className="text-sm text-gray-500 text-center py-4">Loading templates...</p>
+                            ) : (templates || []).filter(t =>
+                                !templateSearch || t.name.toLowerCase().includes(templateSearch.toLowerCase()) ||
+                                (t.description || '').toLowerCase().includes(templateSearch.toLowerCase())
+                            ).length === 0 ? (
+                                <p className="text-sm text-gray-500 text-center py-4">No templates found.</p>
+                            ) : (
+                                (templates || []).filter(t =>
+                                    !templateSearch || t.name.toLowerCase().includes(templateSearch.toLowerCase()) ||
+                                    (t.description || '').toLowerCase().includes(templateSearch.toLowerCase())
+                                ).map((template) => (
+                                    <div
+                                        key={template.id}
+                                        className="flex items-start gap-3 group cursor-pointer"
+                                        onClick={() => {
+                                            const current = selectedTemplateIds;
+                                            const id = String(template.id);
+                                            const newIds = current.includes(id)
+                                                ? current.filter(x => x !== id)
+                                                : [...current, id];
+                                            setSelectedTemplateIds(newIds);
+                                        }}
+                                    >
+                                        <div className={cn(
+                                            "mt-1 w-5 h-5 rounded border flex items-center justify-center transition-colors",
+                                            selectedTemplateIds.includes(String(template.id))
+                                                ? "bg-[#106B4E] border-[#106B4E]"
+                                                : "border-gray-300 bg-white"
+                                        )}>
+                                            {selectedTemplateIds.includes(String(template.id)) && (
+                                                <Check className="w-3.5 h-3.5 text-white" />
+                                            )}
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <p className="text-sm font-bold text-[#1F2937] leading-none">
+                                                {template.name}
+                                            </p>
+                                            <p className="text-xs text-gray-500 line-clamp-1">
+                                                {template.description || "Daily preparation and inventory check"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))
                             )}
                         </div>
+                        <p className="text-[10px] text-gray-400 pt-1">Select templates to automatically add tasks to this shift.</p>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-50">
+                        {initialShift && onDelete && (
+                            <Button
+                                variant="ghost"
+                                onClick={() => {
+                                    if (confirm("Are you sure?")) {
+                                        onDelete(initialShift.id);
+                                        onClose();
+                                    }
+                                }}
+                                className="mr-auto text-red-500 hover:text-red-600 hover:bg-red-50"
+                            >
+                                Delete Shift
+                            </Button>
+                        )}
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={onClose}
+                            className="h-12 px-8 rounded-xl text-gray-600 font-semibold hover:bg-gray-100"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                            className="h-12 px-10 rounded-xl bg-[#106B4E] hover:bg-[#0D5A41] text-white font-bold text-base transition-all shadow-md active:scale-[0.98]"
+                        >
+                            {isSubmitting ? 'Saving...' : (initialShift ? 'Save Changes' : 'Create')}
+                        </Button>
                     </div>
                 </div>
-                <DialogFooter className="w-full flex items-center gap-8">
-                    {initialShift && onDelete && (
-                        <Button
-                            variant="destructive"
-                            onClick={() => {
-                                if (confirm("Are you sure you want to delete this shift?")) {
-                                    onDelete(initialShift.id);
-                                    onClose();
-                                }
-                            }}
-                            aria-label="Delete shift"
-                        >
-                            Delete Shift
-                        </Button>
-                    )}
-                    <div className="flex-1" />
-                    <div className="flex gap-2 justify-end">
-                        <Button variant="outline" onClick={onClose} aria-label="Cancel and close">Cancel</Button>
-                        <Button onClick={handleSubmit} disabled={isSubmitting} aria-busy={isSubmitting} aria-label="Save shift changes">
-                            {isSubmitting ? 'Saving…' : 'Save Changes'}
-                        </Button>
-                    </div>
-                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

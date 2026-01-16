@@ -55,6 +55,7 @@ import {
     RefreshCw
 } from "lucide-react";
 import { API_BASE, BackendService, api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
@@ -69,7 +70,18 @@ interface StaffMember {
     role: string;
     is_active: boolean;
     phone?: string;
-    join_date?: string;
+    profile?: {
+        join_date?: string;
+        hourly_rate?: number;
+        salary_type?: 'HOURLY' | 'MONTHLY';
+        promotion_history?: { role: string; date: string; note?: string }[];
+        department?: string;
+    };
+    stats?: {
+        hours_weekly: number;
+        hours_monthly: number;
+        hours_yearly: number;
+    };
 }
 
 interface Invitation {
@@ -387,7 +399,28 @@ const TeamTab: React.FC = () => {
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+    const [documents, setDocuments] = useState<any[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
     const { logout } = useAuth() as AuthContextType;
+
+    const fetchDocuments = async (staffId: string) => {
+        try {
+            const token = localStorage.getItem("access_token") || "";
+            console.log("Fetching documents for staff:", staffId);
+            const docs = await api.getStaffDocuments(token, staffId);
+            console.log("Fetched documents:", docs);
+            setDocuments(docs);
+        } catch (err) {
+            console.error("Failed to fetch documents", err);
+            toast.error("Failed to load documents");
+        }
+    };
+
+    React.useEffect(() => {
+        if ((isViewModalOpen || isEditModalOpen) && selectedMember) {
+            fetchDocuments(selectedMember.id);
+        }
+    }, [isViewModalOpen, isEditModalOpen, selectedMember?.id]);
 
     const { data: staffData, isLoading, error, refetch: refetchStaff } = useQuery<PaginatedResponse<StaffMember>>({
         queryKey: ["staff-members", staffPage],
@@ -467,7 +500,8 @@ const TeamTab: React.FC = () => {
     );
 
     const handleViewProfile = (member: StaffMember) => {
-        navigate(`/dashboard/staff/${member.id}`);
+        setSelectedMember(member);
+        setIsViewModalOpen(true);
     };
 
     const handleEditProfile = (member: StaffMember) => {
@@ -477,46 +511,11 @@ const TeamTab: React.FC = () => {
 
     // View Profile Modal
     const ViewProfileModal = () => {
+        // Use selectedMember directly as it contains the most up-to-date information (including manual updates after save)
+        // logic that preferred "staff" list was causing stale data to be shown until refetch completed
         if (!selectedMember) return null;
-        const [documents, setDocuments] = useState<any[]>([]);
-        const [isUploading, setIsUploading] = useState(false);
+
         const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-        const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
-        const [newPassword, setNewPassword] = useState("");
-        const [isResetting, setIsResetting] = useState(false);
-
-        const fetchDocuments = async () => {
-            try {
-                const token = localStorage.getItem("access_token") || "";
-                const docs = await api.getStaffDocuments(token, selectedMember.id);
-                setDocuments(docs);
-            } catch (err) {
-                console.error("Failed to fetch documents", err);
-            }
-        };
-
-        React.useEffect(() => {
-            if (isViewModalOpen) {
-                fetchDocuments();
-            }
-        }, [isViewModalOpen, selectedMember.id]);
-
-        const handleUploadDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-
-            setIsUploading(true);
-            try {
-                const token = localStorage.getItem("access_token") || "";
-                await api.uploadStaffDocument(token, selectedMember.id, file, file.name);
-                toast.success("Document uploaded successfully");
-                fetchDocuments();
-            } catch (err: any) {
-                toast.error(err.message || "Failed to upload document");
-            } finally {
-                setIsUploading(false);
-            }
-        };
 
         const handleGenerateReport = async () => {
             setIsGeneratingReport(true);
@@ -537,47 +536,35 @@ const TeamTab: React.FC = () => {
             }
         };
 
-        const handleResetPassword = async () => {
-            if (!newPassword) {
-                toast.error("Please enter a new password");
-                return;
-            }
-            setIsResetting(true);
-            try {
-                const token = localStorage.getItem("access_token") || "";
-                await api.resetStaffPassword(token, selectedMember.id, newPassword);
-                toast.success("Password reset successfully");
-                setIsResetPasswordOpen(false);
-                setNewPassword("");
-            } catch (err: any) {
-                toast.error(err.message || "Failed to reset password");
-            } finally {
-                setIsResetting(false);
-            }
-        };
-
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <Card className="w-full max-w-2xl mx-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="text-slate-900 dark:text-white">Staff Profile</CardTitle>
-                        <Button variant="ghost" size="icon" onClick={() => setIsViewModalOpen(false)}>
-                            <X className="w-4 h-4" />
+                <Card className="w-full max-w-2xl mx-4 bg-white dark:bg-slate-900 border-none shadow-2xl rounded-[2rem] overflow-hidden max-h-[85vh] flex flex-col">
+                    <div className="relative">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-6 top-6 rounded-full bg-slate-100/50 hover:bg-slate-100 transition-colors z-10"
+                            onClick={() => setIsViewModalOpen(false)}
+                        >
+                            <X className="w-4 h-4 text-slate-500" />
                         </Button>
+                    </div>
+                    <CardHeader className="pt-10 pb-2 px-10">
+                        <CardTitle className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Staff Profile</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                                    <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    <CardContent className="space-y-8 px-10 pb-12 overflow-y-auto custom-scrollbar">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-6">
+                                <div className="w-20 h-20 rounded-[1.5rem] bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center border border-emerald-100/50">
+                                    <span className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tighter">
                                         {selectedMember.first_name?.[0]}{selectedMember.last_name?.[0]}
                                     </span>
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">
+                                    <h3 className="text-2xl font-black text-slate-900 dark:text-white leading-tight tracking-tight">
                                         {selectedMember.first_name} {selectedMember.last_name}
                                     </h3>
-                                    <Badge variant="outline" className="capitalize mt-1 border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400">
+                                    <Badge variant="outline" className="capitalize mt-2 border-emerald-100 bg-emerald-50/50 text-emerald-600 dark:bg-emerald-900/10 dark:text-emerald-400 font-bold text-[11px] px-3 py-0.5 rounded-lg border-none">
                                         {selectedMember.role?.toLowerCase().replace(/_/g, " ")}
                                     </Badge>
                                 </div>
@@ -585,110 +572,160 @@ const TeamTab: React.FC = () => {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                className="border-emerald-100 text-emerald-600 hover:bg-emerald-50 rounded-xl font-bold h-11 px-6 shadow-sm ring-offset-background transition-all hover:shadow-md"
                                 onClick={handleGenerateReport}
                                 disabled={isGeneratingReport}
                             >
-                                {isGeneratingReport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
-                                Detailed Report
+                                {isGeneratingReport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                                PDF Report
                             </Button>
                         </div>
 
-                        {/* Reset Password Section */}
-                        {isResetPasswordOpen && (
-                            <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-100 dark:border-amber-900/30 space-y-3 animate-in fade-in slide-in-from-top-2">
-                                <h4 className="text-sm font-semibold text-amber-900 dark:text-amber-400 flex items-center gap-2">
-                                    <Key className="w-4 h-4" /> Reset Password for {selectedMember.first_name}
-                                </h4>
-                                <div className="flex gap-2">
-                                    <Input
-                                        type="password"
-                                        placeholder="Enter new password"
-                                        value={newPassword}
-                                        onChange={(e) => setNewPassword(e.target.value)}
-                                        className="h-9 bg-white dark:bg-slate-900"
-                                    />
-                                    <Button
-                                        size="sm"
-                                        className="bg-amber-600 hover:bg-amber-700 text-white"
-                                        onClick={handleResetPassword}
-                                        disabled={isResetting}
-                                    >
-                                        {isResetting ? <Loader2 className="w-3 h-3 animate-spin" /> : "Update"}
-                                    </Button>
-                                    <Button size="sm" variant="ghost" onClick={() => setIsResetPasswordOpen(false)}>Cancel</Button>
-                                </div>
+                        {/* Performance Analytics */}
+                        <div className="grid grid-cols-3 gap-4 py-4">
+                            <div className="bg-slate-50/50 dark:bg-slate-800/40 p-5 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 flex flex-col items-center">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Weekly</p>
+                                <p className="text-xl font-black text-slate-900 dark:text-white">{selectedMember.stats?.hours_weekly || 0}h</p>
                             </div>
-                        )}
+                            <div className="bg-emerald-50/30 dark:bg-emerald-900/10 p-5 rounded-[1.5rem] border border-emerald-100/50 dark:border-emerald-900/30 flex flex-col items-center shadow-sm">
+                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Monthly</p>
+                                <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">{selectedMember.stats?.hours_monthly || 0}h</p>
+                            </div>
+                            <div className="bg-slate-50/50 dark:bg-slate-800/40 p-5 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 flex flex-col items-center">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Yearly</p>
+                                <p className="text-xl font-black text-slate-900 dark:text-white">{selectedMember.stats?.hours_yearly || 0}h</p>
+                            </div>
+                        </div>
 
-                        <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-slate-800">
-                            <div className="space-y-4">
-                                <h4 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">Contact Info</h4>
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-3">
-                                        <Mail className="w-4 h-4 text-slate-400" />
-                                        <span className="text-sm text-slate-600 dark:text-slate-300">{selectedMember.email}</span>
+                        <div className="grid grid-cols-2 gap-12 py-8 border-t border-slate-100/60 dark:border-slate-800/60">
+                            <div className="space-y-6">
+                                <h4 className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Contact Info</h4>
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-4 group">
+                                        <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
+                                            <Mail className="w-4 h-4 text-slate-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email Address</p>
+                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedMember.email}</p>
+                                        </div>
                                     </div>
-                                    {selectedMember.phone && (
-                                        <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-4 group">
+                                        <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
                                             <Phone className="w-4 h-4 text-slate-400" />
-                                            <span className="text-sm text-slate-600 dark:text-slate-300">{selectedMember.phone}</span>
                                         </div>
-                                    )}
-                                    <div className="flex items-center gap-3">
-                                        <Shield className="w-4 h-4 text-slate-400" />
-                                        <span className="text-sm text-slate-600 dark:text-slate-300 capitalize">{selectedMember.role?.toLowerCase().replace(/_/g, " ")}</span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <Clock className="w-4 h-4 text-slate-400" />
-                                        <span className="text-sm text-slate-600 dark:text-slate-300">Joined: {selectedMember.join_date || "N/A"}</span>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone Number</p>
+                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedMember.phone || "Not provided"}</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">Documents</h4>
-                                    <label className="cursor-pointer">
-                                        <Input type="file" className="hidden" onChange={handleUploadDocument} disabled={isUploading} />
-                                        <div className="flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700">
-                                            {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                                            Add
+                            <div className="space-y-6">
+                                <h4 className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Employment Details</h4>
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-4 group">
+                                        <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
+                                            <Briefcase className="w-4 h-4 text-slate-400" />
                                         </div>
-                                    </label>
-                                </div>
-                                <div className="space-y-2 max-h-[120px] overflow-y-auto pr-2">
-                                    {documents.length > 0 ? (
-                                        documents.map((doc, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-2 rounded-md bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                                                <div className="flex items-center gap-2 overflow-hidden">
-                                                    <FileText className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                                                    <span className="text-xs text-slate-600 dark:text-slate-300 truncate">{doc.title}</span>
-                                                </div>
-                                                <a href={doc.document} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-emerald-500">
-                                                    <Download className="w-3 h-3" />
-                                                </a>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="text-center py-4 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-lg">
-                                            <p className="text-xs text-slate-400">No documents uploaded</p>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Department</p>
+                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedMember.profile?.department || "Unassigned"}</p>
                                         </div>
-                                    )}
+                                    </div>
+                                    <div className="flex items-center gap-4 group">
+                                        <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
+                                            <Clock className="w-4 h-4 text-slate-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Join Date</p>
+                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedMember.profile?.join_date ? format(new Date(selectedMember.profile.join_date), 'PPP') : "N/A"}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4 group">
+                                        <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
+                                            <TrendingUp className="w-4 h-4 text-slate-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Salary / Wage</p>
+                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                                ${selectedMember.profile?.hourly_rate || 0}
+                                                <span className="text-xs text-slate-400 font-normal ml-1">
+                                                    {selectedMember.profile?.salary_type === 'MONTHLY' ? '/mo' : '/hr'}
+                                                </span>
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex gap-3 pt-6 border-t border-slate-100 dark:border-slate-800">
-                            <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-200 dark:shadow-none" onClick={() => { setIsViewModalOpen(false); handleEditProfile(selectedMember); }}>
-                                <Edit className="w-4 h-4 mr-2" /> Edit Profile
-                            </Button>
+                        {/* Promotion History */}
+                        <div className="space-y-6 pt-4 border-t border-slate-100/60 dark:border-slate-800/60">
+                            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Promotion History</h4>
+                            <div className="space-y-3">
+                                {selectedMember.profile?.promotion_history && selectedMember.profile.promotion_history.length > 0 ? (
+                                    selectedMember.profile.promotion_history.map((p, i) => (
+                                        <div key={i} className="flex items-start gap-4 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                            <div className="bg-white dark:bg-slate-900 p-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
+                                                <Briefcase className="w-4 h-4 text-emerald-500" />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center justify-between gap-4">
+                                                    <p className="text-sm font-black text-slate-700 dark:text-slate-200">{p.role}</p>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.date}</p>
+                                                </div>
+                                                {p.note && <p className="text-xs text-slate-500 mt-1 italic">"{p.note}"</p>}
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="py-6 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl text-center">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No promotion history</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-4 border-t border-slate-100/60">
+                            <h4 className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Documents</h4>
+                        </div>
+                        <div className="space-y-3 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
+                            {documents.length > 0 ? (
+                                documents.map((doc, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/30 border border-slate-100/50 dark:border-slate-800 transition-all hover:bg-slate-100/50 hover:shadow-sm">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm">
+                                                <FileText className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 truncate">{doc.title}</span>
+                                        </div>
+                                        <a href={doc.file} target="_blank" rel="noopener noreferrer" className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-white dark:hover:bg-slate-800 transition-all">
+                                            <Download className="w-4 h-4" />
+                                        </a>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-6 border-2 border-dashed border-slate-100 dark:border-slate-800/60 rounded-[1.5rem] bg-slate-50/30">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">No documents uploaded</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-4 pt-1">
                             <Button
                                 variant="outline"
-                                className="flex-1 border-slate-200 dark:border-slate-700"
-                                onClick={() => setIsResetPasswordOpen(!isResetPasswordOpen)}
+                                className="flex-1 h-14 border-slate-200 dark:border-slate-700 rounded-xl font-black text-slate-700 dark:text-slate-200 text-base active:scale-[0.98] transition-all"
+                                onClick={() => setIsViewModalOpen(false)}
                             >
-                                <Key className="w-4 h-4 mr-2" /> Reset Password
+                                <X className="w-5 h-5 mr-3" /> Close Profile
+                            </Button>
+                            <Button
+                                className="flex-1 h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black tracking-tight text-base shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all"
+                                onClick={() => { setIsViewModalOpen(false); handleEditProfile(selectedMember); }}
+                            >
+                                <Edit className="w-5 h-5 mr-3" /> Edit Profile
                             </Button>
                         </div>
                     </CardContent>
@@ -700,94 +737,420 @@ const TeamTab: React.FC = () => {
     // Edit Profile Modal
     const EditProfileModal = () => {
         if (!selectedMember) return null;
+
         const [formData, setFormData] = useState({
             first_name: selectedMember.first_name,
             last_name: selectedMember.last_name,
             email: selectedMember.email,
             phone: selectedMember.phone || "",
             role: selectedMember.role,
+            hourly_rate: selectedMember.profile?.hourly_rate || 0,
+            salary_type: selectedMember.profile?.salary_type || 'HOURLY',
+            department: selectedMember.profile?.department || "",
+            join_date: selectedMember.profile?.join_date || format(new Date(), "yyyy-MM-dd"),
         });
+
+        const [promotions, setPromotions] = useState<{ role: string; date: string; note?: string }[]>(selectedMember.profile?.promotion_history || []);
+        const [showPasswordReset, setShowPasswordReset] = useState(false);
+        const [newPassword, setNewPassword] = useState("");
+        const [isResetting, setIsResetting] = useState(false);
+
+        // Promotion Sub-form state
+        const [isPromoting, setIsPromoting] = useState(false);
+        const [promoRole, setPromoRole] = useState(formData.role);
+        const [promoNote, setPromoNote] = useState("");
 
         const handleSave = async () => {
             try {
                 const token = localStorage.getItem("access_token") || "";
-                await api.updateStaffProfile(token, selectedMember.id, formData);
+
+                const updatedProfileData = {
+                    ...formData,
+                    profile: {
+                        join_date: formData.join_date,
+                        hourly_rate: typeof formData.hourly_rate === 'string' ? parseFloat(formData.hourly_rate) : formData.hourly_rate,
+                        salary_type: formData.salary_type,
+                        promotion_history: promotions,
+                        department: formData.department,
+                        emergency_contact_name: "",
+                        emergency_contact_phone: ""
+                    }
+                };
+
+                await api.updateStaffProfile(token, selectedMember.id, updatedProfileData);
+
+                // Manually update selectedMember to reflect changes immediately in the UI
+                setSelectedMember({
+                    ...selectedMember,
+                    ...formData,
+                    profile: {
+                        ...selectedMember.profile,
+                        ...updatedProfileData.profile
+                    }
+                });
+
                 toast.success("Profile updated successfully");
                 setIsEditModalOpen(false);
-                refetch();
+                refetchStaff();
             } catch (err: any) {
                 toast.error(err.message || "Failed to update profile");
             }
         };
 
+        const handleResetPassword = async () => {
+            if (!newPassword) {
+                toast.error("Please enter a new password");
+                return;
+            }
+            setIsResetting(true);
+            try {
+                const token = localStorage.getItem("access_token") || "";
+                await api.resetStaffPassword(token, selectedMember.id, newPassword);
+                toast.success("Password reset successfully");
+                setShowPasswordReset(false);
+                setNewPassword("");
+            } catch (err: any) {
+                toast.error(err.message || "Failed to reset password");
+            } finally {
+                setIsResetting(false);
+            }
+        };
+
+        const handlePromote = () => {
+            if (!promoRole) {
+                toast.error("Please select a role for promotion");
+                return;
+            }
+            const newPromotion = {
+                role: promoRole,
+                date: format(new Date(), "yyyy-MM-dd"),
+                note: promoNote
+            };
+            setPromotions([newPromotion, ...promotions]);
+            setFormData({ ...formData, role: promoRole });
+            setIsPromoting(false);
+            setPromoNote("");
+            toast.success(`Staff promoted to ${promoRole}`);
+        };
+
         return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <Card className="w-full max-w-md mx-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="text-slate-900 dark:text-white">Edit Staff Profile</CardTitle>
-                        <Button variant="ghost" size="icon" onClick={() => setIsEditModalOpen(false)}>
-                            <X className="w-4 h-4" />
+            <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+                <Card className="w-full max-w-2xl bg-white dark:bg-slate-900 border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
+                    <CardHeader className="pt-10 pb-2 px-10 flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Edit Staff Profile</CardTitle>
+                            <CardDescription className="text-slate-500 font-medium">Manage detailed staff information and records</CardDescription>
+                        </div>
+                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate-100" onClick={() => setIsEditModalOpen(false)}>
+                            <X className="w-5 h-5 text-slate-400" />
                         </Button>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">First Name</label>
-                            <Input value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} className="bg-white dark:bg-slate-800" />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Last Name</label>
-                            <Input value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} className="bg-white dark:bg-slate-800" />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Email</label>
-                            <Input value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="bg-white dark:bg-slate-800" />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Phone</label>
-                            <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="bg-white dark:bg-slate-800" />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Role</label>
-                            <select
-                                value={formData.role}
-                                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                className="w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            >
-                                <optgroup label="Management">
-                                    <option value="MANAGER">Manager</option>
-                                    <option value="ADMIN">Admin</option>
-                                    <option value="SUPER_ADMIN">Super Admin</option>
-                                </optgroup>
-                                <optgroup label="Kitchen">
-                                    <option value="CHEF">Chef</option>
-                                    <option value="SOUS_CHEF">Sous Chef</option>
-                                    <option value="PASTRY_CHEF">Pastry Chef</option>
-                                    <option value="KITCHEN_STAFF">Kitchen Staff</option>
-                                    <option value="DISHWASHER">Dishwasher</option>
-                                </optgroup>
-                                <optgroup label="Front of House">
-                                    <option value="WAITER">Waiter</option>
-                                    <option value="WAITRESS">Waitress</option>
-                                    <option value="HOST">Host</option>
-                                    <option value="HOSTESS">Hostess</option>
-                                    <option value="BARTENDER">Bartender</option>
-                                    <option value="SOMMELIER">Sommelier</option>
-                                    <option value="RUNNER">Runner</option>
-                                    <option value="BUSSER">Busser</option>
-                                    <option value="CASHIER">Cashier</option>
-                                </optgroup>
-                                <optgroup label="Other">
-                                    <option value="BARISTA">Barista</option>
-                                    <option value="CLEANER">Cleaner</option>
-                                    <option value="SECURITY">Security</option>
-                                </optgroup>
-                            </select>
-                        </div>
-                        <div className="flex gap-2 pt-4">
-                            <Button variant="outline" className="flex-1" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
-                            <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSave}>Save Changes</Button>
+
+                    <CardContent className="px-10 pb-10 max-h-[85vh] overflow-y-auto custom-scrollbar">
+                        <div className="space-y-8 py-4">
+                            {/* Personal Information */}
+                            <div className="space-y-6">
+                                <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Personal Information</h4>
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-1">First Name</label>
+                                        <Input
+                                            value={formData.first_name}
+                                            onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                                            className="h-12 rounded-xl bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-1">Last Name</label>
+                                        <Input
+                                            value={formData.last_name}
+                                            onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                                            className="h-12 rounded-xl bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                                        />
+                                    </div>
+                                    <div className="space-y-2 col-span-2">
+                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-1">Email Address</label>
+                                        <Input
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            className="h-12 rounded-xl bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-1">Phone Number</label>
+                                        <Input
+                                            value={formData.phone}
+                                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                            className="h-12 rounded-xl bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-1">Join Date</label>
+                                        <Input
+                                            type="date"
+                                            value={formData.join_date}
+                                            onChange={(e) => setFormData({ ...formData, join_date: e.target.value })}
+                                            className="h-12 rounded-xl bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Role & Compensation */}
+                            <div className="space-y-6 pt-4 border-t border-slate-100/60">
+                                <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Role & Compensation</h4>
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-1">Current Role</label>
+                                        <select
+                                            value={formData.role}
+                                            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                            className="w-full h-12 rounded-xl bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium px-3 text-sm"
+                                        >
+                                            <option value="MANAGER">Manager</option>
+                                            <option value="CHEF">Chef</option>
+                                            <option value="WAITER">Waiter</option>
+                                            <option value="KITCHEN_HELP">Kitchen Help</option>
+                                            <option value="BARTENDER">Bartender</option>
+                                            <option value="RECEPTIONIST">Receptionist</option>
+                                            <option value="CLEANER">Cleaner</option>
+                                            <option value="SECURITY">Security</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-1">Salary / Wage</label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                type="number"
+                                                value={formData.hourly_rate}
+                                                onChange={(e) => setFormData({ ...formData, hourly_rate: parseFloat(e.target.value) })}
+                                                className="h-12 rounded-xl bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-black text-emerald-600"
+                                            />
+                                            <select
+                                                value={formData.salary_type}
+                                                onChange={(e) => setFormData({ ...formData, salary_type: e.target.value as 'HOURLY' | 'MONTHLY' })}
+                                                className="h-12 rounded-xl bg-slate-100/50 border-none font-black text-[10px] px-2 text-slate-500 uppercase tracking-widest"
+                                            >
+                                                <option value="HOURLY">/HR</option>
+                                                <option value="MONTHLY">/MO</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Promotion History */}
+                            <div className="space-y-6 pt-4 border-t border-slate-100/60">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Promotion History</h4>
+                                    {!isPromoting && (
+                                        <Button variant="ghost" size="sm" className="text-emerald-600 font-black text-[10px] uppercase tracking-widest" onClick={() => setIsPromoting(true)}>
+                                            <TrendingUp className="w-3 h-3 mr-1" /> Promote Staff
+                                        </Button>
+                                    )}
+                                </div>
+
+                                {isPromoting && (
+                                    <div className="p-6 bg-emerald-50/50 rounded-3xl border border-emerald-100 space-y-4 animate-in fade-in slide-in-from-top-2">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-bold text-slate-700 ml-1">New Role</label>
+                                                <select
+                                                    value={promoRole}
+                                                    onChange={(e) => setPromoRole(e.target.value)}
+                                                    className="w-full h-12 rounded-xl bg-white border-emerald-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium px-3 text-sm"
+                                                >
+                                                    <option value="MANAGER">Manager</option>
+                                                    <option value="CHEF">Chef</option>
+                                                    <option value="WAITER">Waiter</option>
+                                                    <option value="KITCHEN_HELP">Kitchen Help</option>
+                                                    <option value="BARTENDER">Bartender</option>
+                                                    <option value="CLEANER">Cleaner</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-bold text-slate-700 ml-1">Effective Date</label>
+                                                <Input disabled value={format(new Date(), "PPP")} className="h-12 rounded-xl bg-white border-emerald-50 text-slate-400 font-medium" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold text-slate-700 ml-1">Promotion Notes</label>
+                                            <textarea
+                                                value={promoNote}
+                                                onChange={(e) => setPromoNote(e.target.value)}
+                                                placeholder="Reason for promotion, performance notes..."
+                                                className="w-full p-4 rounded-xl bg-white border-emerald-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium text-sm min-h-[100px]"
+                                            />
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button variant="ghost" className="flex-1 rounded-xl font-bold" onClick={() => setIsPromoting(false)}>Cancel</Button>
+                                            <Button className="flex-2 h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl px-8" onClick={handlePromote}>Confirm Promotion</Button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="space-y-3">
+                                    {promotions.length > 0 ? promotions.map((p, i) => (
+                                        <div key={i} className="flex items-start gap-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100/50">
+                                            <div className="bg-white p-2 rounded-lg shadow-sm border border-slate-100">
+                                                <Briefcase className="w-4 h-4 text-emerald-500" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-sm font-black text-slate-700">{p.role}</p>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.date}</p>
+                                                </div>
+                                                {p.note && <p className="text-xs text-slate-500 mt-1 italic">"{p.note}"</p>}
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-slate-300 hover:text-red-500 h-6 w-6"
+                                                onClick={() => setPromotions(promotions.filter((_, idx) => idx !== i))}
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </Button>
+                                        </div>
+                                    )) : (
+                                        <div className="py-6 border-2 border-dashed border-slate-50 rounded-2xl text-center">
+                                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">No promotion records found</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Documents Section */}
+                            <div className="space-y-6 pt-4 border-t border-slate-100/60">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Documents</h4>
+                                    <label className="cursor-pointer group">
+                                        <Input
+                                            type="file"
+                                            className="hidden"
+                                            onChange={async (e) => {
+                                                const file = e.target.files?.[0];
+                                                if (!file) return;
+                                                setIsUploading(true);
+                                                try {
+                                                    const token = localStorage.getItem("access_token") || "";
+                                                    await api.uploadStaffDocument(token, selectedMember.id, file, file.name);
+                                                    toast.success("Document uploaded successfully");
+                                                    fetchDocuments(selectedMember.id);
+                                                } catch (err: any) {
+                                                    toast.error(err.message || "Failed to upload document");
+                                                } finally {
+                                                    setIsUploading(false);
+                                                }
+                                            }}
+                                            disabled={isUploading}
+                                        />
+                                        <div className="flex items-center gap-1.5 text-xs font-black text-emerald-600 hover:text-emerald-700 transition-colors uppercase tracking-widest">
+                                            {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                            Upload Document
+                                        </div>
+                                    </label>
+                                </div>
+                                <div className="space-y-3">
+                                    {documents.length > 0 ? (
+                                        documents.map((doc, idx) => (
+                                            <div key={idx} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 transition-all hover:bg-slate-100/50">
+                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                                                        <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-slate-700 truncate">{doc.title}</span>
+                                                        <span className="text-[10px] font-medium text-slate-400">{format(new Date(doc.uploaded_at), "PPP")}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <a href={doc.file} target="_blank" rel="noopener noreferrer" className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-white transition-all">
+                                                        <Download className="w-4 h-4" />
+                                                    </a>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="w-8 h-8 text-slate-400 hover:text-red-500 hover:bg-white transition-all"
+                                                        onClick={async () => {
+                                                            if (!confirm("Are you sure you want to delete this document?")) return;
+                                                            try {
+                                                                const token = localStorage.getItem("access_token") || "";
+                                                                await api.deleteStaffDocument(token, doc.id);
+                                                                toast.success("Document deleted");
+                                                                fetchDocuments(selectedMember.id);
+                                                            } catch (err: any) {
+                                                                toast.error(err.message || "Failed to delete document");
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/30">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">No documents uploaded</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Password Security */}
+                            <div className="space-y-6 pt-4 border-t border-slate-100/60">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Security</h4>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className={cn(
+                                            "rounded-xl font-bold transition-all h-9 px-4 uppercase tracking-widest text-[10px]",
+                                            showPasswordReset ? "border-red-100 text-red-500 bg-red-50" : "border-slate-100 text-slate-600"
+                                        )}
+                                        onClick={() => setShowPasswordReset(!showPasswordReset)}
+                                    >
+                                        {showPasswordReset ? "Cancel reset" : "Reset Password"}
+                                    </Button>
+                                </div>
+                                {showPasswordReset && (
+                                    <div className="p-6 bg-slate-50/80 rounded-3xl border border-slate-100 space-y-4 animate-in fade-in slide-in-from-top-2">
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Key className="w-4 h-4 text-emerald-600" />
+                                                <label className="text-xs font-black text-slate-700 uppercase tracking-widest">New Password</label>
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <Input
+                                                    type="password"
+                                                    value={newPassword}
+                                                    onChange={(e) => setNewPassword(e.target.value)}
+                                                    placeholder="Enter secure password"
+                                                    className="h-12 rounded-xl bg-white border-slate-200 focus:ring-emerald-500"
+                                                />
+                                                <Button
+                                                    className="h-12 bg-slate-900 text-white font-bold rounded-xl px-8 hover:bg-slate-800 transition-all shadow-lg"
+                                                    onClick={handleResetPassword}
+                                                    disabled={isResetting}
+                                                >
+                                                    {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update"}
+                                                </Button>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 font-medium ml-1">Staff can use this to login via PIN or password.</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </CardContent>
+
+                    <div className="p-10 bg-slate-50/50 border-t border-slate-100 flex gap-4">
+                        <Button variant="outline" className="flex-1 h-16 rounded-2xl font-black text-base border-slate-200" onClick={() => setIsEditModalOpen(false)}>
+                            Cancel Changes
+                        </Button>
+                        <Button className="flex-1 h-16 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-base shadow-xl shadow-emerald-200" onClick={handleSave}>
+                            Save Information
+                        </Button>
+                    </div>
                 </Card>
             </div>
         );

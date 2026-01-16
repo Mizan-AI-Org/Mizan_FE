@@ -82,7 +82,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
       await auth.ownerSignup(signupData);
 
       toast({
-        title: "Welcome to Mizan!",
+        title: "Welcome to Mizan AI!",
         description: "Your restaurant account has been created successfully.",
       });
     } catch (error: unknown) {

@@ -17,7 +17,6 @@ import { AuthContextType } from "@/contexts/AuthContext.types";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import BackLink from "@/components/BackLink";
 import BrandLogo from "@/components/BrandLogo";
-import { LanguageSelector } from "@/components/LanguangeSelector";
 import { useLanguage } from "@/hooks/use-language";
 import { LuaWidget } from "@/components/LuaWidget";
 
@@ -59,8 +58,6 @@ const DashboardLayout: React.FC = () => {
               {/* Theme Toggle */}
               <ThemeToggle />
 
-              {/* Language Switcher */}
-              <LanguageSelector />
 
               <div className="hidden lg:flex items-center gap-2">
               </div>

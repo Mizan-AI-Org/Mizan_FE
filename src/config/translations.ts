@@ -3,7 +3,7 @@ type Language = 'en' | 'fr' | 'ar';
 const translations: Record<Language, Record<string, string>> = {
     en: {
         // Dashboard
-        'dashboard.title': 'Mizan Restaurant OS',
+        'dashboard.title': 'Mizan AI Restaurant OS',
         'dashboard.operations': 'Restaurant Operations',
         'dashboard.select': 'Select an application to get started',
         'dashboard.no_apps': 'No Applications Available',
@@ -36,7 +36,7 @@ const translations: Record<Language, Record<string, string>> = {
     },
     fr: {
         // Dashboard
-        'dashboard.title': 'Mizan OS Restaurant',
+        'dashboard.title': 'Mizan AI OS Restaurant',
         'dashboard.operations': 'Opérations du Restaurant',
         'dashboard.select': 'Sélectionnez une application pour commencer',
         'dashboard.no_apps': 'Aucune Application Disponible',
@@ -69,7 +69,7 @@ const translations: Record<Language, Record<string, string>> = {
     },
     ar: {
         // Dashboard
-        'dashboard.title': 'ميزان نظام المطاعم',
+        'dashboard.title': 'Mizan AI نظام المطاعم',
         'dashboard.operations': 'عمليات المطعم',
         'dashboard.select': 'اختر تطبيقًا للبدء',
         'dashboard.no_apps': 'لا توجد تطبيقات متاحة',
