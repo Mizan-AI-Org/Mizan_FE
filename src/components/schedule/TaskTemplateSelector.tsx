@@ -3,6 +3,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Search } from "lucide-react";
 import { useTaskTemplates } from "@/hooks/useTaskTemplates";
 
 interface TaskTemplateSelectorProps {
@@ -41,15 +42,18 @@ export const TaskTemplateSelector: React.FC<TaskTemplateSelectorProps> = ({ sele
     <div className={className}>
       {showFilters && (
         <div className="flex items-center gap-2 mb-2">
-          <input
-            className="w-full border rounded px-2 py-1 text-sm"
-            placeholder="Search templates…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search templates"
-          />
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <input
+              className="w-full border rounded-md pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder="Search templates…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="Search templates"
+            />
+          </div>
           <select
-            className="border rounded px-2 py-1 text-sm"
+            className="border rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
             aria-label="Filter by type"
@@ -63,7 +67,7 @@ export const TaskTemplateSelector: React.FC<TaskTemplateSelectorProps> = ({ sele
             <option value="SOP">SOP</option>
           </select>
           <select
-            className="border rounded px-2 py-1 text-sm"
+            className="border rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             value={filterFrequency}
             onChange={(e) => setFilterFrequency(e.target.value)}
             aria-label="Filter by frequency"
@@ -76,7 +80,6 @@ export const TaskTemplateSelector: React.FC<TaskTemplateSelectorProps> = ({ sele
             <option value="ANNUALLY">Annually</option>
             <option value="CUSTOM">Custom</option>
           </select>
-          {/* Refresh button removed as requested */}
         </div>
       )}
 

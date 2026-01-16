@@ -17,7 +17,7 @@ const BrandLogo: React.FC<BrandLogoProps> = ({ size = "sm", className, ariaLabel
   return (
     <div
       className={`inline-flex items-center justify-center ${s.outer} rounded-full bg-[#00E676] shadow-lg pointer-events-none select-none cursor-default ${className || ""}`}
-      aria-label={ariaLabel || "Mizan brand logo"}
+      aria-label={ariaLabel || "Mizan AI brand logo"}
     >
       <div className={`bg-white rounded-full flex items-center justify-center ${s.inner}`}>
         <div className={`bg-[#00E676] rounded-full ${s.dot}`} />

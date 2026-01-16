@@ -33,3 +33,36 @@ export interface Shift {
   type?: 'confirmed' | 'pending' | 'tentative';
   tasks?: Task[];
 }
+
+export interface StaffMember {
+  id: string;
+  user?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  };
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  role?: string;
+}
+
+export interface BackendShift {
+  id: string;
+  staff: string;
+  shift_date: string;
+  start_time: string;
+  end_time: string;
+  notes: string;
+  color?: string;
+  staff_name?: string;
+  staff_email?: string;
+}
+
+export interface WeeklyScheduleData {
+  id: string;
+  week_start: string;
+  week_end: string;
+  is_published: boolean;
+  assigned_shifts: BackendShift[];
+}

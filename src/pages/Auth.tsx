@@ -103,7 +103,7 @@ const Auth = () => {
                 <div className="w-4 h-4 bg-[#00E676] rounded-full" />
               </div>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">Mizan</h1>
+            <h1 className="text-3xl font-bold text-white mb-2">Mizan AI</h1>
             <p className="text-[#B0BEC5]">Join Your Team</p>
           </div>
 
@@ -248,7 +248,7 @@ const Auth = () => {
                   <div className="w-4 h-4 bg-[#00E676] rounded-full" />
                 </div>
               </div>
-              <h1 className="text-3xl font-bold text-white mb-2">Mizan</h1>
+              <h1 className="text-3xl font-bold text-white mb-2">Mizan AI</h1>
               <p className="text-[#B0BEC5]">
                 Your Restaurant Operations on Auto Pilot
               </p>

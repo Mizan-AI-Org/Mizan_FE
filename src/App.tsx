@@ -22,8 +22,7 @@ import InventoryReportsPage from "./pages/reporting/InventoryReportsPage";
 import TimeClockPage from "./pages/TimeClockPage";
 import ShiftDetailView from "./pages/ShiftDetailView";
 import StaffAnnouncementsList from "./pages/StaffAnnouncement";
-import Staff from "./pages/Staff";
-import AddStaff from "./pages/AddStaff";
+// Removed legacy staff imports
 
 // Lazy-loaded components
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
@@ -308,14 +307,7 @@ const App = () => {
                     </RoleBasedRoute>
                   }
                 />
-                <Route
-                  path="dashboard/staff"
-                  element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
-                      <Staff />
-                    </RoleBasedRoute>
-                  }
-                />
+                {/* Removed legacy staff route */}
                 <Route
                   path="dashboard/staff-app"
                   element={
@@ -342,14 +334,7 @@ const App = () => {
                     </RoleBasedRoute>
                   }
                 />
-                <Route
-                  path="staff/add-staff"
-                  element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
-                      <AddStaff />
-                    </RoleBasedRoute>
-                  }
-                />
+                {/* Removed legacy add-staff route */}
                 <Route
                   path="dashboard/auto-schedule"
                   element={

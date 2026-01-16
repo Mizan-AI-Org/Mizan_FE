@@ -10,17 +10,6 @@ const StaffSchedulesApp: React.FC = () => {
 
     return (
         <div className="container mx-auto py-6 space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="mizan-title">
-                        <span className="mizan-serif">Staff</span> Schedules
-                    </h1>
-                    <p className="text-muted-foreground text-sm font-medium mt-1">
-                        Manage team rosters and review shift performance
-                    </p>
-                </div>
-            </div>
-
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
                 <TabsList className="grid w-full md:w-[400px] grid-cols-2">
                     <TabsTrigger value="schedule">

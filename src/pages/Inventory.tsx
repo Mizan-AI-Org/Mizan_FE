@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import {
   Search,
   Package,
@@ -11,7 +12,8 @@ import {
   Calendar,
   Plus,
   Download,
-  TrendingDown
+  TrendingDown,
+  Sparkles
 } from "lucide-react";
 import React from "react";
 import { useNavigate } from "react-router-dom";
@@ -34,7 +36,7 @@ interface InventoryItem {
 
 interface InventoryCardProps {
   item: InventoryItem;
-  getStockStatus: (item: InventoryItem) => "low" | "high" | "optimal";
+  getStockStatus: (item: InventoryItem) => string;
   navigate: (path: string) => void;
 }
 
@@ -58,39 +60,45 @@ const MemoizedInventoryCard = React.memo(({ item, getStockStatus, navigate }: In
   return (
     <Card
       key={item.id}
-      className="p-4 flex justify-between items-center hover:shadow-lg transition-shadow duration-200 cursor-pointer"
-      onClick={() => navigate(`/dashboard/inventory/${item.id}`)} // Example navigation
+      className="p-5 flex justify-between items-center bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-green-100 transition-all duration-300 cursor-pointer rounded-2xl"
+      onClick={() => navigate(`/dashboard/inventory/${item.id}`)}
     >
-      <div className="flex items-center space-x-4">
-        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${status === "low" ? "bg-destructive/20" :
-          status === "high" ? "bg-primary/20" :
-            "bg-yellow-100"
+      <div className="flex items-center space-x-5">
+        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors ${status === "low" ? "bg-red-50" :
+          status === "high" ? "bg-green-50" :
+            "bg-orange-50"
           }`}>
-          <Package className={`h-6 w-6 ${stockStatusClass}`} />
+          <Package className={`h-7 w-7 ${status === "low" ? "text-red-500" : status === "high" ? "text-green-600" : "text-orange-500"}`} />
         </div>
         <div>
-          <h3 className="font-semibold text-lg">{item.name}</h3>
-          <p className="text-sm text-muted-foreground">{item.category}</p>
-          <div className="flex items-center mt-1 text-sm text-gray-600">
-            Current: <span className={`font-medium ml-1 ${stockStatusClass}`}>{item.currentStock} {item.unit}</span>
-            <Badge variant="outline" className={`ml-2 text-xs ${statusBadgeClass}`}>{status}</Badge>
+          <h3 className="font-black text-slate-900 text-lg tracking-tight">{item.name}</h3>
+          <p className="text-sm text-slate-400 font-medium uppercase tracking-widest">{item.category}</p>
+          <div className="flex items-center mt-2 text-sm text-slate-600 font-medium">
+            Current: <span className={`font-black ml-1 ${status === "low" ? "text-red-600" : "text-slate-900"}`}>{item.currentStock} {item.unit}</span>
+            <Badge variant="outline" className={cn(
+              "ml-3 text-[10px] font-black uppercase tracking-widest px-2 py-0 border-none",
+              status === "low" ? "bg-red-100 text-red-700" : status === "high" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+            )}>{status}</Badge>
           </div>
         </div>
       </div>
 
-      <div className="text-right space-y-2">
-        <div className="text-lg font-semibold">
+      <div className="text-right space-y-1.5">
+        <div className="text-xl font-black text-slate-900">
           ${(item.currentStock * item.costPerUnit).toFixed(2)}
         </div>
-        <div className="text-sm text-muted-foreground">
+        <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">
           ${item.costPerUnit}/{item.unit}
         </div>
         {item.aiRecommendation && (
-          <div className={`text-xs p-2 rounded ${item.trend === "critical" ? "bg-destructive/10 text-destructive" :
-            item.trend === "decreasing" ? "bg-warning/10 text-warning" :
-              "bg-primary/10 text-primary"
-            }`}>
-            🤖 {item.aiRecommendation}
+          <div className={cn(
+            "text-[11px] p-2 rounded-xl mt-2 font-bold flex items-center gap-2",
+            item.trend === "critical" ? "bg-red-50 text-red-600" :
+              item.trend === "decreasing" ? "bg-orange-50 text-orange-600" :
+                "bg-green-50 text-green-600"
+          )}>
+            <TrendingUp className="w-3 h-3" />
+            {item.aiRecommendation}
           </div>
         )}
       </div>
@@ -193,9 +201,9 @@ export default function Inventory() {
   }, [inventoryItems, filterCategory, searchTerm]);
 
   const getStockStatus = (item: InventoryItem) => {
-    if (item.currentStock <= item.minLevel) return "critical";
+    if (item.currentStock <= item.minLevel) return "low";
     if (item.currentStock <= item.minLevel * 1.5) return "low";
-    return "good";
+    return "high";
   };
 
   const getStockBadge = (status: string) => {
@@ -210,19 +218,19 @@ export default function Inventory() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pt-4 pb-8 max-w-[1600px] mx-auto p-4 md:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
         <div>
-          <h1 className="text-3xl font-bold">Inventory Management</h1>
-          <p className="text-muted-foreground">Track stock levels and AI-powered recommendations</p>
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Inventory Management</h1>
+          <p className="text-gray-500 mt-1 font-medium italic text-sm">Track stock levels and AI-powered recommendations</p>
         </div>
-        <div className="flex space-x-3">
-          <Button variant="outline">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" className="rounded-xl font-bold border-slate-200">
             <Download className="w-4 h-4 mr-2" />
-            Export Report
+            Report
           </Button>
-          <Button className="bg-gradient-primary hover:bg-primary/90">
+          <Button className="bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold px-6 shadow-sm hover:shadow-md transition-all h-11">
             <Plus className="w-4 h-4 mr-2" />
             Add Item
           </Button>
@@ -230,51 +238,59 @@ export default function Inventory() {
       </div>
 
       {/* AI Insights Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="shadow-soft">
-          <CardContent className="p-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="border-slate-100 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">Total Inventory Value</p>
-                <p className="text-2xl font-bold">{aiInsights.totalValue}</p>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Total Value</p>
+                <p className="text-2xl font-black text-slate-900">{aiInsights.totalValue}</p>
               </div>
-              <Package className="w-8 h-8 text-primary" />
+              <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center">
+                <Package className="w-6 h-6 text-green-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft">
-          <CardContent className="p-4">
+        <Card className="border-slate-100 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">Waste Risk Level</p>
-                <p className="text-2xl font-bold">{aiInsights.wasteRisk}</p>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Waste Risk</p>
+                <p className="text-2xl font-black text-slate-900">{aiInsights.wasteRisk}</p>
               </div>
-              <AlertTriangle className="w-8 h-8 text-warning" />
+              <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-red-500" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft">
-          <CardContent className="p-4">
+        <Card className="border-slate-100 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">AI Recommendations</p>
-                <p className="text-2xl font-bold">{aiInsights.orderRecommendations}</p>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">AI Insights</p>
+                <p className="text-2xl font-black text-slate-900">{aiInsights.orderRecommendations}</p>
               </div>
-              <TrendingUp className="w-8 h-8 text-success" />
+              <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-orange-500" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft">
-          <CardContent className="p-4">
+        <Card className="border-slate-100 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">Potential Savings</p>
-                <p className="text-2xl font-bold">{aiInsights.costSavings}</p>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Savings</p>
+                <p className="text-2xl font-black text-slate-900">{aiInsights.costSavings}</p>
               </div>
-              <Calendar className="w-8 h-8 text-accent" />
+              <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
+                <Calendar className="w-6 h-6 text-blue-500" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -335,47 +351,42 @@ export default function Inventory() {
       </Card>
 
       {/* AI Generated Purchase List */}
-      <Card className="shadow-soft bg-gradient-warm border-accent/20">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            🤖 AI-Generated Purchase List for Tomorrow
+      <Card className="border-green-100 shadow-sm rounded-2xl overflow-hidden bg-green-50/30">
+        <CardHeader className="bg-white/50 border-b border-green-50">
+          <CardTitle className="flex items-center gap-2 text-xl font-black text-gray-900">
+            <Sparkles className="w-5 h-5 text-green-600" />
+            AI-Generated Purchase List
           </CardTitle>
-          <CardDescription>Based on consumption patterns, weather, and events</CardDescription>
+          <CardDescription className="font-medium text-slate-500">Optimized based on historical patterns and demand forecast</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center p-3 bg-card rounded-lg">
-              <span className="font-medium">Roma Tomatoes</span>
-              <div className="text-right">
-                <span className="font-bold">42 lbs</span>
-                <div className="text-sm text-muted-foreground">Critical shortage</div>
+        <CardContent className="pt-6">
+          <div className="grid gap-3">
+            {[
+              { name: "Roma Tomatoes", qty: "42 lbs", reason: "Critical shortage" },
+              { name: "Chicken Breast", qty: "55 lbs", reason: "Weekend demand spike" },
+              { name: "Mozzarella Cheese", qty: "15 lbs", reason: "Pizza Friday prep" }
+            ].map((p, i) => (
+              <div key={i} className="flex justify-between items-center p-4 bg-white rounded-xl shadow-sm border border-slate-50">
+                <div>
+                  <span className="font-black text-slate-900 block">{p.name}</span>
+                  <span className="text-xs text-slate-400 font-bold uppercase tracking-widest">{p.reason}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-lg font-black text-green-700">{p.qty}</span>
+                </div>
               </div>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-card rounded-lg">
-              <span className="font-medium">Chicken Breast</span>
-              <div className="text-right">
-                <span className="font-bold">55 lbs</span>
-                <div className="text-sm text-muted-foreground">Weekend demand spike</div>
-              </div>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-card rounded-lg">
-              <span className="font-medium">Mozzarella Cheese</span>
-              <div className="text-right">
-                <span className="font-bold">15 lbs</span>
-                <div className="text-sm text-muted-foreground">Pizza Friday prep</div>
-              </div>
-            </div>
+            ))}
           </div>
-          <div className="mt-6 pt-4 border-t">
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-lg font-semibold">Estimated Total:</span>
-              <span className="text-2xl font-bold text-primary">$436.75</span>
+          <div className="mt-8 pt-6 border-t border-slate-100">
+            <div className="flex justify-between items-center mb-6">
+              <span className="text-lg font-black text-slate-900 uppercase tracking-widest">Estimated Total</span>
+              <span className="text-3xl font-black text-green-700">$436.75</span>
             </div>
-            <div className="flex gap-3">
-              <Button className="flex-1 bg-gradient-primary hover:bg-primary/90">
+            <div className="flex gap-4">
+              <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold h-12 shadow-sm">
                 Send to Suppliers
               </Button>
-              <Button variant="outline">
+              <Button variant="outline" className="rounded-xl font-bold h-12 border-slate-200">
                 Modify Orders
               </Button>
             </div>
