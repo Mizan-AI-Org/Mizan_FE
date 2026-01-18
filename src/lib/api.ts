@@ -29,10 +29,9 @@ import {
   ShiftReviewSubmission,
 } from "./types"; // Updated import path
 
-export const API_BASE =
-  import.meta.env.VITE_BACKEND_URL
-    ? `${import.meta.env.VITE_BACKEND_URL}/api`
-    : "http://localhost:8000/api";
+export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+
+export const API_BASE = `${BACKEND_URL}/api`;
 
 // Derive WS_BASE from API_BASE or VITE_BACKEND_URL
 // If API_BASE starts with http, replace with ws. If https, replace with wss.
@@ -423,7 +422,8 @@ export class BackendService {
 
   async getStaffList(accessToken: string): Promise<StaffListItem[]> {
     try {
-      const primary = await fetch(`${API_BASE}/staff/list/`, {
+      // Use the standard staff list endpoint
+      const primary = await fetch(`${API_BASE}/staff/`, {
         method: "GET",
         headers: this.getHeaders(accessToken),
       });
@@ -442,6 +442,8 @@ export class BackendService {
         const arr = Array.isArray(parsedPrimary?.results) ? parsedPrimary.results : (Array.isArray(parsedPrimary) ? parsedPrimary : []);
         return arr as StaffListItem[];
       }
+
+      // Fallback to generic users list
       const fallback = await fetch(`${API_BASE}/users/?is_active=true`, {
         method: "GET",
         headers: this.getHeaders(accessToken),
@@ -464,7 +466,9 @@ export class BackendService {
         first_name: String(u?.first_name ?? ""),
         last_name: String(u?.last_name ?? ""),
         role: String(u?.role ?? ""),
+        phone: String(u?.phone ?? ""),
         join_date: String(u?.join_date ?? u?.created_at ?? ""),
+        profile: u?.profile || null,
       }));
     } catch (error: any) {
       throw new Error(error?.message || "Failed to fetch staff list");
@@ -541,6 +545,13 @@ export class BackendService {
       });
       if (!response.ok) {
         const errorData = await response.json();
+        // Handle structured DRF errors (e.g. { "email": ["..."] })
+        if (typeof errorData === 'object' && !errorData.message && !errorData.detail) {
+          const errors = Object.entries(errorData)
+            .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+            .join(' | ');
+          throw new Error(errors || "Validation failed");
+        }
         throw new Error(errorData.message || errorData.detail || "Failed to update staff profile");
       }
       return await response.json();
@@ -614,7 +625,7 @@ export class BackendService {
     }
   }
 
-  async getStaffDocuments(accessToken: string, staffId: string): Promise<any[]> {
+  async getStaffDocuments(accessToken: string, staffId: string): Promise<any> {
     try {
       const response = await fetch(`${API_BASE}/staff/documents/?staff_id=${staffId}`, {
         method: "GET",

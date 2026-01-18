@@ -63,7 +63,6 @@ const TaskManagementBoard = React.lazy(
   () => import("./pages/TaskManagementBoard")
 );
 const TaskTemplates = React.lazy(() => import("./pages/TaskTemplates"));
-const Processes = React.lazy(() => import("./pages/Processes"));
 const ManagerSwapRequests = React.lazy(
   () => import("./pages/ManagerSwapRequests")
 );
@@ -367,16 +366,6 @@ const App = () => {
                     <React.Suspense fallback={<div>Loading...</div>}>
                       <TaskManagementBoard />
                     </React.Suspense>
-                  }
-                />
-                <Route
-                  path="dashboard/processes"
-                  element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
-                      <React.Suspense fallback={<div>Loading...</div>}>
-                        <Processes />
-                      </React.Suspense>
-                    </RoleBasedRoute>
                   }
                 />
                 <Route

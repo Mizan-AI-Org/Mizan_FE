@@ -28,36 +28,25 @@ export default function ProcessesTasksApp() {
 
                 {/* Tabbed Interface */}
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl mb-6">
+                    <TabsList className="w-full grid grid-cols-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl mb-6">
                         <TabsTrigger
                             value="board"
-                            className="data-[state=active]:bg-teal-500 data-[state=active]:text-white rounded-lg px-4"
+                            className="flex-1 data-[state=active]:bg-teal-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all"
                         >
                             <ListChecks className="w-4 h-4 mr-2" />
                             Live Board
                         </TabsTrigger>
                         <TabsTrigger
-                            value="processes"
-                            className="data-[state=active]:bg-teal-500 data-[state=active]:text-white rounded-lg px-4"
+                            value="templates"
+                            className="flex-1 data-[state=active]:bg-teal-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all"
                         >
                             <Layers className="w-4 h-4 mr-2" />
                             Processes
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="templates"
-                            className="data-[state=active]:bg-teal-500 data-[state=active]:text-white rounded-lg px-4"
-                        >
-                            <FileJson className="w-4 h-4 mr-2" />
-                            Templates
                         </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="board" className="mt-0">
                         <TaskManagementBoard />
-                    </TabsContent>
-
-                    <TabsContent value="processes" className="mt-0">
-                        <Processes />
                     </TabsContent>
 
                     <TabsContent value="templates" className="mt-0">
