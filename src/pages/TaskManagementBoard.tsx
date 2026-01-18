@@ -1,481 +1,297 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/use-auth';
-import { AuthContextType } from '../contexts/AuthContext.types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { API_BASE } from "@/lib/api";
 import {
-  Plus,
-  Loader2,
-  Trash2,
+  Clock,
+  User,
   CheckCircle,
-  Circle,
   AlertCircle,
-  Users,
-  Filter,
-  Search,
-  ArrowRight
+  AlertTriangle,
+  PlayCircle
 } from 'lucide-react';
+import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-  status: 'TODO' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  assigned_to?: { id: string; first_name: string; last_name: string; };
-  category?: { id: string; name: string; color: string; };
-  created_at: string;
-  completed_at?: string;
-  estimated_duration?: string;
-  shift?: { id: string; };
-}
-
-interface ShiftOption {
-  id: string;
-  staff: { first_name: string; last_name: string; };
-  shift_date: string;
-  start_time: string;
-  end_time: string;
-}
-
-interface Category {
-  id: string;
+interface StaffMetric {
+  staff_id: string;
   name: string;
-  color: string;
+  role: string;
+  shift_status: 'ON_SHIFT' | 'BREAK' | 'OFF_SHIFT';
+  current_process: {
+    name: string;
+    progress: number;
+  };
+  tasks: {
+    completed: number;
+    total: number;
+    overdue: number;
+    is_completed: boolean;
+  };
+  pace: {
+    elapsed_minutes: number;
+    avg_minutes: number;
+    status: 'GREEN' | 'YELLOW' | 'RED';
+  };
+  attention: {
+    needed: boolean;
+    reason: string;
+  };
 }
 
 export default function TaskManagementBoard() {
-  const { user } = useAuth() as AuthContextType;
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [shifts, setShifts] = useState<ShiftOption[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const { user } = useAuth();
+  const [activeProcessesCount, setActiveProcessesCount] = useState(0);
+  const [tasksToday, setTasksToday] = useState({ total: 0, completed: 0, ongoing: 0 });
+  const [onTimeRate, setOnTimeRate] = useState(0);
+  const [onTimeChange, setOnTimeChange] = useState(0);
+  const [attentionNeeded, setAttentionNeeded] = useState(0);
+  const [staffMetrics, setStaffMetrics] = useState<StaffMetric[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // New task form state
-  const [newTask, setNewTask] = useState({
-    title: '',
-    description: '',
-    priority: 'MEDIUM' as const,
-    status: 'TODO' as const,
-    shift_id: '',
-    category_id: '',
-    assigned_to_id: ''
-  });
+  const loadLiveBoardMetrics = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/dashboard/analytics/live_board_metrics/`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setActiveProcessesCount(data.active_processes_count);
+        setTasksToday(data.tasks_today);
+        setOnTimeRate(data.on_time_rate);
+        setOnTimeChange(data.on_time_change);
+        setAttentionNeeded(data.attention_needed);
+      }
+    } catch (error) {
+      console.error('Failed to load metrics', error);
+    }
+  };
+
+  const loadStaffMetrics = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/dashboard/analytics/staff_live_metrics/`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setStaffMetrics(data);
+      }
+    } catch (error) {
+      console.error('Failed to load staff metrics', error);
+    }
+    setIsLoading(false);
+  };
 
   useEffect(() => {
-    loadTasks();
-    loadShifts();
-    loadCategories();
+    loadLiveBoardMetrics();
+    loadStaffMetrics();
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      loadLiveBoardMetrics();
+      loadStaffMetrics();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  const loadTasks = async () => {
-    setIsLoading(true);
-    try {
-      const token = localStorage.getItem('access_token');
-      const params = new URLSearchParams();
-
-      if (priorityFilter) params.append('priority', priorityFilter);
-      if (statusFilter) params.append('status', statusFilter);
-
-      const response = await fetch(
-        `${API_BASE}/dashboard/tasks/?${params.toString()}`,
-        { headers: { 'Authorization': `Bearer ${token}` } }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setTasks(data.results || data);
-      }
-    } catch (error) {
-      toast.error('Failed to load tasks');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadShifts = async () => {
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(
-        `${API_BASE}/scheduling/assigned-shifts/`,
-        { headers: { 'Authorization': `Bearer ${token}` } }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setShifts(data.results || data);
-      }
-    } catch (error) {
-      console.error('Failed to load shifts:', error);
-    }
-  };
-
-  const loadCategories = async () => {
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(
-        `${API_BASE}/dashboard/task-categories/`,
-        { headers: { 'Authorization': `Bearer ${token}` } }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data.results || data);
-      }
-    } catch (error) {
-      console.error('Failed to load categories:', error);
-    }
-  };
-
-  const createTask = async () => {
-    if (!newTask.title.trim() || !newTask.shift_id) {
-      toast.error('Please fill in required fields');
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_BASE}/dashboard/tasks/`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(newTask)
-      });
-
-      if (response.ok) {
-        toast.success('Task created successfully');
-        setNewTask({
-          title: '',
-          description: '',
-          priority: 'MEDIUM',
-          status: 'TODO',
-          shift_id: '',
-          category_id: '',
-          assigned_to_id: ''
-        });
-        setIsDialogOpen(false);
-        loadTasks();
-      } else {
-        throw new Error('Failed to create task');
-      }
-    } catch (error: any) {
-      toast.error(error.message);
-    }
-  };
-
-  const updateTaskStatus = async (taskId: string, newStatus: Task['status']) => {
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_BASE}/dashboard/tasks/${taskId}/`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
-
-      if (response.ok) {
-        toast.success(`Task status updated to ${newStatus}`);
-        loadTasks();
-      }
-    } catch (error) {
-      toast.error('Failed to update task');
-    }
-  };
-
-  const markTaskCompleted = async (taskId: string) => {
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_BASE}/dashboard/tasks/${taskId}/mark_completed/`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        toast.success('Task marked as completed');
-        loadTasks();
-      }
-    } catch (error) {
-      toast.error('Failed to mark task as completed');
-    }
-  };
-
-  const deleteTask = async (taskId: string) => {
-    if (!window.confirm('Are you sure you want to delete this task?')) return;
-
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_BASE}/dashboard/tasks/${taskId}/`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        toast.success('Task deleted');
-        loadTasks();
-      }
-    } catch (error) {
-      toast.error('Failed to delete task');
-    }
-  };
-
-  const getStatusIcon = (status: Task['status']) => {
+  const getPaceColor = (status: string) => {
     switch (status) {
-      case 'COMPLETED':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'IN_PROGRESS':
-        return <Circle className="w-4 h-4 text-blue-500" />;
-      case 'TODO':
-        return <Circle className="w-4 h-4 text-gray-400" />;
-      default:
-        return <Circle className="w-4 h-4 text-gray-400" />;
+      case 'GREEN': return 'text-emerald-500';
+      case 'YELLOW': return 'text-amber-500';
+      case 'RED': return 'text-rose-500';
+      default: return 'text-slate-500';
     }
-  };
-
-  const getPriorityColor = (priority: Task['priority']) => {
-    switch (priority) {
-      case 'URGENT':
-        return 'bg-red-100 text-red-800 border-red-300';
-      case 'HIGH':
-        return 'bg-orange-100 text-orange-800 border-orange-300';
-      case 'MEDIUM':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'LOW':
-        return 'bg-green-100 text-green-800 border-green-300';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const filteredTasks = tasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
-
-  // Group tasks by status
-  const tasksByStatus = {
-    'TODO': filteredTasks.filter(t => t.status === 'TODO'),
-    'IN_PROGRESS': filteredTasks.filter(t => t.status === 'IN_PROGRESS'),
-    'COMPLETED': filteredTasks.filter(t => t.status === 'COMPLETED')
   };
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">Task Management</h1>
-          <p className="text-gray-600 mt-2">Organize and track all your tasks</p>
-        </div>
-
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Task
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Task</DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4">
+    <div className="h-full flex flex-col space-y-6 max-w-7xl mx-auto dark:bg-slate-900">
+      {/* Header Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[
+          {
+            label: "Active Ongoing Processes",
+            value: activeProcessesCount,
+            icon: PlayCircle,
+            color: "text-blue-500",
+            bg: "bg-blue-50 dark:bg-blue-900/10"
+          },
+          {
+            label: "Processes/Tasks Today",
+            value: `${tasksToday.completed}/${tasksToday.total}`,
+            subtext: `${tasksToday.ongoing} In Progress`,
+            icon: CheckCircle,
+            color: "text-emerald-500",
+            bg: "bg-emerald-50 dark:bg-emerald-900/10"
+          },
+          {
+            label: "On-Time Rate",
+            value: `${onTimeRate}%`,
+            change: onTimeChange,
+            icon: Clock,
+            color: "text-violet-500",
+            bg: "bg-violet-50 dark:bg-violet-900/10"
+          },
+          {
+            label: "Attention Needed",
+            value: attentionNeeded,
+            icon: AlertCircle,
+            color: "text-rose-500",
+            bg: "bg-rose-50 dark:bg-rose-900/10"
+          },
+        ].map((metric, i) => (
+          <Card key={i} className="border-none shadow-sm dark:bg-slate-800">
+            <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <label className="block text-sm font-medium mb-1">Task Title *</label>
-                <Input
-                  value={newTask.title}
-                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                  placeholder="Enter task title"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
-                <textarea
-                  value={newTask.description}
-                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                  placeholder="Enter task description"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  rows={3}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Priority</label>
-                  <select
-                    value={newTask.priority}
-                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  >
-                    <option value="LOW">Low</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="HIGH">High</option>
-                    <option value="URGENT">Urgent</option>
-                  </select>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{metric.label}</p>
+                <div className="flex items-baseline space-x-2">
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{metric.value}</h2>
+                  {metric.change !== undefined && (
+                    <span className={cn("text-xs font-medium", metric.change >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                      {metric.change > 0 ? '+' : ''}{metric.change}%
+                    </span>
+                  )}
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">Category</label>
-                  <select
-                    value={newTask.category_id}
-                    onChange={(e) => setNewTask({ ...newTask, category_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  >
-                    <option value="">Select category</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
+                {metric.subtext && <p className="text-xs text-slate-500 mt-1">{metric.subtext}</p>}
               </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Shift *</label>
-                <select
-                  value={newTask.shift_id}
-                  onChange={(e) => setNewTask({ ...newTask, shift_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="">Select shift</option>
-                  {shifts.map(shift => (
-                    <option key={shift.id} value={shift.id}>
-                      {shift.staff.first_name} {shift.staff.last_name} - {shift.shift_date}
-                    </option>
-                  ))}
-                </select>
+              <div className={cn("p-2 rounded-lg", metric.bg)}>
+                <metric.icon className={cn("w-5 h-5", metric.color)} />
               </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-              <Button onClick={createTask} className="w-full">
-                Create Task
-              </Button>
+      {/* Staff Live Progress Section */}
+      <Card className="border-none shadow-sm dark:bg-slate-800 flex-1">
+        <CardHeader className="border-b border-slate-100 dark:border-slate-700 pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl font-bold flex items-center gap-2">
+                <User className="w-5 h-5 text-indigo-500" />
+                Staff Live Progress
+              </CardTitle>
+              <p className="text-sm text-slate-500 mt-1">Live view of task and process progress for active shifts</p>
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Search and Filter */}
-      <div className="flex flex-col md:flex-row gap-2">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search tasks..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        <select
-          value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-md"
-        >
-          <option value="">All Priorities</option>
-          <option value="LOW">Low</option>
-          <option value="MEDIUM">Medium</option>
-          <option value="HIGH">High</option>
-          <option value="URGENT">Urgent</option>
-        </select>
-      </div>
-
-      {/* Kanban Board */}
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {['TODO', 'IN_PROGRESS', 'COMPLETED'].map(status => (
-            <div key={status}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  {status === 'TODO' && <Circle className="w-4 h-4 text-gray-400" />}
-                  {status === 'IN_PROGRESS' && <AlertCircle className="w-4 h-4 text-blue-500" />}
-                  {status === 'COMPLETED' && <CheckCircle className="w-4 h-4 text-green-500" />}
-                  {status.replace(/_/g, ' ')}
-                </h3>
-                <Badge variant="secondary">
-                  {tasksByStatus[status as keyof typeof tasksByStatus].length}
-                </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="font-normal">
+                {staffMetrics.length} Active Staff
+              </Badge>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="p-8 text-center text-slate-500">Loading live data...</div>
+          ) : staffMetrics.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-12 text-center">
+              <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
+                <User className="w-8 h-8 text-slate-400" />
               </div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">No active shifts</h3>
+              <p className="text-slate-500 max-w-sm mb-6">
+                There are no staff members currently clocked in or scheduled for today.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-700">
+              {staffMetrics.map((staff) => (
+                <div key={staff.staff_id} className="p-4 flex flex-col md:flex-row items-center gap-4 md:gap-8 hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors">
 
-              <div className="space-y-3 min-h-96">
-                {tasksByStatus[status as keyof typeof tasksByStatus].map(task => (
-                  <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                    <CardContent className="pt-4">
-                      <div className="space-y-2">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="font-semibold text-sm">{task.title}</p>
-                            {task.description && (
-                              <p className="text-xs text-gray-600 line-clamp-2">{task.description}</p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-1">
-                          <Badge className={`text-xs ${getPriorityColor(task.priority)}`}>
-                            {task.priority}
-                          </Badge>
-                          {task.category && (
-                            <Badge style={{ backgroundColor: task.category.color, opacity: 0.8 }} className="text-xs text-white">
-                              {task.category.name}
-                            </Badge>
-                          )}
-                        </div>
-
-                        {task.assigned_to && (
-                          <div className="flex items-center gap-1 text-xs text-gray-600">
-                            <Users className="w-3 h-3" />
-                            {task.assigned_to.first_name} {task.assigned_to.last_name}
-                          </div>
-                        )}
-
-                        <div className="flex gap-1 pt-2 border-t pt-2">
-                          {status !== 'COMPLETED' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => markTaskCompleted(task.id)}
-                              className="text-xs flex-1"
-                            >
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              Complete
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => deleteTask(task.id)}
-                            className="text-xs text-red-600"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
+                  {/* 1. Staff Identity */}
+                  <div className="flex items-center gap-3 w-full md:w-48">
+                    <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
+                      <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${staff.name}`} />
+                      <AvatarFallback>{staff.name.substring(0, 2)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <h4 className="font-semibold text-sm text-slate-900 dark:text-white truncate" title={staff.name}>
+                        {staff.name}
+                      </h4>
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span className="truncate">{staff.role}</span>
+                        <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                        <span className={cn(
+                          "font-medium",
+                          staff.shift_status === 'ON_SHIFT' ? "text-emerald-600" : "text-amber-600"
+                        )}>
+                          {staff.shift_status === 'ON_SHIFT' ? 'On Shift' : staff.shift_status}
+                        </span>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Current Process */}
+                  <div className="flex-1 w-full md:min-w-[200px]">
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
+                        {staff.current_process.name}
+                      </span>
+                      <span className="text-xs font-semibold text-slate-500">
+                        {staff.current_process.progress}%
+                      </span>
+                    </div>
+                    <Progress value={staff.current_process.progress} className="h-2" />
+                  </div>
+
+                  {/* 3. Task Progress */}
+                  <div className="w-full md:w-auto flex items-center justify-between md:justify-start gap-4 text-sm whitespace-nowrap">
+                    <div className="flex items-center gap-2" title={`${staff.tasks.completed} out of ${staff.tasks.total} tasks completed`}>
+                      {staff.tasks.is_completed ? (
+                        <CheckCircle className="w-4 h-4 text-emerald-500" />
+                      ) : (
+                        <span className="text-slate-400 font-mono tracking-wider text-xs">TASKS:</span>
+                      )}
+                      <span className="font-semibold">
+                        {staff.tasks.completed}/{staff.tasks.total}
+                      </span>
+                    </div>
+                    {staff.tasks.overdue > 0 && (
+                      <div className="flex items-center gap-1.5 text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md dark:bg-rose-900/20">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span className="font-medium text-xs">{staff.tasks.overdue} overdue</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 4. Time & Pace */}
+                  <div className="w-full md:w-32 flex items-center gap-2 text-sm whitespace-nowrap">
+                    <Clock className={cn("w-4 h-4", getPaceColor(staff.pace.status))} />
+                    <div>
+                      <span className="font-semibold">{staff.pace.elapsed_minutes} min</span>
+                      <span className="text-xs text-slate-400 ml-1">
+                        (avg {staff.pace.avg_minutes})
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 5. Attention Flag */}
+                  <div className="w-full md:w-32 flex justify-end">
+                    {staff.attention.needed ? (
+                      <div className="flex items-center gap-1.5 text-rose-600 text-sm font-medium animate-pulse">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span>{staff.attention.reason}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-emerald-600 text-sm font-medium opacity-70">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>All good</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

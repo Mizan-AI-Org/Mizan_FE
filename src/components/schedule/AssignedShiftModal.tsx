@@ -524,34 +524,51 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                             </div>
                         </div>
-                        <div className="bg-[#F9FAFB] border border-gray-100 rounded-2xl p-4 max-h-[200px] overflow-y-auto space-y-4">
+                        <div className="bg-[#F9FAFB] border border-gray-100 rounded-2xl p-2 max-h-[250px] overflow-y-auto space-y-1">
                             {isLoadingTemplates ? (
                                 <p className="text-sm text-gray-500 text-center py-4">Loading templates...</p>
                             ) : filteredTemplates?.length === 0 ? (
                                 <p className="text-sm text-gray-500 text-center py-4">No templates found</p>
                             ) : (
-                                filteredTemplates?.map((template) => (
-                                    <div
-                                        key={template.id}
-                                        className="flex items-start gap-3 group cursor-pointer"
-                                        onClick={() => toggleTemplate(template.id)}
-                                    >
-                                        <Checkbox
-                                            id={template.id}
-                                            checked={selectedTemplates.includes(template.id)}
-                                            onCheckedChange={() => toggleTemplate(template.id)}
-                                            className="mt-1 rounded-md border-gray-300 data-[state=checked]:bg-[#106B4E] data-[state=checked]:border-[#106B4E]"
-                                        />
-                                        <div className="space-y-0.5">
-                                            <Label htmlFor={template.id} className="text-sm font-bold text-[#1F2937] leading-none cursor-pointer">
-                                                {template.name}
-                                            </Label>
-                                            <p className="text-xs text-gray-500 line-clamp-1">
-                                                {template.description || "Automatically add tasks to this shift."}
-                                            </p>
+                                filteredTemplates?.map((template) => {
+                                    const isSelected = selectedTemplates.includes(template.id);
+                                    return (
+                                        <div
+                                            key={template.id}
+                                            className={cn(
+                                                "flex items-start gap-3 p-3 rounded-xl cursor-not-allowed transition-all border",
+                                                isSelected
+                                                    ? "bg-emerald-50 border-emerald-200 shadow-sm cursor-pointer"
+                                                    : "bg-white border-transparent hover:bg-gray-50 hover:border-gray-200 cursor-pointer"
+                                            )}
+                                            onClick={() => toggleTemplate(template.id)}
+                                        >
+                                            <Checkbox
+                                                id={template.id}
+                                                checked={isSelected}
+                                                onCheckedChange={() => toggleTemplate(template.id)}
+                                                className="mt-0.5 rounded-md border-gray-300 data-[state=checked]:bg-[#106B4E] data-[state=checked]:border-[#106B4E] shrink-0"
+                                            />
+                                            <div className="space-y-0.5 min-w-0">
+                                                <Label
+                                                    htmlFor={template.id}
+                                                    className={cn(
+                                                        "text-sm font-bold leading-none cursor-pointer",
+                                                        isSelected ? "text-emerald-900" : "text-[#1F2937]"
+                                                    )}
+                                                >
+                                                    {template.name}
+                                                </Label>
+                                                <p className={cn(
+                                                    "text-xs line-clamp-1",
+                                                    isSelected ? "text-emerald-700/80" : "text-gray-500"
+                                                )}>
+                                                    {template.description || "Automatically add tasks to this shift."}
+                                                </p>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                         <p className="text-[10px] text-gray-400 pt-1">Select templates to automatically add tasks to this shift.</p>

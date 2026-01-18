@@ -367,7 +367,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                             </div>
                         </div>
-                        <div className="bg-[#F9FAFB] border border-gray-100 rounded-xl p-2 max-h-[100px] overflow-y-auto space-y-1">
+                        <div className="bg-[#F9FAFB] border border-gray-100 rounded-xl p-2 max-h-[250px] overflow-y-auto space-y-1">
                             {templatesLoading ? (
                                 <p className="text-sm text-gray-500 text-center py-4">Loading templates...</p>
                             ) : (templates || []).filter(t =>
@@ -379,39 +379,53 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                 (templates || []).filter(t =>
                                     !templateSearch || t.name.toLowerCase().includes(templateSearch.toLowerCase()) ||
                                     (t.description || '').toLowerCase().includes(templateSearch.toLowerCase())
-                                ).map((template) => (
-                                    <div
-                                        key={template.id}
-                                        className="flex items-start gap-3 group cursor-pointer"
-                                        onClick={() => {
-                                            const current = selectedTemplateIds;
-                                            const id = String(template.id);
-                                            const newIds = current.includes(id)
-                                                ? current.filter(x => x !== id)
-                                                : [...current, id];
-                                            setSelectedTemplateIds(newIds);
-                                        }}
-                                    >
-                                        <div className={cn(
-                                            "mt-1 w-5 h-5 rounded border flex items-center justify-center transition-colors",
-                                            selectedTemplateIds.includes(String(template.id))
-                                                ? "bg-[#106B4E] border-[#106B4E]"
-                                                : "border-gray-300 bg-white"
-                                        )}>
-                                            {selectedTemplateIds.includes(String(template.id)) && (
-                                                <Check className="w-3.5 h-3.5 text-white" />
+                                ).map((template) => {
+                                    const isSelected = selectedTemplateIds.includes(String(template.id));
+                                    return (
+                                        <div
+                                            key={template.id}
+                                            className={cn(
+                                                "flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-all border",
+                                                isSelected
+                                                    ? "bg-emerald-50 border-emerald-200 shadow-sm"
+                                                    : "bg-white border-transparent hover:bg-gray-50 hover:border-gray-200"
                                             )}
+                                            onClick={() => {
+                                                const current = selectedTemplateIds;
+                                                const id = String(template.id);
+                                                const newIds = current.includes(id)
+                                                    ? current.filter(x => x !== id)
+                                                    : [...current, id];
+                                                setSelectedTemplateIds(newIds);
+                                            }}
+                                        >
+                                            <div className={cn(
+                                                "mt-0.5 w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0",
+                                                isSelected
+                                                    ? "bg-[#106B4E] border-[#106B4E]"
+                                                    : "border-gray-300 bg-white"
+                                            )}>
+                                                {isSelected && (
+                                                    <Check className="w-2.5 h-2.5 text-white" />
+                                                )}
+                                            </div>
+                                            <div className="space-y-0.5 min-w-0">
+                                                <p className={cn(
+                                                    "text-sm font-bold leading-none",
+                                                    isSelected ? "text-emerald-900" : "text-[#1F2937]"
+                                                )}>
+                                                    {template.name}
+                                                </p>
+                                                <p className={cn(
+                                                    "text-[11px] line-clamp-1",
+                                                    isSelected ? "text-emerald-700/80" : "text-gray-500"
+                                                )}>
+                                                    {template.description || "Daily preparation and inventory check"}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="space-y-0.5">
-                                            <p className="text-sm font-bold text-[#1F2937] leading-none">
-                                                {template.name}
-                                            </p>
-                                            <p className="text-xs text-gray-500 line-clamp-1">
-                                                {template.description || "Daily preparation and inventory check"}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                         <p className="text-[10px] text-gray-400 pt-1">Select templates to automatically add tasks to this shift.</p>
