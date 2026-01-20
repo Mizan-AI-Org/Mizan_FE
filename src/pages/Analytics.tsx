@@ -40,77 +40,83 @@ const wasteAnalysis = [
 
 export default function Analytics() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pt-4 pb-8 max-w-[1600px] mx-auto p-4 md:p-8">
+      {/* Page Title */}
+      <div className="mb-2">
+        <h1 className="text-3xl font-black text-gray-900 tracking-tight">Analytics & Reports</h1>
+        <p className="text-gray-500 mt-1 font-medium italic text-sm">Actionable insights driven by Mizan AI</p>
+      </div>
+
       {/* Header Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="shadow-soft">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <DollarSign className="w-5 h-5 text-muted-foreground" />
-              <Badge className="bg-success text-success-foreground">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="border-slate-100 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all">
+          <CardHeader className="pb-2 px-6 pt-6 flex flex-row items-center justify-between space-y-0">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Monthly Revenue</p>
+            <DollarSign className="w-4 h-4 text-slate-300" />
+          </CardHeader>
+          <CardContent className="px-6 pb-6">
+            <div className="flex items-end justify-between">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">$58,420</h3>
+                <p className="text-xs text-slate-400 font-bold mt-1">vs last month</p>
+              </div>
+              <Badge className="bg-green-50 text-green-700 border-none font-black text-[10px] tracking-widest uppercase">
                 +12.5%
               </Badge>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1">
-              <h3 className="text-2xl font-bold">$58,420</h3>
-              <p className="text-sm font-medium">Monthly Revenue</p>
-              <p className="text-xs text-muted-foreground">vs last month</p>
-            </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <Package className="w-5 h-5 text-muted-foreground" />
-              <Badge variant="destructive">
+        <Card className="border-slate-100 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all">
+          <CardHeader className="pb-2 px-6 pt-6 flex flex-row items-center justify-between space-y-0">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Food Waste</p>
+            <Package className="w-4 h-4 text-slate-300" />
+          </CardHeader>
+          <CardContent className="px-6 pb-6">
+            <div className="flex items-end justify-between">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">5.9%</h3>
+                <p className="text-xs text-slate-400 font-bold mt-1">of total inventory</p>
+              </div>
+              <Badge className="bg-red-50 text-red-700 border-none font-black text-[10px] tracking-widest uppercase">
                 +3.2%
               </Badge>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1">
-              <h3 className="text-2xl font-bold">5.9%</h3>
-              <p className="text-sm font-medium">Food Waste</p>
-              <p className="text-xs text-muted-foreground">of total inventory</p>
-            </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <Users className="w-5 h-5 text-muted-foreground" />
-              <Badge className="bg-success text-success-foreground">
+        <Card className="border-slate-100 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all">
+          <CardHeader className="pb-2 px-6 pt-6 flex flex-row items-center justify-between space-y-0">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Labor Cost</p>
+            <Users className="w-4 h-4 text-slate-300" />
+          </CardHeader>
+          <CardContent className="px-6 pb-6">
+            <div className="flex items-end justify-between">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">28.3%</h3>
+                <p className="text-xs text-slate-400 font-bold mt-1">of revenue</p>
+              </div>
+              <Badge className="bg-green-50 text-green-700 border-none font-black text-[10px] tracking-widest uppercase">
                 -2.1%
               </Badge>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1">
-              <h3 className="text-2xl font-bold">28.3%</h3>
-              <p className="text-sm font-medium">Labor Cost</p>
-              <p className="text-xs text-muted-foreground">of revenue</p>
-            </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <BarChart3 className="w-5 h-5 text-muted-foreground" />
-              <Badge className="bg-success text-success-foreground">
+        <Card className="border-slate-100 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all">
+          <CardHeader className="pb-2 px-6 pt-6 flex flex-row items-center justify-between space-y-0">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Total Orders</p>
+            <BarChart3 className="w-4 h-4 text-slate-300" />
+          </CardHeader>
+          <CardContent className="px-6 pb-6">
+            <div className="flex items-end justify-between">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">1,580</h3>
+                <p className="text-xs text-slate-400 font-bold mt-1">this month</p>
+              </div>
+              <Badge className="bg-green-50 text-green-700 border-none font-black text-[10px] tracking-widest uppercase">
                 +8.7%
               </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1">
-              <h3 className="text-2xl font-bold">1,580</h3>
-              <p className="text-sm font-medium">Orders</p>
-              <p className="text-xs text-muted-foreground">this month</p>
             </div>
           </CardContent>
         </Card>
@@ -118,26 +124,33 @@ export default function Analytics() {
 
       {/* Analytics Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid grid-cols-5 w-full max-w-2xl">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="sales">Sales</TabsTrigger>
-          <TabsTrigger value="waste">Waste</TabsTrigger>
-          <TabsTrigger value="trends">Trends</TabsTrigger>
-        </TabsList>
+        <div className="bg-gray-100 p-1.5 rounded-2xl w-fit">
+          <TabsList className="bg-transparent border-none gap-1">
+            {["overview", "sales", "waste", "trends"].map((tab) => (
+              <TabsTrigger
+                key={tab}
+                value={tab}
+                className="px-8 py-2.5 text-sm font-bold rounded-xl transition-all data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-sm text-gray-500 hover:text-gray-700 capitalize"
+              >
+                {tab}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Revenue Chart */}
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle>Revenue Trend</CardTitle>
-                <CardDescription>Monthly revenue over the last 6 months</CardDescription>
+            <Card className="border-slate-100 shadow-sm rounded-2xl overflow-hidden bg-white">
+              <CardHeader className="pb-4 border-b border-slate-50">
+                <CardTitle className="text-lg font-black text-slate-900 tracking-tight">Revenue Trend</CardTitle>
+                <CardDescription className="font-medium text-slate-400">Monthly revenue over the last 6 months</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="h-48 flex items-center justify-center bg-secondary rounded-lg">
+              <CardContent className="pt-6">
+                <div className="h-48 flex items-center justify-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                   <div className="text-center space-y-2">
-                    <BarChart3 className="w-12 h-12 mx-auto text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Revenue chart visualization</p>
+                    <BarChart3 className="w-10 h-10 mx-auto text-slate-200" />
+                    <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">Chart View</p>
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-4 text-center">

@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { User, Mail, Phone, ShieldAlert, Lock, Save, Loader2 } from "lucide-react";
 
 import { API_BASE } from "@/lib/api";
 
@@ -24,17 +25,6 @@ const ProfileSettings: React.FC = () => {
     const [confirmPassword, setConfirmPassword] = useState("");
 
     // Update form when user data changes
-    useEffect(() => {
-        if (user) {
-            setFirstName(user.first_name || "");
-            setLastName(user.last_name || "");
-            setEmail(user.email || "");
-            setPhone(user.phone || "");
-            setEmergencyContactName(user.profile?.emergency_contact_name || "");
-            setEmergencyContactPhone(user.profile?.emergency_contact_phone || "");
-        }
-    }, [user]);
-
     useEffect(() => {
         if (user) {
             setFirstName(user.first_name || "");
@@ -127,65 +117,207 @@ const ProfileSettings: React.FC = () => {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                    <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+        <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Personal Information Section */}
+            <div className="space-y-6">
+                <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
+                    <div className="p-2 rounded-lg bg-emerald-50">
+                        <User className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                        <h3 className="text-base font-semibold text-slate-900">Personal Information</h3>
+                        <p className="text-xs text-slate-500">Your basic profile details</p>
+                    </div>
                 </div>
-                <div>
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div className="space-y-2">
+                        <Label htmlFor="firstName" className="text-sm font-medium text-slate-700">First Name</Label>
+                        <Input
+                            id="firstName"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            required
+                            className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                            placeholder="Enter your first name"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="lastName" className="text-sm font-medium text-slate-700">Last Name</Label>
+                        <Input
+                            id="lastName"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            required
+                            className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                            placeholder="Enter your last name"
+                        />
+                    </div>
                 </div>
             </div>
 
-            <div>
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={email} disabled />
+            {/* Contact Information Section */}
+            <div className="space-y-6">
+                <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
+                    <div className="p-2 rounded-lg bg-blue-50">
+                        <Mail className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                        <h3 className="text-base font-semibold text-slate-900">Contact Information</h3>
+                        <p className="text-xs text-slate-500">How we can reach you</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div className="space-y-2">
+                        <Label htmlFor="email" className="text-sm font-medium text-slate-700">Email Address</Label>
+                        <Input
+                            id="email"
+                            type="email"
+                            value={email}
+                            disabled
+                            className="h-12 rounded-xl border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
+                        />
+                        <p className="text-xs text-slate-400">Email cannot be changed</p>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="phone" className="text-sm font-medium text-slate-700">Phone Number</Label>
+                        <div className="relative">
+                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <Input
+                                id="phone"
+                                type="tel"
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                className="h-12 pl-11 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                                placeholder="+1 (555) 000-0000"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700">Role</Label>
+                    <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100">
+                        <div className="p-2 rounded-lg bg-emerald-100">
+                            <ShieldAlert className="w-4 h-4 text-emerald-600" />
+                        </div>
+                        <span className="text-sm font-semibold text-emerald-800 uppercase tracking-wide">
+                            {user?.role?.replace(/_/g, " ") || "N/A"}
+                        </span>
+                    </div>
+                </div>
             </div>
 
-            <div>
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            {/* Emergency Contact Section */}
+            <div className="space-y-6">
+                <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
+                    <div className="p-2 rounded-lg bg-amber-50">
+                        <ShieldAlert className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                        <h3 className="text-base font-semibold text-slate-900">Emergency Contact</h3>
+                        <p className="text-xs text-slate-500">In case of emergency</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div className="space-y-2">
+                        <Label htmlFor="emergencyContactName" className="text-sm font-medium text-slate-700">Contact Name</Label>
+                        <Input
+                            id="emergencyContactName"
+                            value={emergencyContactName}
+                            onChange={(e) => setEmergencyContactName(e.target.value)}
+                            className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                            placeholder="Emergency contact name"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="emergencyContactPhone" className="text-sm font-medium text-slate-700">Contact Phone</Label>
+                        <div className="relative">
+                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <Input
+                                id="emergencyContactPhone"
+                                type="tel"
+                                value={emergencyContactPhone}
+                                onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                                className="h-12 pl-11 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                                placeholder="+1 (555) 000-0000"
+                            />
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div className="space-y-4">
-                <div>
-                    <Label htmlFor="emergencyContactName">Emergency Contact Name</Label>
-                    <Input id="emergencyContactName" value={emergencyContactName} onChange={(e) => setEmergencyContactName(e.target.value)} />
+            {/* Change Password Section */}
+            <div className="space-y-6">
+                <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
+                    <div className="p-2 rounded-lg bg-purple-50">
+                        <Lock className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                        <h3 className="text-base font-semibold text-slate-900">Change Password</h3>
+                        <p className="text-xs text-slate-500">Leave blank to keep current password</p>
+                    </div>
                 </div>
-                <div>
-                    <Label htmlFor="emergencyContactPhone">Emergency Contact Phone</Label>
-                    <Input id="emergencyContactPhone" type="tel" value={emergencyContactPhone} onChange={(e) => setEmergencyContactPhone(e.target.value)} />
+
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                    <div className="space-y-2">
+                        <Label htmlFor="currentPassword" className="text-sm font-medium text-slate-700">Current Password</Label>
+                        <Input
+                            id="currentPassword"
+                            type="password"
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                            placeholder="••••••••"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="newPassword" className="text-sm font-medium text-slate-700">New Password</Label>
+                        <Input
+                            id="newPassword"
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                            placeholder="••••••••"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700">Confirm Password</Label>
+                        <Input
+                            id="confirmPassword"
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                            placeholder="••••••••"
+                        />
+                    </div>
                 </div>
             </div>
 
-            <div className="space-y-4">
-                <div>
-                    <Label>Role</Label>
-                    <Input value={user?.role?.replace(/_/g, " ") || "N/A"} disabled />
-                </div>
+            {/* Save Button */}
+            <div className="pt-4 border-t border-slate-200">
+                <Button
+                    type="submit"
+                    className="w-full h-14 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold text-base shadow-lg shadow-emerald-500/25 transition-all hover:shadow-emerald-500/40"
+                    disabled={isLoading}
+                >
+                    {isLoading ? (
+                        <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Saving Changes...
+                        </>
+                    ) : (
+                        <>
+                            <Save className="w-5 h-5 mr-2" />
+                            Save Changes
+                        </>
+                    )}
+                </Button>
             </div>
-
-            <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Change Password</h3>
-                <div>
-                    <Label htmlFor="currentPassword">Current Password</Label>
-                    <Input id="currentPassword" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
-                </div>
-                <div>
-                    <Label htmlFor="newPassword">New Password</Label>
-                    <Input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-                </div>
-                <div>
-                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                    <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
-                </div>
-            </div>
-
-            <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save Changes"}
-            </Button>
         </form>
     );
 };

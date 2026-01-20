@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { Badge } from "@/components/ui/badge";
+import { LiveDateTime } from "@/components/LiveDateTime";
 
 type AppItem = {
   name: string;
@@ -102,11 +103,14 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* Header Section */}
-        <header className="mb-4">
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-800 dark:text-white">
-            {greeting}, {user?.first_name || ""}
-          </h1>
-          <p className="text-slate-400 dark:text-slate-500 text-xs md:text-sm font-medium mt-0.5">
+        <header className="mb-2">
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+              {greeting}, {user?.first_name || ""}
+            </h1>
+            <LiveDateTime showTime={false} />
+          </div>
+          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1 italic">
             What needs your attention today?
           </p>
         </header>
@@ -238,20 +242,20 @@ export default function Dashboard() {
             <CardHeader className="flex flex-row items-center justify-between pb-2 px-6 pt-6">
               <div className="flex items-center gap-2">
                 <ClipboardCheck className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                <CardTitle className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
                   Tasks Due Today
                 </CardTitle>
               </div>
-              <Badge variant="outline" className="text-red-500 border-none px-0 text-[10px] font-medium h-4">1 OVERDUE</Badge>
+              <Badge variant="outline" className="text-red-500 border-none px-0 text-[10px] font-bold h-4">1 OVERDUE</Badge>
             </CardHeader>
             <CardContent className="space-y-4 px-6 pb-6 pt-2">
               {[
-                { label: "Walk-in cooler maintenance", status: "OVERDUE", color: "text-red-500" },
-                { label: "Deep clean fryers", status: "BY 3PM", color: "text-slate-400 dark:text-slate-500" },
-                { label: "Inventory spot check", status: "BY 5PM", color: "text-slate-400 dark:text-slate-500" },
+                { label: "Walk-in cooler maintenance", status: "OVERDUE", color: "text-red-500 font-bold" },
+                { label: "Deep clean fryers", status: "BY 3PM", color: "text-slate-500 dark:text-slate-400 font-medium" },
+                { label: "Inventory spot check", status: "BY 5PM", color: "text-slate-500 dark:text-slate-400 font-medium" },
               ].map((task, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600 dark:text-slate-300 truncate pr-4">{task.label}</span>
+                <div key={i} className="flex items-center justify-between group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 p-1 -mx-1 rounded-lg transition-colors">
+                  <span className="text-sm text-slate-700 dark:text-slate-300 truncate pr-4">{task.label}</span>
                   <span className={`text-[10px] whitespace-nowrap tracking-wider ${task.color}`}>{task.status}</span>
                 </div>
               ))}
@@ -260,19 +264,19 @@ export default function Dashboard() {
         </div>
 
         {/* Enhanced Apps Gallery - Theme Responsive */}
-        <section className="pt-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+        <section className="pt-4 md:pt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {apps
             .filter((app) => !app.roles || hasRole(app.roles))
             .map((app) => (
               <div
                 key={app.name}
                 onClick={() => navigate(app.href)}
-                className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer group flex flex-col items-center text-center gap-5 relative overflow-hidden border border-slate-50 dark:border-slate-800"
+                className="bg-white dark:bg-slate-900 px-5 py-4 rounded-[2rem] shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer group flex flex-col items-center text-center gap-4 relative overflow-hidden border border-slate-50 dark:border-slate-800"
               >
                 <div className={`absolute inset-0 opacity-0 group-hover:opacity-[0.05] transition-opacity ${app.gradient}`}></div>
 
-                <div className={`w-16 h-16 rounded-[1.5rem] ${app.gradient} flex items-center justify-center shrink-0 group-hover:rotate-12 transition-transform duration-500 shadow-lg shadow-black/10`}>
-                  <app.icon className="w-8 h-8 text-white" />
+                <div className={`w-14 h-14 rounded-[1.5rem] ${app.gradient} flex items-center justify-center shrink-0 group-hover:rotate-12 transition-transform duration-500 shadow-lg shadow-black/10`}>
+                  <app.icon className="w-7 h-7 text-white" />
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex flex-col items-center">

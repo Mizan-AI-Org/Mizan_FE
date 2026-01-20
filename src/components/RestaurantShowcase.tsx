@@ -53,7 +53,7 @@ export const RestaurantShowcase: React.FC = () => {
   const slides = [
     {
       headline: "Excellence in Every Detail",
-      subheading: "Streamline operations, delight customers, maximize profits with Mizan's intelligent restaurant management platform.",
+      subheading: "Streamline operations, delight customers, maximize profits with Mizan AI's intelligent restaurant management platform.",
     },
     {
       headline: "Empower Your Team",
@@ -156,8 +156,8 @@ export const RestaurantShowcase: React.FC = () => {
                 key={index}
                 onClick={() => setCurrentSlide(index)}
                 className={`transition-all ${currentSlide === index
-                    ? "w-8 h-2 bg-[#00E676] rounded-full"
-                    : "w-2 h-2 bg-[#00E676]/40 rounded-full hover:bg-[#00E676]/60"
+                  ? "w-8 h-2 bg-[#00E676] rounded-full"
+                  : "w-2 h-2 bg-[#00E676]/40 rounded-full hover:bg-[#00E676]/60"
                   }`}
                 aria-label={`Go to image ${index + 1}`}
               />

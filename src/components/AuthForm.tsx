@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Loader2, Mail, Lock } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "@/hooks/use-language";
+import { ForgotPasswordForm } from "./ForgotPasswordForm";
 
 interface AuthFormProps {
   onNavigateToSignup: () => void;
@@ -20,6 +21,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
   const [userType, setUserType] = useState<UserType>("manager");
   const [pinInput, setPinInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const { toast } = useToast();
   const auth = useAuth();
   const { t } = useLanguage();
@@ -96,6 +98,11 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
     }
   };
 
+  // Show forgot password form for managers
+  if (showForgotPassword && userType === "manager") {
+    return <ForgotPasswordForm onBack={() => setShowForgotPassword(false)} />;
+  }
+
   return (
     <div className="w-full space-y-6">
       {error && (
@@ -116,11 +123,10 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
             setPinInput("");
             setPasswordInput("");
           }}
-          className={`flex-1 py-2 px-4 rounded-md font-medium transition-all text-sm duration-300 ${
-            userType === "staff"
+          className={`flex-1 py-2 px-4 rounded-md font-medium transition-all text-sm duration-300 ${userType === "staff"
               ? "bg-gradient-to-r from-[#00E676] to-[#00C853] text-white shadow-lg shadow-[#00E676]/20"
               : "text-[#B0BEC5] hover:text-[#00E676] hover:bg-[#00E676]/5"
-          }`}
+            }`}
         >
           {t("auth.toggles.staff")}
         </button>
@@ -131,11 +137,10 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
             setPinInput("");
             setPasswordInput("");
           }}
-          className={`flex-1 py-2 px-4 rounded-md font-medium transition-all text-sm duration-300 ${
-            userType === "manager"
+          className={`flex-1 py-2 px-4 rounded-md font-medium transition-all text-sm duration-300 ${userType === "manager"
               ? "bg-gradient-to-r from-[#00E676] to-[#00C853] text-white shadow-lg shadow-[#00E676]/20"
               : "text-[#B0BEC5] hover:text-[#00E676] hover:bg-[#00E676]/5"
-          }`}
+            }`}
         >
           {t("auth.toggles.manager")}
         </button>
@@ -219,12 +224,17 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
       {/* Elegant Divider and Footer Section */}
       <div className="text-center space-y-4 text-sm pt-2">
         <p>
-          <a
-            href="#"
+          <button
+            type="button"
+            onClick={() => {
+              if (userType === "manager") {
+                setShowForgotPassword(true);
+              }
+            }}
             className="text-[#00E676] hover:text-[#00F77B] transition-colors font-medium underline-offset-2 hover:underline"
           >
-            {t("auth.misc.forgot_pin")}
-          </a>
+            {userType === "staff" ? t("auth.misc.forgot_pin") : "Forgot Password?"}
+          </button>
         </p>
 
         {/* Divider */}
