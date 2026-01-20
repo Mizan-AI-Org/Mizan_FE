@@ -128,6 +128,74 @@ export class BackendService {
     }
   }
 
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
+    try {
+      const response = await fetch(`${API_BASE}/password-reset-request/`, {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify({ email }),
+      });
+
+      // Read raw text first to handle non-JSON responses gracefully
+      const raw = await response.text();
+      let parsed: any;
+      try {
+        parsed = raw ? JSON.parse(raw) : null;
+      } catch {
+        parsed = null;
+      }
+
+      if (!response.ok) {
+        const message = (parsed && (parsed.error || parsed.message || parsed.detail))
+          || `Password reset request failed (${response.status})`;
+        throw new Error(message);
+      }
+
+      if (parsed) {
+        return parsed;
+      }
+
+      // Non-JSON success response; return generic success
+      return { message: "Password reset link sent" };
+    } catch (error: any) {
+      throw new Error(error.message || "Password reset request failed");
+    }
+  }
+
+  async confirmPasswordReset(token: string, newPassword: string): Promise<{ message: string }> {
+    try {
+      const response = await fetch(`${API_BASE}/password-reset-confirm/`, {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify({ token, new_password: newPassword }),
+      });
+
+      // Read raw text first to handle non-JSON responses gracefully
+      const raw = await response.text();
+      let parsed: any;
+      try {
+        parsed = raw ? JSON.parse(raw) : null;
+      } catch {
+        parsed = null;
+      }
+
+      if (!response.ok) {
+        const message = (parsed && (parsed.error || parsed.message || parsed.detail))
+          || `Password reset failed (${response.status})`;
+        throw new Error(message);
+      }
+
+      if (parsed) {
+        return parsed;
+      }
+
+      // Non-JSON success response; return generic success
+      return { message: "Password has been reset" };
+    } catch (error: any) {
+      throw new Error(error.message || "Password reset failed");
+    }
+  }
+
   async acceptInvitation(
     token: string,
     first_name: string,

@@ -5,12 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { X, Search, Check } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { X, Search, Check, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { useTaskTemplates } from "@/hooks/useTaskTemplates";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
-import type { Shift } from "@/types/schedule";
+import type { Shift, TaskPriority } from "@/types/schedule";
+import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 interface StaffMember {
     id: string;
@@ -51,23 +53,7 @@ interface ShiftModalProps {
     testDefaultTemplateId?: string;
 }
 
-const getStaffColor = (staffId: string) => {
-    const colors = [
-        '#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6',
-        '#6366F1', '#8B5CF6', '#EC4899', '#14B8A6', '#F43F5E'
-    ];
-    try {
-        const idx = Number(BigInt('0x' + staffId.replace(/-/g, '')) % BigInt(colors.length));
-        return colors[idx];
-    } catch (e) {
-        let hash = 0;
-        for (let i = 0; i < staffId.length; i++) {
-            hash = staffId.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        const index = Math.abs(hash) % colors.length;
-        return colors[index];
-    }
-};
+import { cn, getStaffColor } from "@/lib/utils";
 
 const ShiftModal: React.FC<ShiftModalProps> = ({
     isOpen,
@@ -97,6 +83,14 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         return date;
     };
 
+    const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
+    const [isRecurring, setIsRecurring] = useState(false);
+    const [frequency, setFrequency] = useState<'DAILY' | 'WEEKLY' | 'MONTHLY'>('WEEKLY');
+    const [recurringEndDate, setRecurringEndDate] = useState<string>('');
+    const [isStaffPopoverOpen, setIsStaffPopoverOpen] = useState(false);
+    const [newTaskTitle, setNewTaskTitle] = useState("");
+    const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>("MEDIUM");
+
     const [shiftData, setShiftData] = useState<Shift>(() => {
         if (initialShift && initialShift.date) return initialShift;
         const startHour = hour !== undefined ? String(hour).padStart(2, '0') : '09';
@@ -116,38 +110,26 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
             staffId: staffMembers.length > 0 ? staffMembers[0].id : "",
             color: staffMembers.length > 0 ? getStaffColor(staffMembers[0].id) : "#6b7280",
             tasks: [],
+            staff_members: [],
+            isRecurring: false,
+            frequency: 'WEEKLY'
         };
     });
 
-    const [newTask, setNewTask] = useState<{ title: string; priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' }>({
-        title: "",
-        priority: "MEDIUM",
-    });
-    const {
-        templates,
-        loading: templatesLoading,
-        selectedId: selectedTemplateIdFromHook,
-        setSelectedId: setSelectedTemplateIdFromHook,
-    } = useTaskTemplates({ pollIntervalMs: 10000 });
-
-    const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
-    const [staffSearch, setStaffSearch] = useState('');
-    const [templateSearch, setTemplateSearch] = useState('');
-    const [templateSelectionError, setTemplateSelectionError] = useState<string | null>(null);
-    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-    const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
     useEffect(() => {
         if (initialShift) {
+            let finalShift = initialShift;
             if (!initialShift.date) {
                 const today = new Date();
                 const monday = getWeekStart(today);
                 const base = new Date(monday);
                 base.setDate(monday.getDate() + (initialShift.day ?? 0));
-                setShiftData({ ...initialShift, date: toYMD(base) });
-            } else {
-                setShiftData(initialShift);
+                finalShift = { ...initialShift, date: toYMD(base) };
             }
+            setShiftData(finalShift);
+            setSelectedStaffIds(finalShift.staff_members || (finalShift.staffId ? [finalShift.staffId] : []));
+            setIsRecurring(finalShift.isRecurring || false);
+            setFrequency(finalShift.frequency || 'WEEKLY');
         } else if (isOpen) {
             const startHour = hour !== undefined ? String(hour).padStart(2, '0') : '09';
             const endHour = hour !== undefined ? String(hour + 1).padStart(2, '0') : '10';
@@ -155,6 +137,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
             const monday = getWeekStart(today);
             const base = new Date(monday);
             base.setDate(monday.getDate() + (dayIndex !== undefined ? dayIndex : 0));
+
+            const firstStaffId = staffMembers.length > 0 ? staffMembers[0].id : "";
             setShiftData({
                 id: Date.now().toString(),
                 title: "",
@@ -162,141 +146,198 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                 end: `${endHour}:00`,
                 date: toYMD(base),
                 day: dayIndex !== undefined ? dayIndex : 0,
-                staffId: staffMembers.length > 0 ? staffMembers[0].id : "",
-                color: staffMembers.length > 0 ? getStaffColor(staffMembers[0].id) : "#6b7280",
+                staffId: firstStaffId,
+                color: firstStaffId ? getStaffColor(firstStaffId) : "#6b7280",
                 tasks: [],
+                staff_members: [],
+                isRecurring: false,
+                frequency: 'WEEKLY'
             });
+            setSelectedStaffIds([]);
+            setIsRecurring(false);
+            setFrequency('WEEKLY');
         }
     }, [initialShift, isOpen, dayIndex, hour, staffMembers]);
 
-    const allStaffMembers: StaffMember[] = staffMembers;
+    const {
+        templates,
+        loading: templatesLoading,
+    } = useTaskTemplates({ pollIntervalMs: 10000 });
 
-    const handleSelectChange = (value: string, id: string) => {
-        setShiftData(prev => {
-            const updates: any = { [id]: value };
-            if (id === 'staffId') {
-                updates.color = getStaffColor(value);
-            }
-            return { ...prev, ...updates };
-        });
+    const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
+    const [staffSearch, setStaffSearch] = useState('');
+    const [templateSearch, setTemplateSearch] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+    const toggleStaffSelection = (staffId: string) => {
+        setSelectedStaffIds(prev =>
+            prev.includes(staffId)
+                ? prev.filter(id => id !== staffId)
+                : [...prev, staffId]
+        );
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { id, value } = e.target;
-        setShiftData(prev => ({
-            ...prev,
-            [id]: value,
-        }));
+    const handleAddManualTask = () => {
+        if (!newTaskTitle.trim()) {
+            toast.error("Task title cannot be empty");
+            return;
+        }
+        const newTask = {
+            title: newTaskTitle.trim(),
+            priority: newTaskPriority,
+        };
+        setShiftData({
+            ...shiftData,
+            tasks: [...(shiftData.tasks || []), newTask]
+        });
+        setNewTaskTitle("");
+        setNewTaskPriority("MEDIUM");
+    };
+
+    const handleRemoveManualTask = (index: number) => {
+        setShiftData({
+            ...shiftData,
+            tasks: (shiftData.tasks || []).filter((_, i) => i !== index)
+        });
     };
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
         try {
             if (!shiftData.date || String(shiftData.date).trim() === "") {
-                setSaveFeedback({ type: 'error', message: 'Please select a date for the shift.' });
+                toast.error('Please select a date for the shift.');
                 setIsSubmitting(false);
                 return;
             }
+            if (selectedStaffIds.length === 0) {
+                toast.error('Please select at least one staff member.');
+                setIsSubmitting(false);
+                return;
+            }
+            if (isRecurring && !recurringEndDate) {
+                toast.error('Please select an end date for recurring shifts.');
+                setIsSubmitting(false);
+                return;
+            }
+
             const shiftWithTemplates = {
                 ...shiftData,
-                task_templates: selectedTemplateIds
+                staffId: selectedStaffIds[0], // Fallback for backward compatibility
+                staffIds: selectedStaffIds,
+                isRecurring,
+                frequency,
+                recurringEndDate: isRecurring ? recurringEndDate : undefined,
+                task_templates: selectedTemplateIds,
+                tasks: shiftData.tasks // manual tasks
             };
             await Promise.resolve(onSave(shiftWithTemplates));
             onClose();
+        } catch (error) {
+            console.error(error);
         } finally {
             setIsSubmitting(false);
         }
     };
 
-
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[700px] bg-white rounded-3xl p-5 border-none shadow-2xl overflow-hidden max-h-[85vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[700px] bg-white rounded-3xl p-6 border-none shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
                 <DialogHeader className="pb-2">
-                    <DialogTitle className="text-xl font-bold text-[#1F2937]">Create Schedule</DialogTitle>
+                    <DialogTitle className="text-xl font-bold text-[#1F2937]">
+                        {initialShift ? 'Edit Schedule' : 'Create Schedule'}
+                    </DialogTitle>
                 </DialogHeader>
 
-                <div className="space-y-3 mt-2">
-                    <div className="space-y-1">
-                        <Label className="text-sm font-semibold text-[#1F2937]">Staff Member</Label>
-                        <Select
-                            value={shiftData.staffId}
-                            onValueChange={(value) => handleSelectChange(value, 'staffId')}
-                        >
-                            <SelectTrigger className="w-full h-10 bg-[#F6AD55] hover:bg-[#ED8936] text-white border-none rounded-xl px-4 text-sm font-medium transition-colors shadow-sm [&>span]:text-white">
-                                <SelectValue placeholder="Select staff member..." />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl shadow-2xl border-gray-100 z-[9999]">
-                                <div className="p-2 border-b">
-                                    <Input
-                                        placeholder="Search staff..."
-                                        value={staffSearch}
-                                        onChange={(e) => setStaffSearch(e.target.value)}
-                                        className="h-8 text-sm"
-                                        onClick={(e) => e.stopPropagation()}
-                                    />
-                                </div>
-                                <div className="max-h-[200px] overflow-y-auto">
-                                    {allStaffMembers
-                                        .filter(s => String(s.user?.id) !== String(user?.id))
-                                        .filter(s => {
-                                            if (!staffSearch) return true;
-                                            const name = `${s.user?.first_name || s.first_name || ''} ${s.user?.last_name || s.last_name || ''}`.toLowerCase();
-                                            const role = (s.role || '').toLowerCase();
-                                            return name.includes(staffSearch.toLowerCase()) || role.includes(staffSearch.toLowerCase());
-                                        })
-                                        .map((s) => (
-                                            <SelectItem
-                                                key={s.id}
-                                                value={s.id}
-                                                className="cursor-pointer"
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <Avatar className="h-5 w-5">
-                                                        <AvatarFallback className="text-[9px] bg-orange-100 text-orange-700">
-                                                            {`${(s.user?.first_name || s.first_name || '')[0] || ''}${(s.user?.last_name || s.last_name || '')[0] || ''}`}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <span className="text-sm">{`${s.user?.first_name || s.first_name || ''} ${s.user?.last_name || s.last_name || ''}`}</span>
-                                                    {s.role && <span className="text-xs text-gray-500">• {s.role}</span>}
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                </div>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
+                <div className="space-y-5 mt-4">
                     <div className="space-y-1">
                         <Label className="text-sm font-semibold text-[#1F2937]">Shift Title</Label>
                         <Input
                             id="title"
                             placeholder="e.g. Morning Shift, Dinner Service"
                             value={shiftData.title}
-                            onChange={handleChange}
-                            className="h-10 rounded-xl border-gray-200 focus:ring-[#106B4E] focus:border-[#106B4E]"
+                            onChange={(e) => setShiftData(prev => ({ ...prev, title: e.target.value }))}
+                            className="h-12 rounded-xl border-gray-200 focus:ring-[#106B4E] focus:border-[#106B4E]"
                         />
                     </div>
 
-                    <div className="space-y-1">
-                        <Label className="text-sm font-semibold text-[#1F2937]">Description (Optional)</Label>
-                        <textarea
-                            id="notes"
-                            placeholder="Additional notes for this shift..."
-                            className="w-full min-h-[60px] rounded-xl border border-gray-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#106B4E]/20 focus:border-[#106B4E] transition-all resize-none"
-                            value={(shiftData as any).notes || ""}
-                            onChange={(e) => setShiftData(prev => ({ ...prev, notes: e.target.value } as any))}
-                        />
+                    {/* Multi-Staff Selection */}
+                    <div className="space-y-2">
+                        <Label className="text-sm font-semibold text-[#1F2937]">Assign Staff ({selectedStaffIds.length} selected)</Label>
+                        <Popover open={isStaffPopoverOpen} onOpenChange={setIsStaffPopoverOpen}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className="w-full h-12 bg-orange-100 hover:bg-orange-200 text-orange-900 border-none rounded-xl px-4 flex justify-between items-center text-base font-medium transition-colors shadow-sm"
+                                >
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                        {selectedStaffIds.length > 0 ? (
+                                            <span className="truncate">
+                                                {selectedStaffIds.length === 1
+                                                    ? `${staffMembers.find(s => s.id === selectedStaffIds[0])?.user?.first_name || staffMembers.find(s => s.id === selectedStaffIds[0])?.first_name || 'Staff'}`
+                                                    : `${selectedStaffIds.length} members selected`}
+                                            </span>
+                                        ) : (
+                                            <span className="text-orange-900/50">Select staff members...</span>
+                                        )}
+                                    </div>
+                                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl shadow-2xl border-gray-100 overflow-hidden z-[9999]" align="start">
+                                <Command className="rounded-xl border-none">
+                                    <CommandInput
+                                        placeholder="Search staff..."
+                                        className="h-12 border-none focus:ring-0"
+                                        value={staffSearch}
+                                        onValueChange={setStaffSearch}
+                                    />
+                                    <CommandList className="max-h-[300px] overflow-y-auto">
+                                        <CommandEmpty className="py-6 text-center text-sm text-gray-500">No staff found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {staffMembers
+                                                .filter(s => String(s.user?.id) !== String(user?.id))
+                                                .map((s) => (
+                                                    <CommandItem
+                                                        key={s.id}
+                                                        onSelect={() => toggleStaffSelection(s.id)}
+                                                        className="flex items-center gap-2 p-3 aria-selected:bg-orange-50 cursor-pointer"
+                                                    >
+                                                        <div className={cn(
+                                                            "w-5 h-5 rounded-md border flex items-center justify-center transition-colors",
+                                                            selectedStaffIds.includes(s.id)
+                                                                ? "bg-orange-500 border-orange-500"
+                                                                : "border-orange-200 bg-white"
+                                                        )}>
+                                                            {selectedStaffIds.includes(s.id) && <Check className="h-3 w-3 text-white" />}
+                                                        </div>
+                                                        <Avatar className="h-8 w-8 ml-1">
+                                                            <AvatarFallback className="text-xs bg-orange-100 text-orange-700">
+                                                                {`${(s.user?.first_name || s.first_name || "")[0] || ""}${(s.user?.last_name || s.last_name || "")[0] || ""}`}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-semibold text-gray-900">
+                                                                {`${s.user?.first_name || s.first_name || ""} ${s.user?.last_name || s.last_name || ""}`}
+                                                            </span>
+                                                            <span className="text-xs text-gray-500 uppercase">{s.role}</span>
+                                                        </div>
+                                                    </CommandItem>
+                                                ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                             <Label className="text-sm font-semibold text-[#1F2937]">Date</Label>
                             <Input
                                 type="date"
                                 value={shiftData.date}
                                 onChange={(e) => setShiftData(prev => ({ ...prev, date: e.target.value }))}
-                                className="h-10 rounded-xl border-gray-200 focus:ring-[#106B4E]"
+                                className="h-12 rounded-xl border-gray-200 focus:ring-[#106B4E]"
                                 required
                             />
                         </div>
@@ -307,7 +348,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                     value={shiftData.start}
                                     onValueChange={(value) => setShiftData(prev => ({ ...prev, start: value }))}
                                 >
-                                    <SelectTrigger className="h-10 rounded-xl border-gray-200">
+                                    <SelectTrigger className="h-12 rounded-xl border-gray-200">
                                         <SelectValue placeholder="Start" />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-[200px] z-[9999]">
@@ -332,7 +373,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                     value={shiftData.end}
                                     onValueChange={(value) => setShiftData(prev => ({ ...prev, end: value }))}
                                 >
-                                    <SelectTrigger className="h-10 rounded-xl border-gray-200">
+                                    <SelectTrigger className="h-12 rounded-xl border-gray-200">
                                         <SelectValue placeholder="End" />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-[200px] z-[9999]">
@@ -352,6 +393,80 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                 </Select>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Recurring Shift Section */}
+                    <div className="bg-slate-50 p-4 rounded-2xl space-y-4 border border-slate-100">
+                        <div className="flex items-center justify-between">
+                            <div className="flex flex-col">
+                                <Label className="text-sm font-bold text-slate-900 leading-none">Recurring Shift</Label>
+                                <p className="text-[10px] text-slate-500 mt-1">Create this shift repeatedly until the end date.</p>
+                            </div>
+                            <div
+                                onClick={() => setIsRecurring(!isRecurring)}
+                                className={cn(
+                                    "h-6 w-11 rounded-full p-1 cursor-pointer transition-colors duration-200",
+                                    isRecurring ? "bg-[#106B4E]" : "bg-slate-300"
+                                )}
+                            >
+                                <div className={cn(
+                                    "h-4 w-4 rounded-full bg-white transition-transform duration-200",
+                                    isRecurring ? "translate-x-5" : "translate-x-0"
+                                )} />
+                            </div>
+                        </div>
+
+                        {isRecurring && (
+                            <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <Label className="text-xs font-semibold text-slate-700 block mb-2">Repeat Frequency</Label>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={frequency === 'DAILY' ? 'default' : 'outline'}
+                                        onClick={() => setFrequency('DAILY')}
+                                        className={cn(
+                                            "flex-1 h-10 rounded-xl text-xs font-bold transition-all",
+                                            frequency === 'DAILY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        )}
+                                    >
+                                        Daily
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={frequency === 'WEEKLY' ? 'default' : 'outline'}
+                                        onClick={() => setFrequency('WEEKLY')}
+                                        className={cn(
+                                            "flex-1 h-10 rounded-xl text-xs font-bold transition-all",
+                                            frequency === 'WEEKLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        )}
+                                    >
+                                        Weekly
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={frequency === 'MONTHLY' ? 'default' : 'outline'}
+                                        onClick={() => setFrequency('MONTHLY')}
+                                        className={cn(
+                                            "flex-1 h-10 rounded-xl text-xs font-bold transition-all",
+                                            frequency === 'MONTHLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        )}
+                                    >
+                                        Monthly
+                                    </Button>
+                                </div>
+                                <div className="mt-4">
+                                    <Label className="text-xs font-semibold text-slate-700 block mb-2">End Date</Label>
+                                    <Input
+                                        type="date"
+                                        value={recurringEndDate}
+                                        onChange={(e) => setRecurringEndDate(e.target.value)}
+                                        min={shiftData.date}
+                                        className="h-10 rounded-xl border-slate-200 focus:ring-[#106B4E] focus:border-[#106B4E]"
+                                    />
+                                    {!recurringEndDate && <p className="text-[10px] text-amber-600 mt-1">Please select an end date for recurring shifts.</p>}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="space-y-1">
@@ -431,7 +546,71 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                         <p className="text-[10px] text-gray-400 pt-1">Select templates to automatically add tasks to this shift.</p>
                     </div>
 
-                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-50">
+                    {/* Manual Task Creation Section */}
+                    <div className="space-y-3 pt-4 border-t border-gray-100">
+                        <Label className="text-sm font-semibold text-[#1F2937]">Custom Tasks</Label>
+
+                        <div className="flex gap-2">
+                            <Input
+                                placeholder="Add a custom task..."
+                                value={newTaskTitle}
+                                onChange={(e) => setNewTaskTitle(e.target.value)}
+                                className="flex-1 h-10 rounded-xl border-gray-200 text-sm focus:ring-[#106B4E]"
+                            />
+                            <Select
+                                value={newTaskPriority}
+                                onValueChange={(v: TaskPriority) => setNewTaskPriority(v)}
+                            >
+                                <SelectTrigger className="w-[120px] h-10 rounded-xl border-gray-200">
+                                    <SelectValue placeholder="Priority" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="LOW">Low</SelectItem>
+                                    <SelectItem value="MEDIUM">Medium</SelectItem>
+                                    <SelectItem value="HIGH">High</SelectItem>
+                                    <SelectItem value="URGENT">Urgent</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Button
+                                type="button"
+                                onClick={handleAddManualTask}
+                                className="h-10 w-10 p-0 rounded-xl bg-emerald-50 text-[#106B4E] hover:bg-emerald-100 border border-emerald-100"
+                            >
+                                <Plus className="w-5 h-5" />
+                            </Button>
+                        </div>
+
+                        {/* List of Manual Tasks */}
+                        <div className="space-y-2 max-h-[150px] overflow-y-auto">
+                            {(shiftData.tasks || []).map((task, index) => (
+                                <div
+                                    key={index}
+                                    className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-gray-100 group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn(
+                                            "w-2 h-2 rounded-full",
+                                            task.priority === 'URGENT' ? "bg-red-500" :
+                                                task.priority === 'HIGH' ? "bg-orange-500" :
+                                                    task.priority === 'MEDIUM' ? "bg-blue-500" : "bg-gray-400"
+                                        )} />
+                                        <span className="text-sm font-medium text-gray-700">{task.title}</span>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleRemoveManualTask(index)}
+                                        className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-50 mt-4">
                         {initialShift && onDelete && (
                             <Button
                                 variant="ghost"
@@ -441,7 +620,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                         onClose();
                                     }
                                 }}
-                                className="mr-auto text-red-500 hover:text-red-600 hover:bg-red-50"
+                                className="mr-auto text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl"
                             >
                                 Delete Shift
                             </Button>

@@ -13,7 +13,7 @@ export type TaskFrequency =
   | 'CUSTOM';
 
 export interface Task {
-  id: string;
+  id?: string;
   title: string;
   priority: TaskPriority;
   frequency?: TaskFrequency;
@@ -28,6 +28,11 @@ export interface Shift {
   date: string;
   day: number;
   staffId: string;
+  staff_members?: string[];
+  staff_members_details?: { id: string; first_name: string; last_name: string; }[];
+  isRecurring?: boolean;
+  frequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  recurringEndDate?: string; // ISO date string (YYYY-MM-DD) for when recurrence ends
   color?: string;
   // Optional local-only status; keep flexible for UI labeling
   type?: 'confirmed' | 'pending' | 'tentative';
@@ -50,6 +55,8 @@ export interface StaffMember {
 export interface BackendShift {
   id: string;
   staff: string;
+  staff_members: string[];
+  staff_members_details?: { id: string; first_name: string; last_name: string; }[];
   shift_date: string;
   start_time: string;
   end_time: string;

@@ -19,6 +19,7 @@ import BackLink from "@/components/BackLink";
 import BrandLogo from "@/components/BrandLogo";
 import { useLanguage } from "@/hooks/use-language";
 import { LuaWidget } from "@/components/LuaWidget";
+import { LiveDateTime } from "@/components/LiveDateTime";
 
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -55,6 +56,7 @@ const DashboardLayout: React.FC = () => {
               <h1 className="text-2xl font-bold select-none cursor-default">{t("common.brand")}</h1>
             </div>
             <div className="flex items-center gap-4">
+
               {/* Theme Toggle */}
               <ThemeToggle />
 

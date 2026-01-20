@@ -95,6 +95,7 @@ const AdminChecklistTemplates = React.lazy(
 const StaffChecklistBoard = React.lazy(() => import("@/pages/StaffChecklistBoard"));
 const ManagerReviewDashboard = React.lazy(() => import("./pages/ManagerReviewDashboard"));
 const StaffSubmittedChecklists = React.lazy(() => import("./pages/StaffSubmittedChecklists"));
+const ResetPassword = React.lazy(() => import("./pages/ResetPassword"));
 
 const ShiftReviewsAdminPage = React.lazy(
   () => import("./pages/ShiftReviewsAdminPage")
@@ -163,6 +164,7 @@ const App = () => {
               <Route path="/unauthorized" element={<Unauthorized />} />
               <Route path="/staff-login" element={<PinLogin />} />
               <Route path="/accept-invitation" element={<AcceptInvitation />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
 
               {/* Admin/Manager Routes for Dashboard */}
               <Route

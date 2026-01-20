@@ -405,18 +405,23 @@ export default function GeolocationMapSettings({
   const hasPolygon = polygonPoints.length >= 3;
 
   return (
-    <Card className="shadow-soft">
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <MapPin className="w-5 h-5 mr-2" />
-          Restaurant Location & Geofencing
-        </CardTitle>
+    <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50">
+      <CardHeader className="pb-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-lg shadow-rose-500/25">
+            <MapPin className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <CardTitle className="text-lg font-bold text-slate-900">Restaurant Location & Geofencing</CardTitle>
+            <CardDescription className="text-slate-500">Set your restaurant's location for staff clock-in verification</CardDescription>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex flex-col gap-4 rounded-lg border border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <p className="text-sm font-medium">Geofence Monitoring</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm font-semibold text-slate-900">Geofence Monitoring</p>
+            <p className="text-xs text-slate-500">
               Require team members to be within your geolocked zone before
               clocking in.
             </p>
@@ -428,90 +433,36 @@ export default function GeolocationMapSettings({
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="latitude">Latitude</Label>
-            <Input
-              id="latitude"
-              type="text"
-              inputMode="decimal"
-              value={latInput}
-              onChange={(e) => handleLatInputChange(e.target.value)}
-              onBlur={handleLatBlur}
-              placeholder="e.g., 40.7128"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="longitude">Longitude</Label>
-            <Input
-              id="longitude"
-              type="text"
-              inputMode="decimal"
-              value={lngInput}
-              onChange={(e) => handleLngInputChange(e.target.value)}
-              onBlur={handleLngBlur}
-              placeholder="e.g., -74.0060"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="address">Search by Address</Label>
-          <div className="flex gap-2">
-            <Input
-              id="address"
-              type="text"
-              value={addressInput}
-              onChange={(e) => setAddressInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && addressInput.trim()) {
-                  e.preventDefault();
-                  searchAddress();
-                }
-              }}
-              placeholder="e.g., 123 Main St, Marrakech, Morocco"
-              className="flex-1"
-            />
+        {/* Get My Location Button - Prominent */}
+        <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-emerald-100">
+                <Crosshair className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Quick Location Setup</p>
+                <p className="text-xs text-slate-500">Get your exact current location with one click</p>
+              </div>
+            </div>
             <Button
-              onClick={searchAddress}
-              disabled={isSearchingAddress || !addressInput.trim()}
-              variant="outline"
+              onClick={getCurrentLocation}
+              disabled={isGettingLocation}
+              className="w-full sm:w-auto h-11 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-emerald-500/25 transition-all"
             >
-              {isSearchingAddress ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+              {isGettingLocation ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Getting Location...
+                </>
               ) : (
-                <Search className="w-4 h-4" />
+                <>
+                  <Navigation className="w-4 h-4 mr-2" />
+                  Get My Location
+                </>
               )}
             </Button>
           </div>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <Button
-              variant={isDrawing ? "destructive" : "outline"}
-              onClick={handleStartStopDrawing}
-              className="w-full sm:w-auto"
-            >
-              {isDrawing ? "Finish Geolock Zone" : "Define Geolock Zone"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleClearPolygon}
-              disabled={!polygonPoints.length}
-              className="w-full sm:w-auto"
-            >
-              Clear Zone
-            </Button>
-          </div>
-          <Badge
-            variant={hasPolygon ? "default" : "secondary"}
-            className="justify-center px-3 py-1 text-xs"
-          >
-            {hasPolygon
-              ? `${polygonPoints.length} points captured`
-              : "Zone not defined"}
-          </Badge>
         </div>
 
         <div className="relative w-full h-[320px] overflow-hidden rounded-lg border-2 border-border sm:h-[420px]">
@@ -578,8 +529,8 @@ export default function GeolocationMapSettings({
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <Label htmlFor="radius-slider">Geofence Radius</Label>
-            <Badge variant="secondary" className="font-mono">
+            <Label htmlFor="radius-slider" className="text-sm font-medium text-slate-700">Geofence Radius</Label>
+            <Badge variant="secondary" className="font-mono bg-slate-100 text-slate-700">
               {radiusMeters}m ({radiusInKm} km)
             </Badge>
           </div>
@@ -592,7 +543,7 @@ export default function GeolocationMapSettings({
             onValueChange={(value) => setRadiusMeters(value[0])}
             className="w-full"
           />
-          <div className="flex justify-between text-xs text-muted-foreground">
+          <div className="flex justify-between text-xs text-slate-400">
             <span>5m</span>
             <span>50m</span>
             <span>100m</span>
@@ -600,7 +551,7 @@ export default function GeolocationMapSettings({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="radius-input">Radius (meters)</Label>
+          <Label htmlFor="radius-input" className="text-sm font-medium text-slate-700">Radius (meters)</Label>
           <Input
             id="radius-input"
             type="number"
@@ -614,17 +565,24 @@ export default function GeolocationMapSettings({
             min={5}
             max={100}
             placeholder="Enter radius in meters (5-100)"
+            className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
           />
         </div>
 
-        <Button onClick={handleSave} className="w-full" disabled={isSaving}>
-          {isSaving ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-2 h-4 w-4" />
-          )}
-          Save Location Settings
-        </Button>
+        <div className="pt-4 border-t border-slate-200">
+          <Button
+            onClick={handleSave}
+            className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-emerald-500/25 transition-all hover:shadow-emerald-500/40"
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            Save Location Settings
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

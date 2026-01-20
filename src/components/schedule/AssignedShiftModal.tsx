@@ -10,12 +10,15 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '../../contexts/AuthContext.types';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, addDays, addWeeks, addMonths, isBefore, isEqual } from 'date-fns';
 import { API_BASE } from "@/lib/api";
-import { Search, Calendar as CalendarIcon, X, Check } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, X, Check, ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { cn } from "@/lib/utils";
+import { Task, TaskPriority } from '@/types/schedule';
 
 interface StaffMember {
     id: string;
@@ -26,6 +29,7 @@ interface StaffMember {
     };
     first_name?: string;
     last_name?: string;
+    role?: string;
 }
 
 interface AssignedShift {
@@ -44,7 +48,10 @@ interface AssignedShift {
     break_duration?: string; // ISO 8601 duration string, e.g., "PT30M"
     role: string;
     notes: string | null;
+    staff_members?: string[];
+    staff_members_details?: { id: string; first_name: string; last_name: string; }[];
     task_templates?: string[]; // Array of task template IDs
+    tasks?: Task[];
 }
 
 interface AssignedShiftModalProps {
@@ -60,7 +67,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
     const queryClient = useQueryClient();
     const { user, logout } = useAuth() as AuthContextType;
 
-    const [selectedStaffId, setSelectedStaffId] = useState(shift?.staff || '');
+    const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>(shift?.staff_members || (shift?.staff ? [shift.staff] : []));
     const [shiftDate, setShiftDate] = useState(shift?.shift_date || (initialDate ? format(initialDate, 'yyyy-MM-dd') : ''));
     const [startTime, setStartTime] = useState(shift?.start_time?.substring(0, 5) || '09:00');
     const [endTime, setEndTime] = useState(shift?.end_time?.substring(0, 5) || '17:00');
@@ -70,26 +77,62 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
     const [templateSearch, setTemplateSearch] = useState('');
     const [isStaffPopoverOpen, setIsStaffPopoverOpen] = useState(false);
 
+    // Recurrence states
+    const [isRecurring, setIsRecurring] = useState(false);
+    const [frequency, setFrequency] = useState<'DAILY' | 'WEEKLY' | 'MONTHLY'>('WEEKLY');
+    const [recurringEndDate, setRecurringEndDate] = useState<string>('');
+
+    // Manual tasks state
+    const [manualTasks, setManualTasks] = useState<Task[]>(shift?.tasks || []);
+    const [newTaskTitle, setNewTaskTitle] = useState("");
+    const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>("MEDIUM");
+
     useEffect(() => {
         if (shift) {
-            setSelectedStaffId(shift.staff || '');
+            setSelectedStaffIds(shift.staff_members || (shift.staff ? [shift.staff] : []));
             setShiftDate(shift.shift_date || '');
             setStartTime(shift.start_time?.substring(0, 5) || '');
             setEndTime(shift.end_time?.substring(0, 5) || '');
             setRole(shift.role || '');
             setNotes(shift.notes || '');
             setSelectedTemplates(shift.task_templates || []);
+            setManualTasks(shift.tasks || []);
+            setIsRecurring(false); // Reset recurrence on edit for safety
         } else {
-            setSelectedStaffId('');
+            setSelectedStaffIds([]);
             setShiftDate(initialDate ? format(initialDate, 'yyyy-MM-dd') : '');
             setStartTime('09:00');
             setEndTime('17:00');
             setRole('');
             setNotes('');
             setSelectedTemplates([]);
+            setManualTasks([]);
+            setIsRecurring(false);
         }
-        setTemplateSearch(''); // Reset search when modal opens/shift changes
+        setTemplateSearch('');
     }, [shift, initialDate]);
+
+    const handleAddManualTask = () => {
+        if (!newTaskTitle.trim()) {
+            toast({
+                title: "Error",
+                description: "Task title cannot be empty",
+                variant: "destructive",
+            });
+            return;
+        }
+        const newTask: Task = {
+            title: newTaskTitle.trim(),
+            priority: newTaskPriority,
+        };
+        setManualTasks([...manualTasks, newTask]);
+        setNewTaskTitle("");
+        setNewTaskPriority("MEDIUM");
+    };
+
+    const handleRemoveManualTask = (index: number) => {
+        setManualTasks(manualTasks.filter((_, i) => i !== index));
+    };
 
     const roleOptions = [
         { value: 'SUPER_ADMIN', label: 'Super Admin' },
@@ -118,7 +161,6 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                 throw new Error('Failed to fetch staff data');
             }
             const data = await response.json();
-            // Map data safely, handling both nested and flat structures
             return (Array.isArray(data) ? data : []).map((s: any) => ({
                 id: s.id || s.user?.id,
                 user: s.user || {
@@ -154,7 +196,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
     });
 
     const createUpdateShiftMutation = useMutation({
-        mutationFn: async (data: AssignedShift) => {
+        mutationFn: async (data: AssignedShift & { multi_staff?: string[], is_recurring?: boolean, frequency?: string }) => {
             const token = localStorage.getItem('access_token');
             if (!token) throw new Error('No access token');
 
@@ -178,78 +220,113 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                 return start;
             };
 
-            const dateStr = data.shift_date;
-            const payloadISO = { ...data, start_time: makeISO(dateStr, data.start_time), end_time: makeISO(dateStr, data.end_time), break_duration: data.break_duration ?? '00:30:00' };
-            const payloadTime = { ...data, start_time: withSeconds(data.start_time), end_time: withSeconds(data.end_time), break_duration: data.break_duration ?? '00:30:00' };
+            const staffIds = data.staff_members || data.multi_staff || [data.staff];
+            const baseShiftDate = data.shift_date;
 
-            if (shift?.id) {
-                const url = `${API_BASE}/scheduling/assigned-shifts-v2/${shift.id}/`;
-                let response = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(payloadISO) });
-                if (!response.ok) {
-                    if (response.status === 401) { logout(); throw new Error('Session expired'); }
-                    let errText = ''; try { errText = await response.text(); } catch { }
-                    const needsTime = /combine\(\) argument 2 must be datetime\.time/.test(errText);
-                    const needsDatetime = /Datetime has wrong format/.test(errText) || /datetime/i.test(errText);
-                    let retried = false;
-                    if (needsTime) { response = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(payloadTime) }); retried = true; }
-                    else if (needsDatetime && response.status === 400) { response = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(payloadISO) }); retried = true; }
-                    if (!response.ok) { let finalText = ''; try { finalText = retried ? await response.text() : errText; } catch { } throw new Error(finalText || 'Failed to update shift'); }
-                }
-                return response.json();
-            }
+            const scheduleDates = [baseShiftDate];
+            const isUpdate = !!shift?.id;
 
-            let scheduleId = weeklyScheduleId;
-            if (!scheduleId) {
-                const weekStart = getWeekStart(dateStr);
-                const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
-                const weekStartStr = toYMD(weekStart);
-                const weekEndStr = toYMD(weekEnd);
-                const listRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, { headers: { Authorization: `Bearer ${token}` } });
-                if (listRes.ok) {
-                    const listJson = await listRes.json();
-                    const arr = Array.isArray(listJson?.results) ? listJson.results : listJson;
-                    const existing = Array.isArray(arr) ? arr.find((s: any) => s.week_start === weekStartStr) : undefined;
-                    if (existing) scheduleId = existing.id;
-                }
-                if (!scheduleId) {
-                    const createRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ week_start: weekStartStr, week_end: weekEndStr, is_published: false }) });
-                    if (createRes.ok) {
-                        const created = await createRes.json(); scheduleId = created.id;
-                    } else if (createRes.status === 400) {
-                        const retryListRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, { headers: { Authorization: `Bearer ${token}` } });
-                        if (retryListRes.ok) { const retryJson = await retryListRes.json(); const arr = Array.isArray(retryJson?.results) ? retryJson.results : retryJson; const existing = Array.isArray(arr) ? arr.find((s: any) => s.week_start === weekStartStr) : undefined; if (existing) scheduleId = existing.id; }
+            if (data.is_recurring && data.frequency && data.recurring_end_date && !isUpdate) {
+                const base = parseISO(baseShiftDate);
+                const endDate = parseISO(data.recurring_end_date);
+                let currentDate = base;
+                let iterations = 0;
+                const maxIterations = 365;
+
+                while (iterations < maxIterations) {
+                    let nextDate: Date;
+                    if (data.frequency === 'DAILY') {
+                        nextDate = addDays(currentDate, 1);
+                    } else if (data.frequency === 'MONTHLY') {
+                        nextDate = addMonths(currentDate, 1);
+                    } else { // WEEKLY
+                        nextDate = addWeeks(currentDate, 1);
+                    }
+
+                    if (isBefore(nextDate, endDate) || isEqual(nextDate, endDate)) {
+                        scheduleDates.push(toYMD(nextDate));
+                        currentDate = nextDate;
+                        iterations++;
                     } else {
-                        throw new Error(`Failed to ensure weekly schedule (${createRes.status})`);
+                        break;
                     }
                 }
             }
-            if (!scheduleId) throw new Error('No weekly schedule available');
 
-            let response = await fetch(`${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...payloadISO, schedule: scheduleId }) });
-            if (!response.ok) {
-                let errText = ''; try { errText = await response.text(); } catch { }
-                const needsTime = /combine\(\) argument 2 must be datetime\.time/.test(errText);
-                const needsDatetime = /Datetime has wrong format/.test(errText) || /datetime/i.test(errText);
-                let retried = false;
-                if (needsTime) { response = await fetch(`${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...payloadTime, schedule: scheduleId }) }); retried = true; }
-                else if (needsDatetime && response.status === 400) { response = await fetch(`${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...payloadISO, schedule: scheduleId }) }); retried = true; }
-                if (!response.ok) { let finalText = ''; try { finalText = retried ? await response.text() : errText; } catch { } throw new Error(finalText || 'Failed to create shift'); }
+            const results = [];
+            let originalShiftConsumed = false;
+            for (const dStr of scheduleDates) {
+                const payloadISO = {
+                    ...data,
+                    staff: staffIds[0],
+                    staff_members: staffIds,
+                    shift_date: dStr,
+                    start_time: makeISO(dStr, data.start_time),
+                    end_time: makeISO(dStr, data.end_time),
+                    break_duration: data.break_duration ?? '00:30:00'
+                };
+
+                const isFirstEntryOriginalDate = dStr === baseShiftDate;
+                const method = (shift?.id && isFirstEntryOriginalDate && !originalShiftConsumed) ? 'PUT' : 'POST';
+                if (method === 'PUT') originalShiftConsumed = true;
+
+                // Determine targeting URL
+                let url = `${API_BASE}/scheduling/weekly-schedules/${weeklyScheduleId}/assigned-shifts/`;
+                if (method === 'PUT') {
+                    url = `${API_BASE}/scheduling/assigned-shifts-v2/${shift!.id}/`;
+                }
+
+                // Create flows
+                let scheduleId = weeklyScheduleId;
+                const weekStart = getWeekStart(dStr);
+                const weekStartStr = toYMD(weekStart);
+                const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
+                const weekEndStr = toYMD(weekEnd);
+
+                const contextWeekStart = getWeekStart(baseShiftDate);
+                if (toYMD(weekStart) !== toYMD(contextWeekStart)) {
+                    const listRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/?week_start=${weekStartStr}`, { headers: { Authorization: `Bearer ${token}` } });
+                    if (listRes.ok) {
+                        const listJson = await listRes.json();
+                        const arr = Array.isArray(listJson?.results) ? listJson.results : listJson;
+                        const existing = Array.isArray(arr) ? arr.find((s: any) => s.week_start === weekStartStr) : undefined;
+                        if (existing) scheduleId = existing.id;
+                    }
+                    if (!scheduleId) {
+                        const createRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ week_start: weekStartStr, week_end: weekEndStr, is_published: false }) });
+                        if (createRes.ok) { const created = await createRes.json(); scheduleId = created.id; }
+                    }
+                }
+
+                if (!scheduleId) throw new Error('Could not resolve weekly schedule');
+
+                if (method === 'POST') {
+                    url = `${API_BASE}/scheduling/weekly-schedules/${scheduleId}/assigned-shifts/`;
+                }
+
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ ...payloadISO, schedule: scheduleId })
+                });
+                if (!res.ok) throw new Error(await res.text());
+                results.push(await res.json());
             }
-            return response.json();
+            return results;
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['weekly-schedule', weeklyScheduleId] });
+        onSuccess: (results) => {
+            queryClient.invalidateQueries({ queryKey: ['weekly-schedule'] });
             queryClient.invalidateQueries({ queryKey: ['shifts'] });
             queryClient.invalidateQueries({ queryKey: ['assigned-shifts'] });
             toast({
-                title: `Shift ${shift?.id ? 'updated' : 'created'} successfully!`,
-                description: `The shift has been ${shift?.id ? 'updated' : 'created'}.`,
+                title: `Success`,
+                description: `${results.length} shift(s) ${shift?.id ? 'processed' : 'created'}.`,
             });
             onClose();
         },
         onError: (error: any) => {
             toast({
-                title: `Failed to ${shift?.id ? 'update' : 'create'} shift.`,
+                title: `Operation failed`,
                 description: error?.message || "An unexpected error occurred.",
                 variant: "destructive",
             });
@@ -298,48 +375,45 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             const [h, m] = t.split(':').map(Number);
             return h * 60 + m;
         };
-        if (!selectedStaffId || !shiftDate || !startTime || !endTime || !role) {
+        if (selectedStaffIds.length === 0 || !shiftDate || !startTime || !endTime || !role) {
             toast({ title: 'Missing required fields', description: 'Please select staff, date, start, end, and role.', variant: 'destructive' });
             return;
         }
         const startM = toMinutes(startTime);
         const endM = toMinutes(endTime);
         if (endM <= startM) {
-            toast({ title: 'Invalid time range', description: 'End time must be after start time for the same day.', variant: 'destructive' });
+            toast({ title: 'Invalid time range', description: 'End time must be after start time.', variant: 'destructive' });
             return;
         }
-        const durationH = (endM - startM) / 60;
-        if (durationH < 1 || durationH > 12) {
-            toast({ title: 'Invalid shift duration', description: 'Shift must be between 1 and 12 hours per company policy.', variant: 'destructive' });
+        if (isRecurring && !recurringEndDate) {
+            toast({ title: 'End date required', description: 'Please select an end date for recurring shifts.', variant: 'destructive' });
             return;
         }
 
-        const shiftData: AssignedShift = {
-            staff: selectedStaffId,
+        const shiftData: any = {
+            staff_members: selectedStaffIds,
             shift_date: shiftDate,
             start_time: startTime,
             end_time: endTime,
             role: role,
             notes: notes,
             task_templates: selectedTemplates,
+            tasks: manualTasks, // Include manual tasks for nested creation/update
+            is_recurring: isRecurring,
+            frequency: frequency,
+            recurring_end_date: isRecurring ? recurringEndDate : undefined,
             ...(weeklyScheduleId && { schedule: weeklyScheduleId }),
         };
 
-        const token = localStorage.getItem('access_token');
-        const params = new URLSearchParams({ staff_id: selectedStaffId, shift_date: shiftDate, start_time: `${startTime}:00`, end_time: `${endTime}:00` });
-        fetch(`${API_BASE}/scheduling/assigned-shifts-v2/detect_conflicts/?${params.toString()}`, { headers: { 'Authorization': `Bearer ${token}` } })
-            .then(async (res) => {
-                if (!res.ok) throw new Error(await res.text());
-                return res.json();
-            })
-            .then((conf) => {
-                if (conf?.has_conflicts) {
-                    toast({ title: 'Scheduling conflict', description: 'This staff has overlapping shifts at the selected time.', variant: 'destructive' });
-                } else {
-                    createUpdateShiftMutation.mutate(shiftData);
-                }
-            })
-            .catch(() => createUpdateShiftMutation.mutate(shiftData));
+        createUpdateShiftMutation.mutate(shiftData);
+    };
+
+    const toggleStaffSelection = (staffId: string) => {
+        setSelectedStaffIds(prev =>
+            prev.includes(staffId)
+                ? prev.filter(id => id !== staffId)
+                : [...prev, staffId]
+        );
     };
 
     const filteredTemplates = taskTemplates?.filter(t =>
@@ -356,93 +430,12 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[700px] bg-white rounded-3xl p-8">
+            <DialogContent className="sm:max-w-[700px] bg-white rounded-3xl p-8 max-h-[90vh] overflow-y-auto">
                 <DialogHeader className="pb-2">
-                    <DialogTitle className="text-xl font-bold text-[#1F2937]">Create Schedule</DialogTitle>
+                    <DialogTitle className="text-xl font-bold text-[#1F2937]">{shift ? 'Edit Schedule' : 'Create Schedule'}</DialogTitle>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-6 mt-4">
-                    {/* Staff Member */}
-                    <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-[#1F2937]">Staff Member</Label>
-                        <Popover open={isStaffPopoverOpen} onOpenChange={setIsStaffPopoverOpen}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    aria-expanded={isStaffPopoverOpen}
-                                    className="w-full h-12 bg-[#F6AD55] hover:bg-[#ED8936] text-white border-none rounded-xl px-4 flex justify-between items-center text-base font-medium transition-colors shadow-sm"
-                                >
-                                    <div className="flex items-center gap-2 overflow-hidden">
-                                        {selectedStaffId ? (
-                                            <>
-                                                <Avatar className="h-6 w-6 border border-white/20">
-                                                    <AvatarFallback className="text-[10px] bg-white/20 text-white">
-                                                        {(() => {
-                                                            const s = staffMembers?.find(st => st.id === selectedStaffId);
-                                                            return `${(s?.user?.first_name || s?.first_name || "")[0] || ""}${(s?.user?.last_name || s?.last_name || "")[0] || ""}`;
-                                                        })()}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <span className="truncate">
-                                                    {(() => {
-                                                        const s = staffMembers?.find(st => st.id === selectedStaffId);
-                                                        return s ? `${s.user?.first_name || s.first_name || ""} ${s.user?.last_name || s.last_name || ""}` : "Select staff member...";
-                                                    })()}
-                                                </span>
-                                            </>
-                                        ) : (
-                                            "Select staff member..."
-                                        )}
-                                    </div>
-                                    <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl shadow-2xl border-gray-100 overflow-hidden" align="start">
-                                <Command className="rounded-xl border-none">
-                                    <CommandInput placeholder="Search staff by name..." className="h-12 border-none focus:ring-0" />
-                                    <CommandList className="max-h-[300px]">
-                                        <CommandEmpty className="py-6 text-center text-sm text-gray-500">No staff found.</CommandEmpty>
-                                        <CommandGroup>
-                                            {isLoadingStaff ? (
-                                                <div className="p-4 text-center text-sm text-gray-500 italic">Loading staff...</div>
-                                            ) : staffError ? (
-                                                <div className="p-4 text-center text-sm text-red-500 font-medium italic">Error loading staff</div>
-                                            ) : (
-                                                staffMembers?.filter(s => String(s.user?.id) !== String(user?.id)).map((s) => (
-                                                    <CommandItem
-                                                        key={s.id}
-                                                        value={`${s.user?.first_name || s.first_name || ""} ${s.user?.last_name || s.last_name || ""}`}
-                                                        onSelect={() => {
-                                                            setSelectedStaffId(s.id);
-                                                            setIsStaffPopoverOpen(false);
-                                                        }}
-                                                        className="flex items-center gap-2 p-3 aria-selected:bg-orange-50 cursor-pointer"
-                                                    >
-                                                        <Avatar className="h-8 w-8">
-                                                            <AvatarFallback className="text-xs bg-orange-100 text-orange-700">
-                                                                {`${(s.user?.first_name || s.first_name || "")[0] || ""}${(s.user?.last_name || s.last_name || "")[0] || ""}`}
-                                                            </AvatarFallback>
-                                                        </Avatar>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-sm font-semibold text-gray-900">
-                                                                {`${s.user?.first_name || s.first_name || ""} ${s.user?.last_name || s.last_name || ""}`}
-                                                            </span>
-                                                            {s.role && <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">{s.role}</span>}
-                                                        </div>
-                                                        {selectedStaffId === s.id && (
-                                                            <Check className="ml-auto h-4 w-4 text-[#106B4E]" />
-                                                        )}
-                                                    </CommandItem>
-                                                ))
-                                            )}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-
                     {/* Shift Title */}
                     <div className="space-y-2">
                         <Label className="text-sm font-semibold text-[#1F2937]">Shift Title</Label>
@@ -455,15 +448,60 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                         />
                     </div>
 
-                    {/* Description */}
+                    {/* Multi-Staff Selection */}
                     <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-[#1F2937]">Description (Optional)</Label>
-                        <Textarea
-                            placeholder="Additional notes for this shift..."
-                            value={notes || ''}
-                            onChange={(e) => setNotes(e.target.value)}
-                            className="min-h-[100px] rounded-xl border-gray-200 resize-none"
-                        />
+                        <Label className="text-sm font-semibold text-[#1F2937]">Assign Staff ({selectedStaffIds.length} selected)</Label>
+                        <Popover open={isStaffPopoverOpen} onOpenChange={setIsStaffPopoverOpen}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className="w-full h-12 bg-orange-100 hover:bg-orange-200 text-orange-900 border-none rounded-xl px-4 flex justify-between items-center text-base font-medium transition-colors shadow-sm"
+                                >
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                        {selectedStaffIds.length > 0 ? (
+                                            <span className="truncate">
+                                                {selectedStaffIds.length === 1
+                                                    ? staffMembers?.find(s => s.id === selectedStaffIds[0])?.user?.first_name
+                                                    : `${selectedStaffIds.length} members selected`}
+                                            </span>
+                                        ) : (
+                                            "Select staff members..."
+                                        )}
+                                    </div>
+                                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl shadow-2xl border-gray-100 overflow-hidden" align="start">
+                                <Command className="rounded-xl border-none">
+                                    <CommandInput placeholder="Search staff..." className="h-12 border-none focus:ring-0" />
+                                    <CommandList className="max-h-[300px] overflow-y-auto">
+                                        <CommandEmpty className="py-6 text-center text-sm text-gray-500">No staff found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {staffMembers?.map((s) => (
+                                                <CommandItem
+                                                    key={s.id}
+                                                    onSelect={() => toggleStaffSelection(s.id)}
+                                                    className="flex items-center gap-2 p-3 aria-selected:bg-orange-50 cursor-pointer"
+                                                >
+                                                    <Checkbox checked={selectedStaffIds.includes(s.id)} className="rounded-md border-orange-200 data-[state=checked]:bg-orange-500" />
+                                                    <Avatar className="h-8 w-8 ml-1">
+                                                        <AvatarFallback className="text-xs bg-orange-100 text-orange-700">
+                                                            {`${(s.user?.first_name || s.first_name || "")[0] || ""}${(s.user?.last_name || s.last_name || "")[0] || ""}`}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-semibold text-gray-900">
+                                                            {`${s.user?.first_name || s.first_name || ""} ${s.user?.last_name || s.last_name || ""}`}
+                                                        </span>
+                                                        <span className="text-xs text-gray-500 uppercase">{s.role}</span>
+                                                    </div>
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
                     </div>
 
                     {/* Date and Time Pickers */}
@@ -484,9 +522,6 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                 />
                                 <CalendarIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                             </div>
-                            <p className="text-[10px] text-gray-500 mt-1">
-                                Selected: {startTime ? new Date(`2000-01-01T${startTime}`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) : '--'}
-                            </p>
                         </div>
                         <div className="space-y-2">
                             <Label className="text-sm font-semibold text-[#1F2937]">End Time</Label>
@@ -495,8 +530,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                     type="datetime-local"
                                     value={`${shiftDate}T${endTime}`}
                                     onChange={(e) => {
-                                        const [date, time] = e.target.value.split('T');
-                                        // We keep the start date for both for now, as shifts are usually single day
+                                        const [_, time] = e.target.value.split('T');
                                         setEndTime(time);
                                     }}
                                     className="h-12 rounded-xl border-gray-200 pl-4 pr-10"
@@ -504,74 +538,143 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                 />
                                 <CalendarIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                             </div>
-                            <p className="text-[10px] text-gray-500 mt-1">
-                                Selected: {endTime ? new Date(`2000-01-01T${endTime}`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) : '--'}
-                            </p>
                         </div>
                     </div>
 
-                    {/* Process & Task Templates */}
-                    <div className="space-y-2">
+                    {/* Recurring Shift Section */}
+                    <div className="bg-slate-50 p-4 rounded-2xl space-y-4 border border-slate-100">
                         <div className="flex items-center justify-between">
-                            <Label className="text-sm font-semibold text-[#1F2937]">Process & Task Templates</Label>
-                            <div className="relative w-48">
-                                <Input
-                                    placeholder="Search templates..."
-                                    value={templateSearch}
-                                    onChange={(e) => setTemplateSearch(e.target.value)}
-                                    className="h-8 rounded-lg border-gray-200 pl-8 pr-2 text-xs"
-                                />
-                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                            <div className="flex flex-col">
+                                <Label className="text-sm font-bold text-slate-900 leading-none">Recurring Shift</Label>
+                                <p className="text-[10px] text-slate-500 mt-1">Create this shift repeatedly until the end date.</p>
                             </div>
+                            <Checkbox
+                                checked={isRecurring}
+                                onCheckedChange={(checked) => setIsRecurring(!!checked)}
+                                className="h-5 w-5 rounded-md border-slate-300 data-[state=checked]:bg-[#106B4E] data-[state=checked]:border-[#106B4E]"
+                            />
                         </div>
-                        <div className="bg-[#F9FAFB] border border-gray-100 rounded-2xl p-2 max-h-[250px] overflow-y-auto space-y-1">
-                            {isLoadingTemplates ? (
-                                <p className="text-sm text-gray-500 text-center py-4">Loading templates...</p>
-                            ) : filteredTemplates?.length === 0 ? (
-                                <p className="text-sm text-gray-500 text-center py-4">No templates found</p>
-                            ) : (
-                                filteredTemplates?.map((template) => {
-                                    const isSelected = selectedTemplates.includes(template.id);
-                                    return (
-                                        <div
-                                            key={template.id}
-                                            className={cn(
-                                                "flex items-start gap-3 p-3 rounded-xl cursor-not-allowed transition-all border",
-                                                isSelected
-                                                    ? "bg-emerald-50 border-emerald-200 shadow-sm cursor-pointer"
-                                                    : "bg-white border-transparent hover:bg-gray-50 hover:border-gray-200 cursor-pointer"
-                                            )}
-                                            onClick={() => toggleTemplate(template.id)}
-                                        >
-                                            <Checkbox
-                                                id={template.id}
-                                                checked={isSelected}
-                                                onCheckedChange={() => toggleTemplate(template.id)}
-                                                className="mt-0.5 rounded-md border-gray-300 data-[state=checked]:bg-[#106B4E] data-[state=checked]:border-[#106B4E] shrink-0"
-                                            />
-                                            <div className="space-y-0.5 min-w-0">
-                                                <Label
-                                                    htmlFor={template.id}
-                                                    className={cn(
-                                                        "text-sm font-bold leading-none cursor-pointer",
-                                                        isSelected ? "text-emerald-900" : "text-[#1F2937]"
-                                                    )}
-                                                >
-                                                    {template.name}
-                                                </Label>
-                                                <p className={cn(
-                                                    "text-xs line-clamp-1",
-                                                    isSelected ? "text-emerald-700/80" : "text-gray-500"
-                                                )}>
-                                                    {template.description || "Automatically add tasks to this shift."}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    );
-                                })
+
+                        {isRecurring && (
+                            <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <Label className="text-xs font-semibold text-slate-700 block mb-2">Repeat Frequency</Label>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={frequency === 'DAILY' ? 'default' : 'outline'}
+                                        onClick={() => setFrequency('DAILY')}
+                                        className={cn(
+                                            "flex-1 h-10 rounded-xl text-xs font-bold transition-all",
+                                            frequency === 'DAILY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        )}
+                                    >
+                                        Daily
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={frequency === 'WEEKLY' ? 'default' : 'outline'}
+                                        onClick={() => setFrequency('WEEKLY')}
+                                        className={cn(
+                                            "flex-1 h-10 rounded-xl text-xs font-bold transition-all",
+                                            frequency === 'WEEKLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        )}
+                                    >
+                                        Weekly
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={frequency === 'MONTHLY' ? 'default' : 'outline'}
+                                        onClick={() => setFrequency('MONTHLY')}
+                                        className={cn(
+                                            "flex-1 h-10 rounded-xl text-xs font-bold transition-all",
+                                            frequency === 'MONTHLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        )}
+                                    >
+                                        Monthly
+                                    </Button>
+                                </div>
+                                <div className="mt-4">
+                                    <Label className="text-xs font-semibold text-slate-700 block mb-2">End Date</Label>
+                                    <Input
+                                        type="date"
+                                        value={recurringEndDate}
+                                        onChange={(e) => setRecurringEndDate(e.target.value)}
+                                        min={shiftDate}
+                                        className="h-10 rounded-xl border-slate-200 focus:ring-[#106B4E] focus:border-[#106B4E]"
+                                    />
+                                    {!recurringEndDate && <p className="text-[10px] text-amber-600 mt-1">Please select an end date for recurring shifts.</p>}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Manual Task Creation Section */}
+                    <div className="space-y-4 pt-4 border-t border-gray-100">
+                        <Label className="text-sm font-semibold text-[#1F2937]">Custom Tasks</Label>
+
+                        <div className="flex gap-2">
+                            <Input
+                                placeholder="Add a custom task..."
+                                value={newTaskTitle}
+                                onChange={(e) => setNewTaskTitle(e.target.value)}
+                                className="flex-1 h-12 rounded-xl border-gray-200 text-sm focus:ring-[#106B4E]"
+                            />
+                            <div className="w-[140px]">
+                                <Select
+                                    value={newTaskPriority}
+                                    onValueChange={(v: TaskPriority) => setNewTaskPriority(v)}
+                                >
+                                    <SelectTrigger className="h-12 rounded-xl border-gray-200 text-sm">
+                                        <SelectValue placeholder="Priority" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="LOW">Low</SelectItem>
+                                        <SelectItem value="MEDIUM">Medium</SelectItem>
+                                        <SelectItem value="HIGH">High</SelectItem>
+                                        <SelectItem value="URGENT">Urgent</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <Button
+                                type="button"
+                                onClick={handleAddManualTask}
+                                className="h-12 w-12 p-0 rounded-xl bg-emerald-50 text-[#106B4E] hover:bg-emerald-100 border border-emerald-100"
+                            >
+                                <Plus className="w-5 h-5" />
+                            </Button>
+                        </div>
+
+                        {/* List of Manual Tasks */}
+                        <div className="space-y-2 max-h-[180px] overflow-y-auto pr-2">
+                            {(manualTasks || []).map((task, index) => (
+                                <div
+                                    key={index}
+                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 group transition-all hover:bg-white hover:shadow-sm"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn(
+                                            "w-2 h-2 rounded-full",
+                                            task.priority === 'URGENT' ? "bg-red-500" :
+                                                task.priority === 'HIGH' ? "bg-orange-500" :
+                                                    task.priority === 'MEDIUM' ? "bg-blue-500" : "bg-gray-400"
+                                        )} title={task.priority} />
+                                        <span className="text-sm font-medium text-gray-700">{task.title}</span>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleRemoveManualTask(index)}
+                                        className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            ))}
+                            {manualTasks.length === 0 && (
+                                <p className="text-xs text-gray-400 text-center py-4">No custom tasks added yet.</p>
                             )}
                         </div>
-                        <p className="text-[10px] text-gray-400 pt-1">Select templates to automatically add tasks to this shift.</p>
                     </div>
 
                     {/* Footer Buttons */}
