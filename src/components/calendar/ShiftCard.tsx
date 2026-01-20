@@ -39,13 +39,13 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
   compact = false
 }) => {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  
+
   // Add error handling for invalid dates
   let startTime = 'Invalid';
   let endTime = 'Invalid';
   let duration = 'Unknown';
   let isOvernight = false;
-  
+
   try {
     startTime = formatShiftTime(shift.displayStart, timezone);
     endTime = formatShiftTime(shift.displayEnd, timezone);
@@ -54,7 +54,7 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
   } catch (error) {
     console.error('Error formatting shift times:', error, shift);
   }
-  
+
   const cardClasses = `
     shift-card
     ${isSelected ? 'selected' : ''}
@@ -125,13 +125,28 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
           </span>
         </div>
 
-        
 
-        {shift.tasks && shift.tasks.length > 0 && (
-          <Badge variant="secondary" className="text-[10px] mt-1">
-            {shift.tasks.length} task{shift.tasks.length !== 1 ? 's' : ''}
-          </Badge>
-        )}
+
+        <div className="flex items-center gap-2 mt-1">
+          {shift.tasks && shift.tasks.length > 0 && (
+            <Badge variant="secondary" className="text-[10px]">
+              {shift.tasks.length} task{shift.tasks.length !== 1 ? 's' : ''}
+            </Badge>
+          )}
+          {shift.staff_members_details && shift.staff_members_details.length > 0 && (
+            <div className="flex -space-x-1.5 overflow-hidden">
+              {shift.staff_members_details.map((staff) => (
+                <div
+                  key={staff.id}
+                  className="inline-block h-5 w-5 rounded-full ring-1 ring-white bg-[#106B4E] flex items-center justify-center text-[8px] font-bold text-white"
+                  title={`${staff.first_name} ${staff.last_name}`}
+                >
+                  {staff.first_name?.[0]}{staff.last_name?.[0]}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {showDetails && (
@@ -171,27 +186,38 @@ export const ShiftTooltip: React.FC<ShiftTooltipProps> = ({ shift, position, vis
       }}
     >
       <div className="shift-tooltip-title">{shift.title || 'Unnamed Shift'}</div>
-      
+
       <div className="shift-tooltip-content">
         <div className="shift-tooltip-item">
           <Clock className="shift-tooltip-icon" />
           <span>{startTime} - {endTime}</span>
         </div>
-        
+
         <div className="shift-tooltip-item">
           <Calendar className="shift-tooltip-icon" />
           <span>{duration}</span>
         </div>
-        
+
         {isOvernight && (
           <div className="shift-tooltip-item text-yellow-300">
             <Calendar className="shift-tooltip-icon" />
             <span>Overnight shift</span>
           </div>
         )}
-        
-        
-        
+
+
+
+        {shift.staff_members_details && shift.staff_members_details.length > 0 && (
+          <div className="shift-tooltip-item flex flex-wrap gap-1 mt-2">
+            {shift.staff_members_details.map((staff) => (
+              <div key={staff.id} className="flex items-center gap-1 bg-white/10 px-2 py-0.5 rounded-full text-[10px]">
+                <User className="w-3 h-3" />
+                <span>{staff.first_name} {staff.last_name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {shift.tasks && shift.tasks.length > 0 && (
           <div className="shift-tooltip-item">
             <div className="w-4 h-4 mr-2 rounded-full bg-blue-500 flex items-center justify-center text-xs">
@@ -201,7 +227,7 @@ export const ShiftTooltip: React.FC<ShiftTooltipProps> = ({ shift, position, vis
           </div>
         )}
       </div>
-      
+
       <div className="shift-tooltip-footer">
         Timezone: {timezone}
       </div>

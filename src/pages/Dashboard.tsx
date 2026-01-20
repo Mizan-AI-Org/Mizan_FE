@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { Badge } from "@/components/ui/badge";
+import { LiveDateTime } from "@/components/LiveDateTime";
 
 type AppItem = {
   name: string;
@@ -103,9 +104,12 @@ export default function Dashboard() {
 
         {/* Header Section */}
         <header className="mb-2">
-          <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-            {greeting}, {user?.first_name || ""}
-          </h1>
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+              {greeting}, {user?.first_name || ""}
+            </h1>
+            <LiveDateTime showTime={false} />
+          </div>
           <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1 italic">
             What needs your attention today?
           </p>
