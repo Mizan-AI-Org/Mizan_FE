@@ -22,8 +22,7 @@ import InventoryReportsPage from "./pages/reporting/InventoryReportsPage";
 import TimeClockPage from "./pages/TimeClockPage";
 import ShiftDetailView from "./pages/ShiftDetailView";
 import StaffAnnouncementsList from "./pages/StaffAnnouncement";
-import Staff from "./pages/Staff";
-import AddStaff from "./pages/AddStaff";
+// Removed legacy staff imports
 
 // Lazy-loaded components
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
@@ -41,6 +40,9 @@ const Unauthorized = React.lazy(() => import("./pages/Unauthorized"));
 const StaffAppsPage = React.lazy(() => import("./pages/StaffAppsPage"));
 const SafetyDashboard = React.lazy(() => import("./pages/SafetyDashboard"));
 const PinLogin = React.lazy(() => import("./components/auth/PinLogin"));
+const StaffApp = React.lazy(() => import("./pages/StaffApp"));
+const ProcessesTasksApp = React.lazy(() => import("./pages/ProcessesTasksApp"));
+const StaffSchedulesApp = React.lazy(() => import("./pages/StaffSchedulesApp"));
 const StaffSchedulingPage = React.lazy(
   () => import("./pages/StaffSchedulingPage")
 );
@@ -61,7 +63,6 @@ const TaskManagementBoard = React.lazy(
   () => import("./pages/TaskManagementBoard")
 );
 const TaskTemplates = React.lazy(() => import("./pages/TaskTemplates"));
-const Processes = React.lazy(() => import("./pages/Processes"));
 const ManagerSwapRequests = React.lazy(
   () => import("./pages/ManagerSwapRequests")
 );
@@ -94,6 +95,7 @@ const AdminChecklistTemplates = React.lazy(
 const StaffChecklistBoard = React.lazy(() => import("@/pages/StaffChecklistBoard"));
 const ManagerReviewDashboard = React.lazy(() => import("./pages/ManagerReviewDashboard"));
 const StaffSubmittedChecklists = React.lazy(() => import("./pages/StaffSubmittedChecklists"));
+const ResetPassword = React.lazy(() => import("./pages/ResetPassword"));
 
 const ShiftReviewsAdminPage = React.lazy(
   () => import("./pages/ShiftReviewsAdminPage")
@@ -162,6 +164,7 @@ const App = () => {
               <Route path="/unauthorized" element={<Unauthorized />} />
               <Route path="/staff-login" element={<PinLogin />} />
               <Route path="/accept-invitation" element={<AcceptInvitation />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
 
               {/* Admin/Manager Routes for Dashboard */}
               <Route
@@ -237,7 +240,7 @@ const App = () => {
                     <RoleBasedRoute
                       allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
                     >
-                      <ShiftReviewsAdminPage />
+                      <StaffSchedulesApp />
                     </RoleBasedRoute>
                   }
                 />
@@ -305,11 +308,20 @@ const App = () => {
                     </RoleBasedRoute>
                   }
                 />
+                {/* Removed legacy staff route */}
                 <Route
-                  path="dashboard/staff"
+                  path="dashboard/staff-app"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                      <StaffApp />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/processes-tasks-app"
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
-                      <Staff />
+                      <ProcessesTasksApp />
                     </RoleBasedRoute>
                   }
                 />
@@ -323,14 +335,7 @@ const App = () => {
                     </RoleBasedRoute>
                   }
                 />
-                <Route
-                  path="staff/add-staff"
-                  element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
-                      <AddStaff />
-                    </RoleBasedRoute>
-                  }
-                />
+                {/* Removed legacy add-staff route */}
                 <Route
                   path="dashboard/auto-schedule"
                   element={
@@ -363,16 +368,6 @@ const App = () => {
                     <React.Suspense fallback={<div>Loading...</div>}>
                       <TaskManagementBoard />
                     </React.Suspense>
-                  }
-                />
-                <Route
-                  path="dashboard/processes"
-                  element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
-                      <React.Suspense fallback={<div>Loading...</div>}>
-                        <Processes />
-                      </React.Suspense>
-                    </RoleBasedRoute>
                   }
                 />
                 <Route

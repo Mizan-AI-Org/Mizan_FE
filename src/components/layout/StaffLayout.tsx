@@ -81,7 +81,7 @@ const StaffLayout: React.FC = () => {
           <div className="flex items-center gap-2">
             <BrandLogo size="sm" />
             <h1 className="text-lg font-semibold text-gray-900 select-none cursor-default">
-              Mizan Staff
+              Mizan AI Staff
             </h1>
           </div>
           <div className="flex items-center gap-2">
@@ -152,7 +152,7 @@ const StaffLayout: React.FC = () => {
             <div className="flex items-center gap-2">
               <BrandLogo size="sm" />
               <h1 className="text-lg font-semibold text-gray-900 select-none cursor-default">
-                Mizan Staff
+                Mizan AI Staff
               </h1>
               <p className="text-sm text-gray-500">
                 {user?.restaurant_data?.name}

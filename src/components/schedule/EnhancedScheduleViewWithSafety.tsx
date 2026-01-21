@@ -25,6 +25,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,6 +58,8 @@ import {
   CheckSquare,
   Calendar,
   Clipboard,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { API_BASE } from "@/lib/api";
@@ -92,6 +108,13 @@ interface ScheduleFormData {
   start_time: string;
   end_time: string;
   color: string;
+}
+
+interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
 }
 
 interface EnhancedScheduleViewProps {
@@ -150,6 +173,7 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
     end_time: format(addDays(new Date(), 1), "yyyy-MM-dd'T'HH:mm"),
     color: "#3b82f6",
   });
+  const [isStaffOpen, setIsStaffOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -182,13 +206,13 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
 
   // Fetch staff members with safety data
   const {
-    data: staffMembers,
+    data: staffResponse,
     isLoading: isLoadingStaff,
     error: staffError,
-  } = useQuery<StaffMember[]>({
+  } = useQuery<any>({
     queryKey: ["staff-members-with-safety"],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/staff/profiles/`, {
+      const response = await fetch(`${API_BASE}/users/?is_active=true&page_size=1000`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
@@ -197,26 +221,27 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
       if (!response.ok) {
         throw new Error("Failed to fetch staff members");
       }
-      
-      const staffData = await response.json();
-      
-      // Do not simulate safety data; return actual staff data only
-      return staffData;
+
+      return response.json();
     },
   });
 
+  const staffMembers = Array.isArray(staffResponse)
+    ? staffResponse
+    : (staffResponse?.results || []);
+
   // Fetch schedules
   const {
-    data: schedules,
+    data: schedulesResponse,
     isLoading: isLoadingSchedules,
     error: schedulesError,
     refetch: refetchSchedules,
-  } = useQuery<Schedule[]>({
+  } = useQuery<any>({
     queryKey: ["schedules", format(dateRange[0], "yyyy-MM-dd"), format(dateRange[dateRange.length - 1], "yyyy-MM-dd")],
     queryFn: async () => {
       const startDate = format(dateRange[0], "yyyy-MM-dd");
       const endDate = format(dateRange[dateRange.length - 1], "yyyy-MM-dd");
-      
+
       const response = await fetch(
         `${API_BASE}/staff/schedules/?start_date=${startDate}&end_date=${endDate}`,
         {
@@ -229,21 +254,27 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
       if (!response.ok) {
         throw new Error("Failed to fetch schedules");
       }
-      
+
       const data = await response.json();
-      
-      // Enhance schedules with staff names only (no simulated safety data)
-      return data.map((schedule: Schedule) => {
-        const staffMember = staffMembers?.find(s => s.id === schedule.staff);
-        
-        return {
-          ...schedule,
-          staff_name: staffMember ? `${staffMember.first_name} ${staffMember.last_name}` : "Unknown Staff",
-        };
-      });
+      return data;
     },
-    enabled: !!staffMembers, // Only run this query when staffMembers are loaded
   });
+
+  const schedules = React.useMemo(() => {
+    const rawSchedules = Array.isArray(schedulesResponse)
+      ? schedulesResponse
+      : (schedulesResponse?.results || []);
+
+    return rawSchedules.map((schedule: Schedule) => {
+      const staffMember = staffMembers?.find(s => s.id === schedule.staff);
+      return {
+        ...schedule,
+        staff_name: staffMember
+          ? `${staffMember.first_name} ${staffMember.last_name}`
+          : "Unknown Staff"
+      };
+    });
+  }, [schedulesResponse, staffMembers]);
 
   // Create schedule mutation
   const createScheduleMutation = useMutation({
@@ -372,7 +403,7 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
   // Form submission handler
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (selectedSchedule) {
       updateScheduleMutation.mutate({
         id: selectedSchedule.id,
@@ -434,10 +465,10 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
   // Group schedules by date and staff
   const getSchedulesForDateAndStaff = (date: Date, staffId: string) => {
     if (!schedules) return [];
-    
+
     return schedules.filter(
-      (schedule) => 
-        isSameDay(parseISO(schedule.start_time), date) && 
+      (schedule) =>
+        isSameDay(parseISO(schedule.start_time), date) &&
         schedule.staff === staffId
     );
   };
@@ -468,7 +499,7 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
   const showSafetyTasks = (staffId: string) => {
     const staffMember = staffMembers?.find(s => s.id === staffId);
     if (!staffMember) return;
-    
+
     // Get all safety tasks for this staff member across all schedules
     const allTasks: SafetyTask[] = [];
     schedules?.forEach(schedule => {
@@ -476,7 +507,7 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
         allTasks.push(...schedule.safety_tasks);
       }
     });
-    
+
     setSelectedStaffId(staffId);
     setSelectedStaffSafetyTasks(allTasks);
     setShowSafetyTasksModal(true);
@@ -521,8 +552,8 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
             {currentView === "day"
               ? format(currentDate, "MMMM d, yyyy")
               : currentView === "week"
-              ? `${format(dateRange[0], "MMM d")} - ${format(dateRange[dateRange.length - 1], "MMM d, yyyy")}`
-              : `${format(dateRange[0], "MMM yyyy")}`}
+                ? `${format(dateRange[0], "MMM d")} - ${format(dateRange[dateRange.length - 1], "MMM d, yyyy")}`
+                : `${format(dateRange[0], "MMM yyyy")}`}
           </div>
           <Button variant="outline" size="sm" onClick={goToNext}>
             <ChevronRight className="h-4 w-4" />
@@ -578,15 +609,15 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
                           {`${staffMember.first_name} ${staffMember.last_name}`}
                           <div className="text-xs text-muted-foreground">{staffMember.role}</div>
                         </div>
-                        
+
                         {/* Safety indicators */}
                         {showSafetyIndicators && (
                           <div className="flex items-center space-x-1">
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <div 
-                                    className="w-2 h-2 rounded-full" 
+                                  <div
+                                    className="w-2 h-2 rounded-full"
                                     style={{ backgroundColor: safetyComplianceColors(staffMember.safety_compliance || 0) }}
                                   ></div>
                                 </TooltipTrigger>
@@ -595,14 +626,14 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                            
+
                             {(staffMember.pending_tasks || 0) > 0 && (
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
                                       className="h-6 w-6 p-0 rounded-full"
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -644,17 +675,16 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
                                       {statusIcons[schedule.status]}
                                       {schedule.status}
                                     </Badge>
-                                    
+
                                     {/* Safety compliance indicator */}
                                     {showSafetyIndicators && schedule.safety_compliance !== undefined && (
                                       <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
                                             <div className="flex items-center">
-                                              <Shield className={`h-3 w-3 ${
-                                                schedule.safety_compliance >= 90 ? "text-green-200" :
+                                              <Shield className={`h-3 w-3 ${schedule.safety_compliance >= 90 ? "text-green-200" :
                                                 schedule.safety_compliance >= 70 ? "text-yellow-200" : "text-red-200"
-                                              }`} />
+                                                }`} />
                                             </div>
                                           </TooltipTrigger>
                                           <TooltipContent>
@@ -735,21 +765,54 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
                 <Label htmlFor="staff" className="text-right">
                   Staff
                 </Label>
-                <Select
-                  value={formData.staff}
-                  onValueChange={(value) => setFormData({ ...formData, staff: value })}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select staff member" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {staffMembers?.map((staff) => (
-                      <SelectItem key={staff.id} value={staff.id}>
-                        {staff.first_name} {staff.last_name} ({staff.role})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={isStaffOpen} onOpenChange={setIsStaffOpen} modal={true}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={isStaffOpen}
+                      className="col-span-3 justify-between font-normal"
+                    >
+                      {formData.staff
+                        ? staffMembers?.find((staff) => staff.id === formData.staff)
+                          ? `${staffMembers.find((staff) => staff.id === formData.staff)?.first_name} ${staffMembers.find((staff) => staff.id === formData.staff)?.last_name}`
+                          : "Select staff member..."
+                        : "Select staff member..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[450px] p-0 z-[10000]">
+                    <Command>
+                      <CommandInput placeholder="Search by name or role..." />
+                      <CommandList>
+                        <CommandEmpty>No staff members found.</CommandEmpty>
+                        <CommandGroup heading="Staff Members">
+                          {staffMembers?.map((staff) => (
+                            <CommandItem
+                              key={staff.id}
+                              value={`${staff.first_name} ${staff.last_name} ${staff.role} ${staff.id}`}
+                              onSelect={() => {
+                                setFormData({ ...formData, staff: staff.id });
+                                setIsStaffOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.staff === staff.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div className="flex flex-col">
+                                <span className="font-medium">{staff.first_name} {staff.last_name}</span>
+                                <span className="text-xs text-muted-foreground uppercase">{staff.role?.replace('_', ' ')}</span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="start_time" className="text-right">
@@ -819,8 +882,8 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
                     ? "Updating..."
                     : "Creating..."
                   : selectedSchedule
-                  ? "Update"
-                  : "Create"}
+                    ? "Update"
+                    : "Create"}
               </Button>
             </DialogFooter>
           </form>
@@ -840,7 +903,7 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
               )}
             </DialogTitle>
           </DialogHeader>
-          
+
           {selectedStaffSafetyTasks.length === 0 ? (
             <div className="py-6 text-center">
               <CheckSquare className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
@@ -867,11 +930,11 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
                         Due: {format(parseISO(task.due_date), "MMM d, yyyy h:mm a")}
                       </div>
                     </div>
-                    <Badge 
+                    <Badge
                       className={
                         task.status === "COMPLETED" ? "bg-green-100 text-green-800 hover:bg-green-200" :
-                        task.status === "IN_PROGRESS" ? "bg-blue-100 text-blue-800 hover:bg-blue-200" :
-                        "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                          task.status === "IN_PROGRESS" ? "bg-blue-100 text-blue-800 hover:bg-blue-200" :
+                            "bg-amber-100 text-amber-800 hover:bg-amber-200"
                       }
                     >
                       {task.status}
@@ -881,7 +944,7 @@ const EnhancedScheduleViewWithSafety: React.FC<EnhancedScheduleViewProps> = ({
               ))}
             </div>
           )}
-          
+
           <DialogFooter>
             <Button onClick={() => setShowSafetyTasksModal(false)}>Close</Button>
           </DialogFooter>

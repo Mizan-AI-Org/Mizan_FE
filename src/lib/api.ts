@@ -29,10 +29,9 @@ import {
   ShiftReviewSubmission,
 } from "./types"; // Updated import path
 
-export const API_BASE =
-  import.meta.env.VITE_BACKEND_URL
-    ? `${import.meta.env.VITE_BACKEND_URL}/api`
-    : "http://localhost:8000/api";
+export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+
+export const API_BASE = `${BACKEND_URL}/api`;
 
 // Derive WS_BASE from API_BASE or VITE_BACKEND_URL
 // If API_BASE starts with http, replace with ws. If https, replace with wss.
@@ -48,6 +47,7 @@ export const WS_BASE = import.meta.env.VITE_REACT_APP_WS_URL || getWsBase();
 export const TELEMETRY_ENABLED = String(import.meta.env.VITE_ENABLE_CHECKLIST_TELEMETRY || "false").toLowerCase() === "true";
 
 export class BackendService {
+  [x: string]: any;
   // In a real frontend application, HttpService and ConfigService would not be used directly
   // Instead, you would use fetch or a library like Axios directly.
   // These are kept for now to avoid breaking existing structure but should be refactored for a pure frontend.
@@ -128,13 +128,82 @@ export class BackendService {
     }
   }
 
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
+    try {
+      const response = await fetch(`${API_BASE}/password-reset-request/`, {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify({ email }),
+      });
+
+      // Read raw text first to handle non-JSON responses gracefully
+      const raw = await response.text();
+      let parsed: any;
+      try {
+        parsed = raw ? JSON.parse(raw) : null;
+      } catch {
+        parsed = null;
+      }
+
+      if (!response.ok) {
+        const message = (parsed && (parsed.error || parsed.message || parsed.detail))
+          || `Password reset request failed (${response.status})`;
+        throw new Error(message);
+      }
+
+      if (parsed) {
+        return parsed;
+      }
+
+      // Non-JSON success response; return generic success
+      return { message: "Password reset link sent" };
+    } catch (error: any) {
+      throw new Error(error.message || "Password reset request failed");
+    }
+  }
+
+  async confirmPasswordReset(token: string, newPassword: string): Promise<{ message: string }> {
+    try {
+      const response = await fetch(`${API_BASE}/password-reset-confirm/`, {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify({ token, new_password: newPassword }),
+      });
+
+      // Read raw text first to handle non-JSON responses gracefully
+      const raw = await response.text();
+      let parsed: any;
+      try {
+        parsed = raw ? JSON.parse(raw) : null;
+      } catch {
+        parsed = null;
+      }
+
+      if (!response.ok) {
+        const message = (parsed && (parsed.error || parsed.message || parsed.detail))
+          || `Password reset failed (${response.status})`;
+        throw new Error(message);
+      }
+
+      if (parsed) {
+        return parsed;
+      }
+
+      // Non-JSON success response; return generic success
+      return { message: "Password has been reset" };
+    } catch (error: any) {
+      throw new Error(error.message || "Password reset failed");
+    }
+  }
+
   async acceptInvitation(
     token: string,
     first_name: string,
     last_name: string,
     password?: string,
     pin_code?: string | null,
-    invitation_pin?: string | null
+    invitation_pin?: string | null,
+    email?: string
   ): Promise<LoginResponse> {
     try {
       // Decide endpoint based on provided credentials
@@ -155,6 +224,7 @@ export class BackendService {
 
       if (isStaffFlow) {
         body.pin_code = pin_code;
+        if (email) body.email = email;
       } else if (password) {
         body.password = password;
       } else {
@@ -420,7 +490,8 @@ export class BackendService {
 
   async getStaffList(accessToken: string): Promise<StaffListItem[]> {
     try {
-      const primary = await fetch(`${API_BASE}/staff/list/`, {
+      // Use the standard staff list endpoint
+      const primary = await fetch(`${API_BASE}/staff/`, {
         method: "GET",
         headers: this.getHeaders(accessToken),
       });
@@ -439,6 +510,8 @@ export class BackendService {
         const arr = Array.isArray(parsedPrimary?.results) ? parsedPrimary.results : (Array.isArray(parsedPrimary) ? parsedPrimary : []);
         return arr as StaffListItem[];
       }
+
+      // Fallback to generic users list
       const fallback = await fetch(`${API_BASE}/users/?is_active=true`, {
         method: "GET",
         headers: this.getHeaders(accessToken),
@@ -461,7 +534,9 @@ export class BackendService {
         first_name: String(u?.first_name ?? ""),
         last_name: String(u?.last_name ?? ""),
         role: String(u?.role ?? ""),
+        phone: String(u?.phone ?? ""),
         join_date: String(u?.join_date ?? u?.created_at ?? ""),
+        profile: u?.profile || null,
       }));
     } catch (error: any) {
       throw new Error(error?.message || "Failed to fetch staff list");
@@ -525,6 +600,55 @@ export class BackendService {
     }
   }
 
+  async updateStaffProfile(
+    accessToken: string,
+    staffId: string,
+    profileData: Partial<StaffProfileItem | any>
+  ): Promise<StaffOperationResponse> {
+    try {
+      const response = await fetch(`${API_BASE}/staff/profile/${staffId}/update/`, {
+        method: "PUT",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(profileData),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        // Handle structured DRF errors (e.g. { "email": ["..."] })
+        if (typeof errorData === 'object' && !errorData.message && !errorData.detail) {
+          const errors = Object.entries(errorData)
+            .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+            .join(' | ');
+          throw new Error(errors || "Validation failed");
+        }
+        throw new Error(errorData.message || errorData.detail || "Failed to update staff profile");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to update staff profile");
+    }
+  }
+
+  async resetStaffPassword(
+    accessToken: string,
+    staffId: string,
+    password: string
+  ): Promise<{ message: string }> {
+    try {
+      const response = await fetch(`${API_BASE}/staff/profile/${staffId}/reset-password/`, {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify({ password }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.detail || "Failed to reset password");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to reset password");
+    }
+  }
+
   async getPendingStaffInvitations(
     accessToken: string
   ): Promise<StaffInvitation[]> {
@@ -566,6 +690,69 @@ export class BackendService {
       const message =
         error?.message || "Failed to fetch pending staff invitations";
       throw new Error(message);
+    }
+  }
+
+  async getStaffDocuments(accessToken: string, staffId: string): Promise<any> {
+    try {
+      const response = await fetch(`${API_BASE}/staff/documents/?staff_id=${staffId}`, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.detail || "Failed to fetch staff documents");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to fetch staff documents");
+    }
+  }
+
+  async uploadStaffDocument(
+    accessToken: string,
+    staffId: string,
+    file: File,
+    title: string
+  ): Promise<any> {
+    try {
+      const formData = new FormData();
+      formData.append("staff", staffId);
+      formData.append("title", title);
+      formData.append("file", file);
+
+      const response = await fetch(`${API_BASE}/staff/documents/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.detail || "Failed to upload document");
+      }
+      return await response.json();
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to upload document");
+    }
+  }
+
+  async deleteStaffDocument(
+    accessToken: string,
+    docId: string
+  ): Promise<void> {
+    try {
+      const response = await fetch(`${API_BASE}/staff/documents/${docId}/`, {
+        method: "DELETE",
+        headers: this.getHeaders(accessToken),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.detail || "Failed to delete document");
+      }
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to delete document");
     }
   }
 

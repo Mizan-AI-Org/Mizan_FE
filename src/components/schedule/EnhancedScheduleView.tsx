@@ -1,657 +1,356 @@
-import React, { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, addDays, startOfWeek, parseISO, isSameDay } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/components/ui/use-toast";
-import { useAuth } from "@/hooks/use-auth";
-import { ChevronLeft, ChevronRight, Plus, Trash2, Calendar, Clock, AlertCircle, CheckCircle, Loader2, RefreshCw } from "lucide-react";
+import { Loader2, Plus, X, Search, Check } from "lucide-react";
+import { WeeklyTimeGridView } from "./WeeklyTimeGridView";
+import { StaffScheduleListView } from "./StaffScheduleListView";
+import ShiftModal from "@/components/ShiftModal";
+import type { Shift, StaffMember, WeeklyScheduleData, BackendShift } from "@/types/schedule";
+import { startOfWeek, endOfWeek, format, addDays, parseISO, addWeeks, addMonths, isBefore, isEqual } from "date-fns";
 import { API_BASE } from "@/lib/api";
+import { toast } from "sonner";
+import React, { useState, useMemo } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
+import { AuthContextType } from "@/contexts/AuthContext.types";
+import { getStaffColor } from "@/lib/utils";
 
+/**
+ * EnhancedScheduleView serves as the main scheduling hub.
+ * It now prioritizes the 24-hour weekly grid view for optimized staff allocation.
+ */
+const EnhancedScheduleView: React.FC = () => {
+  const { isAdmin, isSuperAdmin } = useAuth() as AuthContextType;
+  const canEditShifts = (isAdmin?.() ?? false) || (isSuperAdmin?.() ?? false);
 
-interface StaffMember {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  role: string;
-}
+  const [currentView, setCurrentView] = useState<"week" | "list">("week");
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
+  const [currentShift, setCurrentShift] = useState<Shift | null>(null);
 
-interface Schedule {
-  id: string;
-  title: string;
-  description: string;
-  staff: string;
-  staff_name?: string;
-  start_time: string;
-  end_time: string;
-  status: "SCHEDULED" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
-  color: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface ScheduleFormData {
-  title: string;
-  description: string;
-  staff: string;
-  start_time: string;
-  end_time: string;
-  color: string;
-}
-
-interface EnhancedScheduleViewProps {
-  viewMode?: "day" | "week" | "month";
-  initialDate?: Date;
-  onScheduleClick?: (schedule: Schedule) => void;
-}
-
-const statusColors = {
-  SCHEDULED: "bg-yellow-100 text-yellow-800",
-  CONFIRMED: "bg-green-100 text-green-800",
-  CANCELLED: "bg-red-100 text-red-800",
-  COMPLETED: "bg-blue-100 text-blue-800",
-};
-
-const statusIcons = {
-  SCHEDULED: <Clock className="h-4 w-4 mr-1" />,
-  CONFIRMED: <CheckCircle className="h-4 w-4 mr-1" />,
-  CANCELLED: <AlertCircle className="h-4 w-4 mr-1" />,
-  COMPLETED: <CheckCircle className="h-4 w-4 mr-1" />,
-};
-
-const EnhancedScheduleView: React.FC<EnhancedScheduleViewProps> = ({
-  viewMode = "week",
-  initialDate = new Date(),
-  onScheduleClick,
-}) => {
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
-  const [currentDate, setCurrentDate] = useState<Date>(initialDate);
-  const [currentView, setCurrentView] = useState<"day" | "week" | "month">(viewMode);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
-  const [formData, setFormData] = useState<ScheduleFormData>({
-    title: "",
-    description: "",
-    staff: "",
-    start_time: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-    end_time: format(addDays(new Date(), 1), "yyyy-MM-dd'T'HH:mm"),
-    color: "#3b82f6",
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isRetrying, setIsRetrying] = useState(false);
-
-  // Calculate date range based on current view
-  const getDateRange = () => {
-    if (currentView === "day") {
-      return [currentDate];
-    } else if (currentView === "week") {
-      const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-      return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-    } else {
-      // Simple month view (just showing 30 days)
-      return Array.from({ length: 30 }, (_, i) => addDays(currentDate, i - 15));
-    }
+  const toYMD = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   };
 
-  const dateRange = getDateRange();
+  const getWeekStart = (date: Date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.setDate(diff));
+  };
 
   // Fetch staff members
-  const {
-    data: staffMembers,
-    isLoading: isLoadingStaff,
-    error: staffError,
-  } = useQuery<StaffMember[]>({
+  const { data: staffMembers = [], isLoading: isLoadingStaff } = useQuery<StaffMember[]>({
     queryKey: ["staff-members"],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/staff/profiles/`, {
+      const response = await fetch(`${API_BASE}/staff/`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch staff members");
-      }
-      return response.json();
+      if (!response.ok) throw new Error("Failed to fetch staff");
+      const json = await response.json();
+      const staffArr = (json?.results ?? json) as any[];
+      return staffArr.map(s => ({
+        id: s.id || s.user?.id,
+        user: s.user || {
+          id: s.id,
+          first_name: s.first_name || '',
+          last_name: s.last_name || ''
+        },
+        first_name: s.first_name,
+        last_name: s.last_name,
+        role: s.role
+      }));
     },
   });
 
-  // Fetch schedules
-  const {
-    data: schedules,
-    isLoading: isLoadingSchedules,
-    error: schedulesError,
-    refetch: refetchSchedules,
-  } = useQuery<Schedule[]>({
-    queryKey: ["schedules", format(dateRange[0], "yyyy-MM-dd"), format(dateRange[dateRange.length - 1], "yyyy-MM-dd")],
+  // Fetch shifts for the current week
+  const weekStartStr = toYMD(getWeekStart(currentDate));
+  const { data: scheduleData, isLoading: isLoadingShifts, refetch: refetchShifts } = useQuery<WeeklyScheduleData>({
+    queryKey: ["weekly-schedule", weekStartStr],
     queryFn: async () => {
-      const startDate = format(dateRange[0], "yyyy-MM-dd");
-      const endDate = format(dateRange[dateRange.length - 1], "yyyy-MM-dd");
-      
-      const response = await fetch(
-        `${API_BASE}/staff/schedules/?start_date=${startDate}&end_date=${endDate}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch schedules");
-      }
-      
-      const data = await response.json();
-      
-      // Enhance schedules with staff names
-      return data.map((schedule: Schedule) => {
-        const staffMember = staffMembers?.find(s => s.id === schedule.staff);
-        return {
-          ...schedule,
-          staff_name: staffMember ? `${staffMember.first_name} ${staffMember.last_name}` : "Unknown Staff"
-        };
+      const token = localStorage.getItem("access_token");
+      const response = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-    },
-    enabled: !!staffMembers, // Only run this query when staffMembers are loaded
-  });
+      if (!response.ok) throw new Error("Failed to fetch schedules");
+      const listJson = await response.json();
+      const listData = (listJson?.results ?? listJson) as WeeklyScheduleData[];
+      let existing = Array.isArray(listData) ? listData.find((s) => s.week_start === weekStartStr) : undefined;
 
-  // Create schedule mutation
-  const createScheduleMutation = useMutation({
-    mutationFn: async (data: ScheduleFormData) => {
-      setIsSubmitting(true);
-      try {
-        const response = await fetch(`${API_BASE}/staff/schedules/`, {
+      if (!existing && canEditShifts) {
+        // Create if missing (only for admins)
+        const createRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(data),
+          body: JSON.stringify({
+            week_start: weekStartStr,
+            week_end: toYMD(addDays(getWeekStart(currentDate), 6)),
+            is_published: false,
+          }),
         });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || "Failed to create schedule");
-        }
-
-        return response.json();
-      } finally {
-        setIsSubmitting(false);
+        if (createRes.ok) existing = await createRes.json();
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(["schedules"]);
-      toast({
-        title: "Schedule created",
-        description: "The schedule has been created successfully.",
-      });
-      setIsModalOpen(false);
-      resetForm();
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to create schedule",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
-  // Update schedule mutation
-  const updateScheduleMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: ScheduleFormData }) => {
-      setIsSubmitting(true);
-      try {
-        const response = await fetch(`${API_BASE}/staff/schedules/${id}/`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-          body: JSON.stringify(data),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || "Failed to update schedule");
-        }
-
-        return response.json();
-      } finally {
-        setIsSubmitting(false);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(["schedules"]);
-      toast({
-        title: "Schedule updated",
-        description: "The schedule has been updated successfully.",
-      });
-      setIsModalOpen(false);
-      resetForm();
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to update schedule",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Delete schedule mutation
-  const deleteScheduleMutation = useMutation({
-    mutationFn: async (id: string) => {
-      setIsDeleting(true);
-      try {
-        const response = await fetch(`${API_BASE}/staff/schedules/${id}/`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || "Failed to delete schedule");
-        }
-
-        return true;
-      } finally {
-        setIsDeleting(false);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(["schedules"]);
-      toast({
-        title: "Schedule deleted",
-        description: "The schedule has been deleted successfully.",
-      });
-      setIsModalOpen(false);
-      resetForm();
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to delete schedule",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (selectedSchedule) {
-      updateScheduleMutation.mutate({ id: selectedSchedule.id, data: formData });
-    } else {
-      createScheduleMutation.mutate(formData);
+      if (!existing) return { id: "", week_start: "", week_end: "", is_published: false, assigned_shifts: [] };
+      return existing;
     }
-  };
+  });
 
-  // Reset form
-  const resetForm = () => {
-    setFormData({
-      title: "",
-      description: "",
-      staff: "",
-      start_time: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-      end_time: format(addDays(new Date(), 1), "yyyy-MM-dd'T'HH:mm"),
-      color: "#3b82f6",
-    });
-    setSelectedSchedule(null);
-  };
+  const shifts: Shift[] = useMemo(() => {
+    if (!scheduleData?.assigned_shifts) return [];
 
-  // Handle schedule click
-  const handleScheduleClick = (schedule: Schedule) => {
-    if (onScheduleClick) {
-      onScheduleClick(schedule);
-    } else {
-      setSelectedSchedule(schedule);
-      setFormData({
-        title: schedule.title,
-        description: schedule.description || "",
-        staff: schedule.staff,
-        start_time: schedule.start_time,
-        end_time: schedule.end_time,
-        color: schedule.color || "#3b82f6",
-      });
-      setIsModalOpen(true);
-    }
-  };
+    const toHHmm = (val: string) => {
+      if (!val) return "00:00";
+      const m = val.match(/^\d{2}:\d{2}/);
+      if (m) return m[0];
+      const d = new Date(val);
+      if (!isNaN(d.getTime())) {
+        return format(d, "HH:mm");
+      }
+      return "00:00";
+    };
 
-  // Handle retry
-  const handleRetry = async () => {
-    setIsRetrying(true);
+    return scheduleData.assigned_shifts.map((shift: BackendShift) => ({
+      id: shift.id,
+      title: shift.notes || `Shift`,
+      start: toHHmm(shift.start_time),
+      end: toHHmm(shift.end_time),
+      date: shift.shift_date,
+      type: "confirmed" as const,
+      day: new Date(shift.shift_date).getDay() === 0 ? 6 : new Date(shift.shift_date).getDay() - 1,
+      staffId: shift.staff,
+      color: shift.color || "#6b7280",
+    }));
+  }, [scheduleData]);
+
+  if (isLoadingStaff || isLoadingShifts) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-green-600" />
+          <p className="text-gray-500 font-medium tracking-wide">Orchestrating schedule data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleSaveShift = async (shift: Shift) => {
     try {
-      await refetchSchedules();
+      const token = localStorage.getItem("access_token");
+      const isUpdate = shifts.some((s) => s.id === shift.id && !String(s.id).startsWith('temp'));
+
+      const withSeconds = (t: string) => (t && t.length === 5 ? `${t}:00` : t);
+      const makeISO = (dStr: string, tStr: string) => {
+        const d = new Date(`${dStr}T${withSeconds(tStr)}`);
+        const offsetMin = -d.getTimezoneOffset();
+        const sign = offsetMin >= 0 ? "+" : "-";
+        const abs = Math.abs(offsetMin);
+        return `${dStr}T${withSeconds(tStr)}${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
+      };
+
+      const staffIds = shift.staff_members && shift.staff_members.length > 0 ? shift.staff_members : [shift.staffId];
+      const shiftDates = [shift.date];
+
+      // Only generate recurring shifts for NEW shifts to prevent duplicates on update
+      if (shift.isRecurring && !isUpdate && shift.recurringEndDate) {
+        const baseDate = parseISO(shift.date);
+        const endDate = parseISO(shift.recurringEndDate);
+        let currentDate = baseDate;
+        let iterations = 0;
+        const maxIterations = 365; // Safety limit
+
+        while (iterations < maxIterations) {
+          let nextDate: Date;
+          if (shift.frequency === 'DAILY') {
+            nextDate = addDays(currentDate, 1);
+          } else if (shift.frequency === 'MONTHLY') {
+            nextDate = addMonths(currentDate, 1);
+          } else { // WEEKLY
+            nextDate = addWeeks(currentDate, 1);
+          }
+
+          if (isBefore(nextDate, endDate) || isEqual(nextDate, endDate)) {
+            shiftDates.push(format(nextDate, 'yyyy-MM-dd'));
+            currentDate = nextDate;
+            iterations++;
+          } else {
+            break;
+          }
+        }
+      }
+
+      const results = [];
+      let originalShiftConsumed = false;
+
+      for (const dStr of shiftDates) {
+        // Determine the correct weekly schedule ID for this date
+        let targetedWeeklyScheduleId = scheduleData?.id;
+        const currentWeekStart = toYMD(getWeekStart(parseISO(dStr)));
+
+        if (currentWeekStart !== weekStartStr) {
+          // Find or create weekly schedule for this different week
+          const findRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const listJson = await findRes.json();
+          const listData = (listJson?.results ?? listJson) as WeeklyScheduleData[];
+          let existing = listData.find(s => s.week_start === currentWeekStart);
+
+          if (!existing) {
+            const createRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                week_start: currentWeekStart,
+                week_end: toYMD(addDays(getWeekStart(parseISO(dStr)), 6)),
+                is_published: false,
+              }),
+            });
+            if (createRes.ok) existing = await createRes.json();
+          }
+          targetedWeeklyScheduleId = existing?.id;
+        }
+
+        if (!targetedWeeklyScheduleId) continue;
+
+        // Only use PUT for the very first combination (original staff, original date)
+        // If update involves multiple staff or dates, those must be POSTed
+        const method = (isUpdate && dStr === shift.date && !originalShiftConsumed) ? "PUT" : "POST";
+        if (method === "PUT") originalShiftConsumed = true;
+
+        const url = `${API_BASE}/scheduling/weekly-schedules/${targetedWeeklyScheduleId}/assigned-shifts/${(method === "PUT" ? shift.id + "/" : "")}`;
+
+        const payload = {
+          staff: staffIds[0], // Keep legacy staff field for compatibility (backend handles it)
+          staff_members: staffIds, // Assign multiple staff to one shift
+          shift_date: dStr,
+          start_time: makeISO(dStr, shift.start),
+          end_time: makeISO(dStr, shift.end),
+          notes: shift.title || "",
+          color: shift.color || getStaffColor(staffIds[0]),
+          task_templates: (shift as any).task_templates || [],
+          tasks: shift.tasks || [],
+        };
+
+        const response = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(payload),
+        });
+
+        if (response.ok) {
+          results.push(await response.json());
+        } else {
+          const errText = await response.text();
+          console.error(`Failed to ${method} shift on ${dStr}:`, errText);
+        }
+      }
+
+      if (results.length > 0) {
+        toast.success(`Successfully processed ${results.length} shift(s)`);
+      } else {
+        toast.error("Failed to create any shifts. Check console for details.");
+      }
+      refetchShifts();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save shift(s)");
     } finally {
-      setIsRetrying(false);
+      setIsShiftModalOpen(false);
     }
   };
 
-  // Group schedules by date and staff
-  const getSchedulesForDateAndStaff = (date: Date, staffId: string) => {
-    if (!schedules) return [];
-    
-    return schedules.filter(
-      (schedule) => 
-        isSameDay(parseISO(schedule.start_time), date) && 
-        schedule.staff === staffId
-    );
-  };
-
-  // Navigate to previous period
-  const goToPrevious = () => {
-    if (currentView === "day") {
-      setCurrentDate(addDays(currentDate, -1));
-    } else if (currentView === "week") {
-      setCurrentDate(addDays(currentDate, -7));
-    } else {
-      setCurrentDate(addDays(currentDate, -30));
+  const handleDeleteShift = async (shiftId: string) => {
+    try {
+      const token = localStorage.getItem("access_token");
+      const url = `${API_BASE}/scheduling/assigned-shifts-v2/${shiftId}/`;
+      const response = await fetch(url, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to delete shift");
+      toast.success("Shift deleted successfully");
+      refetchShifts();
+    } catch (error) {
+      toast.error("Failed to delete shift");
+    } finally {
+      setIsShiftModalOpen(false);
     }
   };
-
-  // Navigate to next period
-  const goToNext = () => {
-    if (currentView === "day") {
-      setCurrentDate(addDays(currentDate, 1));
-    } else if (currentView === "week") {
-      setCurrentDate(addDays(currentDate, 7));
-    } else {
-      setCurrentDate(addDays(currentDate, 30));
-    }
-  };
-
-  // Format time for display
-  const formatTime = (dateTimeString: string) => {
-    return format(parseISO(dateTimeString), "h:mm a");
-  };
-
-  // Loading state
-  if (isLoadingStaff || isLoadingSchedules) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        <p className="ml-2 text-gray-600">Loading schedule data...</p>
-      </div>
-    );
-  }
-
-  // Error state
-  if (staffError || schedulesError) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64">
-        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-        <p className="text-red-500 text-lg mb-4">
-          {staffError ? "Failed to load staff data" : "Failed to load schedule data"}
-        </p>
-        <Button onClick={handleRetry} disabled={isRetrying}>
-          {isRetrying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-          Retry
-        </Button>
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-4">
-      {/* View Controls */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm" onClick={goToPrevious}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="text-lg font-medium">
-            {currentView === "day"
-              ? format(currentDate, "MMMM d, yyyy")
-              : currentView === "week"
-              ? `Week of ${format(dateRange[0], "MMM d")} - ${format(dateRange[6], "MMM d, yyyy")}`
-              : `${format(dateRange[0], "MMM yyyy")}`}
-          </div>
-          <Button variant="outline" size="sm" onClick={goToNext}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+    <div className="space-y-4 max-w-[1600px] mx-auto p-4 md:p-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+        <div>
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Staff Schedule</h1>
         </div>
-        <div className="flex items-center space-x-2">
-          <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as "day" | "week" | "month")}>
-            <TabsList>
-              <TabsTrigger value="day">Day</TabsTrigger>
-              <TabsTrigger value="week">Week</TabsTrigger>
-              <TabsTrigger value="month">Month</TabsTrigger>
+        <div className="flex items-center gap-3">
+          <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as any)} className="bg-gray-100 p-1 rounded-xl">
+            <TabsList className="bg-transparent border-none">
+              <TabsTrigger value="week" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">Weekly Grid View</TabsTrigger>
+              <TabsTrigger value="list" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">List View</TabsTrigger>
             </TabsList>
           </Tabs>
-          <Button onClick={() => {
-            resetForm();
-            setIsModalOpen(true);
-          }}>
-            <Plus className="h-4 w-4 mr-2" /> Add Schedule
-          </Button>
+          <button
+            onClick={() => {
+              setCurrentShift(null);
+              setIsShiftModalOpen(true);
+            }}
+            className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-md hover:shadow-lg active:scale-95"
+          >
+            <Plus className="h-5 w-5" />
+            <span>Create</span>
+          </button>
         </div>
       </div>
 
-      {/* Schedule Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[150px]">Staff</TableHead>
-                {dateRange.slice(0, currentView === "month" ? 7 : undefined).map((date) => (
-                  <TableHead key={date.toISOString()} className="min-w-[120px]">
-                    <div className="text-center">
-                      <div>{format(date, "EEE")}</div>
-                      <div className="text-sm font-normal">{format(date, "MMM d")}</div>
-                    </div>
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {staffMembers?.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-4">
-                    No staff members available.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                staffMembers?.map((staffMember) => (
-                  <TableRow key={staffMember.id}>
-                    <TableCell className="font-medium">
-                      {`${staffMember.first_name} ${staffMember.last_name}`}
-                      <div className="text-xs text-muted-foreground">{staffMember.role}</div>
-                    </TableCell>
-                    {dateRange.slice(0, currentView === "month" ? 7 : undefined).map((date) => {
-                      const schedulesForDay = getSchedulesForDateAndStaff(date, staffMember.id);
-                      return (
-                        <TableCell key={date.toISOString()} className="p-2 align-top">
-                          {schedulesForDay.length > 0 ? (
-                            <div className="space-y-1">
-                              {schedulesForDay.map((schedule) => (
-                                <div
-                                  key={schedule.id}
-                                  className={`text-xs rounded-md px-2 py-1 cursor-pointer hover:opacity-80 transition-opacity`}
-                                  style={{ backgroundColor: schedule.color || "#3b82f6", color: "#ffffff" }}
-                                  onClick={() => handleScheduleClick(schedule)}
-                                >
-                                  <div className="font-medium">{schedule.title}</div>
-                                  <div className="text-xs opacity-90">
-                                    {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
-                                  </div>
-                                  <div className="mt-1">
-                                    <Badge variant="outline" className={`${statusColors[schedule.status]} border-none text-xs`}>
-                                      {statusIcons[schedule.status]}
-                                      {schedule.status}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="w-full h-8 border border-dashed border-gray-200 text-gray-400 hover:text-gray-900"
-                              onClick={() => {
-                                resetForm();
-                                setFormData({
-                                  ...formData,
-                                  staff: staffMember.id,
-                                  start_time: format(date, "yyyy-MM-dd") + "T09:00",
-                                  end_time: format(date, "yyyy-MM-dd") + "T17:00",
-                                });
-                                setIsModalOpen(true);
-                              }}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <div className="w-full">
+        {currentView === "week" ? (
+          <WeeklyTimeGridView
+            shifts={shifts}
+            staffMembers={staffMembers}
+            currentDate={currentDate}
+            setCurrentDate={setCurrentDate}
+            onEditShift={(shift) => {
+              setCurrentShift(shift);
+              setIsShiftModalOpen(true);
+            }}
+          />
+        ) : (
+          <StaffScheduleListView
+            shifts={shifts}
+            staffMembers={staffMembers}
+            currentDate={currentDate}
+          />
+        )}
+      </div>
 
-      {/* Schedule Form Modal */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>{selectedSchedule ? "Edit Schedule" : "Create Schedule"}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit}>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="title" className="text-right">
-                  Title
-                </Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="col-span-3"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">
-                  Description
-                </Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="staff" className="text-right">
-                  Staff
-                </Label>
-                <Select
-                  value={formData.staff}
-                  onValueChange={(value) => setFormData({ ...formData, staff: value })}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select staff member" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {staffMembers?.map((staff) => (
-                      <SelectItem key={staff.id} value={staff.id}>
-                        {staff.first_name} {staff.last_name} ({staff.role})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="start_time" className="text-right">
-                  Start Time
-                </Label>
-                <Input
-                  id="start_time"
-                  type="datetime-local"
-                  value={formData.start_time}
-                  onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                  className="col-span-3"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="end_time" className="text-right">
-                  End Time
-                </Label>
-                <Input
-                  id="end_time"
-                  type="datetime-local"
-                  value={formData.end_time}
-                  onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                  className="col-span-3"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="color" className="text-right">
-                  Color
-                </Label>
-                <div className="col-span-3 flex items-center gap-2">
-                  <Input
-                    id="color"
-                    type="color"
-                    value={formData.color}
-                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    className="w-12 h-8 p-1"
-                  />
-                  <Input
-                    type="text"
-                    value={formData.color}
-                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    className="flex-1"
-                  />
-                </div>
-              </div>
-            </div>
-            <DialogFooter className="flex justify-between">
-              {selectedSchedule && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={() => deleteScheduleMutation.mutate(selectedSchedule.id)}
-                  disabled={isDeleting || isSubmitting}
-                >
-                  {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                  Delete
-                </Button>
-              )}
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                  {selectedSchedule ? "Update" : "Create"}
-                </Button>
-              </div>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ShiftModal
+        isOpen={isShiftModalOpen}
+        onClose={() => setIsShiftModalOpen(false)}
+        onSave={handleSaveShift}
+        onDelete={handleDeleteShift}
+        initialShift={currentShift || {
+          id: '',
+          title: '',
+          date: toYMD(currentDate),
+          start: "09:00",
+          end: "17:00",
+          day: currentDate.getDay() === 0 ? 6 : currentDate.getDay() - 1,
+          staffId: staffMembers[0]?.id || '',
+          tasks: []
+        }}
+        staffMembers={staffMembers}
+      />
     </div>
   );
 };

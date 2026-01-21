@@ -118,7 +118,7 @@ export const useNotifications = () => {
 
     // WebSocket connection for real-time updates
     useEffect(() => {
-        if (!user) {
+        if (!user?.id) {
             if (ws.current) {
                 ws.current.close();
                 ws.current = null;
@@ -131,55 +131,63 @@ export const useNotifications = () => {
         }
 
         const token = localStorage.getItem('access_token');
-        if (!ws.current && token) {
-            // Avoid double /ws in path; WS_BASE already ends with /ws
+
+        const connectWs = () => {
+            if (ws.current) return; // Already connected or connecting
+
             try {
+                // Ensure unique connection per instance
                 ws.current = new WebSocket(`${WS_BASE}/notifications/?token=${token}`);
+
+                ws.current.onopen = () => {
+                    console.log('WebSocket Connected');
+                    setIsConnected(true);
+                };
+
+                ws.current.onmessage = (event) => {
+                    const data: WebSocketMessage = JSON.parse(event.data);
+                    if (data.type === 'notification_message') {
+                        queryClient.invalidateQueries({ queryKey: ['notifications', user.id] });
+                    }
+                };
+
+                ws.current.onerror = (error) => {
+                    console.warn('WebSocket warning:', error);
+                    // Don't modify isConnected here, let onclose handle it
+                };
+
+                ws.current.onclose = () => {
+                    console.log('WebSocket Disconnected');
+                    setIsConnected(false);
+                    ws.current = null;
+
+                    // Attempt to reconnect after a delay
+                    setTimeout(() => {
+                        if (user?.id) {
+                            connectWs();
+                        }
+                    }, 5000);
+                };
             } catch (err) {
                 console.error('WebSocket initialization failed:', err);
                 setIsConnected(false);
-                // Do not throw; continue without realtime updates
-                return;
+                ws.current = null;
             }
+        };
 
-            ws.current.onopen = () => {
-                console.log('WebSocket Connected');
-                setIsConnected(true);
-            };
-
-            ws.current.onmessage = (event) => {
-                const data: WebSocketMessage = JSON.parse(event.data);
-                if (data.type === 'notification_message') {
-                    queryClient.invalidateQueries({ queryKey: ['notifications', user.id] });
-                }
-            };
-
-            ws.current.onerror = (error) => {
-                // Downgrade to warning to avoid noisy error reports when WS endpoint is unavailable
-                console.warn('WebSocket warning:', error);
-                setIsConnected(false);
-            };
-
-            ws.current.onclose = () => {
-                console.log('WebSocket Disconnected');
-                setIsConnected(false);
-                // Attempt to reconnect after a delay
-                setTimeout(() => {
-                    if (user) {
-                        ws.current = null; // Clear existing WebSocket to force a new connection
-                        refetch(); // Refetch notifications and re-establish WebSocket
-                    }
-                }, 5000);
-            };
-        }
+        connectWs();
 
         return () => {
             if (ws.current) {
+                // Remove listener to prevent reconnect attempt on unmount
+                ws.current.onclose = null;
                 ws.current.close();
                 ws.current = null;
             }
         };
-    }, [user, queryClient, refetch]);
+        // Use user.id to prevent re-running on user object identity change
+    }, [user?.id, queryClient]);
+
 
     // Ensure notifications is an array before mapping to prevent runtime errors
     const normalized = Array.isArray(notifications) ? notifications : [];
