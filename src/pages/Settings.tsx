@@ -886,53 +886,36 @@ export default function Settings() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Current Plan */}
-                <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                {/* Current Plan - Open Access */}
+                <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100">
+                  <div className="flex flex-col items-center text-center gap-4">
+                    <div className="p-4 rounded-full bg-emerald-100">
+                      <Sparkles className="w-8 h-8 text-emerald-600" />
+                    </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-lg font-bold text-slate-900">Current Plan</h4>
-                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Pro</Badge>
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <h4 className="text-xl font-bold text-slate-900">Free Access</h4>
+                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Active</Badge>
                       </div>
-                      <p className="text-sm text-slate-600 mt-1">Full access to all features</p>
-                    </div>
-                    <Button variant="outline" className="w-full sm:w-auto rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-                      Change Plan
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-emerald-100">
-                    <div>
-                      <p className="text-xs text-slate-500 uppercase tracking-wide">Next billing date</p>
-                      <p className="text-sm font-semibold text-slate-900 mt-1">February 20, 2026</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 uppercase tracking-wide">Amount</p>
-                      <p className="text-sm font-semibold text-slate-900 mt-1">$49.00/month</p>
+                      <p className="text-sm text-slate-600 max-w-md">
+                        You currently have full access to all Mizan AI features. No subscription or payment is required at this time.
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Payment Method */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                    <div className="p-2 rounded-lg bg-slate-100">
-                      <CreditCardIcon className="w-4 h-4 text-slate-600" />
+                {/* Coming Soon Notice */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200">
+                  <div className="flex items-start gap-4">
+                    <div className="p-2 rounded-lg bg-slate-200">
+                      <CreditCardIcon className="w-5 h-5 text-slate-600" />
                     </div>
-                    <span className="text-sm font-semibold text-slate-900">Payment Method</span>
-                  </div>
-                  <div className="flex flex-col gap-4 p-4 rounded-2xl bg-white border border-slate-200 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900">
-                        <CreditCardIcon className="w-6 h-6 text-white" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">•••• •••• •••• 4242</p>
-                        <p className="text-xs text-slate-500">Expires 12/2027</p>
-                      </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-900">Subscription Plans Coming Soon</h4>
+                      <p className="text-sm text-slate-600 mt-1">
+                        We're working on flexible subscription options for teams of all sizes. You'll be notified when billing options become available.
+                      </p>
                     </div>
-                    <Button variant="outline" className="w-full sm:w-auto rounded-xl">
-                      Update
-                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -960,6 +943,7 @@ export default function Settings() {
             </Card>
           </TabsContent>
         )}
+
       </Tabs>
     </div>
   );
