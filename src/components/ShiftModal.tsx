@@ -1,23 +1,28 @@
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { X } from "lucide-react";
-import TaskTemplateSelector from "@/components/schedule/TaskTemplateSelector";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { X, Search, Check, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { useTaskTemplates } from "@/hooks/useTaskTemplates";
-import type { Shift, Task } from "@/types/schedule";
-import { API_BASE } from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
+import { AuthContextType } from "@/contexts/AuthContext.types";
+import type { Shift, TaskPriority } from "@/types/schedule";
+import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 interface StaffMember {
     id: string;
-    first_name: string;
-    last_name: string;
+    user?: {
+        id: string;
+        first_name: string;
+        last_name: string;
+    };
+    first_name?: string;
+    last_name?: string;
     role?: string;
     avatar_url?: string;
 }
@@ -36,31 +41,33 @@ interface TaskTemplate {
     tasks?: TemplateTask[];
 }
 
-// Use shared Task and Shift interfaces from types/schedule
-
 interface ShiftModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (shift: Shift) => void;
+    onDelete?: (shiftId: string) => void;
     initialShift?: Shift | null;
     dayIndex?: number;
     hour?: number;
     staffMembers: StaffMember[];
-    // Testing-only: allow preselecting a template to avoid brittle UI interaction
     testDefaultTemplateId?: string;
 }
+
+import { cn, getStaffColor } from "@/lib/utils";
 
 const ShiftModal: React.FC<ShiftModalProps> = ({
     isOpen,
     onClose,
     onSave,
+    onDelete,
     initialShift,
     dayIndex,
     hour,
     staffMembers,
     testDefaultTemplateId,
 }) => {
-    // Helpers for date handling
+    const { user } = useAuth() as AuthContextType;
+
     const toYMD = (d: Date) => {
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -69,19 +76,25 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
     };
     const getWeekStart = (d: Date) => {
         const date = new Date(d);
-        const day = date.getDay(); // 0=Sun, 1=Mon
-        const diff = day === 0 ? -6 : 1 - day; // Monday as start
+        const day = date.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
         date.setDate(date.getDate() + diff);
         date.setHours(0, 0, 0, 0);
         return date;
     };
+
+    const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
+    const [isRecurring, setIsRecurring] = useState(false);
+    const [frequency, setFrequency] = useState<'DAILY' | 'WEEKLY' | 'MONTHLY'>('WEEKLY');
+    const [recurringEndDate, setRecurringEndDate] = useState<string>('');
+    const [isStaffPopoverOpen, setIsStaffPopoverOpen] = useState(false);
+    const [newTaskTitle, setNewTaskTitle] = useState("");
+    const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>("MEDIUM");
+
     const [shiftData, setShiftData] = useState<Shift>(() => {
         if (initialShift && initialShift.date) return initialShift;
-
         const startHour = hour !== undefined ? String(hour).padStart(2, '0') : '09';
         const endHour = hour !== undefined ? String(hour + 1).padStart(2, '0') : '10';
-
-        // Default date based on dayIndex within current week, or today
         const today = new Date();
         const monday = getWeekStart(today);
         const base = new Date(monday);
@@ -95,67 +108,37 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
             date: toYMD(base),
             day: dayIndex !== undefined ? dayIndex : 0,
             staffId: staffMembers.length > 0 ? staffMembers[0].id : "",
-            color: "#6b7280",
+            color: staffMembers.length > 0 ? getStaffColor(staffMembers[0].id) : "#6b7280",
             tasks: [],
+            staff_members: [],
+            isRecurring: false,
+            frequency: 'WEEKLY'
         };
     });
 
-    const [newTask, setNewTask] = useState<{ title: string; priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' }>({
-        title: "",
-        priority: "MEDIUM",
-    });
-    const [staffSearch, setStaffSearch] = useState("");
-    const [isFiltering, setIsFiltering] = useState(false);
-    const [currentPage, setCurrentPage] = useState(1);
-    const PAGE_SIZE = 50;
-    const [selectedIndex, setSelectedIndex] = useState<number>(0);
-    const [cachedStaff, setCachedStaff] = useState<StaffMember[]>([]);
-    const {
-        templates,
-        loading: templatesLoading,
-        error: templatesError,
-        selectedId: selectedTemplateIdFromHook,
-        setSelectedId: setSelectedTemplateIdFromHook,
-    } = useTaskTemplates({ pollIntervalMs: 10000 });
-    const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
-    // Multi-select template management and persistence
-    const MAX_SELECTION = 10;
-    const STORAGE_KEY = 'shiftModalTemplateSelections';
-    const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
-    const [templateSelectionError, setTemplateSelectionError] = useState<string | null>(null);
-    const [persistingSelections, setPersistingSelections] = useState<boolean>(false);
-    const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-    // Preselect a template in tests to avoid interacting with Radix Select
-    useEffect(() => {
-        if (testDefaultTemplateId) {
-            setSelectedTemplateId(String(testDefaultTemplateId));
-        }
-    }, [testDefaultTemplateId]);
-    const [assignmentFrequency, setAssignmentFrequency] = useState<'ONE_TIME' | 'DAILY' | 'WEEKLY' | 'CUSTOM'>("ONE_TIME");
-    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-
     useEffect(() => {
         if (initialShift) {
-            // If editing and date missing for some reason, derive from day index
+            let finalShift = initialShift;
             if (!initialShift.date) {
                 const today = new Date();
                 const monday = getWeekStart(today);
                 const base = new Date(monday);
                 base.setDate(monday.getDate() + (initialShift.day ?? 0));
-                setShiftData({ ...initialShift, date: toYMD(base) });
-            } else {
-                setShiftData(initialShift);
+                finalShift = { ...initialShift, date: toYMD(base) };
             }
+            setShiftData(finalShift);
+            setSelectedStaffIds(finalShift.staff_members || (finalShift.staffId ? [finalShift.staffId] : []));
+            setIsRecurring(finalShift.isRecurring || false);
+            setFrequency(finalShift.frequency || 'WEEKLY');
         } else if (isOpen) {
             const startHour = hour !== undefined ? String(hour).padStart(2, '0') : '09';
             const endHour = hour !== undefined ? String(hour + 1).padStart(2, '0') : '10';
-
             const today = new Date();
             const monday = getWeekStart(today);
             const base = new Date(monday);
             base.setDate(monday.getDate() + (dayIndex !== undefined ? dayIndex : 0));
 
+            const firstStaffId = staffMembers.length > 0 ? staffMembers[0].id : "";
             setShiftData({
                 id: Date.now().toString(),
                 title: "",
@@ -163,488 +146,502 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                 end: `${endHour}:00`,
                 date: toYMD(base),
                 day: dayIndex !== undefined ? dayIndex : 0,
-                staffId: staffMembers.length > 0 ? staffMembers[0].id : "",
-                color: "#6b7280",
+                staffId: firstStaffId,
+                color: firstStaffId ? getStaffColor(firstStaffId) : "#6b7280",
                 tasks: [],
+                staff_members: [],
+                isRecurring: false,
+                frequency: 'WEEKLY'
             });
+            setSelectedStaffIds([]);
+            setIsRecurring(false);
+            setFrequency('WEEKLY');
         }
     }, [initialShift, isOpen, dayIndex, hour, staffMembers]);
 
-    // Load persisted template selections per staff when modal opens
-    useEffect(() => {
-        if (!isOpen) return;
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (raw) {
-                const map = JSON.parse(raw) as Record<string, string[]>;
-                const ids = map[String(shiftData.staffId)] || [];
-                setSelectedTemplateIds(ids.map(String));
-            }
-        } catch (_: unknown) {
-            // ignore
-        }
-    }, [isOpen, shiftData.staffId]);
+    const {
+        templates,
+        loading: templatesLoading,
+    } = useTaskTemplates({ pollIntervalMs: 10000 });
 
-    // Cache staff members locally to improve subsequent openings
-    useEffect(() => {
-        if (isOpen) {
-            if (staffMembers && staffMembers.length > 0) {
-                try {
-                    localStorage.setItem('shiftModalStaffCache', JSON.stringify({ ts: Date.now(), staff: staffMembers }));
-                    setCachedStaff(staffMembers);
-                } catch (_: unknown) {
-                    setCachedStaff(staffMembers);
-                }
-            } else {
-                try {
-                    const raw = localStorage.getItem('shiftModalStaffCache');
-                    if (raw) {
-                        const parsed = JSON.parse(raw);
-                        // 10 minute TTL
-                        if (parsed.ts && (Date.now() - parsed.ts) < 10 * 60 * 1000 && Array.isArray(parsed.staff)) {
-                            setCachedStaff(parsed.staff as StaffMember[]);
-                        }
-                    }
-                } catch (_: unknown) {
-                    // ignore
-                }
-            }
-        }
-    }, [isOpen, staffMembers]);
+    const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
+    const [staffSearch, setStaffSearch] = useState('');
+    const [templateSearch, setTemplateSearch] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        if (testDefaultTemplateId) {
-            setSelectedTemplateId(String(testDefaultTemplateId));
-            setSelectedTemplateIdFromHook(String(testDefaultTemplateId));
-        } else if (!selectedTemplateId && selectedTemplateIdFromHook) {
-            setSelectedTemplateId(String(selectedTemplateIdFromHook));
-        }
-    }, [isOpen, testDefaultTemplateId, selectedTemplateIdFromHook]);
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { id, value } = e.target;
-        setShiftData(prev => ({
-            ...prev,
-            [id]: value,
-        }));
+    const toggleStaffSelection = (staffId: string) => {
+        setSelectedStaffIds(prev =>
+            prev.includes(staffId)
+                ? prev.filter(id => id !== staffId)
+                : [...prev, staffId]
+        );
     };
 
-    const handleSelectChange = (value: string, id: string) => {
-        setShiftData(prev => ({
-            ...prev,
-            [id]: value,
-        }));
-    };
-
-    const updateTemplateSelectionStorage = (ids: string[]) => {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            const map = raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
-            map[String(shiftData.staffId)] = ids.map(String);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-        } catch (_: unknown) {
-            // ignore storage errors
-        }
-    };
-
-    const handleTemplateIdsChange = (ids: string[]) => {
-        if (ids.length > MAX_SELECTION) {
-            setTemplateSelectionError(`You can select up to ${MAX_SELECTION} templates`);
+    const handleAddManualTask = () => {
+        if (!newTaskTitle.trim()) {
+            toast.error("Task title cannot be empty");
             return;
         }
-        setTemplateSelectionError(null);
-        setSelectedTemplateIds(ids.map(String));
-        updateTemplateSelectionStorage(ids);
+        const newTask = {
+            title: newTaskTitle.trim(),
+            priority: newTaskPriority,
+        };
+        setShiftData({
+            ...shiftData,
+            tasks: [...(shiftData.tasks || []), newTask]
+        });
+        setNewTaskTitle("");
+        setNewTaskPriority("MEDIUM");
     };
 
-    const persistTemplateSelections = async () => {
-        setPersistingSelections(true);
-        setSaveFeedback(null);
-        try {
-            const res = await fetch(`${API_BASE}/shift-template-selections`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ staffId: shiftData.staffId, templateIds: selectedTemplateIds }),
-            });
-            if (!res.ok) throw new Error(`Failed to save selections (${res.status})`);
-            setSaveFeedback({ type: 'success', message: 'Template selections saved' });
-        } catch (e: unknown) {
-            const errMsg = e instanceof Error ? e.message : 'Failed to save template selections';
-            setSaveFeedback({ type: 'error', message: errMsg });
-        } finally {
-            setPersistingSelections(false);
-        }
-    };
-
-    const handleAddTask = () => {
-        if (newTask.title.trim()) {
-            setShiftData(prev => ({
-                ...prev,
-                tasks: [...(prev.tasks || []), { id: Date.now().toString(), ...newTask, frequency: assignmentFrequency }],
-            }));
-            setNewTask({ title: "", priority: "MEDIUM" });
-        }
-    };
-
-    const handleRemoveTask = (taskId: string) => {
-        setShiftData(prev => ({
-            ...prev,
-            tasks: (prev.tasks || []).filter(t => t.id !== taskId),
-        }));
+    const handleRemoveManualTask = (index: number) => {
+        setShiftData({
+            ...shiftData,
+            tasks: (shiftData.tasks || []).filter((_, i) => i !== index)
+        });
     };
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
         try {
-            // Basic validation: require date
             if (!shiftData.date || String(shiftData.date).trim() === "") {
-                setSaveFeedback({ type: 'error', message: 'Please select a date for the shift.' });
+                toast.error('Please select a date for the shift.');
                 setIsSubmitting(false);
                 return;
             }
-            // Persist selections before saving the shift
-            await persistTemplateSelections();
-            // Include task_templates in the shift data
+            if (selectedStaffIds.length === 0) {
+                toast.error('Please select at least one staff member.');
+                setIsSubmitting(false);
+                return;
+            }
+            if (isRecurring && !recurringEndDate) {
+                toast.error('Please select an end date for recurring shifts.');
+                setIsSubmitting(false);
+                return;
+            }
+
             const shiftWithTemplates = {
                 ...shiftData,
-                task_templates: selectedTemplateIds
+                staffId: selectedStaffIds[0], // Fallback for backward compatibility
+                staffIds: selectedStaffIds,
+                isRecurring,
+                frequency,
+                recurringEndDate: isRecurring ? recurringEndDate : undefined,
+                task_templates: selectedTemplateIds,
+                tasks: shiftData.tasks // manual tasks
             };
-            // Support both synchronous and Promise returns without truthiness checks
             await Promise.resolve(onSave(shiftWithTemplates));
             onClose();
+        } catch (error) {
+            console.error(error);
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const nonAdminStaffMembers = staffMembers.filter((staff) => {
-        const r = (staff.role || '').toLowerCase();
-        return r !== 'admin' && r !== 'super_admin' && r !== 'super-admin';
-    });
-
-    // Use cached staff if available, otherwise fall back to prop
-    const sourceStaff: StaffMember[] = (cachedStaff && cachedStaff.length > 0)
-        ? cachedStaff
-        : staffMembers;
-
-    // Exclude admin/super-admin from assignment list
-    const allStaffMembers: StaffMember[] = sourceStaff.filter((staff) => {
-        const r = (staff.role || '').toLowerCase();
-        return r !== 'admin' && r !== 'super_admin' && r !== 'super-admin';
-    });
-
-    const filteredStaff = staffSearch.trim()
-        ? allStaffMembers.filter(staff => {
-            const q = staffSearch.toLowerCase();
-            const name = `${staff.first_name} ${staff.last_name}`.toLowerCase();
-            const role = (staff.role || '').toLowerCase();
-            return name.includes(q) || role.includes(q);
-        })
-        : allStaffMembers;
-
-    const totalPages = Math.max(1, Math.ceil(filteredStaff.length / PAGE_SIZE));
-    const paginatedStaff = filteredStaff.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
-    useEffect(() => {
-        // Reset pagination and selection when search changes
-        setCurrentPage(1);
-        setSelectedIndex(0);
-    }, [staffSearch]);
-
-    // Debounced filtering indicator
-    useEffect(() => {
-        if (!isOpen) return;
-        setIsFiltering(true);
-        const t = setTimeout(() => setIsFiltering(false), 150);
-        return () => clearTimeout(t);
-    }, [staffSearch, isOpen]);
-
-    const handleStaffKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-        if (paginatedStaff.length === 0) return;
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            setSelectedIndex(prev => Math.min(prev + 1, paginatedStaff.length - 1));
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            setSelectedIndex(prev => Math.max(prev - 1, 0));
-        } else if (e.key === 'Enter') {
-            e.preventDefault();
-            const staff = paginatedStaff[selectedIndex];
-            if (staff) {
-                handleSelectChange(staff.id, 'staffId');
-            }
-        } else if (e.key === 'PageDown') {
-            e.preventDefault();
-            setCurrentPage(prev => Math.min(prev + 1, totalPages));
-            setSelectedIndex(0);
-        } else if (e.key === 'PageUp') {
-            e.preventDefault();
-            setCurrentPage(prev => Math.max(prev - 1, 1));
-            setSelectedIndex(0);
-        }
-    };
-
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>{initialShift ? "Edit Shift" : "Create New Shift"}</DialogTitle>
+            <DialogContent className="sm:max-w-[700px] bg-white rounded-3xl p-6 border-none shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+                <DialogHeader className="pb-2">
+                    <DialogTitle className="text-xl font-bold text-[#1F2937]">
+                        {initialShift ? 'Edit Schedule' : 'Create Schedule'}
+                    </DialogTitle>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="title" className="text-right">Title</Label>
-                        <Input id="title" placeholder="New Shift" value={shiftData.title} onChange={handleChange} className="col-span-3" />
+
+                <div className="space-y-5 mt-4">
+                    <div className="space-y-1">
+                        <Label className="text-sm font-semibold text-[#1F2937]">Shift Title</Label>
+                        <Input
+                            id="title"
+                            placeholder="e.g. Morning Shift, Dinner Service"
+                            value={shiftData.title}
+                            onChange={(e) => setShiftData(prev => ({ ...prev, title: e.target.value }))}
+                            className="h-12 rounded-xl border-gray-200 focus:ring-[#106B4E] focus:border-[#106B4E]"
+                        />
                     </div>
 
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="date" className="text-right">Date <span className="text-red-500">*</span></Label>
-                        <Input id="date" type="date" value={shiftData.date} onChange={handleChange} className="col-span-3" />
-                    </div>
-
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label className="text-right">Time</Label>
-                        <div className="col-span-3 flex gap-2">
-                            <div className="flex-1">
-                                <Label htmlFor="start" className="text-xs text-gray-600">Start</Label>
-                                <Input id="start" type="time" value={shiftData.start} onChange={handleChange} />
-                            </div>
-                            <div className="flex-1">
-                                <Label htmlFor="end" className="text-xs text-gray-600">End</Label>
-                                <Input id="end" type="time" value={shiftData.end} onChange={handleChange} />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-4 items-start gap-4">
-                        <Label htmlFor="staffId" className="text-right pt-2">Staff <span className="text-red-500">*</span></Label>
-                        <div className="col-span-3 space-y-3">
-                            <div className="flex items-center gap-2">
-                                <Input
-                                    placeholder="Search by name or role..."
-                                    value={staffSearch}
-                                    onChange={(e) => setStaffSearch(e.target.value)}
-                                    className="text-sm"
-                                    aria-label="Search staff"
-                                />
-                                {isFiltering && (
-                                    <Badge variant="outline" className="text-xs">Filtering…</Badge>
-                                )}
-                            </div>
-
-                            {/* Staff list with single selection, keyboard navigation, pagination */}
-                            <div
-                                className="border rounded-md p-2 max-h-64 overflow-y-auto focus:outline-none"
-                                tabIndex={0}
-                                onKeyDown={handleStaffKeyDown}
-                                aria-label="Staff selection list"
-                                role="listbox"
-                            >
-                                {sourceStaff.length === 0 && staffSearch.trim() === "" && (
-                                    <div className="mb-2">
-                                        <Alert variant="destructive">
-                                            <AlertTitle>Failed to load staff</AlertTitle>
-                                            <AlertDescription>
-                                                Unable to load staff members. Please check your connection and try again.
-                                            </AlertDescription>
-                                        </Alert>
+                    {/* Multi-Staff Selection */}
+                    <div className="space-y-2">
+                        <Label className="text-sm font-semibold text-[#1F2937]">Assign Staff ({selectedStaffIds.length} selected)</Label>
+                        <Popover open={isStaffPopoverOpen} onOpenChange={setIsStaffPopoverOpen}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className="w-full h-12 bg-orange-100 hover:bg-orange-200 text-orange-900 border-none rounded-xl px-4 flex justify-between items-center text-base font-medium transition-colors shadow-sm"
+                                >
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                        {selectedStaffIds.length > 0 ? (
+                                            <span className="truncate">
+                                                {selectedStaffIds.length === 1
+                                                    ? `${staffMembers.find(s => s.id === selectedStaffIds[0])?.user?.first_name || staffMembers.find(s => s.id === selectedStaffIds[0])?.first_name || 'Staff'}`
+                                                    : `${selectedStaffIds.length} members selected`}
+                                            </span>
+                                        ) : (
+                                            <span className="text-orange-900/50">Select staff members...</span>
+                                        )}
                                     </div>
-                                )}
-                                {paginatedStaff.length === 0 && (
-                                    <div className="p-3 text-sm text-muted-foreground">No staff members found</div>
-                                )}
-
-                                {paginatedStaff.length === 0 && sourceStaff.length === 0 && (
-                                    <div className="space-y-2">
-                                        <Skeleton className="h-8 w-full" />
-                                        <Skeleton className="h-8 w-full" />
-                                        <Skeleton className="h-8 w-full" />
-                                    </div>
-                                )}
-
-                                {paginatedStaff.map((staff, idx) => {
-                                    const isSelected = String(shiftData.staffId) === String(staff.id);
-                                    const isActive = selectedIndex === idx;
-                                    return (
-                                        <button
-                                            key={staff.id}
-                                            type="button"
-                                            onClick={() => handleSelectChange(staff.id, 'staffId')}
-                                            className={`w-full flex items-center gap-3 px-2 py-2 rounded-md text-left mb-1 ${isSelected ? 'bg-primary/10 border border-primary' : 'hover:bg-muted'
-                                                } ${isActive ? 'ring-2 ring-primary' : ''}`}
-                                            role="option"
-                                            aria-selected={isSelected}
-                                        >
-                                            <Avatar className="h-8 w-8">
-                                                {staff.avatar_url ? (
-                                                    <AvatarImage src={staff.avatar_url} alt={`${staff.first_name} ${staff.last_name}`} />
-                                                ) : (
-                                                    <AvatarFallback>
-                                                        {`${staff.first_name?.[0] || ''}${staff.last_name?.[0] || ''}`}
-                                                    </AvatarFallback>
-                                                )}
-                                            </Avatar>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium truncate">
-                                                    {staff.first_name} {staff.last_name}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground truncate capitalize">{staff.role || 'Staff'}</p>
-                                            </div>
-                                            {isSelected && (
-                                                <Badge variant="secondary" className="text-xs">Selected</Badge>
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            {filteredStaff.length > PAGE_SIZE && (
-                                <div className="flex items-center justify-between mt-2">
-                                    <p className="text-xs text-muted-foreground">
-                                        Page {currentPage} of {totalPages} • {filteredStaff.length} staff
-                                    </p>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                            disabled={currentPage === 1}
-                                        >
-                                            Prev
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                            disabled={currentPage === totalPages}
-                                        >
-                                            Next
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="color" className="text-right">Color</Label>
-                        <Input id="color" type="color" value={shiftData.color} onChange={handleChange} className="col-span-3 h-8" />
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-4">
-                        <Label className="text-right pt-2">Tasks</Label>
-                        <div className="col-span-3 space-y-3">
-                            {/* Templates and Frequency */}
-                            <div className="space-y-2" aria-busy={persistingSelections}>
-                                <Label className="text-xs text-gray-600">Templates</Label>
-                                {selectedTemplateIds.length > 0 && (
-                                    <div className="flex flex-wrap gap-2">
-                                        {(templates || []).filter(t => selectedTemplateIds.includes(String(t.id))).map(t => (
-                                            <Badge key={String(t.id)} variant="secondary" className="text-xs">
-                                                {t.name}
-                                                <button
-                                                    type="button"
-                                                    className="ml-2 inline-flex items-center"
-                                                    onClick={() => handleTemplateIdsChange(selectedTemplateIds.filter(x => x !== String(t.id)))}
-                                                    aria-label={`Remove ${t.name}`}
-                                                >
-                                                    <X className="h-3 w-3" />
-                                                </button>
-                                            </Badge>
-                                        ))}
-                                    </div>
-                                )}
-
-                                <TaskTemplateSelector
-                                    multiselect
-                                    selectedIds={selectedTemplateIds}
-                                    onChangeSelected={handleTemplateIdsChange}
-                                    showFilters
-                                />
-
-                                {templatesLoading && (
-                                    <div className="space-y-1">
-                                        <Skeleton className="h-6 w-full" />
-                                        <Skeleton className="h-6 w-3/4" />
-                                    </div>
-                                )}
-                                {templatesError && (
-                                    <div className="mt-2">
-                                        <Alert variant="destructive" role="alert">
-                                            <AlertTitle>Failed to load templates</AlertTitle>
-                                            <AlertDescription>{templatesError}</AlertDescription>
-                                        </Alert>
-                                    </div>
-                                )}
-                                {templateSelectionError && (
-                                    <div className="mt-2">
-                                        <Alert variant="destructive" role="alert">
-                                            <AlertTitle>Selection limit reached</AlertTitle>
-                                            <AlertDescription>{templateSelectionError}</AlertDescription>
-                                        </Alert>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="space-y-2">
-                                <div className="flex gap-2">
-                                    <Input
-                                        placeholder="Task title..."
-                                        value={newTask.title}
-                                        onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
-                                        className="flex-1"
+                                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl shadow-2xl border-gray-100 overflow-hidden z-[9999]" align="start">
+                                <Command className="rounded-xl border-none">
+                                    <CommandInput
+                                        placeholder="Search staff..."
+                                        className="h-12 border-none focus:ring-0"
+                                        value={staffSearch}
+                                        onValueChange={setStaffSearch}
                                     />
-                                    <Select value={newTask.priority} onValueChange={(value) => setNewTask(prev => ({ ...prev, priority: value as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' }))}>
-                                        <SelectTrigger className="w-24">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="LOW">Low</SelectItem>
-                                            <SelectItem value="MEDIUM">Medium</SelectItem>
-                                            <SelectItem value="HIGH">High</SelectItem>
-                                            <SelectItem value="URGENT">Urgent</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Button size="sm" onClick={handleAddTask} aria-label="Add manual task">Add</Button>
+                                    <CommandList className="max-h-[300px] overflow-y-auto">
+                                        <CommandEmpty className="py-6 text-center text-sm text-gray-500">No staff found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {staffMembers
+                                                .filter(s => String(s.user?.id) !== String(user?.id))
+                                                .map((s) => (
+                                                    <CommandItem
+                                                        key={s.id}
+                                                        onSelect={() => toggleStaffSelection(s.id)}
+                                                        className="flex items-center gap-2 p-3 aria-selected:bg-orange-50 cursor-pointer"
+                                                    >
+                                                        <div className={cn(
+                                                            "w-5 h-5 rounded-md border flex items-center justify-center transition-colors",
+                                                            selectedStaffIds.includes(s.id)
+                                                                ? "bg-orange-500 border-orange-500"
+                                                                : "border-orange-200 bg-white"
+                                                        )}>
+                                                            {selectedStaffIds.includes(s.id) && <Check className="h-3 w-3 text-white" />}
+                                                        </div>
+                                                        <Avatar className="h-8 w-8 ml-1">
+                                                            <AvatarFallback className="text-xs bg-orange-100 text-orange-700">
+                                                                {`${(s.user?.first_name || s.first_name || "")[0] || ""}${(s.user?.last_name || s.last_name || "")[0] || ""}`}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-semibold text-gray-900">
+                                                                {`${s.user?.first_name || s.first_name || ""} ${s.user?.last_name || s.last_name || ""}`}
+                                                            </span>
+                                                            <span className="text-xs text-gray-500 uppercase">{s.role}</span>
+                                                        </div>
+                                                    </CommandItem>
+                                                ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <Label className="text-sm font-semibold text-[#1F2937]">Date</Label>
+                            <Input
+                                type="date"
+                                value={shiftData.date}
+                                onChange={(e) => setShiftData(prev => ({ ...prev, date: e.target.value }))}
+                                className="h-12 rounded-xl border-gray-200 focus:ring-[#106B4E]"
+                                required
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                                <Label className="text-sm font-semibold text-[#1F2937]">Start</Label>
+                                <Select
+                                    value={shiftData.start}
+                                    onValueChange={(value) => setShiftData(prev => ({ ...prev, start: value }))}
+                                >
+                                    <SelectTrigger className="h-12 rounded-xl border-gray-200">
+                                        <SelectValue placeholder="Start" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-[200px] z-[9999]">
+                                        {Array.from({ length: 48 }, (_, i) => {
+                                            const hour24 = Math.floor(i / 2);
+                                            const min = i % 2 === 0 ? '00' : '30';
+                                            const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+                                            const ampm = hour24 < 12 ? 'AM' : 'PM';
+                                            const value = `${String(hour24).padStart(2, '0')}:${min}`;
+                                            return (
+                                                <SelectItem key={value} value={value}>
+                                                    {hour12}:{min} {ampm}
+                                                </SelectItem>
+                                            );
+                                        })}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-sm font-semibold text-[#1F2937]">End</Label>
+                                <Select
+                                    value={shiftData.end}
+                                    onValueChange={(value) => setShiftData(prev => ({ ...prev, end: value }))}
+                                >
+                                    <SelectTrigger className="h-12 rounded-xl border-gray-200">
+                                        <SelectValue placeholder="End" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-[200px] z-[9999]">
+                                        {Array.from({ length: 48 }, (_, i) => {
+                                            const hour24 = Math.floor(i / 2);
+                                            const min = i % 2 === 0 ? '00' : '30';
+                                            const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+                                            const ampm = hour24 < 12 ? 'AM' : 'PM';
+                                            const value = `${String(hour24).padStart(2, '0')}:${min}`;
+                                            return (
+                                                <SelectItem key={value} value={value}>
+                                                    {hour12}:{min} {ampm}
+                                                </SelectItem>
+                                            );
+                                        })}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Recurring Shift Section */}
+                    <div className="bg-slate-50 p-4 rounded-2xl space-y-4 border border-slate-100">
+                        <div className="flex items-center justify-between">
+                            <div className="flex flex-col">
+                                <Label className="text-sm font-bold text-slate-900 leading-none">Recurring Shift</Label>
+                                <p className="text-[10px] text-slate-500 mt-1">Create this shift repeatedly until the end date.</p>
+                            </div>
+                            <div
+                                onClick={() => setIsRecurring(!isRecurring)}
+                                className={cn(
+                                    "h-6 w-11 rounded-full p-1 cursor-pointer transition-colors duration-200",
+                                    isRecurring ? "bg-[#106B4E]" : "bg-slate-300"
+                                )}
+                            >
+                                <div className={cn(
+                                    "h-4 w-4 rounded-full bg-white transition-transform duration-200",
+                                    isRecurring ? "translate-x-5" : "translate-x-0"
+                                )} />
+                            </div>
+                        </div>
+
+                        {isRecurring && (
+                            <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <Label className="text-xs font-semibold text-slate-700 block mb-2">Repeat Frequency</Label>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={frequency === 'DAILY' ? 'default' : 'outline'}
+                                        onClick={() => setFrequency('DAILY')}
+                                        className={cn(
+                                            "flex-1 h-10 rounded-xl text-xs font-bold transition-all",
+                                            frequency === 'DAILY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        )}
+                                    >
+                                        Daily
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={frequency === 'WEEKLY' ? 'default' : 'outline'}
+                                        onClick={() => setFrequency('WEEKLY')}
+                                        className={cn(
+                                            "flex-1 h-10 rounded-xl text-xs font-bold transition-all",
+                                            frequency === 'WEEKLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        )}
+                                    >
+                                        Weekly
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={frequency === 'MONTHLY' ? 'default' : 'outline'}
+                                        onClick={() => setFrequency('MONTHLY')}
+                                        className={cn(
+                                            "flex-1 h-10 rounded-xl text-xs font-bold transition-all",
+                                            frequency === 'MONTHLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        )}
+                                    >
+                                        Monthly
+                                    </Button>
+                                </div>
+                                <div className="mt-4">
+                                    <Label className="text-xs font-semibold text-slate-700 block mb-2">End Date</Label>
+                                    <Input
+                                        type="date"
+                                        value={recurringEndDate}
+                                        onChange={(e) => setRecurringEndDate(e.target.value)}
+                                        min={shiftData.date}
+                                        className="h-10 rounded-xl border-slate-200 focus:ring-[#106B4E] focus:border-[#106B4E]"
+                                    />
+                                    {!recurringEndDate && <p className="text-[10px] text-amber-600 mt-1">Please select an end date for recurring shifts.</p>}
                                 </div>
                             </div>
+                        )}
+                    </div>
 
-                            {shiftData.tasks && shiftData.tasks.length > 0 && (
-                                <div className="space-y-2 bg-gray-50 p-3 rounded">
-                                    {shiftData.tasks.map(task => (
-                                        <div key={task.id} className="flex items-center justify-between bg-white p-2 rounded border border-gray-200">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium truncate">{task.title}</p>
-                                                <p className="text-xs text-gray-500">
-                                                    {task.priority === 'LOW' && 'Low Priority'}
-                                                    {task.priority === 'MEDIUM' && 'Medium Priority'}
-                                                    {task.priority === 'HIGH' && 'High Priority'}
-                                                    {task.priority === 'URGENT' && 'Urgent'}
-                                                    {task.frequency && ` • ${task.frequency}`}
+                    <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-sm font-semibold text-[#1F2937]">Process & Task Templates</Label>
+                            <div className="relative w-48">
+                                <Input
+                                    placeholder="Search templates..."
+                                    value={templateSearch}
+                                    onChange={(e) => setTemplateSearch(e.target.value)}
+                                    className="h-8 rounded-lg border-gray-200 pl-8 pr-2 text-xs focus:ring-[#106B4E]"
+                                />
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                            </div>
+                        </div>
+                        <div className="bg-[#F9FAFB] border border-gray-100 rounded-xl p-2 max-h-[250px] overflow-y-auto space-y-1">
+                            {templatesLoading ? (
+                                <p className="text-sm text-gray-500 text-center py-4">Loading templates...</p>
+                            ) : (templates || []).filter(t =>
+                                !templateSearch || t.name.toLowerCase().includes(templateSearch.toLowerCase()) ||
+                                (t.description || '').toLowerCase().includes(templateSearch.toLowerCase())
+                            ).length === 0 ? (
+                                <p className="text-sm text-gray-500 text-center py-4">No templates found.</p>
+                            ) : (
+                                (templates || []).filter(t =>
+                                    !templateSearch || t.name.toLowerCase().includes(templateSearch.toLowerCase()) ||
+                                    (t.description || '').toLowerCase().includes(templateSearch.toLowerCase())
+                                ).map((template) => {
+                                    const isSelected = selectedTemplateIds.includes(String(template.id));
+                                    return (
+                                        <div
+                                            key={template.id}
+                                            className={cn(
+                                                "flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-all border",
+                                                isSelected
+                                                    ? "bg-emerald-50 border-emerald-200 shadow-sm"
+                                                    : "bg-white border-transparent hover:bg-gray-50 hover:border-gray-200"
+                                            )}
+                                            onClick={() => {
+                                                const current = selectedTemplateIds;
+                                                const id = String(template.id);
+                                                const newIds = current.includes(id)
+                                                    ? current.filter(x => x !== id)
+                                                    : [...current, id];
+                                                setSelectedTemplateIds(newIds);
+                                            }}
+                                        >
+                                            <div className={cn(
+                                                "mt-0.5 w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0",
+                                                isSelected
+                                                    ? "bg-[#106B4E] border-[#106B4E]"
+                                                    : "border-gray-300 bg-white"
+                                            )}>
+                                                {isSelected && (
+                                                    <Check className="w-2.5 h-2.5 text-white" />
+                                                )}
+                                            </div>
+                                            <div className="space-y-0.5 min-w-0">
+                                                <p className={cn(
+                                                    "text-sm font-bold leading-none",
+                                                    isSelected ? "text-emerald-900" : "text-[#1F2937]"
+                                                )}>
+                                                    {template.name}
+                                                </p>
+                                                <p className={cn(
+                                                    "text-[11px] line-clamp-1",
+                                                    isSelected ? "text-emerald-700/80" : "text-gray-500"
+                                                )}>
+                                                    {template.description || "Daily preparation and inventory check"}
                                                 </p>
                                             </div>
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() => handleRemoveTask(task.id)}
-                                                className="ml-2 h-6 w-6 p-0"
-                                                aria-label={`Remove task ${task.title}`}
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </Button>
                                         </div>
-                                    ))}
-                                </div>
+                                    );
+                                })
                             )}
                         </div>
+                        <p className="text-[10px] text-gray-400 pt-1">Select templates to automatically add tasks to this shift.</p>
+                    </div>
+
+                    {/* Manual Task Creation Section */}
+                    <div className="space-y-3 pt-4 border-t border-gray-100">
+                        <Label className="text-sm font-semibold text-[#1F2937]">Custom Tasks</Label>
+
+                        <div className="flex gap-2">
+                            <Input
+                                placeholder="Add a custom task..."
+                                value={newTaskTitle}
+                                onChange={(e) => setNewTaskTitle(e.target.value)}
+                                className="flex-1 h-10 rounded-xl border-gray-200 text-sm focus:ring-[#106B4E]"
+                            />
+                            <Select
+                                value={newTaskPriority}
+                                onValueChange={(v: TaskPriority) => setNewTaskPriority(v)}
+                            >
+                                <SelectTrigger className="w-[120px] h-10 rounded-xl border-gray-200">
+                                    <SelectValue placeholder="Priority" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="LOW">Low</SelectItem>
+                                    <SelectItem value="MEDIUM">Medium</SelectItem>
+                                    <SelectItem value="HIGH">High</SelectItem>
+                                    <SelectItem value="URGENT">Urgent</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Button
+                                type="button"
+                                onClick={handleAddManualTask}
+                                className="h-10 w-10 p-0 rounded-xl bg-emerald-50 text-[#106B4E] hover:bg-emerald-100 border border-emerald-100"
+                            >
+                                <Plus className="w-5 h-5" />
+                            </Button>
+                        </div>
+
+                        {/* List of Manual Tasks */}
+                        <div className="space-y-2 max-h-[150px] overflow-y-auto">
+                            {(shiftData.tasks || []).map((task, index) => (
+                                <div
+                                    key={index}
+                                    className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-gray-100 group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn(
+                                            "w-2 h-2 rounded-full",
+                                            task.priority === 'URGENT' ? "bg-red-500" :
+                                                task.priority === 'HIGH' ? "bg-orange-500" :
+                                                    task.priority === 'MEDIUM' ? "bg-blue-500" : "bg-gray-400"
+                                        )} />
+                                        <span className="text-sm font-medium text-gray-700">{task.title}</span>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleRemoveManualTask(index)}
+                                        className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-50 mt-4">
+                        {initialShift && onDelete && (
+                            <Button
+                                variant="ghost"
+                                onClick={() => {
+                                    if (confirm("Are you sure?")) {
+                                        onDelete(initialShift.id);
+                                        onClose();
+                                    }
+                                }}
+                                className="mr-auto text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl"
+                            >
+                                Delete Shift
+                            </Button>
+                        )}
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={onClose}
+                            className="h-12 px-8 rounded-xl text-gray-600 font-semibold hover:bg-gray-100"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                            className="h-12 px-10 rounded-xl bg-[#106B4E] hover:bg-[#0D5A41] text-white font-bold text-base transition-all shadow-md active:scale-[0.98]"
+                        >
+                            {isSubmitting ? 'Saving...' : (initialShift ? 'Save Changes' : 'Create')}
+                        </Button>
                     </div>
                 </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={onClose} aria-label="Cancel and close">Cancel</Button>
-                    <Button onClick={handleSubmit} disabled={isSubmitting} aria-busy={isSubmitting} aria-label="Save shift changes">
-                        {isSubmitting ? 'Saving…' : 'Save Changes'}
-                    </Button>
-                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

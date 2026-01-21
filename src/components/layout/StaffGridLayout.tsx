@@ -43,7 +43,7 @@ const StaffGridLayout: React.FC = () => {
             <div className="flex items-center gap-3">
               <BrandLogo size="sm" />
               <div className="flex flex-col">
-                <h1 className="text-2xl font-bold leading-tight select-none cursor-default">Mizan</h1>
+                <h1 className="text-2xl font-bold leading-tight select-none cursor-default">Mizan AI</h1>
               </div>
             </div>
 

@@ -69,8 +69,6 @@ export default function ShiftReviewModal({
   };
 
   const handleSubmit = async () => {
-    if (!sessionId) return;
-    
     const payload: ShiftReviewPayload = {
       session_id: sessionId,
       rating,
@@ -89,7 +87,7 @@ export default function ShiftReviewModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>How was your shift{shiftTitle ? ` at ${shiftTitle}` : ""}?</DialogTitle>
+          <DialogTitle>How was your shift?</DialogTitle>
           {shiftTimeRange && (
             <DialogDescription>{shiftTimeRange}</DialogDescription>
           )}
@@ -104,9 +102,8 @@ export default function ShiftReviewModal({
                 type="button"
                 aria-label={label}
                 onClick={() => setRating(value)}
-                className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${
-                  rating === value ? "bg-green-100 text-green-700" : "hover:bg-muted"
-                }`}
+                className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${rating === value ? "bg-green-100 text-green-700" : "hover:bg-muted"
+                  }`}
               >
                 <Icon className={`h-8 w-8 ${rating === value ? "text-green-600" : "text-muted-foreground"}`} />
                 <span className="text-xs">{label}</span>
@@ -123,9 +120,8 @@ export default function ShiftReviewModal({
                   key={tag}
                   type="button"
                   onClick={() => toggleTag(tag)}
-                  className={`px-3 py-1 rounded-full border transition-all text-sm ${
-                    active ? "bg-green-200 border-green-300" : "bg-muted"
-                  }`}
+                  className={`px-3 py-1 rounded-full border transition-all text-sm ${active ? "bg-green-200 border-green-300" : "bg-muted"
+                    }`}
                 >
                   {tag}
                 </button>
@@ -152,7 +148,7 @@ export default function ShiftReviewModal({
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={!!submitting}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={!!submitting || !sessionId} className="min-w-[160px]">
+            <Button onClick={handleSubmit} disabled={!!submitting} className="min-w-[160px]">
               {submitting ? (
                 <span className="flex items-center justify-center">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…

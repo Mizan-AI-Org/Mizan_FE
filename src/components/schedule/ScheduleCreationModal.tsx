@@ -7,24 +7,34 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { API_BASE } from "@/lib/api";
+import { api } from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
+import { AuthContextType } from "@/contexts/AuthContext.types";
+import type { StaffListItem } from "@/lib/types";
 
-interface StaffMember {
-    id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-    // Add other relevant staff fields as needed
+interface ScheduleDataPayload {
+    staff_id: string;
+    title: string;
+    start_time: string;
+    end_time: string;
+    tasks: string[];
+    is_recurring: boolean;
+    recurrence_pattern: string | null;
+    color: string;
 }
 
 interface ScheduleCreationModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (schedule: any) => void;
-    initialData?: any; // For editing existing schedules
+    onSave: (schedule: ScheduleDataPayload) => void;
+    initialData?: Partial<ScheduleDataPayload> & {
+        staff?: { id: string };
+    };
 }
 
 const ScheduleCreationModal: React.FC<ScheduleCreationModalProps> = ({
@@ -33,6 +43,8 @@ const ScheduleCreationModal: React.FC<ScheduleCreationModalProps> = ({
     onSave,
     initialData,
 }) => {
+    const { user, accessToken } = useAuth() as AuthContextType;
+
     const [staffId, setStaffId] = useState<string>('');
     const [title, setTitle] = useState<string>(initialData?.title || 'Shift');
     const [startDate, setStartDate] = useState<Date | undefined>(initialData?.start_time ? new Date(initialData.start_time) : undefined);
@@ -44,20 +56,19 @@ const ScheduleCreationModal: React.FC<ScheduleCreationModalProps> = ({
     const [isRecurring, setIsRecurring] = useState<boolean>(initialData?.is_recurring || false);
     const [recurrencePattern, setRecurrencePattern] = useState<string>(initialData?.recurrence_pattern || '');
     const [color, setColor] = useState<string>(initialData?.color || '#3b82f6');
-    const [staffList, setStaffList] = useState<StaffMember[]>([]); // New state for staff list
+    const [staffList, setStaffList] = useState<StaffListItem[]>([]);
+    const [isStaffPopoverOpen, setIsStaffPopoverOpen] = useState(false);
 
     useEffect(() => {
         const fetchStaffList = async () => {
             try {
-                const response = await fetch(`${API_BASE}/accounts/staff/`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                if (!accessToken) {
+                    return;
                 }
-                const data: StaffMember[] = await response.json();
+                const data = await api.getStaffList(accessToken);
                 setStaffList(data);
             } catch (error) {
                 console.error("Error fetching staff list:", error);
-                // Optionally show a toast notification here
             }
         };
 
@@ -89,7 +100,7 @@ const ScheduleCreationModal: React.FC<ScheduleCreationModalProps> = ({
                 setColor('#3b82f6');
             }
         }
-    }, [initialData, isOpen]);
+    }, [accessToken, initialData, isOpen]);
 
     const handleAddTask = () => {
         if (newTask.trim() !== '') {
@@ -139,18 +150,99 @@ const ScheduleCreationModal: React.FC<ScheduleCreationModalProps> = ({
                         <Label htmlFor="staff" className="text-right">
                             Staff
                         </Label>
-                        <Select onValueChange={setStaffId} value={staffId}>
-                            <SelectTrigger className="col-span-3">
-                                <SelectValue placeholder="Select a staff member" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {staffList.map((staff) => (
-                                    <SelectItem key={staff.id} value={staff.id}>
-                                        {staff.first_name} {staff.last_name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <div className="col-span-3">
+                            <Popover open={isStaffPopoverOpen} onOpenChange={setIsStaffPopoverOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        id="staff"
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={isStaffPopoverOpen}
+                                        aria-haspopup="listbox"
+                                        className="w-full justify-between"
+                                    >
+                                        {(() => {
+                                            const visibleStaff = staffList.filter(s => String(s.id) !== String(user?.id));
+                                            const selected = visibleStaff.find(s => s.id === staffId);
+                                            if (selected) {
+                                                const initials = `${selected.first_name?.[0] || ''}${selected.last_name?.[0] || ''}` || '?';
+                                                return (
+                                                    <>
+                                                        <Avatar className="h-6 w-6 mr-2">
+                                                            <AvatarFallback className="text-[10px]">
+                                                                {initials}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <span className="truncate">
+                                                            {selected.first_name} {selected.last_name}
+                                                            {selected.role ? ` • ${selected.role}` : ''}
+                                                        </span>
+                                                    </>
+                                                );
+                                            }
+                                            return <span className="text-muted-foreground">Select staff member...</span>;
+                                        })()}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" aria-hidden="true" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                                    <Command>
+                                        <CommandInput
+                                            placeholder="Search staff by name or role..."
+                                            aria-label="Search staff"
+                                        />
+                                        <CommandList aria-label="Staff list">
+                                            <CommandEmpty>No staff members found.</CommandEmpty>
+                                            <CommandGroup>
+                                                <CommandItem
+                                                    value="__clear__"
+                                                    onSelect={() => {
+                                                        setStaffId('');
+                                                        setIsStaffPopoverOpen(false);
+                                                    }}
+                                                >
+                                                    Clear selection
+                                                </CommandItem>
+                                                {staffList
+                                                    .filter(s => String(s.id) !== String(user?.id))
+                                                    .map((staff) => {
+                                                        const initials = `${staff.first_name?.[0] || ''}${staff.last_name?.[0] || ''}` || '?';
+                                                        const isSelected = staffId === staff.id;
+                                                        return (
+                                                            <CommandItem
+                                                                key={staff.id}
+                                                                value={`${staff.first_name} ${staff.last_name} ${staff.role || ''}`}
+                                                                onSelect={() => {
+                                                                    setStaffId(staff.id);
+                                                                    setIsStaffPopoverOpen(false);
+                                                                }}
+                                                                aria-selected={isSelected}
+                                                                role="option"
+                                                            >
+                                                                <Avatar className="h-7 w-7 mr-2">
+                                                                    <AvatarFallback className="text-[10px]">
+                                                                        {initials}
+                                                                    </AvatarFallback>
+                                                                </Avatar>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-sm">
+                                                                        {staff.first_name} {staff.last_name}
+                                                                    </span>
+                                                                    {staff.role && (
+                                                                        <span className="text-xs text-muted-foreground">
+                                                                            {staff.role}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </CommandItem>
+                                                        );
+                                                    })}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="title" className="text-right">

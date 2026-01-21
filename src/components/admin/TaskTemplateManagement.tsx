@@ -107,8 +107,8 @@ export default function TaskTemplateManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterFrequency, setFilterFrequency] = useState<string>('all');
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<TaskTemplate | null>(null);
+  const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
+  const [editingProcess, setEditingProcess] = useState<TaskTemplate | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -264,10 +264,10 @@ export default function TaskTemplateManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['task-templates'] });
-      toast.success('Template deleted successfully');
+      toast.success('Process deleted successfully');
     },
     onError: (error) => {
-      toast.error('Failed to delete template');
+      toast.error('Failed to delete process');
       console.error('Delete error:', error);
     },
   });
@@ -282,15 +282,15 @@ export default function TaskTemplateManagement() {
           'Content-Type': 'application/json',
         },
       });
-      if (!response.ok) throw new Error('Failed to duplicate template');
+      if (!response.ok) throw new Error('Failed to duplicate process');
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['task-templates'] });
-      toast.success('Template duplicated successfully');
+      toast.success('Process duplicated successfully');
     },
     onError: (error) => {
-      toast.error('Failed to duplicate template');
+      toast.error('Failed to duplicate process');
       console.error('Duplicate error:', error);
     },
   });
@@ -328,7 +328,7 @@ export default function TaskTemplateManagement() {
   }) || [];
 
   const handleEdit = (template: TaskTemplate) => {
-    setEditingTemplate(template);
+    setEditingProcess(template);
   };
 
   const handleDelete = (templateId: string) => {
@@ -344,8 +344,8 @@ export default function TaskTemplateManagement() {
   };
 
   const handleFormSuccess = () => {
-    setIsCreateModalOpen(false);
-    setEditingTemplate(null);
+    setIsProcessModalOpen(false);
+    setEditingProcess(null);
     queryClient.invalidateQueries({ queryKey: ['task-templates'] });
   };
 
@@ -354,30 +354,30 @@ export default function TaskTemplateManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Processes & Tasks </h1>
+          <h1 className="text-3xl font-bold">Manage Processes</h1>
           <p className="text-muted-foreground">
-            Create and manage reusable Processes and Task templates for your restaurant operations
+            Create and manage reusable Processes and Task checklists for your restaurant operations
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+          <Dialog open={isProcessModalOpen} onOpenChange={setIsProcessModalOpen}>
             <DialogTrigger asChild>
               <Button className="premium-button">
                 <Plus className="h-4 w-4 mr-2" />
-                New Template
+                New Process
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create New Template</DialogTitle>
+                <DialogTitle>Create New Process</DialogTitle>
                 <DialogDescription>
-                  Create a new task template that can be reused across shifts and schedules.
+                  Create a new operational process that can be reused across shifts and schedules.
                 </DialogDescription>
               </DialogHeader>
               <TaskTemplateForm
                 onSuccess={handleFormSuccess}
-                onCancel={() => setIsCreateModalOpen(false)}
+                onCancel={() => setIsProcessModalOpen(false)}
               />
             </DialogContent>
           </Dialog>
@@ -386,7 +386,7 @@ export default function TaskTemplateManagement() {
             onClick={() => seedTemplatesMutation.mutate()}
             disabled={seedTemplatesMutation.isPending}
           >
-            Load Pre-Built Templates
+            Load Pre-Built Processes
           </Button>
         </div>
       </div>
@@ -399,7 +399,7 @@ export default function TaskTemplateManagement() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
-                  placeholder="Search templates..."
+                  placeholder="Search processes..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -473,17 +473,17 @@ export default function TaskTemplateManagement() {
         <Card className="premium-card">
           <CardContent className="text-center py-12">
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No templates found</h3>
+            <h3 className="text-lg font-semibold mb-2">No processes found</h3>
             <p className="text-muted-foreground mb-4">
               {searchTerm || filterType !== 'all' || filterFrequency !== 'all'
                 ? 'Try adjusting your search or filters'
-                : 'Create your first task template to get started'
+                : 'Create your first operational process to get started'
               }
             </p>
             {!searchTerm && filterType === 'all' && filterFrequency === 'all' && (
-              <Button onClick={() => setIsCreateModalOpen(true)}>
+              <Button onClick={() => setIsProcessModalOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                Create Template
+                Create Process
               </Button>
             )}
           </CardContent>
@@ -606,19 +606,19 @@ export default function TaskTemplateManagement() {
       )}
 
       {/* Edit Template Dialog */}
-      {editingTemplate && (
-        <Dialog open={!!editingTemplate} onOpenChange={() => setEditingTemplate(null)}>
+      {editingProcess && (
+        <Dialog open={!!editingProcess} onOpenChange={() => setEditingProcess(null)}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit Template</DialogTitle>
+              <DialogTitle>Edit Process</DialogTitle>
               <DialogDescription>
-                Update the template details and tasks.
+                Update the process details and tasks.
               </DialogDescription>
             </DialogHeader>
             <TaskTemplateForm
-              template={editingTemplate}
+              template={editingProcess}
               onSuccess={handleFormSuccess}
-              onCancel={() => setEditingTemplate(null)}
+              onCancel={() => setEditingProcess(null)}
             />
           </DialogContent>
         </Dialog>

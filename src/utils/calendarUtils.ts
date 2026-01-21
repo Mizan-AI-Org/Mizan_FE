@@ -36,7 +36,7 @@ export const getUserTimezone = (): TimezoneInfo => {
   const jan = new Date(now.getFullYear(), 0, 1);
   const jul = new Date(now.getFullYear(), 6, 1);
   const isDST = now.getTimezoneOffset() < Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset());
-  
+
   return { timezone, offset, isDST };
 };
 
@@ -58,42 +58,42 @@ export const parseShiftTime = (shift: Shift, baseDate: Date, timezone: string): 
   if (!shift.start || !shift.end) {
     throw new Error(`Invalid shift times: start="${shift.start}", end="${shift.end}"`);
   }
-  
+
   const startParts = shift.start.split(':');
   const endParts = shift.end.split(':');
-  
+
   if (startParts.length < 2 || endParts.length < 2) {
     throw new Error(`Invalid time format: start="${shift.start}", end="${shift.end}". Expected HH:mm format.`);
   }
-  
+
   const [startHour, startMinute] = startParts.map(Number);
   const [endHour, endMinute] = endParts.map(Number);
-  
+
   // Validate parsed values
   if (isNaN(startHour) || isNaN(startMinute) || isNaN(endHour) || isNaN(endMinute)) {
     throw new Error(`Invalid time values: start="${shift.start}", end="${shift.end}"`);
   }
-  
+
   if (startHour < 0 || startHour > 23 || startMinute < 0 || startMinute > 59 ||
-      endHour < 0 || endHour > 23 || endMinute < 0 || endMinute > 59) {
+    endHour < 0 || endHour > 23 || endMinute < 0 || endMinute > 59) {
     throw new Error(`Time out of range: start="${shift.start}", end="${shift.end}"`);
   }
-  
+
   const startDate = new Date(baseDate);
   startDate.setHours(startHour, startMinute, 0, 0);
-  
+
   let endDate = new Date(baseDate);
   endDate.setHours(endHour, endMinute, 0, 0);
-  
+
   // Handle overnight shifts
   if (endDate <= startDate) {
     endDate = addDays(endDate, 1);
   }
-  
+
   // Convert to target timezone
   const displayStart = convertToTimezone(startDate, timezone);
   const displayEnd = convertToTimezone(endDate, timezone);
-  
+
   return { start: displayStart, end: displayEnd };
 };
 
@@ -106,28 +106,28 @@ export const calculateShiftPosition = (
   try {
     const { start: displayStart, end: displayEnd } = parseShiftTime(shift, baseDate, config.timezone);
     const durationHours = (displayEnd.getTime() - displayStart.getTime()) / (1000 * 60 * 60);
-    
+
     // Calculate position within the calendar grid
     const startHour = displayStart.getHours() + displayStart.getMinutes() / 60;
     const endHour = displayEnd.getHours() + displayEnd.getMinutes() / 60;
-    
+
     const top = (startHour - config.startHour) * config.hourHeight;
     const height = Math.max((durationHours * config.hourHeight), 20); // Minimum 20px height
-    
+
     // Find overlapping shifts
     const overlapsWith = allShifts
       .filter(other => other.id !== shift.id && shiftsOverlap(shift, other, baseDate, config.timezone))
       .map(other => other.id);
-    
+
     // Calculate position within overlapping group
     const overlapGroup = getOverlapGroup(shift, allShifts, baseDate, config.timezone);
     const positionInGroup = overlapGroup.findIndex(s => s.id === shift.id);
     const totalInGroup = overlapGroup.length;
-    
+
     const left = 4 + (positionInGroup * (100 / totalInGroup));
     const width = Math.max(90 / totalInGroup, 30); // Minimum 30px width
     const zIndex = 10 + positionInGroup;
-    
+
     return {
       ...shift,
       displayStart,
@@ -170,7 +170,7 @@ export const shiftsOverlap = (
 ): boolean => {
   const { start: start1, end: end1 } = parseShiftTime(shift1, baseDate, timezone);
   const { start: start2, end: end2 } = parseShiftTime(shift2, baseDate, timezone);
-  
+
   return start1 < end2 && start2 < end1;
 };
 
@@ -181,19 +181,19 @@ export const getOverlapGroup = (
   timezone: string
 ): Shift[] => {
   const group: Shift[] = [targetShift];
-  
+
   for (const shift of allShifts) {
     if (shift.id === targetShift.id) continue;
-    
-    const overlapsWithGroup = group.some(groupShift => 
+
+    const overlapsWithGroup = group.some(groupShift =>
       shiftsOverlap(shift, groupShift, baseDate, timezone)
     );
-    
+
     if (overlapsWithGroup) {
       group.push(shift);
     }
   }
-  
+
   // Sort by start time
   return group.sort((a, b) => {
     const { start: startA } = parseShiftTime(a, baseDate, timezone);
@@ -235,7 +235,7 @@ export const formatShiftTime = (date: Date, timezone: string): string => {
   return new Intl.DateTimeFormat('en-US', {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false,
+    hour12: true,
     timeZone: timezone
   }).format(date);
 };
@@ -249,14 +249,14 @@ export const parseShiftToCalendar = (
 ): CalendarShift => {
   const { start, end } = parseShiftTime(shift, baseDate, timezone);
   const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-  
+
   // Find overlapping shifts if allShifts is provided
   const overlapsWith = allShifts
     ? allShifts
-        .filter(other => other.id !== shift.id && shiftsOverlap(shift, other, baseDate, timezone))
-        .map(other => other.id)
+      .filter(other => other.id !== shift.id && shiftsOverlap(shift, other, baseDate, timezone))
+      .map(other => other.id)
     : [];
-  
+
   // Calculate position if config is provided
   const position = {
     top: 0,
@@ -265,26 +265,26 @@ export const parseShiftToCalendar = (
     width: 100,
     zIndex: 1
   };
-  
+
   if (config) {
     const startHour = start.getHours() + start.getMinutes() / 60;
     const endHour = end.getHours() + end.getMinutes() / 60;
-    
+
     position.top = (startHour - config.startHour) * config.hourHeight;
     position.height = Math.max((durationHours * config.hourHeight), 20);
-    
+
     // Handle overlapping positioning
     if (allShifts && overlapsWith.length > 0) {
       const overlapGroup = getOverlapGroup(shift, allShifts, baseDate, timezone);
       const groupIndex = overlapGroup.findIndex(s => s.id === shift.id);
       const groupSize = overlapGroup.length;
-      
+
       position.left = (groupIndex / groupSize) * 80; // 80% max width for overlaps
       position.width = 80 / groupSize;
       position.zIndex = groupIndex + 1;
     }
   }
-  
+
   return {
     ...shift,
     displayStart: start,
@@ -330,17 +330,17 @@ export const isOvernightShift = (
 export const getDayBoundaryCrossings = (shift: Shift, baseDate: Date, timezone: string) => {
   const { start, end } = parseShiftTime(shift, baseDate, timezone);
   const crossings = [];
-  
+
   if (!isSameDay(start, end)) {
     let currentDay = new Date(start);
     currentDay.setHours(0, 0, 0, 0);
     currentDay = addDays(currentDay, 1);
-    
+
     while (currentDay < end) {
       crossings.push(new Date(currentDay));
       currentDay = addDays(currentDay, 1);
     }
   }
-  
+
   return crossings;
 };

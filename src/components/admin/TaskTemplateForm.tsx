@@ -182,11 +182,10 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       const isJson = contentType.includes('application/json');
 
       if (!response.ok) {
-        let message = `Failed to save template (HTTP ${response.status})`;
+        let message = `Failed to save process (HTTP ${response.status})`;
         if (isJson) {
           try {
             const errorData = await response.json();
-            // DRF validation errors: {field: ["error", ...], non_field_errors: [...]}
             if (errorData && typeof errorData === 'object' && !Array.isArray(errorData)) {
               const parts: string[] = [];
               for (const [field, errs] of Object.entries(errorData)) {
@@ -205,7 +204,6 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
         } else {
           try {
             const text = await response.text();
-            // Detect common auth/HTML responses
             if (text.startsWith('<!DOCTYPE') || text.includes('<html')) {
               message = response.status === 401
                 ? 'Unauthorized. Please log in again.'
@@ -225,7 +223,6 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
           // fall through to text
         }
       }
-      // As a fallback, return an empty object or parsed text
       try {
         const text = await response.text();
         return { _raw: text } as unknown as TaskTemplate;
@@ -234,13 +231,13 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       }
     },
     onSuccess: async (resp: any) => {
-      toast.success(template?.id ? 'Template updated successfully' : 'Template created successfully');
+      toast.success(template?.id ? 'Process updated successfully' : 'Process created successfully');
       try {
         const token = localStorage.getItem('access_token') || '';
-        const tplName = (resp?.name || formData.name || 'Template');
+        const tplName = (resp?.name || formData.name || 'Process');
         await api.createAnnouncement(token, {
-          title: `Template updated: ${tplName}`,
-          message: `A template has been ${template?.id ? 'updated' : 'created'} and is available to use.`,
+          title: `Process updated: ${tplName}`,
+          message: `A process has been ${template?.id ? 'updated' : 'created'} and is available to use.`,
           priority: 'MEDIUM',
           tags: ['template_update']
         });
@@ -258,11 +255,11 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Template name is required';
+      newErrors.name = 'Process name is required';
     }
 
     if (!formData.description.trim()) {
-      newErrors.description = 'Template description is required';
+      newErrors.description = 'Process description is required';
     }
 
     // Validate processes exist and are not empty
@@ -405,12 +402,12 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Template Name *</Label>
+              <Label htmlFor="name">Process Name *</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g., Daily Cleaning Checklist"
+                placeholder="e.g., Daily Cleaning Process"
                 className={errors.name ? 'border-red-500' : ''}
               />
               {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
@@ -435,7 +432,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
               id="description"
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Describe what this template is used for..."
+              placeholder="Describe what this process is used for..."
               rows={3}
               className={errors.description ? 'border-red-500' : ''}
             />
@@ -489,7 +486,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                 />
                 <Label htmlFor="is_critical" className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-orange-500" />
-                  Critical Template
+                  Critical Process
                 </Label>
               </div>
 
@@ -751,7 +748,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
           ) : (
             <>
               <CheckCircle className="h-4 w-4 mr-2" />
-              {template?.id ? 'Update Template' : 'Create Template'}
+              {template?.id ? 'Update Process' : 'Create Process'}
             </>
           )}
         </Button>

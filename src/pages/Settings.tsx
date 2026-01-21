@@ -48,7 +48,8 @@ import { StaffInvitation } from "@/lib/types";
 import { User } from "@/contexts/AuthContext.types";
 import { translateApiError } from "@/i18n/messages";
 
-import { API_BASE } from "@/lib/api";
+const API_BASE =
+  import.meta.env.VITE_API_URL || import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:8000/api";
 
 type PosConnectionStatus = "idle" | "connected" | "error";
 
@@ -116,6 +117,8 @@ export default function Settings() {
   const [inviteFirstName, setInviteFirstName] = useState("");
   const [inviteLastName, setInviteLastName] = useState("");
   const [inviteRole, setInviteRole] = useState("STAFF");
+  const [invitePhone, setInvitePhone] = useState("");
+  const [inviteSendWhatsApp, setInviteSendWhatsApp] = useState(false);
   const [pendingInvitations, setPendingInvitations] = useState<
     StaffInvitation[]
   >([]);
@@ -403,19 +406,30 @@ export default function Settings() {
   };
 
   const handleInviteStaff = async () => {
-    if (!inviteEmail || !inviteFirstName || !inviteLastName || !inviteRole) {
+    if (!inviteFirstName || !inviteLastName || !inviteRole) {
       toast.error(t("invitations.fill_required"));
+      return;
+    }
+    if (!inviteSendWhatsApp && !inviteEmail) {
+      toast.error(t("validation.email"));
+      return;
+    }
+    if (inviteSendWhatsApp && !invitePhone) {
+      toast.error("Phone number is required when sending via WhatsApp.");
       return;
     }
 
     try {
       // Align with backend: /api/staff/invite/
-      const response = await apiClient.post("/staff/invite/", {
-        email: inviteEmail,
+      const payload: Record<string, any> = {
         first_name: inviteFirstName,
         last_name: inviteLastName,
         role: inviteRole,
-      });
+        send_whatsapp: inviteSendWhatsApp,
+      };
+      if (inviteEmail) payload.email = inviteEmail;
+      if (invitePhone) payload.phone_number = invitePhone;
+      const response = await apiClient.post("/staff/invite/", payload);
 
       if (response.status === 201) {
         toast.success(t("invitations.sent_success"));
@@ -423,6 +437,8 @@ export default function Settings() {
         setInviteFirstName("");
         setInviteLastName("");
         setInviteRole("STAFF");
+        setInvitePhone("");
+        setInviteSendWhatsApp(false);
         const updatedInvitationsResponse = await apiClient.get(
           "/invitations/?is_accepted=false&show_expired=false"
         );
@@ -531,15 +547,17 @@ export default function Settings() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList
-          className="mb-4 flex w-full gap-2 overflow-x-auto whitespace-nowrap scroll-smooth snap-x snap-mandatory [-webkit-overflow-scrolling:touch] sm:grid sm:grid-cols-3 sm:gap-3 lg:grid-cols-5"
+          className="mb-4 flex w-full gap-3 overflow-x-auto whitespace-nowrap scroll-smooth snap-x snap-mandatory [-webkit-overflow-scrolling:touch] p-2 bg-slate-100/80 backdrop-blur-sm rounded-2xl sm:grid sm:grid-cols-3 lg:grid-cols-5"
           aria-label="Settings sections"
         >
           <TabsTrigger
             value="profile"
             aria-label="Profile settings"
-            className="flex min-w-[150px] snap-start items-center justify-center gap-2 rounded-full border px-4 py-3 text-xs sm:justify-start sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            className="flex min-w-[140px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-white/60 hover:text-slate-900 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
           >
-            <Users className="w-4 h-4" aria-hidden="true" />
+            <div className="p-1.5 rounded-lg bg-blue-100 data-[state=active]:bg-emerald-100 transition-colors">
+              <Users className="w-4 h-4 text-blue-600" aria-hidden="true" />
+            </div>
             {t("settings.tabs.profile")}
           </TabsTrigger>
           {!isStaff && (
@@ -547,33 +565,41 @@ export default function Settings() {
               <TabsTrigger
                 value="location"
                 aria-label="Geolocation settings"
-                className="flex min-w-[170px] snap-start items-center justify-center gap-2 rounded-full border px-4 py-3 text-xs sm:justify-start sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="flex min-w-[160px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-white/60 hover:text-slate-900 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
               >
-                <MapPin className="w-4 h-4" aria-hidden="true" />
+                <div className="p-1.5 rounded-lg bg-rose-100 transition-colors">
+                  <MapPin className="w-4 h-4 text-rose-600" aria-hidden="true" />
+                </div>
                 {t("settings.tabs.geolocation")}
               </TabsTrigger>
               <TabsTrigger
                 value="general"
                 aria-label="General settings"
-                className="flex min-w-[150px] snap-start items-center justify-center gap-2 rounded-full border px-4 py-3 text-xs sm:justify-start sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="flex min-w-[140px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-white/60 hover:text-slate-900 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
               >
-                <Building2 className="w-4 h-4" aria-hidden="true" />
+                <div className="p-1.5 rounded-lg bg-indigo-100 transition-colors">
+                  <Building2 className="w-4 h-4 text-indigo-600" aria-hidden="true" />
+                </div>
                 {t("settings.tabs.general")}
               </TabsTrigger>
               <TabsTrigger
                 value="integrations"
                 aria-label="Integrations"
-                className="flex min-w-[170px] snap-start items-center justify-center gap-2 rounded-full border px-4 py-3 text-xs sm:justify-start sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="flex min-w-[160px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-white/60 hover:text-slate-900 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
               >
-                <Plug className="w-4 h-4" aria-hidden="true" />
+                <div className="p-1.5 rounded-lg bg-purple-100 transition-colors">
+                  <Plug className="w-4 h-4 text-purple-600" aria-hidden="true" />
+                </div>
                 {t("settings.tabs.integrations")}
               </TabsTrigger>
               <TabsTrigger
                 value="billing"
                 aria-label="Billing"
-                className="flex min-w-[130px] snap-start items-center justify-center gap-2 rounded-full border px-4 py-3 text-xs sm:justify-start sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="flex min-w-[130px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-white/60 hover:text-slate-900 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
               >
-                <CreditCardIcon className="w-4 h-4" aria-hidden="true" />
+                <div className="p-1.5 rounded-lg bg-amber-100 transition-colors">
+                  <CreditCardIcon className="w-4 h-4 text-amber-600" aria-hidden="true" />
+                </div>
                 {t("settings.tabs.billing")}
               </TabsTrigger>
             </>
@@ -628,283 +654,68 @@ export default function Settings() {
 
         {!isStaff && (
           <TabsContent value="general" className="space-y-6">
-            {/* Quick Settings - concise, responsive controls */}
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle>Quick Settings</CardTitle>
-                <CardDescription>Common controls at a glance.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-8">
-                {/* Notifications */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    <Bell className="w-4 h-4" />
-                    <span>Notifications</span>
+            <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50">
+              <CardHeader className="pb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
+                    <Building2 className="w-5 h-5 text-white" />
                   </div>
-                  <div className="divide-y rounded-lg border">
-                    <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm font-medium">Email Notifications</p>
-                        <p className="text-xs text-muted-foreground">
-                          Receive email updates about your account
-                        </p>
-                      </div>
-                      <Switch
-                        checked={emailNotifications.aiInsights}
-                        onCheckedChange={(checked) =>
-                          handleNotificationChange("email", "aiInsights", checked)
-                        }
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm font-medium">Push Notifications</p>
-                        <p className="text-xs text-muted-foreground">
-                          Receive push notifications on your device
-                        </p>
-                      </div>
-                      <Switch
-                        checked={pushNotifications.aiInsights}
-                        onCheckedChange={(checked) =>
-                          handleNotificationChange("push", "aiInsights", checked)
-                        }
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm font-medium">SMS Notifications</p>
-                        <p className="text-xs text-muted-foreground">
-                          Receive text message alerts
-                        </p>
-                      </div>
-                      <Switch
-                        checked={smsNotificationsEnabled}
-                        onCheckedChange={setSmsNotificationsEnabled}
-                      />
-                    </div>
+                  <div>
+                    <CardTitle className="text-lg font-bold text-slate-900">Restaurant Information</CardTitle>
+                    <CardDescription className="text-slate-500">Manage your restaurant's basic details</CardDescription>
                   </div>
                 </div>
-
-                {/* Security */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    <Shield className="w-4 h-4" />
-                    <span>Security</span>
-                  </div>
-                  <div className="divide-y rounded-lg border">
-                    <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm font-medium">
-                          Two-Factor Authentication
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Add an extra layer of security to your account
-                        </p>
-                      </div>
-                      <Switch
-                        checked={twoFactorEnabled}
-                        onCheckedChange={setTwoFactorEnabled}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* AI Features */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    <Sparkles className="w-4 h-4" />
-                    <span>AI Features</span>
-                  </div>
-                  <div className="divide-y rounded-lg border">
-                    <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm font-medium">
-                          AI-Powered Suggestions
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Get intelligent recommendations and insights
-                        </p>
-                      </div>
-                      <Switch
-                        checked={!!aiSettings.features_enabled.insights}
-                        onCheckedChange={(checked) =>
-                          setAiSettings((prev) => ({
-                            ...prev,
-                            features_enabled: {
-                              ...prev.features_enabled,
-                              insights: checked,
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm font-medium">Smart Scheduling</p>
-                        <p className="text-xs text-muted-foreground">
-                          Let AI optimize staff schedules automatically
-                        </p>
-                      </div>
-                      <Switch
-                        checked={!!aiSettings.features_enabled.recommendations}
-                        onCheckedChange={(checked) =>
-                          setAiSettings((prev) => ({
-                            ...prev,
-                            features_enabled: {
-                              ...prev.features_enabled,
-                              recommendations: checked,
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm font-medium">
-                          Predictive Analytics
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Enable AI-driven forecasting and predictions
-                        </p>
-                      </div>
-                      <Switch
-                        checked={!!aiSettings.features_enabled.reports}
-                        onCheckedChange={(checked) =>
-                          setAiSettings((prev) => ({
-                            ...prev,
-                            features_enabled: {
-                              ...prev.features_enabled,
-                              reports: checked,
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle>Restaurant Information</CardTitle>
-                <CardDescription>
-                  Manage your restaurant's basic details.
-                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  <div className="space-y-4">
-                    <Label htmlFor="restaurant-name">Restaurant Name</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="restaurant-name" className="text-sm font-medium text-slate-700">Restaurant Name</Label>
                     <Input
                       id="restaurant-name"
                       value={restaurantName}
                       onChange={(e) => setRestaurantName(e.target.value)}
+                      className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                      placeholder="Enter restaurant name"
                     />
                   </div>
-                  <div className="space-y-4">
-                    <Label htmlFor="address">Address</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="address" className="text-sm font-medium text-slate-700">Address</Label>
                     <Input
                       id="address"
                       value={restaurantAddress}
                       onChange={(e) => setRestaurantAddress(e.target.value)}
+                      className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                      placeholder="Enter address"
                     />
                   </div>
-                  <div className="space-y-4">
-                    <Label htmlFor="phone">Phone</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone" className="text-sm font-medium text-slate-700">Phone</Label>
                     <Input
                       id="phone"
                       value={restaurantPhone}
                       onChange={(e) => setRestaurantPhone(e.target.value)}
+                      className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                      placeholder="+1 (555) 000-0000"
                     />
                   </div>
-                  <div className="space-y-4">
-                    <Label htmlFor="email">Email</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-sm font-medium text-slate-700">Email</Label>
                     <Input
                       id="email"
                       type="email"
                       value={restaurantEmail}
                       onChange={(e) => setRestaurantEmail(e.target.value)}
+                      className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                      placeholder="contact@restaurant.com"
                     />
                   </div>
                 </div>
-                <Separator />
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  <div className="space-y-4">
-                    <h4 className="font-semibold">Time & Language</h4>
-                    <div className="space-y-2">
-                      <Label htmlFor="timezone">Timezone</Label>
-                      <select
-                        id="timezone"
-                        className="w-full p-2 border rounded-lg mt-1"
-                        value={timezone}
-                        onChange={(e) => setTimezone(e.target.value)}
-                        aria-label="Timezone"
-                      >
-                        <option value="America/New_York">America/New_York</option>
-                        <option value="America/Chicago">America/Chicago</option>
-                        <option value="America/Denver">America/Denver</option>
-                        <option value="America/Los_Angeles">
-                          America/Los_Angeles
-                        </option>
-                        <option value="Europe/London">Europe/London</option>
-                        <option value="Asia/Tokyo">Asia/Tokyo</option>
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="currency">Currency</Label>
-                      <select
-                        id="currency"
-                        className="w-full p-2 border rounded-lg mt-1"
-                        value={currency}
-                        onChange={(e) => setCurrency(e.target.value)}
-                        aria-label="Currency"
-                      >
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="GBP">GBP</option>
-                        <option value="JPY">JPY</option>
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="language">{t("common.language")}</Label>
-                      <select
-                        id="language"
-                        className="w-full p-2 border rounded-lg mt-1"
-                        value={language}
-                        onChange={(e) => setAppLanguage(e.target.value as Language)}
-                        aria-label={t("common.language")}
-                      >
-                        <option value="en">English</option>
-                        <option value="fr">Français</option>
-                        <option value="ma">الدارجة</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h4 className="font-semibold">{t("settings.general.ai_prefs")}</h4>
-                    <div className="space-y-3">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="space-y-0.5">
-                          <Label>{t("settings.general.ai_auto_purchase")}</Label>
-                          <p className="text-xs text-muted-foreground">{t("settings.general.ai_auto_purchase_desc")}</p>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="space-y-0.5">
-                          <Label>{t("settings.general.ai_smart_scheduling")}</Label>
-                          <p className="text-xs text-muted-foreground">{t("settings.general.ai_smart_scheduling_desc")}</p>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-                    </div>
-                  </div>
+                <div className="pt-4 border-t border-slate-200">
+                  <Button onClick={saveGeneralSettings} className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-emerald-500/25 transition-all hover:shadow-emerald-500/40">
+                    <Save className="w-4 h-4 mr-2" />
+                    {t("settings.general.save_general")}
+                  </Button>
                 </div>
-                <Button onClick={saveGeneralSettings} className="w-full">
-                  {t("settings.general.save_general")}
-                </Button>
               </CardContent>
             </Card>
 
@@ -913,16 +724,21 @@ export default function Settings() {
 
         {!isStaff && (
           <TabsContent value="integrations" className="space-y-6">
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle>{t("pos.title")}</CardTitle>
-                <CardDescription>
-                  {t("pos.description")}
-                </CardDescription>
+            <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50">
+              <CardHeader className="pb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 shadow-lg shadow-purple-500/25">
+                    <Plug className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg font-bold text-slate-900">{t("pos.title")}</CardTitle>
+                    <CardDescription className="text-slate-500">{t("pos.description")}</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div>
-                  <Label htmlFor="pos-provider">{t("pos.provider")}</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="pos-provider" className="text-sm font-medium text-slate-700">{t("pos.provider")}</Label>
                   <select
                     id="pos-provider"
                     value={posSettings.pos_provider}
@@ -1015,8 +831,8 @@ export default function Settings() {
                 {posConnectionStatus !== "idle" && (
                   <div
                     className={`flex items-center gap-2 p-3 rounded-lg ${posConnectionStatus === "connected"
-                        ? "bg-green-50 border border-green-200"
-                        : "bg-red-50 border border-red-200"
+                      ? "bg-green-50 border border-green-200"
+                      : "bg-red-50 border border-red-200"
                       }`}
                   >
                     {posConnectionStatus === "connected" ? (
@@ -1056,44 +872,65 @@ export default function Settings() {
         )}
 
         {!isStaff && (
-          <TabsContent value="billing">
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle>Billing Information</CardTitle>
-                <CardDescription>
-                  Manage your subscription and payment methods.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h4 className="font-semibold">Current Plan</h4>
-                    <p className="text-sm text-muted-foreground">
-
-                    </p>
+          <TabsContent value="billing" className="space-y-6">
+            <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50">
+              <CardHeader className="pb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25">
+                    <CreditCardIcon className="w-5 h-5 text-white" />
                   </div>
-                  <Button variant="outline" className="w-full sm:w-auto">
-                    Change Plan
-                  </Button>
+                  <div>
+                    <CardTitle className="text-lg font-bold text-slate-900">Billing Information</CardTitle>
+                    <CardDescription className="text-slate-500">Manage your subscription and payment methods</CardDescription>
+                  </div>
                 </div>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>
-                    Next billing date: <strong></strong>
-                  </p>
-                  <p>
-                    Amount: <strong></strong>
-                  </p>
-                  <p></p>
-                </div>
-                <Separator />
-                <div className="space-y-2">
-                  <h4 className="font-semibold">Payment Method</h4>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3">
-                      <CreditCardIcon className="w-6 h-6 text-muted-foreground" />
-                      <p className="text-sm"></p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Current Plan */}
+                <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-lg font-bold text-slate-900">Current Plan</h4>
+                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Pro</Badge>
+                      </div>
+                      <p className="text-sm text-slate-600 mt-1">Full access to all features</p>
                     </div>
-                    <Button variant="outline" className="w-full sm:w-auto">
+                    <Button variant="outline" className="w-full sm:w-auto rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                      Change Plan
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-emerald-100">
+                    <div>
+                      <p className="text-xs text-slate-500 uppercase tracking-wide">Next billing date</p>
+                      <p className="text-sm font-semibold text-slate-900 mt-1">February 20, 2026</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500 uppercase tracking-wide">Amount</p>
+                      <p className="text-sm font-semibold text-slate-900 mt-1">$49.00/month</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Method */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
+                    <div className="p-2 rounded-lg bg-slate-100">
+                      <CreditCardIcon className="w-4 h-4 text-slate-600" />
+                    </div>
+                    <span className="text-sm font-semibold text-slate-900">Payment Method</span>
+                  </div>
+                  <div className="flex flex-col gap-4 p-4 rounded-2xl bg-white border border-slate-200 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900">
+                        <CreditCardIcon className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">•••• •••• •••• 4242</p>
+                        <p className="text-xs text-slate-500">Expires 12/2027</p>
+                      </div>
+                    </div>
+                    <Button variant="outline" className="w-full sm:w-auto rounded-xl">
                       Update
                     </Button>
                   </div>
@@ -1101,16 +938,22 @@ export default function Settings() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-soft border-destructive/20">
-              <CardHeader>
-                <CardTitle className="text-destructive">Danger Zone</CardTitle>
-                <CardDescription>
-                  Permanently delete your account and all associated data. This
-                  action cannot be undone.
-                </CardDescription>
+            <Card className="shadow-soft border-red-100 bg-gradient-to-br from-red-50 to-rose-50">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-red-100">
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg font-bold text-red-700">Danger Zone</CardTitle>
+                    <CardDescription className="text-red-600/80">
+                      Permanently delete your account and all data. This cannot be undone.
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <Button variant="destructive" className="w-full">
+                <Button variant="destructive" className="w-full h-12 rounded-xl font-semibold shadow-lg shadow-red-500/25">
                   Delete Account
                 </Button>
               </CardContent>

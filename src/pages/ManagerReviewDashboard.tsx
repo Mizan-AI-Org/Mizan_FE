@@ -492,8 +492,11 @@ const ManagerReviewDashboard: React.FC = () => {
           {(() => {
             // Filter incidents
             const filteredIncidents = useMemo(() => {
-              if (!incidents) return [];
-              return incidents.filter((inc: any) => {
+              const incidentList = Array.isArray(incidents)
+                ? incidents
+                : (incidents?.results || []);
+
+              return incidentList.filter((inc: any) => {
                 const matchesStatus = !incidentFilters.status || inc.status?.toLowerCase() === incidentFilters.status.toLowerCase();
                 const matchesSeverity = !incidentFilters.severity || inc.severity?.toLowerCase() === incidentFilters.severity.toLowerCase();
                 const matchesSearch = !incidentFilters.search ||
