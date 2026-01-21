@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../hooks/use-auth";
 import { AuthContextType } from "../contexts/AuthContext.types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +21,7 @@ import {
 import { useLanguage } from "@/hooks/use-language";
 import { Badge } from "@/components/ui/badge";
 import { LiveDateTime } from "@/components/LiveDateTime";
+import { api } from "@/lib/api";
 
 type AppItem = {
   name: string;
@@ -56,7 +58,7 @@ const apps: AppItem[] = [
   },
   {
     name: "CHECKLISTS & INCIDENCES",
-    href: "/dashboard/analytics", // Keeping same href as "Dashboards" for now, or should it be different? Screenshot implies this replaces Dashboards entry visually
+    href: "/dashboard/analytics",
     icon: BarChart3,
     gradient: "bg-blue-500",
     description: "View checklists and incident reports",
@@ -90,6 +92,11 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user, hasRole } = useAuth() as AuthContextType;
   const { t } = useLanguage();
+
+  const { data: summary, isLoading } = useQuery({
+    queryKey: ["dashboard-summary"],
+    queryFn: () => api.getDashboardSummary(),
+  });
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -127,21 +134,21 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="space-y-4 pt-2 pb-6 px-6">
               <div className="flex items-start gap-3">
-                <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                <AlertCircle className={`w-4 h-4 mt-0.5 shrink-0 ${summary?.attendance?.no_shows > 0 ? "text-red-500" : "text-slate-300"}`} />
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  <span className="font-medium text-slate-800 dark:text-white">2 no-shows</span> for morning shift
+                  <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.attendance?.no_shows || 0} no-shows</span> for morning shift
                 </p>
               </div>
               <div className="flex items-start gap-3">
                 <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  Evening shift gap: <span className="font-medium text-slate-800 dark:text-white">1.5 hrs</span> refilling
+                  Shift gap: <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.attendance?.shift_gaps || 0} unconfirmed</span>
                 </p>
               </div>
               <div className="flex items-start gap-3">
                 <Users className="w-4 h-4 text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  OT Risk: <span className="font-medium text-slate-800 dark:text-white">{user?.first_name || ""}</span> (38/40h)
+                  OT Risk: <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.attendance?.ot_risk || 0} staff</span>
                 </p>
               </div>
             </CardContent>
@@ -158,23 +165,23 @@ export default function Dashboard() {
             <CardContent className="space-y-4 pt-2 pb-6 px-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <FileText className="w-4 h-4 text-emerald-500" />
+                  <FileText className={`w-4 h-4 ${summary?.operations?.negative_reviews > 0 ? "text-red-500" : "text-emerald-500"}`} />
                   <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                    <span className="font-medium text-slate-800 dark:text-white">2 negative reviews</span> today
+                    <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.operations?.negative_reviews || 0} negative reviews</span> today
                   </p>
                 </div>
-                <Badge variant="outline" className="text-slate-300 dark:text-slate-500 border-none text-[10px] font-medium h-4 px-0">2.5 AVG</Badge>
+                <Badge variant="outline" className="text-slate-300 dark:text-slate-500 border-none text-[10px] font-medium h-4 px-0">{isLoading ? "..." : summary?.operations?.avg_rating || 0} AVG</Badge>
               </div>
               <div className="flex items-center gap-3">
                 <TrendingUp className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  Forecast: <span className="font-medium text-slate-800 dark:text-white">Traffic ↑ 40%</span> (Sat)
+                  Completion: <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.operations?.completion_rate || 0}%</span> Tasks
                 </p>
               </div>
               <div className="flex items-center gap-3 font-medium">
                 <Package className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                 <p className="text-sm text-slate-600 dark:text-slate-300">
-                  Delivery: <span className="font-medium text-slate-800 dark:text-white">Sysco</span> (Tomorrow)
+                  Delivery: <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.operations?.next_delivery?.supplier || "None"}</span>
                 </p>
               </div>
             </CardContent>
@@ -189,20 +196,22 @@ export default function Dashboard() {
               <Heart className="w-4 h-4 text-slate-300 dark:text-slate-600" />
             </CardHeader>
             <CardContent className="space-y-4 pt-2 pb-6 px-6">
-              <div className="bg-red-50 dark:bg-red-900/30 p-2.5 rounded-xl">
-                <p className="text-sm text-red-600 dark:text-red-400 font-medium truncate">Ahmed: 6 shifts in 7 days (Risk)</p>
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl">
+                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium truncate">
+                  {isLoading ? "Calculating risk..." : summary?.wellbeing?.risk_staff?.length > 0 ? `${summary.wellbeing.risk_staff[0].name} at risk` : "No fatigue risks detected"}
+                </p>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                  <p className="text-sm font-medium text-slate-800 dark:text-white">3 swap requests</p>
+                  <p className="text-sm font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.wellbeing?.swap_requests || 0} swap requests</p>
                 </div>
-                <span className="text-[10px] text-slate-300 dark:text-slate-500 tracking-widest uppercase">NEW</span>
+                {summary?.wellbeing?.swap_requests > 0 && <span className="text-[10px] text-slate-300 dark:text-slate-500 tracking-widest uppercase">NEW</span>}
               </div>
               <div className="flex items-center gap-3 font-medium">
                 <Users className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                 <p className="text-sm text-slate-600 dark:text-slate-300">
-                  <span className="font-medium text-slate-800 dark:text-white">New hire: Sara</span> (Day 1)
+                  <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.wellbeing?.new_hires || 0} new hires</span> this week
                 </p>
               </div>
             </CardContent>
@@ -222,18 +231,30 @@ export default function Dashboard() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4 px-6 pb-6 pt-2">
-              <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                <div className="w-2 h-2 rounded-full bg-red-400 shrink-0"></div>
-                <span className="text-sm text-slate-800 dark:text-white leading-tight">Understaffing risk tonight: 7-9pm</span>
-              </div>
-              <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0"></div>
-                <span className="text-sm text-slate-800 dark:text-white leading-tight">Reorder: Chicken Breast (Low stock)</span>
-              </div>
-              <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0"></div>
-                <span className="text-sm text-slate-800 dark:text-white leading-tight">Staff morale drop detected (FOH)</span>
-              </div>
+              {isLoading ? (
+                <div className="text-sm text-slate-400">Analyzing data...</div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${summary?.insights?.understaffing_risk ? "bg-red-400" : "bg-emerald-400"}`}></div>
+                    <span className="text-sm text-slate-800 dark:text-white leading-tight">
+                      {summary?.insights?.understaffing_risk ? "Understaffing risk tonight" : "Staffing levels healthy"}
+                    </span>
+                  </div>
+                  {summary?.insights?.low_stock?.map((item: any, i: number) => (
+                    <div key={i} className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
+                      <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0"></div>
+                      <span className="text-sm text-slate-800 dark:text-white leading-tight">Low Stock: {item.name} ({item.current_stock}{item.unit})</span>
+                    </div>
+                  ))}
+                  {!summary?.insights?.low_stock?.length && (
+                    <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
+                      <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></div>
+                      <span className="text-sm text-slate-800 dark:text-white leading-tight">All stock levels normal</span>
+                    </div>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -246,19 +267,21 @@ export default function Dashboard() {
                   Tasks Due Today
                 </CardTitle>
               </div>
-              <Badge variant="outline" className="text-red-500 border-none px-0 text-[10px] font-bold h-4">1 OVERDUE</Badge>
+              <Badge variant="outline" className="text-slate-500 border-none px-0 text-[10px] font-bold h-4">{isLoading ? "..." : summary?.tasks_due?.length || 0} TODAY</Badge>
             </CardHeader>
             <CardContent className="space-y-4 px-6 pb-6 pt-2">
-              {[
-                { label: "Walk-in cooler maintenance", status: "OVERDUE", color: "text-red-500 font-bold" },
-                { label: "Deep clean fryers", status: "BY 3PM", color: "text-slate-500 dark:text-slate-400 font-medium" },
-                { label: "Inventory spot check", status: "BY 5PM", color: "text-slate-500 dark:text-slate-400 font-medium" },
-              ].map((task, i) => (
-                <div key={i} className="flex items-center justify-between group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 p-1 -mx-1 rounded-lg transition-colors">
-                  <span className="text-sm text-slate-700 dark:text-slate-300 truncate pr-4">{task.label}</span>
-                  <span className={`text-[10px] whitespace-nowrap tracking-wider ${task.color}`}>{task.status}</span>
-                </div>
-              ))}
+              {isLoading ? (
+                <div className="text-sm text-slate-400">Loading tasks...</div>
+              ) : summary?.tasks_due?.length > 0 ? (
+                summary.tasks_due.map((task: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 p-1 -mx-1 rounded-lg transition-colors">
+                    <span className="text-sm text-slate-700 dark:text-slate-300 truncate pr-4">{task.label}</span>
+                    <span className={`text-[10px] whitespace-nowrap tracking-wider ${task.status === "OVERDUE" ? "text-red-500 font-bold" : "text-slate-500 dark:text-slate-400 font-medium"}`}>{task.status}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-slate-500 py-2 text-center">No tasks assigned for today.</div>
+              )}
             </CardContent>
           </Card>
         </div>

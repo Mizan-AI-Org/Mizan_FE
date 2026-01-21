@@ -317,6 +317,10 @@ export class BackendService {
     }
   }
 
+  async getDashboardSummary() {
+    return this.fetchWithError("/dashboard/summary/");
+  }
+
   async getTasks(accessToken: string): Promise<Task[]> {
     try {
       const response = await fetch(`${API_BASE}/dashboard/tasks/`, {
