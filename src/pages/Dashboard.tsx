@@ -142,7 +142,7 @@ export default function Dashboard() {
               <div className="flex items-start gap-3">
                 <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  Shift gap: <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.attendance?.shift_gaps || 0} unconfirmed</span>
+                  Shifts Needing Coverage: <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.attendance?.shift_gaps || 0}</span>
                 </p>
               </div>
               <div className="flex items-start gap-3">
