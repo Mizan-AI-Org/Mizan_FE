@@ -1442,7 +1442,7 @@ const TeamTab: React.FC = () => {
                     },
                     body: JSON.stringify({
                         ...formData,
-                        invitation_method: inviteMethod
+                        send_whatsapp: inviteMethod === "whatsapp"
                     }),
                 });
                 if (!response.ok) {
