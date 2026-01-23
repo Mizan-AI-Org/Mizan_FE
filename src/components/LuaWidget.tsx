@@ -116,6 +116,12 @@ export const LuaWidget: React.FC = () => {
                 const now = new Date();
                 const userFullName = `${user.first_name} ${user.last_name}`.trim() || "Unknown User";
 
+                console.log("[LuaWidget] Initializing with context:", {
+                    restaurantName: user.restaurant_data?.name || user.restaurant_name,
+                    restaurantId: user.restaurant_data?.id || user.restaurant,
+                    role: user.role
+                });
+
                 window.LuaPop.init({
                     agentId,
                     environment: "production",
@@ -136,7 +142,7 @@ export const LuaWidget: React.FC = () => {
 
                     // Session context - unique per login token
                     sessionId,
-                    runtimeContext: `Restaurant: ${user.restaurant_data?.name || "Unknown"} (ID: ${user.restaurant_data?.id || user.restaurant}), User: ${userFullName} (ID: ${user.id}), Role: ${user.role}, Token: ${accessToken}, Current Time: ${now.toLocaleDateString()} ${now.toLocaleTimeString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
+                    runtimeContext: `Restaurant: ${user.restaurant_data?.name || user.restaurant_name || "Unknown"} (ID: ${user.restaurant_data?.id || user.restaurant}), User: ${userFullName} (ID: ${user.id}), Role: ${user.role}, Token: ${accessToken}, Current Time: ${now.toLocaleDateString()} ${now.toLocaleTimeString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
 
                     position: "bottom-right",
 
