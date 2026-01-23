@@ -16,7 +16,7 @@ declare global {
 export const LuaWidget: React.FC = () => {
     const { user, accessToken } = useAuth() as AuthContextType;
     const { t } = useLanguage();
-    const initialized = useRef(false);
+    const initialized = useRef<string | boolean>(false);
     const agentId = import.meta.env.VITE_LUA_AGENT_ID as string | undefined;
 
     // Robust Shadow DOM Injection
@@ -104,8 +104,14 @@ export const LuaWidget: React.FC = () => {
             return;
         }
 
-        if (window.LuaPop && !initialized.current) {
-            console.log("[LuaWidget] Initializing Miya with agentId:", agentId);
+        if (window.LuaPop && accessToken) {
+            // We use a stable sessionId within the same login but rotate it on new login
+            const sessionTokenPart = accessToken.slice(-10);
+            const sessionId = `tenant-${user.restaurant_data?.id || user.restaurant}-user-${user.id}-session-${sessionTokenPart}`;
+
+            if (initialized.current === sessionId) return;
+
+            console.log("[LuaWidget] Initializing fresh Miya session:", sessionId);
             try {
                 const now = new Date();
                 const userFullName = `${user.first_name} ${user.last_name}`.trim() || "Unknown User";
@@ -115,6 +121,7 @@ export const LuaWidget: React.FC = () => {
                     environment: "production",
                     apiUrl: "https://api.heylua.ai",
                     token: accessToken,
+                    accessToken: accessToken, // Pass twice for safety
 
                     // User identification (for Lua Admin portal)
                     fullName: userFullName,
@@ -127,9 +134,9 @@ export const LuaWidget: React.FC = () => {
                     voiceResponseEnabled: false,
                     speechRecognitionLanguage: "en-US",
 
-                    // Session context
-                    sessionId: `tenant-${user.restaurant_data?.id || user.restaurant}-user-${user.id}`,
-                    runtimeContext: `Restaurant: ${user.restaurant_data?.name || "Unknown"} (ID: ${user.restaurant_data?.id || user.restaurant}), User: ${userFullName} (ID: ${user.id}), Role: ${user.role}, Current Time: ${now.toLocaleDateString()} ${now.toLocaleTimeString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
+                    // Session context - unique per login token
+                    sessionId,
+                    runtimeContext: `Restaurant: ${user.restaurant_data?.name || "Unknown"} (ID: ${user.restaurant_data?.id || user.restaurant}), User: ${userFullName} (ID: ${user.id}), Role: ${user.role}, Token: ${accessToken}, Current Time: ${now.toLocaleDateString()} ${now.toLocaleTimeString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
 
                     position: "bottom-right",
 
@@ -173,12 +180,12 @@ export const LuaWidget: React.FC = () => {
 
                     chatInputPlaceholder: t("ai.chat_placeholder")
                 });
-                initialized.current = true;
+                initialized.current = sessionId;
             } catch (err) {
                 logError({ feature: 'lua-widget', action: 'init' }, err as Error);
             }
         }
-    }, [user, t, agentId]);
+    }, [user, t, agentId, accessToken]);
 
     return null;
 };
