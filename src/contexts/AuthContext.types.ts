@@ -8,6 +8,7 @@ export interface User {
     last_name: string;
     role: string;
     restaurant: string;
+    restaurant_name: string;
     restaurant_data?: {
         id: string;
         name: string;
