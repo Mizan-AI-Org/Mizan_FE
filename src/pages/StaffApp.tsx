@@ -1517,11 +1517,11 @@ const TeamTab: React.FC = () => {
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">First Name</label>
-                                        <Input value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} placeholder="John" className="bg-white dark:bg-slate-800" />
+                                        <Input value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} placeholder="Hamza" className="bg-white dark:bg-slate-800" />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Last Name</label>
-                                        <Input value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} placeholder="Doe" className="bg-white dark:bg-slate-800" />
+                                        <Input value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} placeholder="Yassine" className="bg-white dark:bg-slate-800" />
                                     </div>
                                 </div>
 
@@ -1534,7 +1534,7 @@ const TeamTab: React.FC = () => {
                                 ) : (
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">WhatsApp Number <span className="text-red-500">*</span></label>
-                                        <Input value={formData.phone_number} onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })} placeholder="+1234567890" className="bg-white dark:bg-slate-800" />
+                                        <Input value={formData.phone_number} onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })} placeholder="212774567890" className="bg-white dark:bg-slate-800" />
                                         <p className="text-xs text-slate-500">We'll send an invitation via WhatsApp to this number.</p>
                                     </div>
                                 )}
@@ -1612,7 +1612,7 @@ const TeamTab: React.FC = () => {
 
                                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
                                     <p className="text-[11px] text-amber-800 dark:text-amber-400">
-                                        <strong>Tip:</strong> WhatsApp numbers should include country code (e.g., +212 for Morocco). Roles must match standard restaurant labels (Manager, Chef, Waiter, etc.).
+                                        <strong>Tip:</strong> WhatsApp numbers should NOT include country code (e.g., 212 for Morocco). Roles must match standard restaurant labels (Manager, Chef, Waiter, etc.).
                                     </p>
                                 </div>
                             </div>
