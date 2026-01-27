@@ -156,6 +156,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (err) {
       console.error("Login request error:", err);
       if (err instanceof Error) {
+        const msg = (err.message || "").toLowerCase();
+        if (msg.includes("failed to fetch") || msg.includes("network error") || msg.includes("load failed")) {
+          throw new Error("Network error during login. Please check backend server.");
+        }
         throw err;
       }
       throw new Error("Network error during login. Please check backend server.");
@@ -225,6 +229,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (err) {
       console.error("PIN login request error:", err);
       if (err instanceof Error) {
+        const msg = (err.message || "").toLowerCase();
+        if (msg.includes("failed to fetch") || msg.includes("network error") || msg.includes("load failed")) {
+          throw new Error("Network error during PIN login. Please check backend server.");
+        }
         throw err;
       }
       throw new Error("Network error during PIN login. Please check backend server.");
