@@ -29,9 +29,14 @@ import {
   ShiftReviewSubmission,
 } from "./types"; // Updated import path
 
-export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+// In dev, use relative /api so Vite proxy (vite.config proxy /api -> localhost:8000) is used.
+// In production, also use relative /api to leverage Netlify/Vercel rewrites to api.heymizan.ai.
+// Only use explicit URL if VITE_BACKEND_URL is set (e.g., for local testing against production).
+const explicitBackend = import.meta.env.VITE_BACKEND_URL;
+export const BACKEND_URL = explicitBackend ?? "";
 
-export const API_BASE = `${BACKEND_URL}/api`;
+// If BACKEND_URL is empty, API_BASE becomes "/api" which works with proxy/rewrites
+export const API_BASE = BACKEND_URL ? `${BACKEND_URL}/api` : "/api";
 
 // Derive WS_BASE from API_BASE or VITE_BACKEND_URL
 // If API_BASE starts with http, replace with ws. If https, replace with wss.

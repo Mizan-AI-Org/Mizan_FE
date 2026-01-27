@@ -87,7 +87,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
         }
         if (!friendly) {
           if (raw.includes("server error")) friendly = t("auth.errors.server");
-          else if (raw.includes("network error")) friendly = t("auth.errors.network");
+          else if (raw.includes("network error") || raw.includes("failed to fetch") || raw.includes("check backend")) friendly = t("auth.errors.network");
         }
         setError(friendly || error.message || t("auth.errors.unexpected"));
       } else {
