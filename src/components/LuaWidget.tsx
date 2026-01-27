@@ -105,9 +105,9 @@ export const LuaWidget: React.FC = () => {
         }
 
         if (window.LuaPop && accessToken) {
-            // We use a stable sessionId within the same login but rotate it on new login
-            const sessionTokenPart = accessToken.slice(-10);
-            const sessionId = `tenant-${user.restaurant_data?.id || user.restaurant}-user-${user.id}-session-${sessionTokenPart}`;
+            // Deterministic sessionId so backend webhooks can locate/update the same Lua user.
+            // (Previously we appended a token suffix, which made backend↔Lua linking unreliable.)
+            const sessionId = `tenant-${user.restaurant_data?.id || user.restaurant}-user-${user.id}`;
 
             if (initialized.current === sessionId) return;
 

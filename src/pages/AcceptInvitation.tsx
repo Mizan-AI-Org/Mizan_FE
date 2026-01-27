@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 
+import { API_BASE } from '@/lib/api';
+
 const AcceptInvitation: React.FC = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -36,7 +38,7 @@ const AcceptInvitation: React.FC = () => {
 
         setLoading(true);
         try {
-            const data: any = await fetch(`${import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000/api'}/invitations/by-token/?token=${encodeURIComponent(token)}`)
+            const data: any = await fetch(`${API_BASE}/invitations/by-token/?token=${encodeURIComponent(token)}`)
                 .then(res => res.ok ? res.json() : null).catch(() => null);
             const requireEmail = !data || !data.email;
             await acceptInvitation(token, firstName, lastName, undefined, pinCode, null, requireEmail ? email : undefined);
