@@ -22,6 +22,21 @@ type SubmittedChecklist = {
   submitted_at?: string | null;
   status?: string | null;
   notes?: string | null;
+  compiled_summary?: {
+    total_steps?: number;
+    completed_steps?: number;
+    skipped_steps?: number;
+    failed_steps?: number;
+    required_missing?: number;
+    completion_rate?: number;
+    duration_minutes?: number | null;
+    evidence_items?: number;
+    notes_items?: number;
+    signature_items?: number;
+    out_of_range_measurements?: number;
+    actions_open?: number;
+    actions_resolved?: number;
+  } | null;
 };
 
 const ManagerReviewDashboard: React.FC = () => {
@@ -361,6 +376,8 @@ const ManagerReviewDashboard: React.FC = () => {
                         <TableHead><button className="text-left w-full" onClick={() => { setSortBy('checklist'); setSortDir(sortBy === 'checklist' && sortDir === 'asc' ? 'desc' : 'asc'); }}>Checklist</button></TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Notes</TableHead>
+                        <TableHead>Completion</TableHead>
+                        <TableHead>Issues</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -374,6 +391,26 @@ const ManagerReviewDashboard: React.FC = () => {
                             <Badge variant={s.status === 'COMPLETED' ? 'secondary' : 'outline'} className="text-xs">{s.status || '—'}</Badge>
                           </TableCell>
                           <TableCell className="max-w-xs truncate" title={s.notes || undefined}>{s.notes || '—'}</TableCell>
+                          <TableCell>
+                            <div className="text-xs">
+                              {s.compiled_summary?.completed_steps ?? '—'}/{s.compiled_summary?.total_steps ?? '—'}
+                              {typeof s.compiled_summary?.completion_rate === 'number' ? ` (${s.compiled_summary?.completion_rate}%)` : ''}
+                            </div>
+                            {typeof s.compiled_summary?.duration_minutes === 'number' ? (
+                              <div className="text-[11px] text-muted-foreground">⏱ {s.compiled_summary.duration_minutes}m</div>
+                            ) : null}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1 text-[11px]">
+                              {(s.compiled_summary?.failed_steps || 0) > 0 ? (<Badge variant="destructive" className="text-[10px]">Failed: {s.compiled_summary?.failed_steps}</Badge>) : null}
+                              {(s.compiled_summary?.required_missing || 0) > 0 ? (<Badge variant="outline" className="text-[10px]">Missing: {s.compiled_summary?.required_missing}</Badge>) : null}
+                              {(s.compiled_summary?.out_of_range_measurements || 0) > 0 ? (<Badge variant="outline" className="text-[10px]">Out-of-range: {s.compiled_summary?.out_of_range_measurements}</Badge>) : null}
+                              {(s.compiled_summary?.actions_open || 0) > 0 ? (<Badge variant="outline" className="text-[10px]">Open actions: {s.compiled_summary?.actions_open}</Badge>) : null}
+                              {(!s.compiled_summary || ((s.compiled_summary.failed_steps || 0) === 0 && (s.compiled_summary.required_missing || 0) === 0 && (s.compiled_summary.out_of_range_measurements || 0) === 0 && (s.compiled_summary.actions_open || 0) === 0)) ? (
+                                <span className="text-muted-foreground">—</span>
+                              ) : null}
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <Button size="sm" variant="outline" onClick={async () => { setDetailId(s.id); try { await api.logAdminAction(String(s.id), { action: 'VIEW_SUBMISSION', message: 'Opened submission details' }); } catch { /* ignore */ } }}>View</Button>
                           </TableCell>
@@ -862,12 +899,48 @@ const ManagerReviewDashboard: React.FC = () => {
                     <div>Notes: {summary.notes || '—'}</div>
                   </div>
                 </div>
+
+                {summary.compiled_summary ? (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div className="border rounded-md p-3">
+                      <div className="text-muted-foreground">Completion</div>
+                      <div className="font-semibold">
+                        {summary.compiled_summary.completed_steps ?? 0}/{summary.compiled_summary.total_steps ?? 0} ({summary.compiled_summary.completion_rate ?? 0}%)
+                      </div>
+                    </div>
+                    <div className="border rounded-md p-3">
+                      <div className="text-muted-foreground">Duration</div>
+                      <div className="font-semibold">{typeof summary.compiled_summary.duration_minutes === 'number' ? `${summary.compiled_summary.duration_minutes} min` : '—'}</div>
+                    </div>
+                    <div className="border rounded-md p-3">
+                      <div className="text-muted-foreground">Evidence</div>
+                      <div className="font-semibold">{summary.compiled_summary.evidence_items ?? 0} item(s)</div>
+                    </div>
+                    <div className="border rounded-md p-3">
+                      <div className="text-muted-foreground">Open actions</div>
+                      <div className="font-semibold">{summary.compiled_summary.actions_open ?? 0}</div>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="border rounded-md">
                   <ScrollArea className="h-72 p-3">
                     {detailQuery.isLoading ? (
                       <div className="text-sm text-muted-foreground">Loading full details…</div>
                     ) : exec ? (
                       <div className="space-y-3 text-sm">
+                        <div className="space-y-1">
+                          <div className="font-medium">Checklist report</div>
+                          {exec.assigned_shift_info ? (
+                            <div className="text-xs text-muted-foreground">
+                              Shift: {exec.assigned_shift_info.shift_date || '—'}{' '}
+                              {exec.assigned_shift_info.start_time ? `(${new Date(exec.assigned_shift_info.start_time).toLocaleTimeString()}` : ''}
+                              {exec.assigned_shift_info.end_time ? ` – ${new Date(exec.assigned_shift_info.end_time).toLocaleTimeString()})` : exec.assigned_shift_info.start_time ? ')' : ''}
+                              {exec.assigned_shift_info.role ? ` • Role: ${exec.assigned_shift_info.role}` : ''}
+                              {exec.assigned_shift_info.department ? ` • Dept: ${exec.assigned_shift_info.department}` : ''}
+                            </div>
+                          ) : null}
+                        </div>
+
                         <div className="font-medium">Steps</div>
                         {(exec.step_responses || []).map((sr: any, idx: number) => (
                           <div key={sr.id || idx} className="border rounded-md p-3">
@@ -876,14 +949,45 @@ const ManagerReviewDashboard: React.FC = () => {
                             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                               <Badge variant="outline">Status: {sr.status || (sr.is_completed ? 'COMPLETED' : 'PENDING')}</Badge>
                               {sr.text_response ? (<Badge variant="outline">Response: {sr.text_response}</Badge>) : null}
-                              {sr.measurement_value != null ? (<Badge variant="outline">Measure: {String(sr.measurement_value)}</Badge>) : null}
+                              {sr.measurement_value != null ? (<Badge variant="outline">Measure: {String(sr.measurement_value)}{sr.step?.measurement_unit ? ` ${sr.step.measurement_unit}` : ''}</Badge>) : null}
+                              {typeof sr.boolean_response === 'boolean' ? (<Badge variant="outline">Answer: {sr.boolean_response ? 'Yes' : 'No'}</Badge>) : null}
+                              {sr.signature_data ? (<Badge variant="outline">Signature</Badge>) : null}
                             </div>
                             {sr.notes ? (<div className="mt-2 text-xs">Notes: {sr.notes}</div>) : null}
                             {Array.isArray(sr.evidence) && sr.evidence.length > 0 ? (
-                              <div className="mt-2 text-xs">Evidence: {sr.evidence.length} item(s)</div>
+                              <div className="mt-2 text-xs space-y-1">
+                                <div>Evidence:</div>
+                                <ul className="list-disc pl-4">
+                                  {sr.evidence.map((ev: any, eidx: number) => (
+                                    <li key={ev.id || eidx} className="break-all">
+                                      {ev.evidence_type || 'FILE'} — {ev.filename || ev.file_path || '—'}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
                             ) : null}
                           </div>
                         ))}
+
+                        {Array.isArray(exec.actions) && exec.actions.length > 0 ? (
+                          <div className="space-y-2">
+                            <div className="font-medium">Actions created</div>
+                            <div className="space-y-2">
+                              {exec.actions.map((a: any) => (
+                                <div key={a.id} className="border rounded-md p-3 text-xs">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="font-semibold">{a.title}</div>
+                                    <Badge variant="outline">{a.status}</Badge>
+                                  </div>
+                                  {a.description ? <div className="mt-1 text-muted-foreground">{a.description}</div> : null}
+                                  <div className="mt-2 text-muted-foreground">
+                                    Assigned to: {a.assigned_to ? `${a.assigned_to.first_name || ''} ${a.assigned_to.last_name || ''}`.trim() : '—'} • Priority: {a.priority || '—'}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     ) : (
                       <div className="text-sm text-muted-foreground">No detailed data</div>
