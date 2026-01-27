@@ -115,7 +115,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
       )}
 
       {/* Elegant User Type Toggle with Premium Styling */}
-      <div className="flex gap-2 bg-[#0A0D10]/50 rounded-lg p-1 border border-[#00E676]/10 backdrop-blur-sm">
+      <div className="flex gap-2 bg-white/5 rounded-lg p-1 border border-white/10 backdrop-blur-sm">
         <button
           type="button"
           onClick={() => {
@@ -125,7 +125,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
           }}
           className={`flex-1 py-2 px-4 rounded-md font-medium transition-all text-sm duration-300 ${userType === "staff"
               ? "bg-gradient-to-r from-[#00E676] to-[#00C853] text-white shadow-lg shadow-[#00E676]/20"
-              : "text-[#B0BEC5] hover:text-[#00E676] hover:bg-[#00E676]/5"
+              : "text-[#B0BEC5] hover:text-[#00E676] hover:bg-[#00E676]/10"
             }`}
         >
           {t("auth.toggles.staff")}
@@ -139,7 +139,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
           }}
           className={`flex-1 py-2 px-4 rounded-md font-medium transition-all text-sm duration-300 ${userType === "manager"
               ? "bg-gradient-to-r from-[#00E676] to-[#00C853] text-white shadow-lg shadow-[#00E676]/20"
-              : "text-[#B0BEC5] hover:text-[#00E676] hover:bg-[#00E676]/5"
+              : "text-[#B0BEC5] hover:text-[#00E676] hover:bg-[#00E676]/10"
             }`}
         >
           {t("auth.toggles.manager")}
@@ -163,7 +163,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
               type="email"
               placeholder={t("auth.placeholders.email")}
               required
-              className="pl-10 bg-[#0A0D10]/50 border border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] rounded-lg transition-all duration-300 focus:shadow-[0_0_15px_rgba(0,230,118,0.2)] backdrop-blur-sm"
+              className="pl-10 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] rounded-lg transition-all duration-300 focus:shadow-[0_0_15px_rgba(0,230,118,0.2)] backdrop-blur-sm"
             />
           </div>
         </div>
@@ -188,7 +188,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
                 onChange={handlePinChange}
                 inputMode="numeric"
                 maxLength={4}
-                className="pl-10 bg-[#0A0D10]/50 border border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] rounded-lg transition-all duration-300 focus:shadow-[0_0_15px_rgba(0,230,118,0.2)] backdrop-blur-sm"
+                className="pl-10 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] rounded-lg transition-all duration-300 focus:shadow-[0_0_15px_rgba(0,230,118,0.2)] backdrop-blur-sm"
               />
             ) : (
               <Input
@@ -199,7 +199,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
                 required
                 value={passwordInput}
                 onChange={handlePasswordChange}
-                className="pl-10 bg-[#0A0D10]/50 border border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] rounded-lg transition-all duration-300 focus:shadow-[0_0_15px_rgba(0,230,118,0.2)] backdrop-blur-sm"
+                className="pl-10 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] rounded-lg transition-all duration-300 focus:shadow-[0_0_15px_rgba(0,230,118,0.2)] backdrop-blur-sm"
               />
             )}
           </div>
@@ -240,10 +240,10 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
         {/* Divider */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-gradient-to-r from-transparent via-[#00E676]/20 to-transparent" />
+            <span className="w-full border-t border-gradient-to-r from-transparent via-[#00E676]/25 to-transparent" />
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-gradient-to-br from-[#121A22] to-[#0f1419] px-3 text-[#B0BEC5] font-medium text-xs tracking-wide">
+            <span className="bg-[#0A0D10]/40 px-3 text-[#B0BEC5] font-medium text-xs tracking-wide rounded-full border border-white/10 backdrop-blur-sm">
               {t("auth.misc.new_to_mizan")}
             </span>
           </div>

@@ -1,47 +1,56 @@
 import React, { useState, useEffect } from "react";
-import { Users, Building2, Award, Smile } from "lucide-react";
+import { Users, Building2, Smile } from "lucide-react";
 
 export const RestaurantShowcase: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
 
+  const withUnsplashParams = (url: string, width: number, quality = 92) => {
+    // Unsplash image CDN supports width/quality params, which render reliably in most apps.
+    const next = url
+      .replace(/([?&])w=\d+/g, `$1w=${width}`)
+      .replace(/([?&])q=\d+/g, `$1q=${quality}`);
+    if (!/[?&]w=\d+/.test(next)) {
+      return `${next}${next.includes("?") ? "&" : "?"}w=${width}`;
+    }
+    if (!/[?&]q=\d+/.test(next)) {
+      return `${next}&q=${quality}`;
+    }
+    return next;
+  };
+
   const images = [
     {
-      url: 'https://images.unsplash.com/photo-1663530761401-15eefb544889?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmaW5lJTIwZGluaW5nJTIwY2hlZiUyMGNvb2tpbmd8ZW58MXx8fHwxNzYxNjY2MTY5fDA&ixlib=rb-4.1.0&q=80&w=1080',
-      alt: 'Fine dining chef cooking',
-      label: 'Expert Chefs'
+      url: "https://images.unsplash.com/photo-1663530761401-15eefb544889?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmaW5lJTIwZGluaW5nJTIwY2hlZiUyMGNvb2tpbmd8ZW58MXx8fHwxNzYxNjY2MTY5fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      alt: "Fine dining chef cooking",
+      label: "Expert Chefs",
     },
     {
-      url: 'https://images.unsplash.com/photo-1682608491709-e21df86f1e5b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbGVnYW50JTIwcmVzdGF1cmFudCUyMHdhaXRlciUyMHNlcnZpbmd8ZW58MXx8fHwxNzYxNjY2MTY5fDA&ixlib=rb-4.1.0&q=80&w=1080',
-      alt: 'Elegant waiter serving',
-      label: 'Premium Service'
+      url: "https://images.unsplash.com/photo-1682608491709-e21df86f1e5b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbGVnYW50JTIwcmVzdGF1cmFudCUyMHdhaXRlciUyMHNlcnZpbmd8ZW58MXx8fHwxNzYxNjY2MTY5fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      alt: "Elegant waiter serving",
+      label: "Premium Service",
     },
     {
-      url: 'https://images.unsplash.com/flagged/photo-1561350600-6606486921f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjByZXN0YXVyYW50JTIwY3VzdG9tZXJzJTIwZGluaW5nfGVufDF8fHx8MTc2MTY2NjE3MHww&ixlib=rb-4.1.0&q=80&w=1080',
-      alt: 'Luxury restaurant customers',
-      label: 'Happy Guests'
+      url: "https://images.unsplash.com/flagged/photo-1561350600-6606486921f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjByZXN0YXVyYW50JTIwY3VzdG9tZXJzJTIwZGluaW5nfGVufDF8fHx8MTc2MTY2NjE3MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      alt: "Luxury restaurant customers",
+      label: "Happy Guests",
     },
     {
-      url: 'https://images.unsplash.com/photo-1759419038843-29749ac4cd2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmaW5lJTIwZGluaW5nJTIwaW50ZXJpb3IlMjBlbGVnYW50fGVufDF8fHx8MTc2MTY2NjE3MHww&ixlib=rb-4.1.0&q=80&w=1080',
-      alt: 'Fine dining interior',
-      label: 'Elegant Ambiance'
-    }
+      url: "https://images.unsplash.com/photo-1759419038843-29749ac4cd2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmaW5lJTIwZGluaW5nJTIwaW50ZXJpb3IlMjBlbGVnYW50fGVufDF8fHx8MTc2MTY2NjE3MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      alt: "Fine dining interior",
+      label: "Elegant Ambiance",
+    },
   ];
 
   const stats = [
     {
       icon: Users,
-      number: "10+",
-      label: "Professional Staff",
+      number: "500+",
+      label: "Staff Supported",
     },
     {
       icon: Building2,
-      number: "1,200+",
-      label: "Happy Restaurants",
-    },
-    {
-      icon: Award,
-      number: "25+",
-      label: "Industry Awards",
+      number: "10+",
+      label: "Restaurants Served",
     },
     {
       icon: Smile,
@@ -87,19 +96,28 @@ export const RestaurantShowcase: React.FC = () => {
       <div className="absolute inset-0">
         {/* Background Image with Fade Transition */}
         <img
-          src={currentImage.url}
+          src={withUnsplashParams(currentImage.url, 1600, 92)}
+          srcSet={[
+            `${withUnsplashParams(currentImage.url, 1200, 92)} 1200w`,
+            `${withUnsplashParams(currentImage.url, 1600, 92)} 1600w`,
+            `${withUnsplashParams(currentImage.url, 2200, 92)} 2200w`,
+            `${withUnsplashParams(currentImage.url, 2800, 92)} 2800w`,
+          ].join(", ")}
+          sizes="(min-width: 1024px) 50vw, 100vw"
           alt={currentImage.alt}
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+          loading="eager"
+          decoding="async"
         />
 
-        {/* Dark gradient overlay for text legibility */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-transparent" />
+        {/* Softer overlays for a lighter, premium feel */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/65 via-slate-950/45 to-transparent" />
 
         {/* Additional overlay for better text contrast */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/30 to-transparent" />
 
         {/* Subtle accent elements */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-l from-[#00E676]/5 to-transparent rounded-full mix-blend-multiply filter blur-3xl" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-l from-[#00E676]/10 to-transparent rounded-full mix-blend-multiply filter blur-3xl" />
       </div>
 
       {/* Content */}
@@ -110,7 +128,7 @@ export const RestaurantShowcase: React.FC = () => {
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 leading-tight">
               {currentContent.headline}
             </h2>
-            <p className="text-lg text-[#B0BEC5] leading-relaxed">
+            <p className="text-lg text-white/80 leading-relaxed">
               {currentContent.subheading}
             </p>
           </div>
@@ -119,18 +137,18 @@ export const RestaurantShowcase: React.FC = () => {
         {/* Bottom Section - Stats */}
         <div className="space-y-8">
           {/* Statistics Cards */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             {stats.map((stat, index) => {
               const Icon = stat.icon;
               return (
                 <div
                   key={index}
-                  className="relative rounded-lg p-4 backdrop-blur-md bg-white/5 border border-[#00E676]/20 hover:border-[#00E676]/40 transition-all group"
+                  className="relative rounded-lg p-4 h-24 backdrop-blur-md bg-white/5 border border-[#00E676]/20 hover:border-[#00E676]/40 transition-all group"
                 >
                   {/* Blurred background effect */}
                   <div className="absolute inset-0 bg-gradient-to-br from-[#00E676]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
 
-                  <div className="relative space-y-2">
+                  <div className="relative h-full flex flex-col justify-center space-y-2">
                     <div className="flex items-center space-x-2">
                       <Icon className="h-5 w-5 text-[#00E676]" />
                       <span className="text-sm font-semibold text-[#00E676]">

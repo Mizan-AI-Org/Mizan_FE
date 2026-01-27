@@ -99,8 +99,11 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
   return (
     <div className="w-full space-y-6">
       {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+        <Alert
+          variant="destructive"
+          className="bg-red-500/10 border-red-500/30 rounded-lg"
+        >
+          <AlertDescription className="text-red-200">{error}</AlertDescription>
         </Alert>
       )}
 
@@ -122,7 +125,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
               name="businessName"
               placeholder="Your Restaurant Name"
               required
-              className="pl-9 bg-[#0A0D10] border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
+              className="pl-9 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
             />
           </div>
         </div>
@@ -139,7 +142,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
               name="fullName"
               placeholder="John Doe"
               required
-              className="pl-9 bg-[#0A0D10] border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
+              className="pl-9 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
             />
           </div>
         </div>
@@ -157,7 +160,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
               type="email"
               placeholder="owner@restaurant.com"
               required
-              className="pl-9 bg-[#0A0D10] border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
+              className="pl-9 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
             />
           </div>
         </div>
@@ -175,7 +178,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
               type="password"
               required
               minLength={6}
-              className="pl-9 bg-[#0A0D10] border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
+              className="pl-9 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
             />
           </div>
         </div>
@@ -193,7 +196,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
               type="password"
               required
               minLength={6}
-              className="pl-9 bg-[#0A0D10] border-[#00E676]/20 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
+              className="pl-9 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
             />
           </div>
         </div>
@@ -205,7 +208,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
             id="terms"
             checked={termsAccepted}
             onChange={(e) => setTermsAccepted(e.target.checked)}
-            className="mt-1 h-4 w-4 bg-[#0A0D10] border-[#00E676]/20 rounded cursor-pointer"
+            className="mt-1 h-4 w-4 bg-[#0A0D10] border-white/10 rounded cursor-pointer accent-[#00E676]"
           />
           <label htmlFor="terms" className="text-xs text-[#B0BEC5] cursor-pointer">
             I agree to the{" "}
@@ -231,10 +234,10 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-[#00E676]/20" />
+          <span className="w-full border-t border-[#00E676]/25" />
         </div>
         <div className="relative flex justify-center text-xs">
-          <span className="bg-[#121A22] px-2 text-[#B0BEC5]">
+          <span className="bg-[#0A0D10]/40 px-3 py-1 text-[#B0BEC5] rounded-full border border-white/10 backdrop-blur-sm">
             Already have an account?
           </span>
         </div>
