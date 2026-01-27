@@ -129,6 +129,17 @@ export const LuaWidget: React.FC = () => {
                     token: accessToken,
                     accessToken: accessToken, // Pass twice for safety
 
+                    // Structured context (preferred over runtimeContext string)
+                    // Helps the agent avoid asking for restaurant ID.
+                    metadata: {
+                        restaurantId: user.restaurant_data?.id || user.restaurant,
+                        restaurantName: user.restaurant_data?.name || user.restaurant_name,
+                        userId: user.id,
+                        role: user.role,
+                        token: accessToken,
+                        sessionId,
+                    },
+
                     // User identification (for Lua Admin portal)
                     fullName: userFullName,
                     emailAddress: user.email,

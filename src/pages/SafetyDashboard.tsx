@@ -334,6 +334,10 @@ const SafetyDashboard: React.FC = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
+                  <div className="font-medium text-muted-foreground mb-1">Incident Type</div>
+                  <div>{incidentDetail.incident_type || '—'}</div>
+                </div>
+                <div>
                   <div className="font-medium text-muted-foreground mb-1">Title</div>
                   <div>{incidentDetail.title}</div>
                 </div>
@@ -356,6 +360,14 @@ const SafetyDashboard: React.FC = () => {
                 <div>
                   <div className="font-medium text-muted-foreground mb-1">Reported At</div>
                   <div>{new Date(incidentDetail.created_at).toLocaleString()}</div>
+                </div>
+                <div>
+                  <div className="font-medium text-muted-foreground mb-1">Time of Occurrence</div>
+                  <div>{incidentDetail.occurred_at ? new Date(incidentDetail.occurred_at).toLocaleString() : '—'}</div>
+                </div>
+                <div>
+                  <div className="font-medium text-muted-foreground mb-1">Shift Reference</div>
+                  <div>{incidentDetail.shift ? String(incidentDetail.shift).slice(0, 8) : '—'}</div>
                 </div>
                 <div>
                   <div className="font-medium text-muted-foreground mb-1">ID</div>
