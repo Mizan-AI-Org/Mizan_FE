@@ -53,6 +53,7 @@ const ProfileSettings = React.lazy(() => import("./pages/ProfileSettings"));
 const AdminEmergencyAvailability = React.lazy(() => import("./pages/AdminEmergencyAvailability"));
 const AdvancedSettings = React.lazy(() => import("./pages/Settings"));
 const StaffManagement = React.lazy(() => import("./pages/StaffManagement"));
+const StaffRequestsPage = React.lazy(() => import("./pages/StaffRequestsPage"));
 const ScheduleManagement = React.lazy(
   () => import("./pages/ScheduleManagement")
 );
@@ -179,7 +180,7 @@ const App = () => {
                 <Route
                   path="dashboard"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
                       <Dashboard />
                     </RoleBasedRoute>
                   }
@@ -475,6 +476,22 @@ const App = () => {
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
                       <StaffManagement />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/staff-requests"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                      <StaffRequestsPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/staff-requests/:id"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                      <StaffRequestsPage />
                     </RoleBasedRoute>
                   }
                 />

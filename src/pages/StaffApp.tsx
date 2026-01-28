@@ -22,6 +22,7 @@ import {
     Clock,
     ClipboardCheck,
     TrendingUp,
+    Inbox,
     Search,
     Coffee,
     LogOut,
@@ -78,6 +79,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
 import { format } from "date-fns";
+import StaffRequestsTab from "@/components/staff/StaffRequestsTab";
 
 // Types
 interface StaffMember {
@@ -864,7 +866,14 @@ const TeamTab: React.FC = () => {
                                         </div>
                                         <div>
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email Address</p>
-                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedMember.email}</p>
+                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                                {(() => {
+                                                    const email = selectedMember.email || "";
+                                                    // Hide auto-generated WhatsApp placeholder emails like "2126379...@mizan.ai"
+                                                    const isPhonePlaceholder = /^\d+@mizan\.ai$/i.test(email);
+                                                    return isPhonePlaceholder ? "Not provided" : email || "Not provided";
+                                                })()}
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3 group">
@@ -1036,10 +1045,17 @@ const TeamTab: React.FC = () => {
 
         React.useEffect(() => {
             if (!isEditModalOpen || !selectedMember) return;
+            const normalizeEmail = (email: string | null | undefined) => {
+                const value = email || "";
+                if (/^\d+@mizan\.ai$/i.test(value)) {
+                    return "";
+                }
+                return value;
+            };
             setFormData({
                 first_name: selectedMember.first_name,
                 last_name: selectedMember.last_name,
-                email: selectedMember.email,
+                email: normalizeEmail(selectedMember.email),
                 phone: selectedMember.phone || "",
                 role: selectedMember.role,
                 hourly_rate: selectedMember.profile?.hourly_rate || 0,
@@ -2899,7 +2915,9 @@ const getDocumentUrl = (path: string) => {
 };
 
 export default function StaffApp() {
+    const { user } = useAuth() as AuthContextType;
     const [activeTab, setActiveTab] = useState("team");
+    const showRequestsTab = Boolean(user?.role && ["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"].includes(user.role));
 
     return (
         <div className="min-h-screen p-4 md:p-6 lg:p-8">
@@ -2914,7 +2932,7 @@ export default function StaffApp() {
 
                 {/* Tabbed Interface */}
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="w-full grid grid-cols-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl mb-6">
+                    <TabsList className={`w-full grid ${showRequestsTab ? "grid-cols-5" : "grid-cols-4"} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl mb-6`}>
                         <TabsTrigger value="team" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all">
                             <Users className="w-4 h-4 mr-2" />
                             Team
@@ -2927,6 +2945,12 @@ export default function StaffApp() {
                             <Clock className="w-4 h-4 mr-2" />
                             Attendance
                         </TabsTrigger>
+                        {showRequestsTab && (
+                            <TabsTrigger value="requests" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all">
+                                <Inbox className="w-4 h-4 mr-2" />
+                                Requests
+                            </TabsTrigger>
+                        )}
                         <TabsTrigger value="insights" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all">
                             <TrendingUp className="w-4 h-4 mr-2" />
                             Insights
@@ -2936,6 +2960,9 @@ export default function StaffApp() {
                     <TabsContent value="presence"><PresenceTab /></TabsContent>
                     <TabsContent value="team"><TeamTab /></TabsContent>
                     <TabsContent value="attendance"><AttendanceTab /></TabsContent>
+                    {showRequestsTab && (
+                        <TabsContent value="requests"><StaffRequestsTab /></TabsContent>
+                    )}
                     <TabsContent value="insights"><InsightsTab /></TabsContent>
                 </Tabs>
             </div>

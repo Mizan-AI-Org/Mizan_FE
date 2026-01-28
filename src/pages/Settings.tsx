@@ -165,6 +165,30 @@ export default function Settings() {
     []
   );
 
+  // Handle Square OAuth callback result (redirect back to settings)
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const square = url.searchParams.get("square");
+    const message = url.searchParams.get("message");
+    if (square === "connected") {
+      toast.success("Square connected");
+      // Refresh settings to show connected status
+      const role = (JSON.parse(localStorage.getItem("user") || "{}")?.role || "").toUpperCase();
+      if (role !== "STAFF") {
+        fetchUnifiedSettings();
+      }
+      url.searchParams.delete("square");
+      url.searchParams.delete("message");
+      window.history.replaceState({}, "", url.toString());
+    } else if (square === "error") {
+      toast.error(message ? `Square connect failed: ${message}` : "Square connect failed");
+      url.searchParams.delete("square");
+      url.searchParams.delete("message");
+      window.history.replaceState({}, "", url.toString());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     const storedUser = localStorage.getItem("user");
@@ -487,7 +511,8 @@ export default function Settings() {
       const response = await apiClient.post("/settings/test_pos_connection/", {
         pos_provider: posSettings.pos_provider,
         pos_merchant_id: posSettings.pos_merchant_id,
-        pos_api_key: posAPIKey,
+        // For Square OAuth we validate server-side stored token; avoid sending secrets from UI.
+        pos_api_key: posSettings.pos_provider === "SQUARE" ? "" : posAPIKey,
       });
       const data = response.data;
       if (data.connected) {
@@ -519,20 +544,44 @@ export default function Settings() {
     }
     setSavingPos(true);
     try {
-      await apiClient.put("/settings/unified/", {
-        pos_provider: posSettings.pos_provider,
-        pos_merchant_id: posSettings.pos_merchant_id,
-        pos_api_key: posAPIKey,
-        settings_schema_version: settingsSchemaVersion,
-      });
-      toast.success("POS settings updated");
-      await testPosConnection();
-      await fetchUnifiedSettings();
+      if (posSettings.pos_provider === "SQUARE") {
+        // Square uses OAuth connect flow; nothing to persist client-side.
+        await testPosConnection();
+        await fetchUnifiedSettings();
+      } else {
+        toast.error("Coming soon");
+      }
     } catch (error) {
       console.error("Failed to update POS settings:", error);
       toast.error("Failed to update POS settings.");
     } finally {
       setSavingPos(false);
+    }
+  };
+
+  const connectSquare = async () => {
+    try {
+      const resp = await apiClient.get("/settings/square/oauth/authorize/");
+      const url = resp.data?.authorization_url as string | undefined;
+      if (!url) {
+        toast.error("Square OAuth not available");
+        return;
+      }
+      window.location.href = url;
+    } catch (error) {
+      const axiosErr = error as AxiosError<{ detail?: string; error?: string }>;
+      toast.error(translateApiError(axiosErr));
+    }
+  };
+
+  const disconnectSquare = async () => {
+    try {
+      await apiClient.post("/settings/square/oauth/disconnect/", {});
+      toast.success("Square disconnected");
+      await fetchUnifiedSettings();
+    } catch (error) {
+      const axiosErr = error as AxiosError<{ detail?: string; error?: string }>;
+      toast.error(translateApiError(axiosErr));
     }
   };
 
@@ -795,58 +844,70 @@ export default function Settings() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   >
                     <option value="NONE">{t("pos.not_configured")}</option>
-                    <option value="STRIPE">Stripe</option>
                     <option value="SQUARE">Square</option>
-                    <option value="CLOVER">Clover</option>
-                    <option value="CUSTOM">{t("pos.custom_api")}</option>
+                    <option value="TOAST" disabled={posSettings.pos_provider !== "TOAST"}>Toast (Coming soon…)</option>
+                    <option value="LIGHTSPEED" disabled={posSettings.pos_provider !== "LIGHTSPEED"}>Lightspeed (Coming soon…)</option>
+                    <option value="CLOVER" disabled={posSettings.pos_provider !== "CLOVER"}>Clover (Coming soon…)</option>
+                    <option value="STRIPE" disabled={posSettings.pos_provider !== "STRIPE"}>Stripe (Coming soon…)</option>
+                    <option value="CUSTOM" disabled={posSettings.pos_provider !== "CUSTOM"}>{t("pos.custom_api")} (Coming soon…)</option>
                   </select>
                 </div>
 
                 <div>
-                  <Label htmlFor="pos-merchant">{t("pos.merchant_id")}</Label>
-                  <Input
-                    id="pos-merchant"
-                    value={posSettings.pos_merchant_id}
-                    onChange={(e) =>
-                      setPosSettings({
-                        ...posSettings,
-                        pos_merchant_id: e.target.value,
-                      })
-                    }
-                    placeholder={t("pos.merchant_id_placeholder")}
-                  />
-                </div>
+                  {posSettings.pos_provider === "SQUARE" ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-slate-700">Square account</div>
+                          <div className="text-xs text-slate-500">
+                            Connect via OAuth so no API keys are stored in the browser.
+                          </div>
+                        </div>
+                        <Badge variant="outline" className={posSettings.pos_is_connected ? "border-emerald-200 text-emerald-700" : "border-slate-200 text-slate-600"}>
+                          {posSettings.pos_is_connected ? "Connected" : "Not connected"}
+                        </Badge>
+                      </div>
 
-                <div>
-                  <Label htmlFor="pos-api-key">{t("pos.api_key")}</Label>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <div className="relative flex-1">
-                      <Input
-                        id="pos-api-key"
-                        type={showAPIKey ? "text" : "password"}
-                        value={posAPIKey}
-                        onChange={(e) => setPosAPIKey(e.target.value)}
-                        placeholder={t("pos.api_key_placeholder")}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowAPIKey(!showAPIKey)}
-                        className="absolute right-3 top-2.5 text-gray-600"
-                      >
-                        {showAPIKey ? (
-                          <EyeOff className="w-4 h-4" />
-                        ) : (
-                          <Eye className="w-4 h-4" />
-                        )}
-                      </button>
+                      {!posSettings.pos_is_connected ? (
+                        <Button onClick={connectSquare} className="w-full">
+                          <Plug className="mr-2 h-4 w-4" />
+                          Connect with Square
+                        </Button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Button onClick={testPosConnection} variant="outline" className="flex-1">
+                            <Plug className="mr-2 h-4 w-4" />
+                            Test Connection
+                          </Button>
+                          <Button onClick={disconnectSquare} variant="destructive" className="flex-1">
+                            Disconnect
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  ) : posSettings.pos_provider === "NONE" ? null : (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-slate-800">
+                            {posSettings.pos_provider} integration
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            Coming soon… Square is the only supported POS integration at launch.
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="border-slate-200 text-slate-600">
+                          Coming soon…
+                        </Badge>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-2">
                   <Button
                     onClick={updatePosSettings}
-                    disabled={savingPos || posSettings.pos_provider === "NONE"}
+                    disabled={savingPos || posSettings.pos_provider === "NONE" || posSettings.pos_provider !== "SQUARE"}
                     className="flex-1"
                   >
                     {savingPos ? (
@@ -854,13 +915,13 @@ export default function Settings() {
                     ) : (
                       <Save className="mr-2 h-4 w-4" />
                     )}
-                    Save & Test
+                    Test Connection
                   </Button>
                   <Button
                     onClick={testPosConnection}
                     variant="outline"
                     disabled={
-                      posTestingConnection || posSettings.pos_provider === "NONE"
+                      posTestingConnection || posSettings.pos_provider === "NONE" || posSettings.pos_provider !== "SQUARE"
                     }
                   >
                     {posTestingConnection ? (
