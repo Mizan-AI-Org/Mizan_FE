@@ -13,8 +13,10 @@ export interface User {
         id: string;
         name: string;
         address: string;
+        language?: string;
     };
     phone?: string;
+    preferred_language?: string | null;
     profile?: {
         emergency_contact_name?: string;
         emergency_contact_phone?: string;

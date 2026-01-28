@@ -76,6 +76,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
+import { useLanguage } from "@/hooks/use-language";
 import { format } from "date-fns";
 
 // Types
@@ -143,6 +144,91 @@ interface PaginatedResponse<T> {
     results: T[];
 }
 
+// Small helpers to keep TS strict + UI resilient
+const getErrorMessage = (err: unknown, fallback: string) =>
+    err instanceof Error ? err.message : fallback;
+
+type AttendanceEvent = {
+    staff: string;
+    event_type: string;
+    timestamp: string;
+    latitude?: number | null;
+    longitude?: number | null;
+};
+
+type AssignedShiftLite = {
+    shift_date: string;
+    staff: string;
+};
+
+type WeeklyScheduleLite = {
+    week_start: string;
+    assigned_shifts?: AssignedShiftLite[];
+};
+
+type StaffDocument = {
+    id: string;
+    title: string;
+    file: string;
+    uploaded_at: string;
+};
+
+type AttendanceDashboardSummary = {
+    present: { count: number; percentage: number; total: number };
+    late: { count: number; avg_minutes: number };
+    absent: { count: number; reason: string };
+    on_leave: { count: number; subtitle: string };
+};
+
+type AttendanceListItem = {
+    staff: { id: string; name: string; role?: string | null };
+    shift: { start?: string | null; end?: string | null };
+    clock_in?: string | null;
+    clock_out?: string | null;
+    status: string;
+    late_minutes?: number;
+    signals?: string[];
+};
+
+type AttendanceActivityEvent = {
+    id: string;
+    time: string;
+    staff_name: string;
+    event: string;
+};
+
+type AttendanceDashboardData = {
+    summary?: AttendanceDashboardSummary;
+    attendance_list?: AttendanceListItem[];
+    recent_activity?: AttendanceActivityEvent[];
+};
+
+type ManagerTask = {
+    id: string;
+    title: string;
+    status: string;
+    due_date: string;
+    due_time?: string | null;
+    priority?: string | null;
+    assigned_to_names?: string[];
+};
+
+type BulkInviteRow = {
+    first_name: string;
+    last_name: string;
+    role: string;
+    email?: string;
+    phone_number?: string;
+};
+
+type StaffInsightsData = {
+    summary: { tasks_completed: number; tasks_trend: number; team_reliability: number; active_workers: number };
+    star_performers: { name: string; role?: string; tasks: number; score: number }[];
+    attendance_health: { on_time_arrival: number; no_show_rate: number };
+    signals: { color: "emerald" | "amber"; text: string }[];
+    alerts: { level: "Critical" | "Warning" | string; type?: string; title: string; description?: string }[];
+};
+
 // Reusable Pagination Controls Component
 const PaginationControls: React.FC<{
     currentPage: number;
@@ -193,6 +279,8 @@ const PaginationControls: React.FC<{
                         <button
                             onClick={() => onPageChange(currentPage - 1)}
                             disabled={currentPage === 1 || isLoading}
+                            aria-label="Previous page"
+                            title="Previous page"
                             className="p-1 px-2 text-slate-400 hover:text-indigo-600 disabled:opacity-30 transition-colors"
                         >
                             <ChevronLeft className="w-4 h-4" />
@@ -224,6 +312,8 @@ const PaginationControls: React.FC<{
                         <button
                             onClick={() => onPageChange(currentPage + 1)}
                             disabled={currentPage === totalPages || isLoading}
+                            aria-label="Next page"
+                            title="Next page"
                             className="p-1 px-2 text-slate-400 hover:text-indigo-600 disabled:opacity-30 transition-colors"
                         >
                             <ChevronRight className="w-4 h-4" />
@@ -256,6 +346,7 @@ const PaginationControls: React.FC<{
 // Presence Tab Component
 const PresenceTab: React.FC = () => {
     const { logout } = useAuth() as AuthContextType;
+    const { t } = useLanguage();
 
     // Date helpers
     const toYMD = (d: Date) => {
@@ -276,7 +367,7 @@ const PresenceTab: React.FC = () => {
     const weekStartStr = toYMD(getWeekStart(new Date()));
 
     // Fetch today's attendance events
-    const { data: attendanceResponse, isLoading: isAttendanceLoading } = useQuery<PaginatedResponse<any>>({
+    const { data: attendanceResponse, isLoading: isAttendanceLoading } = useQuery<PaginatedResponse<AttendanceEvent>>({
         queryKey: ["today-attendance"],
         queryFn: async () => {
             const response = await fetch(`${API_BASE}/timeclock/attendance/today/?page_size=100`, {
@@ -294,7 +385,7 @@ const PresenceTab: React.FC = () => {
     });
 
     // Fetch weekly schedule to filter for scheduled staff
-    const { data: scheduleResponse, isLoading: isScheduleLoading } = useQuery<any>({
+    const { data: scheduleResponse, isLoading: isScheduleLoading } = useQuery<WeeklyScheduleLite | undefined>({
         queryKey: ["weekly-schedule", weekStartStr],
         queryFn: async () => {
             const token = localStorage.getItem("access_token");
@@ -303,8 +394,16 @@ const PresenceTab: React.FC = () => {
             });
             if (!response.ok) throw new Error("Failed to fetch schedules");
             const listJson = await response.json();
-            const listData = (listJson?.results ?? listJson) as any[];
-            return Array.isArray(listData) ? listData.find((s) => s.week_start === weekStartStr) : undefined;
+            const raw = (listJson?.results ?? listJson) as unknown;
+            const listData: unknown[] = Array.isArray(raw) ? raw : [];
+            const isWeeklySchedule = (v: unknown): v is WeeklyScheduleLite => {
+                if (!v || typeof v !== "object") return false;
+                return "week_start" in v && typeof (v as { week_start?: unknown }).week_start === "string";
+            };
+            const match = listData.find(
+                (s): s is WeeklyScheduleLite => isWeeklySchedule(s) && s.week_start === weekStartStr
+            );
+            return match;
         },
     });
 
@@ -322,21 +421,30 @@ const PresenceTab: React.FC = () => {
         },
     });
 
-    const attendanceData = Array.isArray(attendanceResponse) ? attendanceResponse : (attendanceResponse?.results || []);
-    const staffDataRaw = Array.isArray(staffResponse) ? staffResponse : (staffResponse?.results || []);
-    const scheduleData = scheduleResponse?.assigned_shifts || [];
+    const attendanceData = React.useMemo<AttendanceEvent[]>(
+        () => (Array.isArray(attendanceResponse) ? attendanceResponse : (attendanceResponse?.results || [])),
+        [attendanceResponse]
+    );
+    const staffDataRaw = React.useMemo<StaffMember[]>(
+        () => (Array.isArray(staffResponse) ? staffResponse : (staffResponse?.results || [])),
+        [staffResponse]
+    );
+    const scheduleData = React.useMemo<AssignedShiftLite[]>(
+        () => (scheduleResponse?.assigned_shifts || []),
+        [scheduleResponse]
+    );
 
     // Filter staff: Include if (Scheduled Today) OR (Has Attendance Record Today)
     const staffData = React.useMemo(() => {
         if (!staffDataRaw.length) return [];
 
         // simple caching of staff IDs who have attendance
-        const staffWithAttendance = new Set(attendanceData.map((a: any) => a.staff));
+        const staffWithAttendance = new Set(attendanceData.map((a) => a.staff));
 
         // simple caching of staff IDs who have a shift today
         const staffWithShift = new Set(scheduleData
-            .filter((s: any) => s.shift_date === todayStr)
-            .map((s: any) => s.staff)
+            .filter((s) => s.shift_date === todayStr)
+            .map((s) => s.staff)
         );
 
         return staffDataRaw.filter((staff) =>
@@ -405,10 +513,10 @@ const PresenceTab: React.FC = () => {
             not_started: "bg-slate-50 text-slate-400 dark:bg-slate-800/50 dark:text-slate-500 border-dashed",
         };
         const labels = {
-            clocked_in: "Clocked In",
-            on_break: "On Break",
-            clocked_out: "Clocked Out",
-            not_started: "Not Started",
+            clocked_in: t("staff.presence.status.clocked_in"),
+            on_break: t("staff.presence.status.on_break"),
+            clocked_out: t("staff.presence.status.clocked_out"),
+            not_started: t("staff.presence.status.not_started"),
         };
         return (
             <Badge variant="outline" className={styles[status as keyof typeof styles] || styles.clocked_out}>
@@ -429,7 +537,7 @@ const PresenceTab: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-2xl font-bold text-slate-900 dark:text-white">{clockedIn.length}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">Clocked In</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{t("staff.presence.cards.clocked_in")}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -442,7 +550,7 @@ const PresenceTab: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-2xl font-bold text-slate-900 dark:text-white">{onBreak.length}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">On Break</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{t("staff.presence.cards.on_break")}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -455,7 +563,7 @@ const PresenceTab: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-2xl font-bold text-slate-900 dark:text-white">{clockedOut.length}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">Clocked Out</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{t("staff.presence.cards.clocked_out")}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -468,7 +576,7 @@ const PresenceTab: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-2xl font-bold text-slate-900 dark:text-white">{notStarted.length}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">Not Started</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{t("staff.presence.cards.not_started")}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -478,17 +586,17 @@ const PresenceTab: React.FC = () => {
             {/* Live Staff List */}
             <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
                 <CardHeader>
-                    <CardTitle className="text-slate-900 dark:text-white">Staff On Duty (Today)</CardTitle>
-                    <CardDescription className="text-slate-500 dark:text-slate-400">Real-time presence overview</CardDescription>
+                    <CardTitle className="text-slate-900 dark:text-white">{t("staff.presence.title")}</CardTitle>
+                    <CardDescription className="text-slate-500 dark:text-slate-400">{t("staff.presence.subtitle")}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
                             <TableRow className="border-slate-100 dark:border-slate-800">
-                                <TableHead className="text-slate-500 dark:text-slate-400">Name</TableHead>
-                                <TableHead className="text-slate-500 dark:text-slate-400">Clock In</TableHead>
-                                <TableHead className="text-slate-500 dark:text-slate-400">Status</TableHead>
-                                <TableHead className="text-slate-500 dark:text-slate-400">Late</TableHead>
+                                <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.presence.table.name")}</TableHead>
+                                <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.presence.table.clock_in")}</TableHead>
+                                <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.presence.table.status")}</TableHead>
+                                <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.presence.table.late")}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -496,7 +604,7 @@ const PresenceTab: React.FC = () => {
                                 <TableRow>
                                     <TableCell colSpan={4} className="text-center py-8">
                                         <Loader2 className="w-6 h-6 animate-spin mx-auto text-emerald-500" />
-                                        <p className="text-sm text-slate-500 mt-2">Loading presence data...</p>
+                                        <p className="text-sm text-slate-500 mt-2">{t("staff.presence.loading")}</p>
                                     </TableCell>
                                 </TableRow>
                             ) : staffStatusMap.length > 0 ? (
@@ -507,9 +615,9 @@ const PresenceTab: React.FC = () => {
                                         <TableCell><StatusBadge status={record.status} /></TableCell>
                                         <TableCell>
                                             {record.late ? (
-                                                <Badge variant="destructive" className="text-xs">Late</Badge>
+                                                <Badge variant="destructive" className="text-xs">{t("staff.presence.badges.late")}</Badge>
                                             ) : (
-                                                <Badge variant="outline" className="text-xs text-slate-500">On Time</Badge>
+                                                <Badge variant="outline" className="text-xs text-slate-500">{t("staff.presence.badges.on_time")}</Badge>
                                             )}
                                         </TableCell>
                                     </TableRow>
@@ -517,7 +625,7 @@ const PresenceTab: React.FC = () => {
                             ) : (
                                 <TableRow>
                                     <TableCell colSpan={4} className="text-center py-8 text-slate-500">
-                                        No staff attendance recorded today
+                                        {t("staff.presence.none")}
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -541,7 +649,7 @@ const TeamTab: React.FC = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-    const [documents, setDocuments] = useState<any[]>([]);
+    const [documents, setDocuments] = useState<StaffDocument[]>([]);
     const [isUploading, setIsUploading] = useState(false);
     const { logout } = useAuth() as AuthContextType;
     const queryClient = useQueryClient();
@@ -551,11 +659,15 @@ const TeamTab: React.FC = () => {
             const token = localStorage.getItem("access_token") || "";
             const response = await api.getStaffDocuments(token, staffId);
             // Handle both direct array and paginated response { results: [] }
-            const docs = Array.isArray(response) ? response : ((response as any)?.results || []);
+            const docs = Array.isArray(response)
+                ? (response as StaffDocument[])
+                : (response && typeof response === "object" && "results" in response
+                    ? ((response as { results: StaffDocument[] }).results || [])
+                    : []);
             setDocuments(docs);
-        } catch (err) {
+        } catch (err: unknown) {
             console.error("Failed to fetch documents", err);
-            toast.error("Failed to load documents");
+            toast.error(getErrorMessage(err, "Failed to load documents"));
         }
     };
 
@@ -564,11 +676,12 @@ const TeamTab: React.FC = () => {
         setStaffPage(1);
     }, [searchQuery]);
 
+    const selectedMemberId = selectedMember?.id;
     React.useEffect(() => {
-        if ((isViewModalOpen || isEditModalOpen) && selectedMember) {
-            fetchDocuments(selectedMember.id);
+        if ((isViewModalOpen || isEditModalOpen) && selectedMemberId) {
+            fetchDocuments(selectedMemberId);
         }
-    }, [isViewModalOpen, isEditModalOpen, selectedMember?.id]);
+    }, [isViewModalOpen, isEditModalOpen, selectedMemberId]);
 
     const { data: staffData, isLoading, error, refetch: refetchStaff } = useQuery<PaginatedResponse<StaffMember>>({
         queryKey: ["staff-members", staffPage, staffPageSize, searchQuery],
@@ -615,8 +728,8 @@ const TeamTab: React.FC = () => {
             });
             if (!response.ok) throw new Error("Failed to resend invitation");
             toast.success("Invitation resent successfully");
-        } catch (err: any) {
-            toast.error(err.message || "Failed to resend invitation");
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, "Failed to resend invitation"));
         }
     };
 
@@ -632,8 +745,8 @@ const TeamTab: React.FC = () => {
             if (!response.ok) throw new Error("Failed to cancel invitation");
             toast.success("Invitation cancelled");
             refetchInvites();
-        } catch (err: any) {
-            toast.error(err.message || "Failed to cancel invitation");
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, "Failed to cancel invitation"));
         }
     };
 
@@ -655,11 +768,11 @@ const TeamTab: React.FC = () => {
 
     // View Profile Modal
     const ViewProfileModal = () => {
+        const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+
         // Use selectedMember directly as it contains the most up-to-date information (including manual updates after save)
         // logic that preferred "staff" list was causing stale data to be shown until refetch completed
         if (!selectedMember) return null;
-
-        const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
         const handleGenerateReport = async () => {
             setIsGeneratingReport(true);
@@ -673,8 +786,8 @@ const TeamTab: React.FC = () => {
                 a.click();
                 window.URL.revokeObjectURL(url);
                 toast.success("Report generated successfully");
-            } catch (err: any) {
-                toast.error(err.message || "Failed to generate report");
+            } catch (err: unknown) {
+                toast.error(getErrorMessage(err, "Failed to generate report"));
             } finally {
                 setIsGeneratingReport(false);
             }
@@ -845,7 +958,14 @@ const TeamTab: React.FC = () => {
                                             </div>
                                             <span className="text-xs font-bold text-slate-600 dark:text-slate-300 truncate">{doc.title}</span>
                                         </div>
-                                        <a href={getDocumentUrl(doc.file)} target="_blank" rel="noopener noreferrer" className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-white dark:hover:bg-slate-800 transition-all">
+                                        <a
+                                            href={getDocumentUrl(doc.file)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            aria-label={`Download document: ${doc.title}`}
+                                            title={`Download ${doc.title}`}
+                                            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-white dark:hover:bg-slate-800 transition-all"
+                                        >
                                             <Download className="w-4 h-4" />
                                         </a>
                                     </div>
@@ -880,29 +1000,63 @@ const TeamTab: React.FC = () => {
 
     // Edit Profile Modal
     const EditProfileModal = () => {
-        if (!selectedMember) return null;
+        type EditFormData = {
+            first_name: string;
+            last_name: string;
+            email: string;
+            phone: string;
+            role: string;
+            hourly_rate: number | string;
+            salary_type: "HOURLY" | "MONTHLY";
+            department: string;
+            join_date: string;
+        };
 
-        const [formData, setFormData] = useState({
-            first_name: selectedMember.first_name,
-            last_name: selectedMember.last_name,
-            email: selectedMember.email,
-            phone: selectedMember.phone || "",
-            role: selectedMember.role,
-            hourly_rate: selectedMember.profile?.hourly_rate || 0,
-            salary_type: selectedMember.profile?.salary_type || 'HOURLY',
-            department: selectedMember.profile?.department || "",
-            join_date: selectedMember.profile?.join_date || format(new Date(), "yyyy-MM-dd"),
-        });
+        const [formData, setFormData] = useState<EditFormData>(() => ({
+            first_name: "",
+            last_name: "",
+            email: "",
+            phone: "",
+            role: "STAFF",
+            hourly_rate: 0,
+            salary_type: "HOURLY",
+            department: "",
+            join_date: format(new Date(), "yyyy-MM-dd"),
+        }));
 
-        const [promotions, setPromotions] = useState<{ role: string; date: string; note?: string }[]>(selectedMember.profile?.promotion_history || []);
+        const [promotions, setPromotions] = useState<{ role: string; date: string; note?: string }[]>([]);
         const [showPasswordReset, setShowPasswordReset] = useState(false);
         const [newPassword, setNewPassword] = useState("");
         const [isResetting, setIsResetting] = useState(false);
 
         // Promotion Sub-form state
         const [isPromoting, setIsPromoting] = useState(false);
-        const [promoRole, setPromoRole] = useState(formData.role);
+        const [promoRole, setPromoRole] = useState("");
         const [promoNote, setPromoNote] = useState("");
+
+        React.useEffect(() => {
+            if (!isEditModalOpen || !selectedMember) return;
+            setFormData({
+                first_name: selectedMember.first_name,
+                last_name: selectedMember.last_name,
+                email: selectedMember.email,
+                phone: selectedMember.phone || "",
+                role: selectedMember.role,
+                hourly_rate: selectedMember.profile?.hourly_rate || 0,
+                salary_type: selectedMember.profile?.salary_type || "HOURLY",
+                department: selectedMember.profile?.department || "",
+                join_date: selectedMember.profile?.join_date || format(new Date(), "yyyy-MM-dd"),
+            });
+            setPromotions(selectedMember.profile?.promotion_history || []);
+            setShowPasswordReset(false);
+            setNewPassword("");
+            setIsResetting(false);
+            setIsPromoting(false);
+            setPromoRole(selectedMember.role);
+            setPromoNote("");
+        }, [isEditModalOpen, selectedMember?.id]);
+
+        if (!selectedMember) return null;
 
         const handleSave = async () => {
             try {
@@ -952,8 +1106,8 @@ const TeamTab: React.FC = () => {
                 toast.success("Profile updated successfully");
                 setIsEditModalOpen(false);
                 refetchStaff();
-            } catch (err: any) {
-                toast.error(err.message || "Failed to update profile");
+            } catch (err: unknown) {
+                toast.error(getErrorMessage(err, "Failed to update profile"));
             }
         };
 
@@ -969,8 +1123,8 @@ const TeamTab: React.FC = () => {
                 toast.success("Password reset successfully");
                 setShowPasswordReset(false);
                 setNewPassword("");
-            } catch (err: any) {
-                toast.error(err.message || "Failed to reset password");
+            } catch (err: unknown) {
+                toast.error(getErrorMessage(err, "Failed to reset password"));
             } finally {
                 setIsResetting(false);
             }
@@ -1218,8 +1372,8 @@ const TeamTab: React.FC = () => {
                                                     await api.uploadStaffDocument(token, selectedMember.id, file, file.name);
                                                     toast.success("Document uploaded successfully");
                                                     fetchDocuments(selectedMember.id);
-                                                } catch (err: any) {
-                                                    toast.error(err.message || "Failed to upload document");
+                                                } catch (err: unknown) {
+                                                    toast.error(getErrorMessage(err, "Failed to upload document"));
                                                 } finally {
                                                     setIsUploading(false);
                                                 }
@@ -1246,7 +1400,14 @@ const TeamTab: React.FC = () => {
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <a href={getDocumentUrl(doc.file)} target="_blank" rel="noopener noreferrer" className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-white transition-all">
+                                                    <a
+                                                        href={getDocumentUrl(doc.file)}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        aria-label={`Download document: ${doc.title}`}
+                                                        title={`Download ${doc.title}`}
+                                                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-white transition-all"
+                                                    >
                                                         <Download className="w-4 h-4" />
                                                     </a>
                                                     <Button
@@ -1260,8 +1421,8 @@ const TeamTab: React.FC = () => {
                                                                 await api.deleteStaffDocument(token, doc.id);
                                                                 toast.success("Document deleted");
                                                                 fetchDocuments(selectedMember.id);
-                                                            } catch (err: any) {
-                                                                toast.error(err.message || "Failed to delete document");
+                                                            } catch (err: unknown) {
+                                                                toast.error(getErrorMessage(err, "Failed to delete document"));
                                                             }
                                                         }}
                                                     >
@@ -1342,7 +1503,7 @@ const TeamTab: React.FC = () => {
     const InviteStaffModal = () => {
         const [inviteMethod, setInviteMethod] = useState<"email" | "whatsapp">("email");
         const [isBulkMode, setIsBulkMode] = useState(false);
-        const [bulkData, setBulkData] = useState<any[]>([]);
+        const [bulkData, setBulkData] = useState<BulkInviteRow[]>([]);
         const [formData, setFormData] = useState({
             email: "",
             first_name: "",
@@ -1351,6 +1512,71 @@ const TeamTab: React.FC = () => {
             phone_number: "",
         });
 
+        const splitDelimitedRow = (row: string, delimiter: string) => {
+            const out: string[] = [];
+            let cur = "";
+            let inQuotes = false;
+            for (let i = 0; i < row.length; i++) {
+                const ch = row[i];
+                if (ch === '"') {
+                    // handle escaped quotes ""
+                    const next = row[i + 1];
+                    if (inQuotes && next === '"') {
+                        cur += '"';
+                        i++;
+                        continue;
+                    }
+                    inQuotes = !inQuotes;
+                    continue;
+                }
+                if (ch === delimiter && !inQuotes) {
+                    out.push(cur.trim());
+                    cur = "";
+                    continue;
+                }
+                cur += ch;
+            }
+            out.push(cur.trim());
+            return out;
+        };
+
+        const detectDelimiter = (headerLine: string) => {
+            const commaCount = (headerLine.match(/,/g) || []).length;
+            const semiCount = (headerLine.match(/;/g) || []).length;
+            const tabCount = (headerLine.match(/\t/g) || []).length;
+            if (tabCount > commaCount && tabCount > semiCount) return "\t";
+            if (semiCount > commaCount) return ";";
+            return ",";
+        };
+
+        const parseStaffCsvText = (text: string, method: "email" | "whatsapp") => {
+            const rawLines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+            const lines = rawLines.map(l => l.trim()).filter(Boolean);
+
+            // Excel directive line support: "sep=,"
+            const dataLines = (lines[0] || "").toLowerCase().startsWith("sep=") ? lines.slice(1) : lines;
+            if (dataLines.length < 2) return [];
+
+            const delimiter = detectDelimiter(dataLines[0]);
+            const parsed = dataLines.slice(1).map((line) => {
+                const values = splitDelimitedRow(line, delimiter).map(v => v.trim());
+                if (values.length < 4) return null;
+                const base: BulkInviteRow = {
+                    first_name: values[0] || "",
+                    last_name: values[1] || "",
+                    role: values[2] || "",
+                };
+                if (method === "email") {
+                    base.email = values[3] || "";
+                } else {
+                    base.phone_number = values[3] || "";
+                }
+                return base;
+            }).filter(Boolean);
+
+            return parsed as BulkInviteRow[];
+        };
+
         const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
             const file = e.target.files?.[0];
             if (!file) return;
@@ -1358,19 +1584,7 @@ const TeamTab: React.FC = () => {
             const reader = new FileReader();
             reader.onload = (event) => {
                 const text = event.target?.result as string;
-                const lines = text.split("\n");
-                const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-
-                const parsed = lines.slice(1).map(line => {
-                    const values = line.split(",").map(v => v.trim());
-                    if (values.length < 4) return null;
-                    return {
-                        first_name: values[0],
-                        last_name: values[1],
-                        role: values[2],
-                        contact: values[3]
-                    };
-                }).filter(Boolean);
+                const parsed = parseStaffCsvText(text, inviteMethod);
 
                 if (parsed.length === 0) {
                     toast.error("No valid data found in CSV. Please check the format.");
@@ -1383,7 +1597,15 @@ const TeamTab: React.FC = () => {
         };
 
         const downloadTemplate = () => {
-            const content = "First Name,Last Name,Role,Email or WhatsApp\nJohn,Doe,CHEF,john@example.com\nJane,Smith,WAITER,+212600000000";
+            // "sep=," ensures Excel splits into columns even on locales that default to ';'
+            const lastCol = inviteMethod === "email" ? "Email Address" : "WhatsApp Number";
+            const sample1 = inviteMethod === "email" ? "john@example.com" : "212600000000";
+            const sample2 = inviteMethod === "email" ? "jane@example.com" : "212700000000";
+            const content =
+                "sep=,\n" +
+                `First Name,Last Name,Role,${lastCol}\n` +
+                `John,Doe,CHEF,${sample1}\n` +
+                `Jane,Smith,WAITER,${sample2}\n`;
             const blob = new Blob([content], { type: "text/csv" });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -1413,12 +1635,17 @@ const TeamTab: React.FC = () => {
                             invitation_method: inviteMethod
                         }),
                     });
-                    if (!response.ok) throw new Error("Failed to send bulk invitations");
-                    toast.success(`Invitations sent to ${bulkData.length} staff members successfully`);
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok) throw new Error(data.error || data.detail || "Failed to send bulk invitations");
+                    toast.success(
+                        inviteMethod === "email"
+                            ? `Emails sent for ${data.created ?? bulkData.length} staff members`
+                            : `WhatsApp invites scheduled for ${data.created ?? bulkData.length} staff members`
+                    );
                     setIsInviteModalOpen(false);
                     refetch();
-                } catch (err: any) {
-                    toast.error(err.message || "Failed to send bulk invitations");
+                } catch (err: unknown) {
+                    toast.error(getErrorMessage(err, "Failed to send bulk invitations"));
                 }
                 return;
             }
@@ -1452,8 +1679,8 @@ const TeamTab: React.FC = () => {
                 toast.success(`Invitation sent successfully via ${inviteMethod === "email" ? "Email" : "WhatsApp"}`);
                 setIsInviteModalOpen(false);
                 refetch();
-            } catch (err: any) {
-                toast.error(err.message || "Failed to send invitation");
+            } catch (err: unknown) {
+                toast.error(getErrorMessage(err, "Failed to send invitation"));
             }
         };
 
@@ -1477,7 +1704,11 @@ const TeamTab: React.FC = () => {
                                     Individual
                                 </button>
                                 <button
-                                    onClick={() => setIsBulkMode(true)}
+                                    onClick={() => {
+                                        setIsBulkMode(true);
+                                        // Keep current method, but bulk supports both email and WhatsApp.
+                                        // If the user changes method, they should download the matching template.
+                                    }}
                                     className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${isBulkMode
                                         ? "bg-white dark:bg-slate-700 text-emerald-600 shadow-sm"
                                         : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
@@ -1491,7 +1722,13 @@ const TeamTab: React.FC = () => {
                         {/* Invitation Method Selector */}
                         <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
                             <button
-                                onClick={() => setInviteMethod("email")}
+                                onClick={() => {
+                                    setInviteMethod("email");
+                                    if (isBulkMode) {
+                                        setBulkData([]);
+                                        toast.message("Switched to Email bulk invite. Please upload an Email CSV.");
+                                    }
+                                }}
                                 className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${inviteMethod === "email"
                                     ? "bg-white dark:bg-slate-700 text-emerald-600 shadow-sm"
                                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
@@ -1501,7 +1738,13 @@ const TeamTab: React.FC = () => {
                                 Email
                             </button>
                             <button
-                                onClick={() => setInviteMethod("whatsapp")}
+                                onClick={() => {
+                                    setInviteMethod("whatsapp");
+                                    if (isBulkMode) {
+                                        setBulkData([]);
+                                        toast.message("Switched to WhatsApp bulk invite. Please upload a WhatsApp CSV.");
+                                    }
+                                }}
                                 className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${inviteMethod === "whatsapp"
                                     ? "bg-white dark:bg-slate-700 text-emerald-600 shadow-sm"
                                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
@@ -1582,7 +1825,9 @@ const TeamTab: React.FC = () => {
                                 <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center bg-slate-50/50 dark:bg-slate-800/50">
                                     <Upload className="w-10 h-9 text-slate-400 mx-auto mb-4" />
                                     <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">Upload CSV File</h3>
-                                    <p className="text-xs text-slate-500 mb-4">Columns: First Name, Last Name, Role, Email or WhatsApp Number</p>
+                                    <p className="text-xs text-slate-500 mb-4">
+                                        Columns: First Name, Last Name, Role, {inviteMethod === "email" ? "Email Address" : "WhatsApp Number"}
+                                    </p>
                                     <Input
                                         type="file"
                                         accept=".csv"
@@ -1612,7 +1857,11 @@ const TeamTab: React.FC = () => {
 
                                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
                                     <p className="text-[11px] text-amber-800 dark:text-amber-400">
-                                        <strong>Tip:</strong> WhatsApp numbers should NOT include country code (e.g., 212 for Morocco). Roles must match standard restaurant labels (Manager, Chef, Waiter, etc.).
+                                        <strong>Tip:</strong>{" "}
+                                        {inviteMethod === "email"
+                                            ? "Use valid email addresses. Roles should match the role codes (MANAGER, CHEF, WAITER, etc.)."
+                                            : <>Use WhatsApp numbers in international format (digits only), e.g. <code>2126XXXXXXXX</code> for Morocco. Roles should match the role codes (MANAGER, CHEF, WAITER, etc.).</>
+                                        }
                                     </p>
                                 </div>
                             </div>
@@ -1885,7 +2134,7 @@ const TeamTab: React.FC = () => {
 // Attendance Tab Component
 const AttendanceTab: React.FC = () => {
     const { logout } = useAuth() as AuthContextType;
-    const { data: dashboardData, isLoading, refetch } = useQuery<any>({
+    const { data: dashboardData, isLoading, refetch } = useQuery<AttendanceDashboardData>({
         queryKey: ["attendance-dashboard"],
         queryFn: async () => {
             const response = await fetch(`${API_BASE}/dashboard/analytics/attendance_dashboard/`, {
@@ -1902,15 +2151,15 @@ const AttendanceTab: React.FC = () => {
         refetchInterval: 30000,
     });
 
-    const summary = dashboardData?.summary || {
+    const summary: AttendanceDashboardSummary = dashboardData?.summary || {
         present: { count: 0, percentage: 0, total: 0 }, // added total to avoid NaN
         late: { count: 0, avg_minutes: 0 },
         absent: { count: 0, reason: '' },
         on_leave: { count: 0, subtitle: '' }
     };
 
-    const attendanceList = dashboardData?.attendance_list || [];
-    const recentActivity = dashboardData?.recent_activity || [];
+    const attendanceList: AttendanceListItem[] = dashboardData?.attendance_list || [];
+    const recentActivity: AttendanceActivityEvent[] = dashboardData?.recent_activity || [];
 
     // Helper for timeline width calculation (08:00 to 22:00 window = 14 hours)
     const getTimelinePosition = (timeStr: string | null) => {
@@ -2041,7 +2290,7 @@ const AttendanceTab: React.FC = () => {
                         <div className="absolute top-6 left-0 w-full h-px bg-slate-100 dark:bg-slate-800"></div>
 
                         {/* Dots */}
-                        {attendanceList.map((item: any) => {
+                        {attendanceList.map((item) => {
                             if (!item.clock_in && item.status !== 'absent') return null;
 
                             let colorClass = "bg-slate-300";
@@ -2103,7 +2352,7 @@ const AttendanceTab: React.FC = () => {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    attendanceList.map((item: any) => (
+                                    attendanceList.map((item) => (
                                         <TableRow key={item.staff.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors border-slate-100 dark:border-slate-800">
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
@@ -2157,7 +2406,7 @@ const AttendanceTab: React.FC = () => {
                                                         Absent
                                                     </Badge>
                                                 )}
-                                                {(item.status === 'present' || item.status === 'scheduled') && item.status !== 'on_time' && (
+                                                {(item.status === 'present' || item.status === 'scheduled') && (
                                                     <Badge variant="outline" className="text-slate-500 border-slate-300">
                                                         {item.status === 'scheduled' ? 'Scheduled' : 'Present'}
                                                     </Badge>
@@ -2184,7 +2433,7 @@ const AttendanceTab: React.FC = () => {
                                     <p className="text-slate-400 text-sm">No events recorded yet.</p>
                                 </div>
                             ) : (
-                                recentActivity.map((event: any, i: number) => (
+                                recentActivity.map((event, i: number) => (
                                     <div key={event.id} className="relative pl-6 pb-6 last:pb-0 border-l border-slate-100 dark:border-slate-800">
                                         <div className={cn(
                                             "absolute -left-1.5 top-0 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900",
@@ -2216,7 +2465,7 @@ const TasksTab: React.FC = () => {
     const [page, setPage] = useState(1);
     const { logout } = useAuth() as AuthContextType;
 
-    const { data: paginatedData, isLoading } = useQuery<PaginatedResponse<any>>({
+    const { data: paginatedData, isLoading } = useQuery<PaginatedResponse<ManagerTask>>({
         queryKey: ["manager-tasks", page],
         queryFn: async () => {
             const response = await fetch(`${API_BASE}/scheduling/tasks/?page=${page}`, {
@@ -2232,7 +2481,7 @@ const TasksTab: React.FC = () => {
         },
     });
 
-    const tasks = Array.isArray(paginatedData) ? paginatedData : (paginatedData?.results || []);
+    const tasks: ManagerTask[] = Array.isArray(paginatedData) ? paginatedData : (paginatedData?.results || []);
 
     const stats = {
         total: tasks?.length || 0,
@@ -2356,7 +2605,7 @@ const TasksTab: React.FC = () => {
 const InsightsTab: React.FC = () => {
     const { logout } = useAuth() as AuthContextType;
 
-    const { data: insightsData, isLoading } = useQuery({
+    const { data: insightsData, isLoading } = useQuery<StaffInsightsData>({
         queryKey: ["staff-insights"],
         queryFn: async () => {
             const response = await fetch(`${API_BASE}/dashboard/analytics/staff_insights/`, {
@@ -2465,7 +2714,7 @@ const InsightsTab: React.FC = () => {
                                     <p className="text-slate-500 text-sm italic">No task data available for this week</p>
                                 </div>
                             ) : (
-                                star_performers.map((p: any, i: number) => (
+                                star_performers.map((p, i: number) => (
                                     <div key={i} className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
                                             <div className={cn(
@@ -2537,7 +2786,7 @@ const InsightsTab: React.FC = () => {
                             {signals.length === 0 ? (
                                 <p className="text-xs text-slate-500 italic py-4">No signals detected this week</p>
                             ) : (
-                                signals.map((sig: any, idx: number) => (
+                                signals.map((sig, idx: number) => (
                                     <div key={idx} className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
                                         <div className={cn("w-2 h-2 rounded-full", sig.color === 'emerald' ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]")} />
                                         <p className="text-xs text-slate-600 dark:text-slate-300" dangerouslySetInnerHTML={{ __html: sig.text }} />
@@ -2565,7 +2814,7 @@ const InsightsTab: React.FC = () => {
                             </p>
                         </div>
                     ) : (
-                        alerts.map((alert: any, i: number) => (
+                        alerts.map((alert, i: number) => (
                             <Card key={i} className={cn(
                                 "overflow-hidden group",
                                 alert.level === 'Critical' ? "border-red-100 dark:border-red-900/30 bg-red-50/30 dark:bg-red-950/10" : "border-amber-100 dark:border-amber-900/30 bg-amber-50/30 dark:bg-amber-950/10"

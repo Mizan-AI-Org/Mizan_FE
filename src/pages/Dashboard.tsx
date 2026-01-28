@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../hooks/use-auth";
@@ -16,7 +16,7 @@ import {
   AlertCircle,
   Clock,
   TrendingUp,
-  Package,
+  ChevronRight,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { Badge } from "@/components/ui/badge";
@@ -92,21 +92,36 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user, hasRole } = useAuth() as AuthContextType;
   const { t } = useLanguage();
+  const [showAllInsights, setShowAllInsights] = useState(false);
 
   const { data: summary, isLoading } = useQuery({
     queryKey: ["dashboard-summary"],
     queryFn: () => api.getDashboardSummary(),
+    // Near real-time refresh for operational insights
+    refetchInterval: 10000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: false,
   });
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
+    if (hour < 12) return t("dashboard.greeting.morning");
+    if (hour < 17) return t("dashboard.greeting.afternoon");
+    return t("dashboard.greeting.evening");
   }, []);
 
+  const cardBase =
+    "border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all duration-300 rounded-2xl";
+  const cardHeaderBase = "flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6";
+
+  const insights = (summary?.insights?.items || []) as any[];
+  const insightsVisible = showAllInsights ? insights.slice(0, 5) : insights.slice(0, 3);
+  const criticalCount = Number(summary?.insights?.counts?.CRITICAL || 0);
+  const operationalCount = Number(summary?.insights?.counts?.OPERATIONAL || 0);
+  const attentionNow = criticalCount + operationalCount;
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0f1419] p-4 md:p-6 lg:p-8 font-sans antialiased text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0f1419] p-4 md:p-6 lg:p-7 pb-28 font-sans antialiased text-slate-900 dark:text-slate-100 transition-colors duration-300">
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* Header Section */}
@@ -117,204 +132,378 @@ export default function Dashboard() {
             </h1>
             <LiveDateTime showTime={false} />
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1 italic">
-            What needs your attention today?
+          <p className="text-slate-600 dark:text-slate-400 text-sm font-medium mt-1">
+            {isLoading
+              ? t("dashboard.status.updating")
+              : attentionNow > 0
+                ? t("dashboard.status.attention_now")
+                : t("dashboard.status.all_clear")}
           </p>
         </header>
 
-        {/* Top Row: 3 Cards */}
+        {/* Attention Now */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* MIZAN AI INSIGHTS (Primary) */}
+          <Card className={`${cardBase} lg:col-span-2 relative overflow-hidden`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent pointer-events-none"></div>
+            <CardHeader className="pb-2 px-6 pt-6">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div className="leading-tight">
+                    <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                      {t("dashboard.insights.title")}
+                    </CardTitle>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                      {t("dashboard.insights.subtitle")}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={`border-none text-[10px] font-bold h-5 px-2 ${
+                      attentionNow > 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"
+                    }`}
+                  >
+                    {isLoading ? "…" : attentionNow} {t("dashboard.insights.need_attention")}
+                  </Badge>
+                  {insights.length > 3 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllInsights((v) => !v)}
+                      className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
+                    >
+                      {showAllInsights ? t("common.show_less") : t("common.show_more")}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-3 px-6 pb-6 pt-3">
+              {isLoading ? (
+                <div className="text-sm text-slate-400">{t("dashboard.insights.loading")}</div>
+              ) : insightsVisible.length > 0 ? (
+                <div className="space-y-2">
+                  {insightsVisible.map((it, idx) => {
+                    const level = String(it.level || "").toUpperCase();
+                    const dot =
+                      level === "CRITICAL"
+                        ? "bg-red-500"
+                        : level === "OPERATIONAL"
+                          ? "bg-amber-500"
+                          : level === "PERFORMANCE"
+                            ? "bg-blue-500"
+                            : "bg-emerald-500";
+
+                    const onClick = it.action_url ? () => navigate(String(it.action_url)) : undefined;
+
+                    return (
+                      onClick ? (
+                        <button
+                          key={it.id || idx}
+                          type="button"
+                          onClick={onClick}
+                          className="group w-full text-left rounded-xl px-3 py-2 -mx-3 transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`w-2 h-2 rounded-full shrink-0 mt-2 ${dot}`}></div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="text-sm text-slate-900 dark:text-white leading-tight font-semibold truncate">
+                                  {it.summary || t("dashboard.insights.item_fallback")}
+                                </div>
+                                <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 shrink-0 mt-0.5" />
+                              </div>
+                              {it.recommended_action && (
+                                <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug line-clamp-2 mt-0.5">
+                                  {t("dashboard.insights.next")}: {it.recommended_action}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      ) : (
+                        <div key={it.id || idx} className="rounded-xl px-3 py-2 -mx-3">
+                          <div className="flex items-start gap-3">
+                            <div className={`w-2 h-2 rounded-full shrink-0 mt-2 ${dot}`}></div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm text-slate-900 dark:text-white leading-tight font-semibold truncate">
+                                {it.summary || t("dashboard.insights.item_fallback")}
+                              </div>
+                              {it.recommended_action && (
+                                <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug line-clamp-2 mt-0.5">
+                                  {t("dashboard.insights.next")}: {it.recommended_action}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></div>
+                  <span className="text-sm text-slate-800 dark:text-white leading-tight font-medium">
+                    {t("dashboard.insights.none")}
+                  </span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Staffing & Coverage */}
-          <Card className="border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all duration-300 rounded-2xl">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6">
+          <Card className={cardBase}>
+            <CardHeader className={cardHeaderBase}>
               <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                Staffing & Coverage
+                {t("dashboard.staffing.title")}
               </CardTitle>
               <Users className="w-4 h-4 text-slate-300 dark:text-slate-600" />
             </CardHeader>
             <CardContent className="space-y-4 pt-2 pb-6 px-6">
-              <div className="flex items-start gap-3">
-                <AlertCircle className={`w-4 h-4 mt-0.5 shrink-0 ${summary?.attendance?.no_shows > 0 ? "text-red-500" : "text-slate-300"}`} />
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.attendance?.no_shows || 0} no-shows</span> for morning shift
-                </p>
+              <div className="flex items-baseline justify-between">
+                <div>
+                  <div className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                    {isLoading ? "…" : summary?.attendance?.shift_gaps || 0}
+                  </div>
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    {t("dashboard.staffing.uncovered")}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                    {isLoading ? "…" : summary?.attendance?.no_shows || 0}
+                  </div>
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    {t("dashboard.staffing.morning_no_shows")}
+                  </div>
+                </div>
               </div>
-              <div className="flex items-start gap-3">
-                <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  Shifts Needing Coverage: <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.attendance?.shift_gaps || 0}</span>
-                </p>
-              </div>
-              <div className="flex items-start gap-3">
-                <Users className="w-4 h-4 text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  OT Risk: <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.attendance?.ot_risk || 0} staff</span>
-                </p>
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Operations & Forecast */}
-          <Card className="border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all duration-300 rounded-2xl">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6">
-              <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                Operations & Forecast
-              </CardTitle>
-              <Calendar className="w-4 h-4 text-slate-300 dark:text-slate-600" />
-            </CardHeader>
-            <CardContent className="space-y-4 pt-2 pb-6 px-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <FileText className={`w-4 h-4 ${summary?.operations?.negative_reviews > 0 ? "text-red-500" : "text-emerald-500"}`} />
-                  <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                    <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.operations?.negative_reviews || 0} negative reviews</span> today
+              <div className="space-y-3 pt-1">
+                <div className="flex items-start gap-3">
+                  <AlertCircle
+                    className={`w-4 h-4 mt-0.5 shrink-0 ${
+                      (summary?.attendance?.no_shows || 0) > 0 ? "text-red-500" : "text-slate-300 dark:text-slate-600"
+                    }`}
+                  />
+                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {isLoading ? "…" : summary?.attendance?.no_shows || 0}
+                    </span>{" "}
+                    {t("dashboard.staffing.no_shows_morning")}
                   </p>
                 </div>
-                <Badge variant="outline" className="text-slate-300 dark:text-slate-500 border-none text-[10px] font-medium h-4 px-0">{isLoading ? "..." : summary?.operations?.avg_rating || 0} AVG</Badge>
-              </div>
-              <div className="flex items-center gap-3">
-                <TrendingUp className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  Completion: <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.operations?.completion_rate || 0}%</span> Tasks
-                </p>
-              </div>
-              <div className="flex items-center gap-3 font-medium">
-                <Package className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                <p className="text-sm text-slate-600 dark:text-slate-300">
-                  Delivery: <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.operations?.next_delivery?.supplier || "None"}</span>
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Staff Wellbeing */}
-          <Card className="border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all duration-300 rounded-2xl">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6">
-              <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                Staff Wellbeing
-              </CardTitle>
-              <Heart className="w-4 h-4 text-slate-300 dark:text-slate-600" />
-            </CardHeader>
-            <CardContent className="space-y-4 pt-2 pb-6 px-6">
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl">
-                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium truncate">
-                  {isLoading ? "Calculating risk..." : summary?.wellbeing?.risk_staff?.length > 0 ? `${summary.wellbeing.risk_staff[0].name} at risk` : "No fatigue risks detected"}
-                </p>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                  <p className="text-sm font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.wellbeing?.swap_requests || 0} swap requests</p>
+                <div className="flex items-start gap-3">
+                  <Clock className="w-4 h-4 text-slate-300 dark:text-slate-600 mt-0.5 shrink-0" />
+                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {isLoading ? "…" : summary?.attendance?.shift_gaps || 0}
+                    </span>{" "}
+                    {t("dashboard.staffing.need_coverage")}
+                  </p>
                 </div>
-                {summary?.wellbeing?.swap_requests > 0 && <span className="text-[10px] text-slate-300 dark:text-slate-500 tracking-widest uppercase">NEW</span>}
-              </div>
-              <div className="flex items-center gap-3 font-medium">
-                <Users className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                <p className="text-sm text-slate-600 dark:text-slate-300">
-                  <span className="font-medium text-slate-800 dark:text-white">{isLoading ? "..." : summary?.wellbeing?.new_hires || 0} new hires</span> this week
-                </p>
+                <div className="flex items-start gap-3">
+                  <TrendingUp
+                    className={`w-4 h-4 mt-0.5 shrink-0 ${
+                      (summary?.attendance?.ot_risk || 0) > 0 ? "text-amber-500" : "text-slate-300 dark:text-slate-600"
+                    }`}
+                  />
+                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {isLoading ? "…" : summary?.attendance?.ot_risk || 0}
+                    </span>{" "}
+                    {t("dashboard.staffing.ot_risk")}
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Second Row: 2 Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* MIZAN AI INSIGHTS */}
-          <Card className="border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all duration-300 rounded-2xl">
-            <CardHeader className="pb-2 px-6 pt-6">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-emerald-500" />
-                <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                  Mizan AI Insights
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4 px-6 pb-6 pt-2">
-              {isLoading ? (
-                <div className="text-sm text-slate-400">Analyzing data...</div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${summary?.insights?.understaffing_risk ? "bg-red-400" : "bg-emerald-400"}`}></div>
-                    <span className="text-sm text-slate-800 dark:text-white leading-tight">
-                      {summary?.insights?.understaffing_risk ? "Understaffing risk tonight" : "Staffing levels healthy"}
-                    </span>
-                  </div>
-                  {summary?.insights?.low_stock?.map((item: any, i: number) => (
-                    <div key={i} className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                      <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0"></div>
-                      <span className="text-sm text-slate-800 dark:text-white leading-tight">Low Stock: {item.name} ({item.current_stock}{item.unit})</span>
-                    </div>
-                  ))}
-                  {!summary?.insights?.low_stock?.length && (
-                    <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                      <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></div>
-                      <span className="text-sm text-slate-800 dark:text-white leading-tight">All stock levels normal</span>
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-
+        {/* Today at a glance */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Tasks Due Today */}
-          <Card className="border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all duration-300 rounded-2xl">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 px-6 pt-6">
+          <Card className={cardBase}>
+            <CardHeader className={cardHeaderBase}>
               <div className="flex items-center gap-2">
                 <ClipboardCheck className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                 <CardTitle className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                  Tasks Due Today
+                  {t("dashboard.tasks.title")}
                 </CardTitle>
               </div>
               <Badge variant="outline" className="text-slate-500 border-none px-0 text-[10px] font-bold h-4">{isLoading ? "..." : summary?.tasks_due?.length || 0} TODAY</Badge>
             </CardHeader>
             <CardContent className="space-y-4 px-6 pb-6 pt-2">
               {isLoading ? (
-                <div className="text-sm text-slate-400">Loading tasks...</div>
+                <div className="text-sm text-slate-400">{t("dashboard.tasks.loading")}</div>
               ) : summary?.tasks_due?.length > 0 ? (
-                summary.tasks_due.map((task: any, i: number) => (
+                summary.tasks_due.slice(0, 4).map((task: any, i: number) => (
                   <div key={i} className="flex items-center justify-between group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 p-1 -mx-1 rounded-lg transition-colors">
                     <span className="text-sm text-slate-700 dark:text-slate-300 truncate pr-4">{task.label}</span>
                     <span className={`text-[10px] whitespace-nowrap tracking-wider ${task.status === "OVERDUE" ? "text-red-500 font-bold" : "text-slate-500 dark:text-slate-400 font-medium"}`}>{task.status}</span>
                   </div>
                 ))
               ) : (
-                <div className="text-sm text-slate-500 py-2 text-center">No tasks assigned for today.</div>
+                <div className="text-sm text-slate-500 py-2 text-center">{t("dashboard.tasks.none")}</div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Operations */}
+          <Card className={cardBase}>
+            <CardHeader className={cardHeaderBase}>
+              <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                {t("dashboard.operations.title")}
+              </CardTitle>
+              <Calendar className="w-4 h-4 text-slate-300 dark:text-slate-600" />
+            </CardHeader>
+            <CardContent className="space-y-4 pt-2 pb-6 px-6">
+              <div className="flex items-baseline justify-between">
+                <div>
+                  <div className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                    {isLoading ? "…" : summary?.operations?.completion_rate || 0}%
+                  </div>
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    {t("dashboard.operations.completion_today")}
+                  </div>
+                </div>
+                <Badge
+                  variant="outline"
+                  className="border-none text-[10px] font-bold h-5 px-2 text-slate-600 dark:text-slate-300"
+                >
+                  {isLoading ? "…" : summary?.operations?.avg_rating || 0} AVG
+                </Badge>
+              </div>
+
+              <div className="space-y-3 pt-1">
+                <div className="flex items-start gap-3">
+                  <FileText
+                    className={`w-4 h-4 mt-0.5 shrink-0 ${
+                      (summary?.operations?.negative_reviews || 0) > 0 ? "text-red-500" : "text-slate-300 dark:text-slate-600"
+                    }`}
+                  />
+                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {isLoading ? "…" : summary?.operations?.negative_reviews || 0}
+                    </span>{" "}
+                    {t("dashboard.operations.negative_reviews_24h")}
+                  </p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <TrendingUp className="w-4 h-4 text-slate-300 dark:text-slate-600 mt-0.5 shrink-0" />
+                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                    {t("dashboard.operations.avg_rating")}{" "}
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {isLoading ? "…" : summary?.operations?.avg_rating || 0}
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Staff Wellbeing */}
+          <Card className={cardBase}>
+            <CardHeader className={cardHeaderBase}>
+              <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                {t("dashboard.wellbeing.title")}
+              </CardTitle>
+              <Heart className="w-4 h-4 text-slate-300 dark:text-slate-600" />
+            </CardHeader>
+            <CardContent className="space-y-4 pt-2 pb-6 px-6">
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
+                <p className="text-sm text-slate-700 dark:text-slate-300 font-semibold truncate">
+                  {isLoading
+                    ? t("dashboard.wellbeing.loading")
+                    : summary?.wellbeing?.risk_staff?.length > 0
+                      ? `${summary.wellbeing.risk_staff[0].name} ${t("dashboard.wellbeing.flagged")}`
+                      : t("dashboard.wellbeing.none")}
+                </p>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">
+                  {t("dashboard.wellbeing.based_on")}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-4 h-4 text-slate-300 dark:text-slate-600" />
+                    <p className="text-sm text-slate-700 dark:text-slate-300">
+                      <span className="font-semibold text-slate-900 dark:text-white">{isLoading ? "…" : summary?.wellbeing?.swap_requests || 0}</span>{" "}
+                      {t("dashboard.wellbeing.swap_requests")}
+                    </p>
+                  </div>
+                  {(summary?.wellbeing?.swap_requests || 0) > 0 && (
+                    <Badge variant="outline" className="border-none text-[10px] font-bold h-5 px-2 text-amber-600 dark:text-amber-400">
+                      NEW
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-start gap-3">
+                  <Users className="w-4 h-4 text-slate-300 dark:text-slate-600 mt-0.5 shrink-0" />
+                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                    <span className="font-semibold text-slate-900 dark:text-white">{isLoading ? "…" : summary?.wellbeing?.new_hires || 0}</span>{" "}
+                    {t("dashboard.wellbeing.new_hires_7d")}
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Enhanced Apps Gallery - Theme Responsive */}
-        <section className="pt-4 md:pt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-          {apps
-            .filter((app) => !app.roles || hasRole(app.roles))
-            .map((app) => (
-              <div
-                key={app.name}
-                onClick={() => navigate(app.href)}
-                className="bg-white dark:bg-slate-900 px-5 py-4 rounded-[2rem] shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer group flex flex-col items-center text-center gap-4 relative overflow-hidden border border-slate-50 dark:border-slate-800"
-              >
-                <div className={`absolute inset-0 opacity-0 group-hover:opacity-[0.05] transition-opacity ${app.gradient}`}></div>
+      </div>
 
-                <div className={`w-14 h-14 rounded-[1.5rem] ${app.gradient} flex items-center justify-center shrink-0 group-hover:rotate-12 transition-transform duration-500 shadow-lg shadow-black/10`}>
-                  <app.icon className="w-7 h-7 text-white" />
-                </div>
-                <div className="space-y-1.5">
-                  <div className="flex flex-col items-center">
-                    <h3 className="text-sm md:text-base font-semibold text-slate-900 dark:text-slate-50 tracking-tight leading-snug">
-                      {app.nameKey ? t(app.nameKey) : app.name}
-                    </h3>
-                    <p className="text-[11px] md:text-xs text-slate-600 dark:text-slate-400 font-medium mt-1 leading-snug">
-                      {app.descKey ? t(app.descKey) : app.description}
-                    </p>
-                  </div>
-                </div>
+      {/* Quick Actions Dock (fixed, always visible) */}
+      <div className="fixed bottom-4 left-4 right-4 z-30">
+        <div className="max-w-7xl mx-auto">
+          <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-white/85 dark:bg-slate-900/70 backdrop-blur shadow-lg">
+            <div className="flex items-center justify-between px-4 pt-3 pb-2">
+              <div className="text-xs font-bold tracking-tight text-slate-900 dark:text-white">
+                  {t("dashboard.quick_actions.title")}
               </div>
-            ))}
-        </section>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden md:block">
+                  {t("dashboard.quick_actions.subtitle")}
+              </div>
+            </div>
 
+            <div className="px-3 pb-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pr-24 md:pr-28">
+                {apps
+                  .filter((app) => !app.roles || hasRole(app.roles))
+                  .map((app) => (
+                    <button
+                      key={app.name}
+                      type="button"
+                      onClick={() => navigate(app.href)}
+                      className="group flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors shadow-sm"
+                    >
+                      <div
+                        className={`w-11 h-11 rounded-2xl ${app.gradient} flex items-center justify-center shrink-0 shadow-sm shadow-black/10`}
+                      >
+                        <app.icon className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="min-w-0 text-left leading-tight">
+                        <div className="text-sm font-semibold text-slate-900 dark:text-white tracking-tight truncate">
+                          {app.nameKey ? t(app.nameKey) : app.name}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium line-clamp-1">
+                          {app.descKey ? t(app.descKey) : app.description}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          </div>
+          <div className="h-2"></div>
+        </div>
       </div>
     </div>
   );

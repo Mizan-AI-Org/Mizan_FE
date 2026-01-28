@@ -17,6 +17,7 @@ const ProfileSettings: React.FC = () => {
     const [lastName, setLastName] = useState(user?.last_name || "");
     const [email, setEmail] = useState(user?.email || "");
     const [phone, setPhone] = useState(user?.phone || "");
+    const [preferredLanguage, setPreferredLanguage] = useState<string>((user as any)?.preferred_language || "");
     const [emergencyContactName, setEmergencyContactName] = useState(user?.profile?.emergency_contact_name || "");
     const [emergencyContactPhone, setEmergencyContactPhone] = useState(user?.profile?.emergency_contact_phone || "");
     const [isLoading, setIsLoading] = useState(false);
@@ -31,6 +32,7 @@ const ProfileSettings: React.FC = () => {
             setLastName(user.last_name || "");
             setEmail(user.email || "");
             setPhone(user.phone || "");
+            setPreferredLanguage((user as any)?.preferred_language || "");
             setEmergencyContactName(user.profile?.emergency_contact_name || "");
             setEmergencyContactPhone(user.profile?.emergency_contact_phone || "");
         }
@@ -64,6 +66,8 @@ const ProfileSettings: React.FC = () => {
                     first_name: firstName,
                     last_name: lastName,
                     phone: phone,
+                    // Staff/user-level language override for notifications + Miya
+                    preferred_language: preferredLanguage || null,
                     ...(newPassword ? {
                         current_password: currentPassword,
                         new_password: newPassword,
@@ -206,6 +210,26 @@ const ProfileSettings: React.FC = () => {
                             {user?.role?.replace(/_/g, " ") || "N/A"}
                         </span>
                     </div>
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="preferredLanguage" className="text-sm font-medium text-slate-700">
+                        Preferred Language
+                    </Label>
+                    <select
+                        id="preferredLanguage"
+                        value={preferredLanguage || ""}
+                        onChange={(e) => setPreferredLanguage(e.target.value)}
+                        className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                    >
+                        <option value="">Use restaurant default</option>
+                        <option value="en">English</option>
+                        <option value="fr">Français</option>
+                        <option value="ar">العربية</option>
+                    </select>
+                    <p className="text-xs text-slate-500">
+                        Used for staff notifications and Miya responses. If not set, the restaurant language is used.
+                    </p>
                 </div>
             </div>
 

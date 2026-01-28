@@ -3,15 +3,15 @@ import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import HttpBackend from 'i18next-http-backend';
 
-// Supported languages and mapping
-export const supportedLanguages = ['en', 'fr', 'ma', 'ar'] as const;
+// Supported languages
+export const supportedLanguages = ['en', 'fr', 'ar'] as const;
 export type SupportedLanguage = typeof supportedLanguages[number];
 
 // Helper to update document direction and lang
 export const applyLanguageAttributes = (lng: SupportedLanguage) => {
-  const isRTL = lng === 'ma' || lng === 'ar';
+  const isRTL = lng === 'ar';
   document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
-  document.documentElement.lang = lng === 'ma' ? 'ar-MA' : (lng === 'ar' ? 'ar' : lng);
+  document.documentElement.lang = lng;
 };
 
 // Initialize i18n with lazy-loaded resources
