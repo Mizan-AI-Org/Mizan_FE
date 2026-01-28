@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, API_BASE } from "@/lib/api";
+import { api, API_BASE, toAbsoluteUrl } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,7 +65,7 @@ const ManagerReviewDashboard: React.FC = () => {
   const { data: submitted, isLoading } = useQuery<SubmittedChecklist[]>({
     queryKey: ["manager-submitted-checklists", filterDate, filterSubmitter, filterType],
     queryFn: async () => {
-      const url = new URL(`${API_BASE}/checklists/executions/submitted/`);
+      const url = toAbsoluteUrl(`${API_BASE}/checklists/executions/submitted/`);
       if (filterDate) url.searchParams.set("date", filterDate);
       if (filterSubmitter) url.searchParams.set("submitted_by", filterSubmitter);
       if (filterType) url.searchParams.set("type", filterType);
@@ -91,7 +91,7 @@ const ManagerReviewDashboard: React.FC = () => {
       try { logInfo({ feature: 'manager-review', action: 'fetch-submitted-ok' }, `Loaded ${(Array.isArray(data) ? data.length : (data?.results?.length || 0))} rows`); } catch { /* ignore */ }
       let arr: any[] = Array.isArray(data) ? data : (data.results || []);
       if (!arr || arr.length === 0) {
-        const fb = new URL(`${API_BASE}/checklists/executions/`);
+        const fb = toAbsoluteUrl(`${API_BASE}/checklists/executions/`);
         fb.searchParams.set("status", "COMPLETED");
         fb.searchParams.set("page_size", "100");
         const alt = await fetch(fb.toString(), { headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }, credentials: "include" });

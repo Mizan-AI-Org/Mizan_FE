@@ -124,8 +124,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
             setPasswordInput("");
           }}
           className={`flex-1 py-2 px-4 rounded-md font-medium transition-all text-sm duration-300 ${userType === "staff"
-              ? "bg-gradient-to-r from-[#00E676] to-[#00C853] text-white shadow-lg shadow-[#00E676]/20"
-              : "text-[#B0BEC5] hover:text-[#00E676] hover:bg-[#00E676]/10"
+            ? "bg-gradient-to-r from-[#00E676] to-[#00C853] text-white shadow-lg shadow-[#00E676]/20"
+            : "text-[#B0BEC5] hover:text-[#00E676] hover:bg-[#00E676]/10"
             }`}
         >
           {t("auth.toggles.staff")}
@@ -138,8 +138,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
             setPasswordInput("");
           }}
           className={`flex-1 py-2 px-4 rounded-md font-medium transition-all text-sm duration-300 ${userType === "manager"
-              ? "bg-gradient-to-r from-[#00E676] to-[#00C853] text-white shadow-lg shadow-[#00E676]/20"
-              : "text-[#B0BEC5] hover:text-[#00E676] hover:bg-[#00E676]/10"
+            ? "bg-gradient-to-r from-[#00E676] to-[#00C853] text-white shadow-lg shadow-[#00E676]/20"
+            : "text-[#B0BEC5] hover:text-[#00E676] hover:bg-[#00E676]/10"
             }`}
         >
           {t("auth.toggles.manager")}
@@ -238,15 +238,12 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
         </p>
 
         {/* Divider */}
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-gradient-to-r from-transparent via-[#00E676]/25 to-transparent" />
-          </div>
-          <div className="relative flex justify-center">
-            <span className="bg-[#0A0D10]/40 px-3 text-[#B0BEC5] font-medium text-xs tracking-wide rounded-full border border-white/10 backdrop-blur-sm">
-              {t("auth.misc.new_to_mizan")}
-            </span>
-          </div>
+        <div className="flex items-center gap-3">
+          <span className="flex-1 border-t border-white/20" />
+          <span className="text-[#B0BEC5] font-medium text-xs tracking-wide">
+            {t("auth.misc.new_to_mizan")}
+          </span>
+          <span className="flex-1 border-t border-white/20" />
         </div>
       </div>
 

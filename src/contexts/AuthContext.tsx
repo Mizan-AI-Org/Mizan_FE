@@ -5,6 +5,7 @@ import { SignupData } from "../lib/types";
 import { AuthContext } from "./AuthContext";
 import { AuthContextType, User } from "./AuthContext.types";
 import { api, API_BASE } from "../lib/api";
+import i18n from "@/i18n";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -21,6 +22,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     setUser(null);
+  }, []);
+
+  const applyLanguageForUser = useCallback((u: User | null) => {
+    if (!u) return;
+    const lng = (u.preferred_language || u.restaurant_data?.language || "").toString().toLowerCase();
+    const normalized = lng === "ma" ? "ar" : lng; // legacy mapping
+    if (!normalized || !["en", "fr", "ar"].includes(normalized)) return;
+    try {
+      localStorage.setItem("language", normalized);
+    } catch {
+      // ignore storage failures
+    }
+    // Change i18n immediately (no reload)
+    if (i18n.language !== normalized) {
+      i18n.changeLanguage(normalized).catch(() => {
+        // ignore
+      });
+    }
   }, []);
 
   const initializeAuth = useCallback(async () => {
@@ -43,6 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         if (response.ok) {
           const userData: User = await response.json();
           setUser(userData);
+          applyLanguageForUser(userData);
           // Don't auto-redirect on auth initialization - let the user stay where they are
           // Only redirect if they're on a public route like /auth
           if (
@@ -94,6 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           if (prev !== next) {
             setUser(latest);
             localStorage.setItem("user", JSON.stringify(latest));
+            applyLanguageForUser(latest);
           }
         }
       } catch (err) {
@@ -142,6 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const data = isJson ? JSON.parse(rawText) : {};
       setUser(data.user);
       localStorage.setItem("user", JSON.stringify(data.user));
+      applyLanguageForUser(data.user);
       localStorage.setItem("access_token", data.tokens?.access || data.access);
       localStorage.setItem(
         "refresh_token",
@@ -215,6 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const data = isJson ? JSON.parse(rawText) : {};
       setUser(data.user);
       localStorage.setItem("user", JSON.stringify(data.user));
+      applyLanguageForUser(data.user);
       localStorage.setItem("access_token", data.tokens?.access || data.access);
       localStorage.setItem(
         "refresh_token",
@@ -284,6 +307,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       : {};
     setUser(data.user);
     localStorage.setItem("user", JSON.stringify(data.user));
+    applyLanguageForUser(data.user);
     localStorage.setItem("access_token", data.tokens.access);
     localStorage.setItem("refresh_token", data.tokens.refresh);
     navigate("/dashboard");
@@ -384,6 +408,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (e) {
       console.warn("Failed to persist updated user to localStorage", e);
     }
+    applyLanguageForUser(updatedUser);
   };
 
   const value: AuthContextType = {
