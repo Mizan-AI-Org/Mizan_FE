@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { LogOut, User, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,28 @@ const DashboardLayout: React.FC = () => {
   const { user, logout } = useAuth() as AuthContextType;
   const { notifications, isConnected, markAllAsRead, markAsRead } = useNotifications();
   const { t } = useLanguage();
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const [shouldShake, setShouldShake] = useState(false);
+  const prevUnreadRef = useRef<number>(unreadCount);
+
+  useEffect(() => {
+    // Shake when unread count increases (and also on initial load when unread > 0)
+    if (unreadCount > (prevUnreadRef.current || 0)) {
+      setShouldShake(true);
+      const timer = setTimeout(() => setShouldShake(false), 900);
+      prevUnreadRef.current = unreadCount;
+      return () => clearTimeout(timer);
+    }
+    // initial load: if unread already present and prev wasn't set yet
+    if ((prevUnreadRef.current === 0 || prevUnreadRef.current === undefined) && unreadCount > 0) {
+      setShouldShake(true);
+      const timer = setTimeout(() => setShouldShake(false), 900);
+      prevUnreadRef.current = unreadCount;
+      return () => clearTimeout(timer);
+    }
+    prevUnreadRef.current = unreadCount;
+  }, [unreadCount]);
 
   // Derive a safe restaurant label from various possible user shapes without using `any`
   // Compute a restaurant label, but hide raw UUIDs
@@ -67,11 +89,11 @@ const DashboardLayout: React.FC = () => {
               <div className="relative">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="relative" aria-label={`${t("common.notifications.title")}`}>
+                    <Button variant="ghost" size="icon" className={`relative ${shouldShake ? 'bell-shake' : ''}`} aria-label={`${t("common.notifications.title")}`}>
                       <Bell className="h-5 w-5" />
-                      {notifications.filter(n => !n.read).length > 0 && (
+                      {unreadCount > 0 && (
                         <span className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center rounded-full bg-red-500 text-white text-xs">
-                          {notifications.filter(n => !n.read).length}
+                          {unreadCount}
                         </span>
                       )}
                     </Button>
@@ -83,14 +105,33 @@ const DashboardLayout: React.FC = () => {
                       <p className="text-center text-sm text-muted-foreground py-4">{t("common.notifications.empty")}</p>
                     ) : (
                       notifications.map((notification) => (
-                        <DropdownMenuItem key={notification.id} className="flex flex-col items-start space-y-1 p-2">
+                        <DropdownMenuItem
+                          key={notification.id}
+                          className="flex flex-col items-start space-y-1 p-2 cursor-pointer"
+                          onClick={() => {
+                            // Deep-link for staff requests (manager inbox)
+                            const data = (notification as unknown as { data?: any }).data || {};
+                            const route = data?.route as string | undefined;
+                            const staffRequestId = data?.staff_request_id as string | undefined;
+                            if (route) {
+                              markAsRead(notification.id);
+                              navigate(route);
+                              return;
+                            }
+                            if (staffRequestId) {
+                              markAsRead(notification.id);
+                              navigate(`/dashboard/staff-requests/${staffRequestId}`);
+                              return;
+                            }
+                          }}
+                        >
                           <p className="text-sm font-medium capitalize">{notification.verb.replace(/_/g, ' ')}</p>
                           {notification.description && (
                             <p className="text-xs text-muted-foreground">{notification.description}</p>
                           )}
                           <p className="text-xs text-muted-foreground">{new Date(notification.timestamp).toLocaleString()}</p>
                           {!notification.read && (
-                            <Button variant="link" size="sm" onClick={() => markAsRead(notification.id)} className="self-end h-auto p-0 text-xs text-blue-600">
+                            <Button variant="link" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsRead(notification.id); }} className="self-end h-auto p-0 text-xs text-blue-600">
                               {t("common.notifications.mark_as_read")}
                             </Button>
                           )}
@@ -98,6 +139,12 @@ const DashboardLayout: React.FC = () => {
                       ))
                     )}
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => navigate("/dashboard/staff-requests")}
+                      className="text-sm"
+                    >
+                      View Staff Requests
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={markAllAsRead}>
                       {t("common.notifications.mark_all_read")}
                     </DropdownMenuItem>
