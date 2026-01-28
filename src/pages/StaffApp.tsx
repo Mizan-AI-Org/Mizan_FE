@@ -2031,8 +2031,44 @@ const TeamTab: React.FC = () => {
                                                         {member.role?.toLowerCase().replace(/_/g, " ")}
                                                     </p>
                                                     <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-3">
-                                                        <Mail className="w-3 h-3" />
-                                                        <span className="truncate">{member.email}</span>
+                                                        {(() => {
+                                                            const email = member.email || "";
+                                                            const phone = member.phone || "";
+                                                            const isPhonePlaceholder = /^\d+@mizan\.ai$/i.test(email);
+                                                            // If this is a WhatsApp-only staff (placeholder email and real phone),
+                                                            // show a WhatsApp-style indicator with the phone number instead.
+                                                            if (isPhonePlaceholder && phone) {
+                                                                return (
+                                                                    <>
+                                                                        <MessageCircle className="w-3 h-3" />
+                                                                        <span className="truncate">{phone}</span>
+                                                                    </>
+                                                                );
+                                                            }
+                                                            // Otherwise default to showing the real email (or phone if no email)
+                                                            if (email) {
+                                                                return (
+                                                                    <>
+                                                                        <Mail className="w-3 h-3" />
+                                                                        <span className="truncate">{email}</span>
+                                                                    </>
+                                                                );
+                                                            }
+                                                            if (phone) {
+                                                                return (
+                                                                    <>
+                                                                        <Phone className="w-3 h-3" />
+                                                                        <span className="truncate">{phone}</span>
+                                                                    </>
+                                                                );
+                                                            }
+                                                            return (
+                                                                <>
+                                                                    <Mail className="w-3 h-3" />
+                                                                    <span className="truncate">Not provided</span>
+                                                                </>
+                                                            );
+                                                        })()}
                                                     </div>
                                                     <Badge className={cn(
                                                         "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest",
