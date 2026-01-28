@@ -51,6 +51,17 @@ export const WS_BASE = import.meta.env.VITE_REACT_APP_WS_URL || getWsBase();
 
 export const TELEMETRY_ENABLED = String(import.meta.env.VITE_ENABLE_CHECKLIST_TELEMETRY || "false").toLowerCase() === "true";
 
+// Safe URL builder:
+// - In dev, API_BASE is usually "/api" (relative), so `new URL("/api/...")` throws.
+// - Always provide an origin base; absolute URLs still work fine with a base.
+export const toAbsoluteUrl = (pathOrUrl: string): URL => {
+  const base =
+    (typeof window !== "undefined" && window.location && window.location.origin)
+      ? window.location.origin
+      : "http://localhost";
+  return new URL(pathOrUrl, base);
+};
+
 export class BackendService {
   [x: string]: any;
   // In a real frontend application, HttpService and ConfigService would not be used directly
@@ -3178,7 +3189,7 @@ export class BackendService {
     params?: { date_from?: string; date_to?: string; staff_id?: string; rating?: number }
   ): Promise<any[]> {
     try {
-      const url = new URL(`${API_BASE}/attendance/shift-reviews/`);
+      const url = toAbsoluteUrl(`${API_BASE}/attendance/shift-reviews/`);
       if (params) {
         Object.entries(params).forEach(([k, v]) => {
           if (v !== undefined && v !== null && String(v).length > 0) url.searchParams.set(k, String(v));
@@ -3231,7 +3242,7 @@ export class BackendService {
     accessToken: string,
     params?: { date_from?: string; date_to?: string }
   ): Promise<{ by_rating: Array<{ rating: number; count: number }>; total_reviews: number; total_likes: number; tag_counts: Record<string, number> }> {
-    const url = new URL(`${API_BASE}/attendance/shift-reviews/stats/`);
+    const url = toAbsoluteUrl(`${API_BASE}/attendance/shift-reviews/stats/`);
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
         if (v !== undefined && v !== null && String(v).length > 0) url.searchParams.set(k, String(v));

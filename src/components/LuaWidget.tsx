@@ -15,7 +15,7 @@ declare global {
 
 export const LuaWidget: React.FC = () => {
     const { user, accessToken } = useAuth() as AuthContextType;
-    const { t } = useLanguage();
+    const { t, language, isRTL } = useLanguage();
     const initialized = useRef<string | boolean>(false);
     const agentId = import.meta.env.VITE_LUA_AGENT_ID as string | undefined;
 
@@ -26,11 +26,13 @@ export const LuaWidget: React.FC = () => {
         const intervalId = setInterval(() => {
             const shadowHost = document.querySelector('#lua-shadow-root');
             if (shadowHost && shadowHost.shadowRoot) {
-                // Check if our style already exists
-                if (shadowHost.shadowRoot.querySelector('#miya-custom-styles')) return;
+                // Replace our style if it already exists (so language/RTL can update live)
+                const existing = shadowHost.shadowRoot.querySelector('#miya-custom-styles');
+                if (existing) existing.remove();
 
                 const style = document.createElement('style');
                 style.id = 'miya-custom-styles';
+                const chatLabel = (t("ai.chat_button") || "Chat with Miya").replace(/"/g, '\\"');
                 style.textContent = `
                     /* Force the avatar image to fill the entire circular button */
                     button.lua-pop-button img {
@@ -61,7 +63,7 @@ export const LuaWidget: React.FC = () => {
                     
                     /* "Chat with Miya" Label */
                     .lua-pop-button::after {
-                        content: "Chat with Miya";
+                        content: "${chatLabel}";
                         position: absolute;
                         bottom: -40px;
                         left: 50%;
@@ -82,12 +84,24 @@ export const LuaWidget: React.FC = () => {
                         visibility: visible !important;
                         opacity: 1 !important;
                     }
+
+                    /* RTL support (Arabic) */
+                    ${isRTL ? `
+                    .lua-pop-container,
+                    .lua-pop-chat,
+                    .lua-pop-messages,
+                    .lua-pop-message,
+                    .lua-pop-input-container {
+                        direction: rtl !important;
+                        text-align: right !important;
+                    }
+                    ` : ''}
                 `;
                 shadowHost.shadowRoot.appendChild(style);
             }
         }, 1000); // 1s interval is fine
         return () => clearInterval(intervalId);
-    }, [user]);
+    }, [user, language, isRTL, t]);
 
     useEffect(() => {
         if (!user) return;
@@ -138,6 +152,8 @@ export const LuaWidget: React.FC = () => {
                         role: user.role,
                         token: accessToken,
                         sessionId,
+                        language,
+                        rtl: isRTL,
                     },
 
                     // User identification (for Lua Admin portal)
@@ -149,7 +165,7 @@ export const LuaWidget: React.FC = () => {
                     sttEnabled: true,
                     ttsEnabled: true,
                     voiceResponseEnabled: false,
-                    speechRecognitionLanguage: "en-US",
+                    speechRecognitionLanguage: language === "ar" ? "ar-SA" : (language === "fr" ? "fr-FR" : "en-US"),
 
                     // Session context - unique per login token
                     sessionId,
@@ -181,7 +197,7 @@ export const LuaWidget: React.FC = () => {
                         zIndex: "9999"
                     },
 
-                    chatTitle: "Miya",
+                    chatTitle: t("ai.chat_title") || "Miya",
                     chatTitleHeaderStyles: {
                         background: "linear-gradient(135deg, #00E676 0%, #00C853 100%)",
                         color: "white",
@@ -192,7 +208,7 @@ export const LuaWidget: React.FC = () => {
 
                     chatHeaderSubtitle: {
                         visible: true,
-                        brandName: "Mizan AI"
+                        brandName: t("common.brand") || "Mizan AI"
                     },
 
                     chatInputPlaceholder: t("ai.chat_placeholder")
@@ -202,7 +218,7 @@ export const LuaWidget: React.FC = () => {
                 logError({ feature: 'lua-widget', action: 'init' }, err as Error);
             }
         }
-    }, [user, t, agentId, accessToken]);
+    }, [user, t, agentId, accessToken, language, isRTL]);
 
     return null;
 };

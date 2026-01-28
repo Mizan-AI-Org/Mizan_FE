@@ -3,10 +3,11 @@ import { Language, LanguageContextType } from './LanguageContext.types';
 import { LanguageContext } from './LanguageContext';
 import i18n, { applyLanguageAttributes } from '../i18n';
 
-// Map legacy 'ar' to new Darija code 'ma' for continuity
+// Backwards compatibility: some older builds stored 'ma' (Darija) in localStorage/cookies.
+// We now treat Arabic as 'ar' system language.
 const normalizeLanguage = (lng: string): Language => {
-  if (lng === 'ar') return 'ma';
-  if (lng === 'ma' || lng === 'en' || lng === 'fr') return lng as Language;
+  if (lng === 'ma' || lng === 'ar-MA') return 'ar';
+  if (lng === 'en' || lng === 'fr' || lng === 'ar') return lng as Language;
   return 'en';
 };
 
@@ -18,7 +19,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [isChanging, setIsChanging] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isRTL = language === 'ma';
+  const isRTL = language === 'ar';
 
   useEffect(() => {
     // Keep i18next in sync with our context
