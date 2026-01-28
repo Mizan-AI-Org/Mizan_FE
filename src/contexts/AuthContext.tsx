@@ -69,11 +69,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             location.pathname === "/auth" ||
             location.pathname === "/staff-login"
           ) {
-            if (userData.role === "SUPER_ADMIN" || userData.role === "ADMIN") {
-              navigate("/dashboard");
-            } else {
-              navigate("/staff-dashboard");
-            }
+            const isSupervisor =
+              userData.role === "SUPER_ADMIN" ||
+              userData.role === "ADMIN" ||
+              userData.role === "MANAGER" ||
+              userData.role === "OWNER";
+            navigate(isSupervisor ? "/dashboard" : "/staff-dashboard");
           }
         } else {
           // Do not force clear on transient failures; allow app to show login page naturally
@@ -170,11 +171,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         data.tokens?.refresh || data.refresh
       );
 
-      if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
-        navigate("/dashboard");
-      } else {
-        navigate("/staff-dashboard");
-      }
+      const isSupervisor =
+        data.user.role === "SUPER_ADMIN" ||
+        data.user.role === "ADMIN" ||
+        data.user.role === "MANAGER" ||
+        data.user.role === "OWNER";
+      navigate(isSupervisor ? "/dashboard" : "/staff-dashboard");
     } catch (err) {
       console.error("Login request error:", err);
       if (err instanceof Error) {
@@ -244,11 +246,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         data.tokens?.refresh || data.refresh
       );
 
-      if (data.user.role === "SUPER_ADMIN" || data.user.role === "ADMIN") {
-        navigate("/dashboard");
-      } else {
-        navigate("/staff-dashboard");
-      }
+      const isSupervisor =
+        data.user.role === "SUPER_ADMIN" ||
+        data.user.role === "ADMIN" ||
+        data.user.role === "MANAGER" ||
+        data.user.role === "OWNER";
+      navigate(isSupervisor ? "/dashboard" : "/staff-dashboard");
     } catch (err) {
       console.error("PIN login request error:", err);
       if (err instanceof Error) {
@@ -336,11 +339,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.setItem("user", JSON.stringify(data.user));
     localStorage.setItem("access_token", data.tokens.access);
     localStorage.setItem("refresh_token", data.tokens.refresh);
-    if (data.user?.role === "SUPER_ADMIN" || data.user?.role === "ADMIN") {
-      navigate("/dashboard");
-    } else {
-      navigate("/staff-dashboard");
-    }
+    const isSupervisor =
+      data.user?.role === "SUPER_ADMIN" ||
+      data.user?.role === "ADMIN" ||
+      data.user?.role === "MANAGER" ||
+      data.user?.role === "OWNER";
+    navigate(isSupervisor ? "/dashboard" : "/staff-dashboard");
   };
 
   const inviteStaff = async (
