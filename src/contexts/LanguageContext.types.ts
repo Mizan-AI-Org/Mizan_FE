@@ -1,4 +1,5 @@
-export type Language = 'en' | 'fr' | 'ma';
+// Supported UI languages (system-wide)
+export type Language = 'en' | 'fr' | 'ar';
 
 export interface LanguageContextType {
   language: Language;

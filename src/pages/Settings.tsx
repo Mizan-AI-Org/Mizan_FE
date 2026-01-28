@@ -381,6 +381,28 @@ export default function Settings() {
     }
   };
 
+  const persistLanguagePreference = async (lng: Language) => {
+    // Apply immediately in-app, then persist to workspace (restaurant) without requiring full Save.
+    setAppLanguage(lng);
+    apiClient.defaults.headers.common["Accept-Language"] = lng;
+    try {
+      const response = await apiClient.put("/settings/unified/", {
+        language: lng,
+        settings_schema_version: settingsSchemaVersion,
+      });
+      // Refresh version so subsequent saves don't conflict
+      const version =
+        typeof response.data?.settings_schema_version === "number"
+          ? response.data.settings_schema_version
+          : (typeof response.data?.settingsVersion === "number" ? response.data.settingsVersion : settingsSchemaVersion);
+      if (typeof version === "number") setSettingsSchemaVersion(version);
+    } catch (error) {
+      const axiosErr = error as AxiosError<{ detail?: string }>;
+      console.error("Failed to persist language:", axiosErr);
+      toast.error(translateApiError(axiosErr));
+    }
+  };
+
   const handleOperatingHoursChange = (
     day: string,
     field: string,
@@ -660,53 +682,76 @@ export default function Settings() {
                     <Building2 className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg font-bold text-slate-900">Restaurant Information</CardTitle>
-                    <CardDescription className="text-slate-500">Manage your restaurant's basic details</CardDescription>
+                    <CardTitle className="text-lg font-bold text-slate-900">{t("settings.general.restaurant_info.title")}</CardTitle>
+                    <CardDescription className="text-slate-500">{t("settings.general.restaurant_info.description")}</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="restaurant-name" className="text-sm font-medium text-slate-700">Restaurant Name</Label>
+                    <Label htmlFor="restaurant-name" className="text-sm font-medium text-slate-700">{t("settings.general.fields.name")}</Label>
                     <Input
                       id="restaurant-name"
                       value={restaurantName}
                       onChange={(e) => setRestaurantName(e.target.value)}
                       className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
-                      placeholder="Enter restaurant name"
+                      placeholder={t("settings.general.fields.name_placeholder")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="address" className="text-sm font-medium text-slate-700">Address</Label>
+                    <Label htmlFor="address" className="text-sm font-medium text-slate-700">{t("settings.general.fields.address")}</Label>
                     <Input
                       id="address"
                       value={restaurantAddress}
                       onChange={(e) => setRestaurantAddress(e.target.value)}
                       className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
-                      placeholder="Enter address"
+                      placeholder={t("settings.general.fields.address_placeholder")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone" className="text-sm font-medium text-slate-700">Phone</Label>
+                    <Label htmlFor="phone" className="text-sm font-medium text-slate-700">{t("settings.general.fields.phone")}</Label>
                     <Input
                       id="phone"
                       value={restaurantPhone}
                       onChange={(e) => setRestaurantPhone(e.target.value)}
                       className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
-                      placeholder="+1 (555) 000-0000"
+                      placeholder={t("settings.general.fields.phone_placeholder")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium text-slate-700">Email</Label>
+                    <Label htmlFor="email" className="text-sm font-medium text-slate-700">{t("settings.general.fields.email")}</Label>
                     <Input
                       id="email"
                       type="email"
                       value={restaurantEmail}
                       onChange={(e) => setRestaurantEmail(e.target.value)}
                       className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
-                      placeholder="contact@restaurant.com"
+                      placeholder={t("settings.general.fields.email_placeholder")}
                     />
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="language" className="text-sm font-medium text-slate-700">
+                      {t("settings.general.language")}
+                    </Label>
+                    <select
+                      id="language"
+                      value={language}
+                      onChange={(e) => persistLanguagePreference(e.target.value as Language)}
+                      className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                    >
+                      <option value="en">English</option>
+                      <option value="fr">Français</option>
+                      <option value="ar">العربية</option>
+                    </select>
+                    <p className="text-[11px] text-slate-500">
+                      {t("settings.general.language_hint")}
+                    </p>
                   </div>
                 </div>
                 <div className="pt-4 border-t border-slate-200">
