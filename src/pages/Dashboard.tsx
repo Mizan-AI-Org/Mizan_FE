@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../hooks/use-auth";
@@ -14,6 +14,7 @@ import {
   ClipboardCheck,
   Heart,
   AlertCircle,
+  AlertTriangle,
   Clock,
   TrendingUp,
   ChevronRight,
@@ -22,6 +23,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { Badge } from "@/components/ui/badge";
 import { LiveDateTime } from "@/components/LiveDateTime";
 import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 type AppItem = {
   name: string;
@@ -119,6 +121,31 @@ export default function Dashboard() {
   const criticalCount = Number(summary?.insights?.counts?.CRITICAL || 0);
   const operationalCount = Number(summary?.insights?.counts?.OPERATIONAL || 0);
   const attentionNow = criticalCount + operationalCount;
+  const prevCriticalRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    // Trigger an alert when critical insights appear or increase.
+    if (criticalCount > 0 && criticalCount > (prevCriticalRef.current || 0)) {
+      const topCritical = insights.find((x) => String(x?.level || "").toUpperCase() === "CRITICAL");
+      const description = topCritical?.recommended_action
+        ? String(topCritical.recommended_action)
+        : "Open the Insights card to review details.";
+
+      toast("Critical issue detected", {
+        description,
+        action: topCritical?.action_url
+          ? {
+              label: "Open",
+              onClick: () => navigate(String(topCritical.action_url)),
+            }
+          : undefined,
+      });
+    }
+
+    prevCriticalRef.current = criticalCount;
+  }, [criticalCount, isLoading, insights, navigate]);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0f1419] p-4 md:p-6 lg:p-7 pb-28 font-sans antialiased text-slate-900 dark:text-slate-100 transition-colors duration-300">
@@ -144,13 +171,33 @@ export default function Dashboard() {
         {/* Attention Now */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* MIZAN AI INSIGHTS (Primary) */}
-          <Card className={`${cardBase} lg:col-span-2 relative overflow-hidden`}>
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent pointer-events-none"></div>
+          <Card
+            className={`${cardBase} lg:col-span-2 relative overflow-hidden ${
+              criticalCount > 0 ? "border-red-200 dark:border-red-900/40" : ""
+            }`}
+          >
+            <div
+              className={`absolute inset-0 pointer-events-none ${
+                criticalCount > 0
+                  ? "bg-gradient-to-br from-red-500/12 via-transparent to-transparent"
+                  : "bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent"
+              }`}
+            ></div>
             <CardHeader className="pb-2 px-6 pt-6">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <div
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                      criticalCount > 0
+                        ? "bg-red-500/10 dark:bg-red-500/15"
+                        : "bg-emerald-500/10 dark:bg-emerald-500/15"
+                    } ${criticalCount > 0 ? "animate-pulse" : ""}`}
+                  >
+                    {criticalCount > 0 ? (
+                      <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    ) : (
+                      <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    )}
                   </div>
                   <div className="leading-tight">
                     <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
@@ -171,6 +218,14 @@ export default function Dashboard() {
                   >
                     {isLoading ? "…" : attentionNow} {t("dashboard.insights.need_attention")}
                   </Badge>
+                  {criticalCount > 0 && (
+                    <Badge
+                      variant="outline"
+                      className="border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300 text-[10px] font-black h-5 px-2"
+                    >
+                      {criticalCount} CRITICAL
+                    </Badge>
+                  )}
                   {insights.length > 3 && (
                     <button
                       type="button"
@@ -187,6 +242,106 @@ export default function Dashboard() {
             <CardContent className="space-y-3 px-6 pb-6 pt-3">
               {isLoading ? (
                 <div className="text-sm text-slate-400">{t("dashboard.insights.loading")}</div>
+              ) : criticalCount > 0 ? (
+                <>
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 dark:border-red-900/40 dark:bg-red-950/25">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-red-800 dark:text-red-200">
+                          Critical issues need attention
+                        </div>
+                        <div className="text-[11px] text-red-700/90 dark:text-red-300/80">
+                          Review the top item(s) below and take action immediately.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {insightsVisible.length > 0 ? (
+                    <div className="space-y-2">
+                      {insightsVisible.map((it, idx) => {
+                        const level = String(it.level || "").toUpperCase();
+                        const dot =
+                          level === "CRITICAL"
+                            ? "bg-red-500"
+                            : level === "OPERATIONAL"
+                              ? "bg-amber-500"
+                              : level === "PERFORMANCE"
+                                ? "bg-blue-500"
+                                : "bg-emerald-500";
+
+                        const onClick = it.action_url ? () => navigate(String(it.action_url)) : undefined;
+                        const levelPill =
+                          level === "CRITICAL"
+                            ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
+                            : level === "OPERATIONAL"
+                              ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
+                              : level === "PERFORMANCE"
+                                ? "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200"
+                                : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200";
+
+                        const containerExtra =
+                          level === "CRITICAL"
+                            ? "bg-red-50/40 dark:bg-red-950/10"
+                            : "";
+
+                        return onClick ? (
+                          <button
+                            key={it.id || idx}
+                            type="button"
+                            onClick={onClick}
+                            className={`group w-full text-left rounded-xl px-3 py-2 -mx-3 transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${containerExtra}`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`w-2 h-2 rounded-full shrink-0 mt-2 ${dot}`}></div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="text-sm text-slate-900 dark:text-white leading-tight font-semibold truncate">
+                                    {it.summary || t("dashboard.insights.item_fallback")}
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <Badge variant="outline" className={`text-[10px] font-bold ${levelPill}`}>
+                                      {level}
+                                    </Badge>
+                                    <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 mt-0.5" />
+                                  </div>
+                                </div>
+                                {it.recommended_action && (
+                                  <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug line-clamp-2 mt-0.5">
+                                    {level === "CRITICAL" ? "Action" : "Recommendation"}: {it.recommended_action}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        ) : (
+                          <div key={it.id || idx} className={`rounded-xl px-3 py-2 -mx-3 ${containerExtra}`}>
+                            <div className="flex items-start gap-3">
+                              <div className={`w-2 h-2 rounded-full shrink-0 mt-2 ${dot}`}></div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="text-sm text-slate-900 dark:text-white leading-tight font-semibold truncate">
+                                    {it.summary || t("dashboard.insights.item_fallback")}
+                                  </div>
+                                  <Badge variant="outline" className={`text-[10px] font-bold ${levelPill}`}>
+                                    {level}
+                                  </Badge>
+                                </div>
+                                {it.recommended_action && (
+                                  <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug line-clamp-2 mt-0.5">
+                                    {level === "CRITICAL" ? "Action" : "Recommendation"}: {it.recommended_action}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-slate-400">{t("dashboard.insights.none")}</div>
+                  )}
+                </>
               ) : insightsVisible.length > 0 ? (
                 <div className="space-y-2">
                   {insightsVisible.map((it, idx) => {
@@ -201,6 +356,14 @@ export default function Dashboard() {
                             : "bg-emerald-500";
 
                     const onClick = it.action_url ? () => navigate(String(it.action_url)) : undefined;
+                    const levelPill =
+                      level === "CRITICAL"
+                        ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
+                        : level === "OPERATIONAL"
+                          ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
+                          : level === "PERFORMANCE"
+                            ? "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200"
+                            : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200";
 
                     return (
                       onClick ? (
@@ -217,11 +380,16 @@ export default function Dashboard() {
                                 <div className="text-sm text-slate-900 dark:text-white leading-tight font-semibold truncate">
                                   {it.summary || t("dashboard.insights.item_fallback")}
                                 </div>
-                                <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 shrink-0 mt-0.5" />
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <Badge variant="outline" className={`text-[10px] font-bold ${levelPill}`}>
+                                    {level}
+                                  </Badge>
+                                  <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 mt-0.5" />
+                                </div>
                               </div>
                               {it.recommended_action && (
                                 <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug line-clamp-2 mt-0.5">
-                                  {t("dashboard.insights.next")}: {it.recommended_action}
+                                  {level === "CRITICAL" ? "Action" : "Recommendation"}: {it.recommended_action}
                                 </div>
                               )}
                             </div>
@@ -232,12 +400,17 @@ export default function Dashboard() {
                           <div className="flex items-start gap-3">
                             <div className={`w-2 h-2 rounded-full shrink-0 mt-2 ${dot}`}></div>
                             <div className="min-w-0 flex-1">
-                              <div className="text-sm text-slate-900 dark:text-white leading-tight font-semibold truncate">
-                                {it.summary || t("dashboard.insights.item_fallback")}
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="text-sm text-slate-900 dark:text-white leading-tight font-semibold truncate">
+                                  {it.summary || t("dashboard.insights.item_fallback")}
+                                </div>
+                                <Badge variant="outline" className={`text-[10px] font-bold ${levelPill}`}>
+                                  {level}
+                                </Badge>
                               </div>
                               {it.recommended_action && (
                                 <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug line-clamp-2 mt-0.5">
-                                  {t("dashboard.insights.next")}: {it.recommended_action}
+                                  {level === "CRITICAL" ? "Action" : "Recommendation"}: {it.recommended_action}
                                 </div>
                               )}
                             </div>
