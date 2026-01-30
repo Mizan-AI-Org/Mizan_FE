@@ -222,11 +222,12 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
 
             const staffIds = data.staff_members || data.multi_staff || [data.staff];
             const baseShiftDate = data.shift_date;
+            const recurrenceGroupId = data.is_recurring ? crypto.randomUUID() : undefined;
 
             const scheduleDates = [baseShiftDate];
             const isUpdate = !!shift?.id;
 
-            if (data.is_recurring && data.frequency && data.recurring_end_date && !isUpdate) {
+            if (data.is_recurring && data.frequency && data.recurring_end_date) {
                 const base = parseISO(baseShiftDate);
                 const endDate = parseISO(data.recurring_end_date);
                 let currentDate = base;
@@ -263,7 +264,9 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                     shift_date: dStr,
                     start_time: makeISO(dStr, data.start_time),
                     end_time: makeISO(dStr, data.end_time),
-                    break_duration: data.break_duration ?? '00:30:00'
+                    break_duration: data.break_duration ?? '00:30:00',
+                    is_recurring: data.is_recurring,
+                    recurrence_group_id: recurrenceGroupId
                 };
 
                 const isFirstEntryOriginalDate = dStr === baseShiftDate;
