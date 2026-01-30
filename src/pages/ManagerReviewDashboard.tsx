@@ -490,8 +490,8 @@ const ManagerReviewDashboard: React.FC = () => {
                       <Badge variant="outline">Quality</Badge>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button size="sm" onClick={() => approveMutation.mutate(s.id)}>Approve</Button>
-                      <Button size="sm" variant="outline" onClick={() => rejectMutation.mutate(s.id)}>Reject</Button>
+                      <Button size="sm" onClick={() => approveMutation.mutate({ id: s.id })}>Approve</Button>
+                      <Button size="sm" variant="outline" onClick={() => rejectMutation.mutate({ id: s.id })}>Reject</Button>
                       <Button size="sm" variant="ghost" onClick={() => toast.info('Open detailed report…')}>View Report</Button>
                     </div>
                   </CardContent>
@@ -922,6 +922,44 @@ const ManagerReviewDashboard: React.FC = () => {
                     </div>
                   </div>
                 ) : null}
+
+                {exec?.analysis_results && (
+                  <div className="bg-muted/30 border rounded-md p-4 space-y-3">
+                    <div className="flex items-center gap-2 font-semibold text-sm">
+                      <div className="w-1.5 h-4 bg-primary rounded-full" />
+                      Automated Insights
+                    </div>
+
+                    {exec.analysis_results.summary && (
+                      <div className="text-sm font-medium">{exec.analysis_results.summary}</div>
+                    )}
+
+                    {exec.analysis_results.highlights?.length > 0 && (
+                      <ul className="list-disc pl-5 space-y-1">
+                        {exec.analysis_results.highlights.map((h: string, i: number) => (
+                          <li key={i} className="text-xs text-muted-foreground">{h}</li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {exec.analysis_results.anomalies?.length > 0 && (
+                      <div className="space-y-2 pt-1">
+                        <div className="text-xs font-semibold text-destructive uppercase tracking-wider">Detected Anomalies</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {exec.analysis_results.anomalies.map((a: any, i: number) => (
+                            <div key={i} className="border border-destructive/20 bg-destructive/5 rounded p-2 text-xs">
+                              <div className="font-medium">{a.step_title}</div>
+                              <div className="flex justify-between mt-1">
+                                <span>Value: <span className="font-semibold">{a.value}</span></span>
+                                <span>{a.issue} (<span className="opacity-70">{a.threshold}</span>)</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="border rounded-md">
                   <ScrollArea className="h-72 p-3">
                     {detailQuery.isLoading ? (
@@ -998,8 +1036,8 @@ const ManagerReviewDashboard: React.FC = () => {
                   <Textarea value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} placeholder="Add review comments (optional)" />
                   <div className="flex items-center gap-2 justify-end">
                     <Button variant="outline" onClick={() => setDetailId(null)}>Close</Button>
-                    <Button onClick={() => approveMutation.mutate({ id: String(summary.id), reason: reviewComment })} disabled={approveMutation.isLoading}>Approve</Button>
-                    <Button variant="destructive" onClick={() => rejectMutation.mutate({ id: String(summary.id), reason: reviewComment })} disabled={rejectMutation.isLoading}>Reject</Button>
+                    <Button onClick={() => approveMutation.mutate({ id: String(summary.id), reason: reviewComment })} disabled={approveMutation.isPending}>Approve</Button>
+                    <Button variant="destructive" onClick={() => rejectMutation.mutate({ id: String(summary.id), reason: reviewComment })} disabled={rejectMutation.isPending}>Reject</Button>
                   </div>
                 </div>
               </div>

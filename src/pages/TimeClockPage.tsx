@@ -135,7 +135,8 @@ export default function TimeClockPage() {
         queryKey: ["restaurantLocation", accessToken],
         queryFn: async () => {
             const result = await api.getRestaurantLocation(accessToken!);
-            console.log("[TimeClockPage] Raw API response:", result);
+            // TimeClock debug logs removed
+
             return result;
         },
         enabled: !!accessToken,
@@ -154,14 +155,14 @@ export default function TimeClockPage() {
 
     useEffect(() => {
         if (!restaurantLoc) {
-            console.log("[TimeClockPage] restaurantLoc is null/undefined");
+            // Schedule debug logs removed
+
             return;
         }
         const payload = restaurantLoc.restaurant ?? restaurantLoc;
         const lat = payload.latitude;
         const lon = payload.longitude;
         const rad = (payload.geofence_radius ?? payload.radius ?? 100);
-        console.log("[TimeClockPage] Setting geofence:", { lat, lon, rad, payload });
         if (typeof lat === "number" && typeof lon === "number") {
             setGeofence({ latitude: lat, longitude: lon, radius: Number(rad) });
         }
@@ -434,10 +435,10 @@ export default function TimeClockPage() {
     const [locationSource, setLocationSource] = useState<"GPS (High Accuracy)" | "GPS (Low Accuracy)" | "IP (Approximate)" | null>(null);
 
     const tryLowAccuracyLocation = () => {
-        console.log("Attempting low accuracy location...");
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                console.log("Low accuracy location success");
+                // Auth debug logs removed
+
                 setLocationSource("GPS (Low Accuracy)");
                 setCurrentLocation({
                     latitude: position.coords.latitude,

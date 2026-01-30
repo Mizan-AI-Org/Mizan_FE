@@ -105,24 +105,17 @@ const WeeklyScheduleView: React.FC = () => {
       if (!user) return Promise.reject("No user");
       const accessToken = localStorage.getItem("access_token") || "";
 
-      // Use calendar/my_shifts endpoint - designed for staff access
-      console.log('[WeeklySchedule] Fetching for week:', formattedWeekStart, 'to', formattedWeekEnd, 'for user:', user.id);
       try {
         const calRes = await fetch(
           `${API_BASE}/scheduling/calendar/my_shifts/?start_date=${formattedWeekStart}&end_date=${formattedWeekEnd}`,
           { headers: { Authorization: `Bearer ${accessToken}` } }
         );
 
-        console.log('[WeeklySchedule] Calendar API response status:', calRes.status);
-
         if (!calRes.ok) {
-          const errorText = await calRes.text();
-          console.error('[WeeklySchedule] Calendar API error:', calRes.status, errorText);
           return [];
         }
 
         const calJson = await calRes.json();
-        console.log('[WeeklySchedule] Calendar API response:', calJson);
 
         const events: Array<{
           id: string;
@@ -166,10 +159,8 @@ const WeeklyScheduleView: React.FC = () => {
           } as AssignedShift;
         });
 
-        console.log('[WeeklySchedule] Mapped shifts:', shifts.length, shifts);
         return shifts;
       } catch (error) {
-        console.error('[WeeklySchedule] Error fetching calendar shifts:', error);
         return [];
       }
     },

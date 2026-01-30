@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { MessageCircle, FileText, Calendar, Wallet, Settings, Briefcase, Plus, AlertCircle, Clock, CheckCircle2, ChevronRight } from "lucide-react";
 
 type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED";
 
@@ -61,11 +62,27 @@ function priorityBadge(priority?: string) {
 
 function statusBadge(status?: string) {
   const s = String(status || "").toUpperCase();
-  if (s === "PENDING") return "bg-yellow-100 text-yellow-900 border-yellow-200";
-  if (s === "APPROVED") return "bg-green-100 text-green-900 border-green-200";
-  if (s === "REJECTED") return "bg-red-100 text-red-900 border-red-200";
-  if (s === "ESCALATED") return "bg-purple-100 text-purple-900 border-purple-200";
-  return "bg-slate-100 text-slate-900 border-slate-200";
+  if (s === "PENDING") return "bg-yellow-50 text-yellow-700 border-yellow-200 ring-1 ring-yellow-200";
+  if (s === "APPROVED") return "bg-emerald-50 text-emerald-700 border-emerald-200 ring-1 ring-emerald-200";
+  if (s === "REJECTED") return "bg-rose-50 text-rose-700 border-rose-200 ring-1 ring-rose-200";
+  if (s === "ESCALATED") return "bg-violet-50 text-violet-700 border-violet-200 ring-1 ring-violet-200";
+  return "bg-slate-50 text-slate-700 border-slate-200 ring-1 ring-slate-200";
+}
+
+function getSourceIcon(source?: string) {
+  const s = String(source || "").toLowerCase();
+  if (s === "whatsapp") return <MessageCircle className="w-3 h-3 text-green-600" />;
+  return <Plus className="w-3 h-3 text-blue-600" />;
+}
+
+function getCategoryIcon(category?: string) {
+  const c = String(category || "").toUpperCase();
+  if (c === "DOCUMENT") return <FileText className="w-3.5 h-3.5" />;
+  if (c === "SCHEDULING") return <Calendar className="w-3.5 h-3.5" />;
+  if (c === "PAYROLL") return <Wallet className="w-3.5 h-3.5" />;
+  if (c === "OPERATIONS") return <Briefcase className="w-3.5 h-3.5" />;
+  if (c === "HR") return <Settings className="w-3.5 h-3.5" />;
+  return <Plus className="w-3.5 h-3.5" />;
 }
 
 async function apiGet<T>(path: string): Promise<T> {
@@ -117,6 +134,15 @@ const StaffRequestsPage: React.FC = () => {
     },
   });
 
+  const countsQuery = useQuery({
+    queryKey: ["staff-requests-counts"],
+    queryFn: async (): Promise<Record<string, number>> => {
+      const data = await apiGet<any>("/staff/requests/counts/");
+      return data?.counts || {};
+    },
+    refetchInterval: 30000,
+  });
+
   const selectedQuery = useQuery({
     queryKey: ["staff-request", selectedId],
     queryFn: async (): Promise<StaffRequest | null> => {
@@ -163,10 +189,18 @@ const StaffRequestsPage: React.FC = () => {
 
       <Tabs value={activeStatus} onValueChange={(v) => setActiveStatus(v as StaffRequestStatus)}>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <TabsList className="w-full md:w-auto">
+          <TabsList className="w-full md:w-auto bg-muted/50 p-1">
             {STATUSES.map((s) => (
-              <TabsTrigger key={s.key} value={s.key}>
+              <TabsTrigger key={s.key} value={s.key} className="relative">
                 {s.label}
+                {countsQuery.data?.[s.key] !== undefined && (
+                  <Badge
+                    variant="secondary"
+                    className="ml-1.5 h-4 w-4 p-0 flex items-center justify-center text-[10px] rounded-full"
+                  >
+                    {countsQuery.data[s.key]}
+                  </Badge>
+                )}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -198,39 +232,65 @@ const StaffRequestsPage: React.FC = () => {
                     emptyState
                   ) : (
                     <div className="space-y-2">
-                      {requests.map((r) => (
-                        <button
-                          key={r.id}
-                          onClick={() => onSelect(r.id)}
-                          className={cn(
-                            "w-full text-left rounded-lg border p-3 hover:bg-muted transition-colors",
-                            selectedId === r.id ? "border-primary bg-muted" : "border-border"
-                          )}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="font-medium truncate">{r.subject || "Staff request"}</div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {(r.staff_name || "Staff")}{r.staff_phone ? ` • ${r.staff_phone}` : ""} • {r.category}
+                      {requests.map((r) => {
+                        const isNew = new Date().getTime() - new Date(r.created_at).getTime() < 86400000;
+                        const isUrgent = r.priority === "URGENT" || r.priority === "HIGH";
+
+                        return (
+                          <button
+                            key={r.id}
+                            onClick={() => onSelect(r.id)}
+                            className={cn(
+                              "w-full text-left rounded-xl border p-4 transition-all duration-200 group relative overflow-hidden",
+                              selectedId === r.id
+                                ? "border-primary/50 bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                                : "border-border hover:border-border-hover hover:bg-muted/50"
+                            )}
+                          >
+                            {isUrgent && selectedId !== r.id && (
+                              <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
+                            )}
+
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  {getSourceIcon(r.source)}
+                                  <div className="font-semibold text-sm truncate">{r.subject || "Staff request"}</div>
+                                  {isNew && (
+                                    <Badge className="h-4 px-1 text-[9px] bg-blue-500 hover:bg-blue-600">NEW</Badge>
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                  <span className="font-medium text-foreground/80 truncate">{(r.staff_name || "Staff")}</span>
+                                  <span>•</span>
+                                  <span className="flex items-center gap-1">
+                                    {getCategoryIcon(r.category)}
+                                    {r.category}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end gap-1.5">
+                                <Badge variant="outline" className={cn("text-[9px] font-bold px-1.5 py-0", statusBadge(r.status))}>
+                                  {r.status}
+                                </Badge>
+                                <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </div>
                               </div>
                             </div>
-                            <div className="flex flex-col items-end gap-1">
-                              <Badge variant="outline" className={cn("text-[10px]", statusBadge(r.status))}>
-                                {r.status}
-                              </Badge>
-                              <Badge variant="outline" className={cn("text-[10px]", priorityBadge(r.priority))}>
-                                {String(r.priority || "MEDIUM").toUpperCase()}
-                              </Badge>
+
+                            <div className="text-xs text-muted-foreground mt-2.5 line-clamp-1 leading-relaxed">
+                              {r.description || ""}
                             </div>
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                            {r.description || ""}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground mt-2">
-                            {new Date(r.created_at).toLocaleString()}
-                          </div>
-                        </button>
-                      ))}
+
+                            <div className="flex items-center justify-between mt-3 text-[10px] text-muted-foreground/70">
+                              <span>{new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                              <ChevronRight className={cn("w-3 h-3 transition-transform", selectedId === r.id ? "rotate-90 text-primary" : "group-hover:translate-x-0.5")} />
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </ScrollArea>
@@ -251,124 +311,161 @@ const StaffRequestsPage: React.FC = () => {
                 ) : selectedQuery.isError || !selected ? (
                   <div className="text-sm text-red-600 py-6">Failed to load request.</div>
                 ) : (
-                  <div className="flex flex-col h-[62vh]">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-lg font-semibold">{selected.subject || "Staff request"}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {(selected.staff_name || "Staff")}{selected.staff_phone ? ` • ${selected.staff_phone}` : ""} • {selected.category}
+                  <div className="flex flex-col h-[72vh]">
+                    <div className="flex items-start justify-between p-6 pb-0">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider mb-1">
+                          {getCategoryIcon(selected.category)}
+                          {selected.category}
+                        </div>
+                        <h3 className="text-2xl font-bold text-foreground tracking-tight leading-tight">{selected.subject || "Staff request"}</h3>
+                        <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                          <span className="font-semibold text-foreground/80">{(selected.staff_name || "Staff")}</span>
+                          <span>•</span>
+                          <span>{selected.staff_phone || "No phone"}</span>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <Badge variant="outline" className={cn(statusBadge(selected.status))}>
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge variant="outline" className={cn("text-xs font-bold px-3 py-1 uppercase rounded-full", statusBadge(selected.status))}>
                           {selected.status}
                         </Badge>
-                        <Badge variant="outline" className={cn(priorityBadge(selected.priority))}>
+                        <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", priorityBadge(selected.priority))}>
                           {String(selected.priority || "MEDIUM").toUpperCase()}
                         </Badge>
                       </div>
                     </div>
 
-                    <Separator className="my-3" />
+                    <div className="px-6 py-4">
+                      <div className="bg-muted/30 rounded-2xl p-4 border border-border/40">
+                        <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                          <MessageCircle className="w-3 h-3" />
+                          Message from Staff
+                        </div>
+                        <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap italic">
+                          "{selected.description || "No description provided."}"
+                        </div>
+                      </div>
+                    </div>
 
-                    <ScrollArea className="flex-1 pr-3">
-                      <div className="space-y-4">
-                        <div>
-                          <div className="text-xs font-medium text-muted-foreground mb-1">Description</div>
-                          <div className="text-sm whitespace-pre-wrap">{selected.description || "—"}</div>
+                    <ScrollArea className="flex-1 px-6">
+                      <div className="space-y-6 pb-6 mt-2">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 dark:bg-slate-900/50 dark:border-slate-800">
+                          <div className="space-y-1">
+                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Source</div>
+                            <div className="text-xs font-semibold flex items-center gap-1.5 capitalize">
+                              {getSourceIcon(selected.source)}
+                              {selected.source || "web"}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Received</div>
+                            <div className="text-xs font-semibold flex items-center gap-1.5">
+                              <Calendar className="w-3 h-3 text-muted-foreground" />
+                              {new Date(selected.created_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Reference ID</div>
+                            <div className="text-xs font-mono text-muted-foreground/80">{selected.id.substring(0, 8)}</div>
+                          </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 text-xs">
-                          <div>
-                            <div className="font-medium text-muted-foreground">Source</div>
-                            <div>{selected.source || "—"}</div>
-                          </div>
-                          <div>
-                            <div className="font-medium text-muted-foreground">External ID</div>
-                            <div>{selected.external_id || "—"}</div>
-                          </div>
-                        </div>
-
                         <div>
-                          <div className="text-xs font-medium text-muted-foreground mb-2">Request history</div>
-                          <div className="space-y-2">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                              <Clock className="w-3 h-3" />
+                              Activity log
+                            </div>
+                            <Separator className="flex-1 ml-4 h-[1px] bg-border/40" />
+                          </div>
+
+                          <div className="space-y-4">
                             {(selected.comments || []).length === 0 ? (
-                              <div className="text-sm text-muted-foreground">No updates yet.</div>
+                              <div className="text-sm text-muted-foreground italic pl-4 border-l-2 border-border/30 py-1">No activity logged yet.</div>
                             ) : (
                               (selected.comments || []).map((c) => (
-                                <div key={c.id} className="rounded-md border p-3">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="text-xs text-muted-foreground">
+                                <div key={c.id} className="relative pl-6 pb-2">
+                                  <div className="absolute left-0 top-1.5 w-2 h-2 rounded-full bg-border ring-4 ring-background" />
+                                  <div className="text-xs text-muted-foreground mb-1 flex items-center gap-2">
+                                    <span className="font-bold text-foreground/70">
                                       {(c.author_details?.first_name || c.author_details?.last_name)
                                         ? `${c.author_details?.first_name || ""} ${c.author_details?.last_name || ""}`.trim()
-                                        : (c.kind === "system" ? "System" : "Manager")}
-                                      {" • "}
-                                      {new Date(c.created_at).toLocaleString()}
-                                    </div>
-                                    <Badge variant="outline" className="text-[10px]">
+                                        : (c.kind === "system" ? "Miya AI" : "Manager")}
+                                    </span>
+                                    <span>•</span>
+                                    <span>{new Date(c.created_at).toLocaleString()}</span>
+                                    <Badge variant="secondary" className="text-[9px] px-1 h-3.5 uppercase font-bold tracking-tighter">
                                       {c.kind}
                                     </Badge>
                                   </div>
-                                  <div className="text-sm mt-2 whitespace-pre-wrap">{c.body}</div>
+                                  <div className="text-sm text-foreground/80 bg-muted/20 rounded-xl p-3 border border-border/30">
+                                    {c.body}
+                                  </div>
                                 </div>
-                              ))
+                              )).reverse()
                             )}
                           </div>
                         </div>
                       </div>
                     </ScrollArea>
 
-                    <Separator className="my-3" />
+                    <div className="p-6 bg-muted/40 border-t border-border/40 backdrop-blur-sm rounded-b-xl">
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <Button
+                          className="px-6 rounded-full bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-all active:scale-95"
+                          onClick={() => mutateAction.mutate({ action: "approve" })}
+                          disabled={mutateAction.isPending}
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                          Approve
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          className="px-6 rounded-full shadow-sm transition-all active:scale-95"
+                          onClick={() => mutateAction.mutate({ action: "reject", payload: { reason: "Rejected" } })}
+                          disabled={mutateAction.isPending}
+                        >
+                          Decline
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="px-6 rounded-full border-2 transition-all active:scale-95"
+                          onClick={() => mutateAction.mutate({ action: "escalate", payload: { note: "Escalated" } })}
+                          disabled={mutateAction.isPending}
+                        >
+                          Escalate
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="px-6 rounded-full transition-all"
+                          onClick={() => mutateAction.mutate({ action: "close" })}
+                          disabled={mutateAction.isPending}
+                        >
+                          Close
+                        </Button>
+                      </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        onClick={() => mutateAction.mutate({ action: "approve" })}
-                        disabled={mutateAction.isPending}
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        onClick={() => mutateAction.mutate({ action: "reject", payload: { reason: "Rejected" } })}
-                        disabled={mutateAction.isPending}
-                      >
-                        Decline
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => mutateAction.mutate({ action: "escalate", payload: { note: "Escalated" } })}
-                        disabled={mutateAction.isPending}
-                      >
-                        Escalate
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => mutateAction.mutate({ action: "close" })}
-                        disabled={mutateAction.isPending}
-                      >
-                        Close
-                      </Button>
-                    </div>
-
-                    <div className="mt-3 flex gap-2">
-                      <Textarea
-                        placeholder="Add a comment…"
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
-                        className="min-h-[44px]"
-                      />
-                      <Button
-                        variant="secondary"
-                        onClick={() => {
-                          const body = comment.trim();
-                          if (!body) return;
-                          mutateAction.mutate({ action: "comment", payload: { body } });
-                          setComment("");
-                        }}
-                        disabled={mutateAction.isPending}
-                      >
-                        Comment
-                      </Button>
+                      <div className="relative group">
+                        <Textarea
+                          placeholder="Type your response or internal note here..."
+                          value={comment}
+                          onChange={(e) => setComment(e.target.value)}
+                          className="min-h-[80px] rounded-2xl transition-all border-2 focus:ring-primary/20 bg-background pr-24"
+                        />
+                        <Button
+                          className="absolute bottom-2.5 right-2.5 rounded-xl shadow-md transition-all active:scale-95"
+                          size="sm"
+                          onClick={() => {
+                            const body = comment.trim();
+                            if (!body) return;
+                            mutateAction.mutate({ action: "comment", payload: { body } });
+                            setComment("");
+                          }}
+                          disabled={mutateAction.isPending}
+                        >
+                          Send
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
