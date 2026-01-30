@@ -243,13 +243,13 @@ const Auth = () => {
           <div className="w-full max-w-md">
             {/* Logo/Brand Area */}
             <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-full bg-[#00E676] shadow-[0_18px_45px_rgba(0,230,118,0.25)]">
+              <div className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-full bg-[#00E676] shadow-[0_18px_45px_rgba(0,230,118,0.25)]">
                 <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
                   <div className="w-4 h-4 bg-[#00E676] rounded-full" />
                 </div>
               </div>
-            <h1 className="text-3xl font-bold text-white mb-2">Mizan AI</h1>
-            <p className="text-[#B0BEC5]">
+              <h1 className="text-3xl font-bold text-white mb-2">Mizan AI</h1>
+              <p className="text-[#B0BEC5]">
                 Your Restaurant Operations on Auto Pilot
               </p>
             </div>

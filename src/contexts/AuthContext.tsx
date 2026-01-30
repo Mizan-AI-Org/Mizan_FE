@@ -157,7 +157,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             errorMsg = "Server error during login. Please try again.";
           else errorMsg = "Backend unreachable or returned a non-JSON error.";
         }
-        console.error("Login failed:", errorMsg, "Status:", response.status);
+        // Login failed
+
         throw new Error(errorMsg);
       }
 
@@ -178,7 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         data.user.role === "OWNER";
       navigate(isSupervisor ? "/dashboard" : "/staff-dashboard");
     } catch (err) {
-      console.error("Login request error:", err);
+
       if (err instanceof Error) {
         const msg = (err.message || "").toLowerCase();
         if (msg.includes("failed to fetch") || msg.includes("network error") || msg.includes("load failed")) {
@@ -215,7 +216,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const contentType = response.headers.get("content-type") || "";
       const isJson = contentType.includes("application/json");
       const rawText = await response.text();
-      console.log("Raw backend PIN login response:", rawText);
+      // PIN login debug logs removed
+
 
       if (!response.ok) {
         let errorMsg = "PIN login failed";
@@ -232,7 +234,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             errorMsg = "Server error during PIN login. Please try again.";
           else errorMsg = "Backend unreachable or returned a non-JSON error.";
         }
-        console.error("PIN login failed:", errorMsg, "Status:", response.status);
+        // PIN login failed
+
         throw new Error(errorMsg);
       }
 
@@ -253,7 +256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         data.user.role === "OWNER";
       navigate(isSupervisor ? "/dashboard" : "/staff-dashboard");
     } catch (err) {
-      console.error("PIN login request error:", err);
+
       if (err instanceof Error) {
         const msg = (err.message || "").toLowerCase();
         if (msg.includes("failed to fetch") || msg.includes("network error") || msg.includes("load failed")) {
