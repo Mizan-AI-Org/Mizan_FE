@@ -460,7 +460,6 @@ const MyChecklistsPage: React.FC = () => {
           const isClockedIn = sessionData?.is_clocked_in;
           const showDisabled = !loadingSession && !isClockedIn;
 
-          const showDisabled = !loadingSession && !isClockedIn;
 
 
           return (
