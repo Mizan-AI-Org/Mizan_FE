@@ -49,7 +49,7 @@ const ReportsPage: React.FC = () => {
             }
             return response.json();
         },
-        enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || user.role === 'MANAGER'),
+        enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'OWNER'),
     });
 
     const generateReportMutation = useMutation({
@@ -150,7 +150,7 @@ const ReportsPage: React.FC = () => {
         return <div className="text-center py-8 text-red-500">Error: {error.message}</div>;
     }
 
-    if (!user || (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(user.role))) {
+    if (!user || (!['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OWNER'].includes(user.role))) {
         return <div className="text-center py-8 text-gray-500">You do not have permission to view this page.</div>;
     }
 
