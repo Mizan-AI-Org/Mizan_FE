@@ -87,7 +87,7 @@ const StaffAnnouncements: React.FC = () => {
   const editorRef = React.useRef<HTMLDivElement | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState<string>("");
-  const canCompose = hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER"]);
+  const canCompose = hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]);
 
   useEffect(() => {
     const fetchProfiles = async () => {
