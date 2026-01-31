@@ -1243,6 +1243,9 @@ const TeamTab: React.FC = () => {
                                             }}
                                             className="w-full h-9 rounded-lg bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium px-3 text-sm"
                                         >
+                                            <option value="SUPER_ADMIN">Super Admin</option>
+                                            <option value="ADMIN">Admin</option>
+                                            <option value="OWNER">Owner</option>
                                             <option value="MANAGER">Manager</option>
                                             <option value="CHEF">Chef</option>
                                             <option value="WAITER">Waiter</option>
@@ -1312,6 +1315,9 @@ const TeamTab: React.FC = () => {
                                                     onChange={(e) => setPromoRole(e.target.value)}
                                                     className="w-full h-9 rounded-lg bg-white border-emerald-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium px-3 text-sm"
                                                 >
+                                                    <option value="SUPER_ADMIN">Super Admin</option>
+                                                    <option value="ADMIN">Admin</option>
+                                                    <option value="OWNER">Owner</option>
                                                     <option value="MANAGER">Manager</option>
                                                     <option value="CHEF">Chef</option>
                                                     <option value="WAITER">Waiter</option>
@@ -1806,9 +1812,10 @@ const TeamTab: React.FC = () => {
                                         className="w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                     >
                                         <optgroup label="Management">
-                                            <option value="MANAGER">Manager</option>
-                                            <option value="ADMIN">Admin</option>
+                                            <option value="OWNER">Owner</option>
                                             <option value="SUPER_ADMIN">Super Admin</option>
+                                            <option value="ADMIN">Admin</option>
+                                            <option value="MANAGER">Manager</option>
                                         </optgroup>
                                         <optgroup label="Kitchen">
                                             <option value="CHEF">Chef</option>
