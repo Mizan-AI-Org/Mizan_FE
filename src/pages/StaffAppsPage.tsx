@@ -43,14 +43,14 @@ const StaffAppsPage: React.FC = () => {
   }, []);
 
   const apps: AppItem[] = useMemo(() => [
-    { key: 'time', name: 'Time Tracking', description: 'Clock in/out and breaks', icon: Clock, href: '/timeclock', roles: ['SUPER_ADMIN','ADMIN','CHEF','WAITER','CLEANER','CASHIER'], external: true, category: 'Operations' },
+    { key: 'time', name: 'Time Tracking', description: 'Clock in/out and breaks', icon: Clock, href: '/timeclock', roles: ['SUPER_ADMIN', 'ADMIN', 'CHEF', 'WAITER', 'CLEANER', 'CASHIER'], external: true, category: 'Operations' },
     { key: 'schedule', name: 'My Schedule', description: 'View weekly shifts', icon: Calendar, href: '/staff-dashboard/schedule', category: 'Operations' },
-    { key: 'kitchen', name: 'Kitchen Display', description: 'Orders view', icon: ChefHat, href: '/staff-dashboard/kitchen', roles: ['SUPER_ADMIN','ADMIN','CHEF'], category: 'Operations' },
+    { key: 'kitchen', name: 'Kitchen Display', description: 'Orders view', icon: ChefHat, href: '/staff-dashboard/kitchen', roles: ['SUPER_ADMIN', 'ADMIN', 'CHEF'], category: 'Operations' },
     { key: 'chat', name: 'Team Announcements', description: 'Team messaging', icon: MessageSquare, href: '/staff-dashboard/chat', category: 'Communication' },
     { key: 'safety', name: 'Incidents and Safety', description: 'Incidents & reports', icon: Shield, href: '/staff-dashboard/safety', category: 'Safety' },
     { key: 'my_checklists', name: 'My Checklists', description: 'Assigned checklists', icon: ClipboardList, href: '/staff-dashboard/my-checklists', category: 'Safety' },
     { key: 'attendance', name: 'Attendance', description: 'History & records', icon: FileText, href: '/staff-dashboard/attendance', category: 'Management' },
-    { key: 'supervisor', name: 'Supervisor Tools', description: 'Manager tools', icon: Users, href: '/supervisor', roles: ['SUPER_ADMIN','ADMIN','MANAGER'], external: true, category: 'Management' },
+    { key: 'supervisor', name: 'Supervisor Tools', description: 'Manager tools', icon: Users, href: '/supervisor', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OWNER'], external: true, category: 'Management' },
   ], []);
 
   // Per-app icon colors to match reference design
@@ -85,7 +85,7 @@ const StaffAppsPage: React.FC = () => {
     return categoryFiltered.filter(canAccess);
   }, [apps, query, activeCategory]);
 
-  
+
 
   const onOpen = async (item: AppItem) => {
     if (!canAccess(item)) {
