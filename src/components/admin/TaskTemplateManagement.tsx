@@ -221,7 +221,24 @@ export default function TaskTemplateManagement() {
   const seedTemplatesMutation = useMutation({
     mutationFn: async () => {
       const token = localStorage.getItem('access_token') || '';
-      for (const tpl of builtInTemplates) {
+      // Fetch current templates to avoid duplicates (use large page_size to get all)
+      const listRes = await fetch(`${API_BASE}/scheduling/task-templates/?page_size=500`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!listRes.ok) throw new Error('Failed to fetch existing templates');
+      const listData = await listRes.json();
+      const existing = (listData.results || listData || []) as TaskTemplate[];
+      const existingNames = new Set(existing.map((t) => t.name.trim().toLowerCase()));
+
+      const toCreate = builtInTemplates.filter(
+        (tpl) => !existingNames.has(tpl.name.trim().toLowerCase())
+      );
+
+      if (toCreate.length === 0) {
+        return { created: 0, skipped: builtInTemplates.length };
+      }
+
+      for (const tpl of toCreate) {
         const response = await fetch(`${API_BASE}/scheduling/task-templates/`, {
           method: 'POST',
           headers: {
@@ -241,10 +258,21 @@ export default function TaskTemplateManagement() {
           throw new Error(err.detail || err.message || 'Failed to create built-in template');
         }
       }
+      return {
+        created: toCreate.length,
+        skipped: builtInTemplates.length - toCreate.length,
+      };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['task-templates'] });
-      toast.success('Built-in templates loaded');
+      const { created = 0, skipped = 0 } = result || {};
+      if (created === 0 && skipped > 0) {
+        toast.info('All pre-built processes are already loaded.');
+      } else if (skipped > 0) {
+        toast.success(`Loaded ${created} new processes. ${skipped} were already present.`);
+      } else {
+        toast.success('Built-in templates loaded');
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to load built-in templates');
