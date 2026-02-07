@@ -495,6 +495,36 @@ export default function Dashboard() {
                     {t("dashboard.staffing.ot_risk")}
                   </p>
                 </div>
+                {(summary?.attendance?.late_staff_today?.length || 0) > 0 && (
+                  <div className="flex items-start gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <Clock
+                      className={`w-4 h-4 mt-0.5 shrink-0 ${
+                        (summary?.attendance?.late_staff_today?.length || 0) > 0 ? "text-amber-500" : "text-slate-300 dark:text-slate-600"
+                      }`}
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                        {summary.attendance.late_staff_today.length} {t("dashboard.staffing.late_staff")}
+                      </p>
+                      <ul className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 space-y-0.5">
+                        {summary.attendance.late_staff_today.slice(0, 3).map((m: { name: string; reason?: string }, i: number) => (
+                          <li key={i}>
+                            {m.name}
+                            {m.reason === "missed_clock_in" ? " (no clock-in)" : " (late)"}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+                {(summary?.attendance?.ot_risk_staff?.length || 0) > 0 && (summary?.attendance?.ot_risk || 0) > 0 && (
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                      {summary.attendance.ot_risk_staff.slice(0, 3).map((s: { staff_name?: string }) => s.staff_name || s).join(", ")}
+                      {(summary.attendance.ot_risk_staff.length > 3) && " …"}
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
