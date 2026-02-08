@@ -9,12 +9,14 @@ import { useAuth } from "../contexts/AuthContext";
 import { AuthForm } from "../components/AuthForm";
 import { SignUpForm } from "../components/SignUpForm";
 import { RestaurantShowcase } from "../components/RestaurantShowcase";
+import { useLanguage } from "@/hooks/use-language";
 
 const Auth = () => {
   const [currentPage, setCurrentPage] = useState<"login" | "signup">("login");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const { toast } = useToast();
+  const { t } = useLanguage();
   const auth = useAuth();
 
   // Check if this is an invitation link
@@ -37,7 +39,7 @@ const Auth = () => {
     const password = formData.get("password") as string;
 
     if (!token) {
-      setError("Invalid invitation link");
+      setError(t("auth.invite.errors.invalid_link"));
       setIsLoading(false);
       return;
     }
@@ -46,14 +48,14 @@ const Auth = () => {
       await auth.acceptInvitation(token, firstName, lastName, password, null);
 
       toast({
-        title: "Welcome to the team!",
-        description: "Your staff account has been created successfully.",
+        title: t("auth.invite.toast_welcome"),
+        description: t("auth.invite.toast_desc"),
       });
     } catch (error: unknown) {
       if (error instanceof Error) {
         setError(error.message);
       } else {
-        setError("An unexpected error occurred.");
+        setError(t("auth.invite.errors.unexpected"));
       }
     } finally {
       setIsLoading(false);
@@ -104,7 +106,7 @@ const Auth = () => {
               </div>
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">Mizan AI</h1>
-            <p className="text-[#B0BEC5]">Join Your Team</p>
+            <p className="text-[#B0BEC5]">{t("auth.invite.join_team")}</p>
           </div>
 
           {/* Elegant Form Card */}
@@ -126,31 +128,31 @@ const Auth = () => {
               <form onSubmit={handleAcceptInvitation} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName" className="text-white">
-                    First Name
+                    {t("auth.invite.first_name")}
                   </Label>
                   <Input
                     id="firstName"
                     name="firstName"
-                    placeholder="John"
+                    placeholder={t("auth.invite.placeholder_first")}
                     required
                     className="bg-[#0A0D10]/60 border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5]"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName" className="text-white">
-                    Last Name
+                    {t("auth.invite.last_name")}
                   </Label>
                   <Input
                     id="lastName"
                     name="lastName"
-                    placeholder="Doe"
+                    placeholder={t("auth.invite.placeholder_last")}
                     required
                     className="bg-[#0A0D10]/60 border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5]"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password" className="text-white">
-                    Password
+                    {t("auth.invite.password")}
                   </Label>
                   <Input
                     id="password"
@@ -169,7 +171,7 @@ const Auth = () => {
                   {isLoading && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  {isLoading ? "Completing Setup..." : "Complete Setup"}
+                  {isLoading ? t("auth.invite.completing") : t("auth.invite.complete_setup")}
                 </Button>
               </form>
             </div>
@@ -178,19 +180,19 @@ const Auth = () => {
           {/* Footer */}
           <div className="mt-6 text-center text-sm text-[#B0BEC5]">
             <p>
-              By continuing, you agree to our{" "}
+              {t("auth.invite.footer_agree")}{" "}
               <a
                 href="#"
                 className="text-[#00E676] hover:text-[#00C853] transition-colors"
               >
-                Terms of Service
+                {t("auth.footer.terms")}
               </a>{" "}
-              and{" "}
+              {t("auth.footer.and")}{" "}
               <a
                 href="#"
                 className="text-[#00E676] hover:text-[#00C853] transition-colors"
               >
-                Privacy Policy
+                {t("auth.footer.privacy")}
               </a>
             </p>
           </div>
@@ -250,7 +252,7 @@ const Auth = () => {
               </div>
               <h1 className="text-3xl font-bold text-white mb-2">Mizan AI</h1>
               <p className="text-[#B0BEC5]">
-                Your Restaurant Operations on Auto Pilot
+                {t("auth.tagline")}
               </p>
             </div>
 
@@ -281,19 +283,19 @@ const Auth = () => {
             {currentPage === "login" && (
               <div className="mt-8 text-center text-sm text-[#B0BEC5]">
                 <p>
-                  By continuing, you agree to our{" "}
+                  {t("auth.invite.footer_agree")}{" "}
                   <a
                     href="#"
                     className="text-[#00E676] hover:text-[#00C853] transition-colors"
                   >
-                    Terms of Service
+                    {t("auth.footer.terms")}
                   </a>{" "}
-                  and{" "}
+                  {t("auth.footer.and")}{" "}
                   <a
                     href="#"
                     className="text-[#00E676] hover:text-[#00C853] transition-colors"
                   >
-                    Privacy Policy
+                    {t("auth.footer.privacy")}
                   </a>
                 </p>
               </div>

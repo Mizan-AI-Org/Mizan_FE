@@ -99,7 +99,6 @@ export default function Dashboard() {
   const { data: summary, isLoading } = useQuery({
     queryKey: ["dashboard-summary"],
     queryFn: () => api.getDashboardSummary(),
-    // Near real-time refresh for operational insights
     refetchInterval: 10000,
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: false,
@@ -111,6 +110,25 @@ export default function Dashboard() {
     if (hour < 17) return t("dashboard.greeting.afternoon");
     return t("dashboard.greeting.evening");
   }, []);
+
+  const noShowsPeriod = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return "morning";
+    if (h < 17) return "afternoon";
+    return "evening";
+  })();
+  const noShowsCount = (() => {
+    if (isLoading || !summary?.attendance) return 0;
+    const a = summary.attendance as { morning_no_shows?: number; afternoon_no_shows?: number; evening_no_shows?: number; no_shows?: number };
+    switch (noShowsPeriod) {
+      case "morning": return a.morning_no_shows ?? a.no_shows ?? 0;
+      case "afternoon": return a.afternoon_no_shows ?? 0;
+      case "evening": return a.evening_no_shows ?? 0;
+      default: return a.no_shows ?? 0;
+    }
+  })();
+  const noShowsLabelKey = `dashboard.staffing.${noShowsPeriod}_no_shows` as const;
+  const noShowsDescKey = `dashboard.staffing.no_shows_${noShowsPeriod}` as const;
 
   const cardBase =
     "border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all duration-300 rounded-2xl";
@@ -131,13 +149,13 @@ export default function Dashboard() {
       const topCritical = insights.find((x) => String(x?.level || "").toUpperCase() === "CRITICAL");
       const description = topCritical?.recommended_action
         ? String(topCritical.recommended_action)
-        : "Open the Insights card to review details.";
+        : t("dashboard.open_insights");
 
-      toast("Critical issue detected", {
+      toast(t("dashboard.critical_issue"), {
         description,
         action: topCritical?.action_url
           ? {
-              label: "Open",
+              label: t("common.open"),
               onClick: () => navigate(String(topCritical.action_url)),
             }
           : undefined,
@@ -145,7 +163,7 @@ export default function Dashboard() {
     }
 
     prevCriticalRef.current = criticalCount;
-  }, [criticalCount, isLoading, insights, navigate]);
+  }, [criticalCount, isLoading, insights, navigate, t]);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0f1419] p-4 md:p-6 lg:p-7 pb-28 font-sans antialiased text-slate-900 dark:text-slate-100 transition-colors duration-300">
@@ -431,7 +449,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Staffing & Coverage */}
+        {/* Staffing & Coverage */}
           <Card className={cardBase}>
             <CardHeader className={cardHeaderBase}>
               <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
@@ -451,10 +469,10 @@ export default function Dashboard() {
                 </div>
                 <div className="text-right">
                   <div className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-                    {isLoading ? "…" : summary?.attendance?.no_shows || 0}
+                    {isLoading ? "…" : noShowsCount}
                   </div>
                   <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                    {t("dashboard.staffing.morning_no_shows")}
+                    {t(noShowsLabelKey)}
                   </div>
                 </div>
               </div>
@@ -463,14 +481,14 @@ export default function Dashboard() {
                 <div className="flex items-start gap-3">
                   <AlertCircle
                     className={`w-4 h-4 mt-0.5 shrink-0 ${
-                      (summary?.attendance?.no_shows || 0) > 0 ? "text-red-500" : "text-slate-300 dark:text-slate-600"
+                      noShowsCount > 0 ? "text-red-500" : "text-slate-300 dark:text-slate-600"
                     }`}
                   />
                   <p className="text-sm text-slate-700 dark:text-slate-300">
                     <span className="font-semibold text-slate-900 dark:text-white">
-                      {isLoading ? "…" : summary?.attendance?.no_shows || 0}
+                      {isLoading ? "…" : noShowsCount}
                     </span>{" "}
-                    {t("dashboard.staffing.no_shows_morning")}
+                    {t(noShowsDescKey)}
                   </p>
                 </div>
                 <div className="flex items-start gap-3">

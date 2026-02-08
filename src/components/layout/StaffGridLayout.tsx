@@ -17,6 +17,7 @@ import BackLink from "@/components/BackLink";
 import BrandLogo from "@/components/BrandLogo";
 import { LanguageSelector } from "@/components/LanguangeSelector";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useLanguage } from "@/hooks/use-language";
 
 // Grid-based staff layout using a top navbar and main content area.
 // Mirrors admin layout spacing and components, while switching to grid navigation.
@@ -24,6 +25,7 @@ const StaffGridLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const [query, setQuery] = useState("");
   const { notifications, markAllAsRead, markAsRead } = useNotifications();
 
@@ -54,8 +56,8 @@ const StaffGridLayout: React.FC = () => {
                 <Input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search apps"
-                  aria-label="Search applications"
+                  placeholder={t("common.search_apps")}
+                  aria-label={t("common.search_apps")}
                   className="pl-9"
                 />
               </div>
@@ -77,10 +79,10 @@ const StaffGridLayout: React.FC = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-80">
-                  <div className="px-4 py-2 font-medium">Notifications</div>
+                  <div className="px-4 py-2 font-medium">{t("common.notifications.title")}</div>
                   <DropdownMenuSeparator />
                   {notifications.length === 0 ? (
-                    <p className="text-center text-sm text-muted-foreground py-4">No notifications</p>
+                    <p className="text-center text-sm text-muted-foreground py-4">{t("common.notifications.empty")}</p>
                   ) : (
                     notifications.map((notification) => (
                       <DropdownMenuItem key={notification.id} className="flex flex-col items-start space-y-1 p-2">
@@ -91,7 +93,7 @@ const StaffGridLayout: React.FC = () => {
                         <p className="text-xs text-muted-foreground">{new Date(notification.timestamp).toLocaleString()}</p>
                         {!notification.read && (
                           <Button variant="link" size="sm" onClick={() => markAsRead(notification.id)} className="self-end h-auto p-0 text-xs text-blue-600">
-                            Mark as Read
+                            {t("common.notifications.mark_as_read")}
                           </Button>
                         )}
                       </DropdownMenuItem>
@@ -99,7 +101,7 @@ const StaffGridLayout: React.FC = () => {
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={markAllAsRead}>
-                    Mark all as read
+                    {t("common.notifications.mark_all_read")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -117,7 +119,7 @@ const StaffGridLayout: React.FC = () => {
                 <DropdownMenuContent align="end" className="w-56 text-sm">
                   <div className="px-4 py-2">
                     <p className="text-sm font-medium">
-                      {user?.first_name && user?.last_name ? `${user.first_name} ${user.last_name}` : "User"}
+                      {user?.first_name && user?.last_name ? `${user.first_name} ${user.last_name}` : t("common.user_fallback")}
                     </p>
                     <p className="text-xs text-muted-foreground">{user?.email ?? ""}</p>
                     <p className="text-xs text-muted-foreground capitalize">{user?.role ? user.role.toLowerCase().replace(/_/g, " ") : ""}</p>
@@ -125,15 +127,15 @@ const StaffGridLayout: React.FC = () => {
                   {/* Design guideline: avoid dropdowns with <=2 items. Include appearance toggle here. */}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="flex items-center justify-between">
-                    <span className="flex items-center gap-2"><SunMoon className="h-4 w-4" /> Appearance</span>
+                    <span className="flex items-center gap-2"><SunMoon className="h-4 w-4" /> {t("common.appearance")}</span>
                     <ThemeToggle />
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate('/dashboard/settings')} aria-label="Profile settings">
-                    <UserIcon className="mr-2 h-4 w-4" /> Profile Settings
+                    <UserIcon className="mr-2 h-4 w-4" /> {t("common.profile_settings")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={logout} className="text-destructive" aria-label="Sign out">
-                    <LogOut className="mr-2 h-4 w-4" /> Sign Out
+                    <LogOut className="mr-2 h-4 w-4" /> {t("common.sign_out")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
