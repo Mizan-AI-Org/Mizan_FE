@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Mail, ArrowLeft, CheckCircle } from "lucide-react";
 import { api } from "@/lib/api";
+import { useLanguage } from "@/hooks/use-language";
 
 interface ForgotPasswordFormProps {
     onBack: () => void;
@@ -15,6 +16,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
     const [email, setEmail] = useState("");
+    const { t } = useLanguage();
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -28,7 +30,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }
             if (error instanceof Error) {
                 setError(error.message);
             } else {
-                setError("An unexpected error occurred. Please try again.");
+                setError(t("auth.forgot.errors.unexpected"));
             }
         } finally {
             setIsLoading(false);
@@ -44,10 +46,9 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }
                     </div>
                 </div>
                 <div className="space-y-2">
-                    <h3 className="text-xl font-semibold text-white">Check Your Email</h3>
+                    <h3 className="text-xl font-semibold text-white">{t("auth.forgot.check_email")}</h3>
                     <p className="text-[#B0BEC5] text-sm">
-                        If an account exists with <span className="text-white font-medium">{email}</span>,
-                        you will receive a password reset link shortly.
+                        {t("auth.forgot.check_email_desc").replace("{{email}}", email)}
                     </p>
                 </div>
                 <div className="pt-4">
@@ -56,11 +57,11 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }
                         className="w-full border-2 border-[#00E676]/50 text-[#00E676] hover:bg-[#00E676]/10 hover:text-[#00F77B] hover:border-[#00E676] font-semibold h-11 bg-transparent backdrop-blur-sm transition-all duration-300"
                     >
                         <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Login
+                        {t("auth.forgot.back")}
                     </Button>
                 </div>
                 <p className="text-xs text-[#B0BEC5]">
-                    Didn't receive the email? Check your spam folder or try again.
+                    {t("auth.forgot.no_email")}
                 </p>
             </div>
         );
@@ -70,9 +71,9 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }
         <div className="w-full space-y-6">
             {/* Header */}
             <div className="space-y-2 text-center">
-                <h3 className="text-xl font-semibold text-white">Forgot Password?</h3>
+                <h3 className="text-xl font-semibold text-white">{t("auth.forgot.title")}</h3>
                 <p className="text-[#B0BEC5] text-sm">
-                    Enter your email address and we'll send you a link to reset your password.
+                    {t("auth.forgot.desc")}
                 </p>
             </div>
 
@@ -92,14 +93,14 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }
                         htmlFor="reset-email"
                         className="text-white font-semibold text-sm tracking-wider"
                     >
-                        Email Address
+                        {t("auth.forgot.email_label")}
                     </Label>
                     <div className="relative group">
                         <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#00E676]/60 group-focus-within:text-[#00E676] transition-colors" />
                         <Input
                             id="reset-email"
                             type="email"
-                            placeholder="admin@heymizan.ai"
+                            placeholder={t("auth.forgot.email_placeholder")}
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
@@ -115,7 +116,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }
                     disabled={isLoading}
                 >
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isLoading ? "Sending..." : "Send Reset Link"}
+                    {isLoading ? t("auth.forgot.sending") : t("auth.forgot.send_link")}
                 </Button>
             </form>
 
@@ -127,7 +128,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }
                     className="text-[#00E676] hover:text-[#00F77B] transition-colors font-medium text-sm inline-flex items-center"
                 >
                     <ArrowLeft className="mr-1 h-4 w-4" />
-                    Back to Login
+                    {t("auth.forgot.back")}
                 </button>
             </div>
         </div>

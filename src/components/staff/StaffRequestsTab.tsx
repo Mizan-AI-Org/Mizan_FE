@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
+import { useLanguage } from "@/hooks/use-language";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -38,12 +39,12 @@ type StaffRequest = {
   comments?: StaffRequestComment[];
 };
 
-const STATUSES: { key: StaffRequestStatus; label: string }[] = [
-  { key: "PENDING", label: "Pending" },
-  { key: "APPROVED", label: "Approved" },
-  { key: "REJECTED", label: "Rejected" },
-  { key: "ESCALATED", label: "Escalated" },
-  { key: "CLOSED", label: "Closed" },
+const STATUSES: { key: StaffRequestStatus; labelKey: string }[] = [
+  { key: "PENDING", labelKey: "staff.requests.pending" },
+  { key: "APPROVED", labelKey: "staff.requests.approved" },
+  { key: "REJECTED", labelKey: "staff.requests.rejected" },
+  { key: "ESCALATED", labelKey: "staff.requests.escalated" },
+  { key: "CLOSED", labelKey: "staff.requests.closed" },
 ];
 
 function getAuthToken() {
@@ -94,6 +95,7 @@ async function apiPost<T>(path: string, body?: any): Promise<T> {
 
 const StaffRequestsTab: React.FC = () => {
   const queryClient = useQueryClient();
+  const { t } = useLanguage();
 
   const [activeStatus, setActiveStatus] = useState<StaffRequestStatus>("PENDING");
   const [search, setSearch] = useState("");
@@ -143,9 +145,9 @@ const StaffRequestsTab: React.FC = () => {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Staff Requests</h2>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t("staff.requests.title")}</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Centralized inbox for staff questions, documents, and approvals.
+          {t("staff.requests.subtitle")}
         </p>
       </div>
 
@@ -154,18 +156,18 @@ const StaffRequestsTab: React.FC = () => {
           <TabsList className="w-full md:w-auto">
             {STATUSES.map((s) => (
               <TabsTrigger key={s.key} value={s.key}>
-                {s.label}
+                {t(s.labelKey)}
               </TabsTrigger>
             ))}
           </TabsList>
           <div className="flex gap-2 w-full md:w-[360px]">
             <Input
-              placeholder="Search requests..."
+              placeholder={t("staff.requests.search")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             <Button variant="outline" onClick={() => setSearch("")}>
-              Clear
+              {t("staff.requests.clear")}
             </Button>
           </div>
         </div>
@@ -174,7 +176,7 @@ const StaffRequestsTab: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-4 items-start">
             <Card className="h-[68vh]">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Inbox</CardTitle>
+                <CardTitle className="text-base">{t("staff.requests.inbox")}</CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 <ScrollArea className="h-[58vh] pr-3">
@@ -183,7 +185,7 @@ const StaffRequestsTab: React.FC = () => {
                   ) : listQuery.isError ? (
                     <div className="text-sm text-red-600 py-6">Failed to load requests.</div>
                   ) : requests.length === 0 ? (
-                    <div className="text-sm text-muted-foreground py-10 text-center">No requests found.</div>
+                    <div className="text-sm text-muted-foreground py-10 text-center">{t("staff.requests.no_requests")}</div>
                   ) : (
                     <div className="space-y-2">
                       {requests.map((r) => (
@@ -197,9 +199,9 @@ const StaffRequestsTab: React.FC = () => {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <div className="font-medium truncate">{r.subject || "Staff request"}</div>
+                              <div className="font-medium truncate">{r.subject || t("staff.request_fallback")}</div>
                               <div className="text-xs text-muted-foreground truncate">
-                                {(r.staff_name || "Staff")}{r.staff_phone ? ` • ${r.staff_phone}` : ""} • {r.category}
+                                {(r.staff_name || t("staff.page.title"))}{r.staff_phone ? ` • ${r.staff_phone}` : ""} • {r.category}
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-1">
@@ -227,12 +229,12 @@ const StaffRequestsTab: React.FC = () => {
 
             <Card className="h-[68vh]">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Request details</CardTitle>
+                <CardTitle className="text-base">{t("staff.requests.details")}</CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 {!selectedId ? (
                   <div className="text-sm text-muted-foreground py-10 text-center">
-                    Select a request on the left.
+                    {t("staff.requests.select_request")}
                   </div>
                 ) : selectedQuery.isLoading ? (
                   <div className="text-sm text-muted-foreground py-6">Loading…</div>
@@ -242,9 +244,9 @@ const StaffRequestsTab: React.FC = () => {
                   <div className="flex flex-col h-[58vh]">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="text-lg font-semibold">{selected.subject || "Staff request"}</div>
+                        <div className="text-lg font-semibold">{selected.subject || t("staff.request_fallback")}</div>
                         <div className="text-sm text-muted-foreground">
-                          {(selected.staff_name || "Staff")}{selected.staff_phone ? ` • ${selected.staff_phone}` : ""} • {selected.category}
+                          {(selected.staff_name || t("staff.page.title"))}{selected.staff_phone ? ` • ${selected.staff_phone}` : ""} • {selected.category}
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1">
@@ -289,7 +291,7 @@ const StaffRequestsTab: React.FC = () => {
                                     <div className="text-xs text-muted-foreground">
                                       {(c.author_details?.first_name || c.author_details?.last_name)
                                         ? `${c.author_details?.first_name || ""} ${c.author_details?.last_name || ""}`.trim()
-                                        : (c.kind === "system" ? "System" : "Manager")}
+                                        : (c.kind === "system" ? t("staff.system") : t("staff.manager"))}
                                       {" • "}
                                       {new Date(c.created_at).toLocaleString()}
                                     </div>
@@ -340,7 +342,7 @@ const StaffRequestsTab: React.FC = () => {
 
                     <div className="mt-3 flex gap-2">
                       <Textarea
-                        placeholder="Add a comment…"
+                        placeholder={t("staff.add_comment")}
                         value={comment}
                         onChange={(e) => setComment(e.target.value)}
                         className="min-h-[44px]"

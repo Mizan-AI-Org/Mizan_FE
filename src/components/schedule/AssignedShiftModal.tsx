@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '../../contexts/AuthContext.types';
 import { format, parseISO, addDays, addWeeks, addMonths, isBefore, isEqual } from 'date-fns';
 import { API_BASE } from "@/lib/api";
+import { useLanguage } from "@/hooks/use-language";
 import { Search, Calendar as CalendarIcon, X, Check, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Task, TaskPriority } from '@/types/schedule';
@@ -65,6 +66,7 @@ interface AssignedShiftModalProps {
 
 const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose, shift, weeklyScheduleId, initialDate }) => {
     const queryClient = useQueryClient();
+    const { t } = useLanguage();
     const { user, logout } = useAuth() as AuthContextType;
 
     const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>(shift?.staff_members || (shift?.staff ? [shift.staff] : []));
@@ -435,7 +437,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[700px] bg-white rounded-3xl p-8 max-h-[90vh] overflow-y-auto">
                 <DialogHeader className="pb-2">
-                    <DialogTitle className="text-xl font-bold text-[#1F2937]">{shift ? 'Edit Schedule' : 'Create Schedule'}</DialogTitle>
+                    <DialogTitle className="text-xl font-bold text-[#1F2937]">{shift ? t("schedule.edit_schedule") : t("schedule.create_schedule")}</DialogTitle>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-6 mt-4">
@@ -690,7 +692,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                 disabled={deleteShiftMutation.isPending}
                                 className="mr-auto rounded-xl"
                             >
-                                {deleteShiftMutation.isPending ? 'Deleting...' : 'Delete Shift'}
+                                {deleteShiftMutation.isPending ? t("schedule.deleting") : t("schedule.delete_shift")}
                             </Button>
                         )}
                         <Button
@@ -699,14 +701,14 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                             onClick={onClose}
                             className="h-12 px-8 rounded-xl text-gray-600 font-semibold hover:bg-gray-100"
                         >
-                            Cancel
+                            {t("schedule.cancel")}
                         </Button>
                         <Button
                             type="submit"
                             disabled={createUpdateShiftMutation.isPending}
                             className="h-12 px-10 rounded-xl bg-[#106B4E] hover:bg-[#0D5A41] text-white font-bold text-base transition-all shadow-md active:scale-[0.98]"
                         >
-                            {createUpdateShiftMutation.isPending ? (shift ? 'Saving...' : 'Creating...') : (shift ? 'Save' : 'Create')}
+                            {createUpdateShiftMutation.isPending ? (shift ? t("schedule.saving") : t("schedule.creating")) : (shift ? t("schedule.save") : t("schedule.create"))}
                         </Button>
                     </div>
                 </form>

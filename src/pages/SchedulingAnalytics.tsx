@@ -121,17 +121,38 @@ const SchedulingAnalytics: React.FC = () => {
     },
   });
 
-  // Fetch labor cost data
-  const { data: laborCosts, isLoading: laborLoading } = useQuery({
+  // Fetch labor cost data (real data from timesheets/clock)
+  const { data: laborCostsData, isLoading: laborLoading } = useQuery({
     queryKey: ["labor-costs", dateRange],
     queryFn: async () => {
       const response = await fetch(`${API_BASE}/analytics/labor-costs/?start_date=${startDate}&end_date=${endDate}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
       });
-      if (!response.ok) return [];
+      if (!response.ok) return null;
       return await response.json();
     },
   });
+
+  // Sales → labor recommendation
+  const { data: salesLaborRec, isLoading: salesLaborLoading } = useQuery({
+    queryKey: ["sales-labor-recommendation", startDate],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE}/reporting/labor/sales-recommendation/?week_start=${startDate}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+      });
+      if (!response.ok) return null;
+      return await response.json();
+    },
+  });
+
+  const laborChartData = laborCostsData?.chart_data ?? [];
+  const laborTotalCost = laborCostsData?.total_cost ?? 0;
+  const laborTotalHours = laborCostsData?.total_hours ?? 0;
+  const laborCurrency = laborCostsData?.currency ?? "USD";
+  const laborBudget = laborCostsData?.budget;
+  const costPerHour = laborTotalHours > 0 ? laborTotalCost / laborTotalHours : 0;
+  const topRoleCost = laborChartData.length ? Math.max(...laborChartData.map((d: { value: number }) => d.value)) : 0;
+  const topRoleName = laborChartData.length ? laborChartData.find((d: { value: number }) => d.value === topRoleCost)?.name ?? "—" : "—";
 
   // Handle export report
   const handleExportReport = () => {
@@ -309,8 +330,10 @@ const SchedulingAnalytics: React.FC = () => {
                     <p className="text-muted-foreground">Loading labor cost data...</p>
                   </div>
                 </div>
+              ) : laborChartData.length > 0 ? (
+                <PieChartComponent data={laborChartData} />
               ) : (
-                <PieChartComponent data={laborCosts} />
+                <p className="text-muted-foreground text-center py-8">No labor data for this period.</p>
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
@@ -319,8 +342,15 @@ const SchedulingAnalytics: React.FC = () => {
                     <CardTitle className="text-sm">Total Labor Cost</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{laborLoading ? "..." : "$12,450"}</div>
+                    <div className="text-2xl font-bold">
+                      {laborLoading ? "..." : `${laborCurrency} ${Number(laborTotalCost).toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
+                    </div>
                     <p className="text-xs text-muted-foreground">For selected period</p>
+                    {laborBudget?.target_amount != null && (
+                      <p className="text-xs mt-1">
+                        Budget: {laborCurrency} {Number(laborBudget.target_amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
                 <Card>
@@ -328,20 +358,60 @@ const SchedulingAnalytics: React.FC = () => {
                     <CardTitle className="text-sm">Cost per Hour</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{laborLoading ? "..." : "$18.75"}</div>
-                    <p className="text-xs text-muted-foreground">Average hourly rate</p>
+                    <div className="text-2xl font-bold">
+                      {laborLoading ? "..." : `${laborCurrency} ${costPerHour.toFixed(2)}`}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{Number(laborTotalHours).toFixed(1)} total hours</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardHeader className="py-2">
-                    <CardTitle className="text-sm">Most Expensive Shift</CardTitle>
+                    <CardTitle className="text-sm">Highest Cost by Role</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{laborLoading ? "..." : "Friday Dinner"}</div>
-                    <p className="text-xs text-muted-foreground">$2,340 total cost</p>
+                    <div className="text-2xl font-bold">{laborLoading ? "..." : topRoleName}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {laborCurrency} {Number(topRoleCost).toLocaleString("en-US", { minimumFractionDigits: 2 })} total
+                    </p>
                   </CardContent>
                 </Card>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Sales → Labor Recommendation */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Sales → Labor Recommendation</CardTitle>
+              <CardDescription>
+                Recommended labor budget based on demand forecast and target labor % of sales.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {salesLaborLoading ? (
+                <p className="text-muted-foreground">Loading recommendation...</p>
+              ) : salesLaborRec ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium">Week</p>
+                    <p className="text-muted-foreground">{salesLaborRec.week_start} – {salesLaborRec.week_end}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Estimated revenue</p>
+                    <p className="text-lg font-semibold">{salesLaborRec.currency} {Number(salesLaborRec.estimated_revenue ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Labor target</p>
+                    <p className="text-muted-foreground">{salesLaborRec.labor_target_percent}% of sales</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Recommended labor budget</p>
+                    <p className="text-lg font-semibold text-primary">{salesLaborRec.currency} {Number(salesLaborRec.recommended_labor_budget ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No recommendation data. Set labor target % in restaurant settings.</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

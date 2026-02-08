@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, addMonths } from 'date-fns';
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, Coffee } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Coffee, LogIn, LogOut, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
-import { Loader2 } from 'lucide-react';
-import { API_BASE } from "@/lib/api";
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
+import { API_BASE, api } from "@/lib/api";
 
 
 interface Break {
@@ -34,9 +35,11 @@ interface AttendanceRecord {
 const AttendanceHistory: React.FC = () => {
     const { user_id } = useParams<{ user_id?: string }>(); // Optional user_id for managers
     const { user } = useAuth();
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
     const [currentDate, setCurrentDate] = useState(new Date());
 
-    const isManagerView = !!user_id && (user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN');
+    const isManagerView = !!user_id && (user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'OWNER' || user?.role === 'MANAGER');
     const targetUserId = isManagerView ? user_id : user?.id;
 
     const formattedStartDate = format(startOfMonth(currentDate), 'yyyy-MM-dd');
@@ -78,6 +81,29 @@ const AttendanceHistory: React.FC = () => {
         enabled: !!targetUserId,
     });
 
+    const isClockedIn = attendanceHistory?.some(r => r.status === 'active') ?? false;
+
+    const managerClockInMutation = useMutation({
+        mutationFn: () => api.managerClockIn(user_id!),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['attendanceHistory', targetUserId, formattedStartDate, formattedEndDate] });
+            toast({ title: 'Success', description: 'Staff clocked in (manager override)' });
+        },
+        onError: (err: Error) => {
+            toast({ title: 'Error', description: err.message || 'Failed to clock in', variant: 'destructive' });
+        },
+    });
+    const managerClockOutMutation = useMutation({
+        mutationFn: () => api.managerClockOut(user_id!),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['attendanceHistory', targetUserId, formattedStartDate, formattedEndDate] });
+            toast({ title: 'Success', description: 'Staff clocked out (manager override)' });
+        },
+        onError: (err: Error) => {
+            toast({ title: 'Error', description: err.message || 'Failed to clock out', variant: 'destructive' });
+        },
+    });
+
     const goToPreviousMonth = () => {
         setCurrentDate((prev) => subMonths(prev, 1));
     };
@@ -111,16 +137,43 @@ const AttendanceHistory: React.FC = () => {
                 Attendance History {isManagerView && user_id ? `for ${attendanceHistory?.[0]?.staff_info?.first_name || 'Staff'}` : ''}
             </h2>
 
-            <div className="flex justify-between items-center mb-6 bg-gray-100 p-3 rounded-lg">
-                <Button onClick={goToPreviousMonth} variant="ghost" size="icon">
-                    <ChevronLeft className="w-6 h-6 text-gray-700" />
-                </Button>
-                <h3 className="text-xl font-semibold text-gray-700">
-                    {format(currentDate, 'MMMM yyyy')}
-                </h3>
-                <Button onClick={goToNextMonth} variant="ghost" size="icon">
-                    <ChevronRight className="w-6 h-6 text-gray-700" />
-                </Button>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 bg-gray-100 p-3 rounded-lg">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Button onClick={goToPreviousMonth} variant="ghost" size="icon">
+                        <ChevronLeft className="w-6 h-6 text-gray-700" />
+                    </Button>
+                    <h3 className="text-xl font-semibold text-gray-700 flex-1">
+                        {format(currentDate, 'MMMM yyyy')}
+                    </h3>
+                    <Button onClick={goToNextMonth} variant="ghost" size="icon">
+                        <ChevronRight className="w-6 h-6 text-gray-700" />
+                    </Button>
+                </div>
+                {isManagerView && user_id && (
+                    <div className="flex gap-2">
+                        {isClockedIn ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => managerClockOutMutation.mutate()}
+                                disabled={managerClockOutMutation.isPending}
+                            >
+                                {managerClockOutMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LogOut className="w-4 h-4 mr-2" />}
+                                Clock Out (Manager)
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => managerClockInMutation.mutate()}
+                                disabled={managerClockInMutation.isPending}
+                            >
+                                {managerClockInMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LogIn className="w-4 h-4 mr-2" />}
+                                Clock In (Manager)
+                            </Button>
+                        )}
+                    </div>
+                )}
             </div>
 
             <Card className="mb-6 shadow-sm">

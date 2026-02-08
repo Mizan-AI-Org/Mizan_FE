@@ -74,6 +74,24 @@ export class BackendService {
     // For frontend, we will directly use the API_BASE constant
   }
 
+  private async fetchWithError(path: string, options?: { method?: string; body?: string }): Promise<any> {
+    const method = options?.method || "GET";
+    const init: RequestInit = { method, headers: this.getHeaders() };
+    if (method !== "GET") init.body = options?.body ?? "{}";
+    const response = await fetch(`${API_BASE}${path}`, init);
+    if (!response.ok) {
+      let message = "Request failed";
+      try {
+        const err = await response.json();
+        message = err.error || err.message || err.detail || message;
+      } catch {
+        message = `Request failed (${response.status})`;
+      }
+      throw new Error(message);
+    }
+    return response.json();
+  }
+
   private getHeaders(token?: string): Record<string, string> {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -335,6 +353,23 @@ export class BackendService {
 
   async getDashboardSummary() {
     return this.fetchWithError("/dashboard/summary/");
+  }
+
+  async getActionCenter(): Promise<{
+    items: Array<Record<string, unknown>>;
+    counts: Record<string, number>;
+    total: number;
+    timestamp: string;
+  }> {
+    return this.fetchWithError("/dashboard/action-center/");
+  }
+
+  async managerClockIn(staffId: string): Promise<Record<string, unknown>> {
+    return this.fetchWithError(`/timeclock/staff/${staffId}/manager-clock-in/`, { method: "POST" });
+  }
+
+  async managerClockOut(staffId: string): Promise<Record<string, unknown>> {
+    return this.fetchWithError(`/timeclock/staff/${staffId}/manager-clock-out/`, { method: "POST" });
   }
 
   async getTasks(accessToken: string): Promise<Task[]> {
@@ -2980,23 +3015,25 @@ export class BackendService {
   }
 
   async getMyChecklists(statusOrOpts?: string | { status?: string; page?: number; page_size?: number; ordering?: string }): Promise<{ results: any[]; next?: string | null; previous?: string | null; count?: number } | any[]> {
-    try {
-      const opts = typeof statusOrOpts === "string" ? { status: statusOrOpts } : (statusOrOpts || {});
-      const url = new URL(`${API_BASE}/checklists/executions/my_checklists/`);
-      if (opts.status) url.searchParams.set("status", opts.status);
-      if (opts.page) url.searchParams.set("page", String(opts.page));
-      if (opts.page_size) url.searchParams.set("page_size", String(opts.page_size));
-      if (opts.ordering) url.searchParams.set("ordering", String(opts.ordering));
-      const response = await fetch(url.toString(), { headers: this.getHeaders() });
-      if (!response.ok) {
-        return [];
+    const opts = typeof statusOrOpts === "string" ? { status: statusOrOpts } : (statusOrOpts || {});
+    const url = new URL(`${API_BASE}/checklists/executions/my_checklists/`);
+    if (opts.status) url.searchParams.set("status", opts.status);
+    if (opts.page) url.searchParams.set("page", String(opts.page));
+    if (opts.page_size) url.searchParams.set("page_size", String(opts.page_size));
+    if (opts.ordering) url.searchParams.set("ordering", String(opts.ordering));
+    const response = await fetch(url.toString(), { headers: this.getHeaders() });
+    if (!response.ok) {
+      let message = "Failed to fetch checklists";
+      try {
+        const err = await response.json();
+        message = err.message || err.detail || err.error || message;
+      } catch {
+        message = `Failed to fetch checklists (${response.status})`;
       }
-      const data = await response.json();
-      // Prefer paginated envelope if available
-      return typeof data === "object" && data && "results" in data ? data : (data.results || data);
-    } catch (error: any) {
-      return [];
+      throw new Error(message);
     }
+    const data = await response.json();
+    return typeof data === "object" && data && "results" in data ? data : (data.results || data);
   }
 
   async getStaffProfiles(accessToken: string): Promise<StaffProfileItem[]> {

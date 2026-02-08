@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
+import { useLanguage } from '@/hooks/use-language';
 
 import { API_BASE } from '@/lib/api';
 
@@ -14,6 +15,7 @@ const AcceptInvitation: React.FC = () => {
     const navigate = useNavigate();
     const { acceptInvitation } = useAuth();
     const { toast } = useToast();
+    const { t } = useLanguage();
     const token = searchParams.get('token');
 
     const [firstName, setFirstName] = useState('');
@@ -73,7 +75,7 @@ const AcceptInvitation: React.FC = () => {
         e.preventDefault();
         setError(null);
         if (!token) {
-            toast({ title: "Error", description: "Invitation token is missing.", variant: "destructive" });
+            toast({ title: t("auth.accept.toast_error"), description: t("auth.accept.toast_token_missing"), variant: "destructive" });
             return;
         }
 
@@ -82,16 +84,16 @@ const AcceptInvitation: React.FC = () => {
         if (isAdminFlow) {
             if (!password || password.length < 8) {
                 toast({
-                    title: "Invalid Password",
-                    description: "Password must be at least 8 characters long.",
+                    title: t("auth.accept.toast_invalid_password"),
+                    description: t("auth.accept.toast_password_min"),
                     variant: "destructive"
                 });
                 return;
             }
             if (password !== confirmPassword) {
                 toast({
-                    title: "Passwords do not match",
-                    description: "Please make sure both password fields are identical.",
+                    title: t("auth.accept.toast_passwords_match"),
+                    description: t("auth.accept.toast_passwords_match_desc"),
                     variant: "destructive"
                 });
                 return;
@@ -99,7 +101,7 @@ const AcceptInvitation: React.FC = () => {
         } else {
             // Basic client-side validations (Login PIN only for frontline staff)
             if (!/^[0-9]{4}$/.test(pinCode)) {
-                toast({ title: "Invalid Login PIN", description: "Login PIN must be 4 digits.", variant: "destructive" });
+                toast({ title: t("auth.accept.toast_invalid_pin"), description: t("auth.accept.toast_pin_desc"), variant: "destructive" });
                 return;
             }
         }
@@ -119,12 +121,12 @@ const AcceptInvitation: React.FC = () => {
                     requireEmail ? email : undefined
                 );
             }
-            toast({ title: "Success", description: "Invitation accepted! You are now logged in." });
+            toast({ title: t("auth.accept.toast_success"), description: t("auth.accept.toast_success_desc") });
             // Redirection handled by AuthContext
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : "Failed to accept invitation.";
             setError(message);
-            toast({ title: "Error", description: message, variant: "destructive" });
+            toast({ title: t("auth.accept.toast_error"), description: message, variant: "destructive" });
         } finally {
             setLoading(false);
         }
@@ -135,11 +137,11 @@ const AcceptInvitation: React.FC = () => {
             <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
                 <Card className="w-full max-w-md">
                     <CardHeader>
-                        <CardTitle>Invalid Invitation</CardTitle>
-                        <CardDescription>No invitation token found in the URL. Please check your invitation link.</CardDescription>
+                        <CardTitle>{t("auth.accept.invalid_title")}</CardTitle>
+                        <CardDescription>{t("auth.accept.invalid_desc")}</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Button onClick={() => navigate('/auth')}>Go to Login</Button>
+                        <Button onClick={() => navigate('/auth')}>{t("auth.accept.go_login")}</Button>
                     </CardContent>
                 </Card>
             </div>
@@ -150,11 +152,11 @@ const AcceptInvitation: React.FC = () => {
         <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
             <Card className="w-full max-w-md">
                 <CardHeader>
-                    <CardTitle>Accept Invitation</CardTitle>
+                    <CardTitle>{t("auth.accept.title")}</CardTitle>
                     <CardDescription>
                         {restaurantName
-                            ? `Join ${restaurantName}. Review your details and finish setup in one step.`
-                            : 'Set up your account to join the restaurant.'}
+                            ? t("auth.accept.desc_join").replace("{{restaurant}}", restaurantName)
+                            : t("auth.accept.desc_generic")}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -167,16 +169,16 @@ const AcceptInvitation: React.FC = () => {
                         {/* Always show a summary of who this invite is for */}
                         <div className="rounded-md bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm">
                             <p className="font-medium">
-                                {firstName || lastName ? `${firstName} ${lastName}`.trim() : 'Guest'}
+                                {firstName || lastName ? `${firstName} ${lastName}`.trim() : t("auth.accept.guest")}
                             </p>
                             {inviteRole && (
                                 <p className="text-xs text-gray-600 dark:text-gray-300">
-                                    Role: {inviteRole.replace('_', ' ')}
+                                    {t("auth.accept.role")}: {inviteRole.replace('_', ' ')}
                                 </p>
                             )}
                             {(inviteEmail || email) && (
                                 <p className="text-xs text-gray-600 dark:text-gray-300">
-                                    Email: {inviteEmail || email}
+                                    {t("auth.accept.email_label")}: {inviteEmail || email}
                                 </p>
                             )}
                         </div>
@@ -185,22 +187,22 @@ const AcceptInvitation: React.FC = () => {
                         {!(firstName && lastName) && (
                             <>
                                 <div className="grid gap-2">
-                                    <Label htmlFor="firstName">First Name</Label>
+                                    <Label htmlFor="firstName">{t("auth.accept.first_name")}</Label>
                                     <Input
                                         id="firstName"
                                         type="text"
-                                        placeholder="John"
+                                        placeholder={t("auth.accept.placeholder_first")}
                                         value={firstName}
                                         onChange={(e) => setFirstName(e.target.value)}
                                         required
                                     />
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label htmlFor="lastName">Last Name</Label>
+                                    <Label htmlFor="lastName">{t("auth.accept.last_name")}</Label>
                                     <Input
                                         id="lastName"
                                         type="text"
-                                        placeholder="Doe"
+                                        placeholder={t("auth.accept.placeholder_last")}
                                         value={lastName}
                                         onChange={(e) => setLastName(e.target.value)}
                                         required
@@ -211,11 +213,11 @@ const AcceptInvitation: React.FC = () => {
                         {isAdminOrManagerRole(inviteRole) ? (
                             <>
                                 <div className="grid gap-2">
-                                    <Label htmlFor="password">Set Your Password</Label>
+                                    <Label htmlFor="password">{t("auth.accept.set_password")}</Label>
                                     <Input
                                         id="password"
                                         type="password"
-                                        placeholder="Enter a strong password"
+                                        placeholder={t("auth.accept.password_placeholder")}
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         minLength={8}
@@ -223,11 +225,11 @@ const AcceptInvitation: React.FC = () => {
                                     />
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                                    <Label htmlFor="confirmPassword">{t("auth.accept.confirm_password")}</Label>
                                     <Input
                                         id="confirmPassword"
                                         type="password"
-                                        placeholder="Re-enter your password"
+                                        placeholder={t("auth.accept.confirm_placeholder")}
                                         value={confirmPassword}
                                         onChange={(e) => setConfirmPassword(e.target.value)}
                                         minLength={8}
@@ -239,11 +241,11 @@ const AcceptInvitation: React.FC = () => {
                             <>
                                 {/* Password is not required for frontline staff invitations; they use a Login PIN */}
                                 <div className="grid gap-2">
-                                    <Label htmlFor="pinCode">Set Your Login PIN</Label>
+                                    <Label htmlFor="pinCode">{t("auth.accept.set_pin")}</Label>
                                     <Input
                                         id="pinCode"
                                         type="text"
-                                        placeholder="XXXX"
+                                        placeholder={t("auth.accept.pin_placeholder")}
                                         value={pinCode}
                                         onChange={(e) => setPinCode(e.target.value)}
                                         maxLength={4}
@@ -251,11 +253,11 @@ const AcceptInvitation: React.FC = () => {
                                     />
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label htmlFor="email">Email (required only if not provided in invite)</Label>
+                                    <Label htmlFor="email">{t("auth.accept.email_optional")}</Label>
                                     <Input
                                         id="email"
                                         type="email"
-                                        placeholder="you@example.com"
+                                        placeholder={t("auth.accept.email_placeholder")}
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                     />
@@ -263,7 +265,7 @@ const AcceptInvitation: React.FC = () => {
                             </>
                         )}
                         <Button type="submit" className="w-full" disabled={loading}>
-                            {loading ? "Accepting..." : "Accept Invitation"}
+                            {loading ? t("auth.accept.submitting") : t("auth.accept.submit")}
                         </Button>
                     </form>
                 </CardContent>

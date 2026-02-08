@@ -3,6 +3,7 @@ import { WeeklyTimeGridView } from "./WeeklyTimeGridView";
 import { StaffScheduleListView } from "./StaffScheduleListView";
 import ShiftModal from "@/components/ShiftModal";
 import type { Shift, StaffMember, WeeklyScheduleData, BackendShift } from "@/types/schedule";
+import { useLanguage } from "@/hooks/use-language";
 import { startOfWeek, endOfWeek, format, addDays, parseISO, addWeeks, addMonths, isBefore, isEqual } from "date-fns";
 import { API_BASE } from "@/lib/api";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ import { getStaffColor } from "@/lib/utils";
  */
 const EnhancedScheduleView: React.FC = () => {
   const { isAdmin, isSuperAdmin } = useAuth() as AuthContextType;
+  const { t } = useLanguage();
   const canEditShifts = (isAdmin?.() ?? false) || (isSuperAdmin?.() ?? false);
 
   const [currentView, setCurrentView] = useState<"week" | "list">("week");
@@ -282,7 +284,7 @@ const EnhancedScheduleView: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error("Failed to delete shift");
-      toast.success("Shift deleted successfully");
+      toast.success(t("toasts.shift_deleted"));
       refetchShifts();
     } catch (error) {
       toast.error("Failed to delete shift");
@@ -295,13 +297,13 @@ const EnhancedScheduleView: React.FC = () => {
     <div className="space-y-4 max-w-[1600px] mx-auto p-4 md:p-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Staff Schedule</h1>
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight">{t("schedule.staff_schedule")}</h1>
         </div>
         <div className="flex items-center gap-3">
           <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as any)} className="bg-gray-100 p-1 rounded-xl">
             <TabsList className="bg-transparent border-none">
-              <TabsTrigger value="week" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">Weekly Grid View</TabsTrigger>
-              <TabsTrigger value="list" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">List View</TabsTrigger>
+              <TabsTrigger value="week" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">{t("schedule.weekly_grid_view")}</TabsTrigger>
+              <TabsTrigger value="list" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">{t("schedule.list_view")}</TabsTrigger>
             </TabsList>
           </Tabs>
           <button
@@ -312,7 +314,7 @@ const EnhancedScheduleView: React.FC = () => {
             className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-md hover:shadow-lg active:scale-95"
           >
             <Plus className="h-5 w-5" />
-            <span>Create</span>
+            <span>{t("schedule.create")}</span>
           </button>
         </div>
       </div>

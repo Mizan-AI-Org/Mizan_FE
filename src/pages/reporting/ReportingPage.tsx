@@ -4,6 +4,7 @@ import {
     BarChart2,
     Users,
     Package,
+    Clock,
     ArrowRight
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -32,6 +33,13 @@ export default function ReportingPage() {
             icon: Package,
             link: "/dashboard/reports/inventory",
             color: "text-purple-500",
+        },
+        {
+            title: t("reporting.sections.laborAttendance.title"),
+            description: t("reporting.sections.laborAttendance.description"),
+            icon: Clock,
+            link: "/dashboard/reports/labor-attendance",
+            color: "text-amber-500",
         },
     ];
 

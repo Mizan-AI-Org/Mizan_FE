@@ -88,7 +88,7 @@ export const useNotifications = () => {
     });
 
     // Mutation to mark all notifications as read
-    const markAllAsReadMutation = useMutation<void, Error>({ // Adjust return type
+    const markAllAsReadMutation = useMutation<void, Error>({
         mutationFn: async () => {
             const token = localStorage.getItem('access_token');
             const response = await fetch(`${API_BASE}/notifications/mark-all-read/`, {
@@ -103,7 +103,21 @@ export const useNotifications = () => {
                 throw new Error('Failed to mark all notifications as read');
             }
         },
-        onSuccess: () => {
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: ['notifications', user?.id] });
+            const previous = queryClient.getQueryData<Notification[]>(['notifications', user?.id]);
+            queryClient.setQueryData<Notification[]>(['notifications', user?.id], (old) => {
+                const list = Array.isArray(old) ? old : (old && typeof old === 'object' && 'results' in old ? (old as { results: Notification[] }).results : []);
+                return list.map((n) => ({ ...n, is_read: true }));
+            });
+            return { previous };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previous != null) {
+                queryClient.setQueryData(['notifications', user?.id], context.previous);
+            }
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
         },
     });

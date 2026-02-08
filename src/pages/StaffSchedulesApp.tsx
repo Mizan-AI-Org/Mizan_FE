@@ -4,19 +4,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Calendar, FileText } from "lucide-react";
 import EnhancedScheduleView from "@/components/schedule/EnhancedScheduleView";
 import ShiftReviewsView from "@/components/reviews/ShiftReviewsView";
+import { useLanguage } from "@/hooks/use-language";
 
 const StaffSchedulesApp: React.FC = () => {
     const [activeTab, setActiveTab] = useState<string>("schedule");
+    const { t } = useLanguage();
 
     return (
         <div className="container mx-auto py-6 space-y-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
                 <TabsList className="grid w-full md:w-[400px] grid-cols-2">
                     <TabsTrigger value="schedule">
-                        <Calendar className="h-4 w-4 mr-2" /> Staff Scheduling
+                        <Calendar className="h-4 w-4 mr-2" /> {t("schedule.staff_scheduling")}
                     </TabsTrigger>
                     <TabsTrigger value="reviews">
-                        <FileText className="h-4 w-4 mr-2" /> Shift Reviews
+                        <FileText className="h-4 w-4 mr-2" /> {t("schedule.shift_reviews")}
                     </TabsTrigger>
                 </TabsList>
 

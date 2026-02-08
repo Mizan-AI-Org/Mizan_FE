@@ -48,6 +48,8 @@
   "reporting.sections.attendance.description": "تتبع ساعات العمل والتأخير والغياب للفريق.",
   "reporting.sections.inventory.title": "تقارير المخزون",
   "reporting.sections.inventory.description": "مراقبة مستويات المخزون وتكاليف الهدر والتعديلات.",
+  "reporting.sections.laborAttendance.title": "العمالة والحضور",
+  "reporting.sections.laborAttendance.description": "الساعات المخططة مقابل الفعلية، الإضافي، الامتثال والشهادات المنتهية.",
   "settings.title": "الإعدادات",
   "settings.tabs.profile": "الملف الشخصي",
   "settings.tabs.geolocation": "الموقع الجغرافي",

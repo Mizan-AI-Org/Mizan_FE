@@ -425,6 +425,38 @@ const Timesheets: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  /** Export payroll timesheets (hours, earnings) from backend for pay period – CSV for payroll systems */
+  const exportPayrollCSV = async () => {
+    const start = dateFrom || weekRange.days[0]?.toISOString().slice(0, 10);
+    const end = dateTo || weekRange.days[weekRange.days.length - 1]?.toISOString().slice(0, 10);
+    if (!start || !end) {
+      toast.error('Select a date range first');
+      return;
+    }
+    try {
+      const url = `${API_BASE}/scheduling/timesheets/export-payroll/?start_date=${start}&end_date=${end}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.detail || 'Export failed');
+        return;
+      }
+      const blob = await res.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `payroll_export_${start}_${end}.csv`;
+      a.click();
+      URL.revokeObjectURL(downloadUrl);
+      toast.success('Payroll CSV downloaded');
+    } catch (e) {
+      toast.error((e as Error).message || 'Export failed');
+    }
+  };
+
   const getShiftBadgeColor = (status?: string) => {
     switch (status) {
       case 'CONFIRMED': return 'bg-green-100 text-green-800';
@@ -561,10 +593,13 @@ const Timesheets: React.FC = () => {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={exportCSV} className="flex items-center gap-2">
-                <Download className="w-4 h-4" /> Export CSV
+                <Download className="w-4 h-4" /> Export Shifts CSV
+              </Button>
+              <Button variant="default" onClick={exportPayrollCSV} className="flex items-center gap-2">
+                <Download className="w-4 h-4" /> Export Payroll CSV
               </Button>
               <Button variant="outline" onClick={() => window.print()} className="flex items-center gap-2">
-                <Download className="w-4 h-4" /> Export PDF
+                <Download className="w-4 h-4" /> Print / PDF
               </Button>
             </div>
           </div>

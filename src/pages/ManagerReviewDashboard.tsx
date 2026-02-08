@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLanguage } from "@/hooks/use-language";
 import { api, API_BASE, toAbsoluteUrl } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ type SubmittedChecklist = {
 
 const ManagerReviewDashboard: React.FC = () => {
   const queryClient = useQueryClient();
+  const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [filterSubmitter, setFilterSubmitter] = useState("");
   const [filterDate, setFilterDate] = useState("");
@@ -138,7 +140,7 @@ const ManagerReviewDashboard: React.FC = () => {
       }
       return res.json();
     },
-    onSuccess: async (_data, variables) => { queryClient.invalidateQueries({ queryKey: ["manager-submitted-checklists"] }); toast.success("Submission approved"); try { await api.logAdminAction(String(variables.id), { action: 'MANAGER_REVIEW_DECISION', message: 'Approved' }); } catch { /* ignore */ } },
+    onSuccess: async (_data, variables) => { queryClient.invalidateQueries({ queryKey: ["manager-submitted-checklists"] }); toast.success(t("toasts.submission_approved")); try { await api.logAdminAction(String(variables.id), { action: 'MANAGER_REVIEW_DECISION', message: 'Approved' }); } catch { /* ignore */ } },
     onError: (e: any) => toast.error(e?.message || "Approval failed"),
   });
   const rejectMutation = useMutation({
@@ -150,7 +152,7 @@ const ManagerReviewDashboard: React.FC = () => {
       }
       return res.json();
     },
-    onSuccess: async (_data, variables) => { queryClient.invalidateQueries({ queryKey: ["manager-submitted-checklists"] }); toast.success("Submission rejected"); try { await api.logAdminAction(String(variables.id), { action: 'MANAGER_REVIEW_DECISION', message: 'Rejected' }); } catch { /* ignore */ } },
+    onSuccess: async (_data, variables) => { queryClient.invalidateQueries({ queryKey: ["manager-submitted-checklists"] }); toast.success(t("toasts.submission_rejected")); try { await api.logAdminAction(String(variables.id), { action: 'MANAGER_REVIEW_DECISION', message: 'Rejected' }); } catch { /* ignore */ } },
     onError: (e: any) => toast.error(e?.message || "Rejection failed"),
   });
 
@@ -304,15 +306,15 @@ const ManagerReviewDashboard: React.FC = () => {
     <div className="p-4 sm:p-6 space-y-4">
       <Tabs defaultValue="submitted" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
-          <TabsTrigger value="submitted">Submitted Checklist</TabsTrigger>
-          <TabsTrigger value="incidents">Reported Incidents</TabsTrigger>
+          <TabsTrigger value="submitted">{t("analytics.submitted_checklist")}</TabsTrigger>
+          <TabsTrigger value="incidents">{t("analytics.reported_incidents")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="submitted" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Submissions Trend</CardTitle>
-              <CardDescription className="text-sm">Daily submitted checklists</CardDescription>
+              <CardTitle className="text-base">{t("analytics.submissions_trend")}</CardTitle>
+              <CardDescription className="text-sm">{t("analytics.daily_submitted")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-64">
@@ -336,11 +338,11 @@ const ManagerReviewDashboard: React.FC = () => {
           </Card>
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold">Submitted Checklists</h2>
-              <p className="text-sm text-muted-foreground">Manager review and audit trail</p>
+              <h2 className="text-lg font-semibold">{t("analytics.submitted_checklists")}</h2>
+              <p className="text-sm text-muted-foreground">{t("analytics.manager_review")}</p>
             </div>
             <div className="flex items-center gap-2">
-              <Input placeholder="Search by name or submitter" value={search} onChange={(e) => setSearch(e.target.value)} className="w-60" />
+              <Input placeholder={t("analytics.search_name_submitter")} value={search} onChange={(e) => setSearch(e.target.value)} className="w-60" />
               <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-44" />
               <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
                 <TabsList>
@@ -356,15 +358,15 @@ const ManagerReviewDashboard: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-44" />
                 <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-44" />
-                <Input placeholder="Filter by staff" value={staffFilter} onChange={(e) => setStaffFilter(e.target.value)} className="w-56" />
-                <Button size="sm" variant="outline" onClick={exportCsv}>Export CSV</Button>
+                <Input placeholder={t("analytics.filter_by_staff")} value={staffFilter} onChange={(e) => setStaffFilter(e.target.value)} className="w-56" />
+                <Button size="sm" variant="outline" onClick={exportCsv}>{t("analytics.export_csv")}</Button>
               </div>
               {isLoading ? (
-                <div className="text-sm text-muted-foreground">Loading submissions…</div>
+                <div className="text-sm text-muted-foreground">{t("analytics.loading_submissions")}</div>
               ) : sortedTable.length === 0 ? (
                 <div className="text-sm text-muted-foreground">
-                  No submissions found.
-                  <div className="mt-1">If you recently submitted, the server may be processing. Try again shortly.</div>
+                  {t("analytics.no_submissions")}
+                  <div className="mt-1">{t("analytics.no_submissions_hint")}</div>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -468,15 +470,15 @@ const ManagerReviewDashboard: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {isLoading ? (
-                <div className="text-sm text-muted-foreground">Loading submissions…</div>
+                <div className="text-sm text-muted-foreground">{t("analytics.loading_submissions")}</div>
               ) : filtered.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No submissions found.</div>
+                <div className="text-sm text-muted-foreground">{t("analytics.no_submissions")}</div>
               ) : filtered.map((s) => (
                 <Card key={s.id} className="transition hover:shadow-md">
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div>
-                        <CardTitle className="text-base">{s.template?.name || "Checklist"}</CardTitle>
+                        <CardTitle className="text-base">{s.template?.name || t("analytics.checklist_fallback")}</CardTitle>
                         <CardDescription className="text-sm">Submitted {s.submitted_at ? new Date(s.submitted_at).toLocaleString() : "—"}</CardDescription>
                       </div>
                       <Badge variant={s.status === 'COMPLETED' ? 'secondary' : 'outline'} className="text-xs">{s.status || '—'}</Badge>
@@ -588,7 +590,7 @@ const ManagerReviewDashboard: React.FC = () => {
                     {/* Filters */}
                     <div className="flex gap-2 flex-wrap">
                       <Input
-                        placeholder="Search by title or location..."
+                        placeholder={t("analytics.search_title_location")}
                         value={incidentFilters.search}
                         onChange={(e) => setIncidentFilters({ ...incidentFilters, search: e.target.value })}
                         className="w-60"
@@ -846,7 +848,7 @@ const ManagerReviewDashboard: React.FC = () => {
                               <Textarea
                                 value={resolutionNotes || incidentDetail.resolution_notes || ''}
                                 onChange={(e) => setResolutionNotes(e.target.value)}
-                                placeholder="Add notes about how this incident was handled..."
+                                placeholder={t("analytics.add_incident_notes")}
                                 rows={4}
                               />
                             </div>
@@ -1033,7 +1035,7 @@ const ManagerReviewDashboard: React.FC = () => {
                   </ScrollArea>
                 </div>
                 <div className="space-y-2">
-                  <Textarea value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} placeholder="Add review comments (optional)" />
+                  <Textarea value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} placeholder={t("analytics.add_review_comments")} />
                   <div className="flex items-center gap-2 justify-end">
                     <Button variant="outline" onClick={() => setDetailId(null)}>Close</Button>
                     <Button onClick={() => approveMutation.mutate({ id: String(summary.id), reason: reviewComment })} disabled={approveMutation.isPending}>Approve</Button>

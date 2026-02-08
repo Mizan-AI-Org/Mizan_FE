@@ -19,6 +19,7 @@ import StockAdjustmentsPage from "./pages/inventory/StockAdjustmentsPage";
 import DailySalesReportsPage from "./pages/reporting/DailySalesReportsPage";
 import AttendanceReportsPage from "./pages/reporting/AttendanceReportsPage";
 import InventoryReportsPage from "./pages/reporting/InventoryReportsPage";
+import LaborAttendanceReportPage from "./pages/reporting/LaborAttendanceReportPage";
 import TimeClockPage from "./pages/TimeClockPage";
 import ShiftDetailView from "./pages/ShiftDetailView";
 import StaffAnnouncementsList from "./pages/StaffAnnouncement";
@@ -460,6 +461,14 @@ const App = () => {
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
                       <InventoryReportsPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/reports/labor-attendance"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                      <LaborAttendanceReportPage />
                     </RoleBasedRoute>
                   }
                 />

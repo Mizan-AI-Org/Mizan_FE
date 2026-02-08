@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, User, Mail, Lock, Building2 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { useLanguage } from "@/hooks/use-language";
 
 interface SignUpFormProps {
   onNavigateToLogin: () => void;
@@ -32,6 +33,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
   const [error, setError] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const { toast } = useToast();
+  const { t } = useLanguage();
   const auth = useAuth();
 
   const handleOwnerSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -40,7 +42,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
     setError("");
 
     if (!termsAccepted) {
-      setError("You must accept the Terms of Service and Privacy Policy");
+      setError(t("auth.signup.errors.terms_required"));
       setIsLoading(false);
       return;
     }
@@ -53,7 +55,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
     const confirmPassword = formData.get("confirmPassword") as string;
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError(t("auth.signup.errors.passwords_match"));
       setIsLoading(false);
       return;
     }
@@ -82,14 +84,14 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
       await auth.ownerSignup(signupData);
 
       toast({
-        title: "Welcome to Mizan AI!",
-        description: "Your restaurant account has been created successfully.",
+        title: t("auth.signup.toast_welcome"),
+        description: t("auth.signup.toast_desc"),
       });
     } catch (error: unknown) {
       if (error instanceof Error) {
         setError(error.message);
       } else {
-        setError("An unexpected error occurred during signup.");
+        setError(t("auth.signup.errors.unexpected"));
       }
     } finally {
       setIsLoading(false);
@@ -108,22 +110,22 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
       )}
 
       <div className="space-y-2 mb-6">
-        <h2 className="text-2xl font-bold text-white">Create Account</h2>
-        <p className="text-sm text-[#B0BEC5]">Sign up as a Manager or Owner</p>
+        <h2 className="text-2xl font-bold text-white">{t("auth.signup.title")}</h2>
+        <p className="text-sm text-[#B0BEC5]">{t("auth.signup.subtitle")}</p>
       </div>
 
       <form onSubmit={handleOwnerSignUp} className="space-y-4">
         {/* Business Name */}
         <div className="space-y-2">
           <Label htmlFor="businessName" className="text-white text-sm">
-            Restaurant Name
+            {t("auth.signup.restaurant_name")}
           </Label>
           <div className="relative">
             <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#00E676]/60" />
             <Input
               id="businessName"
               name="businessName"
-              placeholder="Your Restaurant Name"
+              placeholder={t("auth.signup.restaurant_placeholder")}
               required
               className="pl-9 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
             />
@@ -133,14 +135,14 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
         {/* Full Name */}
         <div className="space-y-2">
           <Label htmlFor="fullName" className="text-white text-sm">
-            Owner's Full Name
+            {t("auth.signup.owner_full_name")}
           </Label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#00E676]/60" />
             <Input
               id="fullName"
               name="fullName"
-              placeholder="John Doe"
+              placeholder={t("auth.signup.name_placeholder")}
               required
               className="pl-9 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
             />
@@ -150,7 +152,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
         {/* Email */}
         <div className="space-y-2">
           <Label htmlFor="signup-email" className="text-white text-sm">
-            Email
+            {t("auth.signup.email")}
           </Label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#00E676]/60" />
@@ -158,7 +160,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
               id="signup-email"
               name="email"
               type="email"
-              placeholder="owner@restaurant.com"
+              placeholder={t("auth.signup.email_placeholder")}
               required
               className="pl-9 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
             />
@@ -168,7 +170,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
         {/* Password */}
         <div className="space-y-2">
           <Label htmlFor="signup-password" className="text-white text-sm">
-            Password
+            {t("auth.signup.password")}
           </Label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#00E676]/60" />
@@ -186,7 +188,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
         {/* Confirm Password */}
         <div className="space-y-2">
           <Label htmlFor="confirmPassword" className="text-white text-sm">
-            Confirm Password
+            {t("auth.signup.confirm_password")}
           </Label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#00E676]/60" />
@@ -211,13 +213,13 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
             className="mt-1 h-4 w-4 bg-[#0A0D10] border-white/10 rounded cursor-pointer accent-[#00E676]"
           />
           <label htmlFor="terms" className="text-xs text-[#B0BEC5] cursor-pointer">
-            I agree to the{" "}
+            {t("auth.signup.terms")}{" "}
             <a href="#" className="text-[#00E676] hover:text-[#00C853] transition-colors">
-              Terms of Service
+              {t("auth.signup.terms_link")}
             </a>{" "}
-            and{" "}
+            {t("auth.signup.and")}{" "}
             <a href="#" className="text-[#00E676] hover:text-[#00C853] transition-colors">
-              Privacy Policy
+              {t("auth.signup.privacy_link")}
             </a>
           </label>
         </div>
@@ -228,7 +230,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
           disabled={isLoading || !termsAccepted}
         >
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isLoading ? "Creating Account..." : "Create Account"}
+          {isLoading ? t("auth.signup.submitting") : t("auth.signup.submit")}
         </Button>
       </form>
 
@@ -238,7 +240,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
         </div>
         <div className="relative flex justify-center text-xs">
           <span className="bg-[#0A0D10]/40 px-3 py-1 text-[#B0BEC5] rounded-full border border-white/10 backdrop-blur-sm">
-            Already have an account?
+            {t("auth.signup.already_have")}
           </span>
         </div>
       </div>
@@ -247,7 +249,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
         onClick={onNavigateToLogin}
         className="w-full border border-[#00E676]/30 text-[#00E676] hover:bg-[#00E676]/10 hover:text-[#00C853] font-semibold h-11 bg-transparent"
       >
-        Sign In
+        {t("auth.actions.sign_in")}
       </Button>
     </div>
   );
