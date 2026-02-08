@@ -1,16 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock } from 'lucide-react';
+import i18n from '@/i18n';
 
 interface LiveDateTimeProps {
     showDate?: boolean;
     showTime?: boolean;
 }
 
+const getLocale = (): string => {
+    const lng = i18n.language || 'en';
+    return lng === 'ma' ? 'ar-MA' : lng;
+};
+
 export const LiveDateTime: React.FC<LiveDateTimeProps> = ({
     showDate = true,
     showTime = true
 }) => {
     const [currentTime, setCurrentTime] = useState(new Date());
+    const locale = getLocale();
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -21,7 +28,7 @@ export const LiveDateTime: React.FC<LiveDateTimeProps> = ({
     }, []);
 
     const formatDate = (date: Date): string => {
-        return date.toLocaleDateString('en-US', {
+        return date.toLocaleDateString(locale, {
             weekday: 'short',
             month: 'short',
             day: 'numeric',
@@ -30,11 +37,10 @@ export const LiveDateTime: React.FC<LiveDateTimeProps> = ({
     };
 
     const formatTime = (date: Date): string => {
-        return date.toLocaleTimeString('en-US', {
+        return date.toLocaleTimeString(locale, {
             hour: '2-digit',
             minute: '2-digit',
-            second: '2-digit',
-            hour12: true
+            second: '2-digit'
         });
     };
 

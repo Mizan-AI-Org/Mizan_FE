@@ -6,10 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Lock, CheckCircle, XCircle } from "lucide-react";
 import { api } from "@/lib/api";
+import { useLanguage } from "@/hooks/use-language";
 
 const ResetPassword = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const { t } = useLanguage();
     const token = searchParams.get("token");
 
     const [isLoading, setIsLoading] = useState(false);
@@ -20,21 +22,21 @@ const ResetPassword = () => {
 
     useEffect(() => {
         if (!token) {
-            setError("Invalid reset link. Please request a new password reset.");
+            setError(t("auth.reset.invalid_link"));
         }
-    }, [token]);
+    }, [token, t]);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError("");
 
         if (password !== confirmPassword) {
-            setError("Passwords do not match.");
+            setError(t("auth.reset.errors.passwords_match"));
             return;
         }
 
         if (password.length < 8) {
-            setError("Password must be at least 8 characters long.");
+            setError(t("auth.reset.errors.password_min"));
             return;
         }
 
@@ -47,7 +49,7 @@ const ResetPassword = () => {
             if (error instanceof Error) {
                 setError(error.message);
             } else {
-                setError("An unexpected error occurred. Please try again.");
+                setError(t("auth.reset.errors.unexpected"));
             }
         } finally {
             setIsLoading(false);
@@ -86,17 +88,16 @@ const ResetPassword = () => {
                             </div>
                         </div>
                         <h3 className="text-xl font-semibold text-white mb-2">
-                            Password Reset Successful!
+                            {t("auth.reset.success_title")}
                         </h3>
                         <p className="text-[#B0BEC5] text-sm mb-6">
-                            Your password has been updated. You can now log in with your new
-                            password.
+                            {t("auth.reset.success_desc")}
                         </p>
                         <Button
                             onClick={() => navigate("/auth")}
                             className="w-full bg-gradient-to-r from-[#00E676] to-[#00C853] hover:from-[#00F77B] hover:to-[#00D96B] text-white font-semibold h-11 rounded-lg shadow-lg hover:shadow-[0_0_25px_rgba(0,230,118,0.4)] transition-all duration-300"
                         >
-                            Go to Login
+                            {t("auth.reset.go_login")}
                         </Button>
                     </div>
                 </div>
@@ -133,7 +134,7 @@ const ResetPassword = () => {
                         </div>
                     </div>
                     <h1 className="text-3xl font-bold text-white mb-2">Mizan AI</h1>
-                    <p className="text-[#B0BEC5]">Create a New Password</p>
+                    <p className="text-[#B0BEC5]">{t("auth.reset.title")}</p>
                 </div>
 
                 {/* Form Card */}
@@ -151,14 +152,14 @@ const ResetPassword = () => {
                                     </div>
                                 </div>
                                 <h3 className="text-xl font-semibold text-white mb-2">
-                                    Invalid Reset Link
+                                    {t("auth.reset.invalid_link_title")}
                                 </h3>
                                 <p className="text-[#B0BEC5] text-sm mb-6">{error}</p>
                                 <Button
                                     onClick={() => navigate("/auth")}
                                     className="w-full border-2 border-[#00E676]/50 text-[#00E676] hover:bg-[#00E676]/10 font-semibold h-11 bg-transparent"
                                 >
-                                    Back to Login
+                                    {t("auth.reset.back_login")}
                                 </Button>
                             </div>
                         ) : (
@@ -180,14 +181,14 @@ const ResetPassword = () => {
                                         htmlFor="new-password"
                                         className="text-white font-semibold text-sm tracking-wider"
                                     >
-                                        New Password
+                                        {t("auth.reset.new_password")}
                                     </Label>
                                     <div className="relative group">
                                         <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#00E676]/60 group-focus-within:text-[#00E676] transition-colors" />
                                         <Input
                                             id="new-password"
                                             type="password"
-                                            placeholder="Enter new password"
+                                            placeholder={t("auth.reset.new_password_placeholder")}
                                             required
                                             minLength={8}
                                             value={password}
@@ -196,8 +197,7 @@ const ResetPassword = () => {
                                         />
                                     </div>
                                     <p className="text-xs text-[#B0BEC5]">
-                                        Must be at least 8 characters with uppercase, lowercase,
-                                        number, and special character.
+                                        {t("auth.reset.hint")}
                                     </p>
                                 </div>
 
@@ -207,14 +207,14 @@ const ResetPassword = () => {
                                         htmlFor="confirm-password"
                                         className="text-white font-semibold text-sm tracking-wider"
                                     >
-                                        Confirm Password
+                                        {t("auth.reset.confirm_password")}
                                     </Label>
                                     <div className="relative group">
                                         <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#00E676]/60 group-focus-within:text-[#00E676] transition-colors" />
                                         <Input
                                             id="confirm-password"
                                             type="password"
-                                            placeholder="Confirm new password"
+                                            placeholder={t("auth.reset.confirm_placeholder")}
                                             required
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -230,7 +230,7 @@ const ResetPassword = () => {
                                     disabled={isLoading}
                                 >
                                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    {isLoading ? "Resetting..." : "Reset Password"}
+                                    {isLoading ? t("auth.reset.submitting") : t("auth.reset.submit")}
                                 </Button>
                             </form>
                         )}
@@ -240,12 +240,12 @@ const ResetPassword = () => {
                 {/* Footer */}
                 <div className="mt-6 text-center text-sm text-[#B0BEC5]">
                     <p>
-                        Remember your password?{" "}
+                        {t("auth.reset.remember")}{" "}
                         <a
                             href="/auth"
                             className="text-[#00E676] hover:text-[#00C853] transition-colors"
                         >
-                            Sign In
+                            {t("auth.actions.sign_in")}
                         </a>
                     </p>
                 </div>

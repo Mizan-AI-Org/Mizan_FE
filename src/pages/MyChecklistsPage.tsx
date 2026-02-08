@@ -15,6 +15,7 @@ import { formatAssignees, detectNewAssignments } from "@/lib/tasks/assignees";
 import type { AssignedShape } from "@/lib/tasks/assignees";
 import type { StaffProfileItem } from "@/lib/types";
 import { API_BASE } from "@/lib/api";
+import { useLanguage } from "@/hooks/use-language";
 
 type ChecklistExecutionItem = {
   id: string;
@@ -83,6 +84,7 @@ const statusOptions = [
 const MyChecklistsPage: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const { user, accessToken } = useAuth();
   const [status, setStatus] = useState<string>("");
   const [query, setQuery] = useState("");
@@ -412,7 +414,7 @@ const MyChecklistsPage: React.FC = () => {
         return (
           <div className="mb-3 p-3 rounded-md border border-red-200 bg-red-50 text-red-700 text-sm flex items-center justify-between" role="alert" aria-live="polite">
             <span>{msg}</span>
-            <button className="ml-3 px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-100" onClick={() => setErrorDismissed(true)} aria-label="Dismiss error">Dismiss</button>
+            <button className="ml-3 px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-100" onClick={() => setErrorDismissed(true)} aria-label={t("common.dismiss")}>{t("common.dismiss")}</button>
           </div>
         );
       })()}
@@ -422,7 +424,7 @@ const MyChecklistsPage: React.FC = () => {
             <ClipboardList className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold">My Checklists</h2>
+            <h2 className="text-lg font-semibold">{t("staff.my_checklists")}</h2>
           </div>
         </div>
       </div>
@@ -445,10 +447,10 @@ const MyChecklistsPage: React.FC = () => {
             const pct = counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0;
             return (
               <>
-                <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">Total <span className="font-semibold">{counts.total}</span></div></CardContent></Card>
-                <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">In Progress <span className="font-semibold">{counts.inprogress}</span></div></CardContent></Card>
-                <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">Completed <span className="font-semibold">{counts.completed}</span></div></CardContent></Card>
-                <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">Overall Progress <span className="font-semibold">{pct}%</span></div></CardContent></Card>
+                <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">{t("staff.total")} <span className="font-semibold">{counts.total}</span></div></CardContent></Card>
+                <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">{t("staff.in_progress")} <span className="font-semibold">{counts.inprogress}</span></div></CardContent></Card>
+                <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">{t("status.completed")} <span className="font-semibold">{counts.completed}</span></div></CardContent></Card>
+                <Card className="shadow-sm"><CardContent className="py-3"><div className="text-sm">{t("staff.overall_progress")} <span className="font-semibold">{pct}%</span></div></CardContent></Card>
               </>
             );
           })()}
@@ -467,14 +469,14 @@ const MyChecklistsPage: React.FC = () => {
               {showDisabled && (
                 <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md flex items-center text-yellow-800 text-sm">
                   <Clock className="w-4 h-4 mr-2" />
-                  <span>You must be clocked in to access your checklists.</span>
+                  <span>{t("staff.clock_in_required")}</span>
                 </div>
               )}
 
               <div className={showDisabled ? "opacity-50 pointer-events-none grayscale transition-all duration-200" : ""}>
                 <div className="flex items-center gap-2">
                   <ClipboardList className="w-4 h-4 text-muted-foreground" />
-                  <h3 className="text-sm font-semibold">Assigned Checklists</h3>
+                  <h3 className="text-sm font-semibold">{t("staff.assigned_checklists")}</h3>
                   <Badge variant="secondary" className="rounded-full">{templateCount}</Badge>
                 </div>
 

@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import type { Shift, TaskPriority } from "@/types/schedule";
 import { toast } from "sonner";
+import { useLanguage } from "@/hooks/use-language";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
@@ -67,6 +68,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
     testDefaultTemplateId,
 }) => {
     const { user } = useAuth() as AuthContextType;
+    const { t } = useLanguage();
 
     const toYMD = (d: Date) => {
         const year = d.getFullYear();
@@ -244,16 +246,16 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
             <DialogContent className="sm:max-w-[700px] bg-white rounded-3xl p-6 border-none shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
                 <DialogHeader className="pb-2">
                     <DialogTitle className="text-xl font-bold text-[#1F2937]">
-                        {initialShift ? 'Edit Schedule' : 'Create Schedule'}
+                        {initialShift ? t("schedule.edit_schedule") : t("schedule.create_schedule")}
                     </DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-5 mt-4">
                     <div className="space-y-1">
-                        <Label className="text-sm font-semibold text-[#1F2937]">Shift Title</Label>
+                        <Label className="text-sm font-semibold text-[#1F2937]">{t("schedule.shift_title")}</Label>
                         <Input
                             id="title"
-                            placeholder="e.g. Morning Shift, Dinner Service"
+                            placeholder={t("schedule.shift_title_placeholder")}
                             value={shiftData.title}
                             onChange={(e) => setShiftData(prev => ({ ...prev, title: e.target.value }))}
                             className="h-12 rounded-xl border-gray-200 focus:ring-[#106B4E] focus:border-[#106B4E]"

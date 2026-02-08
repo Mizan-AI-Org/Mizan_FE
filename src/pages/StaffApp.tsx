@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -54,7 +54,6 @@ import {
     Loader2,
     Send,
     Trash2,
-    RefreshCw,
     ChevronLeft,
     ChevronRight,
     ChevronsLeft,
@@ -70,7 +69,10 @@ import {
     Flame,
     ShieldAlert,
     Sparkles,
-    PieChart
+    PieChart,
+    Copy,
+    Check,
+    Share2,
 } from "lucide-react";
 import { API_BASE, BACKEND_URL, BackendService, api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -117,6 +119,18 @@ interface Invitation {
         phone?: string;
         department?: string;
     };
+}
+
+/** ONE-TAP activation pending (StaffActivationRecord) */
+interface PendingActivation {
+    id: string;
+    first_name: string;
+    last_name: string;
+    phone: string;
+    role: string;
+    status: string;
+    batch_id: string;
+    created_at: string | null;
 }
 
 interface AttendanceRecord {
@@ -241,6 +255,7 @@ const PaginationControls: React.FC<{
     pageSizeOptions?: number[];
     isLoading?: boolean;
 }> = ({ currentPage, count, pageSize, onPageChange, onPageSizeChange, pageSizeOptions = [8, 10, 20, 50, 100], isLoading }) => {
+    const { t } = useLanguage();
     const totalPages = Math.ceil(count / pageSize);
     const showPaginationNumbers = totalPages > 1;
 
@@ -281,8 +296,8 @@ const PaginationControls: React.FC<{
                         <button
                             onClick={() => onPageChange(currentPage - 1)}
                             disabled={currentPage === 1 || isLoading}
-                            aria-label="Previous page"
-                            title="Previous page"
+                            aria-label={t("common.previous_page")}
+                            title={t("common.previous_page")}
                             className="p-1 px-2 text-slate-400 hover:text-indigo-600 disabled:opacity-30 transition-colors"
                         >
                             <ChevronLeft className="w-4 h-4" />
@@ -314,8 +329,8 @@ const PaginationControls: React.FC<{
                         <button
                             onClick={() => onPageChange(currentPage + 1)}
                             disabled={currentPage === totalPages || isLoading}
-                            aria-label="Next page"
-                            title="Next page"
+                            aria-label={t("common.next_page")}
+                            title={t("common.next_page")}
                             className="p-1 px-2 text-slate-400 hover:text-indigo-600 disabled:opacity-30 transition-colors"
                         >
                             <ChevronRight className="w-4 h-4" />
@@ -642,6 +657,7 @@ const PresenceTab: React.FC = () => {
 // Team Tab Component
 const TeamTab: React.FC = () => {
     const navigate = useNavigate();
+    const { t } = useLanguage();
     const [searchQuery, setSearchQuery] = useState("");
     const [staffPage, setStaffPage] = useState(1);
     const [staffPageSize, setStaffPageSize] = useState(8);
@@ -650,6 +666,7 @@ const TeamTab: React.FC = () => {
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+    const [lastInviteLink, setLastInviteLink] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [documents, setDocuments] = useState<StaffDocument[]>([]);
     const [isUploading, setIsUploading] = useState(false);
@@ -717,8 +734,22 @@ const TeamTab: React.FC = () => {
         },
     });
 
+    const { data: activationPendingData, isLoading: isActivationPendingLoading, refetch: refetchActivationPending } = useQuery<{ pending: PendingActivation[]; count: number }>({
+        queryKey: ["pending-activations"],
+        queryFn: async () => {
+            const response = await fetch(`${API_BASE}/staff/activation/pending/`, {
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+                },
+            });
+            if (!response.ok) throw new Error("Failed to fetch pending activations");
+            return response.json();
+        },
+    });
+
     const staff = Array.isArray(staffData) ? staffData : (staffData?.results || []);
     const invitations = Array.isArray(invitesData) ? invitesData : (invitesData?.results || []);
+    const pendingActivations: PendingActivation[] = activationPendingData?.pending ?? [];
 
     const handleResendInvite = async (inviteId: string) => {
         try {
@@ -729,14 +760,14 @@ const TeamTab: React.FC = () => {
                 },
             });
             if (!response.ok) throw new Error("Failed to resend invitation");
-            toast.success("Invitation resent successfully");
+            toast.success(t("toasts.invitation_resent"));
         } catch (err: unknown) {
             toast.error(getErrorMessage(err, "Failed to resend invitation"));
         }
     };
 
     const handleCancelInvite = async (inviteId: string) => {
-        if (!confirm("Are you sure you want to cancel this invitation?")) return;
+        if (!confirm(t("errors.confirm_cancel_invitation"))) return;
         try {
             const response = await fetch(`${API_BASE}/invitations/${inviteId}/`, {
                 method: "DELETE",
@@ -745,10 +776,30 @@ const TeamTab: React.FC = () => {
                 },
             });
             if (!response.ok) throw new Error("Failed to cancel invitation");
-            toast.success("Invitation cancelled");
+            toast.success(t("toasts.invitation_cancelled"));
             refetchInvites();
         } catch (err: unknown) {
             toast.error(getErrorMessage(err, "Failed to cancel invitation"));
+        }
+    };
+
+    const handleCopyActivationLink = async () => {
+        try {
+            const response = await fetch(`${API_BASE}/staff/activation/invite-link/`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+            });
+            if (!response.ok) throw new Error("Failed to get link");
+            const data = await response.json().catch(() => ({}));
+            const link = data.invite_short_link || data.invite_link;
+            if (link) {
+                await navigator.clipboard.writeText(link);
+                toast.success(t("toasts.invite_copied"));
+                setLastInviteLink(link);
+            } else {
+                toast.error(t("errors.no_invite_link"));
+            }
+        } catch {
+            toast.error(t("errors.failed_to_copy"));
         }
     };
 
@@ -787,7 +838,7 @@ const TeamTab: React.FC = () => {
                 a.download = `report_${selectedMember.first_name}_${selectedMember.last_name}.pdf`;
                 a.click();
                 window.URL.revokeObjectURL(url);
-                toast.success("Report generated successfully");
+                toast.success(t("toasts.report_generated"));
             } catch (err: unknown) {
                 toast.error(getErrorMessage(err, "Failed to generate report"));
             } finally {
@@ -871,7 +922,7 @@ const TeamTab: React.FC = () => {
                                                     const email = selectedMember.email || "";
                                                     // Hide auto-generated WhatsApp placeholder emails like "2126379...@mizan.ai"
                                                     const isPhonePlaceholder = /^\d+@mizan\.ai$/i.test(email);
-                                                    return isPhonePlaceholder ? "Not provided" : email || "Not provided";
+                                                    return isPhonePlaceholder ? t("common.not_provided") : email || t("common.not_provided");
                                                 })()}
                                             </p>
                                         </div>
@@ -882,7 +933,7 @@ const TeamTab: React.FC = () => {
                                         </div>
                                         <div>
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone Number</p>
-                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedMember.phone || "Not provided"}</p>
+                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedMember.phone || t("common.not_provided")}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -897,7 +948,7 @@ const TeamTab: React.FC = () => {
                                         </div>
                                         <div>
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Department</p>
-                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedMember.profile?.department || "Unassigned"}</p>
+                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedMember.profile?.department || t("common.unassigned")}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3 group">
@@ -1119,7 +1170,7 @@ const TeamTab: React.FC = () => {
                 // Manually update selectedMember to reflect changes immediately in the UI
                 setSelectedMember(updatedMember);
 
-                toast.success("Profile updated successfully");
+                toast.success(t("toasts.profile_updated"));
                 setIsEditModalOpen(false);
                 refetchStaff();
             } catch (err: unknown) {
@@ -1129,14 +1180,14 @@ const TeamTab: React.FC = () => {
 
         const handleResetPassword = async () => {
             if (!newPassword) {
-                toast.error("Please enter a new password");
+                toast.error(t("errors.please_enter_password"));
                 return;
             }
             setIsResetting(true);
             try {
                 const token = localStorage.getItem("access_token") || "";
                 await api.resetStaffPassword(token, selectedMember.id, newPassword);
-                toast.success("Password reset successfully");
+                toast.success(t("toasts.password_reset"));
                 setShowPasswordReset(false);
                 setNewPassword("");
             } catch (err: unknown) {
@@ -1148,7 +1199,7 @@ const TeamTab: React.FC = () => {
 
         const handlePromote = () => {
             if (!promoRole) {
-                toast.error("Please select a role for promotion");
+                toast.error(t("errors.select_role_promotion"));
                 return;
             }
             const newPromotion = {
@@ -1264,12 +1315,12 @@ const TeamTab: React.FC = () => {
                                             className="w-full h-9 rounded-lg bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium px-3 text-sm"
                                         >
                                             <option value="">Unassigned</option>
-                                            <option value="Management">Management</option>
-                                            <option value="Kitchen">Kitchen</option>
-                                            <option value="Front of House">Front of House</option>
-                                            <option value="Operations">Operations</option>
-                                            <option value="Service">Service</option>
-                                            <option value="Bar">Bar</option>
+                                            <option value="Management">{t("staff.departments.management")}</option>
+                                            <option value="Kitchen">{t("staff.departments.kitchen")}</option>
+                                            <option value="Front of House">{t("staff.departments.front_of_house")}</option>
+                                            <option value="Operations">{t("staff.departments.operations")}</option>
+                                            <option value="Service">{t("staff.departments.service")}</option>
+                                            <option value="Bar">{t("staff.departments.bar")}</option>
                                         </select>
                                     </div>
                                     <div className="space-y-2">
@@ -1336,7 +1387,7 @@ const TeamTab: React.FC = () => {
                                             <textarea
                                                 value={promoNote}
                                                 onChange={(e) => setPromoNote(e.target.value)}
-                                                placeholder="Reason for promotion, performance notes..."
+                                                placeholder={t("staff.promotion_reason_placeholder")}
                                                 className="w-full p-4 rounded-xl bg-white border-emerald-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium text-sm min-h-[100px]"
                                             />
                                         </div>
@@ -1392,7 +1443,7 @@ const TeamTab: React.FC = () => {
                                                 try {
                                                     const token = localStorage.getItem("access_token") || "";
                                                     await api.uploadStaffDocument(token, selectedMember.id, file, file.name);
-                                                    toast.success("Document uploaded successfully");
+                                                    toast.success(t("toasts.document_uploaded"));
                                                     fetchDocuments(selectedMember.id);
                                                 } catch (err: unknown) {
                                                     toast.error(getErrorMessage(err, "Failed to upload document"));
@@ -1437,11 +1488,11 @@ const TeamTab: React.FC = () => {
                                                         size="icon"
                                                         className="w-8 h-8 text-slate-400 hover:text-red-500 hover:bg-white transition-all"
                                                         onClick={async () => {
-                                                            if (!confirm("Are you sure you want to delete this document?")) return;
+                                                            if (!confirm(t("errors.confirm_delete_document"))) return;
                                                             try {
                                                                 const token = localStorage.getItem("access_token") || "";
                                                                 await api.deleteStaffDocument(token, doc.id);
-                                                                toast.success("Document deleted");
+                                                                toast.success(t("toasts.document_deleted"));
                                                                 fetchDocuments(selectedMember.id);
                                                             } catch (err: unknown) {
                                                                 toast.error(getErrorMessage(err, "Failed to delete document"));
@@ -1474,7 +1525,7 @@ const TeamTab: React.FC = () => {
                                         )}
                                         onClick={() => setShowPasswordReset(!showPasswordReset)}
                                     >
-                                        {showPasswordReset ? "Cancel reset" : "Reset Password"}
+                                        {showPasswordReset ? t("common.cancel_reset") : t("common.reset_password")}
                                     </Button>
                                 </div>
                                 {showPasswordReset && (
@@ -1489,7 +1540,7 @@ const TeamTab: React.FC = () => {
                                                     type="password"
                                                     value={newPassword}
                                                     onChange={(e) => setNewPassword(e.target.value)}
-                                                    placeholder="Enter secure password"
+                                                    placeholder={t("common.enter_password")}
                                                     className="h-9 rounded-lg bg-white border-slate-200 focus:ring-emerald-500"
                                                 />
                                                 <Button
@@ -1497,7 +1548,7 @@ const TeamTab: React.FC = () => {
                                                     onClick={handleResetPassword}
                                                     disabled={isResetting}
                                                 >
-                                                    {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update"}
+                                                    {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : t("common.update")}
                                                 </Button>
                                             </div>
                                             <p className="text-[9px] text-slate-400 font-medium ml-1">Staff can use this to login via PIN or password.</p>
@@ -1526,6 +1577,7 @@ const TeamTab: React.FC = () => {
         const [inviteMethod, setInviteMethod] = useState<"email" | "whatsapp">("email");
         const [isBulkMode, setIsBulkMode] = useState(false);
         const [bulkData, setBulkData] = useState<BulkInviteRow[]>([]);
+        const [isInviteLoading, setIsInviteLoading] = useState(false);
         const [formData, setFormData] = useState({
             email: "",
             first_name: "",
@@ -1637,6 +1689,10 @@ const TeamTab: React.FC = () => {
             window.URL.revokeObjectURL(url);
         };
 
+        const handleCloseInviteModal = () => {
+            setIsInviteModalOpen(false);
+        };
+
         const handleInvite = async () => {
             if (isBulkMode) {
                 if (bulkData.length === 0) {
@@ -1644,30 +1700,63 @@ const TeamTab: React.FC = () => {
                     return;
                 }
 
+                setIsInviteLoading(true);
                 try {
                     const token = localStorage.getItem("access_token") || "";
+
+                    if (inviteMethod === "whatsapp") {
+                        // ONE-TAP: use activation upload (no outbound message; returns invite link)
+                        const staffList = bulkData.map((r) => ({
+                            phone: r.phone_number || "",
+                            first_name: r.first_name || "",
+                            last_name: r.last_name || "",
+                            role: r.role || "WAITER",
+                        }));
+                        const response = await fetch(`${API_BASE}/staff/activation/upload/`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({ staff_list: staffList }),
+                        });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok)
+                            throw new Error(data.error || data.detail || data.errors?.[0] || "Failed to create staff records");
+                        if (data.created > 0 && (data.invite_short_link || data.invite_link)) {
+                            setLastInviteLink(data.invite_short_link || data.invite_link);
+                            handleCloseInviteModal();
+                            toast.success(`${data.created} staff members ready. Copy or share the link below.`);
+                            refetch();
+                            refetchActivationPending();
+                        } else {
+                            toast.error(data.errors?.[0] || "No records created");
+                        }
+                        setIsInviteLoading(false);
+                        return;
+                    }
+
+                    // Email bulk: use existing invite endpoint
                     const response = await fetch(`${API_BASE}/staff/invite-bulk-csv/`, {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
-                            Authorization: `Bearer ${token}`
+                            Authorization: `Bearer ${token}`,
                         },
                         body: JSON.stringify({
                             staff_list: bulkData,
-                            invitation_method: inviteMethod
+                            invitation_method: inviteMethod,
                         }),
                     });
                     const data = await response.json().catch(() => ({}));
                     if (!response.ok) throw new Error(data.error || data.detail || "Failed to send bulk invitations");
-                    toast.success(
-                        inviteMethod === "email"
-                            ? `Emails sent for ${data.created ?? bulkData.length} staff members`
-                            : `WhatsApp invites scheduled for ${data.created ?? bulkData.length} staff members`
-                    );
-                    setIsInviteModalOpen(false);
+                    toast.success(`Emails sent for ${data.created ?? bulkData.length} staff members`);
+                    handleCloseInviteModal();
                     refetch();
                 } catch (err: unknown) {
                     toast.error(getErrorMessage(err, "Failed to send bulk invitations"));
+                } finally {
+                    setIsInviteLoading(false);
                 }
                 return;
             }
@@ -1681,6 +1770,7 @@ const TeamTab: React.FC = () => {
                 return;
             }
 
+            setIsInviteLoading(true);
             try {
                 const token = localStorage.getItem("access_token") || "";
                 const response = await fetch(`${API_BASE}/staff/invite/`, {
@@ -1698,19 +1788,30 @@ const TeamTab: React.FC = () => {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.error || errorData.detail || "Failed to send invitation");
                 }
-                toast.success(`Invitation sent successfully via ${inviteMethod === "email" ? "Email" : "WhatsApp"}`);
-                setIsInviteModalOpen(false);
+                const data = await response.json().catch(() => ({}));
+                const link = data.invite_link || null;
+                if (link) setLastInviteLink(link);
+                toast.success(data.message || `Invitation sent successfully via ${inviteMethod === "email" ? "Email" : "WhatsApp"}`);
+                handleCloseInviteModal();
                 refetch();
+                refetchInvites();
             } catch (err: unknown) {
                 toast.error(getErrorMessage(err, "Failed to send invitation"));
+            } finally {
+                setIsInviteLoading(false);
             }
         };
 
         return (
-            <Dialog open={isInviteModalOpen} onOpenChange={setIsInviteModalOpen}>
-                <DialogContent className="sm:max-w-3xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+            <Dialog
+                open={isInviteModalOpen}
+                onOpenChange={(open) => setIsInviteModalOpen(open)}
+            >
+                    <DialogContent className="sm:max-w-3xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                     <DialogHeader>
-                        <DialogTitle className="text-slate-900 dark:text-white">Invite Staff Member</DialogTitle>
+                        <DialogTitle className="text-slate-900 dark:text-white">
+                            {t("staff.invite.title")}
+                        </DialogTitle>
                     </DialogHeader>
                     <div className="space-y-6 pt-4">
                         {/* Mode Selector */}
@@ -1723,7 +1824,7 @@ const TeamTab: React.FC = () => {
                                         : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
                                         }`}
                                 >
-                                    Individual
+                                    {t("staff.invite.individual")}
                                 </button>
                                 <button
                                     onClick={() => {
@@ -1736,7 +1837,7 @@ const TeamTab: React.FC = () => {
                                         : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
                                         }`}
                                 >
-                                    Bulk Invite
+                                    {t("staff.invite.bulk")}
                                 </button>
                             </div>
                         </div>
@@ -1757,7 +1858,7 @@ const TeamTab: React.FC = () => {
                                     }`}
                             >
                                 <Mail className="w-4 h-4" />
-                                Email
+                                {t("staff.invite.email")}
                             </button>
                             <button
                                 onClick={() => {
@@ -1773,7 +1874,7 @@ const TeamTab: React.FC = () => {
                                     }`}
                             >
                                 <Phone className="w-4 h-4" />
-                                WhatsApp
+                                {t("staff.invite.whatsapp")}
                             </button>
                         </div>
 
@@ -1781,64 +1882,64 @@ const TeamTab: React.FC = () => {
                             <>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">First Name</label>
+                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("staff.invite.first_name")}</label>
                                         <Input value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} placeholder="Hamza" className="bg-white dark:bg-slate-800" />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Last Name</label>
+                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("staff.invite.last_name")}</label>
                                         <Input value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} placeholder="Yassine" className="bg-white dark:bg-slate-800" />
                                     </div>
                                 </div>
 
                                 {inviteMethod === "email" ? (
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Email Address <span className="text-red-500">*</span></label>
+                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("staff.invite.email_address")} <span className="text-red-500">*</span></label>
                                         <Input value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="john.doe@example.com" className="bg-white dark:bg-slate-800" />
-                                        <p className="text-xs text-slate-500">We'll send an invitation link to this email.</p>
+                                        <p className="text-xs text-slate-500">{t("staff.invite.email_hint")}</p>
                                     </div>
                                 ) : (
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">WhatsApp Number <span className="text-red-500">*</span></label>
+                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("staff.invite.whatsapp_number")} <span className="text-red-500">*</span></label>
                                         <Input value={formData.phone_number} onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })} placeholder="212774567890" className="bg-white dark:bg-slate-800" />
-                                        <p className="text-xs text-slate-500">We'll send an invitation via WhatsApp to this number.</p>
+                                        <p className="text-xs text-slate-500">{t("staff.invite.whatsapp_hint")}</p>
                                     </div>
                                 )}
 
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Role</label>
+                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("staff.invite.role")}</label>
                                     <select
                                         value={formData.role}
                                         onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                                         className="w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                     >
-                                        <optgroup label="Management">
-                                            <option value="OWNER">Owner</option>
-                                            <option value="SUPER_ADMIN">Super Admin</option>
-                                            <option value="ADMIN">Admin</option>
-                                            <option value="MANAGER">Manager</option>
+                                        <optgroup label={t("staff.invite.management")}>
+                                            <option value="OWNER">{t("staff.roles.owner")}</option>
+                                            <option value="SUPER_ADMIN">{t("staff.roles.super_admin")}</option>
+                                            <option value="ADMIN">{t("staff.roles.admin")}</option>
+                                            <option value="MANAGER">{t("staff.roles.manager")}</option>
                                         </optgroup>
-                                        <optgroup label="Kitchen">
-                                            <option value="CHEF">Chef</option>
-                                            <option value="SOUS_CHEF">Sous Chef</option>
-                                            <option value="PASTRY_CHEF">Pastry Chef</option>
-                                            <option value="KITCHEN_STAFF">Kitchen Staff</option>
-                                            <option value="DISHWASHER">Dishwasher</option>
+                                        <optgroup label={t("staff.invite.kitchen")}>
+                                            <option value="CHEF">{t("staff.roles.chef")}</option>
+                                            <option value="SOUS_CHEF">{t("staff.roles.sous_chef")}</option>
+                                            <option value="PASTRY_CHEF">{t("staff.roles.pastry_chef")}</option>
+                                            <option value="KITCHEN_STAFF">{t("staff.roles.kitchen_staff")}</option>
+                                            <option value="DISHWASHER">{t("staff.roles.dishwasher")}</option>
                                         </optgroup>
-                                        <optgroup label="Front of House">
-                                            <option value="WAITER">Waiter</option>
-                                            <option value="WAITRESS">Waitress</option>
-                                            <option value="HOST">Host</option>
-                                            <option value="HOSTESS">Hostess</option>
-                                            <option value="BARTENDER">Bartender</option>
-                                            <option value="SOMMELIER">Sommelier</option>
-                                            <option value="RUNNER">Runner</option>
-                                            <option value="BUSSER">Busser</option>
-                                            <option value="CASHIER">Cashier</option>
+                                        <optgroup label={t("staff.invite.front_of_house")}>
+                                            <option value="WAITER">{t("staff.roles.waiter")}</option>
+                                            <option value="WAITRESS">{t("staff.roles.waitress")}</option>
+                                            <option value="HOST">{t("staff.roles.host")}</option>
+                                            <option value="HOSTESS">{t("staff.roles.hostess")}</option>
+                                            <option value="BARTENDER">{t("staff.roles.bartender")}</option>
+                                            <option value="SOMMELIER">{t("staff.roles.sommelier")}</option>
+                                            <option value="RUNNER">{t("staff.roles.runner")}</option>
+                                            <option value="BUSSER">{t("staff.roles.busser")}</option>
+                                            <option value="CASHIER">{t("staff.roles.cashier")}</option>
                                         </optgroup>
-                                        <optgroup label="Other">
-                                            <option value="BARISTA">Barista</option>
-                                            <option value="CLEANER">Cleaner</option>
-                                            <option value="SECURITY">Security</option>
+                                        <optgroup label={t("staff.invite.other")}>
+                                            <option value="BARISTA">{t("staff.roles.barista")}</option>
+                                            <option value="CLEANER">{t("staff.roles.cleaner")}</option>
+                                            <option value="SECURITY">{t("staff.roles.security")}</option>
                                         </optgroup>
                                     </select>
                                 </div>
@@ -1847,9 +1948,9 @@ const TeamTab: React.FC = () => {
                             <div className="space-y-4">
                                 <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center bg-slate-50/50 dark:bg-slate-800/50">
                                     <Upload className="w-10 h-9 text-slate-400 mx-auto mb-4" />
-                                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">Upload CSV File</h3>
+                                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">{t("staff.invite.upload_csv")}</h3>
                                     <p className="text-xs text-slate-500 mb-4">
-                                        Columns: First Name, Last Name, Role, {inviteMethod === "email" ? "Email Address" : "WhatsApp Number"}
+                                        {t("staff.invite.csv_columns", { method: inviteMethod === "email" ? t("staff.invite.email_address") : t("staff.invite.whatsapp_number") })}
                                     </p>
                                     <Input
                                         type="file"
@@ -1862,11 +1963,11 @@ const TeamTab: React.FC = () => {
                                         htmlFor="csv-upload"
                                         className="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-lg cursor-pointer transition-colors"
                                     >
-                                        Select CSV File
+                                        {t("staff.invite.select_csv")}
                                     </label>
                                     {bulkData.length > 0 && (
                                         <p className="mt-3 text-sm font-medium text-emerald-600">
-                                            {bulkData.length} staff members ready to invite
+                                            {t("staff.invite.staff_ready", { count: bulkData.length })}
                                         </p>
                                     )}
                                 </div>
@@ -1875,7 +1976,7 @@ const TeamTab: React.FC = () => {
                                     className="w-full flex items-center justify-center gap-2 py-2 text-xs font-medium text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800 transition-all"
                                 >
                                     <Download className="w-4 h-4" />
-                                    Download CSV Template
+                                    {t("staff.invite.download_template")}
                                 </button>
 
                                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
@@ -1889,8 +1990,19 @@ const TeamTab: React.FC = () => {
                                 </div>
                             </div>
                         )}
-                        <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white mt-4" onClick={handleInvite}>
-                            Send Invitation
+                        <Button
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white mt-4"
+                            onClick={handleInvite}
+                            disabled={isInviteLoading}
+                        >
+                            {isInviteLoading ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    {t("staff.invite.sending")}
+                                </>
+                            ) : (
+                                t("staff.invite.send")
+                            )}
                         </Button>
                     </div>
                 </DialogContent>
@@ -1905,12 +2017,65 @@ const TeamTab: React.FC = () => {
             {isEditModalOpen && <EditProfileModal />}
             {isInviteModalOpen && <InviteStaffModal />}
 
+            {/* Invite link ready (after sending invite – modal is closed) */}
+            {lastInviteLink && (
+                <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 shrink-0">{t("staff.invite_link_ready")}</p>
+                    <div className="flex flex-1 min-w-0 items-center gap-2">
+                        <Input
+                            readOnly
+                            value={lastInviteLink}
+                            className="font-mono text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 flex-1 min-w-0"
+                        />
+                        <Button
+                            size="sm"
+                            className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={async () => {
+                                try {
+                                    await navigator.clipboard.writeText(lastInviteLink);
+                                    toast.success(t("toasts.link_copied"));
+                                } catch {
+                                    toast.error(t("errors.no_invite_link"));
+                                }
+                            }}
+                        >
+                            <Copy className="w-4 h-4 mr-1.5" />
+                            {t("common.copy")}
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0"
+                            onClick={async () => {
+                                try {
+                                    if (navigator.share) {
+                                        await navigator.share({ url: lastInviteLink, title: t("staff.invite_link_ready") });
+                                        toast.success(t("toasts.invite_shared"));
+                                    } else {
+                                        await navigator.clipboard.writeText(lastInviteLink);
+                                        toast.success(t("toasts.copied_share_unsupported"));
+                                    }
+                                } catch (e: unknown) {
+                                    if ((e as Error)?.name !== "AbortError") toast.error(t("errors.failed_to_share"));
+                                }
+                            }}
+                        >
+                            <Share2 className="w-4 h-4 mr-1.5" />
+                            {t("common.share")}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="shrink-0" onClick={() => setLastInviteLink(null)}>
+                            <X className="w-4 h-4" />
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             {/* Search & Actions */}
             <div className="flex items-center justify-between gap-3">
                 <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
-                        placeholder="Search staff..."
+                        placeholder={t("staff.search")}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-10 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
@@ -1925,7 +2090,7 @@ const TeamTab: React.FC = () => {
                                 ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm"
                                 : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                         )}
-                        title="Grid View"
+                        title={t("common.grid_view")}
                     >
                         <LayoutGrid className="w-4 h-4" />
                     </button>
@@ -1937,14 +2102,14 @@ const TeamTab: React.FC = () => {
                                 ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm"
                                 : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                         )}
-                        title="List View"
+                        title={t("common.list_view")}
                     >
                         <List className="w-4 h-4" />
                     </button>
                 </div>
                 <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setIsInviteModalOpen(true)}>
                     <PlusCircle className="w-4 h-4 mr-2" />
-                    Add Staff
+                    {t("staff.add")}
                 </Button>
             </div>
 
@@ -1983,15 +2148,15 @@ const TeamTab: React.FC = () => {
                                                     </TableCell>
                                                     <TableCell>
                                                         <Badge className={member.is_active ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-red-100 text-red-700"}>
-                                                            {member.is_active ? "Active" : "Inactive"}
+                                                            {member.is_active ? t("common.active") : t("common.inactive")}
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2">
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditProfile(member)} title="Edit Profile">
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditProfile(member)} title={t("common.edit_profile")}>
                                                                 <Edit className="h-4 w-4" />
                                                             </Button>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewProfile(member)} title="View Profile">
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewProfile(member)} title={t("common.view_profile")}>
                                                                 <Eye className="h-4 w-4" />
                                                             </Button>
                                                         </div>
@@ -2083,7 +2248,7 @@ const TeamTab: React.FC = () => {
                                                             ? "bg-emerald-50 text-emerald-600 border-emerald-100"
                                                             : "bg-red-50 text-red-600 border-red-100"
                                                     )}>
-                                                        {member.is_active ? "Active" : "Inactive"}
+                                                        {member.is_active ? t("common.active") : t("common.inactive")}
                                                     </Badge>
                                                 </CardContent>
                                             </Card>
@@ -2093,8 +2258,8 @@ const TeamTab: React.FC = () => {
                             ) : (
                                 <div className="text-center py-20 bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-100 dark:border-slate-800">
                                     <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">No staff found</h3>
-                                    <p className="text-sm text-slate-500">Try adjusting your search query or filters.</p>
+                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{t("staff.no_staff_found")}</h3>
+                                    <p className="text-sm text-slate-500">{t("staff.try_adjust_search")}</p>
                                 </div>
                             )}
 
@@ -2117,35 +2282,59 @@ const TeamTab: React.FC = () => {
 
             {/* Pending Invitations */}
             <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle className="text-slate-900 dark:text-white">Pending Invitations</CardTitle>
-                        <CardDescription className="text-slate-500 dark:text-slate-400">Staff members who haven't joined yet</CardDescription>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => refetchInvites()} disabled={isInvitesLoading}>
-                        <RefreshCw className={`w-4 h-4 mr-2 ${isInvitesLoading ? "animate-spin" : ""}`} />
-                        Refresh
-                    </Button>
+                <CardHeader>
+                    <CardTitle className="text-slate-900 dark:text-white">{t("staff.pending.title")}</CardTitle>
+                    <CardDescription className="text-slate-500 dark:text-slate-400">{t("staff.pending.subtitle")}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {isInvitesLoading ? (
-                        <div className="text-center py-8 text-slate-500">Loading invitations...</div>
-                    ) : invitations && invitations.length > 0 ? (
+                    {isInvitesLoading && !activationPendingData ? (
+                        <div className="text-center py-8 text-slate-500">{t("staff.pending.loading")}</div>
+                    ) : (invitations && invitations.length > 0) || (pendingActivations && pendingActivations.length > 0) ? (
                         <>
                             <Table>
                                 <TableHeader>
                                     <TableRow className="border-slate-100 dark:border-slate-800">
-                                        <TableHead className="text-slate-500 dark:text-slate-400">Name</TableHead>
-                                        <TableHead className="text-slate-500 dark:text-slate-400">Email/Phone</TableHead>
-                                        <TableHead className="text-slate-500 dark:text-slate-400">Role</TableHead>
-                                        <TableHead className="text-slate-500 dark:text-slate-400">Actions</TableHead>
+                                        <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.pending.name")}</TableHead>
+                                        <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.invite.email_address")} / {t("staff.invite.whatsapp_number")}</TableHead>
+                                        <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.invite.role")}</TableHead>
+                                        <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.pending.type")}</TableHead>
+                                        <TableHead className="text-slate-500 dark:text-slate-400">{t("common.actions")}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
+                                    {pendingActivations.map((pa) => (
+                                        <TableRow key={`act-${pa.id}`} className="border-slate-100 dark:border-slate-800">
+                                            <TableCell className="font-medium text-slate-900 dark:text-white">
+                                                {pa.first_name || "—"} {pa.last_name || ""}
+                                            </TableCell>
+                                            <TableCell className="text-slate-600 dark:text-slate-300">
+                                                <div className="flex items-center gap-2">
+                                                    <Phone className="w-3 h-3" />
+                                                    {pa.phone}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline" className="capitalize">
+                                                    {pa.role?.toLowerCase().replace(/_/g, " ")}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                                    WhatsApp
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Button variant="outline" size="sm" className="text-emerald-600 hover:text-emerald-700 border-emerald-200" onClick={handleCopyActivationLink}>
+                                                    <Copy className="w-3.5 h-3.5 mr-1.5" />
+                                                    {t("staff.pending.copy_link")}
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
                                     {invitations.map((invite) => (
                                         <TableRow key={invite.id} className="border-slate-100 dark:border-slate-800">
                                             <TableCell className="font-medium text-slate-900 dark:text-white">
-                                                {invite.first_name || "New"} {invite.last_name || "Member"}
+                                                {invite.first_name || t("staff.new")} {invite.last_name || t("staff.member")}
                                             </TableCell>
                                             <TableCell className="text-slate-600 dark:text-slate-300">
                                                 <div className="flex items-center gap-2">
@@ -2159,11 +2348,14 @@ const TeamTab: React.FC = () => {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
+                                                <Badge variant="outline">{invite.email ? "Email" : "WhatsApp"}</Badge>
+                                            </TableCell>
+                                            <TableCell>
                                                 <div className="flex items-center gap-2">
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600 hover:text-emerald-700" onClick={() => handleResendInvite(invite.id)} title="Resend Invitation">
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600 hover:text-emerald-700" onClick={() => handleResendInvite(invite.id)} title={t("common.resend_invitation")}>
                                                         <Send className="h-4 w-4" />
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={() => handleCancelInvite(invite.id)} title="Cancel Invitation">
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={() => handleCancelInvite(invite.id)} title={t("common.cancel_invitation")}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </div>
@@ -2174,14 +2366,14 @@ const TeamTab: React.FC = () => {
                             </Table>
                             <PaginationControls
                                 currentPage={invitesPage}
-                                count={invitesData?.count || 0}
+                                count={typeof invitesData?.count === "number" ? invitesData.count : (Array.isArray(invitesData) ? invitesData.length : invitations.length)}
                                 pageSize={20}
                                 onPageChange={setInvitesPage}
                                 isLoading={isInvitesLoading}
                             />
                         </>
                     ) : (
-                        <div className="text-center py-8 text-slate-500">No pending invitations</div>
+                        <div className="text-center py-8 text-slate-500">{t("staff.pending.none")}</div>
                     )}
                 </CardContent>
             </Card>
@@ -2193,6 +2385,7 @@ const TeamTab: React.FC = () => {
 // Attendance Tab Component
 const AttendanceTab: React.FC = () => {
     const { logout } = useAuth() as AuthContextType;
+    const { t } = useLanguage();
     const { data: dashboardData, isLoading, refetch } = useQuery<AttendanceDashboardData>({
         queryKey: ["attendance-dashboard"],
         queryFn: async () => {
@@ -2252,7 +2445,7 @@ const AttendanceTab: React.FC = () => {
                                     {summary.present.count} <span className="text-lg text-slate-400 font-medium">/ {summary.present.total}</span>
                                 </div>
                                 <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest mt-1">
-                                    {summary.present.percentage}% Attendance
+                                    {summary.present.percentage}{t("staff.attendance.pct_attendance")}
                                 </p>
                             </div>
                         </div>
@@ -2270,10 +2463,10 @@ const AttendanceTab: React.FC = () => {
                             </div>
                             <div>
                                 <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                                    {summary.late.count} <span className="text-lg text-slate-400 font-medium">late</span>
+                                    {summary.late.count} <span className="text-lg text-slate-400 font-medium">{t("staff.attendance.late")}</span>
                                 </div>
                                 <p className="text-xs font-bold text-amber-600 uppercase tracking-widest mt-1">
-                                    Avg {summary.late.avg_minutes} min
+                                    {t("staff.attendance.avg_min", { count: summary.late.avg_minutes })}
                                 </p>
                             </div>
                         </div>
@@ -2291,7 +2484,7 @@ const AttendanceTab: React.FC = () => {
                             </div>
                             <div>
                                 <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                                    {summary.absent.count} <span className="text-lg text-slate-400 font-medium">absent</span>
+                                    {summary.absent.count} <span className="text-lg text-slate-400 font-medium">{t("staff.attendance.absent")}</span>
                                 </div>
                                 <p className="text-xs font-bold text-red-600 uppercase tracking-widest mt-1">
                                     {summary.absent.reason}
@@ -2312,7 +2505,7 @@ const AttendanceTab: React.FC = () => {
                             </div>
                             <div>
                                 <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                                    {summary.on_leave.count} <span className="text-lg text-slate-400 font-medium">on leave</span>
+                                    {summary.on_leave.count} <span className="text-lg text-slate-400 font-medium">{t("staff.attendance.on_leave")}</span>
                                 </div>
                                 <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">
                                     {summary.on_leave.subtitle}
@@ -2327,11 +2520,11 @@ const AttendanceTab: React.FC = () => {
             <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hidden md:block">
                 <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg font-bold text-slate-900 dark:text-white">Shift Timeline (Today)</CardTitle>
+                        <CardTitle className="text-lg font-bold text-slate-900 dark:text-white">{t("staff.attendance.shift_timeline")}</CardTitle>
                         <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
-                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> On Time</span>
-                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500"></div> Late</span>
-                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div> Absent</span>
+                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> {t("staff.attendance.on_time")}</span>
+                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500"></div> {t("staff.attendance.late")}</span>
+                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div> {t("staff.attendance.absent")}</span>
                         </div>
                     </div>
                 </CardHeader>
@@ -2379,17 +2572,17 @@ const AttendanceTab: React.FC = () => {
                 <div className="space-y-4 flex flex-col">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <Users className="w-5 h-5 text-slate-500" />
-                        Live Attendance List
+                        {t("staff.attendance.live_list")}
                     </h3>
                     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1">
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-slate-50/50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800">
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">Staff</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider hidden sm:table-cell">Role</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">Shift</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">Clock-in</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">Status</TableHead>
+                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.page.title")}</TableHead>
+                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider hidden sm:table-cell">{t("staff.invite.role")}</TableHead>
+                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.shift")}</TableHead>
+                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.clock_in")}</TableHead>
+                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.status")}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -2397,7 +2590,7 @@ const AttendanceTab: React.FC = () => {
                                     <TableRow>
                                         <TableCell colSpan={6} className="text-center py-12">
                                             <Loader2 className="w-8 h-8 animate-spin mx-auto text-emerald-500 mb-2" />
-                                            <p className="text-slate-500 font-medium">Loading live data...</p>
+                                            <p className="text-slate-500 font-medium">{t("staff.attendance.loading_live")}</p>
                                         </TableCell>
                                     </TableRow>
                                 ) : attendanceList.length === 0 ? (
@@ -2406,8 +2599,8 @@ const AttendanceTab: React.FC = () => {
                                             <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-3">
                                                 <Calendar className="w-8 h-8 text-slate-300" />
                                             </div>
-                                            <p className="text-lg font-bold text-slate-900 dark:text-white">No shifts scheduled</p>
-                                            <p className="text-slate-500 text-sm">Today is a free day for the team.</p>
+                                            <p className="text-lg font-bold text-slate-900 dark:text-white">{t("staff.attendance.no_shifts")}</p>
+                                            <p className="text-slate-500 text-sm">{t("staff.attendance.free_day")}</p>
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -2440,7 +2633,7 @@ const AttendanceTab: React.FC = () => {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                                                {item.shift.start ? `${item.shift.start} - ${item.shift.end}` : <span className="text-slate-400 italic">Unscheduled</span>}
+                                                {item.shift.start ? `${item.shift.start} - ${item.shift.end}` : <span className="text-slate-400 italic">{t("staff.attendance.unscheduled")}</span>}
                                             </TableCell>
                                             <TableCell className="text-sm font-bold text-slate-900 dark:text-white">
                                                 {item.clock_in || <span className="text-slate-300">—</span>}
@@ -2450,24 +2643,24 @@ const AttendanceTab: React.FC = () => {
                                                 {item.status === 'on_time' && (
                                                     <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none px-2 py-1 gap-1.5 flex w-fit">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                        On Time
+                                                        {t("staff.attendance.on_time")}
                                                     </Badge>
                                                 )}
                                                 {item.status === 'late' && (
                                                     <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none px-2 py-1 gap-1.5 flex w-fit">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                                        Late ({item.late_minutes}m)
+                                                        {t("staff.attendance.late")} ({item.late_minutes}m)
                                                     </Badge>
                                                 )}
                                                 {item.status === 'absent' && (
                                                     <Badge className="bg-red-100 text-red-700 hover:bg-red-200 border-none px-2 py-1 gap-1.5 flex w-fit">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                                                        Absent
+                                                        {t("staff.attendance.absent")}
                                                     </Badge>
                                                 )}
                                                 {(item.status === 'present' || item.status === 'scheduled') && (
                                                     <Badge variant="outline" className="text-slate-500 border-slate-300">
-                                                        {item.status === 'scheduled' ? 'Scheduled' : 'Present'}
+                                                        {item.status === 'scheduled' ? t("staff.attendance.scheduled") : t("staff.attendance.present")}
                                                     </Badge>
                                                 )}
                                             </TableCell>
@@ -2483,13 +2676,13 @@ const AttendanceTab: React.FC = () => {
                 <div className="space-y-4 flex flex-col">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <Activity className="w-5 h-5 text-slate-500" />
-                        Attendance Events
+                        {t("staff.attendance.events")}
                     </h3>
                     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-0 overflow-hidden flex-1">
                         <div className="h-full overflow-y-auto p-4 space-y-0 min-h-[400px]">
                             {recentActivity.length === 0 ? (
                                 <div className="text-center py-8">
-                                    <p className="text-slate-400 text-sm">No events recorded yet.</p>
+                                    <p className="text-slate-400 text-sm">{t("staff.attendance.no_events")}</p>
                                 </div>
                             ) : (
                                 recentActivity.map((event, i: number) => (
@@ -2505,7 +2698,7 @@ const AttendanceTab: React.FC = () => {
                                                 <span className="font-bold">{event.staff_name}</span> {event.event.toLowerCase()}
                                             </p>
                                             {event.event.includes("Late") && (
-                                                <span className="text-[10px] text-amber-600 font-bold mt-1">Late Arrival detected</span>
+                                                <span className="text-[10px] text-amber-600 font-bold mt-1">{t("staff.attendance.late_arrival")}</span>
                                             )}
                                         </div>
                                     </div>
@@ -2625,7 +2818,7 @@ const TasksTab: React.FC = () => {
                                     <TableRow key={task.id} className="border-slate-100 dark:border-slate-800">
                                         <TableCell className="font-medium text-slate-900 dark:text-white">{task.title}</TableCell>
                                         <TableCell className="text-slate-600 dark:text-slate-300">
-                                            {task.assigned_to_names?.join(", ") || "Unassigned"}
+                                            {task.assigned_to_names?.join(", ") || t("common.unassigned")}
                                         </TableCell>
                                         <TableCell className="text-slate-600 dark:text-slate-300">
                                             {task.due_time || format(new Date(task.due_date), "HH:mm")}
@@ -2663,6 +2856,7 @@ const TasksTab: React.FC = () => {
 // Insights Tab Component
 const InsightsTab: React.FC = () => {
     const { logout } = useAuth() as AuthContextType;
+    const { t } = useLanguage();
 
     const { data: insightsData, isLoading } = useQuery<StaffInsightsData>({
         queryKey: ["staff-insights"],
@@ -2684,7 +2878,7 @@ const InsightsTab: React.FC = () => {
         return (
             <div className="flex flex-col items-center justify-center py-24">
                 <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mb-4" />
-                <p className="text-slate-500 font-medium italic">Analyzing staff performance metrics...</p>
+                <p className="text-slate-500 font-medium italic">{t("staff.insights.analyzing")}</p>
             </div>
         );
     }
@@ -2707,13 +2901,13 @@ const InsightsTab: React.FC = () => {
                             <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
                                 <Zap className="w-5 h-5 text-indigo-50" />
                             </div>
-                            <Badge className="bg-white/20 text-white border-none backdrop-blur-md">Week {summary.tasks_trend >= 0 ? '+' : ''}{summary.tasks_trend}%</Badge>
+                            <Badge className="bg-white/20 text-white border-none backdrop-blur-md">{t("staff.insights.week_trend", { sign: summary.tasks_trend >= 0 ? '+' : '', pct: summary.tasks_trend })}</Badge>
                         </div>
                         <h3 className="text-3xl font-bold mb-1">{summary.tasks_completed}</h3>
-                        <p className="text-indigo-100 text-sm font-medium">Tasks Completed</p>
+                        <p className="text-indigo-100 text-sm font-medium">{t("staff.insights.tasks_completed")}</p>
                         <div className="mt-4 pt-4 border-t border-white/10 flex items-center text-xs text-indigo-50">
                             <TrendingUp className="w-3 h-3 mr-1" />
-                            <span>{Math.abs(summary.tasks_trend)}% {summary.tasks_trend >= 0 ? 'more' : 'less'} than last week</span>
+                            <span>{summary.tasks_trend >= 0 ? t("staff.insights.more_than_last", { pct: Math.abs(summary.tasks_trend) }) : t("staff.insights.less_than_last", { pct: Math.abs(summary.tasks_trend) })}</span>
                         </div>
                     </CardContent>
                 </Card>
@@ -2724,13 +2918,13 @@ const InsightsTab: React.FC = () => {
                             <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
                                 <CheckCircle2 className="w-5 h-5 text-emerald-50" />
                             </div>
-                            <Badge className="bg-white/20 text-white border-none backdrop-blur-md">Top Tier</Badge>
+                            <Badge className="bg-white/20 text-white border-none backdrop-blur-md">{t("staff.insights.top_tier")}</Badge>
                         </div>
                         <h3 className="text-3xl font-bold mb-1">{summary.team_reliability}%</h3>
-                        <p className="text-emerald-100 text-sm font-medium">Team Reliability</p>
+                        <p className="text-emerald-100 text-sm font-medium">{t("staff.insights.team_reliability")}</p>
                         <div className="mt-4 pt-4 border-t border-white/10 flex items-center text-xs text-emerald-50">
                             <Sparkles className="w-3 h-3 mr-1" />
-                            <span>Based on last 30 days check-ins</span>
+                            <span>{t("staff.insights.based_on_30d")}</span>
                         </div>
                     </CardContent>
                 </Card>
@@ -2743,10 +2937,10 @@ const InsightsTab: React.FC = () => {
                             </div>
                         </div>
                         <h3 className="text-3xl font-bold mb-1">{summary.active_workers}</h3>
-                        <p className="text-amber-100 text-sm font-medium">Active Workers</p>
+                        <p className="text-amber-100 text-sm font-medium">{t("staff.insights.active_workers")}</p>
                         <div className="mt-4 pt-4 border-t border-white/10 flex items-center text-xs text-amber-50">
                             <Activity className="w-3 h-3 mr-1" />
-                            <span>Live staff count</span>
+                            <span>{t("staff.insights.live_count")}</span>
                         </div>
                     </CardContent>
                 </Card>
@@ -2760,9 +2954,9 @@ const InsightsTab: React.FC = () => {
                         <div>
                             <CardTitle className="text-xl font-bold flex items-center gap-2">
                                 <Trophy className="w-5 h-5 text-amber-500" />
-                                Star Performers
+                                {t("staff.insights.star_performers")}
                             </CardTitle>
-                            <CardDescription>Top contributors this week</CardDescription>
+                            <CardDescription>{t("staff.insights.top_contributors")}</CardDescription>
                         </div>
                         <Award className="w-8 h-8 text-slate-200 dark:text-slate-800" />
                     </CardHeader>
@@ -2770,7 +2964,7 @@ const InsightsTab: React.FC = () => {
                         <div className="space-y-5">
                             {star_performers.length === 0 ? (
                                 <div className="py-10 text-center">
-                                    <p className="text-slate-500 text-sm italic">No task data available for this week</p>
+                                    <p className="text-slate-500 text-sm italic">{t("staff.insights.no_task_data")}</p>
                                 </div>
                             ) : (
                                 star_performers.map((p, i: number) => (
@@ -2790,9 +2984,9 @@ const InsightsTab: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-sm font-bold text-slate-900 dark:text-white">{p.tasks} Tasks</p>
+                                            <p className="text-sm font-bold text-slate-900 dark:text-white">{p.tasks} {t("staff.insights.tasks")}</p>
                                             <Badge variant="outline" className="text-[10px] uppercase font-bold text-emerald-500 p-0 pointer-events-none border-none">
-                                                {p.score}% Success
+                                                {p.score}{t("staff.insights.success")}
                                             </Badge>
                                         </div>
                                     </div>
@@ -2807,8 +3001,8 @@ const InsightsTab: React.FC = () => {
                                         <Star className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100 italic">"Rising Star"</p>
-                                        <p className="text-xs text-slate-500 dark:text-indigo-300">{star_performers[0].name} is performing above average today!</p>
+                                        <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100 italic">"{t("staff.insights.rising_star")}"</p>
+                                        <p className="text-xs text-slate-500 dark:text-indigo-300">{t("staff.insights.above_average", { name: star_performers[0].name })}</p>
                                     </div>
                                 </div>
                             </div>
@@ -2822,28 +3016,28 @@ const InsightsTab: React.FC = () => {
                         <div>
                             <CardTitle className="text-xl font-bold flex items-center gap-2">
                                 <BarChart3 className="w-5 h-5 text-indigo-500" />
-                                Attendance Health
+                                {t("staff.insights.attendance_health")}
                             </CardTitle>
-                            <CardDescription>Reliability patterns and early signals</CardDescription>
+                            <CardDescription>{t("staff.insights.reliability_patterns")}</CardDescription>
                         </div>
                         <Activity className="w-8 h-8 text-slate-200 dark:text-slate-800" />
                     </CardHeader>
                     <CardContent className="pt-4">
                         <div className="grid grid-cols-2 gap-4 mb-6">
                             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                                <p className="text-xs text-slate-500 mb-1">On-Time Arrival</p>
+                                <p className="text-xs text-slate-500 mb-1">{t("staff.insights.on_time_arrival")}</p>
                                 <p className="text-xl font-bold text-emerald-600">{attendance_health.on_time_arrival}%</p>
                             </div>
                             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                                <p className="text-xs text-slate-500 mb-1">No-Show Rate</p>
+                                <p className="text-xs text-slate-500 mb-1">{t("staff.insights.no_show_rate")}</p>
                                 <p className="text-xl font-bold text-red-600">{attendance_health.no_show_rate}%</p>
                             </div>
                         </div>
 
                         <div className="space-y-4">
-                            <p className="text-sm font-bold text-slate-900 dark:text-white mb-3">Recent Reliability Signals</p>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white mb-3">{t("staff.insights.recent_signals")}</p>
                             {signals.length === 0 ? (
-                                <p className="text-xs text-slate-500 italic py-4">No signals detected this week</p>
+                                <p className="text-xs text-slate-500 italic py-4">{t("staff.insights.no_signals")}</p>
                             ) : (
                                 signals.map((sig, idx: number) => (
                                     <div key={idx} className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
@@ -2861,7 +3055,7 @@ const InsightsTab: React.FC = () => {
             <div className="space-y-6">
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <ShieldAlert className="w-5 h-5 text-red-500" />
-                    Managerial Action Needed
+                    {t("staff.insights.managerial_action")}
                 </h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2869,7 +3063,7 @@ const InsightsTab: React.FC = () => {
                         <div className="col-span-2 py-8 text-center bg-emerald-50/30 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl">
                             <p className="text-emerald-700 dark:text-emerald-400 font-medium flex items-center justify-center gap-2">
                                 <CheckCircle2 className="w-5 h-5" />
-                                No critical issues detected. Operations are running smoothly.
+                                {t("staff.insights.no_critical")}
                             </p>
                         </div>
                     ) : (
@@ -2916,9 +3110,9 @@ const InsightsTab: React.FC = () => {
                         <div className="max-w-xl">
                             <p className="text-emerald-400 text-xs font-black uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
                                 <Zap className="w-3 h-3" />
-                                Mizan AI Recommendation
+                                {t("staff.insights.ai_recommendation")}
                             </p>
-                            <h3 className="text-xl font-bold text-white mb-2">Optimize Shift Distribution</h3>
+                            <h3 className="text-xl font-bold text-white mb-2">{t("staff.insights.optimize_shifts")}</h3>
                             <p className="text-slate-400 text-sm leading-relaxed">
                                 Based on last month’s data, reassigning shifts from <span className="text-white font-medium">Operations to Front of House</span> during peak hours could reduce late arrivals by <span className="text-emerald-400 font-bold">22%</span> and improve customer speed.
                             </p>
@@ -2959,6 +3153,7 @@ const getDocumentUrl = (path: string) => {
 
 export default function StaffApp() {
     const { user } = useAuth() as AuthContextType;
+    const { t } = useLanguage();
     const [activeTab, setActiveTab] = useState("team");
     const showRequestsTab = Boolean(user?.role && ["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"].includes(user.role));
 
@@ -2967,9 +3162,9 @@ export default function StaffApp() {
             <div className="max-w-7xl mx-auto space-y-6">
                 {/* Header */}
                 <header className="mb-6">
-                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Staff</h1>
+                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">{t("staff.page.title")}</h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                        Add and manage your team
+                        {t("staff.page.subtitle")}
                     </p>
                 </header>
 
@@ -2978,25 +3173,25 @@ export default function StaffApp() {
                     <TabsList className={`w-full grid ${showRequestsTab ? "grid-cols-5" : "grid-cols-4"} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl mb-6`}>
                         <TabsTrigger value="team" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all">
                             <Users className="w-4 h-4 mr-2" />
-                            Team
+                            {t("staff.tabs.team")}
                         </TabsTrigger>
                         <TabsTrigger value="presence" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all">
                             <UserCheck className="w-4 h-4 mr-2" />
-                            Presence
+                            {t("staff.tabs.presence")}
                         </TabsTrigger>
                         <TabsTrigger value="attendance" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all">
                             <Clock className="w-4 h-4 mr-2" />
-                            Attendance
+                            {t("staff.tabs.attendance")}
                         </TabsTrigger>
                         {showRequestsTab && (
                             <TabsTrigger value="requests" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all">
                                 <Inbox className="w-4 h-4 mr-2" />
-                                Requests
+                                {t("staff.tabs.requests")}
                             </TabsTrigger>
                         )}
                         <TabsTrigger value="insights" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all">
                             <TrendingUp className="w-4 h-4 mr-2" />
-                            Insights
+                            {t("staff.tabs.insights")}
                         </TabsTrigger>
                     </TabsList>
 

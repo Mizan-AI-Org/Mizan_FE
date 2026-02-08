@@ -14,6 +14,7 @@ import { CalendarIcon, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/hooks/use-language";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import type { StaffListItem } from "@/lib/types";
 
@@ -44,6 +45,7 @@ const ScheduleCreationModal: React.FC<ScheduleCreationModalProps> = ({
     initialData,
 }) => {
     const { user, accessToken } = useAuth() as AuthContextType;
+    const { t } = useLanguage();
 
     const [staffId, setStaffId] = useState<string>('');
     const [title, setTitle] = useState<string>(initialData?.title || 'Shift');
@@ -148,7 +150,7 @@ const ScheduleCreationModal: React.FC<ScheduleCreationModalProps> = ({
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="staff" className="text-right">
-                            Staff
+                            {t("schedule.staff")}
                         </Label>
                         <div className="col-span-3">
                             <Popover open={isStaffPopoverOpen} onOpenChange={setIsStaffPopoverOpen}>
