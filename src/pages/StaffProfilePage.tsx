@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     ArrowLeft,
     Mail,
@@ -16,10 +16,13 @@ import {
     FileText,
     MoreVertical,
     Download,
-    Edit
+    Edit,
+    LogIn,
+    LogOut,
+    Loader2
 } from "lucide-react";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, api } from "@/lib/api";
 import { useAuth, AuthContextType } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -93,7 +96,8 @@ interface PerformanceMetric {
 const StaffProfilePage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { logout } = useAuth() as AuthContextType;
+    const { user: authUser, logout } = useAuth() as AuthContextType;
+    const queryClient = useQueryClient();
     const [dateRange, setDateRange] = useState({
         start: format(subMonths(new Date(), 1), "yyyy-MM-dd"),
         end: format(new Date(), "yyyy-MM-dd")
@@ -191,6 +195,32 @@ const StaffProfilePage: React.FC = () => {
             });
         }
     };
+
+    // Manager clock-in/clock-out (for staff who lost phone)
+    const isManager = authUser?.role && ['SUPER_ADMIN', 'ADMIN', 'OWNER', 'MANAGER'].includes(authUser.role);
+    const isViewingOtherStaff = id && authUser?.id && String(id) !== String(authUser.id);
+    const isClockedIn = attendance?.some(r => r.status === 'active') ?? false;
+
+    const managerClockInMutation = useMutation({
+        mutationFn: () => api.managerClockIn(id!),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['staff-attendance', id] });
+            toast({ title: "Success", description: "Staff clocked in successfully (manager override)" });
+        },
+        onError: (err: Error) => {
+            toast({ title: "Error", description: err.message || "Failed to clock in", variant: "destructive" });
+        },
+    });
+    const managerClockOutMutation = useMutation({
+        mutationFn: () => api.managerClockOut(id!),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['staff-attendance', id] });
+            toast({ title: "Success", description: "Staff clocked out successfully (manager override)" });
+        },
+        onError: (err: Error) => {
+            toast({ title: "Error", description: err.message || "Failed to clock out", variant: "destructive" });
+        },
+    });
 
     if (isStaffLoading) {
         return (
@@ -351,6 +381,37 @@ const StaffProfilePage: React.FC = () => {
                         </CardContent>
                     </Card>
 
+                    {isManager && isViewingOtherStaff && (
+                        <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
+                            <CardHeader>
+                                <CardTitle className="text-lg">Manager Actions</CardTitle>
+                                <CardDescription>Clock in/out on behalf of staff (e.g. lost phone)</CardDescription>
+                            </CardHeader>
+                            <CardContent className="flex gap-2">
+                                {isClockedIn ? (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => managerClockOutMutation.mutate()}
+                                        disabled={managerClockOutMutation.isPending}
+                                    >
+                                        {managerClockOutMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LogOut className="w-4 h-4 mr-2" />}
+                                        Clock Out (Manager)
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => managerClockInMutation.mutate()}
+                                        disabled={managerClockInMutation.isPending}
+                                    >
+                                        {managerClockInMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LogIn className="w-4 h-4 mr-2" />}
+                                        Clock In (Manager)
+                                    </Button>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
                     <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
                         <CardHeader>
                             <CardTitle className="text-lg">Skills & Certifications</CardTitle>

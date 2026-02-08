@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import type { Shift, Task, TaskFrequency } from "@/types/schedule";
 import { useCalendar } from "@/hooks/useCalendar";
+import { useLanguage } from "@/hooks/use-language";
 import { ShiftCard } from "@/components/calendar/ShiftCard";
 import { format, startOfWeek, endOfWeek, addDays, isSameDay } from "date-fns";
 import { API_BASE } from "@/lib/api";
@@ -97,6 +98,7 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
     onEditShift
 }) => {
     const { isAdmin, isSuperAdmin } = useAuth() as AuthContextType;
+    const { t } = useLanguage();
     const canEditShifts = (isAdmin?.() ?? false) || (isSuperAdmin?.() ?? false);
     const [view, setView] = useState<"week" | "day" | "month">("week");
     const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
@@ -133,7 +135,7 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
             if (canEditShifts) {
                 onEditShift(shift);
             } else {
-                toast.error("You don't have permission to edit shifts.");
+                toast.error(t("errors.no_permission_edit_shifts"));
             }
         },
         onShiftHover: (shift) => {
@@ -305,7 +307,7 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                 <div className="flex items-center space-x-6">
                     <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-xl">
                         <UIButton variant="ghost" className="h-8 w-8 p-0 rounded-lg hover:bg-white hover:shadow-sm" onClick={() => navigateDate("prev")}><ChevronLeft className="w-4 h-4" /></UIButton>
-                        <UIButton variant="ghost" className="text-sm font-bold px-3 py-1 rounded-lg hover:bg-white hover:shadow-sm" onClick={() => setCurrentDate(new Date())}>Today</UIButton>
+                        <UIButton variant="ghost" className="text-sm font-bold px-3 py-1 rounded-lg hover:bg-white hover:shadow-sm" onClick={() => setCurrentDate(new Date())}>{t("schedule.today")}</UIButton>
                         <UIButton variant="ghost" className="h-8 w-8 p-0 rounded-lg hover:bg-white hover:shadow-sm" onClick={() => navigateDate("next")}><ChevronRight className="w-4 h-4" /></UIButton>
                     </div>
                     <h2 className="text-xl font-extrabold text-gray-900 tracking-tight">{getDateDisplay()}</h2>
@@ -317,21 +319,21 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                             className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "day" ? "bg-white shadow-sm text-green-700" : "text-gray-500 hover:text-gray-700")}
                             onClick={() => setView("day")}
                         >
-                            Day
+                            {t("schedule.day")}
                         </UIButton>
                         <UIButton
                             variant="ghost"
                             className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "week" ? "bg-white shadow-sm text-green-700" : "text-gray-500 hover:text-gray-700")}
                             onClick={() => setView("week")}
                         >
-                            Week
+                            {t("schedule.week")}
                         </UIButton>
                         <UIButton
                             variant="ghost"
                             className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "month" ? "bg-white shadow-sm text-green-700" : "text-gray-500 hover:text-gray-700")}
                             onClick={() => setView("month")}
                         >
-                            Month
+                            {t("schedule.month")}
                         </UIButton>
                     </div>
                 </div>

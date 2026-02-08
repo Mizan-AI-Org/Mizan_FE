@@ -143,7 +143,7 @@ const DashboardLayout: React.FC = () => {
                       onClick={() => navigate("/dashboard/staff-requests")}
                       className="text-sm"
                     >
-                      View Staff Requests
+                      {t("staff.view_staff_requests")}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={markAllAsRead}>
                       {t("common.notifications.mark_all_read")}

@@ -119,9 +119,12 @@ export const LuaWidget: React.FC = () => {
         }
 
         if (window.LuaPop && accessToken) {
-            // Deterministic sessionId so backend webhooks can locate/update the same Lua user.
-            // (Previously we appended a token suffix, which made backend↔Lua linking unreliable.)
-            const sessionId = `tenant-${user.restaurant_data?.id || user.restaurant}-user-${user.id}`;
+            // Base identity for backend/webhook linkage
+            const baseSessionId = `tenant-${user.restaurant_data?.id || user.restaurant}-user-${user.id}`;
+            // Append date for fresh daily conversations – keeps chat UI clean while metadata
+            // (userId, restaurantId, fullName) ensures Miya always knows who's chatting and restaurant context
+            const today = new Date().toISOString().slice(0, 10); // yyyy-MM-dd
+            const sessionId = `${baseSessionId}-${today}`;
 
             if (initialized.current === sessionId) return;
 
@@ -151,7 +154,7 @@ export const LuaWidget: React.FC = () => {
                         userId: user.id,
                         role: user.role,
                         token: accessToken,
-                        sessionId,
+                        sessionId: baseSessionId, // stable identity for backend
                         language,
                         rtl: isRTL,
                     },
@@ -165,9 +168,10 @@ export const LuaWidget: React.FC = () => {
                     sttEnabled: true,
                     ttsEnabled: true,
                     voiceResponseEnabled: false,
-                    speechRecognitionLanguage: language === "ar" ? "ar-SA" : (language === "fr" ? "fr-FR" : "en-US"),
+                    // ar-MA for Arabic: better Darija (Moroccan) support; fr-FR for French; en-US for English
+                    speechRecognitionLanguage: language === "ar" ? "ar-MA" : (language === "fr" ? "fr-FR" : "en-US"),
 
-                    // Session context - unique per login token
+                    // Session context – date suffix gives fresh conversation each day; metadata preserves user+restaurant context
                     sessionId,
                     runtimeContext: `Restaurant: ${user.restaurant_data?.name || user.restaurant_name || "Unknown"} (ID: ${user.restaurant_data?.id || user.restaurant}), User: ${userFullName} (ID: ${user.id}), Role: ${user.role}, Token: ${accessToken}, Current Time: ${now.toLocaleDateString()} ${now.toLocaleTimeString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
 
