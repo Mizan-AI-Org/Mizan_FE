@@ -102,6 +102,9 @@ const ResetPassword = React.lazy(() => import("./pages/ResetPassword"));
 const ShiftReviewsAdminPage = React.lazy(
   () => import("./pages/ShiftReviewsAdminPage")
 );
+const DashboardAttendancePage = React.lazy(
+  () => import("./pages/DashboardAttendancePage")
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -445,6 +448,18 @@ const App = () => {
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
                       <DailySalesReportsPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/attendance"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                    >
+                      <React.Suspense fallback={<div>Loading...</div>}>
+                        <DashboardAttendancePage />
+                      </React.Suspense>
                     </RoleBasedRoute>
                   }
                 />

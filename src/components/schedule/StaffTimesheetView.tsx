@@ -1,0 +1,262 @@
+"use client";
+
+import React, { useMemo } from "react";
+import { Card } from "@/components/ui/card";
+import { Button as UIButton } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { cn } from "@/lib/utils";
+import { useLanguage } from "@/hooks/use-language";
+import type { Shift } from "@/types/schedule";
+
+interface StaffMember {
+  id: string;
+  user?: { id: string; first_name: string; last_name: string };
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  role?: string;
+}
+
+interface StaffTimesheetViewProps {
+  shifts: Shift[];
+  staffMembers: StaffMember[];
+  currentDate: Date;
+  setCurrentDate: React.Dispatch<React.SetStateAction<Date>>;
+  onEditShift?: (shift: Shift) => void;
+}
+
+const ROLE_COLORS: Record<string, string> = {
+  CHEF: "bg-amber-100 text-amber-800 border-amber-300",
+  SERVER: "bg-blue-100 text-blue-800 border-blue-300",
+  WAITER: "bg-blue-100 text-blue-800 border-blue-300",
+  BARTENDER: "bg-orange-100 text-orange-800 border-orange-300",
+  HOST: "bg-emerald-100 text-emerald-800 border-emerald-300",
+  MANAGER: "bg-purple-100 text-purple-800 border-purple-300",
+  CASHIER: "bg-slate-100 text-slate-800 border-slate-300",
+  CLEANER: "bg-teal-100 text-teal-800 border-teal-300",
+};
+
+function getRoleColor(role: string): string {
+  const r = (role || "STAFF").toUpperCase();
+  return ROLE_COLORS[r] ?? "bg-gray-100 text-gray-800 border-gray-300";
+}
+
+function formatTime(timeStr: string): string {
+  if (!timeStr) return "";
+  const [h, m] = timeStr.split(":");
+  const hour = parseInt(h, 10);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const h12 = hour % 12 || 12;
+  return `${h12}:${m || "00"}${ampm}`;
+}
+
+function timeRange(start: string, end: string): string {
+  return `${formatTime(start)}-${formatTime(end)}`;
+}
+
+export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
+  shifts,
+  staffMembers,
+  currentDate,
+  setCurrentDate,
+  onEditShift,
+}) => {
+  const { t } = useLanguage();
+
+  const getWeekStart = (date: Date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.setDate(diff));
+  };
+
+  const weekStart = getWeekStart(currentDate);
+  const weekDates = useMemo(() => {
+    const dates: Date[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      dates.push(d);
+    }
+    return dates;
+  }, [weekStart]);
+
+  const dateStr = (d: Date) => format(d, "yyyy-MM-dd");
+
+  const shiftsByStaffByDate = useMemo(() => {
+    const map: Record<string, Record<string, Shift[]>> = {};
+    staffMembers.forEach((s) => {
+      map[s.id] = {};
+      weekDates.forEach((d) => {
+        map[s.id][dateStr(d)] = [];
+      });
+    });
+    shifts.forEach((shift) => {
+      const staffId = shift.staffId;
+      if (!map[staffId]) map[staffId] = {};
+      if (!map[staffId][shift.date]) map[staffId][shift.date] = [];
+      map[staffId][shift.date].push(shift);
+    });
+    return map;
+  }, [shifts, staffMembers, weekDates]);
+
+  const staffByRole = useMemo(() => {
+    const byRole: Record<string, StaffMember[]> = {};
+    staffMembers.forEach((s) => {
+      const role = (s.role || "STAFF").toUpperCase();
+      if (!byRole[role]) byRole[role] = [];
+      byRole[role].push(s);
+    });
+    const order = ["MANAGER", "CHEF", "BARTENDER", "SERVER", "WAITER", "HOST", "CASHIER", "CLEANER"];
+    const ordered: { role: string; staff: StaffMember[] }[] = [];
+    const seen = new Set<string>();
+    order.forEach((r) => {
+      if (byRole[r]) {
+        ordered.push({ role: r, staff: byRole[r] });
+        byRole[r].forEach((s) => seen.add(s.id));
+      }
+    });
+    Object.entries(byRole).forEach(([role, staff]) => {
+      if (seen.has(staff[0]?.id)) return;
+      ordered.push({ role, staff });
+    });
+    return ordered;
+  }, [staffMembers]);
+
+  const navigateWeek = (dir: "prev" | "next") => {
+    setCurrentDate((prev) => {
+      const next = new Date(prev);
+      next.setDate(prev.getDate() + (dir === "next" ? 7 : -7));
+      return next;
+    });
+  };
+
+  const displayRange = `${format(weekDates[0], "MMM d")} – ${format(weekDates[6], "MMM d, yyyy")}`;
+
+  return (
+    <div className="bg-white rounded-lg border shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
+      <div className="flex items-center justify-between p-4 border-b flex-shrink-0 bg-white z-20">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+            <UIButton variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => navigateWeek("prev")}>
+              <ChevronLeft className="w-4 h-4" />
+            </UIButton>
+            <UIButton variant="ghost" className="text-sm font-bold px-3 rounded-lg" onClick={() => setCurrentDate(new Date())}>
+              {t("schedule.today")}
+            </UIButton>
+            <UIButton variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => navigateWeek("next")}>
+              <ChevronRight className="w-4 h-4" />
+            </UIButton>
+          </div>
+          <h2 className="text-lg font-bold text-gray-900">{displayRange}</h2>
+        </div>
+        <span className="text-sm text-gray-500 font-medium">Week – List by role</span>
+      </div>
+
+      <div className="flex-1 overflow-auto">
+        <table className="w-full border-collapse min-w-[900px]">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+              <th className="text-left py-3 px-4 w-48 text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                Staff / Role
+              </th>
+              {weekDates.map((d) => {
+                const isToday = dateStr(d) === format(new Date(), "yyyy-MM-dd");
+                return (
+                  <th
+                    key={dateStr(d)}
+                    className={cn(
+                      "py-3 px-2 text-center text-xs font-bold uppercase tracking-wider border-r border-gray-200 last:border-r-0",
+                      isToday ? "bg-green-50 text-green-800" : "text-gray-500"
+                    )}
+                  >
+                    <div>{format(d, "EEE")}</div>
+                    <div className={cn("mt-0.5", isToday ? "text-green-700 font-black" : "text-gray-700")}>
+                      {format(d, "d")}
+                    </div>
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {staffByRole.map(({ role, staff }) => (
+              <React.Fragment key={role}>
+                <tr className="bg-gray-100/80 border-b border-gray-100">
+                  <td colSpan={8} className="py-2 px-4 text-sm font-bold text-gray-700 uppercase tracking-wider">
+                    {role}
+                  </td>
+                </tr>
+                {staff.map((member) => {
+                  const name = `${member.first_name || ""} ${member.last_name || ""}`.trim() || "—";
+                  const initials = name !== "—" ? name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() : "—";
+                  return (
+                    <tr key={member.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
+                      <td className="py-2 px-4 border-r border-gray-100">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-8 w-8 rounded-full border-2 border-white shadow-sm">
+                            <AvatarFallback className="text-xs font-bold bg-gray-200 text-gray-700">
+                              {initials}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium text-gray-900 truncate">{name}</span>
+                        </div>
+                      </td>
+                      {weekDates.map((d) => {
+                        const dayShifts = (shiftsByStaffByDate[member.id] || {})[dateStr(d)] || [];
+                        const isToday = dateStr(d) === format(new Date(), "yyyy-MM-dd");
+                        return (
+                          <td
+                            key={dateStr(d)}
+                            className={cn(
+                              "py-1.5 px-2 align-top border-r border-gray-100 last:border-r-0",
+                              isToday && "bg-green-50/30"
+                            )}
+                          >
+                            <div className="space-y-1">
+                              {dayShifts.length === 0 ? (
+                                <span className="text-xs text-gray-300">—</span>
+                              ) : (
+                                dayShifts.map((shift) => {
+                                  const roleInitial = (member.role || "S").charAt(0).toUpperCase();
+                                  const colorClass = getRoleColor(member.role || "");
+                                  return (
+                                    <div
+                                      key={shift.id}
+                                      onClick={() => onEditShift?.(shift)}
+                                      className={cn(
+                                        "text-[11px] font-medium rounded px-2 py-1 border cursor-pointer hover:opacity-90 transition-opacity truncate",
+                                        colorClass,
+                                        onEditShift && "cursor-pointer"
+                                      )}
+                                      title={`${shift.title || "Shift"} ${timeRange(shift.start, shift.end)}`}
+                                    >
+                                      <span className="font-bold">{roleInitial}</span>{" "}
+                                      {timeRange(shift.start, shift.end)}
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+        {staffByRole.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+            <p className="text-sm font-medium">No staff in this period</p>
+            <p className="text-xs mt-1">Add staff to see the timesheet by role.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
