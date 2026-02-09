@@ -19,8 +19,8 @@ export interface ShiftCardProps {
 const getPositionStyles = (shift: CalendarShift): React.CSSProperties => ({
   top: `${shift.position.top}px`,
   height: `${shift.position.height}px`,
-  left: `${shift.position.left}%`,
-  width: `${shift.position.width}%`,
+  left: `0%`,
+  width: `100%`,
   zIndex: shift.position.zIndex,
   backgroundColor: shift.color ? `${shift.color}20` : '#f3f4f6',
   borderLeftColor: shift.color || '#6b7280',

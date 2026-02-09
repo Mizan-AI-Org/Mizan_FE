@@ -203,8 +203,14 @@ export const useNotifications = () => {
     }, [user?.id, queryClient]);
 
 
-    // Ensure notifications is an array before mapping to prevent runtime errors
-    const normalized = Array.isArray(notifications) ? notifications : [];
+    // Ensure notifications is an array; only show those from the last 12 hours (auto-clear older)
+    const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000;
+    const normalized = Array.isArray(notifications)
+        ? notifications.filter((n) => {
+            const ts = n.created_at ? new Date(n.created_at).getTime() : 0;
+            return ts >= twelveHoursAgo;
+          })
+        : [];
 
     return {
         notifications: normalized.map(n => ({
