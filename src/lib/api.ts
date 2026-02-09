@@ -274,7 +274,11 @@ export class BackendService {
         let message = "Invitation acceptance failed";
         try {
           const errorData = await response.json();
-          message = errorData.message || errorData.detail || message;
+          message = errorData.message || errorData.detail || errorData.error || message;
+          // Use a stable message so callers can redirect to login when already accepted
+          if (errorData.code === 'already_accepted') {
+            message = 'already_accepted';
+          }
         } catch (_) {
           // ignore parse errors
         }
