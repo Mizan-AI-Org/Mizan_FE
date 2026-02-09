@@ -19,13 +19,13 @@ export interface ShiftCardProps {
 const getPositionStyles = (shift: CalendarShift): React.CSSProperties => ({
   top: `${shift.position.top}px`,
   height: `${shift.position.height}px`,
-  left: `0%`,
-  width: `100%`,
+  left: `${shift.position.left}%`,
+  width: `${shift.position.width}%`,
   zIndex: shift.position.zIndex,
   backgroundColor: shift.color ? `${shift.color}20` : '#f3f4f6',
   borderLeftColor: shift.color || '#6b7280',
   borderLeftWidth: '4px',
-  borderLeftStyle: 'solid'
+  borderLeftStyle: 'solid',
 });
 
 export const ShiftCard: React.FC<ShiftCardProps> = ({
