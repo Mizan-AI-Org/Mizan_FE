@@ -31,6 +31,7 @@ const AcceptInvitation: React.FC = () => {
     const [inviteRole, setInviteRole] = useState<string | null>(null);
     const [requireEmail, setRequireEmail] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [inviteLoadError, setInviteLoadError] = useState<{ type: 'not_found' | 'expired'; message: string } | null>(null);
 
     const isAdminOrManagerRole = (role?: string | null) => {
         if (!role) return false;
@@ -43,13 +44,40 @@ const AcceptInvitation: React.FC = () => {
 
         const fetchInviteMeta = async () => {
             try {
+                setInviteLoadError(null);
                 const res = await fetch(`${API_BASE}/invitations/by-token/?token=${encodeURIComponent(token)}`);
+                let data: any = {};
+                try {
+                    data = await res.json();
+                } catch {
+                    // non-JSON or empty body
+                }
+                if (cancelled) return;
+
                 if (!res.ok) {
-                    // If this fails, we still let the user proceed with defaults
+                    const detail = data.detail || (typeof data === 'string' ? data : 'Invalid invitation');
+                    if (res.status === 404 || (detail && String(detail).toLowerCase().includes('not found'))) {
+                        setInviteLoadError({ type: 'not_found', message: t('auth.accept.error_not_found') || 'Invitation not found.' });
+                        return;
+                    }
+                    if (data.is_expired || (detail && String(detail).toLowerCase().includes('expired'))) {
+                        setInviteLoadError({ type: 'expired', message: t('auth.accept.error_expired') || 'This invitation has expired.' });
+                        return;
+                    }
+                    setInviteLoadError({ type: 'expired', message: detail });
                     return;
                 }
-                const data: any = await res.json();
-                if (cancelled) return;
+
+                // User already accepted – redirect to login with a friendly message
+                if (data.is_accepted) {
+                    toast({
+                        title: t('auth.accept.toast_already_accepted_title') || 'Already accepted',
+                        description: t('auth.accept.toast_already_accepted_desc') || "You've already accepted this invitation. Please log in.",
+                        variant: 'default',
+                    });
+                    navigate('/auth', { replace: true });
+                    return;
+                }
 
                 setInviteRole(data.role || null);
                 setInviteEmail(data.email || null);
@@ -60,7 +88,7 @@ const AcceptInvitation: React.FC = () => {
                 if (data.first_name && !firstName) setFirstName(data.first_name);
                 if (data.last_name && !lastName) setLastName(data.last_name);
             } catch {
-                // Silent failure – user can still complete the form manually
+                setInviteLoadError({ type: 'not_found', message: t('auth.accept.error_load_failed') || 'Could not load invitation. Please check the link.' });
             }
         };
 
@@ -104,6 +132,14 @@ const AcceptInvitation: React.FC = () => {
                 toast({ title: t("auth.accept.toast_invalid_pin"), description: t("auth.accept.toast_pin_desc"), variant: "destructive" });
                 return;
             }
+            if (requireEmail && (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+                toast({
+                    title: t("auth.accept.toast_error"),
+                    description: t("auth.accept.toast_email_required") || "Email is required for this invitation.",
+                    variant: "destructive",
+                });
+                return;
+            }
         }
 
         setLoading(true);
@@ -125,6 +161,15 @@ const AcceptInvitation: React.FC = () => {
             // Redirection handled by AuthContext
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : "Failed to accept invitation.";
+            if (message === 'already_accepted' || message.toLowerCase().includes('already accepted')) {
+                toast({
+                    title: t('auth.accept.toast_already_accepted_title') || 'Already accepted',
+                    description: t('auth.accept.toast_already_accepted_desc') || "You've already accepted this invitation. Please log in.",
+                    variant: 'default',
+                });
+                navigate('/auth', { replace: true });
+                return;
+            }
             setError(message);
             toast({ title: t("auth.accept.toast_error"), description: message, variant: "destructive" });
         } finally {
@@ -139,6 +184,22 @@ const AcceptInvitation: React.FC = () => {
                     <CardHeader>
                         <CardTitle>{t("auth.accept.invalid_title")}</CardTitle>
                         <CardDescription>{t("auth.accept.invalid_desc")}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button onClick={() => navigate('/auth')}>{t("auth.accept.go_login")}</Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    if (inviteLoadError) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+                <Card className="w-full max-w-md">
+                    <CardHeader>
+                        <CardTitle>{t("auth.accept.invalid_title")}</CardTitle>
+                        <CardDescription>{inviteLoadError.message}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Button onClick={() => navigate('/auth')}>{t("auth.accept.go_login")}</Button>
@@ -253,13 +314,14 @@ const AcceptInvitation: React.FC = () => {
                                     />
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label htmlFor="email">{t("auth.accept.email_optional")}</Label>
+                                    <Label htmlFor="email">{requireEmail ? t("auth.accept.email_required") || "Email" : t("auth.accept.email_optional")}</Label>
                                     <Input
                                         id="email"
                                         type="email"
                                         placeholder={t("auth.accept.email_placeholder")}
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
+                                        required={requireEmail}
                                     />
                                 </div>
                             </>

@@ -121,6 +121,17 @@ interface Invitation {
     };
 }
 
+/** Detect WhatsApp-activated staff (auto-generated email) and optionally get phone from it */
+const WA_ACTIVATION_EMAIL = /^wa_(\d+)@mizan\.activation$/i;
+function isWhatsAppActivationEmail(email: string | null | undefined): boolean {
+    return !!email && WA_ACTIVATION_EMAIL.test(email);
+}
+function phoneFromWhatsAppEmail(email: string | null | undefined): string {
+    if (!email) return "";
+    const m = email.match(WA_ACTIVATION_EMAIL);
+    return m ? m[1] : "";
+}
+
 /** ONE-TAP activation pending (StaffActivationRecord) */
 interface PendingActivation {
     id: string;
@@ -911,31 +922,42 @@ const TeamTab: React.FC = () => {
                             <div className="space-y-6">
                                 <h4 className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Contact Info</h4>
                                 <div className="space-y-4">
-                                    <div className="flex items-center gap-3 group">
-                                        <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
-                                            <Mail className="w-4 h-4 text-slate-400" />
+                                    {isWhatsAppActivationEmail(selectedMember.email) ? (
+                                        <div className="flex items-center gap-3 group">
+                                            <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
+                                                <Phone className="w-4 h-4 text-slate-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">WhatsApp / Phone</p>
+                                                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                                    {selectedMember.phone || phoneFromWhatsAppEmail(selectedMember.email) || t("common.not_provided")}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email Address</p>
-                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                                {(() => {
-                                                    const email = selectedMember.email || "";
-                                                    // Hide auto-generated WhatsApp placeholder emails like "2126379...@mizan.ai"
-                                                    const isPhonePlaceholder = /^\d+@mizan\.ai$/i.test(email);
-                                                    return isPhonePlaceholder ? t("common.not_provided") : email || t("common.not_provided");
-                                                })()}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3 group">
-                                        <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
-                                            <Phone className="w-4 h-4 text-slate-400" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone Number</p>
-                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedMember.phone || t("common.not_provided")}</p>
-                                        </div>
-                                    </div>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-center gap-3 group">
+                                                <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
+                                                    <Mail className="w-4 h-4 text-slate-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email Address</p>
+                                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                                        {selectedMember.email || t("common.not_provided")}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3 group">
+                                                <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
+                                                    <Phone className="w-4 h-4 text-slate-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone Number</p>
+                                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedMember.phone || t("common.not_provided")}</p>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
@@ -2128,7 +2150,7 @@ const TeamTab: React.FC = () => {
                                         <TableHeader>
                                             <TableRow className="border-slate-100 dark:border-slate-800">
                                                 <TableHead className="text-slate-500 dark:text-slate-400">Name</TableHead>
-                                                <TableHead className="text-slate-500 dark:text-slate-400">Email</TableHead>
+                                                <TableHead className="text-slate-500 dark:text-slate-400">Contact</TableHead>
                                                 <TableHead className="text-slate-500 dark:text-slate-400">Role</TableHead>
                                                 <TableHead className="text-slate-500 dark:text-slate-400">Status</TableHead>
                                                 <TableHead className="text-slate-500 dark:text-slate-400">Actions</TableHead>
@@ -2140,7 +2162,11 @@ const TeamTab: React.FC = () => {
                                                     <TableCell className="font-medium text-slate-900 dark:text-white">
                                                         {member.first_name} {member.last_name}
                                                     </TableCell>
-                                                    <TableCell className="text-slate-600 dark:text-slate-300">{member.email}</TableCell>
+                                                    <TableCell className="text-slate-600 dark:text-slate-300">
+                                                        {isWhatsAppActivationEmail(member.email)
+                                                            ? (member.phone || phoneFromWhatsAppEmail(member.email) || "—")
+                                                            : (member.email || "—")}
+                                                    </TableCell>
                                                     <TableCell>
                                                         <Badge variant="outline" className="capitalize">
                                                             {member.role?.toLowerCase().replace(/_/g, " ")}
@@ -2205,11 +2231,9 @@ const TeamTab: React.FC = () => {
                                                     <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-3">
                                                         {(() => {
                                                             const email = member.email || "";
-                                                            const phone = member.phone || "";
-                                                            const isPhonePlaceholder = /^\d+@mizan\.ai$/i.test(email);
-                                                            // If this is a WhatsApp-only staff (placeholder email and real phone),
-                                                            // show a WhatsApp-style indicator with the phone number instead.
-                                                            if (isPhonePlaceholder && phone) {
+                                                            const phone = member.phone || phoneFromWhatsAppEmail(email);
+                                                            const isWhatsApp = isWhatsAppActivationEmail(email) || /^\d+@mizan\.ai$/i.test(email);
+                                                            if (isWhatsApp && phone) {
                                                                 return (
                                                                     <>
                                                                         <MessageCircle className="w-3 h-3" />
@@ -2217,8 +2241,7 @@ const TeamTab: React.FC = () => {
                                                                     </>
                                                                 );
                                                             }
-                                                            // Otherwise default to showing the real email (or phone if no email)
-                                                            if (email) {
+                                                            if (email && !isWhatsAppActivationEmail(email)) {
                                                                 return (
                                                                     <>
                                                                         <Mail className="w-3 h-3" />
