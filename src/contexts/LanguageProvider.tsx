@@ -102,11 +102,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  const t = useCallback((key: string): string => {
-    const result = i18n.t(key);
+  const t = useCallback((key: string, options?: Record<string, string | number>): string => {
+    const opts = options ? { ...options } : {};
+    const result = i18n.t(key, opts);
     // Ensure robust fallback: if missing or unchanged, use English fallback
     if (typeof result !== 'string' || result === key || result.trim() === '') {
-      const fallback = i18n.t(key, { lng: 'en' });
+      const fallback = i18n.t(key, { ...opts, lng: 'en' });
       return typeof fallback === 'string' && fallback.trim() !== '' ? fallback : key;
     }
     return result;

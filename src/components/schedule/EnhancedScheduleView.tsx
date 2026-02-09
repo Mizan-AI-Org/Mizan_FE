@@ -1,6 +1,7 @@
 import { Loader2, Plus, X, Search, Check } from "lucide-react";
 import { WeeklyTimeGridView } from "./WeeklyTimeGridView";
 import { StaffScheduleListView } from "./StaffScheduleListView";
+import { StaffTimesheetView } from "./StaffTimesheetView";
 import ShiftModal from "@/components/ShiftModal";
 import type { Shift, StaffMember, WeeklyScheduleData, BackendShift } from "@/types/schedule";
 import { useLanguage } from "@/hooks/use-language";
@@ -23,7 +24,7 @@ const EnhancedScheduleView: React.FC = () => {
   const { t } = useLanguage();
   const canEditShifts = (isAdmin?.() ?? false) || (isSuperAdmin?.() ?? false);
 
-  const [currentView, setCurrentView] = useState<"week" | "list">("week");
+  const [currentView, setCurrentView] = useState<"week" | "timesheet" | "list">("week");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
@@ -303,6 +304,7 @@ const EnhancedScheduleView: React.FC = () => {
           <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as any)} className="bg-gray-100 p-1 rounded-xl">
             <TabsList className="bg-transparent border-none">
               <TabsTrigger value="week" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">{t("schedule.weekly_grid_view")}</TabsTrigger>
+              <TabsTrigger value="timesheet" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">{t("schedule.timesheet_view")}</TabsTrigger>
               <TabsTrigger value="list" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">{t("schedule.list_view")}</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -320,7 +322,7 @@ const EnhancedScheduleView: React.FC = () => {
       </div>
 
       <div className="w-full">
-        {currentView === "week" ? (
+        {currentView === "week" && (
           <WeeklyTimeGridView
             shifts={shifts}
             staffMembers={staffMembers}
@@ -331,7 +333,20 @@ const EnhancedScheduleView: React.FC = () => {
               setIsShiftModalOpen(true);
             }}
           />
-        ) : (
+        )}
+        {currentView === "timesheet" && (
+          <StaffTimesheetView
+            shifts={shifts}
+            staffMembers={staffMembers}
+            currentDate={currentDate}
+            setCurrentDate={setCurrentDate}
+            onEditShift={(shift) => {
+              setCurrentShift(shift);
+              setIsShiftModalOpen(true);
+            }}
+          />
+        )}
+        {currentView === "list" && (
           <StaffScheduleListView
             shifts={shifts}
             staffMembers={staffMembers}

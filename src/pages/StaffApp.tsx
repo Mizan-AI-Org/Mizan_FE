@@ -1705,7 +1705,7 @@ const TeamTab: React.FC = () => {
                     const token = localStorage.getItem("access_token") || "";
 
                     if (inviteMethod === "whatsapp") {
-                        // ONE-TAP: use activation upload (no outbound message; returns invite link)
+                        // ONE-TAP: upload creates profiles (Not activated). Manager shares the link; staff click → message Miya → backend activates account, Miya replies via WhatsApp.
                         const staffList = bulkData.map((r) => ({
                             phone: r.phone_number || "",
                             first_name: r.first_name || "",
@@ -1726,7 +1726,7 @@ const TeamTab: React.FC = () => {
                         if (data.created > 0 && (data.invite_short_link || data.invite_link)) {
                             setLastInviteLink(data.invite_short_link || data.invite_link);
                             handleCloseInviteModal();
-                            toast.success(`${data.created} staff members ready. Copy or share the link below.`);
+                            toast.success(`${data.created} staff members ready. Copy and share the link—when they click it and message Miya, their account will be activated and Miya will reply via WhatsApp.`);
                             refetch();
                             refetchActivationPending();
                         } else {
@@ -1984,7 +1984,7 @@ const TeamTab: React.FC = () => {
                                         <strong>Tip:</strong>{" "}
                                         {inviteMethod === "email"
                                             ? "Use valid email addresses. Roles should match the role codes (MANAGER, CHEF, WAITER, etc.)."
-                                            : <>Use WhatsApp numbers in international format (digits only), e.g. <code>2126XXXXXXXX</code> for Morocco. Roles should match the role codes (MANAGER, CHEF, WAITER, etc.).</>
+                                            : <>Use WhatsApp numbers in international format (digits only), e.g. <code>2126XXXXXXXX</code> for Morocco. After upload, copy and share the invite link with staff—when they click it and send the message to Miya, their account is activated and Miya replies via WhatsApp.</>
                                         }
                                     </p>
                                 </div>
@@ -2901,13 +2901,13 @@ const InsightsTab: React.FC = () => {
                             <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
                                 <Zap className="w-5 h-5 text-indigo-50" />
                             </div>
-                            <Badge className="bg-white/20 text-white border-none backdrop-blur-md">{t("staff.insights.week_trend", { sign: summary.tasks_trend >= 0 ? '+' : '', pct: summary.tasks_trend })}</Badge>
+                            <Badge className="bg-white/20 text-white border-none backdrop-blur-md">{summary.tasks_trend === 0 ? t("staff.insights.same_as_last") : t("staff.insights.week_trend", { sign: summary.tasks_trend > 0 ? '+' : '', pct: summary.tasks_trend })}</Badge>
                         </div>
                         <h3 className="text-3xl font-bold mb-1">{summary.tasks_completed}</h3>
                         <p className="text-indigo-100 text-sm font-medium">{t("staff.insights.tasks_completed")}</p>
                         <div className="mt-4 pt-4 border-t border-white/10 flex items-center text-xs text-indigo-50">
                             <TrendingUp className="w-3 h-3 mr-1" />
-                            <span>{summary.tasks_trend >= 0 ? t("staff.insights.more_than_last", { pct: Math.abs(summary.tasks_trend) }) : t("staff.insights.less_than_last", { pct: Math.abs(summary.tasks_trend) })}</span>
+                            <span>{summary.tasks_trend === 0 ? t("staff.insights.same_as_last") : summary.tasks_trend > 0 ? t("staff.insights.more_than_last", { pct: summary.tasks_trend }) : t("staff.insights.less_than_last", { pct: Math.abs(summary.tasks_trend) })}</span>
                         </div>
                     </CardContent>
                 </Card>

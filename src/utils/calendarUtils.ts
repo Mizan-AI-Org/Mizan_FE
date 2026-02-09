@@ -119,13 +119,17 @@ export const calculateShiftPosition = (
       .filter(other => other.id !== shift.id && shiftsOverlap(shift, other, baseDate, config.timezone))
       .map(other => other.id);
 
-    // Calculate position within overlapping group
+    // Calculate position within overlapping group (side-by-side with gap)
     const overlapGroup = getOverlapGroup(shift, allShifts, baseDate, config.timezone);
     const positionInGroup = overlapGroup.findIndex(s => s.id === shift.id);
     const totalInGroup = overlapGroup.length;
+    const gapPercent = 2;
+    const totalGaps = totalInGroup - 1;
+    const availableWidth = 96 - totalGaps * gapPercent;
+    const slotWidth = availableWidth / totalInGroup;
 
-    const left = 4 + (positionInGroup * (100 / totalInGroup));
-    const width = Math.max(90 / totalInGroup, 30); // Minimum 30px width
+    const left = 2 + positionInGroup * (slotWidth + gapPercent);
+    const width = Math.max(slotWidth, 25);
     const zIndex = 10 + positionInGroup;
 
     return {
