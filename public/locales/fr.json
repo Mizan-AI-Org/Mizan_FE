@@ -477,7 +477,7 @@
   "staff.invite.send": "Envoyer l'invitation",
   "staff.invite.sending": "Envoi en cours...",
   "staff.invite.email_hint": "Nous enverrons un lien d'invitation à cette adresse.",
-  "staff.invite.whatsapp_hint": "Nous enverrons une invitation via WhatsApp à ce numéro.",
+  "staff.invite.whatsapp_hint": "Vous recevrez un lien à partager avec ce numéro. Quand ils cliquent et envoient un message à Miya, leur compte sera activé et Miya répondra via WhatsApp.",
   "staff.add": "Ajouter du personnel",
   "staff.search": "Rechercher du personnel...",
   "staff.invite_link_ready": "Lien d'invitation prêt — copiez ou partagez avec votre équipe :",

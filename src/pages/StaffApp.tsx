@@ -1811,12 +1811,13 @@ const TeamTab: React.FC = () => {
                     throw new Error(errorData.error || errorData.detail || "Failed to send invitation");
                 }
                 const data = await response.json().catch(() => ({}));
-                const link = data.invite_link || null;
+                const link = data.invite_short_link || data.invite_link || null;
                 if (link) setLastInviteLink(link);
                 toast.success(data.message || `Invitation sent successfully via ${inviteMethod === "email" ? "Email" : "WhatsApp"}`);
                 handleCloseInviteModal();
                 refetch();
                 refetchInvites();
+                if (inviteMethod === "whatsapp") refetchActivationPending();
             } catch (err: unknown) {
                 toast.error(getErrorMessage(err, "Failed to send invitation"));
             } finally {
