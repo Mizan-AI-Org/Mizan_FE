@@ -475,7 +475,7 @@
   "staff.invite.send": "Send Invitation",
   "staff.invite.sending": "Sending...",
   "staff.invite.email_hint": "We'll send an invitation link to this email.",
-  "staff.invite.whatsapp_hint": "We'll send an invitation via WhatsApp to this number.",
+  "staff.invite.whatsapp_hint": "You'll get a link to share with this number. When they click it and message Miya, their account will be activated and Miya will reply via WhatsApp.",
   "staff.add": "Add Staff",
   "staff.search": "Search staff...",
   "staff.invite_link_ready": "Invite link ready — copy or share with your staff:",
