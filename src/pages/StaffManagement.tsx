@@ -159,7 +159,7 @@ const StaffManagement: React.FC = () => {
                                                 onClick={() => {
                                                     setStaffToDeactivate({
                                                         id: member.user?.id ?? (member as unknown as { id: string }).id,
-                                                        name: `${member.user?.first_name ?? (member as unknown as { first_name?: string }).first_name || ""} ${member.user?.last_name ?? (member as unknown as { last_name?: string }).last_name || ""}`.trim() || "Staff",
+                                                        name: (`${(member.user?.first_name ?? (member as unknown as { first_name?: string }).first_name) || ""} ${(member.user?.last_name ?? (member as unknown as { last_name?: string }).last_name) || ""}`.trim()) || "Staff",
                                                     });
                                                     setIsDeactivateModalOpen(true);
                                                 }}
@@ -172,7 +172,7 @@ const StaffManagement: React.FC = () => {
                                                 onClick={() => {
                                                     setStaffToDelete({
                                                         id: member.user?.id ?? (member as unknown as { id: string }).id,
-                                                        name: `${member.user?.first_name ?? (member as unknown as { first_name?: string }).first_name || ""} ${member.user?.last_name ?? (member as unknown as { last_name?: string }).last_name || ""}`.trim() || "Staff",
+                                                        name: (`${(member.user?.first_name ?? (member as unknown as { first_name?: string }).first_name) || ""} ${(member.user?.last_name ?? (member as unknown as { last_name?: string }).last_name) || ""}`.trim()) || "Staff",
                                                     });
                                                     setIsDeleteModalOpen(true);
                                                 }}
