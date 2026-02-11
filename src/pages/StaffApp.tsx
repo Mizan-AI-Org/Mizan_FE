@@ -82,6 +82,8 @@ import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
 import { format } from "date-fns";
 import StaffRequestsTab from "@/components/staff/StaffRequestsTab";
+import DeleteStaffConfirmation from "@/components/staff/DeleteStaffConfirmation";
+import DeactivateStaffConfirmation from "@/components/staff/DeactivateStaffConfirmation";
 
 // Types
 interface StaffMember {
@@ -681,7 +683,11 @@ const TeamTab: React.FC = () => {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [documents, setDocuments] = useState<StaffDocument[]>([]);
     const [isUploading, setIsUploading] = useState(false);
-    const { logout } = useAuth() as AuthContextType;
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
+    const [staffToDelete, setStaffToDelete] = useState<{ id: string; name: string } | null>(null);
+    const [staffToDeactivate, setStaffToDeactivate] = useState<{ id: string; name: string } | null>(null);
+    const { user, logout } = useAuth() as AuthContextType;
     const queryClient = useQueryClient();
 
     const fetchDocuments = async (staffId: string) => {
@@ -1578,6 +1584,21 @@ const TeamTab: React.FC = () => {
                                     </div>
                                 )}
                             </div>
+
+                            {/* Danger zone: Deactivate / Remove — only for Owner or Super Admin, not for self */}
+                            {(user?.role === "OWNER" || user?.role === "SUPER_ADMIN") && selectedMember && selectedMember.id !== user?.id && (
+                                <div className="space-y-3 pt-4 border-t border-slate-100/60">
+                                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Danger zone</h4>
+                                    <div className="flex gap-2">
+                                        <Button variant="outline" size="sm" className="text-amber-600 border-amber-200 hover:bg-amber-50" onClick={() => { setStaffToDeactivate({ id: selectedMember.id, name: `${selectedMember.first_name} ${selectedMember.last_name}` }); setIsDeactivateModalOpen(true); }}>
+                                            Deactivate staff
+                                        </Button>
+                                        <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => { setStaffToDelete({ id: selectedMember.id, name: `${selectedMember.first_name} ${selectedMember.last_name}` }); setIsDeleteModalOpen(true); }}>
+                                            Remove staff
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </CardContent>
 
@@ -1830,7 +1851,7 @@ const TeamTab: React.FC = () => {
                 open={isInviteModalOpen}
                 onOpenChange={(open) => setIsInviteModalOpen(open)}
             >
-                    <DialogContent className="sm:max-w-3xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                <DialogContent className="sm:max-w-3xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                     <DialogHeader>
                         <DialogTitle className="text-slate-900 dark:text-white">
                             {t("staff.invite.title")}
@@ -2039,6 +2060,20 @@ const TeamTab: React.FC = () => {
             {isViewModalOpen && <ViewProfileModal />}
             {isEditModalOpen && <EditProfileModal />}
             {isInviteModalOpen && <InviteStaffModal />}
+            <DeleteStaffConfirmation
+                isOpen={isDeleteModalOpen}
+                onClose={() => { setIsDeleteModalOpen(false); setStaffToDelete(null); }}
+                staffId={staffToDelete?.id ?? null}
+                staffName={staffToDelete?.name ?? null}
+                onSuccess={() => { refetchStaff(); setIsEditModalOpen(false); setSelectedMember(null); }}
+            />
+            <DeactivateStaffConfirmation
+                isOpen={isDeactivateModalOpen}
+                onClose={() => { setIsDeactivateModalOpen(false); setStaffToDeactivate(null); }}
+                staffId={staffToDeactivate?.id ?? null}
+                staffName={staffToDeactivate?.name ?? null}
+                onSuccess={() => { refetchStaff(); setIsEditModalOpen(false); setSelectedMember(null); }}
+            />
 
             {/* Invite link ready (after sending invite – modal is closed) */}
             {lastInviteLink && (
