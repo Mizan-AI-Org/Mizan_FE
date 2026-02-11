@@ -203,7 +203,7 @@ const EnhancedManagerDashboard: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTimeRange, setSelectedTimeRange] = useState('today');
   const [autoRefresh, setAutoRefresh] = useState(true);
-  
+
   // Data states
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [taskProgress, setTaskProgress] = useState<TaskProgress[]>([]);
@@ -211,7 +211,7 @@ const EnhancedManagerDashboard: React.FC = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [performanceData, setPerformanceData] = useState<PerformanceMetric[]>([]);
   const [laborCostData, setLaborCostData] = useState<any[]>([]);
-  
+
   // Dialog states
   const [alertDialogOpen, setAlertDialogOpen] = useState(false);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
@@ -238,9 +238,9 @@ const EnhancedManagerDashboard: React.FC = () => {
     {
       id: 1,
       title: "Kitchen Deep Clean & Sanitization",
-      assigned_to: { 
-        id: 1, 
-        first_name: "John", 
+      assigned_to: {
+        id: 1,
+        first_name: "John",
         last_name: "Smith",
         phone: "+1-555-0123"
       },
@@ -262,9 +262,9 @@ const EnhancedManagerDashboard: React.FC = () => {
     {
       id: 2,
       title: "Inventory Count - Dry Storage",
-      assigned_to: { 
-        id: 2, 
-        first_name: "Sarah", 
+      assigned_to: {
+        id: 2,
+        first_name: "Sarah",
         last_name: "Johnson",
         phone: "+1-555-0124"
       },
@@ -281,9 +281,9 @@ const EnhancedManagerDashboard: React.FC = () => {
     {
       id: 3,
       title: "Customer Service Training Review",
-      assigned_to: { 
-        id: 3, 
-        first_name: "Mike", 
+      assigned_to: {
+        id: 3,
+        first_name: "Mike",
         last_name: "Wilson",
         phone: "+1-555-0125"
       },
@@ -431,7 +431,7 @@ const EnhancedManagerDashboard: React.FC = () => {
 
   useEffect(() => {
     loadDashboardData();
-    
+
     // Set up real-time updates
     let interval: NodeJS.Timeout;
     if (autoRefresh) {
@@ -454,7 +454,7 @@ const EnhancedManagerDashboard: React.FC = () => {
 
       // Simulate API calls
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       setDashboardStats(mockStats);
       setTaskProgress(mockTasks);
       setStaffActivity(mockStaff);
@@ -495,7 +495,7 @@ const EnhancedManagerDashboard: React.FC = () => {
 
   const handleMarkAlertRead = async (alertId: number) => {
     try {
-      setAlerts(prev => prev.map(alert => 
+      setAlerts(prev => prev.map(alert =>
         alert.id === alertId ? { ...alert, is_read: true } : alert
       ));
     } catch (error) {
@@ -574,7 +574,7 @@ const EnhancedManagerDashboard: React.FC = () => {
             </Select>
           </FormControl>
           <Tooltip title="Auto-refresh enabled">
-            <IconButton 
+            <IconButton
               color={autoRefresh ? 'primary' : 'default'}
               onClick={() => setAutoRefresh(!autoRefresh)}
             >
@@ -598,8 +598,8 @@ const EnhancedManagerDashboard: React.FC = () => {
 
       {/* Critical Alerts Banner */}
       {criticalAlerts.length > 0 && (
-        <Alert 
-          severity="error" 
+        <Alert
+          severity="error"
           sx={{ mb: 3 }}
           action={
             <Button color="inherit" size="small">
@@ -689,11 +689,11 @@ const EnhancedManagerDashboard: React.FC = () => {
                 </Avatar>
               </Box>
               <LinearProgress
-                          variant="determinate"
-                          value={dashboardStats?.efficiency_score || 0}
-                          sx={{ mb: 1 }}
-                          color="warning"
-                        />
+                variant="determinate"
+                value={dashboardStats?.efficiency_score || 0}
+                sx={{ mb: 1 }}
+                color="warning"
+              />
               <Typography variant="body2" color="text.secondary">
                 ${dashboardStats?.revenue_per_hour}/hour revenue
               </Typography>
@@ -740,7 +740,7 @@ const EnhancedManagerDashboard: React.FC = () => {
       {/* Main Content Tabs */}
       <Card>
         <Tabs value={currentTab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
-          <Tab 
+          <Tab
             label={
               <Box display="flex" alignItems="center" gap={1}>
                 <TaskIcon />
@@ -749,9 +749,9 @@ const EnhancedManagerDashboard: React.FC = () => {
                   <Chip label={highPriorityTasks.length} size="small" color="error" />
                 )}
               </Box>
-            } 
+            }
           />
-          <Tab 
+          <Tab
             label={
               <Box display="flex" alignItems="center" gap={1}>
                 <PeopleIcon />
@@ -760,17 +760,17 @@ const EnhancedManagerDashboard: React.FC = () => {
                   <Chip label={staffIssues.length} size="small" color="error" />
                 )}
               </Box>
-            } 
+            }
           />
-          <Tab 
+          <Tab
             label={
               <Box display="flex" alignItems="center" gap={1}>
                 <AssessmentIcon />
                 Performance Analytics
               </Box>
-            } 
+            }
           />
-          <Tab 
+          <Tab
             label={
               <Box display="flex" alignItems="center" gap={1}>
                 <NotificationsIcon />
@@ -779,7 +779,7 @@ const EnhancedManagerDashboard: React.FC = () => {
                   <Chip label={alerts.filter(a => !a.is_read).length} size="small" color="error" />
                 )}
               </Box>
-            } 
+            }
           />
         </Tabs>
 
@@ -788,9 +788,9 @@ const EnhancedManagerDashboard: React.FC = () => {
           <Grid container spacing={3}>
             {taskProgress.map((task) => (
               <Grid item xs={12} md={6} lg={4} key={task.id}>
-                <Card 
-                  variant="outlined" 
-                  sx={{ 
+                <Card
+                  variant="outlined"
+                  sx={{
                     height: '100%',
                     cursor: 'pointer',
                     '&:hover': { boxShadow: 3 }
@@ -913,9 +913,9 @@ const EnhancedManagerDashboard: React.FC = () => {
               </TableHead>
               <TableBody>
                 {staffActivity.map((staff) => (
-                  <TableRow 
+                  <TableRow
                     key={staff.id}
-                    sx={{ 
+                    sx={{
                       cursor: 'pointer',
                       '&:hover': { bgcolor: 'action.hover' }
                     }}
@@ -1100,8 +1100,8 @@ const EnhancedManagerDashboard: React.FC = () => {
           <Grid container spacing={3}>
             <Grid item xs={12} md={8}>
               <Card>
-                <CardHeader 
-                  title="Active Alerts" 
+                <CardHeader
+                  title="Active Alerts"
                   action={
                     <Button size="small" onClick={() => setAlerts(prev => prev.map(a => ({ ...a, is_read: true })))}>
                       Mark All Read
@@ -1115,10 +1115,10 @@ const EnhancedManagerDashboard: React.FC = () => {
                         key={alert.id}
                         button
                         onClick={() => handleAlertClick(alert)}
-                        sx={{ 
-                          border: 1, 
-                          borderColor: `${getSeverityColor(alert.severity)}.main`, 
-                          borderRadius: 1, 
+                        sx={{
+                          border: 1,
+                          borderColor: `${getSeverityColor(alert.severity)}.main`,
+                          borderRadius: 1,
                           mb: 1,
                           bgcolor: alert.is_read ? 'action.hover' : `${getSeverityColor(alert.severity)}.light`,
                           opacity: alert.is_read ? 0.7 : 1
