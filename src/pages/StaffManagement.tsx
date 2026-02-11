@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Loader2 } from "lucide-react";
 import DeleteStaffConfirmation from "@/components/staff/DeleteStaffConfirmation";
+import DeactivateStaffConfirmation from "@/components/staff/DeactivateStaffConfirmation";
 import EditStaffModal from "@/components/staff/EditStaffModal";
 import InviteStaffModal from "@/components/staff/InviteStaffModal";
 import { useAuth } from "@/hooks/use-auth";
@@ -43,6 +44,11 @@ const StaffManagement: React.FC = () => {
     const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [staffToDelete, setStaffToDelete] = useState<{
+        id: string;
+        name: string;
+    } | null>(null);
+    const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
+    const [staffToDeactivate, setStaffToDeactivate] = useState<{
         id: string;
         name: string;
     } | null>(null);
@@ -144,19 +150,37 @@ const StaffManagement: React.FC = () => {
                                     >
                                         Edit
                                     </Button>
-                                    <Button
-                                        variant="destructive"
-                                        size="sm"
-                                        onClick={() => {
-                                            setStaffToDelete({
-                                                id: member.user.id,
-                                                name: `${member.user.first_name} ${member.user.last_name}`,
-                                            });
-                                            setIsDeleteModalOpen(true);
-                                        }}
-                                    >
-                                        Remove
-                                    </Button>
+                                    {(user?.role === "OWNER" || user?.role === "SUPER_ADMIN") && (
+                                        <>
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                className="mr-2"
+                                                onClick={() => {
+                                                    setStaffToDeactivate({
+                                                        id: member.user?.id ?? (member as unknown as { id: string }).id,
+                                                        name: (`${(member.user?.first_name ?? (member as unknown as { first_name?: string }).first_name) || ""} ${(member.user?.last_name ?? (member as unknown as { last_name?: string }).last_name) || ""}`.trim()) || "Staff",
+                                                    });
+                                                    setIsDeactivateModalOpen(true);
+                                                }}
+                                            >
+                                                Deactivate
+                                            </Button>
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setStaffToDelete({
+                                                        id: member.user?.id ?? (member as unknown as { id: string }).id,
+                                                        name: (`${(member.user?.first_name ?? (member as unknown as { first_name?: string }).first_name) || ""} ${(member.user?.last_name ?? (member as unknown as { last_name?: string }).last_name) || ""}`.trim()) || "Staff",
+                                                    });
+                                                    setIsDeleteModalOpen(true);
+                                                }}
+                                            >
+                                                Remove
+                                            </Button>
+                                        </>
+                                    )}
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -178,6 +202,13 @@ const StaffManagement: React.FC = () => {
                 onClose={() => setIsDeleteModalOpen(false)}
                 staffId={staffToDelete?.id || null}
                 staffName={staffToDelete?.name || null}
+            />
+            <DeactivateStaffConfirmation
+                isOpen={isDeactivateModalOpen}
+                onClose={() => setIsDeactivateModalOpen(false)}
+                staffId={staffToDeactivate?.id || null}
+                staffName={staffToDeactivate?.name || null}
+                onSuccess={refetch}
             />
         </div>
     );
