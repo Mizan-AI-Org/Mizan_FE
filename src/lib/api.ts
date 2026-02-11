@@ -629,9 +629,10 @@ export class BackendService {
         headers: this.getHeaders(accessToken),
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to remove staff member");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error((errorData as { detail?: string }).detail || (errorData as { message?: string }).message || "Failed to remove staff member");
       }
+      if (response.status === 204) return { success: true } as StaffOperationResponse;
       return await response.json();
     } catch (error: any) {
       throw new Error(error.message || "Failed to remove staff member");

@@ -52,6 +52,7 @@ interface AssignedShift {
     staff_members?: string[];
     staff_members_details?: { id: string; first_name: string; last_name: string; }[];
     task_templates?: string[]; // Array of task template IDs
+    task_templates_details?: { id: string; name?: string; title?: string; }[]; // From API after save
     tasks?: Task[];
 }
 
@@ -314,7 +315,11 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                     body: JSON.stringify({ ...payloadISO, schedule: scheduleId })
                 });
-                if (!res.ok) throw new Error(await res.text());
+                if (!res.ok) {
+                    const errBody = await res.json().catch(() => null);
+                    const msg = errBody?.detail ?? errBody?.message ?? res.statusText;
+                    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(errBody ?? await res.text()));
+                }
                 results.push(await res.json());
             }
             return results;
@@ -382,6 +387,14 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
         };
         if (selectedStaffIds.length === 0 || !shiftDate || !startTime || !endTime || !role) {
             toast({ title: 'Missing required fields', description: 'Please select staff, date, start, end, and role.', variant: 'destructive' });
+            return;
+        }
+        if (selectedTemplates.length === 0 && (manualTasks?.length ?? 0) === 0) {
+            toast({
+                title: 'Tasks or templates required',
+                description: 'Every shift must have either at least one Process & Task Template assigned or at least one Custom Task.',
+                variant: 'destructive',
+            });
             return;
         }
         const startM = toMinutes(startTime);
@@ -609,6 +622,82 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                                     />
                                     {!recurringEndDate && <p className="text-[10px] text-amber-600 mt-1">Please select an end date for recurring shifts.</p>}
                                 </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Process & Task Templates (required: templates OR custom tasks) */}
+                    <div className="space-y-4 pt-4 border-t border-gray-100">
+                        <div>
+                            <Label className="text-sm font-semibold text-[#1F2937]">Process & Task Templates</Label>
+                            <p className="text-[10px] text-slate-500 mt-0.5">Assign at least one template or add custom tasks below.</p>
+                        </div>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-full h-11 rounded-xl border-slate-200 text-left justify-between font-normal"
+                                >
+                                    <span>
+                                        {selectedTemplates.length > 0
+                                            ? `${selectedTemplates.length} template(s) selected`
+                                            : "Select templates..."}
+                                    </span>
+                                    <ChevronDown className="h-4 w-4 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl" align="start">
+                                <Command className="rounded-xl border-none">
+                                    <CommandInput
+                                        placeholder="Search templates..."
+                                        value={templateSearch}
+                                        onValueChange={setTemplateSearch}
+                                        className="h-10"
+                                    />
+                                    <CommandList className="max-h-[220px] overflow-y-auto">
+                                        <CommandEmpty>No templates found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {(filteredTemplates || []).map((t) => (
+                                                <CommandItem
+                                                    key={t.id}
+                                                    onSelect={() => toggleTemplate(String(t.id))}
+                                                    className="flex items-center gap-2 p-2 cursor-pointer"
+                                                >
+                                                    <Checkbox
+                                                        checked={selectedTemplates.includes(String(t.id))}
+                                                        className="rounded border-slate-300 data-[state=checked]:bg-[#106B4E]"
+                                                    />
+                                                    <span className="text-sm truncate">{t.name || t.title || String(t.id)}</span>
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        {selectedTemplates.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {selectedTemplates.map((id) => {
+                                    const t = taskTemplates?.find((x) => String(x.id) === id)
+                                        ?? shift?.task_templates_details?.find((x) => String(x.id) === id);
+                                    return (
+                                        <span
+                                            key={id}
+                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-medium"
+                                        >
+                                            {t?.name || t?.title || id}
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedTemplates(selectedTemplates.filter((x) => x !== id))}
+                                                className="hover:bg-emerald-100 rounded p-0.5"
+                                                aria-label="Remove"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </span>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

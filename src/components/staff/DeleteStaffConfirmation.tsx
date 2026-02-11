@@ -13,10 +13,11 @@ interface DeleteStaffConfirmationProps {
     onClose: () => void;
     staffId: string | null;
     staffName: string | null;
+    onSuccess?: () => void;
 }
 
 
-const DeleteStaffConfirmation: React.FC<DeleteStaffConfirmationProps> = ({ isOpen, onClose, staffId, staffName }) => {
+const DeleteStaffConfirmation: React.FC<DeleteStaffConfirmationProps> = ({ isOpen, onClose, staffId, staffName, onSuccess }) => {
     const queryClient = useQueryClient();
     const { logout } = useAuth() as AuthContextType;
 
@@ -34,13 +35,16 @@ const DeleteStaffConfirmation: React.FC<DeleteStaffConfirmationProps> = ({ isOpe
                     logout();
                     throw new Error('Session expired');
                 }
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to remove staff member');
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error((errorData as { detail?: string })?.detail || errorData.message || 'Failed to remove staff member');
             }
+            if (response.status === 204) return null;
             return response.json();
         },
         onSuccess: () => {
-            queryClient.invalidateQueries(['staff-list']);
+            queryClient.invalidateQueries({ queryKey: ['staff-list'] });
+            queryClient.invalidateQueries({ queryKey: ['staff-members'] });
+            onSuccess?.();
             toast({
                 title: "Staff member removed successfully!",
                 description: `${staffName} has been removed.`,
