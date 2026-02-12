@@ -54,6 +54,7 @@ export default function DashboardAttendancePage() {
     queryKey: ["dashboard-summary"],
     queryFn: () => api.getDashboardSummary(),
     refetchOnWindowFocus: false,
+    retry: false,
   });
 
   const insights = (summary?.insights?.items || []) as any[];
@@ -97,14 +98,19 @@ export default function DashboardAttendancePage() {
       toast.success("Shift marked as no-show");
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to mark as no-show");
+      const msg = err.message || "Failed to mark as no-show";
+      const friendly = msg.includes("404")
+        ? "Shift not found. It may have been updated or removed—refresh the page to see the latest."
+        : msg;
+      toast.error(friendly);
     },
   });
 
-  /** Map backend action_url to a valid frontend route (e.g. staff-scheduling -> scheduling). */
+  /** Map backend action_url to a valid frontend route. "View schedule" should open the schedule, not the same attendance page. */
   const getActionRoute = (actionUrl: string | undefined) => {
     const url = actionUrl || "/dashboard/scheduling";
     if (url === "/dashboard/staff-scheduling") return "/dashboard/scheduling";
+    if (url === "/dashboard/attendance") return "/dashboard/scheduling";
     return url;
   };
 
@@ -256,8 +262,13 @@ export default function DashboardAttendancePage() {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
+                type="button"
                 className="bg-red-600 hover:bg-red-700"
-                onClick={() => noShowConfirm && markNoShowMutation.mutate(noShowConfirm.shiftId)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  const { shiftId } = noShowConfirm || {};
+                  if (shiftId) markNoShowMutation.mutate(shiftId);
+                }}
                 disabled={markNoShowMutation.isPending}
               >
                 {markNoShowMutation.isPending ? (
