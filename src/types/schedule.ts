@@ -34,9 +34,10 @@ export interface Shift {
   frequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
   recurringEndDate?: string; // ISO date string (YYYY-MM-DD) for when recurrence ends
   color?: string;
-  // Optional local-only status; keep flexible for UI labeling
   type?: 'confirmed' | 'pending' | 'tentative';
   tasks?: Task[];
+  task_templates?: string[];
+  task_templates_details?: { id: string; name?: string; title?: string; }[];
 }
 
 export interface StaffMember {
@@ -61,9 +62,13 @@ export interface BackendShift {
   start_time: string;
   end_time: string;
   notes: string;
+  title?: string; // same as notes, for viewing saved details
   color?: string;
   staff_name?: string;
   staff_email?: string;
+  task_templates?: string[];
+  task_templates_details?: { id: string; name?: string; title?: string; }[];
+  tasks?: { id?: string; title: string; priority?: TaskPriority; description?: string; }[];
 }
 
 export interface WeeklyScheduleData {
