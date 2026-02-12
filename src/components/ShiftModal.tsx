@@ -130,6 +130,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
             }
             setShiftData(finalShift);
             setSelectedStaffIds(finalShift.staff_members || (finalShift.staffId ? [finalShift.staffId] : []));
+            setSelectedTemplateIds(finalShift.task_templates || []);
             setIsRecurring(finalShift.isRecurring || false);
             setFrequency(finalShift.frequency || 'WEEKLY');
         } else if (isOpen) {
@@ -156,6 +157,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                 frequency: 'WEEKLY'
             });
             setSelectedStaffIds([]);
+            setSelectedTemplateIds([]);
             setIsRecurring(false);
             setFrequency('WEEKLY');
         }
@@ -206,6 +208,11 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
     const handleSubmit = async () => {
         setIsSubmitting(true);
         try {
+            if (!(shiftData.title ?? '').trim()) {
+                toast.error('Please enter a shift title.');
+                setIsSubmitting(false);
+                return;
+            }
             if (!shiftData.date || String(shiftData.date).trim() === "") {
                 toast.error('Please select a date for the shift.');
                 setIsSubmitting(false);
@@ -213,6 +220,13 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
             }
             if (selectedStaffIds.length === 0) {
                 toast.error('Please select at least one staff member.');
+                setIsSubmitting(false);
+                return;
+            }
+            const hasTemplates = selectedTemplateIds.length > 0;
+            const hasCustomTasks = (shiftData.tasks?.length ?? 0) > 0;
+            if (!hasTemplates && !hasCustomTasks) {
+                toast.error('Every shift must have at least one Process & Task Template or at least one Custom Task.');
                 setIsSubmitting(false);
                 return;
             }
@@ -226,6 +240,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                 ...shiftData,
                 staffId: selectedStaffIds[0], // Fallback for backward compatibility
                 staffIds: selectedStaffIds,
+                staff_members: selectedStaffIds, // So save uses all selected staff
                 isRecurring,
                 frequency,
                 recurringEndDate: isRecurring ? recurringEndDate : undefined,

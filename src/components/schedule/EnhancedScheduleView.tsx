@@ -3,7 +3,7 @@ import { WeeklyTimeGridView } from "./WeeklyTimeGridView";
 import { StaffScheduleListView } from "./StaffScheduleListView";
 import { StaffTimesheetView } from "./StaffTimesheetView";
 import ShiftModal from "@/components/ShiftModal";
-import type { Shift, StaffMember, WeeklyScheduleData, BackendShift } from "@/types/schedule";
+import type { Shift, StaffMember, WeeklyScheduleData, BackendShift, TaskPriority } from "@/types/schedule";
 import { useLanguage } from "@/hooks/use-language";
 import { startOfWeek, endOfWeek, format, addDays, parseISO, addWeeks, addMonths, isBefore, isEqual } from "date-fns";
 import { API_BASE } from "@/lib/api";
@@ -125,14 +125,23 @@ const EnhancedScheduleView: React.FC = () => {
 
     return scheduleData.assigned_shifts.map((shift: BackendShift) => ({
       id: shift.id,
-      title: shift.notes || `Shift`,
+      title: (shift.title ?? shift.notes) || "Shift",
       start: toHHmm(shift.start_time),
       end: toHHmm(shift.end_time),
       date: shift.shift_date,
       type: "confirmed" as const,
       day: new Date(shift.shift_date).getDay() === 0 ? 6 : new Date(shift.shift_date).getDay() - 1,
       staffId: shift.staff,
+      staff_members: shift.staff_members ?? (shift.staff ? [shift.staff] : []),
+      staff_members_details: shift.staff_members_details,
       color: shift.color || "#6b7280",
+      task_templates: shift.task_templates ?? [],
+      task_templates_details: shift.task_templates_details,
+      tasks: (shift.tasks ?? []).map((t: { id?: string; title: string; priority?: string }) => ({
+        id: t.id,
+        title: t.title,
+        priority: (t.priority as TaskPriority) || "MEDIUM",
+      })),
     }));
   }, [scheduleData]);
 
@@ -161,7 +170,7 @@ const EnhancedScheduleView: React.FC = () => {
         return `${dStr}T${withSeconds(tStr)}${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
       };
 
-      const staffIds = shift.staff_members && shift.staff_members.length > 0 ? shift.staff_members : [shift.staffId];
+      const staffIds = (shift.staff_members?.length ? shift.staff_members : shift.staffIds?.length ? shift.staffIds : null) ?? [shift.staffId];
       const shiftDates = [shift.date];
 
       // Only generate recurring shifts for NEW shifts to prevent duplicates on update
@@ -237,14 +246,15 @@ const EnhancedScheduleView: React.FC = () => {
         const url = `${API_BASE}/scheduling/weekly-schedules/${targetedWeeklyScheduleId}/assigned-shifts/${(method === "PUT" ? shift.id + "/" : "")}`;
 
         const payload = {
-          staff: staffIds[0], // Keep legacy staff field for compatibility (backend handles it)
-          staff_members: staffIds, // Assign multiple staff to one shift
+          staff: staffIds[0],
+          staff_members: staffIds,
           shift_date: dStr,
           start_time: makeISO(dStr, shift.start),
           end_time: makeISO(dStr, shift.end),
-          notes: shift.title || "",
+          title: (shift.title || "").trim() || undefined,
+          notes: (shift.title || "").trim() || "",
           color: shift.color || getStaffColor(staffIds[0]),
-          task_templates: (shift as any).task_templates || [],
+          task_templates: (shift as Shift).task_templates || [],
           tasks: shift.tasks || [],
         };
 
