@@ -6,7 +6,7 @@ import { Button as UIButton } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { format, parseISO } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, getStaffColor } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
 import type { Shift } from "@/types/schedule";
 
@@ -27,20 +27,14 @@ interface StaffTimesheetViewProps {
   onEditShift?: (shift: Shift) => void;
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  CHEF: "bg-amber-100 text-amber-800 border-amber-300",
-  SERVER: "bg-blue-100 text-blue-800 border-blue-300",
-  WAITER: "bg-blue-100 text-blue-800 border-blue-300",
-  BARTENDER: "bg-orange-100 text-orange-800 border-orange-300",
-  HOST: "bg-emerald-100 text-emerald-800 border-emerald-300",
-  MANAGER: "bg-purple-100 text-purple-800 border-purple-300",
-  CASHIER: "bg-slate-100 text-slate-800 border-slate-300",
-  CLEANER: "bg-teal-100 text-teal-800 border-teal-300",
-};
-
-function getRoleColor(role: string): string {
-  const r = (role || "STAFF").toUpperCase();
-  return ROLE_COLORS[r] ?? "bg-gray-100 text-gray-800 border-gray-300";
+/** Staff-based color: each staff gets a consistent hex. Use with inline styles. */
+function getStaffShiftStyle(staffId: string): React.CSSProperties {
+  const hex = getStaffColor(staffId);
+  return {
+    backgroundColor: `${hex}20`,
+    borderColor: hex,
+    color: hex,
+  };
 }
 
 function formatTime(timeStr: string): string {
@@ -221,16 +215,16 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
                               ) : (
                                 dayShifts.map((shift) => {
                                   const roleInitial = (member.role || "S").charAt(0).toUpperCase();
-                                  const colorClass = getRoleColor(member.role || "");
+                                  const staffStyle = getStaffShiftStyle(member.id);
                                   return (
                                     <div
                                       key={shift.id}
                                       onClick={() => onEditShift?.(shift)}
                                       className={cn(
                                         "text-[11px] font-medium rounded px-2 py-1 border cursor-pointer hover:opacity-90 transition-opacity truncate",
-                                        colorClass,
                                         onEditShift && "cursor-pointer"
                                       )}
+                                      style={{ ...staffStyle, borderWidth: "1px" }}
                                       title={`${shift.title || "Shift"} ${timeRange(shift.start, shift.end)}`}
                                     >
                                       <span className="font-bold">{roleInitial}</span>{" "}

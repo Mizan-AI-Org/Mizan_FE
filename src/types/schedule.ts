@@ -28,6 +28,8 @@ export interface Shift {
   date: string;
   day: number;
   staffId: string;
+  /** Optional list of staff IDs (e.g. from ShiftModal when assigning multiple); used alongside staff_members. */
+  staffIds?: string[];
   staff_members?: string[];
   staff_members_details?: { id: string; first_name: string; last_name: string; }[];
   isRecurring?: boolean;
