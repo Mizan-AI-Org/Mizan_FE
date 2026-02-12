@@ -112,7 +112,7 @@ export const AutoSchedule: React.FC = () => {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Auto-Schedule</h1>
+          <h1 className="text-2xl font-normal">Auto-Schedule</h1>
           <p className="text-gray-600 mt-2">
             Automatically generate staff schedules based on templates and demand
             forecasts

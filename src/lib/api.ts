@@ -359,6 +359,14 @@ export class BackendService {
     return this.fetchWithError("/dashboard/summary/");
   }
 
+  /** Mark an assigned shift as no-show (Critical issues & attendance dashboard). */
+  async markShiftNoShow(shiftId: string): Promise<{ success: boolean; message?: string }> {
+    return this.fetchWithError("/dashboard/attendance/mark-no-show/", {
+      method: "POST",
+      body: JSON.stringify({ shift_id: shiftId }),
+    });
+  }
+
   async getActionCenter(): Promise<{
     items: Array<Record<string, unknown>>;
     counts: Record<string, number>;
@@ -767,6 +775,22 @@ export class BackendService {
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch staff documents");
     }
+  }
+
+  /**
+   * Generate and download a branded PDF report for a staff member (profile, hours, employment details).
+   * Returns a Blob for the PDF file.
+   */
+  async generateStaffReport(accessToken: string, staffId: string): Promise<Blob> {
+    const response = await fetch(`${API_BASE}/staff/${staffId}/report/pdf/`, {
+      method: "GET",
+      headers: this.getHeaders(accessToken),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || response.statusText || "Failed to generate report");
+    }
+    return response.blob();
   }
 
   async uploadStaffDocument(

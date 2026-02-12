@@ -1,29 +1,54 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   AlertTriangle,
-  ArrowLeft,
   ChevronRight,
   Clock,
   Users,
   TrendingUp,
   AlertCircle,
+  MessageSquare,
+  UserX,
+  Calendar,
+  Loader2,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 const cardBase =
-  "border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 rounded-2xl";
+  "border border-slate-200/80 dark:border-slate-700/80 shadow-sm bg-white dark:bg-slate-900 rounded-2xl transition-shadow hover:shadow-md";
 const cardHeaderBase =
-  "flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6";
+  "flex flex-row items-center justify-between pb-3 space-y-0 px-6 pt-6";
+
+/** Derive insight type and ids from backend insight id (e.g. "missed_clock_in:uuid"). */
+function parseInsight(it: { id?: string; impacted?: { shift_id?: string; staff?: { id: string; name: string }[] } }) {
+  const id = String(it?.id || "");
+  const [type] = id.split(":");
+  const shiftId = it?.impacted?.shift_id ?? null;
+  const staff = it?.impacted?.staff ?? [];
+  return { type, shiftId, staff };
+}
 
 export default function DashboardAttendancePage() {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const queryClient = useQueryClient();
+  const [noShowConfirm, setNoShowConfirm] = useState<{ shiftId: string; staffName: string } | null>(null);
 
   const { data: summary, isLoading } = useQuery({
     queryKey: ["dashboard-summary"],
@@ -64,57 +89,55 @@ export default function DashboardAttendancePage() {
   const noShowsDescKey =
     `dashboard.staffing.no_shows_${noShowsPeriod}` as const;
 
+  const markNoShowMutation = useMutation({
+    mutationFn: (shiftId: string) => api.markShiftNoShow(shiftId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      setNoShowConfirm(null);
+      toast.success("Shift marked as no-show");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to mark as no-show");
+    },
+  });
+
+  /** Map backend action_url to a valid frontend route (e.g. staff-scheduling -> scheduling). */
+  const getActionRoute = (actionUrl: string | undefined) => {
+    const url = actionUrl || "/dashboard/scheduling";
+    if (url === "/dashboard/staff-scheduling") return "/dashboard/scheduling";
+    return url;
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0f1419] p-4 md:p-6 lg:p-7 pb-28 font-sans antialiased text-slate-900 dark:text-slate-100">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0 rounded-full"
-              onClick={() => navigate("/dashboard")}
-              aria-label={t("common.back_to_dashboard")}
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
-                Critical issues & attendance
-              </h1>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
-                {criticalCount + operationalCount > 0
-                  ? `${criticalCount + operationalCount} item(s) need attention`
-                  : "All clear right now"}
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate("/dashboard")}
-            className="shrink-0"
-          >
-            {t("common.back_to_dashboard")}
-          </Button>
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0f1419] p-4 md:p-6 lg:p-8 pb-28 font-sans antialiased text-slate-900 dark:text-slate-100">
+      <div className="max-w-5xl mx-auto space-y-8">
+        <header className="text-left">
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+            Critical issues & attendance
+          </h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+            {criticalCount + operationalCount > 0
+              ? `${criticalCount + operationalCount} item(s) need attention`
+              : "All clear right now"}
+          </p>
         </header>
 
         {/* All insights (critical + operational + rest) */}
         <Card
           className={`${cardBase} ${
-            criticalCount > 0 ? "border-red-200 dark:border-red-900/40" : ""
+            criticalCount > 0 ? "border-red-200 dark:border-red-900/40 shadow-red-100/20 dark:shadow-red-950/20" : ""
           }`}
         >
           <CardHeader className={cardHeaderBase}>
             <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-red-500" />
+              <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
               {t("dashboard.insights.title")}
             </CardTitle>
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="secondary" className="text-xs font-medium tabular-nums">
               {insights.length} total
             </Badge>
           </CardHeader>
-          <CardContent className="space-y-2 px-6 pb-6 pt-0">
+          <CardContent className="space-y-1 px-6 pb-6 pt-0">
             {isLoading ? (
               <div className="text-sm text-slate-400 py-4">
                 {t("dashboard.insights.loading")}
@@ -127,6 +150,7 @@ export default function DashboardAttendancePage() {
               <div className="space-y-2">
                 {insights.map((it, idx) => {
                   const level = String(it.level || "").toUpperCase();
+                  const { type, shiftId, staff } = parseInsight(it);
                   const dot =
                     level === "CRITICAL"
                       ? "bg-red-500"
@@ -147,15 +171,14 @@ export default function DashboardAttendancePage() {
                     level === "CRITICAL"
                       ? "bg-red-50/40 dark:bg-red-950/10"
                       : "";
-                  const onClick = it.action_url
-                    ? () => navigate(String(it.action_url))
-                    : undefined;
-                  return onClick ? (
-                    <button
+                  const actionUrl = getActionRoute(it.action_url);
+                  const canMarkNoShow = type === "missed_clock_in" && shiftId;
+                  const staffName = staff[0]?.name ?? "Staff";
+
+                  return (
+                    <div
                       key={it.id || idx}
-                      type="button"
-                      onClick={onClick}
-                      className={`group w-full text-left rounded-xl px-3 py-3 -mx-3 transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${containerExtra}`}
+                      className={`rounded-xl px-3 py-3 -mx-3 ${containerExtra}`}
                     >
                       <div className="flex items-start gap-3">
                         <div
@@ -173,7 +196,7 @@ export default function DashboardAttendancePage() {
                               >
                                 {level}
                               </Badge>
-                              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                              <ChevronRight className="w-4 h-4 text-slate-400" />
                             </div>
                           </div>
                           {it.recommended_action && (
@@ -182,39 +205,34 @@ export default function DashboardAttendancePage() {
                               {it.recommended_action}
                             </div>
                           )}
-                        </div>
-                      </div>
-                    </button>
-                  ) : (
-                    <div
-                      key={it.id || idx}
-                      className={`rounded-xl px-3 py-3 -mx-3 ${containerExtra}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1.5 ${dot}`}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="text-sm font-semibold text-slate-900 dark:text-white leading-tight">
-                              {it.summary ||
-                                t("dashboard.insights.item_fallback")}
-                            </div>
-                            <Badge
+                          <div className="flex flex-wrap items-center gap-2 mt-3">
+                            {canMarkNoShow && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs rounded-lg gap-1.5 border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-950/30"
+                                onClick={() => setNoShowConfirm({ shiftId, staffName })}
+                              >
+                                <UserX className="w-3.5 h-3.5" />
+                                Mark as no-show
+                              </Button>
+                            )}
+                            <Button
                               variant="outline"
-                              className={`text-[10px] font-bold ${levelPill}`}
+                              size="sm"
+                              className="h-8 text-xs rounded-lg gap-1.5 border-slate-200 dark:border-slate-600"
+                              onClick={() => navigate(actionUrl)}
                             >
-                              {level}
-                            </Badge>
+                              <Calendar className="w-3.5 h-3.5" />
+                              {type === "coverage" || String(it.id || "").startsWith("coverage")
+                                ? "Find coverage"
+                                : String(it.id || "").startsWith("tasks")
+                                  ? "Open tasks"
+                                  : String(it.id || "").startsWith("safety")
+                                    ? "View incident"
+                                    : "View schedule"}
+                            </Button>
                           </div>
-                          {it.recommended_action && (
-                            <div className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-snug">
-                              {level === "CRITICAL"
-                                ? "Action"
-                                : "Recommendation"}:{" "}
-                              {it.recommended_action}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -225,42 +243,69 @@ export default function DashboardAttendancePage() {
           </CardContent>
         </Card>
 
+        <AlertDialog open={!!noShowConfirm} onOpenChange={(open) => !open && setNoShowConfirm(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Mark as no-show?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {noShowConfirm
+                  ? `This will mark the shift as no-show for ${noShowConfirm.staffName}. You can still message them via Miya to follow up.`
+                  : ""}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 hover:bg-red-700"
+                onClick={() => noShowConfirm && markNoShowMutation.mutate(noShowConfirm.shiftId)}
+                disabled={markNoShowMutation.isPending}
+              >
+                {markNoShowMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Mark no-show"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* Staffing & coverage summary */}
         <Card className={cardBase}>
           <CardHeader className={cardHeaderBase}>
             <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Users className="w-4 h-4 text-slate-500" />
+              <Users className="w-4 h-4 text-slate-500 shrink-0" />
               {t("dashboard.staffing.title")}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 pt-2 pb-6 px-6">
-            <div className="flex flex-wrap gap-6">
-              <div>
-                <div className="text-2xl font-black text-slate-900 dark:text-white">
+          <CardContent className="space-y-6 pt-2 pb-6 px-6">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-4 text-center">
+                <div className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tabular-nums">
                   {isLoading ? "…" : summary?.attendance?.shift_gaps ?? 0}
                 </div>
-                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">
                   {t("dashboard.staffing.uncovered")}
                 </div>
               </div>
-              <div>
-                <div className="text-2xl font-black text-slate-900 dark:text-white">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-4 text-center">
+                <div className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tabular-nums">
                   {isLoading ? "…" : noShowsCount}
                 </div>
-                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">
                   {t(noShowsLabelKey)}
                 </div>
               </div>
-              <div>
-                <div className="text-2xl font-black text-slate-900 dark:text-white">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-4 text-center">
+                <div className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tabular-nums">
                   {isLoading ? "…" : summary?.attendance?.ot_risk ?? 0}
                 </div>
-                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">
                   {t("dashboard.staffing.ot_risk")}
                 </div>
               </div>
             </div>
-            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
               <div className="flex items-start gap-3">
                 <AlertCircle
                   className={`w-4 h-4 mt-0.5 shrink-0 ${
@@ -322,17 +367,29 @@ export default function DashboardAttendancePage() {
                 </ul>
               </div>
             )}
-            <div className="pt-4 flex flex-wrap gap-2">
+            <div className="pt-5 flex flex-wrap gap-3 border-t border-slate-100 dark:border-slate-800">
+              <Button
+                variant="default"
+                size="sm"
+                className="rounded-lg bg-emerald-600 hover:bg-emerald-700 gap-2"
+                onClick={() => navigate("/dashboard/scheduling")}
+              >
+                <Calendar className="w-4 h-4" />
+                Find coverage
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
+                className="rounded-lg gap-2 border-slate-200 dark:border-slate-600"
                 onClick={() => navigate("/dashboard/staff-app")}
               >
+                <MessageSquare className="w-4 h-4" />
                 Open Staff app
               </Button>
               <Button
                 variant="outline"
                 size="sm"
+                className="rounded-lg border-slate-200 dark:border-slate-600"
                 onClick={() => navigate("/dashboard/reports/labor-attendance")}
               >
                 Labor & attendance report

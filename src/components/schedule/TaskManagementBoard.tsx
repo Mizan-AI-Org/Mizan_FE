@@ -8,7 +8,20 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -168,7 +181,12 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
   const [templateTasks, setTemplateTasks] = useState<TemplateTask[]>([]);
   const [newTemplateTask, setNewTemplateTask] = useState<{ title: string; priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"; estimated_duration: number }>({ title: "", priority: "MEDIUM", estimated_duration: 30 });
 
-  // Fetch tasks
+  // Category form state
+  const [categoryName, setCategoryName] = useState("");
+  const [categoryDescription, setCategoryDescription] = useState("");
+  const [categoryColor, setCategoryColor] = useState("#3B82F6");
+
+  // Fetch tasks (backend uses TODO, we use NOT_STARTED; compute OVERDUE from due_date)
   const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({
     queryKey: ["tasks"],
     queryFn: async () => {
@@ -177,7 +195,17 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
       });
       if (!response.ok) throw new Error("Failed to load tasks");
       const data = await response.json();
-      return data.results || data;
+      const raw = (data.results ?? data) as (Task & { status?: string; due_date?: string })[];
+      const today = format(new Date(), "yyyy-MM-dd");
+      return (Array.isArray(raw) ? raw : []).map((t) => {
+        let status = (t.status ?? "TODO") as string;
+        if (status === "TODO") status = "NOT_STARTED";
+        const dueDate = t.due_date ? t.due_date.slice(0, 10) : "";
+        if ((status === "NOT_STARTED" || status === "IN_PROGRESS") && dueDate && dueDate < today) {
+          status = "OVERDUE";
+        }
+        return { ...t, status: status as Task["status"] };
+      });
     },
   });
 
@@ -207,20 +235,27 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
     },
   });
 
-  // Fetch staff members
+  // Fetch staff members (GET /api/staff/ – same list as Staff app)
   const { data: staffMembers, isLoading: staffLoading } = useQuery<StaffMember[]>({
-    // Distinct query key to avoid collisions with other components
-    queryKey: ["accounts-staff-users"],
-    // Only run when token is present
+    queryKey: ["staff-list"],
     enabled: !!localStorage.getItem("access_token"),
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/accounts/staff/users/`, {
+      const response = await fetch(`${API_BASE}/staff/`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
       });
       if (!response.ok) throw new Error("Failed to load staff members");
       const data = await response.json();
-      const list = (data.results || data) as StaffMember[];
-      return Array.isArray(list) ? list.filter((u) => u.role !== "SUPER_ADMIN") : [];
+      const list = (data.results ?? data) as { id: string; first_name?: string; last_name?: string; role?: string }[];
+      return Array.isArray(list)
+        ? list
+            .filter((u) => u.role !== "SUPER_ADMIN")
+            .map((u) => ({
+              id: u.id,
+              first_name: u.first_name ?? "",
+              last_name: u.last_name ?? "",
+              role: u.role,
+            }))
+        : [];
     },
   });
 
@@ -249,16 +284,23 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
         : `${API_BASE}/scheduling/tasks/`;
       const method = selectedTask ? "PUT" : "POST";
 
+      // Backend expects due_date as YYYY-MM-DD; due_time optional
+      const dueDateStr = data.due_date ? data.due_date.slice(0, 10) : null;
+      const payload = {
+        ...data,
+        due_date: dueDateStr,
+        category: data.category || null,
+        assigned_to: Array.isArray(data.assigned_to) ? data.assigned_to : [],
+        assigned_shift: prefilledAssignedShift,
+        estimated_duration: Number(data.estimated_duration) || 30,
+      };
       const response = await fetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
-        body: JSON.stringify({
-          ...data,
-          assigned_shift: prefilledAssignedShift,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -270,6 +312,7 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["restaurant-stats"] });
       setIsTaskModalOpen(false);
       toast({
         title: selectedTask ? "Task updated" : "Task created",
@@ -308,6 +351,7 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["restaurant-stats"] });
       toast({
         title: "Tasks generated",
         description: `${data.tasks_created} tasks have been generated from the template.`,
@@ -416,6 +460,67 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
     },
   });
 
+  const resetCategoryForm = () => {
+    setCategoryName("");
+    setCategoryDescription("");
+    setCategoryColor("#3B82F6");
+    setSelectedCategory(null);
+  };
+
+  const createCategoryMutation = useMutation({
+    mutationFn: async (payload: { name: string; description?: string; color?: string }) => {
+      const response = await fetch(`${API_BASE}/scheduling/task-categories/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as { detail?: string }).detail || "Failed to create category");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["task-categories"] });
+      setIsCategoryModalOpen(false);
+      resetCategoryForm();
+      toast({ title: "Category created", description: "The category has been added." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: { name: string; description?: string; color?: string } }) => {
+      const response = await fetch(`${API_BASE}/scheduling/task-categories/${id}/`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as { detail?: string }).detail || "Failed to update category");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["task-categories"] });
+      setIsCategoryModalOpen(false);
+      resetCategoryForm();
+      toast({ title: "Category updated", description: "The category has been updated." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   // Mark task as completed mutation
   const completeTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
@@ -436,6 +541,7 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["restaurant-stats"] });
       toast({
         title: "Task completed",
         description: "The task has been marked as completed.",
@@ -470,6 +576,7 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["restaurant-stats"] });
       toast({
         title: "Task started",
         description: "The task has been marked as in progress.",
@@ -484,7 +591,31 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
     },
   });
 
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
 
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const response = await fetch(`${API_BASE}/scheduling/tasks/${taskId}/`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as { detail?: string }).detail || "Failed to delete task");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["restaurant-stats"] });
+      setTaskToDelete(null);
+      setIsTaskModalOpen(false);
+      resetTaskForm();
+      toast({ title: "Task deleted", description: "The task has been removed." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
 
   // Reset task form
   const resetTaskForm = () => {
@@ -556,7 +687,12 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
           </TabsList>
           <div className="flex space-x-2">
             {activeTab === "tasks" && (
-              <Button onClick={() => setIsTaskModalOpen(true)}>
+              <Button
+                onClick={() => {
+                  resetTaskForm();
+                  setIsTaskModalOpen(true);
+                }}
+              >
                 <Plus className="h-4 w-4 mr-1" /> New Task
               </Button>
             )}
@@ -566,7 +702,12 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
               </Button>
             )}
             {activeTab === "categories" && (
-              <Button onClick={() => setIsCategoryModalOpen(true)}>
+              <Button
+                onClick={() => {
+                  resetCategoryForm();
+                  setIsCategoryModalOpen(true);
+                }}
+              >
                 <Plus className="h-4 w-4 mr-1" /> New Category
               </Button>
             )}
@@ -781,7 +922,13 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
       </Tabs>
 
       {/* Task Modal */}
-      <Dialog open={isTaskModalOpen} onOpenChange={setIsTaskModalOpen}>
+      <Dialog
+        open={isTaskModalOpen}
+        onOpenChange={(open) => {
+          setIsTaskModalOpen(open);
+          if (!open) resetTaskForm();
+        }}
+      >
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>{selectedTask ? "Edit Task" : "Create New Task"}</DialogTitle>
@@ -832,24 +979,74 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
                 </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="assigned_to" className="text-right">
-                  Assigned To
-                </Label>
-                <Select
-                  value={taskFormData.assigned_to[0] || ""}
-                  onValueChange={(value) => setTaskFormData({ ...taskFormData, assigned_to: [value] })}
-                >
-                  <SelectTrigger id="assigned_to" className="col-span-3">
-                    <SelectValue placeholder="Assign to staff member" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {staffMembers?.map((staff: StaffMember) => (
-                      <SelectItem key={staff.id} value={staff.id}>
-                        {staff.first_name} {staff.last_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-right">Assigned To</Label>
+                <div className="col-span-3 space-y-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full justify-between font-normal h-10"
+                      >
+                        {taskFormData.assigned_to.length === 0
+                          ? "Assign to staff member(s)"
+                          : `${taskFormData.assigned_to.length} staff selected`}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-[3050]" align="start">
+                      <ScrollArea className="max-h-60">
+                        <div className="p-2 space-y-1">
+                          {staffMembers?.map((staff: StaffMember) => (
+                            <label
+                              key={staff.id}
+                              className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={taskFormData.assigned_to.includes(staff.id)}
+                                onCheckedChange={(checked) => {
+                                  const next = checked
+                                    ? [...taskFormData.assigned_to, staff.id]
+                                    : taskFormData.assigned_to.filter((id) => id !== staff.id);
+                                  setTaskFormData({ ...taskFormData, assigned_to: next });
+                                }}
+                              />
+                              <span className="text-sm">
+                                {staff.first_name} {staff.last_name}
+                              </span>
+                            </label>
+                          ))}
+                          {(!staffMembers || staffMembers.length === 0) && (
+                            <p className="text-sm text-muted-foreground px-2 py-2">No staff members found.</p>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
+                  {taskFormData.assigned_to.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {taskFormData.assigned_to.map((id) => {
+                        const staff = staffMembers?.find((s) => s.id === id);
+                        return (
+                          <Badge key={id} variant="secondary" className="text-xs">
+                            {staff ? `${staff.first_name} ${staff.last_name}` : id}
+                            <button
+                              type="button"
+                              className="ml-1 rounded-full hover:bg-muted"
+                              onClick={() =>
+                                setTaskFormData({
+                                  ...taskFormData,
+                                  assigned_to: taskFormData.assigned_to.filter((x) => x !== id),
+                                })
+                              }
+                            >
+                              <span className="sr-only">Remove</span>×
+                            </button>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="priority" className="text-right">
@@ -889,24 +1086,75 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
                 <Input
                   id="estimated_duration"
                   type="number"
+                  min={1}
                   value={taskFormData.estimated_duration}
-                  onChange={(e) => setTaskFormData({ ...taskFormData, estimated_duration: parseInt(e.target.value) })}
+                  onChange={(e) =>
+                    setTaskFormData({
+                      ...taskFormData,
+                      estimated_duration: Math.max(1, Number(e.target.value) || 30),
+                    })
+                  }
                   className="col-span-3"
                 />
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-wrap gap-2">
+              {selectedTask && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="mr-auto"
+                  onClick={() => setTaskToDelete(selectedTask.id)}
+                  disabled={taskMutation.isPending}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" /> Delete
+                </Button>
+              )}
               <Button type="button" variant="outline" onClick={() => setIsTaskModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">{selectedTask ? "Update Task" : "Create Task"}</Button>
+              <Button type="submit" disabled={taskMutation.isPending}>
+                {selectedTask ? "Update Task" : "Create Task"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
+      <AlertDialog open={!!taskToDelete} onOpenChange={(open) => !open && setTaskToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The task will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              type="button"
+              className="bg-red-600 hover:bg-red-700"
+              onClick={(e) => {
+                e.preventDefault();
+                const id = taskToDelete;
+                if (id) deleteTaskMutation.mutate(id);
+              }}
+              disabled={deleteTaskMutation.isPending}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Template Modal */}
-      <Dialog open={isTemplateModalOpen} onOpenChange={setIsTemplateModalOpen}>
+      <Dialog
+        open={isTemplateModalOpen}
+        onOpenChange={(open) => {
+          setIsTemplateModalOpen(open);
+          if (!open) resetTemplateForm();
+        }}
+      >
         <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
             <DialogTitle>{selectedTemplate ? "Edit Task Template" : "Create New Task Template"}</DialogTitle>
@@ -988,7 +1236,7 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
                         <SelectItem value="URGENT">Urgent</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Input type="number" className="w-32" value={newTemplateTask.estimated_duration} onChange={(e) => setNewTemplateTask({ ...newTemplateTask, estimated_duration: parseInt(e.target.value || '0') })} />
+                    <Input type="number" min={1} className="w-32" value={newTemplateTask.estimated_duration} onChange={(e) => setNewTemplateTask({ ...newTemplateTask, estimated_duration: Math.max(1, Number(e.target.value) || 30) })} />
                     <Button
                       type="button"
                       onClick={() => {
@@ -1027,6 +1275,90 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsTemplateModalOpen(false)}>Cancel</Button>
               <Button type="submit">{selectedTemplate ? "Update Template" : "Create Template"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Category Modal */}
+      <Dialog
+        open={isCategoryModalOpen}
+        onOpenChange={(open) => {
+          setIsCategoryModalOpen(open);
+          if (!open) resetCategoryForm();
+        }}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{selectedCategory ? "Edit Category" : "Create New Category"}</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!categoryName.trim()) {
+                toast({ title: "Error", description: "Category name is required.", variant: "destructive" });
+                return;
+              }
+              if (selectedCategory) {
+                updateCategoryMutation.mutate({
+                  id: selectedCategory.id,
+                  payload: { name: categoryName.trim(), description: categoryDescription.trim() || undefined, color: categoryColor },
+                });
+              } else {
+                createCategoryMutation.mutate({
+                  name: categoryName.trim(),
+                  description: categoryDescription.trim() || undefined,
+                  color: categoryColor,
+                });
+              }
+            }}
+          >
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="category-name" className="text-right">Name</Label>
+                <Input
+                  id="category-name"
+                  value={categoryName}
+                  onChange={(e) => setCategoryName(e.target.value)}
+                  className="col-span-3"
+                  placeholder="e.g. Opening"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="category-desc" className="text-right">Description</Label>
+                <Textarea
+                  id="category-desc"
+                  value={categoryDescription}
+                  onChange={(e) => setCategoryDescription(e.target.value)}
+                  className="col-span-3"
+                  placeholder="Optional description"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="category-color" className="text-right">Color</Label>
+                <div className="col-span-3 flex items-center gap-2">
+                  <input
+                    id="category-color"
+                    type="color"
+                    value={categoryColor}
+                    onChange={(e) => setCategoryColor(e.target.value)}
+                    className="h-10 w-14 cursor-pointer rounded border border-input"
+                  />
+                  <Input
+                    value={categoryColor}
+                    onChange={(e) => setCategoryColor(e.target.value)}
+                    className="flex-1 font-mono text-sm"
+                    placeholder="#3B82F6"
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsCategoryModalOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={createCategoryMutation.isPending || updateCategoryMutation.isPending}>
+                {selectedCategory ? "Update" : "Create"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

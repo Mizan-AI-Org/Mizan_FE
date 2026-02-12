@@ -54,18 +54,19 @@ const EnhancedScheduleView: React.FC = () => {
       });
       if (!response.ok) throw new Error("Failed to fetch staff");
       const json = await response.json();
-      const staffArr = (json?.results ?? json) as any[];
-      return staffArr.map(s => ({
-        id: s.id || s.user?.id,
-        user: s.user || {
-          id: s.id,
-          first_name: s.first_name || '',
-          last_name: s.last_name || ''
-        },
-        first_name: s.first_name,
-        last_name: s.last_name,
-        role: s.role
-      }));
+      const staffArr = (json?.results ?? json) as Record<string, unknown>[];
+      return staffArr.map((s: Record<string, unknown>) => {
+        const id = String(s.id ?? (s.user as Record<string, unknown>)?.id ?? '');
+        const firstName = String(s.first_name ?? '');
+        const lastName = String(s.last_name ?? '');
+        return {
+          id,
+          user: { id, first_name: firstName, last_name: lastName },
+          first_name: firstName,
+          last_name: lastName,
+          role: s.role as string | undefined,
+        } satisfies StaffMember;
+      });
     },
   });
 
@@ -123,7 +124,9 @@ const EnhancedScheduleView: React.FC = () => {
       return "00:00";
     };
 
-    return scheduleData.assigned_shifts.map((shift: BackendShift) => ({
+    return scheduleData.assigned_shifts.map((shift: BackendShift) => {
+      const firstStaffId = (shift.staff_members && shift.staff_members[0]) || shift.staff;
+      return {
       id: shift.id,
       title: (shift.title ?? shift.notes) || "Shift",
       start: toHHmm(shift.start_time),
@@ -134,7 +137,7 @@ const EnhancedScheduleView: React.FC = () => {
       staffId: shift.staff,
       staff_members: shift.staff_members ?? (shift.staff ? [shift.staff] : []),
       staff_members_details: shift.staff_members_details,
-      color: shift.color || "#6b7280",
+      color: firstStaffId ? getStaffColor(firstStaffId) : (shift.color || "#6b7280"),
       task_templates: shift.task_templates ?? [],
       task_templates_details: shift.task_templates_details,
       tasks: (shift.tasks ?? []).map((t: { id?: string; title: string; priority?: string }) => ({
@@ -142,7 +145,8 @@ const EnhancedScheduleView: React.FC = () => {
         title: t.title,
         priority: (t.priority as TaskPriority) || "MEDIUM",
       })),
-    }));
+    };
+    });
   }, [scheduleData]);
 
   if (isLoadingStaff || isLoadingShifts) {
@@ -306,28 +310,46 @@ const EnhancedScheduleView: React.FC = () => {
 
   return (
     <div className="space-y-4 max-w-[1600px] mx-auto p-4 md:p-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
-        <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">{t("schedule.staff_schedule")}</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as any)} className="bg-gray-100 p-1 rounded-xl">
-            <TabsList className="bg-transparent border-none">
-              <TabsTrigger value="week" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">{t("schedule.weekly_grid_view")}</TabsTrigger>
-              <TabsTrigger value="timesheet" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">{t("schedule.timesheet_view")}</TabsTrigger>
-              <TabsTrigger value="list" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">{t("schedule.list_view")}</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <button
-            onClick={() => {
-              setCurrentShift(null);
-              setIsShiftModalOpen(true);
-            }}
-            className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-md hover:shadow-lg active:scale-95"
-          >
-            <Plus className="h-5 w-5" />
-            <span>{t("schedule.create")}</span>
-          </button>
+      {/* Sticky header so Grid Weekly / Timesheet / List View tabs stay visible when scrolling */}
+      <div className="sticky top-0 z-10 -mx-4 px-4 md:-mx-8 md:px-8 py-3 bg-white/95 backdrop-blur-sm border-b border-gray-100 mb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-gray-900 tracking-tight">{t("schedule.staff_schedule")}</h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as "week" | "timesheet" | "list")} className="bg-gray-100/80 p-1.5 rounded-xl shrink-0 border border-gray-200/80">
+              <TabsList className="bg-transparent border-none flex flex-wrap gap-1">
+                <TabsTrigger
+                  value="week"
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:border-0 transition-colors"
+                >
+                  {t("schedule.weekly_grid_view")}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="timesheet"
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:border-0 transition-colors"
+                >
+                  {t("schedule.timesheet_view")}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="list"
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:border-0 transition-colors"
+                >
+                  {t("schedule.list_view")}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <button
+              onClick={() => {
+                setCurrentShift(null);
+                setIsShiftModalOpen(true);
+              }}
+              className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-md hover:shadow-lg active:scale-95"
+            >
+              <Plus className="h-5 w-5" />
+              <span>{t("schedule.create")}</span>
+            </button>
+          </div>
         </div>
       </div>
 
