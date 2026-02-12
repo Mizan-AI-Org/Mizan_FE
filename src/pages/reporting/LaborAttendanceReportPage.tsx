@@ -11,14 +11,61 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { API_BASE } from "@/lib/api";
-import { AlertTriangle, Clock, UserCheck, FileCheck } from "lucide-react";
+import { AlertTriangle, Clock, UserCheck, FileCheck, FileDown, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const LaborAttendanceReportPage: React.FC = () => {
   const today = new Date();
   const [startDate, setStartDate] = useState(format(startOfWeek(today), "yyyy-MM-dd"));
   const [endDate, setEndDate] = useState(format(endOfWeek(today), "yyyy-MM-dd"));
+  const [exportFormat, setExportFormat] = useState<"pdf" | "excel">("excel");
+  const [exporting, setExporting] = useState(false);
+
+  const downloadAttendanceForHR = async () => {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      toast.error("Please log in to download the report.");
+      return;
+    }
+    setExporting(true);
+    try {
+      const fmt = exportFormat === "pdf" ? "pdf" : "excel";
+      const url = `${API_BASE}/reporting/attendance/export/?format=${fmt}&start_date=${startDate}&end_date=${endDate}`;
+      const res = await fetch(url, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { detail?: string }).detail || res.statusText || "Export failed");
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="?([^";]+)"?/);
+      const filename = match ? match[1] : `staff_attendance_report_${startDate}_${endDate}.${fmt === "pdf" ? "pdf" : "xlsx"}`;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+      toast.success(`Report downloaded as ${fmt.toUpperCase()}. You can send it to HR for payroll.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to download report");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const { data: plannedVsActual, isLoading: loadingPvA } = useQuery({
     queryKey: ["labor-planned-vs-actual", startDate, endDate],
@@ -63,26 +110,50 @@ const LaborAttendanceReportPage: React.FC = () => {
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Labor & Attendance Report</h1>
-        <p className="text-muted-foreground mt-1">
-          Planned vs actual hours, attendance quality, overtime, and certifications expiring
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-4">
-        <Input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          className="w-40"
-        />
-        <Input
-          type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          className="w-40"
-        />
+      {/* Title and download adjacent: one row */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
+        <div>
+          <h1 className="text-3xl font-bold">Labor & Attendance Report</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Planned vs actual hours, attendance quality, overtime, and certifications expiring
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="w-36"
+          />
+          <Input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="w-36"
+          />
+          <Select value={exportFormat} onValueChange={(v: "pdf" | "excel") => setExportFormat(v)}>
+            <SelectTrigger className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="excel">Excel</SelectItem>
+              <SelectItem value="pdf">PDF</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={downloadAttendanceForHR}
+            disabled={exporting}
+            size="sm"
+            className="gap-1.5"
+          >
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileDown className="h-4 w-4" />
+            )}
+            {exporting ? "Generating…" : "Download"}
+          </Button>
+        </div>
       </div>
 
       {/* Planned vs Actual Summary */}

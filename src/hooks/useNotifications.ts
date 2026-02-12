@@ -29,6 +29,29 @@ interface WebSocketMessage {
 // WS_BASE imported from @/lib/api
 const WS_ENABLED = String(import.meta.env.VITE_ENABLE_NOTIFICATIONS_WS || 'false').toLowerCase() === 'true';
 
+/** Format raw ISO date/time in notification messages for easier reading (e.g. shift cancelled). */
+function formatNotificationMessage(message: string): string {
+    if (!message || typeof message !== 'string') return message;
+    let out = message;
+    // Replace ISO datetime (e.g. "2026-02-13 16:00:00+00:00") with time like "4:00 PM"
+    const isoDateTimeRe = /(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?/g;
+    out = out.replace(isoDateTimeRe, (_match, _datePart, h: string, m: string) => {
+        const hour = parseInt(h, 10);
+        const min = m || '00';
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const hour12 = hour % 12 || 12;
+        return `${hour12}:${min} ${ampm}`;
+    });
+    // Replace standalone ISO date (e.g. "2026-02-13") with "Thursday, Feb 13, 2026"
+    const isoDateRe = /\b(\d{4}-\d{2}-\d{2})\b/g;
+    out = out.replace(isoDateRe, (match) => {
+        const d = new Date(match + 'T12:00:00Z');
+        if (isNaN(d.getTime())) return match;
+        return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+    });
+    return out;
+}
+
 export const useNotifications = () => {
     const { user, logout } = useAuth();
     const queryClient = useQueryClient();
@@ -218,7 +241,7 @@ export const useNotifications = () => {
             read: n.is_read, // Map backend 'is_read' to frontend 'read'
             timestamp: n.created_at, // Map backend 'created_at' to frontend 'timestamp'
             verb: (n.notification_type || '').replace(/_/g, ' ').toLowerCase(), // Derive verb from type safely
-            description: n.message, // Map backend 'message' to frontend 'description'
+            description: formatNotificationMessage(n.message), // Map backend 'message' to frontend 'description', formatted for display
             title: (n as any).title,
             attachments: (n as any).attachments || [],
         })),

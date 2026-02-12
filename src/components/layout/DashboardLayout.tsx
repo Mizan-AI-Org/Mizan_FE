@@ -195,8 +195,14 @@ const DashboardLayout: React.FC = () => {
 
       <main className="flex-1">
         {location.pathname !== '/dashboard' && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-3 mb-2 border-b">
-            <BackLink fallbackPath="/dashboard">{t("common.back_to_dashboard")}</BackLink>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-3">
+            <BackLink
+              fallbackPath="/dashboard"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-colors shadow-sm"
+              ariaLabel={t("common.back_to_dashboard")}
+            >
+              {t("common.back_to_dashboard")}
+            </BackLink>
           </div>
         )}
         <Outlet />
