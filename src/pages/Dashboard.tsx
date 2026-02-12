@@ -90,6 +90,26 @@ const apps: AppItem[] = [
   },
 ];
 
+/** Map backend action_url to a valid frontend route (e.g. staff-scheduling -> scheduling). */
+function getActionRoute(actionUrl: string | undefined): string {
+  if (!actionUrl) return "/dashboard/scheduling";
+  if (actionUrl === "/dashboard/staff-scheduling") return "/dashboard/scheduling";
+  return actionUrl;
+}
+
+type InsightItem = {
+  id?: string;
+  level?: string;
+  action_url?: string;
+  summary?: string;
+  recommended_action?: string;
+};
+
+type TaskDueItem = {
+  label?: string;
+  status?: string;
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, hasRole } = useAuth() as AuthContextType;
@@ -134,7 +154,7 @@ export default function Dashboard() {
     "border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all duration-300 rounded-2xl";
   const cardHeaderBase = "flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6";
 
-  const insights = (summary?.insights?.items || []) as any[];
+  const insights = (summary?.insights?.items || []) as InsightItem[];
   const insightsVisible = showAllInsights ? insights.slice(0, 5) : insights.slice(0, 3);
   const criticalCount = Number(summary?.insights?.counts?.CRITICAL || 0);
   const operationalCount = Number(summary?.insights?.counts?.OPERATIONAL || 0);
@@ -155,9 +175,9 @@ export default function Dashboard() {
         description,
         action: topCritical?.action_url
           ? {
-              label: t("common.open"),
-              onClick: () => navigate(String(topCritical.action_url)),
-            }
+            label: t("common.open"),
+            onClick: () => navigate(getActionRoute(topCritical?.action_url)),
+          }
           : undefined,
       });
     }
@@ -190,26 +210,23 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* MIZAN AI INSIGHTS (Primary) */}
           <Card
-            className={`${cardBase} lg:col-span-2 relative overflow-hidden ${
-              criticalCount > 0 ? "border-red-200 dark:border-red-900/40" : ""
-            }`}
+            className={`${cardBase} lg:col-span-2 relative overflow-hidden ${criticalCount > 0 ? "border-red-200 dark:border-red-900/40" : ""
+              }`}
           >
             <div
-              className={`absolute inset-0 pointer-events-none ${
-                criticalCount > 0
+              className={`absolute inset-0 pointer-events-none ${criticalCount > 0
                   ? "bg-gradient-to-br from-red-500/12 via-transparent to-transparent"
                   : "bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent"
-              }`}
+                }`}
             ></div>
             <CardHeader className="pb-2 px-6 pt-6">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <div
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                      criticalCount > 0
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center ${criticalCount > 0
                         ? "bg-red-500/10 dark:bg-red-500/15"
                         : "bg-emerald-500/10 dark:bg-emerald-500/15"
-                    } ${criticalCount > 0 ? "animate-pulse" : ""}`}
+                      } ${criticalCount > 0 ? "animate-pulse" : ""}`}
                   >
                     {criticalCount > 0 ? (
                       <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
@@ -230,9 +247,8 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2">
                   <Badge
                     variant="outline"
-                    className={`border-none text-[10px] font-bold h-5 px-2 ${
-                      attentionNow > 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"
-                    }`}
+                    className={`border-none text-[10px] font-bold h-5 px-2 ${attentionNow > 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"
+                      }`}
                   >
                     {isLoading ? "…" : attentionNow} {t("dashboard.insights.need_attention")}
                   </Badge>
@@ -288,7 +304,7 @@ export default function Dashboard() {
                                 ? "bg-blue-500"
                                 : "bg-emerald-500";
 
-                        const onClick = it.action_url ? () => navigate(String(it.action_url)) : undefined;
+                        const onClick = it.action_url ? () => navigate(getActionRoute(it.action_url)) : undefined;
                         const levelPill =
                           level === "CRITICAL"
                             ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
@@ -373,7 +389,7 @@ export default function Dashboard() {
                             ? "bg-blue-500"
                             : "bg-emerald-500";
 
-                    const onClick = it.action_url ? () => navigate(String(it.action_url)) : undefined;
+                    const onClick = it.action_url ? () => navigate(getActionRoute(it.action_url)) : undefined;
                     const levelPill =
                       level === "CRITICAL"
                         ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
@@ -449,7 +465,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-        {/* Staffing & Coverage */}
+          {/* Staffing & Coverage */}
           <Card className={cardBase}>
             <CardHeader className={cardHeaderBase}>
               <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
@@ -480,9 +496,8 @@ export default function Dashboard() {
               <div className="space-y-3 pt-1">
                 <div className="flex items-start gap-3">
                   <AlertCircle
-                    className={`w-4 h-4 mt-0.5 shrink-0 ${
-                      noShowsCount > 0 ? "text-red-500" : "text-slate-300 dark:text-slate-600"
-                    }`}
+                    className={`w-4 h-4 mt-0.5 shrink-0 ${noShowsCount > 0 ? "text-red-500" : "text-slate-300 dark:text-slate-600"
+                      }`}
                   />
                   <p className="text-sm text-slate-700 dark:text-slate-300">
                     <span className="font-semibold text-slate-900 dark:text-white">
@@ -502,9 +517,8 @@ export default function Dashboard() {
                 </div>
                 <div className="flex items-start gap-3">
                   <TrendingUp
-                    className={`w-4 h-4 mt-0.5 shrink-0 ${
-                      (summary?.attendance?.ot_risk || 0) > 0 ? "text-amber-500" : "text-slate-300 dark:text-slate-600"
-                    }`}
+                    className={`w-4 h-4 mt-0.5 shrink-0 ${(summary?.attendance?.ot_risk || 0) > 0 ? "text-amber-500" : "text-slate-300 dark:text-slate-600"
+                      }`}
                   />
                   <p className="text-sm text-slate-700 dark:text-slate-300">
                     <span className="font-semibold text-slate-900 dark:text-white">
@@ -516,9 +530,8 @@ export default function Dashboard() {
                 {(summary?.attendance?.late_staff_today?.length || 0) > 0 && (
                   <div className="flex items-start gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <Clock
-                      className={`w-4 h-4 mt-0.5 shrink-0 ${
-                        (summary?.attendance?.late_staff_today?.length || 0) > 0 ? "text-amber-500" : "text-slate-300 dark:text-slate-600"
-                      }`}
+                      className={`w-4 h-4 mt-0.5 shrink-0 ${(summary?.attendance?.late_staff_today?.length || 0) > 0 ? "text-amber-500" : "text-slate-300 dark:text-slate-600"
+                        }`}
                     />
                     <div>
                       <p className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -565,7 +578,7 @@ export default function Dashboard() {
               {isLoading ? (
                 <div className="text-sm text-slate-400">{t("dashboard.tasks.loading")}</div>
               ) : summary?.tasks_due?.length > 0 ? (
-                summary.tasks_due.slice(0, 4).map((task: any, i: number) => (
+                summary.tasks_due.slice(0, 4).map((task: TaskDueItem, i: number) => (
                   <div key={i} className="flex items-center justify-between group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 p-1 -mx-1 rounded-lg transition-colors">
                     <span className="text-sm text-slate-700 dark:text-slate-300 truncate pr-4">{task.label}</span>
                     <span className={`text-[10px] whitespace-nowrap tracking-wider ${task.status === "OVERDUE" ? "text-red-500 font-bold" : "text-slate-500 dark:text-slate-400 font-medium"}`}>{task.status}</span>
@@ -606,9 +619,8 @@ export default function Dashboard() {
               <div className="space-y-3 pt-1">
                 <div className="flex items-start gap-3">
                   <FileText
-                    className={`w-4 h-4 mt-0.5 shrink-0 ${
-                      (summary?.operations?.negative_reviews || 0) > 0 ? "text-red-500" : "text-slate-300 dark:text-slate-600"
-                    }`}
+                    className={`w-4 h-4 mt-0.5 shrink-0 ${(summary?.operations?.negative_reviews || 0) > 0 ? "text-red-500" : "text-slate-300 dark:text-slate-600"
+                      }`}
                   />
                   <p className="text-sm text-slate-700 dark:text-slate-300">
                     <span className="font-semibold text-slate-900 dark:text-white">
@@ -687,10 +699,10 @@ export default function Dashboard() {
           <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-white/85 dark:bg-slate-900/70 backdrop-blur shadow-lg">
             <div className="flex items-center justify-between px-4 pt-3 pb-2">
               <div className="text-xs font-bold tracking-tight text-slate-900 dark:text-white">
-                  {t("dashboard.quick_actions.title")}
+                {t("dashboard.quick_actions.title")}
               </div>
               <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden md:block">
-                  {t("dashboard.quick_actions.subtitle")}
+                {t("dashboard.quick_actions.subtitle")}
               </div>
             </div>
 

@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Calendar, Clock, CheckSquare, BarChart, Settings } from "lucide-react";
+import { Calendar, Clock, CheckSquare, BarChart } from "lucide-react";
 import EnhancedScheduleView from "@/components/schedule/EnhancedScheduleView";
 import TaskManagementBoard from "@/components/schedule/TaskManagementBoard";
 import { useQuery } from "@tanstack/react-query";
@@ -12,7 +11,7 @@ import { API_BASE } from "@/lib/api";
 const StaffSchedulingPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("schedule");
 
-  // Fetch restaurant stats
+  // Fetch restaurant stats (backend: GET /api/analytics/restaurant-stats/)
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["restaurant-stats"],
     queryFn: async () => {
@@ -31,11 +30,8 @@ const StaffSchedulingPage: React.FC = () => {
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Staff Scheduling & Task Management</h1>
-        <Button variant="outline">
-          <Settings className="h-4 w-4 mr-2" /> Settings
-        </Button>
+      <div>
+        <h1 className="text-2xl font-bold">Staff Scheduling & Task Management</h1>
       </div>
 
       {/* Stats Cards */}
@@ -95,12 +91,6 @@ const StaffSchedulingPage: React.FC = () => {
         
         <TabsContent value="schedule" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Staff Schedule</CardTitle>
-              <CardDescription>
-                Manage your staff schedules, assign shifts, and track availability.
-              </CardDescription>
-            </CardHeader>
             <CardContent className="p-0">
               <EnhancedScheduleView />
             </CardContent>
