@@ -90,9 +90,9 @@ const apps: AppItem[] = [
   },
 ];
 
-/** Map backend action_url to a valid frontend route (e.g. staff-scheduling -> scheduling). */
+/** Map backend action_url to a valid frontend route. Default to attendance for "view more" on insight items. */
 function getActionRoute(actionUrl: string | undefined): string {
-  if (!actionUrl) return "/dashboard/scheduling";
+  if (!actionUrl) return "/dashboard/attendance";
   if (actionUrl === "/dashboard/staff-scheduling") return "/dashboard/scheduling";
   return actionUrl;
 }
@@ -304,7 +304,6 @@ export default function Dashboard() {
                                 ? "bg-blue-500"
                                 : "bg-emerald-500";
 
-                        const onClick = it.action_url ? () => navigate(getActionRoute(it.action_url)) : undefined;
                         const levelPill =
                           level === "CRITICAL"
                             ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
@@ -319,11 +318,11 @@ export default function Dashboard() {
                             ? "bg-red-50/40 dark:bg-red-950/10"
                             : "";
 
-                        return onClick ? (
+                        return (
                           <button
                             key={it.id || idx}
                             type="button"
-                            onClick={onClick}
+                            onClick={() => navigate(getActionRoute(it.action_url))}
                             className={`group w-full text-left rounded-xl px-3 py-2 -mx-3 transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${containerExtra}`}
                           >
                             <div className="flex items-start gap-3">
@@ -348,27 +347,6 @@ export default function Dashboard() {
                               </div>
                             </div>
                           </button>
-                        ) : (
-                          <div key={it.id || idx} className={`rounded-xl px-3 py-2 -mx-3 ${containerExtra}`}>
-                            <div className="flex items-start gap-3">
-                              <div className={`w-2 h-2 rounded-full shrink-0 mt-2 ${dot}`}></div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="text-sm text-slate-900 dark:text-white leading-tight font-semibold truncate">
-                                    {it.summary || t("dashboard.insights.item_fallback")}
-                                  </div>
-                                  <Badge variant="outline" className={`text-[10px] font-bold ${levelPill}`}>
-                                    {level}
-                                  </Badge>
-                                </div>
-                                {it.recommended_action && (
-                                  <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug line-clamp-2 mt-0.5">
-                                    {level === "CRITICAL" ? "Action" : "Recommendation"}: {it.recommended_action}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
                         );
                       })}
                     </div>
@@ -389,7 +367,6 @@ export default function Dashboard() {
                             ? "bg-blue-500"
                             : "bg-emerald-500";
 
-                    const onClick = it.action_url ? () => navigate(getActionRoute(it.action_url)) : undefined;
                     const levelPill =
                       level === "CRITICAL"
                         ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
@@ -400,57 +377,34 @@ export default function Dashboard() {
                             : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200";
 
                     return (
-                      onClick ? (
-                        <button
-                          key={it.id || idx}
-                          type="button"
-                          onClick={onClick}
-                          className="group w-full text-left rounded-xl px-3 py-2 -mx-3 transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className={`w-2 h-2 rounded-full shrink-0 mt-2 ${dot}`}></div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="text-sm text-slate-900 dark:text-white leading-tight font-semibold truncate">
-                                  {it.summary || t("dashboard.insights.item_fallback")}
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <Badge variant="outline" className={`text-[10px] font-bold ${levelPill}`}>
-                                    {level}
-                                  </Badge>
-                                  <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 mt-0.5" />
-                                </div>
+                      <button
+                        key={it.id || idx}
+                        type="button"
+                        onClick={() => navigate(getActionRoute(it.action_url))}
+                        className="group w-full text-left rounded-xl px-3 py-2 -mx-3 transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-2 h-2 rounded-full shrink-0 mt-2 ${dot}`}></div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="text-sm text-slate-900 dark:text-white leading-tight font-semibold truncate">
+                                {it.summary || t("dashboard.insights.item_fallback")}
                               </div>
-                              {it.recommended_action && (
-                                <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug line-clamp-2 mt-0.5">
-                                  {level === "CRITICAL" ? "Action" : "Recommendation"}: {it.recommended_action}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                      ) : (
-                        <div key={it.id || idx} className="rounded-xl px-3 py-2 -mx-3">
-                          <div className="flex items-start gap-3">
-                            <div className={`w-2 h-2 rounded-full shrink-0 mt-2 ${dot}`}></div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="text-sm text-slate-900 dark:text-white leading-tight font-semibold truncate">
-                                  {it.summary || t("dashboard.insights.item_fallback")}
-                                </div>
+                              <div className="flex items-center gap-2 shrink-0">
                                 <Badge variant="outline" className={`text-[10px] font-bold ${levelPill}`}>
                                   {level}
                                 </Badge>
+                                <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 mt-0.5" />
                               </div>
-                              {it.recommended_action && (
-                                <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug line-clamp-2 mt-0.5">
-                                  {level === "CRITICAL" ? "Action" : "Recommendation"}: {it.recommended_action}
-                                </div>
-                              )}
                             </div>
+                            {it.recommended_action && (
+                              <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug line-clamp-2 mt-0.5">
+                                {level === "CRITICAL" ? "Action" : "Recommendation"}: {it.recommended_action}
+                              </div>
+                            )}
                           </div>
                         </div>
-                      )
+                      </button>
                     );
                   })}
                 </div>
