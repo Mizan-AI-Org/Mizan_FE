@@ -3223,6 +3223,30 @@ export class BackendService {
     }
   }
 
+  /** Live checklist progress (WhatsApp/conversational step-by-step) for managers. */
+  async getLiveChecklistProgress(): Promise<{ items: Array<{
+    id: string;
+    shift_id: string;
+    staff_id: string;
+    staff_name: string;
+    shift_date: string | null;
+    channel: string;
+    status: string;
+    progress_percentage: number;
+    total_tasks: number;
+    completed_tasks: number;
+    current_task_id: string | null;
+    updated_at: string | null;
+    completed_at: string | null;
+  }> }> {
+    const response = await fetch(`${API_BASE}/scheduling/live-checklist-progress/`, {
+      method: "GET",
+      headers: this.getHeaders(),
+    });
+    if (!response.ok) throw new Error("Failed to fetch live checklist progress");
+    return response.json();
+  }
+
   // --- Shift Reviews ---
   async submitShiftReview(
     accessToken: string,

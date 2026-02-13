@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import { LogOut, User, Bell } from "lucide-react";
+import { LogOut, User, Bell, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -15,7 +15,6 @@ import {
 // Removed mobile sidebar Sheet components per design update
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import BackLink from "@/components/BackLink";
 import BrandLogo from "@/components/BrandLogo";
 import { useLanguage } from "@/hooks/use-language";
 import { LuaWidget } from "@/components/LuaWidget";
@@ -72,11 +71,15 @@ const DashboardLayout: React.FC = () => {
       <header className="sticky top-0 z-[2000] bg-card/95 backdrop-blur-sm border-b shadow-soft">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {/* Removed mobile sidebar trigger per design */}
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard")}
+              className="flex items-center gap-3 rounded-md hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary/20"
+              aria-label={t("common.back_to_dashboard")}
+            >
               <BrandLogo size="sm" />
-              <h1 className="text-2xl font-bold select-none cursor-default">{t("common.brand")}</h1>
-            </div>
+              <h1 className="text-2xl font-bold select-none">{t("common.brand")}</h1>
+            </button>
             <div className="flex items-center gap-4">
 
               {/* Theme Toggle */}
@@ -196,13 +199,15 @@ const DashboardLayout: React.FC = () => {
       <main className="flex-1">
         {location.pathname !== '/dashboard' && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-3">
-            <BackLink
-              fallbackPath="/dashboard"
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard")}
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-colors shadow-sm"
-              ariaLabel={t("common.back_to_dashboard")}
+              aria-label={t("common.back_to_dashboard")}
             >
+              <ArrowLeft className="h-4 w-4" />
               {t("common.back_to_dashboard")}
-            </BackLink>
+            </button>
           </div>
         )}
         <Outlet />
