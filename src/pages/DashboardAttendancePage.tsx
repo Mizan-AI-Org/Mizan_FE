@@ -116,7 +116,7 @@ export default function DashboardAttendancePage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0f1419] p-4 md:p-6 lg:p-8 pb-28 font-sans antialiased text-slate-900 dark:text-slate-100">
-      <div className="max-w-5xl mx-auto space-y-8">
+      <div className="max-w-6xl mx-auto space-y-8">
         <header className="text-left">
           <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
             Critical issues & attendance
