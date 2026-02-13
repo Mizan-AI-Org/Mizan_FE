@@ -541,6 +541,7 @@
   "staff.insights.recent_signals": "Signaux de fiabilité récents",
   "staff.insights.no_signals": "Aucun signal détecté cette semaine",
   "staff.insights.managerial_action": "Action managériale requise",
+  "staff.insights.managerial_action_subtitle": "D'après les données de la semaine — surmenage, ponctualité, absences.",
   "staff.insights.no_critical": "Aucun problème critique détecté. Les opérations se déroulent bien.",
   "staff.insights.analyzing": "Analyse des indicateurs de performance du personnel…",
   "staff.insights.tasks": "Tâches",
