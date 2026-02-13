@@ -250,12 +250,19 @@ type BulkInviteRow = {
     phone_number?: string;
 };
 
+type MiyaRecommendation = {
+    title: string;
+    body: string;
+    action_label?: string;
+};
+
 type StaffInsightsData = {
     summary: { tasks_completed: number; tasks_trend: number; team_reliability: number; active_workers: number };
     star_performers: { name: string; role?: string; tasks: number; score: number }[];
     attendance_health: { on_time_arrival: number; no_show_rate: number };
     signals: { color: "emerald" | "amber"; text: string }[];
     alerts: { level: "Critical" | "Warning" | string; type?: string; title: string; description?: string }[];
+    miya_recommendation?: MiyaRecommendation | null;
 };
 
 // Reusable Pagination Controls Component
@@ -2931,6 +2938,8 @@ const InsightsTab: React.FC = () => {
             }
             return response.json();
         },
+        refetchInterval: 60_000,
+        refetchOnWindowFocus: true,
     });
 
     if (isLoading) {
@@ -2942,12 +2951,19 @@ const InsightsTab: React.FC = () => {
         );
     }
 
-    const { summary, star_performers, attendance_health, signals, alerts } = insightsData || {
+    const { summary, star_performers, attendance_health, signals, alerts, miya_recommendation } = insightsData || {
         summary: { tasks_completed: 0, tasks_trend: 0, team_reliability: 0, active_workers: 0 },
         star_performers: [],
         attendance_health: { on_time_arrival: 0, no_show_rate: 0 },
         signals: [],
-        alerts: []
+        alerts: [],
+        miya_recommendation: null
+    };
+
+    const openMiyaChat = () => {
+        const host = document.querySelector("#lua-shadow-root");
+        const btn = host?.shadowRoot?.querySelector?.("button.lua-pop-button, button");
+        if (btn) (btn as HTMLButtonElement).click();
     };
 
     return (
@@ -3112,10 +3128,13 @@ const InsightsTab: React.FC = () => {
 
             {/* Bottom Row: Alerts & AI Recommendations */}
             <div className="space-y-6">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <ShieldAlert className="w-5 h-5 text-red-500" />
-                    {t("staff.insights.managerial_action")}
-                </h2>
+                <div>
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <ShieldAlert className="w-5 h-5 text-red-500" />
+                        {t("staff.insights.managerial_action")}
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t("staff.insights.managerial_action_subtitle") || "Based on this week's data — burnout, punctuality, no-shows."}</p>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {alerts.length === 0 ? (
@@ -3171,14 +3190,25 @@ const InsightsTab: React.FC = () => {
                                 <Zap className="w-3 h-3" />
                                 {t("staff.insights.ai_recommendation")}
                             </p>
-                            <h3 className="text-xl font-bold text-white mb-2">{t("staff.insights.optimize_shifts")}</h3>
+                            <h3 className="text-xl font-bold text-white mb-2">{miya_recommendation?.title ?? t("staff.insights.optimize_shifts")}</h3>
                             <p className="text-slate-400 text-sm leading-relaxed">
-                                Based on last month’s data, reassigning shifts from <span className="text-white font-medium">Operations to Front of House</span> during peak hours could reduce late arrivals by <span className="text-emerald-400 font-bold">22%</span> and improve customer speed.
+                                {miya_recommendation?.body ? (
+                                    <span dangerouslySetInnerHTML={{ __html: miya_recommendation.body.replace(/\*\*(.*?)\*\*/g, "<strong class='text-white font-medium'>$1</strong>") }} />
+                                ) : (
+                                    <>Based on last month's data, reassigning shifts during peak hours and using Miya's clock-in reminders can reduce late arrivals. <strong className="text-white font-medium">Chat with Miya</strong> for a tailored plan.</>
+                                )}
                             </p>
                         </div>
-                        <Button className="bg-white hover:bg-slate-100 text-slate-950 font-bold rounded-xl px-8 shadow-lg shadow-white/5 whitespace-nowrap">
-                            Apply Optimization
-                        </Button>
+                        <div className="flex flex-shrink-0 gap-3">
+                            <Button
+                                type="button"
+                                onClick={openMiyaChat}
+                                variant="outline"
+                                className="bg-emerald-500 hover:bg-emerald-600 border-emerald-400 text-white font-bold rounded-xl px-6 shadow-lg whitespace-nowrap"
+                            >
+                                {miya_recommendation?.action_label ?? (t("ai.chat_button") || "Chat with Miya")}
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </div>
