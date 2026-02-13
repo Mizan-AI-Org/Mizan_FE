@@ -382,10 +382,7 @@ export default function TaskTemplateManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Manage Processes</h1>
-          <p className="text-muted-foreground">
-            Create and manage reusable Processes and Task checklists for your restaurant operations
-          </p>
+          <h1 className="text-2xl font-bold">Manage Processes</h1>
         </div>
 
         <div className="flex items-center gap-2">

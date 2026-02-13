@@ -15,6 +15,8 @@ import { logError, logInfo } from "@/lib/logging";
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
+import { MessageCircle, RefreshCw } from "lucide-react";
 
 type SubmittedChecklist = {
   id: string;
@@ -248,6 +250,15 @@ const ManagerReviewDashboard: React.FC = () => {
     },
     onError: () => toast.error('Failed to update incident status'),
   });
+  // Live checklist progress (WhatsApp step-by-step) for managers
+  const { data: liveProgress, isLoading: liveProgressLoading } = useQuery({
+    queryKey: ["live-checklist-progress"],
+    queryFn: () => api.getLiveChecklistProgress(),
+    refetchInterval: 10000,
+    staleTime: 0,
+  });
+  const liveItems = liveProgress?.items ?? [];
+
   const sortedTable = useMemo(() => {
     const inRange = filtered.filter(s => {
       const ts = s.submitted_at ? new Date(s.submitted_at).getTime() : 0;
@@ -304,6 +315,54 @@ const ManagerReviewDashboard: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
+      {/* Live tasks/processes progression (conversational checklists via WhatsApp) */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-emerald-600" />
+              <CardTitle className="text-base">Live checklist progress</CardTitle>
+            </div>
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <RefreshCw className="h-3 w-3" /> Updates every 10s
+            </span>
+          </div>
+          <CardDescription className="text-sm">
+            Step-by-step conversational checklists (e.g. via WhatsApp) — progression by staff
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {liveProgressLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : liveItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No in-progress or recent checklist activity.</p>
+          ) : (
+            <div className="space-y-4">
+              {liveItems.map((item) => (
+                <div key={item.id} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">{item.staff_name}</span>
+                    <span className="text-muted-foreground">
+                      {item.shift_date ? new Date(item.shift_date).toLocaleDateString() : "—"} · {item.channel}
+                      {item.status === "COMPLETED" && " · Done"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Progress value={item.progress_percentage} className="h-2 flex-1" />
+                    <span className="text-xs font-medium tabular-nums w-10 text-right">
+                      {item.progress_percentage}%
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {item.completed_tasks} of {item.total_tasks} tasks completed
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="submitted" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="submitted">{t("analytics.submitted_checklist")}</TabsTrigger>
