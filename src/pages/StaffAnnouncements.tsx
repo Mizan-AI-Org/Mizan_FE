@@ -25,6 +25,7 @@ import { StaffProfileItem } from "@/lib/types";
 import { CalendarIcon, Send, Clock, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ListSkeleton } from "@/components/skeletons";
 
 interface AnnouncementFormData {
   title: string;
@@ -598,9 +599,7 @@ const StaffAnnouncements: React.FC = () => {
                   {recipientMode === "STAFF" && (
                     <div className="space-y-2">
                       {isLoadingStaff ? (
-                        <p className="text-sm text-muted-foreground">
-                          Loading staff…
-                        </p>
+                        <ListSkeleton rowCount={4} lineCount={1} showAvatar={false} className="max-h-56" />
                       ) : staffProfiles.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
                           No staff profiles found.
@@ -648,9 +647,7 @@ const StaffAnnouncements: React.FC = () => {
                   {recipientMode === "DEPARTMENT" && (
                     <div className="space-y-2">
                       {isLoadingStaff ? (
-                        <p className="text-sm text-muted-foreground">
-                          Loading departments…
-                        </p>
+                        <ListSkeleton rowCount={3} lineCount={1} showAvatar={false} className="max-h-56" />
                       ) : uniqueDepartments.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
                           No departments found.
@@ -688,9 +685,7 @@ const StaffAnnouncements: React.FC = () => {
                   {recipientMode === "ROLE" && (
                     <div className="space-y-2">
                       {isLoadingStaff ? (
-                        <p className="text-sm text-muted-foreground">
-                          Loading roles…
-                        </p>
+                        <ListSkeleton rowCount={3} lineCount={1} showAvatar={false} className="max-h-56" />
                       ) : uniqueRoles.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
                           No roles found.
@@ -728,9 +723,7 @@ const StaffAnnouncements: React.FC = () => {
                   {recipientMode === "SHIFT" && (
                     <div className="space-y-2">
                       {isLoadingShifts ? (
-                        <p className="text-sm text-muted-foreground">
-                          Loading shifts…
-                        </p>
+                        <ListSkeleton rowCount={4} lineCount={2} showAvatar={false} className="max-h-56" />
                       ) : assignedShifts.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
                           No upcoming shifts found.

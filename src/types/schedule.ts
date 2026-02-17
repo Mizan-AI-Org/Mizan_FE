@@ -33,8 +33,11 @@ export interface Shift {
   staff_members?: string[];
   staff_members_details?: { id: string; first_name: string; last_name: string; }[];
   isRecurring?: boolean;
-  frequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  frequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'CUSTOM';
+  /** When frequency is CUSTOM, 0=Mon, 1=Tue, ... 6=Sun */
+  days_of_week?: number[];
   recurringEndDate?: string; // ISO date string (YYYY-MM-DD) for when recurrence ends
+  recurrence_group_id?: string | null;
   color?: string;
   type?: 'confirmed' | 'pending' | 'tentative';
   tasks?: Task[];
@@ -71,6 +74,9 @@ export interface BackendShift {
   task_templates?: string[];
   task_templates_details?: { id: string; name?: string; title?: string; }[];
   tasks?: { id?: string; title: string; priority?: TaskPriority; description?: string; }[];
+  is_recurring?: boolean;
+  recurrence_group_id?: string | null;
+  recurrence_end_date?: string | null;
 }
 
 export interface WeeklyScheduleData {

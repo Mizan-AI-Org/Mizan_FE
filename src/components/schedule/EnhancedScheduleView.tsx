@@ -20,9 +20,9 @@ import { getStaffColor } from "@/lib/utils";
  * It now prioritizes the 24-hour weekly grid view for optimized staff allocation.
  */
 const EnhancedScheduleView: React.FC = () => {
-  const { isAdmin, isSuperAdmin } = useAuth() as AuthContextType;
+  const { hasRole } = useAuth() as AuthContextType;
   const { t } = useLanguage();
-  const canEditShifts = (isAdmin?.() ?? false) || (isSuperAdmin?.() ?? false);
+  const canEditShifts = hasRole?.([ 'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OWNER' ]) ?? false;
 
   const [currentView, setCurrentView] = useState<"week" | "timesheet" | "list">("week");
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -145,146 +145,153 @@ const EnhancedScheduleView: React.FC = () => {
         title: t.title,
         priority: (t.priority as TaskPriority) || "MEDIUM",
       })),
+      isRecurring: !!shift.is_recurring,
+      recurrence_group_id: shift.recurrence_group_id ?? undefined,
+      recurringEndDate: shift.recurrence_end_date ?? undefined,
+      frequency: shift.is_recurring ? 'WEEKLY' : undefined,
     };
     });
   }, [scheduleData]);
 
-  if (isLoadingStaff || isLoadingShifts) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-green-600" />
-          <p className="text-gray-500 font-medium tracking-wide">Orchestrating schedule data...</p>
-        </div>
-      </div>
-    );
-  }
+  const isLoading = isLoadingStaff || isLoadingShifts;
+
+  const withSeconds = (t: string) => (t && t.length === 5 ? `${t}:00` : t);
+  const makeISO = (dStr: string, tStr: string) => {
+    const d = new Date(`${dStr}T${withSeconds(tStr)}`);
+    const offsetMin = -d.getTimezoneOffset();
+    const sign = offsetMin >= 0 ? "+" : "-";
+    const abs = Math.abs(offsetMin);
+    return `${dStr}T${withSeconds(tStr)}${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
+  };
 
   const handleSaveShift = async (shift: Shift) => {
-    try {
-      const token = localStorage.getItem("access_token");
-      const isUpdate = shifts.some((s) => s.id === shift.id && !String(s.id).startsWith('temp'));
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      toast.error("Not authenticated");
+      return;
+    }
+    const isUpdate = shifts.some((s) => s.id === shift.id && !String(s.id).startsWith("temp"));
+    const staffIds = (shift.staff_members?.length ? shift.staff_members : shift.staffIds?.length ? shift.staffIds : null) ?? [shift.staffId];
+    const title = (shift.title || "").trim() || "Shift";
+    const tasksPayload = (shift.tasks || []).map((t) => ({ title: t.title, priority: t.priority || "MEDIUM" }));
 
-      const withSeconds = (t: string) => (t && t.length === 5 ? `${t}:00` : t);
-      const makeISO = (dStr: string, tStr: string) => {
-        const d = new Date(`${dStr}T${withSeconds(tStr)}`);
-        const offsetMin = -d.getTimezoneOffset();
-        const sign = offsetMin >= 0 ? "+" : "-";
-        const abs = Math.abs(offsetMin);
-        return `${dStr}T${withSeconds(tStr)}${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
+    try {
+      // —— Recurring: use batch API (one request create, or delete+create for edit) ——
+      const hasCustomDays = Array.isArray(shift.days_of_week) && shift.days_of_week.length > 0;
+      const isRecurringSave = shift.isRecurring && shift.recurringEndDate && (shift.frequency === 'CUSTOM' ? hasCustomDays : shift.frequency);
+      if (isRecurringSave) {
+        if (isUpdate) {
+          if (shift.recurrence_group_id) {
+            const delRes = await fetch(`${API_BASE}/scheduling/recurring-shifts/batch-delete/`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ recurrence_group_id: shift.recurrence_group_id }),
+            });
+            if (!delRes.ok) {
+              const err = await delRes.json().catch(() => ({}));
+              throw new Error((err as { detail?: string }).detail || "Failed to update recurring series");
+            }
+          } else {
+            // Converting a single shift into a series: delete the original so batch-create doesn't conflict
+            const delRes = await fetch(`${API_BASE}/scheduling/assigned-shifts-v2/${shift.id}/`, {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!delRes.ok) {
+              const err = await delRes.json().catch(() => ({}));
+              throw new Error((err as { detail?: string }).detail || "Failed to remove original shift");
+            }
+          }
+        }
+        const createRes = await fetch(`${API_BASE}/scheduling/recurring-shifts/batch-create/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            start_date: shift.date,
+            end_date: shift.recurringEndDate,
+            frequency: shift.frequency === 'CUSTOM' ? 'CUSTOM' : shift.frequency,
+            ...(hasCustomDays ? { days_of_week: shift.days_of_week } : {}),
+            start_time: shift.start.length === 5 ? `${shift.start}:00` : shift.start,
+            end_time: shift.end.length === 5 ? `${shift.end}:00` : shift.end,
+            staff_members: staffIds,
+            title,
+            task_templates: (shift as Shift).task_templates || [],
+            tasks: tasksPayload,
+            color: shift.color || getStaffColor(staffIds[0]),
+          }),
+        });
+        const createJson = await createRes.json().catch(() => ({})) as { detail?: string; staff?: string[] };
+        if (!createRes.ok) {
+          const msg = createJson.detail
+            || (Array.isArray(createJson.staff) ? createJson.staff.join(" ") : null)
+            || "Failed to create recurring shifts";
+          throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+        }
+        const created = (createJson as { created?: number }).created ?? 0;
+        toast.success(`Created ${created} recurring shift(s)`);
+        refetchShifts();
+        setIsShiftModalOpen(false);
+        return;
+      }
+
+      // —— Single shift: one PUT or one POST ——
+      let targetedScheduleId = scheduleData?.id;
+      const currentWeekStart = toYMD(getWeekStart(parseISO(shift.date)));
+      if (currentWeekStart !== weekStartStr) {
+        const findRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const listJson = await findRes.json();
+        const listData = (listJson?.results ?? listJson) as WeeklyScheduleData[];
+        let existing = listData.find((s) => s.week_start === currentWeekStart);
+        if (!existing) {
+          const createRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              week_start: currentWeekStart,
+              week_end: toYMD(addDays(getWeekStart(parseISO(shift.date)), 6)),
+              is_published: false,
+            }),
+          });
+          if (createRes.ok) existing = await createRes.json();
+        }
+        targetedScheduleId = existing?.id;
+      }
+      if (!targetedScheduleId) {
+        toast.error("Could not resolve schedule for this week");
+        return;
+      }
+
+      const method = isUpdate ? "PUT" : "POST";
+      const url = `${API_BASE}/scheduling/weekly-schedules/${targetedScheduleId}/assigned-shifts/${isUpdate ? shift.id + "/" : ""}`;
+      const payload: Record<string, unknown> = {
+        staff: staffIds[0],
+        staff_members: staffIds,
+        shift_date: shift.date,
+        start_time: makeISO(shift.date, shift.start),
+        end_time: makeISO(shift.date, shift.end),
+        title,
+        notes: title,
+        color: shift.color || getStaffColor(staffIds[0]),
+        task_templates: (shift as Shift).task_templates || [],
+        tasks: shift.tasks || [],
       };
 
-      const staffIds = (shift.staff_members?.length ? shift.staff_members : shift.staffIds?.length ? shift.staffIds : null) ?? [shift.staffId];
-      const shiftDates = [shift.date];
-
-      // Only generate recurring shifts for NEW shifts to prevent duplicates on update
-      if (shift.isRecurring && !isUpdate && shift.recurringEndDate) {
-        const baseDate = parseISO(shift.date);
-        const endDate = parseISO(shift.recurringEndDate);
-        let currentDate = baseDate;
-        let iterations = 0;
-        const maxIterations = 365; // Safety limit
-
-        while (iterations < maxIterations) {
-          let nextDate: Date;
-          if (shift.frequency === 'DAILY') {
-            nextDate = addDays(currentDate, 1);
-          } else if (shift.frequency === 'MONTHLY') {
-            nextDate = addMonths(currentDate, 1);
-          } else { // WEEKLY
-            nextDate = addWeeks(currentDate, 1);
-          }
-
-          if (isBefore(nextDate, endDate) || isEqual(nextDate, endDate)) {
-            shiftDates.push(format(nextDate, 'yyyy-MM-dd'));
-            currentDate = nextDate;
-            iterations++;
-          } else {
-            break;
-          }
-        }
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error((errBody as { detail?: string }).detail || "Failed to save shift");
       }
-
-      const results = [];
-      let originalShiftConsumed = false;
-
-      for (const dStr of shiftDates) {
-        // Determine the correct weekly schedule ID for this date
-        let targetedWeeklyScheduleId = scheduleData?.id;
-        const currentWeekStart = toYMD(getWeekStart(parseISO(dStr)));
-
-        if (currentWeekStart !== weekStartStr) {
-          // Find or create weekly schedule for this different week
-          const findRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const listJson = await findRes.json();
-          const listData = (listJson?.results ?? listJson) as WeeklyScheduleData[];
-          let existing = listData.find(s => s.week_start === currentWeekStart);
-
-          if (!existing) {
-            const createRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                week_start: currentWeekStart,
-                week_end: toYMD(addDays(getWeekStart(parseISO(dStr)), 6)),
-                is_published: false,
-              }),
-            });
-            if (createRes.ok) existing = await createRes.json();
-          }
-          targetedWeeklyScheduleId = existing?.id;
-        }
-
-        if (!targetedWeeklyScheduleId) continue;
-
-        // Only use PUT for the very first combination (original staff, original date)
-        // If update involves multiple staff or dates, those must be POSTed
-        const method = (isUpdate && dStr === shift.date && !originalShiftConsumed) ? "PUT" : "POST";
-        if (method === "PUT") originalShiftConsumed = true;
-
-        const url = `${API_BASE}/scheduling/weekly-schedules/${targetedWeeklyScheduleId}/assigned-shifts/${(method === "PUT" ? shift.id + "/" : "")}`;
-
-        const payload = {
-          staff: staffIds[0],
-          staff_members: staffIds,
-          shift_date: dStr,
-          start_time: makeISO(dStr, shift.start),
-          end_time: makeISO(dStr, shift.end),
-          title: (shift.title || "").trim() || undefined,
-          notes: (shift.title || "").trim() || "",
-          color: shift.color || getStaffColor(staffIds[0]),
-          task_templates: (shift as Shift).task_templates || [],
-          tasks: shift.tasks || [],
-        };
-
-        const response = await fetch(url, {
-          method,
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify(payload),
-        });
-
-        if (response.ok) {
-          results.push(await response.json());
-        } else {
-          const errText = await response.text();
-          console.error(`Failed to ${method} shift on ${dStr}:`, errText);
-        }
-      }
-
-      if (results.length > 0) {
-        toast.success(`Successfully processed ${results.length} shift(s)`);
-      } else {
-        toast.error("Failed to create any shifts. Check console for details.");
-      }
+      toast.success(isUpdate ? t("toasts.shift_updated") || "Shift updated" : "Shift created");
       refetchShifts();
     } catch (error) {
       console.error(error);
-      toast.error("Failed to save shift(s)");
+      toast.error(error instanceof Error ? error.message : "Failed to save shift(s)");
     } finally {
       setIsShiftModalOpen(false);
     }
@@ -364,6 +371,7 @@ const EnhancedScheduleView: React.FC = () => {
               setCurrentShift(shift);
               setIsShiftModalOpen(true);
             }}
+            isLoading={isLoading}
           />
         )}
         {currentView === "timesheet" && (
@@ -376,6 +384,7 @@ const EnhancedScheduleView: React.FC = () => {
               setCurrentShift(shift);
               setIsShiftModalOpen(true);
             }}
+            isLoading={isLoading}
           />
         )}
         {currentView === "list" && (
@@ -383,6 +392,7 @@ const EnhancedScheduleView: React.FC = () => {
             shifts={shifts}
             staffMembers={staffMembers}
             currentDate={currentDate}
+            isLoading={isLoading}
           />
         )}
       </div>

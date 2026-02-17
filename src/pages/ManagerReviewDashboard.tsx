@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
 import { api, API_BASE, toAbsoluteUrl } from "@/lib/api";
@@ -12,11 +12,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { logError, logInfo } from "@/lib/logging";
-import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  BarChart,
+  Bar,
+} from "recharts";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { MessageCircle, RefreshCw } from "lucide-react";
+import { MessageCircle, RefreshCw, TrendingUp, Users, ClipboardCheck, AlertTriangle } from "lucide-react";
+import { TableSkeleton, CardGridSkeleton } from "@/components/skeletons";
 
 type SubmittedChecklist = {
   id: string;
@@ -40,6 +51,62 @@ type SubmittedChecklist = {
     actions_open?: number;
     actions_resolved?: number;
   } | null;
+};
+
+type ExecutionAnomaly = {
+  step_title?: string;
+  value?: string | number;
+  issue?: string;
+  threshold?: string | number;
+};
+
+type ExecutionEvidence = {
+  id?: string | number;
+  evidence_type?: string;
+  filename?: string;
+  file_path?: string;
+  url?: string;
+  caption?: string;
+};
+
+type ExecutionStepResponse = {
+  id?: string | number;
+  step?: { title?: string; description?: string; measurement_unit?: string };
+  status?: string;
+  is_completed?: boolean;
+  text_response?: string;
+  measurement_value?: string | number | null;
+  boolean_response?: boolean;
+  signature_data?: unknown;
+  response?: unknown;
+  notes?: string | null;
+  evidence?: ExecutionEvidence[];
+};
+
+type ExecutionAction = {
+  id?: string | number;
+  title?: string;
+  status?: string;
+  description?: string;
+  priority?: string;
+  assigned_to?: { first_name?: string; last_name?: string } | null;
+};
+
+type ChecklistExecutionDetail = {
+  analysis_results?: {
+    summary?: string;
+    highlights?: string[];
+    anomalies?: ExecutionAnomaly[];
+  };
+  assigned_shift_info?: {
+    shift_date?: string;
+    start_time?: string;
+    end_time?: string;
+    role?: string;
+    department?: string;
+  } | null;
+  step_responses?: ExecutionStepResponse[];
+  actions?: ExecutionAction[];
 };
 
 const ManagerReviewDashboard: React.FC = () => {
@@ -78,22 +145,29 @@ const ManagerReviewDashboard: React.FC = () => {
         logInfo({ feature: "manager-review", action: "fetch-submitted" }, `HTTP ${res.status}; using fallback`, { url: url.toString() });
         const my = await api.getMyChecklists({ status: "COMPLETED", page_size: 100 });
         const arr = Array.isArray(my) ? my : (my.results || []);
-        const mapped = arr.map((e: { id: string | number; template?: any; completed_at?: string | null; updated_at?: string | null; assigned_to?: { id: string | number; first_name?: string; last_name?: string } | null; completion_notes?: string | null }) => ({
-          id: String(e.id),
-          template: e.template,
-          submitted_at: e.completed_at || e.updated_at || null,
-          status: "COMPLETED",
-          submitted_by: e.assigned_to
-            ? { id: String(e.assigned_to.id), name: `${e.assigned_to.first_name || ''} ${e.assigned_to.last_name || ''}`.trim() }
-            : null,
-          notes: e.completion_notes || null
-        }));
+        const mapped = arr.map((e: { id: string | number; template?: unknown; completed_at?: string | null; updated_at?: string | null; assigned_to?: { id: string | number; first_name?: string; last_name?: string } | null; completion_notes?: string | null }) => {
+          const tmplRec = (e.template && typeof e.template === "object") ? (e.template as Record<string, unknown>) : null;
+          const template = tmplRec && ("id" in tmplRec)
+            ? { id: String(tmplRec.id ?? ""), name: typeof tmplRec.name === "string" ? tmplRec.name : undefined, description: typeof tmplRec.description === "string" ? tmplRec.description : undefined }
+            : null;
+          return ({
+            id: String(e.id),
+            template,
+            submitted_at: e.completed_at || e.updated_at || null,
+            status: "COMPLETED",
+            submitted_by: e.assigned_to
+              ? { id: String(e.assigned_to.id), name: `${e.assigned_to.first_name || ''} ${e.assigned_to.last_name || ''}`.trim() }
+              : null,
+            notes: e.completion_notes || null
+          });
+        });
         logInfo({ feature: "manager-review", action: "fallback-my-checklists" }, `Using ${mapped.length} completed entries`);
         return mapped;
       }
       const data = await res.json();
       try { logInfo({ feature: 'manager-review', action: 'fetch-submitted-ok' }, `Loaded ${(Array.isArray(data) ? data.length : (data?.results?.length || 0))} rows`); } catch { /* ignore */ }
-      let arr: any[] = Array.isArray(data) ? data : (data.results || []);
+      const isRec = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+      let arr: unknown[] = Array.isArray(data) ? data : (isRec(data) && Array.isArray((data as { results?: unknown }).results) ? ((data as { results: unknown[] }).results) : []);
       if (!arr || arr.length === 0) {
         const fb = toAbsoluteUrl(`${API_BASE}/checklists/executions/`);
         fb.searchParams.set("status", "COMPLETED");
@@ -101,29 +175,40 @@ const ManagerReviewDashboard: React.FC = () => {
         const alt = await fetch(fb.toString(), { headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }, credentials: "include" });
         if (alt.ok) {
           const altJson = await alt.json();
-          arr = Array.isArray(altJson) ? altJson : (altJson.results || []);
+          arr = Array.isArray(altJson) ? altJson : (isRec(altJson) && Array.isArray((altJson as { results?: unknown }).results) ? ((altJson as { results: unknown[] }).results) : []);
           logInfo({ feature: "manager-review", action: "fallback-completed-list" }, `Fetched ${arr.length} entries from completed list`);
         }
       }
       return arr.map((d: unknown) => {
-        const itm = d as any;
-        const submitterRaw = itm.submitted_by || itm.assigned_to || itm.assigned_to_info || null;
+        const itm = (isRec(d) ? d : {}) as Record<string, unknown>;
+        const submitterRaw = (itm.submitted_by || itm.assigned_to || itm.assigned_to_info || null) as unknown;
+        const submitterRec = isRec(submitterRaw) ? submitterRaw : null;
         const submitterName = submitterRaw
-          ? (submitterRaw.name
-            || [submitterRaw.first_name, submitterRaw.last_name].filter(Boolean).join(" ")
-            || submitterRaw.username
+          ? ((submitterRec && typeof submitterRec.name === "string" && submitterRec.name)
+            || (submitterRec ? [submitterRec.first_name, submitterRec.last_name].filter(Boolean).join(" ") : "")
+            || (submitterRec && typeof submitterRec.username === "string" ? submitterRec.username : "")
             || undefined)
           : undefined;
         const review = (typeof itm.review_status === 'string') ? String(itm.review_status).toUpperCase() : null;
         const approved = typeof itm.supervisor_approved === 'boolean' ? itm.supervisor_approved : null;
-        const displayStatus = review || (approved === true ? 'APPROVED' : approved === false ? 'PENDING' : (itm.status || itm.completion_status || null));
+        const rawStatus = typeof itm.status === "string" ? itm.status : (typeof itm.completion_status === "string" ? itm.completion_status : null);
+        const displayStatus = review || (approved === true ? 'APPROVED' : approved === false ? 'PENDING' : rawStatus);
+        const tmplRaw = (itm.template || itm.template_info || null) as unknown;
+        const tmplRec = isRec(tmplRaw) ? tmplRaw : null;
+        const template = tmplRec && ("id" in tmplRec) ? { id: String(tmplRec.id ?? ""), name: typeof tmplRec.name === "string" ? tmplRec.name : undefined, description: typeof tmplRec.description === "string" ? tmplRec.description : undefined } : null;
         return {
-          id: String(itm.id),
-          template: itm.template || itm.template_info || null,
-          submitted_at: itm.submitted_at || itm.completed_at || itm.updated_at || null,
+          id: String(itm.id ?? ""),
+          template,
+          submitted_at: (typeof itm.submitted_at === "string" ? itm.submitted_at : (typeof itm.completed_at === "string" ? itm.completed_at : (typeof itm.updated_at === "string" ? itm.updated_at : null))),
           status: displayStatus,
-          submitted_by: submitterRaw ? { id: String(submitterRaw.id || itm.assigned_to_id || ''), name: submitterName } : null,
-          notes: itm.notes || itm.completion_notes || null,
+          submitted_by: submitterRec
+            ? {
+              id: ("id" in submitterRec) ? String((submitterRec as Record<string, unknown>).id ?? "") : String(itm.assigned_to_id ?? ""),
+              name: submitterName,
+            }
+            : null,
+          notes: (typeof itm.notes === "string" ? itm.notes : (typeof itm.completion_notes === "string" ? itm.completion_notes : null)),
+          compiled_summary: (itm.compiled_summary || itm.compiled_summary_info || itm.summary || null) as SubmittedChecklist["compiled_summary"],
         } as SubmittedChecklist;
       });
     },
@@ -137,25 +222,25 @@ const ManagerReviewDashboard: React.FC = () => {
     mutationFn: async (vars: { id: string; reason?: string }) => {
       const res = await fetch(`${API_BASE}/checklists/executions/${vars.id}/manager_review/`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("access_token")}` }, body: JSON.stringify({ decision: "APPROVED", reason: vars.reason || "" }), credentials: "include" });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({} as any));
+        const err = (await res.json().catch(() => ({}))) as { detail?: string; error?: string; message?: string };
         throw new Error(err?.detail || err?.error || err?.message || "Failed to approve submission");
       }
       return res.json();
     },
     onSuccess: async (_data, variables) => { queryClient.invalidateQueries({ queryKey: ["manager-submitted-checklists"] }); toast.success(t("toasts.submission_approved")); try { await api.logAdminAction(String(variables.id), { action: 'MANAGER_REVIEW_DECISION', message: 'Approved' }); } catch { /* ignore */ } },
-    onError: (e: any) => toast.error(e?.message || "Approval failed"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Approval failed"),
   });
   const rejectMutation = useMutation({
     mutationFn: async (vars: { id: string; reason?: string }) => {
       const res = await fetch(`${API_BASE}/checklists/executions/${vars.id}/manager_review/`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("access_token")}` }, body: JSON.stringify({ decision: "REJECTED", reason: vars.reason || "" }), credentials: "include" });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({} as any));
+        const err = (await res.json().catch(() => ({}))) as { detail?: string; error?: string; message?: string };
         throw new Error(err?.detail || err?.error || err?.message || "Failed to reject submission");
       }
       return res.json();
     },
     onSuccess: async (_data, variables) => { queryClient.invalidateQueries({ queryKey: ["manager-submitted-checklists"] }); toast.success(t("toasts.submission_rejected")); try { await api.logAdminAction(String(variables.id), { action: 'MANAGER_REVIEW_DECISION', message: 'Rejected' }); } catch { /* ignore */ } },
-    onError: (e: any) => toast.error(e?.message || "Rejection failed"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Rejection failed"),
   });
 
   const detailQuery = useQuery({
@@ -180,18 +265,20 @@ const ManagerReviewDashboard: React.FC = () => {
   }, [submitted, search]);
 
   const total = filtered.length;
-  const completed = filtered.filter(s => s.status === 'COMPLETED').length;
+  const isCompletedLike = useCallback((st: string | null | undefined) => {
+    const s = String(st || '').toUpperCase();
+    return s === 'COMPLETED' || s === 'APPROVED';
+  }, []);
+  const completed = filtered.filter(s => isCompletedLike(s.status)).length;
   const completionPct = total ? Math.round((completed / total) * 100) : 0;
   const recentActivity = notifications.filter(n => ['document signed', 'field edited', 'auto save', 'checklist submitted'].includes((n.verb || '').toLowerCase())).slice(0, 8);
-  const dailyData = useMemo(() => {
-    const map = new Map<string, number>();
-    filtered.forEach((s) => {
-      const d = s.submitted_at ? new Date(s.submitted_at) : null;
-      const key = d ? d.toISOString().slice(0, 10) : '—';
-      map.set(key, (map.get(key) || 0) + 1);
-    });
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([date, count]) => ({ date, count }));
-  }, [filtered]);
+
+  const toYMD = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${dd}`;
+  };
 
   const [tab, setTab] = useState<'cards' | 'table'>('table');
   const [sortBy, setSortBy] = useState<'date' | 'staff' | 'checklist'>('date');
@@ -199,6 +286,101 @@ const ManagerReviewDashboard: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [staffFilter, setStaffFilter] = useState('');
+  const [trendDays, setTrendDays] = useState<7 | 14 | 30>(14);
+
+  const trendRange = useMemo(() => {
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    const start = new Date(end);
+    start.setDate(end.getDate() - (trendDays - 1));
+    start.setHours(0, 0, 0, 0);
+    return { start, end };
+  }, [trendDays]);
+
+  const trendDaily = useMemo(() => {
+    const map = new Map<string, number>();
+    const days: string[] = [];
+    const cursor = new Date(trendRange.start);
+    while (cursor.getTime() <= trendRange.end.getTime()) {
+      const key = toYMD(cursor);
+      days.push(key);
+      map.set(key, 0);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    filtered.forEach((s) => {
+      if (!s.submitted_at) return;
+      const d = new Date(s.submitted_at);
+      if (Number.isNaN(d.getTime())) return;
+      if (d.getTime() < trendRange.start.getTime() || d.getTime() > trendRange.end.getTime()) return;
+      const key = toYMD(d);
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+    return days.map((date) => ({ date, count: map.get(date) || 0 }));
+  }, [filtered, trendRange]);
+
+  const trendKpis = useMemo(() => {
+    const inRange = filtered.filter((s) => {
+      if (!s.submitted_at) return false;
+      const d = new Date(s.submitted_at);
+      if (Number.isNaN(d.getTime())) return false;
+      return d.getTime() >= trendRange.start.getTime() && d.getTime() <= trendRange.end.getTime();
+    });
+    const totalInRange = inRange.length;
+    const completedInRange = inRange.filter((s) => isCompletedLike(s.status)).length;
+    const uniqueStaff = new Set(inRange.map((s) => String(s.submitted_by?.name || '')).filter(Boolean)).size;
+    const avgCompletion = (() => {
+      const vals = inRange
+        .map((s) => s.compiled_summary?.completion_rate)
+        .filter((x): x is number => typeof x === "number" && !Number.isNaN(x));
+      if (!vals.length) return null;
+      return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+    })();
+    const issueRate = (() => {
+      const withAny = inRange.filter((s) => !!s.compiled_summary);
+      if (!withAny.length) return null;
+      const withIssues = withAny.filter((s) => {
+        const cs = s.compiled_summary || {};
+        return (cs.failed_steps || 0) > 0
+          || (cs.required_missing || 0) > 0
+          || (cs.out_of_range_measurements || 0) > 0
+          || (cs.actions_open || 0) > 0;
+      }).length;
+      return Math.round((withIssues / withAny.length) * 100);
+    })();
+    return {
+      totalInRange,
+      completedInRange,
+      completionPctInRange: totalInRange ? Math.round((completedInRange / totalInRange) * 100) : 0,
+      uniqueStaff,
+      avgCompletion,
+      issueRate,
+    };
+  }, [filtered, isCompletedLike, trendRange]);
+
+  const topTemplates = useMemo(() => {
+    const map = new Map<string, number>();
+    filtered.forEach((s) => {
+      const name = String(s.template?.name || '').trim() || '—';
+      map.set(name, (map.get(name) || 0) + 1);
+    });
+    return Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([name, count]) => ({ name, count }));
+  }, [filtered]);
+
+  const topStaff = useMemo(() => {
+    const map = new Map<string, number>();
+    filtered.forEach((s) => {
+      const name = String(s.submitted_by?.name || '').trim() || '—';
+      map.set(name, (map.get(name) || 0) + 1);
+    });
+    return Array.from(map.entries())
+      .filter(([name]) => name !== '—')
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([name, count]) => ({ name, count }));
+  }, [filtered]);
 
   // Fetch incidents
   const { data: incidents, isLoading: incidentsLoading } = useQuery({
@@ -225,6 +407,88 @@ const ManagerReviewDashboard: React.FC = () => {
       return res.json();
     },
   });
+
+  type SafetyIncident = {
+    id: string;
+    title?: string | null;
+    location?: string | null;
+    severity?: string | null;
+    status?: string | null;
+    is_anonymous?: boolean | null;
+    reporter_details?: { first_name?: string | null; last_name?: string | null } | null;
+    created_at?: string | null;
+    resolution_notes?: string | null;
+    incident_type?: string | null;
+  };
+
+  const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+
+  const incidentList = useMemo<SafetyIncident[]>(() => {
+    const raw: unknown = incidents;
+    const listUnknown: unknown =
+      Array.isArray(raw) ? raw : (isRecord(raw) && Array.isArray((raw as { results?: unknown }).results) ? (raw as { results: unknown[] }).results : []);
+    const arr = Array.isArray(listUnknown) ? listUnknown : [];
+    return arr
+      .map((x) => (isRecord(x) ? x : ({} as Record<string, unknown>)))
+      .map((x) => ({
+        id: String(x.id ?? ""),
+        title: typeof x.title === "string" ? x.title : null,
+        location: typeof x.location === "string" ? x.location : null,
+        severity: typeof x.severity === "string" ? x.severity : null,
+        status: typeof x.status === "string" ? x.status : null,
+        is_anonymous: typeof x.is_anonymous === "boolean" ? x.is_anonymous : null,
+        reporter_details: isRecord(x.reporter_details) ? {
+          first_name: typeof x.reporter_details.first_name === "string" ? x.reporter_details.first_name : null,
+          last_name: typeof x.reporter_details.last_name === "string" ? x.reporter_details.last_name : null,
+        } : null,
+        created_at: typeof x.created_at === "string" ? x.created_at : null,
+      }));
+  }, [incidents]);
+
+  const filteredIncidents = useMemo(() => {
+    return incidentList.filter((inc) => {
+      const matchesStatus = !incidentFilters.status || String(inc.status || '').toLowerCase() === incidentFilters.status.toLowerCase();
+      const matchesSeverity = !incidentFilters.severity || String(inc.severity || '').toLowerCase() === incidentFilters.severity.toLowerCase();
+      const q = incidentFilters.search.trim().toLowerCase();
+      const matchesSearch = !q
+        || String(inc.title || '').toLowerCase().includes(q)
+        || String(inc.location || '').toLowerCase().includes(q);
+      return matchesStatus && matchesSeverity && matchesSearch;
+    });
+  }, [incidentList, incidentFilters]);
+
+  const totalIncidentItems = filteredIncidents.length;
+  const totalIncidentPages = totalIncidentItems ? Math.ceil(totalIncidentItems / incidentPageSize) : 1;
+  const incidentStartIndex = (incidentPage - 1) * incidentPageSize;
+  const incidentEndIndex = incidentStartIndex + incidentPageSize;
+  const paginatedIncidents = filteredIncidents.slice(incidentStartIndex, incidentEndIndex);
+
+  const getSeverityColor = (severity: string) => {
+    const sev = (severity || '').toLowerCase();
+    switch (sev) {
+      case 'critical': return 'bg-red-100 text-red-800 border-red-200';
+      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'low': return 'bg-gray-100 text-gray-800 border-gray-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    const st = (status || '').toLowerCase();
+    switch (st) {
+      case 'reported': return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'under_review': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'addressed': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'resolved': return 'bg-green-100 text-green-800 border-green-200';
+      case 'dismissed': return 'bg-gray-100 text-gray-800 border-gray-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const formatStatus = (status: string) => {
+    return (status || '').replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+  };
 
   // Update status mutation
   const updateStatusMutation = useMutation({
@@ -314,54 +578,7 @@ const ManagerReviewDashboard: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
-      {/* Live tasks/processes progression (conversational checklists via WhatsApp) */}
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-emerald-600" />
-              <CardTitle className="text-base">Live checklist progress</CardTitle>
-            </div>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <RefreshCw className="h-3 w-3" /> Updates every 10s
-            </span>
-          </div>
-          <CardDescription className="text-sm">
-            Step-by-step conversational checklists (e.g. via WhatsApp) — progression by staff
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {liveProgressLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : liveItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No in-progress or recent checklist activity.</p>
-          ) : (
-            <div className="space-y-4">
-              {liveItems.map((item) => (
-                <div key={item.id} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{item.staff_name}</span>
-                    <span className="text-muted-foreground">
-                      {item.shift_date ? new Date(item.shift_date).toLocaleDateString() : "—"} · {item.channel}
-                      {item.status === "COMPLETED" && " · Done"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Progress value={item.progress_percentage} className="h-2 flex-1" />
-                    <span className="text-xs font-medium tabular-nums w-10 text-right">
-                      {item.progress_percentage}%
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {item.completed_tasks} of {item.total_tasks} tasks completed
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+    <div className="p-4 sm:p-6 space-y-4 max-w-[1400px] mx-auto">
 
       <Tabs defaultValue="submitted" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
@@ -370,29 +587,142 @@ const ManagerReviewDashboard: React.FC = () => {
         </TabsList>
 
         <TabsContent value="submitted" className="mt-0 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{t("analytics.submissions_trend")}</CardTitle>
-              <CardDescription className="text-sm">{t("analytics.daily_submitted")}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={dailyData} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
-                    <defs>
-                      <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#16a34a" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="count" stroke="#16a34a" fillOpacity={1} fill="url(#colorCount)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+          <Card className="overflow-hidden">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-emerald-600" />
+                    {t("analytics.submissions_trend")}
+                  </CardTitle>
+                  <CardDescription className="text-sm">
+                    {t("analytics.daily_submitted")} • Last {trendDays} days
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  {[7, 14, 30].map((d) => (
+                    <Button
+                      key={d}
+                      size="sm"
+                      variant={trendDays === d ? "default" : "outline"}
+                      onClick={() => setTrendDays(d as 7 | 14 | 30)}
+                      className={trendDays === d ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+                    >
+                      {d}d
+                    </Button>
+                  ))}
+                </div>
               </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                <div className="rounded-xl border bg-white p-3">
+                  <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Submissions</div>
+                  <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.totalInRange}</div>
+                </div>
+                <div className="rounded-xl border bg-white p-3">
+                  <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Completion</div>
+                  <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.completionPctInRange}%</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">{trendKpis.completedInRange}/{trendKpis.totalInRange} completed</div>
+                </div>
+                <div className="rounded-xl border bg-white p-3">
+                  <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Submitters</div>
+                  <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.uniqueStaff}</div>
+                  <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+                    <Users className="h-3 w-3" />
+                    unique staff
+                  </div>
+                </div>
+                <div className="rounded-xl border bg-white p-3">
+                  <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Avg score</div>
+                  <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.avgCompletion ?? "—"}{typeof trendKpis.avgCompletion === 'number' ? "%" : ""}</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">From checklist summaries</div>
+                </div>
+                <div className="rounded-xl border bg-white p-3 md:col-span-2">
+                  <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3 text-amber-600" />
+                    Issue rate
+                  </div>
+                  <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.issueRate ?? "—"}{typeof trendKpis.issueRate === 'number' ? "%" : ""}</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">Failed / missing / out-of-range / open actions</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-2 rounded-xl border bg-white p-3">
+                  <div className="h-64">
+                    {trendDaily.reduce((a, b) => a + b.count, 0) === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground">
+                        <ClipboardCheck className="h-10 w-10 opacity-30 mb-3" />
+                        <div className="font-medium">No submissions in the last {trendDays} days</div>
+                        <div className="text-sm mt-1">Try widening the range or clear filters below.</div>
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={trendDaily} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
+                          <defs>
+                            <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#16a34a" stopOpacity={0.75} />
+                              <stop offset="95%" stopColor="#16a34a" stopOpacity={0.05} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis
+                            dataKey="date"
+                            tickFormatter={(v) => {
+                              try { return new Date(v).toLocaleDateString(undefined, { month: "short", day: "numeric" }); } catch { return v; }
+                            }}
+                          />
+                          <YAxis allowDecimals={false} />
+                          <Tooltip
+                            formatter={(val: number | string) => [val, "Submissions"]}
+                            labelFormatter={(label: string) => {
+                              try { return new Date(label).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }); } catch { return String(label); }
+                            }}
+                          />
+                          <Area type="monotone" dataKey="count" stroke="#16a34a" strokeWidth={2} fill="url(#colorCount)" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border bg-white p-3 space-y-3">
+                  <div className="text-sm font-semibold text-slate-900">Top checklists</div>
+                  {topTemplates.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">—</div>
+                  ) : (
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={topTemplates} layout="vertical" margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis type="number" allowDecimals={false} />
+                          <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11 }} />
+                          <Tooltip />
+                          <Bar dataKey="count" fill="#16a34a" radius={[6, 6, 6, 6]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {topStaff.length > 0 ? (
+                <div className="rounded-xl border bg-white p-3">
+                  <div className="text-sm font-semibold text-slate-900 mb-3">Top submitters</div>
+                  <div className="h-44">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={topStaff} layout="vertical" margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" allowDecimals={false} />
+                        <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11 }} />
+                        <Tooltip />
+                        <Bar dataKey="count" fill="#0ea5e9" radius={[6, 6, 6, 6]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
           <div className="flex items-center justify-between">
@@ -403,7 +733,7 @@ const ManagerReviewDashboard: React.FC = () => {
             <div className="flex items-center gap-2">
               <Input placeholder={t("analytics.search_name_submitter")} value={search} onChange={(e) => setSearch(e.target.value)} className="w-60" />
               <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-44" />
-              <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+              <Tabs value={tab} onValueChange={(v) => setTab(v as 'cards' | 'table')}>
                 <TabsList>
                   <TabsTrigger value="table">Table</TabsTrigger>
                   <TabsTrigger value="cards">Cards</TabsTrigger>
@@ -421,7 +751,7 @@ const ManagerReviewDashboard: React.FC = () => {
                 <Button size="sm" variant="outline" onClick={exportCsv}>{t("analytics.export_csv")}</Button>
               </div>
               {isLoading ? (
-                <div className="text-sm text-muted-foreground">{t("analytics.loading_submissions")}</div>
+                <TableSkeleton rowCount={8} colCount={8} />
               ) : sortedTable.length === 0 ? (
                 <div className="text-sm text-muted-foreground">
                   {t("analytics.no_submissions")}
@@ -444,12 +774,12 @@ const ManagerReviewDashboard: React.FC = () => {
                     </TableHeader>
                     <TableBody>
                       {paginatedChecklists.map((s) => (
-                        <TableRow key={s.id} className={s.status === 'COMPLETED' ? '' : 'bg-yellow-50'}>
+                        <TableRow key={s.id} className={isCompletedLike(s.status) ? '' : 'bg-yellow-50'}>
                           <TableCell>{s.submitted_by?.name || '—'}</TableCell>
                           <TableCell>{s.submitted_at ? new Date(s.submitted_at).toLocaleString() : '—'}</TableCell>
                           <TableCell>{s.template?.name || '—'}</TableCell>
                           <TableCell>
-                            <Badge variant={s.status === 'COMPLETED' ? 'secondary' : 'outline'} className="text-xs">{s.status || '—'}</Badge>
+                            <Badge variant={isCompletedLike(s.status) ? 'secondary' : 'outline'} className="text-xs">{s.status || '—'}</Badge>
                           </TableCell>
                           <TableCell className="max-w-xs truncate" title={s.notes || undefined}>{s.notes || '—'}</TableCell>
                           <TableCell>
@@ -529,7 +859,7 @@ const ManagerReviewDashboard: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {isLoading ? (
-                <div className="text-sm text-muted-foreground">{t("analytics.loading_submissions")}</div>
+                <CardGridSkeleton count={6} columns="grid-cols-1 md:grid-cols-2" />
               ) : filtered.length === 0 ? (
                 <div className="text-sm text-muted-foreground">{t("analytics.no_submissions")}</div>
               ) : filtered.map((s) => (
@@ -540,7 +870,7 @@ const ManagerReviewDashboard: React.FC = () => {
                         <CardTitle className="text-base">{s.template?.name || t("analytics.checklist_fallback")}</CardTitle>
                         <CardDescription className="text-sm">Submitted {s.submitted_at ? new Date(s.submitted_at).toLocaleString() : "—"}</CardDescription>
                       </div>
-                      <Badge variant={s.status === 'COMPLETED' ? 'secondary' : 'outline'} className="text-xs">{s.status || '—'}</Badge>
+                      <Badge variant={isCompletedLike(s.status) ? 'secondary' : 'outline'} className="text-xs">{s.status || '—'}</Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
@@ -588,56 +918,6 @@ const ManagerReviewDashboard: React.FC = () => {
 
         <TabsContent value="incidents" className="mt-0 space-y-4">
           {(() => {
-            // Filter incidents
-            const filteredIncidents = useMemo(() => {
-              const incidentList = Array.isArray(incidents)
-                ? incidents
-                : (incidents?.results || []);
-
-              return incidentList.filter((inc: any) => {
-                const matchesStatus = !incidentFilters.status || inc.status?.toLowerCase() === incidentFilters.status.toLowerCase();
-                const matchesSeverity = !incidentFilters.severity || inc.severity?.toLowerCase() === incidentFilters.severity.toLowerCase();
-                const matchesSearch = !incidentFilters.search ||
-                  inc.title?.toLowerCase().includes(incidentFilters.search.toLowerCase()) ||
-                  inc.location?.toLowerCase().includes(incidentFilters.search.toLowerCase());
-                return matchesStatus && matchesSeverity && matchesSearch;
-              });
-            }, [incidents, incidentFilters]);
-
-            // Pagination calculations for incidents
-            const totalIncidentItems = filteredIncidents.length;
-            const totalIncidentPages = totalIncidentItems ? Math.ceil(totalIncidentItems / incidentPageSize) : 1;
-            const incidentStartIndex = (incidentPage - 1) * incidentPageSize;
-            const incidentEndIndex = incidentStartIndex + incidentPageSize;
-            const paginatedIncidents = filteredIncidents.slice(incidentStartIndex, incidentEndIndex);
-
-            const getSeverityColor = (severity: string) => {
-              const sev = (severity || '').toLowerCase();
-              switch (sev) {
-                case 'critical': return 'bg-red-100 text-red-800 border-red-200';
-                case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-                case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-                case 'low': return 'bg-gray-100 text-gray-800 border-gray-200';
-                default: return 'bg-gray-100 text-gray-800 border-gray-200';
-              }
-            };
-
-            const getStatusColor = (status: string) => {
-              const st = (status || '').toLowerCase();
-              switch (st) {
-                case 'reported': return 'bg-amber-100 text-amber-800 border-amber-200';
-                case 'under_review': return 'bg-blue-100 text-blue-800 border-blue-200';
-                case 'addressed': return 'bg-purple-100 text-purple-800 border-purple-200';
-                case 'resolved': return 'bg-green-100 text-green-800 border-green-200';
-                case 'dismissed': return 'bg-gray-100 text-gray-800 border-gray-200';
-                default: return 'bg-gray-100 text-gray-800 border-gray-200';
-              }
-            };
-
-            const formatStatus = (status: string) => {
-              return (status || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            };
-
             return (
               <>
                 <Card>
@@ -709,18 +989,18 @@ const ManagerReviewDashboard: React.FC = () => {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {paginatedIncidents.map((incident: any) => (
+                            {paginatedIncidents.map((incident: SafetyIncident) => (
                               <TableRow key={incident.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedIncident(incident.id)}>
                                 <TableCell className="font-medium">{incident.title}</TableCell>
                                 <TableCell>{incident.location || '—'}</TableCell>
                                 <TableCell>
-                                  <Badge variant="outline" className={getSeverityColor(incident.severity)}>
-                                    {formatStatus(incident.severity)}
+                                  <Badge variant="outline" className={getSeverityColor(String(incident.severity || ''))}>
+                                    {formatStatus(String(incident.severity || ''))}
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
-                                  <Badge variant="outline" className={getStatusColor(incident.status)}>
-                                    {formatStatus(incident.status)}
+                                  <Badge variant="outline" className={getStatusColor(String(incident.status || ''))}>
+                                    {formatStatus(String(incident.status || ''))}
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
@@ -945,7 +1225,7 @@ const ManagerReviewDashboard: React.FC = () => {
           </DialogHeader>
           {(() => {
             const summary = sortedTable.find(x => x.id === detailId) || filtered.find(x => x.id === detailId);
-            const exec = detailQuery.data as any;
+            const exec = (detailQuery.data as unknown as ChecklistExecutionDetail | null) || null;
             if (!summary) return (<div className="text-sm text-muted-foreground">No data</div>);
             return (
               <div className="space-y-4">
@@ -1007,7 +1287,7 @@ const ManagerReviewDashboard: React.FC = () => {
                       <div className="space-y-2 pt-1">
                         <div className="text-xs font-semibold text-destructive uppercase tracking-wider">Detected Anomalies</div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {exec.analysis_results.anomalies.map((a: any, i: number) => (
+                          {exec.analysis_results.anomalies.map((a: ExecutionAnomaly, i: number) => (
                             <div key={i} className="border border-destructive/20 bg-destructive/5 rounded p-2 text-xs">
                               <div className="font-medium">{a.step_title}</div>
                               <div className="flex justify-between mt-1">
@@ -1041,7 +1321,7 @@ const ManagerReviewDashboard: React.FC = () => {
                         </div>
 
                         <div className="font-medium">Steps</div>
-                        {(exec.step_responses || []).map((sr: any, idx: number) => (
+                        {(exec.step_responses || []).map((sr: ExecutionStepResponse, idx: number) => (
                           <div key={sr.id || idx} className="border rounded-md p-3">
                             <div className="font-medium">{sr.step?.title || `Step ${idx + 1}`}</div>
                             <div className="text-xs text-muted-foreground">{sr.step?.description || ''}</div>
@@ -1057,7 +1337,7 @@ const ManagerReviewDashboard: React.FC = () => {
                               <div className="mt-2 text-xs space-y-1">
                                 <div>Evidence:</div>
                                 <ul className="list-disc pl-4">
-                                  {sr.evidence.map((ev: any, eidx: number) => (
+                                  {sr.evidence.map((ev: ExecutionEvidence, eidx: number) => (
                                     <li key={ev.id || eidx} className="break-all">
                                       {ev.evidence_type || 'FILE'} — {ev.filename || ev.file_path || '—'}
                                     </li>
@@ -1072,7 +1352,7 @@ const ManagerReviewDashboard: React.FC = () => {
                           <div className="space-y-2">
                             <div className="font-medium">Actions created</div>
                             <div className="space-y-2">
-                              {exec.actions.map((a: any) => (
+                              {exec.actions.map((a: ExecutionAction) => (
                                 <div key={a.id} className="border rounded-md p-3 text-xs">
                                   <div className="flex items-center justify-between gap-2">
                                     <div className="font-semibold">{a.title}</div>
