@@ -90,6 +90,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
+import { DashboardSkeleton } from '@/components/skeletons';
 
 interface DashboardStats {
   total_staff: number;
@@ -538,8 +539,8 @@ const EnhancedManagerDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress size={60} />
+      <Box sx={{ width: '100%', p: 3 }}>
+        <DashboardSkeleton statCount={4} contentCards={3} />
       </Box>
     );
   }

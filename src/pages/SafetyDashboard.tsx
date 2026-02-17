@@ -21,6 +21,7 @@ import { arSA, enUS, fr } from 'date-fns/locale';
 import type { Alert as AlertType } from '@/lib/types';
 import { API_BASE } from "@/lib/api";
 import { useLanguage } from '@/hooks/use-language';
+import { ListSkeleton } from '@/components/skeletons';
 
 
 type SopTask = {
@@ -218,9 +219,9 @@ const SafetyDashboard: React.FC = () => {
           </CardHeader>
           <CardContent className="px-3 md:px-6 py-2 md:py-3">
             <div className="space-y-3">
-              {concernsLoading && (
-                <div className="text-xs md:text-sm text-muted-foreground">{t("safety.dashboard.open_incidents.loading")}</div>
-              )}
+              {concernsLoading ? (
+                <ListSkeleton rowCount={3} lineCount={2} showAvatar={false} />
+              ) : null}
               {!concernsLoading && openConcerns.length === 0 && (
                 <div className="text-xs md:text-sm text-muted-foreground">{t("safety.dashboard.open_incidents.none")}</div>
               )}

@@ -28,6 +28,7 @@ import {
   CheckCircle,
   AlertCircle,
 } from "lucide-react";
+import { FormSectionSkeleton } from "@/components/skeletons";
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import MenuScanner from "@/components/MenuScanner";
 // Lazy-load heavy settings sections for better mobile performance
@@ -684,12 +685,7 @@ export default function Settings() {
             </CardHeader>
             <CardContent>
               <Suspense
-                fallback={
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>{t("loading") || "Loading"}…</span>
-                  </div>
-                }
+                fallback={<FormSectionSkeleton fields={5} />}
               >
                 <ProfileSettings />
               </Suspense>
@@ -700,12 +696,7 @@ export default function Settings() {
         {!isStaff && (
           <TabsContent value="location" className="space-y-6">
             <Suspense
-              fallback={
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>{t("loading") || "Loading"}…</span>
-                </div>
-              }
+              fallback={<FormSectionSkeleton fields={4} />}
             >
               <GeolocationMapSettings
                 latitude={latitude}

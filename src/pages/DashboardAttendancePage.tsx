@@ -29,6 +29,7 @@ import {
 import { useLanguage } from "@/hooks/use-language";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { ListSkeleton } from "@/components/skeletons";
 
 const cardBase =
   "border border-slate-200/80 dark:border-slate-700/80 shadow-sm bg-white dark:bg-slate-900 rounded-2xl transition-shadow hover:shadow-md";
@@ -145,9 +146,7 @@ export default function DashboardAttendancePage() {
           </CardHeader>
           <CardContent className="space-y-1 px-6 pb-6 pt-0">
             {isLoading ? (
-              <div className="text-sm text-slate-400 py-4">
-                {t("dashboard.insights.loading")}
-              </div>
+              <ListSkeleton rowCount={4} lineCount={2} className="py-2" />
             ) : insights.length === 0 ? (
               <div className="text-sm text-slate-500 py-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 px-4">
                 {t("dashboard.insights.none")}
