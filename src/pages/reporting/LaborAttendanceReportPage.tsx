@@ -22,6 +22,8 @@ import { format, startOfWeek, endOfWeek } from "date-fns";
 import { API_BASE } from "@/lib/api";
 import { AlertTriangle, Clock, FileCheck, FileDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { TableSkeleton } from "@/components/skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const LaborAttendanceReportPage: React.FC = () => {
   const today = new Date();
@@ -173,9 +175,16 @@ const LaborAttendanceReportPage: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-6">
             {loadingPvA ? (
-              <div className="flex items-center gap-2 py-8 text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Loading…</span>
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/50 p-4">
+                      <Skeleton className="h-3 w-24 mb-2" />
+                      <Skeleton className="h-7 w-16" />
+                    </div>
+                  ))}
+                </div>
+                <TableSkeleton rowCount={5} colCount={6} />
               </div>
             ) : summary ? (
               <>
@@ -266,10 +275,7 @@ const LaborAttendanceReportPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             {loadingCompliance ? (
-              <div className="flex items-center gap-2 py-6 text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Loading…</span>
-              </div>
+              <TableSkeleton rowCount={4} colCount={4} />
             ) : overtimeIncidents.length > 0 ? (
               <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden">
                 <Table>
@@ -317,10 +323,7 @@ const LaborAttendanceReportPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             {loadingCerts ? (
-              <div className="flex items-center gap-2 py-6 text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Loading…</span>
-              </div>
+              <TableSkeleton rowCount={4} colCount={3} />
             ) : certs.length > 0 ? (
               <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden">
                 <Table>

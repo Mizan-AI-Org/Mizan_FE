@@ -87,7 +87,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
     const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
     const [isRecurring, setIsRecurring] = useState(false);
-    const [frequency, setFrequency] = useState<'DAILY' | 'WEEKLY' | 'MONTHLY'>('WEEKLY');
+    const [frequency, setFrequency] = useState<'DAILY' | 'WEEKLY' | 'MONTHLY' | 'CUSTOM'>('WEEKLY');
+    const [daysOfWeek, setDaysOfWeek] = useState<number[]>([0, 2, 4]); // Mon, Wed, Fri default for Custom (0=Mon, 6=Sun)
     const [recurringEndDate, setRecurringEndDate] = useState<string>('');
     const [isStaffPopoverOpen, setIsStaffPopoverOpen] = useState(false);
     const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -133,6 +134,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
             setSelectedTemplateIds(finalShift.task_templates || []);
             setIsRecurring(finalShift.isRecurring || false);
             setFrequency(finalShift.frequency || 'WEEKLY');
+            setDaysOfWeek(finalShift.days_of_week ?? [0, 2, 4]);
+            setRecurringEndDate(finalShift.recurringEndDate || '');
         } else if (isOpen) {
             const startHour = hour !== undefined ? String(hour).padStart(2, '0') : '09';
             const endHour = hour !== undefined ? String(hour + 1).padStart(2, '0') : '10';
@@ -160,6 +163,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
             setSelectedTemplateIds([]);
             setIsRecurring(false);
             setFrequency('WEEKLY');
+            setDaysOfWeek([0, 2, 4]);
+            setRecurringEndDate('');
         }
     }, [initialShift, isOpen, dayIndex, hour, staffMembers]);
 
@@ -235,6 +240,11 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                 setIsSubmitting(false);
                 return;
             }
+            if (isRecurring && frequency === 'CUSTOM' && daysOfWeek.length === 0) {
+                toast.error('Select at least one day for Custom repeat.');
+                setIsSubmitting(false);
+                return;
+            }
 
             const shiftWithTemplates = {
                 ...shiftData,
@@ -243,6 +253,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                 staff_members: selectedStaffIds, // So save uses all selected staff
                 isRecurring,
                 frequency,
+                ...(frequency === 'CUSTOM' && daysOfWeek.length > 0 ? { days_of_week: daysOfWeek } : {}),
                 recurringEndDate: isRecurring ? recurringEndDate : undefined,
                 task_templates: selectedTemplateIds,
                 tasks: shiftData.tasks // manual tasks
@@ -435,14 +446,15 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
                         {isRecurring && (
                             <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                                <Label className="text-xs font-semibold text-slate-700 block mb-2">Repeat Frequency</Label>
-                                <div className="flex gap-2">
+                                <Label className="text-xs font-semibold text-slate-700 block mb-2">Repeat</Label>
+                                <p className="text-[10px] text-slate-500 mb-2">Daily = every day; Weekly = same day each week; Monthly = same date each month; Custom = pick specific weekdays (e.g. Mon, Wed, Fri).</p>
+                                <div className="flex flex-wrap gap-2">
                                     <Button
                                         type="button"
                                         variant={frequency === 'DAILY' ? 'default' : 'outline'}
                                         onClick={() => setFrequency('DAILY')}
                                         className={cn(
-                                            "flex-1 h-10 rounded-xl text-xs font-bold transition-all",
+                                            "h-10 rounded-xl text-xs font-bold transition-all",
                                             frequency === 'DAILY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
                                         )}
                                     >
@@ -453,7 +465,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                         variant={frequency === 'WEEKLY' ? 'default' : 'outline'}
                                         onClick={() => setFrequency('WEEKLY')}
                                         className={cn(
-                                            "flex-1 h-10 rounded-xl text-xs font-bold transition-all",
+                                            "h-10 rounded-xl text-xs font-bold transition-all",
                                             frequency === 'WEEKLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
                                         )}
                                     >
@@ -464,13 +476,51 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                         variant={frequency === 'MONTHLY' ? 'default' : 'outline'}
                                         onClick={() => setFrequency('MONTHLY')}
                                         className={cn(
-                                            "flex-1 h-10 rounded-xl text-xs font-bold transition-all",
+                                            "h-10 rounded-xl text-xs font-bold transition-all",
                                             frequency === 'MONTHLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
                                         )}
                                     >
                                         Monthly
                                     </Button>
+                                    <Button
+                                        type="button"
+                                        variant={frequency === 'CUSTOM' ? 'default' : 'outline'}
+                                        onClick={() => setFrequency('CUSTOM')}
+                                        className={cn(
+                                            "h-10 rounded-xl text-xs font-bold transition-all",
+                                            frequency === 'CUSTOM' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        )}
+                                    >
+                                        Custom
+                                    </Button>
                                 </div>
+                                {frequency === 'CUSTOM' && (
+                                    <div className="mt-3">
+                                        <Label className="text-xs font-semibold text-slate-700 block mb-2">Repeat on</Label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const).map((label, i) => {
+                                                const isSelected = daysOfWeek.includes(i);
+                                                return (
+                                                    <button
+                                                        key={label}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (isSelected) setDaysOfWeek(daysOfWeek.filter(d => d !== i));
+                                                            else setDaysOfWeek([...daysOfWeek, i].sort((a, b) => a - b));
+                                                        }}
+                                                        className={cn(
+                                                            "w-10 h-10 rounded-xl text-xs font-bold transition-all border",
+                                                            isSelected ? "bg-[#106B4E] text-white border-[#106B4E]" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                                        )}
+                                                    >
+                                                        {label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        {daysOfWeek.length === 0 && <p className="text-[10px] text-amber-600 mt-1">Select at least one day.</p>}
+                                    </div>
+                                )}
                                 <div className="mt-4">
                                     <Label className="text-xs font-semibold text-slate-700 block mb-2">End Date</Label>
                                     <Input

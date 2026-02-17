@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CardGridSkeleton } from "@/components/skeletons";
 import { Search, MapPin, Calendar, Clock, User } from "lucide-react";
 import { format, parseISO, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -27,12 +29,14 @@ interface StaffScheduleListViewProps {
     shifts: Shift[];
     staffMembers: StaffMember[];
     currentDate: Date;
+    isLoading?: boolean;
 }
 
 export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
     shifts,
     staffMembers,
-    currentDate
+    currentDate,
+    isLoading = false,
 }) => {
     const [searchTerm, setSearchTerm] = useState("");
 
@@ -80,6 +84,18 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
             return timeStr;
         }
     };
+
+    if (isLoading) {
+        return (
+            <div className="space-y-6">
+                <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border shadow-sm sticky top-0 z-10">
+                    <Skeleton className="h-11 flex-1 rounded-xl" />
+                    <Skeleton className="h-5 w-24" />
+                </div>
+                <CardGridSkeleton count={6} columns="grid-cols-1 md:grid-cols-2 lg:grid-cols-3" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">

@@ -24,6 +24,7 @@ import { format, startOfWeek, endOfWeek, addDays, isSameDay, startOfMonth, endOf
 import { API_BASE } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import ShiftModal from "@/components/ShiftModal";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface StaffMember {
     id: string;
@@ -88,6 +89,46 @@ interface WeeklyTimeGridViewProps {
     currentDate: Date;
     setCurrentDate: React.Dispatch<React.SetStateAction<Date>>;
     onEditShift: (shift: Shift) => void;
+    isLoading?: boolean;
+}
+
+function WeeklyTimeGridSkeleton() {
+    return (
+        <div className="bg-white rounded-lg border shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
+            <div className="flex items-center justify-between p-4 border-b flex-shrink-0 bg-white z-20">
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+                        <Skeleton className="h-8 w-8 rounded-lg" />
+                        <Skeleton className="h-8 w-24 rounded-lg" />
+                        <Skeleton className="h-8 w-8 rounded-lg" />
+                    </div>
+                    <Skeleton className="h-6 w-48" />
+                </div>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+                <div className="grid grid-cols-8 gap-px bg-gray-200 rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 p-2 min-w-[60px]" />
+                    {Array.from({ length: 7 }).map((_, i) => (
+                        <div key={i} className="bg-gray-50 p-2">
+                            <Skeleton className="h-4 w-10 mx-auto" />
+                        </div>
+                    ))}
+                    {Array.from({ length: 12 }).map((_, row) => (
+                        <React.Fragment key={row}>
+                            <div className="bg-gray-50 p-1">
+                                <Skeleton className="h-3 w-8" />
+                            </div>
+                            {Array.from({ length: 7 }).map((_, col) => (
+                                <div key={`${row}-${col}`} className="bg-white p-1 min-h-[32px]">
+                                    <Skeleton className="h-4 w-full rounded" />
+                                </div>
+                            ))}
+                        </React.Fragment>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
 }
 
 export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
@@ -95,11 +136,12 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
     staffMembers,
     currentDate,
     setCurrentDate,
-    onEditShift
+    onEditShift,
+    isLoading = false,
 }) => {
-    const { isAdmin, isSuperAdmin } = useAuth() as AuthContextType;
+    const { hasRole } = useAuth() as AuthContextType;
     const { t } = useLanguage();
-    const canEditShifts = (isAdmin?.() ?? false) || (isSuperAdmin?.() ?? false);
+    const canEditShifts = hasRole?.([ 'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OWNER' ]) ?? false;
     const [view, setView] = useState<"week" | "day" | "month">("week");
     const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
     const [hoveredShiftId, setHoveredShiftId] = useState<string | null>(null);
@@ -338,6 +380,10 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
         });
         return map;
     }, [shifts]);
+
+    if (isLoading) {
+        return <WeeklyTimeGridSkeleton />;
+    }
 
     if (view === "month") {
         const handleMonthDayClick = (d: Date | null) => {

@@ -9,7 +9,8 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Loader2 } from "lucide-react";
+import { PlusCircle } from "lucide-react";
+import { PageWithTableSkeleton } from "@/components/skeletons";
 import DeleteStaffConfirmation from "@/components/staff/DeleteStaffConfirmation";
 import DeactivateStaffConfirmation from "@/components/staff/DeactivateStaffConfirmation";
 import EditStaffModal from "@/components/staff/EditStaffModal";
@@ -80,9 +81,8 @@ const StaffManagement: React.FC = () => {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                <p className="ml-2 text-gray-600">Loading staff data...</p>
+            <div className="container mx-auto py-8">
+                <PageWithTableSkeleton tableRowCount={8} tableColCount={6} />
             </div>
         );
     }
