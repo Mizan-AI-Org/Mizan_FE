@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { TableSkeleton, CardGridSkeleton, DashboardSkeleton, ListSkeleton, BlockSkeleton } from "@/components/skeletons";
 import {
     Users,
     UserCheck,
@@ -638,12 +640,16 @@ const PresenceTab: React.FC = () => {
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="text-center py-8">
-                                        <Loader2 className="w-6 h-6 animate-spin mx-auto text-emerald-500" />
-                                        <p className="text-sm text-slate-500 mt-2">{t("staff.presence.loading")}</p>
-                                    </TableCell>
-                                </TableRow>
+                                <>
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                                            <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                                            <TableCell><Skeleton className="h-5 w-14" /></TableCell>
+                                        </TableRow>
+                                    ))}
+                                </>
                             ) : staffStatusMap.length > 0 ? (
                                 staffStatusMap.map((record) => (
                                     <TableRow key={record.staff_id} className="border-slate-100 dark:border-slate-800">
@@ -2182,7 +2188,11 @@ const TeamTab: React.FC = () => {
             <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
                 <CardContent className="pt-6">
                     {isLoading ? (
-                        <div className="text-center py-8 text-slate-500">Loading staff...</div>
+                        viewMode === 'list' ? (
+                            <TableSkeleton rowCount={6} colCount={5} />
+                        ) : (
+                            <CardGridSkeleton count={8} columns="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" />
+                        )
                     ) : error ? (
                         <div className="text-center py-8 text-red-500">Error loading staff</div>
                     ) : (
@@ -2354,7 +2364,7 @@ const TeamTab: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                     {isInvitesLoading && !activationPendingData ? (
-                        <div className="text-center py-8 text-slate-500">{t("staff.pending.loading")}</div>
+                        <TableSkeleton rowCount={4} colCount={5} />
                     ) : (invitations && invitations.length > 0) || (pendingActivations && pendingActivations.length > 0) ? (
                         <>
                             <Table>
@@ -2653,12 +2663,17 @@ const AttendanceTab: React.FC = () => {
                             </TableHeader>
                             <TableBody>
                                 {isLoading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-12">
-                                            <Loader2 className="w-8 h-8 animate-spin mx-auto text-emerald-500 mb-2" />
-                                            <p className="text-slate-500 font-medium">{t("staff.attendance.loading_live")}</p>
-                                        </TableCell>
-                                    </TableRow>
+                                    <>
+                                        {Array.from({ length: 6 }).map((_, i) => (
+                                            <TableRow key={i}>
+                                                <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                                                <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                                                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                                                <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </>
                                 ) : attendanceList.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={6} className="text-center py-12">
@@ -2874,11 +2889,17 @@ const TasksTab: React.FC = () => {
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8">
-                                        <Loader2 className="w-6 h-6 animate-spin mx-auto text-emerald-500" />
-                                    </TableCell>
-                                </TableRow>
+                                <>
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                                            <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                                            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                                        </TableRow>
+                                    ))}
+                                </>
                             ) : tasks && tasks.length > 0 ? (
                                 tasks.map((task) => (
                                     <TableRow key={task.id} className="border-slate-100 dark:border-slate-800">
@@ -2944,9 +2965,13 @@ const InsightsTab: React.FC = () => {
 
     if (isLoading) {
         return (
-            <div className="flex flex-col items-center justify-center py-24">
-                <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mb-4" />
-                <p className="text-slate-500 font-medium italic">{t("staff.insights.analyzing")}</p>
+            <div className="space-y-6 p-4">
+                <BlockSkeleton className="mb-6" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <BlockSkeleton />
+                    <BlockSkeleton />
+                </div>
+                <ListSkeleton rowCount={4} />
             </div>
         );
     }

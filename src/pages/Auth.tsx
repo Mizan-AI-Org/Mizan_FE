@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
+import BrandLogo from "@/components/BrandLogo";
 import { useAuth } from "../contexts/AuthContext";
 import { AuthForm } from "../components/AuthForm";
 import { SignUpForm } from "../components/SignUpForm";
@@ -87,8 +88,7 @@ const Auth = () => {
           }}
         />
 
-        {/* Subtle grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:56px_56px] pointer-events-none" />
+        {/* Subtle grid pattern removed to keep background clean behind form */}
 
         {/* Ambient orbs */}
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#00E676] rounded-full mix-blend-screen opacity-6 blur-3xl animate-pulse" />
@@ -100,12 +100,12 @@ const Auth = () => {
         <div className="relative z-10 w-full max-w-md">
           {/* Logo/Brand Area */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-full bg-[#00E676] shadow-[0_18px_45px_rgba(0,230,118,0.25)]">
-              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                <div className="w-4 h-4 bg-[#00E676] rounded-full" />
-              </div>
+            <div className="inline-flex items-center justify-center gap-3 mb-4">
+              <BrandLogo size="lg" />
+              <span className="text-3xl font-bold text-white tracking-tight">
+                Mizan AI
+              </span>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">Mizan AI</h1>
             <p className="text-[#B0BEC5]">{t("auth.invite.join_team")}</p>
           </div>
 
@@ -227,8 +227,7 @@ const Auth = () => {
           }}
         />
 
-        {/* Subtle grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:56px_56px]" />
+        {/* Subtle grid pattern removed to keep background clean behind form */}
 
         {/* Ambient orbs */}
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#00E676] rounded-full mix-blend-screen opacity-6 blur-3xl animate-pulse" />
@@ -245,12 +244,12 @@ const Auth = () => {
           <div className="w-full max-w-md">
             {/* Logo/Brand Area */}
             <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-full bg-[#00E676] shadow-[0_18px_45px_rgba(0,230,118,0.25)]">
-                <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                  <div className="w-4 h-4 bg-[#00E676] rounded-full" />
-                </div>
+              <div className="inline-flex items-center justify-center gap-3 mb-4">
+                <BrandLogo size="lg" />
+                <span className="text-3xl font-bold text-white tracking-tight">
+                  Mizan AI
+                </span>
               </div>
-              <h1 className="text-3xl font-bold text-white mb-2">Mizan AI</h1>
               <p className="text-[#B0BEC5]">
                 {t("auth.tagline")}
               </p>

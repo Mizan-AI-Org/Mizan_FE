@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button as UIButton } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { cn, getStaffColor } from "@/lib/utils";
@@ -25,6 +26,79 @@ interface StaffTimesheetViewProps {
   currentDate: Date;
   setCurrentDate: React.Dispatch<React.SetStateAction<Date>>;
   onEditShift?: (shift: Shift) => void;
+  isLoading?: boolean;
+}
+
+/** Skeleton that mirrors the timesheet layout (header + table with staff/role + 7 days). */
+function StaffTimesheetViewSkeleton() {
+  const weekDates = Array.from({ length: 7 }, (_, i) => i);
+  const roleRows = [
+    { role: "MANAGER", staffCount: 1 },
+    { role: "WAITER", staffCount: 3 },
+    { role: "CHEF", staffCount: 2 },
+  ];
+  return (
+    <div className="bg-white rounded-lg border shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
+      {/* Header skeleton */}
+      <div className="flex items-center justify-between p-4 border-b flex-shrink-0 bg-white z-20">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <Skeleton className="h-8 w-24 rounded-lg" />
+            <Skeleton className="h-8 w-8 rounded-lg" />
+          </div>
+          <Skeleton className="h-6 w-48" />
+        </div>
+      </div>
+      {/* Table skeleton */}
+      <div className="flex-1 overflow-auto">
+        <table className="w-full border-collapse min-w-[900px]">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+              <th className="text-left py-3 px-4 w-48 border-r border-gray-200">
+                <Skeleton className="h-4 w-24" />
+              </th>
+              {weekDates.map((i) => (
+                <th key={i} className="py-3 px-2 text-center border-r border-gray-200 last:border-r-0">
+                  <Skeleton className="h-4 w-8 mx-auto" />
+                  <Skeleton className="h-4 w-6 mx-auto mt-1" />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {roleRows.map(({ role, staffCount }) => (
+              <React.Fragment key={role}>
+                <tr className="bg-gray-100/80 border-b border-gray-100">
+                  <td colSpan={8} className="py-2 px-4">
+                    <Skeleton className="h-4 w-20" />
+                  </td>
+                </tr>
+                {Array.from({ length: staffCount }).map((_, i) => (
+                  <tr key={`${role}-${i}`} className="border-b border-gray-100">
+                    <td className="py-2 px-4 border-r border-gray-100">
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                        <Skeleton className="h-4 flex-1 max-w-[120px]" />
+                      </div>
+                    </td>
+                    {weekDates.map((j) => (
+                      <td key={j} className="py-1.5 px-2 align-top border-r border-gray-100 last:border-r-0">
+                        <div className="space-y-1">
+                          <Skeleton className="h-6 w-full rounded" />
+                          {i === 0 && j < 2 && <Skeleton className="h-6 w-full rounded" />}
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 /** Staff-based color: each staff gets a consistent hex. Use with inline styles. */
@@ -56,6 +130,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
   currentDate,
   setCurrentDate,
   onEditShift,
+  isLoading = false,
 }) => {
   const { t } = useLanguage();
 
@@ -129,6 +204,10 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
 
   const displayRange = `${format(weekDates[0], "MMM d")} – ${format(weekDates[6], "MMM d, yyyy")}`;
 
+  if (isLoading) {
+    return <StaffTimesheetViewSkeleton />;
+  }
+
   return (
     <div className="bg-white rounded-lg border shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
       <div className="flex items-center justify-between p-4 border-b flex-shrink-0 bg-white z-20">
@@ -146,7 +225,6 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
           </div>
           <h2 className="text-lg font-bold text-gray-900">{displayRange}</h2>
         </div>
-        <span className="text-sm text-gray-500 font-medium">Week – List by role</span>
       </div>
 
       <div className="flex-1 overflow-auto">

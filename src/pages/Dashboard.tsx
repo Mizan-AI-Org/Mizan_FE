@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { LiveDateTime } from "@/components/LiveDateTime";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { DashboardSkeleton } from "@/components/skeletons";
 
 type AppItem = {
   name: string;
@@ -206,6 +207,10 @@ export default function Dashboard() {
           </p>
         </header>
 
+        {isLoading ? (
+          <DashboardSkeleton statCount={3} contentCards={2} />
+        ) : (
+        <>
         {/* Attention Now */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* MIZAN AI INSIGHTS (Primary) */}
@@ -644,6 +649,9 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        </>
+        )}
 
       </div>
 

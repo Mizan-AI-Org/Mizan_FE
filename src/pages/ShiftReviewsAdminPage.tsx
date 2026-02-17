@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Loader2, ArrowUpDown, ThumbsUp } from "lucide-react";
+import { ArrowUpDown, ThumbsUp } from "lucide-react";
+import { TableSkeleton } from "@/components/skeletons";
 import { format } from "date-fns";
 import { logError, logInfo } from "@/lib/logging";
 import { arSA, enUS, fr } from "date-fns/locale";
@@ -361,9 +362,7 @@ export default function ShiftReviewsAdminPage() {
             <div className="py-2 text-sm text-red-600">{(error as any)?.message || t("shift_reviews.error")}</div>
           )}
           {isLoading ? (
-            <div className="py-12 flex items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin" />
-            </div>
+            <TableSkeleton rowCount={8} colCount={6} />
           ) : (
             <Table>
               <TableHeader>
