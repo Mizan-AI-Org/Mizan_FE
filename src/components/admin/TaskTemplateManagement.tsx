@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLanguage } from '@/hooks/use-language';
 import { CardGridSkeleton } from '@/components/skeletons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -425,7 +426,7 @@ export default function TaskTemplateManagement() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
-                  placeholder="Search processes..."
+                  placeholder={t("processes.search_processes")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -436,7 +437,7 @@ export default function TaskTemplateManagement() {
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger className="w-full sm:w-48">
                 <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by type" />
+                <SelectValue placeholder={t("processes.filter_by_type")} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
@@ -457,7 +458,7 @@ export default function TaskTemplateManagement() {
             <Select value={filterFrequency} onValueChange={setFilterFrequency}>
               <SelectTrigger className="w-full sm:w-48">
                 <Clock className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by frequency" />
+                <SelectValue placeholder={t("processes.filter_by_frequency")} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Frequencies</SelectItem>
