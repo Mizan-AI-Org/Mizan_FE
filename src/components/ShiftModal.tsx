@@ -314,7 +314,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                             <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl shadow-2xl border-gray-100 overflow-hidden z-[9999]" align="start">
                                 <Command className="rounded-xl border-none">
                                     <CommandInput
-                                        placeholder="Search staff..."
+                                        placeholder={t("common.search_staff")}
                                         className="h-12 border-none focus:ring-0"
                                         value={staffSearch}
                                         onValueChange={setStaffSearch}
@@ -377,7 +377,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                     onValueChange={(value) => setShiftData(prev => ({ ...prev, start: value }))}
                                 >
                                     <SelectTrigger className="h-12 rounded-xl border-gray-200">
-                                        <SelectValue placeholder="Start" />
+                                        <SelectValue placeholder={t("common.start")} />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-[200px] z-[9999]">
                                         {Array.from({ length: 48 }, (_, i) => {
@@ -402,7 +402,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                     onValueChange={(value) => setShiftData(prev => ({ ...prev, end: value }))}
                                 >
                                     <SelectTrigger className="h-12 rounded-xl border-gray-200">
-                                        <SelectValue placeholder="End" />
+                                        <SelectValue placeholder={t("common.end")} />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-[200px] z-[9999]">
                                         {Array.from({ length: 48 }, (_, i) => {
@@ -496,7 +496,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                 </div>
                                 {frequency === 'CUSTOM' && (
                                     <div className="mt-3">
-                                        <Label className="text-xs font-semibold text-slate-700 block mb-2">Repeat on</Label>
+                                        <Label className="text-xs font-semibold text-slate-700 block mb-2">{t("common.repeat_on")}</Label>
                                         <div className="flex flex-wrap gap-2">
                                             {(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const).map((label, i) => {
                                                 const isSelected = daysOfWeek.includes(i);
@@ -541,7 +541,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                             <Label className="text-sm font-semibold text-[#1F2937]">Process & Task Templates</Label>
                             <div className="relative w-48">
                                 <Input
-                                    placeholder="Search templates..."
+                                    placeholder={t("common.search_templates")}
                                     value={templateSearch}
                                     onChange={(e) => setTemplateSearch(e.target.value)}
                                     className="h-8 rounded-lg border-gray-200 pl-8 pr-2 text-xs focus:ring-[#106B4E]"
@@ -619,7 +619,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
                         <div className="flex gap-2">
                             <Input
-                                placeholder="Add a custom task..."
+                                placeholder={t("common.add_custom_task")}
                                 value={newTaskTitle}
                                 onChange={(e) => setNewTaskTitle(e.target.value)}
                                 className="flex-1 h-10 rounded-xl border-gray-200 text-sm focus:ring-[#106B4E]"
@@ -629,7 +629,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                 onValueChange={(v: TaskPriority) => setNewTaskPriority(v)}
                             >
                                 <SelectTrigger className="w-[120px] h-10 rounded-xl border-gray-200">
-                                    <SelectValue placeholder="Priority" />
+                                    <SelectValue placeholder={t("common.priority")} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="LOW">Low</SelectItem>

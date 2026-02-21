@@ -221,3 +221,57 @@ export function BlockSkeleton({ className }: { className?: string }) {
     </div>
   );
 }
+
+/**
+ * Full-page loading skeleton for lazy routes (Suspense fallback).
+ * Mimics a typical dashboard page: container, optional tabs, card + table/content.
+ * Use as <Suspense fallback={<PageLoadingSkeleton />}> to avoid blank "Loading..." screen.
+ */
+export function PageLoadingSkeleton({ className }: { className?: string }) {
+  return (
+    <div
+      className={`min-h-[60vh] w-full bg-background ${className ?? ""}`}
+      aria-label="Loading page"
+    >
+      <div className="container mx-auto py-6 space-y-6 px-4">
+        {/* Tabs row */}
+        <div className="flex gap-1 p-1 rounded-lg bg-muted/50 w-full max-w-xl">
+          <Skeleton className="h-10 flex-1 rounded-md" />
+          <Skeleton className="h-10 flex-1 rounded-md" />
+          <Skeleton className="h-10 flex-1 rounded-md" />
+        </div>
+
+        {/* Top card (e.g. analytics) */}
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-2">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-72 mt-2" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Skeleton className="h-16 rounded-lg" />
+              <Skeleton className="h-16 rounded-lg" />
+              <Skeleton className="h-16 rounded-lg" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Main content card with table */}
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-2">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-4 w-96 mt-2" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+              <Skeleton className="h-10 flex-1 max-w-sm rounded-md" />
+              <Skeleton className="h-10 w-[180px] rounded-md" />
+              <Skeleton className="h-10 w-28 rounded-md" />
+            </div>
+            <TableSkeleton rowCount={8} colCount={6} />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

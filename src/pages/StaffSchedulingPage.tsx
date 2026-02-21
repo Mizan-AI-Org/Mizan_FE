@@ -6,9 +6,11 @@ import EnhancedScheduleView from "@/components/schedule/EnhancedScheduleView";
 import TaskManagementBoard from "@/components/schedule/TaskManagementBoard";
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
+import { useLanguage } from "@/hooks/use-language";
 
 
 const StaffSchedulingPage: React.FC = () => {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<string>("schedule");
 
   // Fetch restaurant stats (backend: GET /api/analytics/restaurant-stats/)
@@ -53,7 +55,7 @@ const StaffSchedulingPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{statsLoading ? "..." : stats?.scheduled_shifts || 0}</div>
-            <p className="text-xs text-muted-foreground">This week</p>
+            <p className="text-xs text-muted-foreground">{t("common.this_week")}</p>
           </CardContent>
         </Card>
         <Card>
