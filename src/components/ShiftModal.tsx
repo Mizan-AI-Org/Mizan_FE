@@ -229,9 +229,13 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                 return;
             }
             const hasTemplates = selectedTemplateIds.length > 0;
-            const hasCustomTasks = (shiftData.tasks?.length ?? 0) > 0;
+            const pendingTaskTitle = (typeof newTaskTitle === 'string' ? newTaskTitle : '').trim();
+            const effectiveTasks = pendingTaskTitle
+                ? [...(shiftData.tasks || []), { title: pendingTaskTitle, priority: newTaskPriority }]
+                : (shiftData.tasks || []);
+            const hasCustomTasks = effectiveTasks.length > 0;
             if (!hasTemplates && !hasCustomTasks) {
-                toast.error('Every shift must have at least one Process & Task Template or at least one Custom Task.');
+                toast.error('Every shift must have at least one Process & Task Template or at least one Custom Task. Add a template or type a custom task and click +.');
                 setIsSubmitting(false);
                 return;
             }
@@ -256,7 +260,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                 ...(frequency === 'CUSTOM' && daysOfWeek.length > 0 ? { days_of_week: daysOfWeek } : {}),
                 recurringEndDate: isRecurring ? recurringEndDate : undefined,
                 task_templates: selectedTemplateIds,
-                tasks: shiftData.tasks // manual tasks
+                tasks: effectiveTasks // manual tasks (includes pending input if user didn't click +)
             };
             await Promise.resolve(onSave(shiftWithTemplates));
             onClose();

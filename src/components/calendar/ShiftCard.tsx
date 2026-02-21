@@ -16,17 +16,38 @@ export interface ShiftCardProps {
   compact?: boolean;
 }
 
-const getPositionStyles = (shift: CalendarShift): React.CSSProperties => ({
-  top: `${shift.position.top}px`,
-  height: `${shift.position.height}px`,
-  left: `0%`,
-  width: `100%`,
-  zIndex: shift.position.zIndex,
-  backgroundColor: shift.color ? `${shift.color}20` : '#f3f4f6',
-  borderLeftColor: shift.color || '#6b7280',
-  borderLeftWidth: '4px',
-  borderLeftStyle: 'solid',
-});
+/** One distinct color per day of week (Sun=0 … Sat=6) – clearly different hues. */
+const DAY_COLORS: Record<number, string> = {
+  0: '#dc2626', // Sunday – red
+  1: '#ea580c', // Monday – orange
+  2: '#65a30d', // Tuesday – lime
+  3: '#059669', // Wednesday – emerald
+  4: '#0284c7', // Thursday – sky
+  5: '#4f46e5', // Friday – indigo
+  6: '#7c3aed', // Saturday – violet
+};
+
+function getColorForDayOfWeek(shift: CalendarShift): string {
+  const dateStr = shift.date;
+  if (!dateStr) return DAY_COLORS[1];
+  const day = new Date(dateStr + 'T12:00:00').getDay();
+  return DAY_COLORS[day] ?? DAY_COLORS[1];
+}
+
+const getPositionStyles = (shift: CalendarShift): React.CSSProperties => {
+  const color = getColorForDayOfWeek(shift);
+  return {
+    top: `${shift.position.top}px`,
+    height: `${shift.position.height}px`,
+    left: `0%`,
+    width: `100%`,
+    zIndex: shift.position.zIndex,
+    backgroundColor: `${color}18`,
+    borderLeftColor: color,
+    borderLeftWidth: '4px',
+    borderLeftStyle: 'solid',
+  };
+};
 
 export const ShiftCard: React.FC<ShiftCardProps> = ({
   shift,
@@ -55,6 +76,13 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
     console.error('Error formatting shift times:', error, shift);
   }
 
+  const processCount =
+    shift.task_templates_details?.length ?? shift.task_templates?.length ?? 0;
+  const customCount = shift.tasks?.length ?? 0;
+  const hasProcessTasks = processCount > 0;
+  const hasCustomTasks = customCount > 0;
+  const hasTasks = hasProcessTasks || hasCustomTasks;
+
   const cardClasses = `
     shift-card
     ${isSelected ? 'selected' : ''}
@@ -77,18 +105,28 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
         tabIndex={0}
         aria-label={`Shift from ${startTime} to ${endTime}`}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-1">
           <div className="font-medium truncate">
             {shift.title || 'Unnamed Shift'}
           </div>
           {isOvernight && (
-            <Badge variant="outline" className="text-[10px] ml-1">
+            <Badge variant="outline" className="text-[10px] flex-shrink-0">
               Overnight
             </Badge>
           )}
         </div>
-        <div className="text-xs text-gray-600 mt-1">
-          {startTime} - {endTime}
+        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-600 flex-wrap">
+          <span>{startTime} - {endTime}</span>
+          {hasProcessTasks && (
+            <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-700">
+              {processCount} process & tasks
+            </span>
+          )}
+          {hasCustomTasks && (
+            <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-700">
+              {customCount} custom tasks
+            </span>
+          )}
         </div>
       </div>
     );
@@ -121,27 +159,29 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
         <div className="flex items-center text-xs text-gray-600">
           <Clock className="w-3 h-3 mr-1 flex-shrink-0" />
           <span className="truncate">
-            {startTime} - {endTime} ({duration})
+            {startTime} - {endTime}
           </span>
         </div>
-
-
-
-        <div className="flex items-center gap-2 mt-1">
-          {shift.tasks && shift.tasks.length > 0 && (
-            <Badge variant="secondary" className="text-[10px]">
-              {shift.tasks.length} task{shift.tasks.length !== 1 ? 's' : ''}
-            </Badge>
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
+          {hasProcessTasks && (
+            <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-gray-700">
+              {processCount} process & task{processCount !== 1 ? 's' : ''}
+            </span>
+          )}
+          {hasCustomTasks && (
+            <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-gray-700">
+              {customCount} custom task{customCount !== 1 ? 's' : ''}
+            </span>
           )}
           {shift.staff_members_details && shift.staff_members_details.length > 0 && (
-            <div className="flex -space-x-1.5 overflow-hidden">
-              {shift.staff_members_details.map((staff) => (
+            <div className="flex items-center gap-0.5 overflow-hidden">
+              {shift.staff_members_details.slice(0, 3).map((staff) => (
                 <div
                   key={staff.id}
-                  className="inline-block h-5 w-5 rounded-full ring-1 ring-white bg-[#106B4E] flex items-center justify-center text-[8px] font-bold text-white"
+                  className="h-5 w-5 rounded-full bg-[#0d5c3e] flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0 ring-1 ring-white"
                   title={`${staff.first_name} ${staff.last_name}`}
                 >
-                  {staff.first_name?.[0]}{staff.last_name?.[0]}
+                  {(staff.first_name?.[0] ?? '') + (staff.last_name?.[0] ?? '') || '?'}
                 </div>
               ))}
             </div>

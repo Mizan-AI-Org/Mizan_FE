@@ -389,10 +389,14 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             toast({ title: 'Missing required fields', description: 'Please select staff, date, start, end, and role.', variant: 'destructive' });
             return;
         }
-        if (selectedTemplates.length === 0 && (manualTasks?.length ?? 0) === 0) {
+        const pendingTaskTitle = newTaskTitle?.trim() ?? '';
+        const effectiveManualTasks = pendingTaskTitle
+            ? [...(manualTasks || []), { title: pendingTaskTitle, priority: newTaskPriority }]
+            : (manualTasks || []);
+        if (selectedTemplates.length === 0 && effectiveManualTasks.length === 0) {
             toast({
                 title: 'Tasks or templates required',
-                description: 'Every shift must have either at least one Process & Task Template assigned or at least one Custom Task.',
+                description: 'Every shift must have either at least one Process & Task Template or at least one Custom Task. Add a template above or type a custom task and click +.',
                 variant: 'destructive',
             });
             return;
@@ -416,7 +420,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             role: role,
             notes: notes,
             task_templates: selectedTemplates,
-            tasks: manualTasks, // Include manual tasks for nested creation/update
+            tasks: effectiveManualTasks, // Include manual tasks (and pending input if any) for nested creation/update
             is_recurring: isRecurring,
             frequency: frequency,
             recurring_end_date: isRecurring ? recurringEndDate : undefined,
