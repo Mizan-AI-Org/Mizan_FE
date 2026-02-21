@@ -280,7 +280,7 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
               Import schedule from document
             </CardTitle>
             <CardDescription>
-              Upload your Excel or CSV schedule. We adapt to your form and style—whatever columns you use (Date, Employee, Role, Start, End, etc.)—and create shifts you can save as a template or apply to this week.
+              Upload your Excel or CSV schedule. 
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 flex-1">
