@@ -13,6 +13,7 @@ import { API_BASE } from "@/lib/api";
 const ProfileSettings: React.FC = () => {
     const { user, updateUser } = useAuth() as AuthContextType;
     const { toast } = useToast();
+    const { t } = useLanguage();
 
     const [firstName, setFirstName] = useState(user?.first_name || "");
     const [lastName, setLastName] = useState(user?.last_name || "");

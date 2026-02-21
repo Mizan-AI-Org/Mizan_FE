@@ -838,7 +838,7 @@ const PresenceTab: React.FC = () => {
                                         {managerClockInMutation.isPending ? (
                                             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Clocking in...</>
                                         ) : (
-                                            {t("staff.clock_in_for_staff_btn")}
+                                            t("staff.clock_in_for_staff_btn")
                                         )}
                                     </Button>
                                 </div>
