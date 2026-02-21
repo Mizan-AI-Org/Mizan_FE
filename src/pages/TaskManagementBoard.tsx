@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/use-auth';
+import { useLanguage } from '@/hooks/use-language';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,9 @@ interface StaffMetric {
     total: number;
     overdue: number;
     is_completed: boolean;
+    tasks_marked_no?: number;
+    follow_up_needed?: boolean;
+    photo_evidence_count?: number;
   };
   pace: {
     elapsed_minutes: number;
@@ -46,6 +50,7 @@ interface StaffMetric {
 
 export default function TaskManagementBoard() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [activeProcessesCount, setActiveProcessesCount] = useState(0);
   const [tasksToday, setTasksToday] = useState({ total: 0, completed: 0, ongoing: 0 });
   const [onTimeRate, setOnTimeRate] = useState(0);
@@ -259,6 +264,17 @@ export default function TaskManagementBoard() {
                         <span className="font-medium text-xs">{staff.tasks.overdue} overdue</span>
                       </div>
                     )}
+                    {(staff.tasks.tasks_marked_no ?? 0) > 0 && (
+                      <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md dark:bg-amber-900/20" title="Tasks marked No — follow-up">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span className="font-medium text-xs">{staff.tasks.tasks_marked_no} No</span>
+                      </div>
+                    )}
+                    {(staff.tasks.photo_evidence_count ?? 0) > 0 && (
+                      <span className="text-xs text-slate-500" title="Photo evidence submitted">
+                        📷 {staff.tasks.photo_evidence_count}
+                      </span>
+                    )}
                   </div>
 
                   {/* 4. Time & Pace */}
@@ -282,7 +298,7 @@ export default function TaskManagementBoard() {
                     ) : (
                       <div className="flex items-center gap-1.5 text-emerald-600 text-sm font-medium opacity-70">
                         <CheckCircle className="w-4 h-4" />
-                        <span>All good</span>
+                        <span>{t("common.all_good")}</span>
                       </div>
                     )}
                   </div>

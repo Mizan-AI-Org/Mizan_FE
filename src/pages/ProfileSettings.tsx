@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "../contexts/AuthContext";
 import { AuthContextType } from "../contexts/AuthContext.types";
+import { useLanguage } from "@/hooks/use-language";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { API_BASE } from "@/lib/api";
 const ProfileSettings: React.FC = () => {
     const { user, updateUser } = useAuth() as AuthContextType;
     const { toast } = useToast();
+    const { t } = useLanguage();
 
     const [firstName, setFirstName] = useState(user?.first_name || "");
     const [lastName, setLastName] = useState(user?.last_name || "");
@@ -143,7 +145,7 @@ const ProfileSettings: React.FC = () => {
                             onChange={(e) => setFirstName(e.target.value)}
                             required
                             className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
-                            placeholder="Enter your first name"
+                            placeholder={t("profile.placeholder_first_name")}
                         />
                     </div>
                     <div className="space-y-2">
@@ -154,7 +156,7 @@ const ProfileSettings: React.FC = () => {
                             onChange={(e) => setLastName(e.target.value)}
                             required
                             className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
-                            placeholder="Enter your last name"
+                            placeholder={t("profile.placeholder_last_name")}
                         />
                     </div>
                 </div>
@@ -253,7 +255,7 @@ const ProfileSettings: React.FC = () => {
                             value={emergencyContactName}
                             onChange={(e) => setEmergencyContactName(e.target.value)}
                             className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
-                            placeholder="Emergency contact name"
+                            placeholder={t("profile.emergency_contact_name")}
                         />
                     </div>
                     <div className="space-y-2">

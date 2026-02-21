@@ -11,7 +11,8 @@ import RoleBasedRoute from "./components/RoleBasedRoute";
 import { useIdleTimeout } from "./hooks/use-idle-timeout";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "./contexts/AuthContext";
-import OfflineWarning from "./components/OfflineWarning"; // Import OfflineWarning
+import OfflineWarning from "./components/OfflineWarning";
+import { PageLoadingSkeleton } from "./components/skeletons";
 import InventoryItemsPage from "./pages/inventory/InventoryItemsPage";
 import SuppliersPage from "./pages/inventory/SuppliersPage";
 import PurchaseOrdersPage from "./pages/inventory/PurchaseOrdersPage";
@@ -162,7 +163,7 @@ const App = () => {
               onReconnectAttempt={() => window.location.reload()}
             />
           )}
-          <React.Suspense fallback={<div>Loading...</div>}>
+          <React.Suspense fallback={<PageLoadingSkeleton />}>
             <Routes>
               {/* Public Routes for Login/ Signup*/}
               <Route path="/auth" element={<Auth />} />
@@ -370,7 +371,7 @@ const App = () => {
                 <Route
                   path="dashboard/tasks"
                   element={
-                    <React.Suspense fallback={<div>Loading...</div>}>
+                    <React.Suspense fallback={<PageLoadingSkeleton />}>
                       <TaskManagementBoard />
                     </React.Suspense>
                   }
@@ -379,7 +380,7 @@ const App = () => {
                   path="dashboard/task-templates"
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
-                      <React.Suspense fallback={<div>Loading...</div>}>
+                      <React.Suspense fallback={<PageLoadingSkeleton />}>
                         <TaskTemplates />
                       </React.Suspense>
                     </RoleBasedRoute>
@@ -399,7 +400,7 @@ const App = () => {
                     <RoleBasedRoute
                       allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
                     >
-                      <React.Suspense fallback={<div>Loading...</div>}>
+                      <React.Suspense fallback={<PageLoadingSkeleton />}>
                         <StaffSchedulingPage />
                       </React.Suspense>
                     </RoleBasedRoute>
@@ -411,7 +412,7 @@ const App = () => {
                     <RoleBasedRoute
                       allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
                     >
-                      <React.Suspense fallback={<div>Loading...</div>}>
+                      <React.Suspense fallback={<PageLoadingSkeleton />}>
                         <SchedulingAnalytics />
                       </React.Suspense>
                     </RoleBasedRoute>
@@ -457,7 +458,7 @@ const App = () => {
                     <RoleBasedRoute
                       allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
                     >
-                      <React.Suspense fallback={<div>Loading...</div>}>
+                      <React.Suspense fallback={<PageLoadingSkeleton />}>
                         <DashboardAttendancePage />
                       </React.Suspense>
                     </RoleBasedRoute>

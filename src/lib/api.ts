@@ -83,7 +83,7 @@ export class BackendService {
       let message = "Request failed";
       try {
         const err = await response.json();
-        message = err.error || err.message || err.detail || message;
+        message = err.detail || err.error || err.message || message;
       } catch {
         message = `Request failed (${response.status})`;
       }
@@ -376,8 +376,14 @@ export class BackendService {
     return this.fetchWithError("/dashboard/action-center/");
   }
 
-  async managerClockIn(staffId: string): Promise<Record<string, unknown>> {
-    return this.fetchWithError(`/timeclock/staff/${staffId}/manager-clock-in/`, { method: "POST" });
+  async managerClockIn(
+    staffId: string,
+    payload: { reason: string; shift_id?: string }
+  ): Promise<Record<string, unknown>> {
+    return this.fetchWithError(`/timeclock/staff/${staffId}/manager-clock-in/`, {
+      method: "POST",
+      body: JSON.stringify({ reason: payload.reason, shift_id: payload.shift_id }),
+    });
   }
 
   async managerClockOut(staffId: string): Promise<Record<string, unknown>> {

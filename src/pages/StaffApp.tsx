@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -18,6 +18,8 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { TableSkeleton, CardGridSkeleton, DashboardSkeleton, ListSkeleton, BlockSkeleton } from "@/components/skeletons";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
     Users,
     UserCheck,
@@ -82,7 +84,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import StaffRequestsTab from "@/components/staff/StaffRequestsTab";
 import DeleteStaffConfirmation from "@/components/staff/DeleteStaffConfirmation";
 import DeactivateStaffConfirmation from "@/components/staff/DeactivateStaffConfirmation";
@@ -189,7 +191,9 @@ type AttendanceEvent = {
 
 type AssignedShiftLite = {
     shift_date: string;
-    staff: string;
+    staff: string | null;
+    /** When multiple staff are assigned to one shift (e.g. "Iftar Prep") */
+    staff_members?: string[];
 };
 
 type WeeklyScheduleLite = {
@@ -382,10 +386,28 @@ const PaginationControls: React.FC<{
     );
 };
 
+// Today's shift for manager override (start_time/end_time can be ISO datetime strings)
+type TodayShiftOption = { id: string; shift_date: string; start_time: string | null; end_time: string | null; role?: string };
+
+function formatShiftTime(isoOrTime: string | null): string {
+    if (!isoOrTime) return "—";
+    if (/^\d{2}:\d{2}/.test(isoOrTime)) return isoOrTime.slice(0, 5);
+    try {
+        return format(parseISO(isoOrTime), "HH:mm");
+    } catch {
+        return isoOrTime;
+    }
+}
+
 // Presence Tab Component
 const PresenceTab: React.FC = () => {
     const { logout } = useAuth() as AuthContextType;
     const { t } = useLanguage();
+    const queryClient = useQueryClient();
+    const [presenceModalOpen, setPresenceModalOpen] = useState(false);
+    const [selectedPresenceRecord, setSelectedPresenceRecord] = useState<AttendanceSummary | null>(null);
+    const [overrideReason, setOverrideReason] = useState("");
+    const [overrideShiftId, setOverrideShiftId] = useState<string>("");
 
     // Date helpers
     const toYMD = (d: Date) => {
@@ -480,11 +502,14 @@ const PresenceTab: React.FC = () => {
         // simple caching of staff IDs who have attendance
         const staffWithAttendance = new Set(attendanceData.map((a) => a.staff));
 
-        // simple caching of staff IDs who have a shift today
-        const staffWithShift = new Set(scheduleData
+        // simple caching of staff IDs who have a shift today (include both single staff and staff_members)
+        const staffWithShift = new Set<string>();
+        scheduleData
             .filter((s) => s.shift_date === todayStr)
-            .map((s) => s.staff)
-        );
+            .forEach((s) => {
+                if (s.staff) staffWithShift.add(s.staff);
+                (s.staff_members || []).forEach((id) => staffWithShift.add(id));
+            });
 
         return staffDataRaw.filter((staff) =>
             staffWithShift.has(staff.id) || staffWithAttendance.has(staff.id)
@@ -543,6 +568,64 @@ const PresenceTab: React.FC = () => {
     const onBreak = staffStatusMap.filter(s => s.status === "on_break");
     const clockedOut = staffStatusMap.filter(s => s.status === "clocked_out");
     const notStarted = staffStatusMap.filter(s => s.status === "not_started");
+
+    // Today's shifts for selected staff (when modal is open)
+    const todayStrForShifts = toYMD(new Date());
+    const { data: todayShiftsResponse } = useQuery<{ results?: TodayShiftOption[] }>({
+        queryKey: ["today-shifts", selectedPresenceRecord?.staff_id, todayStrForShifts],
+        queryFn: async () => {
+            if (!selectedPresenceRecord?.staff_id) return { results: [] };
+            const res = await fetch(
+                `${API_BASE}/scheduling/assigned-shifts-v2/?staff_id=${selectedPresenceRecord.staff_id}&date_from=${todayStrForShifts}&date_to=${todayStrForShifts}`,
+                { headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` } }
+            );
+            if (!res.ok) throw new Error("Failed to fetch shifts");
+            return res.json();
+        },
+        enabled: presenceModalOpen && !!selectedPresenceRecord?.staff_id,
+    });
+    const todayShifts = (todayShiftsResponse?.results ?? []) as TodayShiftOption[];
+
+    const managerClockInMutation = useMutation({
+        mutationFn: ({ staffId, reason, shiftId }: { staffId: string; reason: string; shiftId?: string }) =>
+            api.managerClockIn(staffId, { reason, shift_id: shiftId || undefined }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["today-attendance"] });
+            setPresenceModalOpen(false);
+            setSelectedPresenceRecord(null);
+            setOverrideReason("");
+            setOverrideShiftId("");
+            toast.success(t("staff.clocked_in_success"));
+        },
+        onError: (err: Error) => {
+            toast.error(err.message || "Failed to clock in staff.");
+        },
+    });
+
+    const handleOpenPresenceDetail = (record: AttendanceSummary) => {
+        setSelectedPresenceRecord(record);
+        setOverrideReason("");
+        setOverrideShiftId("");
+        setPresenceModalOpen(true);
+    };
+
+    useEffect(() => {
+        if (todayShifts.length === 1 && presenceModalOpen) setOverrideShiftId(todayShifts[0].id);
+    }, [todayShifts.length, todayShifts, presenceModalOpen]);
+
+    const handleManagerClockInSubmit = () => {
+        if (!selectedPresenceRecord?.staff_id) return;
+        const reason = overrideReason.trim();
+        if (!reason) {
+            toast.error(t("staff.provide_reason_clock_in"));
+            return;
+        }
+        managerClockInMutation.mutate({
+            staffId: selectedPresenceRecord.staff_id,
+            reason,
+            shiftId: overrideShiftId || undefined,
+        });
+    };
 
     const StatusBadge = ({ status }: { status: string }) => {
         const styles = {
@@ -652,7 +735,11 @@ const PresenceTab: React.FC = () => {
                                 </>
                             ) : staffStatusMap.length > 0 ? (
                                 staffStatusMap.map((record) => (
-                                    <TableRow key={record.staff_id} className="border-slate-100 dark:border-slate-800">
+                                    <TableRow
+                                        key={record.staff_id}
+                                        className="border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                                        onClick={() => handleOpenPresenceDetail(record)}
+                                    >
                                         <TableCell className="font-medium text-slate-900 dark:text-white">{record.staff_name}</TableCell>
                                         <TableCell className="text-slate-600 dark:text-slate-300">{record.clock_in || "-"}</TableCell>
                                         <TableCell><StatusBadge status={record.status} /></TableCell>
@@ -676,6 +763,95 @@ const PresenceTab: React.FC = () => {
                     </Table>
                 </CardContent>
             </Card>
+
+            {/* Staff detail & manager clock-in modal */}
+            <Dialog open={presenceModalOpen} onOpenChange={setPresenceModalOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-slate-900 dark:text-white">
+                            {selectedPresenceRecord?.staff_name ?? "Staff"}
+                        </DialogTitle>
+                    </DialogHeader>
+                    {selectedPresenceRecord && (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                    <span className="text-slate-500 dark:text-slate-400">{t("staff.presence.table.clock_in")}</span>
+                                    <p className="font-medium text-slate-900 dark:text-white">{selectedPresenceRecord.clock_in ?? "—"}</p>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 dark:text-slate-400">{t("staff.presence.table.status")}</span>
+                                    <p className="mt-0.5"><StatusBadge status={selectedPresenceRecord.status} /></p>
+                                </div>
+                            </div>
+                            {todayShifts.length > 0 && (
+                                <div className="text-sm">
+                                    <Label className="text-slate-500 dark:text-slate-400">{t("staff.todays_shifts")}</Label>
+                                    <ul className="mt-1 space-y-1">
+                                        {todayShifts.map((s) => (
+                                            <li key={s.id} className="flex items-center justify-between text-slate-700 dark:text-slate-300">
+                                                <span>
+                                                    {formatShiftTime(s.start_time)} – {formatShiftTime(s.end_time)}
+                                                    {s.role && ` (${s.role})`}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                            {selectedPresenceRecord.status !== "clocked_in" && (
+                                <div className="space-y-3 border-t border-slate-200 dark:border-slate-700 pt-4">
+                                    <Label className="text-slate-900 dark:text-white">{t("staff.manager_override_clock_in")}</Label>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        Use when the staff cannot clock in (e.g. device or location issue). Reason is required.
+                                    </p>
+                                    <Textarea
+                                        placeholder={t("staff.manager_override_reason_placeholder")}
+                                        value={overrideReason}
+                                        onChange={(e) => setOverrideReason(e.target.value)}
+                                        rows={3}
+                                        className="resize-none"
+                                    />
+                                    {todayShifts.length > 1 && (
+                                        <div>
+                                            <Label className="text-slate-500 dark:text-slate-400 text-xs">{t("staff.assign_shift_optional")}</Label>
+                                            <select
+                                                className="mt-1 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
+                                                value={overrideShiftId}
+                                                onChange={(e) => setOverrideShiftId(e.target.value)}
+                                            >
+                                                <option value="">— Select shift —</option>
+                                                {todayShifts.map((s) => (
+                                                    <option key={s.id} value={s.id}>
+                                                        {formatShiftTime(s.start_time)} – {formatShiftTime(s.end_time)}
+                                                        {s.role ? ` ${s.role}` : ""}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                    <Button
+                                        onClick={handleManagerClockInSubmit}
+                                        disabled={!overrideReason.trim() || managerClockInMutation.isPending}
+                                        className="w-full"
+                                    >
+                                        {managerClockInMutation.isPending ? (
+                                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Clocking in...</>
+                                        ) : (
+                                            t("staff.clock_in_for_staff_btn")
+                                        )}
+                                    </Button>
+                                </div>
+                            )}
+                            {selectedPresenceRecord.status === "clocked_in" && (
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    This staff member is already clocked in. No override needed.
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
@@ -1601,7 +1777,7 @@ const TeamTab: React.FC = () => {
                             {/* Danger zone: Deactivate / Remove — only for Owner or Super Admin, not for self */}
                             {(user?.role === "OWNER" || user?.role === "SUPER_ADMIN") && selectedMember && selectedMember.id !== user?.id && (
                                 <div className="space-y-3 pt-4 border-t border-slate-100/60">
-                                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Danger zone</h4>
+                                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{t("staff.danger_zone")}</h4>
                                     <div className="flex gap-2">
                                         <Button variant="outline" size="sm" className="text-amber-600 border-amber-200 hover:bg-amber-50" onClick={() => { setStaffToDeactivate({ id: selectedMember.id, name: `${selectedMember.first_name} ${selectedMember.last_name}` }); setIsDeactivateModalOpen(true); }}>
                                             Deactivate staff
@@ -1717,7 +1893,7 @@ const TeamTab: React.FC = () => {
                 const parsed = parseStaffCsvText(text, inviteMethod);
 
                 if (parsed.length === 0) {
-                    toast.error("No valid data found in CSV. Please check the format.");
+                    toast.error(t("staff.csv_no_valid_data"));
                     return;
                 }
                 setBulkData(parsed);
@@ -1752,7 +1928,7 @@ const TeamTab: React.FC = () => {
         const handleInvite = async () => {
             if (isBulkMode) {
                 if (bulkData.length === 0) {
-                    toast.error("Please upload a CSV file with staff data first");
+                    toast.error(t("staff.upload_csv_first"));
                     return;
                 }
 
@@ -1818,11 +1994,11 @@ const TeamTab: React.FC = () => {
             }
 
             if (inviteMethod === "email" && !formData.email) {
-                toast.error("Email is required for email invitation");
+                toast.error(t("staff.email_required_invite"));
                 return;
             }
             if (inviteMethod === "whatsapp" && !formData.phone_number) {
-                toast.error("Phone number is required for WhatsApp invitation");
+                toast.error(t("staff.phone_required_whatsapp_invite"));
                 return;
             }
 
@@ -2194,7 +2370,7 @@ const TeamTab: React.FC = () => {
                             <CardGridSkeleton count={8} columns="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" />
                         )
                     ) : error ? (
-                        <div className="text-center py-8 text-red-500">Error loading staff</div>
+                        <div className="text-center py-8 text-red-500">{t("staff.error_loading_staff")}</div>
                     ) : (
                         <>
                             {staff && staff.length > 0 ? (
@@ -2202,11 +2378,11 @@ const TeamTab: React.FC = () => {
                                     <Table>
                                         <TableHeader>
                                             <TableRow className="border-slate-100 dark:border-slate-800">
-                                                <TableHead className="text-slate-500 dark:text-slate-400">Name</TableHead>
-                                                <TableHead className="text-slate-500 dark:text-slate-400">Contact</TableHead>
-                                                <TableHead className="text-slate-500 dark:text-slate-400">Role</TableHead>
-                                                <TableHead className="text-slate-500 dark:text-slate-400">Status</TableHead>
-                                                <TableHead className="text-slate-500 dark:text-slate-400">Actions</TableHead>
+                                                <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.table_name")}</TableHead>
+                                                <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.table_contact")}</TableHead>
+                                                <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.table_role")}</TableHead>
+                                                <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.table_status")}</TableHead>
+                                                <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.table_actions")}</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -2313,7 +2489,7 @@ const TeamTab: React.FC = () => {
                                                             return (
                                                                 <>
                                                                     <Mail className="w-3 h-3" />
-                                                                    <span className="truncate">Not provided</span>
+                                                                    <span className="truncate">{t("common.not_provided")}</span>
                                                                 </>
                                                             );
                                                         })()}

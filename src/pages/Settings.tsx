@@ -172,7 +172,7 @@ export default function Settings() {
     const square = url.searchParams.get("square");
     const message = url.searchParams.get("message");
     if (square === "connected") {
-      toast.success("Square connected");
+      toast.success(t("settings.square_connected"));
       // Refresh settings to show connected status
       const role = (JSON.parse(localStorage.getItem("user") || "{}")?.role || "").toUpperCase();
       if (role !== "STAFF") {
@@ -250,7 +250,7 @@ export default function Settings() {
       setPendingInvitations(response.data);
     } catch (error) {
       console.error("Error fetching pending invitations:", error);
-      toast.error("Failed to load pending invitations.");
+      toast.error(t("settings.failed_load_invitations"));
     }
   };
 
@@ -461,7 +461,7 @@ export default function Settings() {
       return;
     }
     if (inviteSendWhatsApp && !invitePhone) {
-      toast.error("Phone number is required when sending via WhatsApp.");
+      toast.error(t("settings.phone_required_whatsapp"));
       return;
     }
 
@@ -498,7 +498,7 @@ export default function Settings() {
       }
     } catch (error) {
       console.error("Error inviting staff:", error);
-      toast.error("Failed to send staff invitation.");
+      toast.error(t("settings.failed_send_invitation"));
     }
   };
 
@@ -550,11 +550,11 @@ export default function Settings() {
         await testPosConnection();
         await fetchUnifiedSettings();
       } else {
-        toast.error("Coming soon");
+        toast.error(t("common.coming_soon"));
       }
     } catch (error) {
       console.error("Failed to update POS settings:", error);
-      toast.error("Failed to update POS settings.");
+      toast.error(t("settings.failed_update_pos"));
     } finally {
       setSavingPos(false);
     }
@@ -565,7 +565,7 @@ export default function Settings() {
       const resp = await apiClient.get("/settings/square/oauth/authorize/");
       const url = resp.data?.authorization_url as string | undefined;
       if (!url) {
-        toast.error("Square OAuth not available");
+        toast.error(t("settings.square_oauth_unavailable"));
         return;
       }
       window.location.href = url;
@@ -578,7 +578,7 @@ export default function Settings() {
   const disconnectSquare = async () => {
     try {
       await apiClient.post("/settings/square/oauth/disconnect/", {});
-      toast.success("Square disconnected");
+      toast.success(t("settings.square_disconnected"));
       await fetchUnifiedSettings();
     } catch (error) {
       const axiosErr = error as AxiosError<{ detail?: string; error?: string }>;
@@ -595,11 +595,11 @@ export default function Settings() {
         ai_features_enabled: aiSettings.features_enabled,
         settings_schema_version: settingsSchemaVersion,
       });
-      toast.success("AI settings updated");
+      toast.success(t("settings.ai_updated"));
       await fetchUnifiedSettings();
     } catch (error) {
       console.error("Failed to update AI settings:", error);
-      toast.error("Failed to update AI settings.");
+      toast.error(t("settings.failed_update_ai"));
     } finally {
       setSavingAi(false);
     }
@@ -794,6 +794,29 @@ export default function Settings() {
                     </p>
                   </div>
                 </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold text-slate-800">{t("settings.general.preferences")}</h4>
+                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="automatic-clock-out" className="text-sm font-medium text-slate-700 cursor-pointer">
+                        {t("settings.general.automatic_clock_out")}
+                      </Label>
+                      <p className="text-xs text-slate-500">
+                        {t("settings.general.automatic_clock_out_desc")}
+                      </p>
+                    </div>
+                    <Switch
+                      id="automatic-clock-out"
+                      checked={automaticClockOut}
+                      onCheckedChange={setAutomaticClockOut}
+                      className="data-[state=checked]:bg-emerald-600"
+                    />
+                  </div>
+                </div>
+
                 <div className="pt-4 border-t border-slate-200">
                   <Button onClick={saveGeneralSettings} className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-emerald-500/25 transition-all hover:shadow-emerald-500/40">
                     <Save className="w-4 h-4 mr-2" />
@@ -849,13 +872,13 @@ export default function Settings() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="space-y-1">
-                          <div className="text-sm font-medium text-slate-700">Square account</div>
+                          <div className="text-sm font-medium text-slate-700">{t("settings.square_account")}</div>
                           <div className="text-xs text-slate-500">
                             Connect via OAuth so no API keys are stored in the browser.
                           </div>
                         </div>
                         <Badge variant="outline" className={posSettings.pos_is_connected ? "border-emerald-200 text-emerald-700" : "border-slate-200 text-slate-600"}>
-                          {posSettings.pos_is_connected ? "Connected" : "Not connected"}
+                          {posSettings.pos_is_connected ? t("settings.connected") : t("settings.not_connected")}
                         </Badge>
                       </div>
 
@@ -953,7 +976,7 @@ export default function Settings() {
 
             <Card className="shadow-soft">
               <CardHeader>
-                <CardTitle>Menu Scanner</CardTitle>
+                <CardTitle>{t("settings.menu_scanner")}</CardTitle>
                 <CardDescription>
                   Scan physical menus to digitize them.
                 </CardDescription>
@@ -976,8 +999,8 @@ export default function Settings() {
                     <CreditCardIcon className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg font-bold text-slate-900">Billing Information</CardTitle>
-                    <CardDescription className="text-slate-500">Manage your subscription and payment methods</CardDescription>
+                    <CardTitle className="text-lg font-bold text-slate-900">{t("settings.billing_info")}</CardTitle>
+                    <CardDescription className="text-slate-500">{t("settings.billing_description")}</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -1007,7 +1030,7 @@ export default function Settings() {
                       <CreditCardIcon className="w-5 h-5 text-slate-600" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-semibold text-slate-900">Subscription Plans Coming Soon</h4>
+                      <h4 className="text-sm font-semibold text-slate-900">{t("settings.subscription_coming_soon")}</h4>
                       <p className="text-sm text-slate-600 mt-1">
                         We're working on flexible subscription options for teams of all sizes. You'll be notified when billing options become available.
                       </p>
@@ -1024,7 +1047,7 @@ export default function Settings() {
                     <AlertCircle className="w-5 h-5 text-red-600" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg font-bold text-red-700">Danger Zone</CardTitle>
+                    <CardTitle className="text-lg font-bold text-red-700">{t("settings.danger_zone")}</CardTitle>
                     <CardDescription className="text-red-600/80">
                       Permanently delete your account and all data. This cannot be undone.
                     </CardDescription>

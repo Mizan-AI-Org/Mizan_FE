@@ -84,7 +84,7 @@ const AttendanceHistory: React.FC = () => {
     const isClockedIn = attendanceHistory?.some(r => r.status === 'active') ?? false;
 
     const managerClockInMutation = useMutation({
-        mutationFn: () => api.managerClockIn(user_id!),
+        mutationFn: (payload: { reason: string; shift_id?: string }) => api.managerClockIn(user_id!, payload),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['attendanceHistory', targetUserId, formattedStartDate, formattedEndDate] });
             toast({ title: 'Success', description: 'Staff clocked in (manager override)' });
@@ -165,7 +165,10 @@ const AttendanceHistory: React.FC = () => {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => managerClockInMutation.mutate()}
+                                onClick={() => {
+                                    const reason = window.prompt("Reason for manager clock-in (e.g. device failure, location issue):");
+                                    if (reason?.trim()) managerClockInMutation.mutate({ reason: reason.trim() });
+                                }}
                                 disabled={managerClockInMutation.isPending}
                             >
                                 {managerClockInMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LogIn className="w-4 h-4 mr-2" />}
