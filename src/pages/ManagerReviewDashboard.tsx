@@ -728,7 +728,6 @@ const ManagerReviewDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold">{t("analytics.submitted_checklists")}</h2>
-              <p className="text-sm text-muted-foreground">{t("analytics.manager_review")}</p>
             </div>
             <div className="flex items-center gap-2">
               <Input placeholder={t("analytics.search_name_submitter")} value={search} onChange={(e) => setSearch(e.target.value)} className="w-60" />
@@ -755,7 +754,6 @@ const ManagerReviewDashboard: React.FC = () => {
               ) : sortedTable.length === 0 ? (
                 <div className="text-sm text-muted-foreground">
                   {t("analytics.no_submissions")}
-                  <div className="mt-1">{t("analytics.no_submissions_hint")}</div>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
