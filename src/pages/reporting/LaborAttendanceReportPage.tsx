@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLanguage } from "@/hooks/use-language";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ import { TableSkeleton } from "@/components/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const LaborAttendanceReportPage: React.FC = () => {
+  const { t } = useLanguage();
   const today = new Date();
   const [startDate, setStartDate] = useState(format(startOfWeek(today), "yyyy-MM-dd"));
   const [endDate, setEndDate] = useState(format(endOfWeek(today), "yyyy-MM-dd"));
@@ -197,7 +199,7 @@ const LaborAttendanceReportPage: React.FC = () => {
                       value: summary.total_variance,
                       className: varianceNum < 0 ? "text-red-600 dark:text-red-400" : varianceNum > 0 ? "text-emerald-600 dark:text-emerald-400" : "",
                     },
-                    { label: "Late arrivals", value: summary.late_arrivals, className: "text-amber-600 dark:text-amber-400" },
+                    { label: t("common.late_arrivals"), value: summary.late_arrivals, className: "text-amber-600 dark:text-amber-400" },
                     { label: "No-shows", value: summary.no_shows, className: "text-red-600 dark:text-red-400" },
                   ].map(({ label, value, className }) => (
                     <div
@@ -331,7 +333,7 @@ const LaborAttendanceReportPage: React.FC = () => {
                     <TableRow className="border-slate-200 dark:border-slate-800 hover:bg-transparent">
                       <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Staff</TableHead>
                       <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Certification</TableHead>
-                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Expiry date</TableHead>
+                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">{t("common.expiry_date")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

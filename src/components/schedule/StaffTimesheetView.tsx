@@ -163,10 +163,13 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
       });
     });
     shifts.forEach((shift) => {
-      const staffId = shift.staffId;
-      if (!map[staffId]) map[staffId] = {};
-      if (!map[staffId][shift.date]) map[staffId][shift.date] = [];
-      map[staffId][shift.date].push(shift);
+      const staffIds = (shift.staff_members && shift.staff_members.length) ? shift.staff_members : [shift.staffId];
+      staffIds.forEach((staffId) => {
+        if (!staffId) return;
+        if (!map[staffId]) map[staffId] = {};
+        if (!map[staffId][shift.date]) map[staffId][shift.date] = [];
+        map[staffId][shift.date].push(shift);
+      });
     });
     return map;
   }, [shifts, staffMembers, weekDates]);
@@ -324,8 +327,8 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
         </table>
         {staffByRole.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-            <p className="text-sm font-medium">No staff in this period</p>
-            <p className="text-xs mt-1">Add staff to see the timesheet by role.</p>
+            <p className="text-sm font-medium">{t("schedule.no_staff_period")}</p>
+            <p className="text-xs mt-1">{t("schedule.add_staff_timesheet")}</p>
           </div>
         )}
       </div>

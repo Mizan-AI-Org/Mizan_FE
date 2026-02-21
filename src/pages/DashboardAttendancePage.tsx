@@ -230,12 +230,12 @@ export default function DashboardAttendancePage() {
                             >
                               <Calendar className="w-3.5 h-3.5" />
                               {type === "coverage" || String(it.id || "").startsWith("coverage")
-                                ? "Find coverage"
+                                ? t("common.find_coverage")
                                 : String(it.id || "").startsWith("tasks")
-                                  ? "Open tasks"
+                                  ? t("common.open_tasks")
                                   : String(it.id || "").startsWith("safety")
-                                    ? "View incident"
-                                    : "View schedule"}
+                                    ? t("common.view_incident")
+                                    : t("common.view_schedule")}
                             </Button>
                           </div>
                         </div>

@@ -125,7 +125,8 @@ const EnhancedScheduleView: React.FC = () => {
     };
 
     return scheduleData.assigned_shifts.map((shift: BackendShift) => {
-      const firstStaffId = (shift.staff_members && shift.staff_members[0]) || shift.staff;
+      const members = shift.staff_members?.length ? shift.staff_members : (shift.staff ? [shift.staff] : []);
+      const firstStaffId = members[0] || shift.staff;
       return {
       id: shift.id,
       title: (shift.title ?? shift.notes) || "Shift",
@@ -134,8 +135,8 @@ const EnhancedScheduleView: React.FC = () => {
       date: shift.shift_date,
       type: "confirmed" as const,
       day: new Date(shift.shift_date).getDay() === 0 ? 6 : new Date(shift.shift_date).getDay() - 1,
-      staffId: shift.staff,
-      staff_members: shift.staff_members ?? (shift.staff ? [shift.staff] : []),
+      staffId: firstStaffId ?? shift.staff,
+      staff_members: members,
       staff_members_details: shift.staff_members_details,
       color: firstStaffId ? getStaffColor(firstStaffId) : (shift.color || "#6b7280"),
       task_templates: shift.task_templates ?? [],
@@ -167,7 +168,7 @@ const EnhancedScheduleView: React.FC = () => {
   const handleSaveShift = async (shift: Shift) => {
     const token = localStorage.getItem("access_token");
     if (!token) {
-      toast.error("Not authenticated");
+      toast.error(t("schedule.not_authenticated"));
       return;
     }
     const isUpdate = shifts.some((s) => s.id === shift.id && !String(s.id).startsWith("temp"));
@@ -259,7 +260,7 @@ const EnhancedScheduleView: React.FC = () => {
         targetedScheduleId = existing?.id;
       }
       if (!targetedScheduleId) {
-        toast.error("Could not resolve schedule for this week");
+        toast.error(t("schedule.could_not_resolve_schedule"));
         return;
       }
 
@@ -287,7 +288,7 @@ const EnhancedScheduleView: React.FC = () => {
         const errBody = await response.json().catch(() => ({}));
         throw new Error((errBody as { detail?: string }).detail || "Failed to save shift");
       }
-      toast.success(isUpdate ? t("toasts.shift_updated") || "Shift updated" : "Shift created");
+      toast.success(isUpdate ? t("toasts.shift_updated") : t("toasts.shift_created"));
       refetchShifts();
     } catch (error) {
       console.error(error);
@@ -309,7 +310,7 @@ const EnhancedScheduleView: React.FC = () => {
       toast.success(t("toasts.shift_deleted"));
       refetchShifts();
     } catch (error) {
-      toast.error("Failed to delete shift");
+      toast.error(t("schedule.failed_delete_shift"));
     } finally {
       setIsShiftModalOpen(false);
     }

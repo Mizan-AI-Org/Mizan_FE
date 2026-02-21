@@ -634,7 +634,7 @@ const ManagerReviewDashboard: React.FC = () => {
                   </div>
                 </div>
                 <div className="rounded-xl border bg-white p-3">
-                  <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Avg score</div>
+                  <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{t("common.avg_score")}</div>
                   <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.avgCompletion ?? "—"}{typeof trendKpis.avgCompletion === 'number' ? "%" : ""}</div>
                   <div className="text-[11px] text-muted-foreground mt-1">From checklist summaries</div>
                 </div>
@@ -688,7 +688,7 @@ const ManagerReviewDashboard: React.FC = () => {
                 </div>
 
                 <div className="rounded-xl border bg-white p-3 space-y-3">
-                  <div className="text-sm font-semibold text-slate-900">Top checklists</div>
+                  <div className="text-sm font-semibold text-slate-900">{t("common.top_checklists")}</div>
                   {topTemplates.length === 0 ? (
                     <div className="text-sm text-muted-foreground">—</div>
                   ) : (
@@ -1258,7 +1258,7 @@ const ManagerReviewDashboard: React.FC = () => {
                       <div className="font-semibold">{summary.compiled_summary.evidence_items ?? 0} item(s)</div>
                     </div>
                     <div className="border rounded-md p-3">
-                      <div className="text-muted-foreground">Open actions</div>
+                      <div className="text-muted-foreground">{t("common.open_actions")}</div>
                       <div className="font-semibold">{summary.compiled_summary.actions_open ?? 0}</div>
                     </div>
                   </div>
@@ -1308,7 +1308,7 @@ const ManagerReviewDashboard: React.FC = () => {
                     ) : exec ? (
                       <div className="space-y-3 text-sm">
                         <div className="space-y-1">
-                          <div className="font-medium">Checklist report</div>
+                          <div className="font-medium">{t("common.checklist_report")}</div>
                           {exec.assigned_shift_info ? (
                             <div className="text-xs text-muted-foreground">
                               Shift: {exec.assigned_shift_info.shift_date || '—'}{' '}
@@ -1350,7 +1350,7 @@ const ManagerReviewDashboard: React.FC = () => {
 
                         {Array.isArray(exec.actions) && exec.actions.length > 0 ? (
                           <div className="space-y-2">
-                            <div className="font-medium">Actions created</div>
+                            <div className="font-medium">{t("common.actions_created")}</div>
                             <div className="space-y-2">
                               {exec.actions.map((a: ExecutionAction) => (
                                 <div key={a.id} className="border rounded-md p-3 text-xs">

@@ -19,6 +19,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { StaffProfileItem } from "@/lib/types";
@@ -63,6 +64,7 @@ interface AssignedShiftItem {
 
 const StaffAnnouncements: React.FC = () => {
   const { user, hasRole } = useAuth();
+  const { t } = useLanguage();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expirationDate, setExpirationDate] = useState<Date>();
@@ -310,7 +312,7 @@ const StaffAnnouncements: React.FC = () => {
               <Label htmlFor="title">Announcement Title *</Label>
               <Input
                 id="title"
-                placeholder="Enter announcement title..."
+                placeholder={t("announcements.placeholder_title")}
                 value={formData.title}
                 onChange={(e) => handleInputChange("title", e.target.value)}
                 required
@@ -413,7 +415,7 @@ const StaffAnnouncements: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Input
                   id="tags"
-                  placeholder="Type a tag and press Enter"
+                  placeholder={t("announcements.type_tag_enter")}
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -823,7 +825,7 @@ const StaffAnnouncements: React.FC = () => {
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {scheduleDate
                         ? format(scheduleDate, "PPP")
-                        : "Send immediately"}
+                        : t("announcements.send_immediately")}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
