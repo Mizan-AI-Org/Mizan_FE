@@ -1,4 +1,4 @@
-import { Loader2, Plus, X, Search, Check } from "lucide-react";
+import { Loader2, Plus, X, Search, Check, Download, FileSpreadsheet, FileText } from "lucide-react";
 import { WeeklyTimeGridView } from "./WeeklyTimeGridView";
 import { StaffScheduleListView } from "./StaffScheduleListView";
 import { StaffTimesheetView } from "./StaffTimesheetView";
@@ -14,6 +14,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { getStaffColor } from "@/lib/utils";
+import { exportTimesheetToPDF, exportTimesheetToExcel } from "@/utils/timesheetExport";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /**
  * EnhancedScheduleView serves as the main scheduling hub.
@@ -28,6 +36,7 @@ const EnhancedScheduleView: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const toYMD = (d: Date) => {
     const year = d.getFullYear();
@@ -395,6 +404,72 @@ const EnhancedScheduleView: React.FC = () => {
             currentDate={currentDate}
             isLoading={isLoading}
           />
+        )}
+
+        {/* Export actions: only for Timesheet view, at the bottom */}
+        {currentView === "timesheet" && (
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-4">
+              <div className="flex items-center gap-2">
+                <Download className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  {t("schedule.export_timesheet")}
+                </span>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-900 dark:bg-slate-800 dark:text-red-400 dark:hover:bg-red-950/50"
+                  onClick={async () => {
+                    setIsExporting(true);
+                    try {
+                      await exportTimesheetToPDF(shifts, staffMembers, currentDate);
+                      toast.success(t("schedule.export_pdf_success"));
+                    } catch (e) {
+                      toast.error(t("schedule.export_failed"));
+                    } finally {
+                      setIsExporting(false);
+                    }
+                  }}
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="h-4 w-4" />
+                  )}
+                  {t("schedule.export_as_pdf")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-900 dark:bg-slate-800 dark:text-emerald-400 dark:hover:bg-emerald-950/50"
+                  onClick={async () => {
+                    setIsExporting(true);
+                    try {
+                      await exportTimesheetToExcel(shifts, staffMembers, currentDate);
+                      toast.success(t("schedule.export_excel_success"));
+                    } catch (e) {
+                      toast.error(t("schedule.export_failed"));
+                    } finally {
+                      setIsExporting(false);
+                    }
+                  }}
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileSpreadsheet className="h-4 w-4" />
+                  )}
+                  {t("schedule.export_as_excel")}
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
