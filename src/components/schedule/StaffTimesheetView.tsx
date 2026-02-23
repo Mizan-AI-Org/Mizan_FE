@@ -302,14 +302,14 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
                                       key={shift.id}
                                       onClick={() => onEditShift?.(shift)}
                                       className={cn(
-                                        "text-[11px] font-medium rounded px-2 py-1 border cursor-pointer hover:opacity-90 transition-opacity truncate",
+                                        "w-full min-h-[32px] flex items-center rounded px-2 py-1.5 border cursor-pointer hover:opacity-90 transition-opacity text-[11px] font-medium box-border",
                                         onEditShift && "cursor-pointer"
                                       )}
                                       style={{ ...staffStyle, borderWidth: "1px" }}
                                       title={`${shift.title || "Shift"} ${timeRange(shift.start, shift.end)}`}
                                     >
-                                      <span className="font-bold">{roleInitial}</span>{" "}
-                                      {timeRange(shift.start, shift.end)}
+                                      <span className="font-bold shrink-0">{roleInitial}</span>
+                                      <span className="truncate min-w-0 ml-1">{timeRange(shift.start, shift.end)}</span>
                                     </div>
                                   );
                                 })
