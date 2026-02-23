@@ -106,6 +106,7 @@ const frequencyColors = {
 } as const;
 
 export default function TaskTemplateManagement() {
+  const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterFrequency, setFilterFrequency] = useState<string>('all');
@@ -395,7 +396,7 @@ export default function TaskTemplateManagement() {
                 New Process
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Process</DialogTitle>
                 <DialogDescription>
@@ -616,7 +617,7 @@ export default function TaskTemplateManagement() {
       {/* Edit Template Dialog */}
       {editingProcess && (
         <Dialog open={!!editingProcess} onOpenChange={() => setEditingProcess(null)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Process</DialogTitle>
               <DialogDescription>

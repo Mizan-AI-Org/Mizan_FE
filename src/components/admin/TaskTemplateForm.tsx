@@ -1,6 +1,21 @@
 // components/tasks/TaskTemplateForm.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import {
+  DndContext,
+  DragEndEvent,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -95,6 +110,28 @@ const priorities: DropdownOption[] = [
 ];
 
 // Helper function for priority colors
+/** Wrapper for a task card that makes it draggable via @dnd-kit (drag handle receives attributes/listeners). */
+function SortableTaskCard({
+  id,
+  children,
+}: {
+  id: string;
+  children: (props: {
+    setNodeRef: (node: HTMLElement | null) => void;
+    style: React.CSSProperties;
+    attributes: object;
+    listeners: object;
+  }) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return <>{children({ setNodeRef, style, attributes, listeners })}</>;
+}
+
 const getPriorityColor = (priority: string) => {
   switch (priority) {
     case 'LOW': return 'bg-blue-100 text-blue-800';
@@ -149,6 +186,9 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
   // Selection map for bulk operations
   const [selectedTasks, setSelectedTasks] = useState<Record<string, Set<number>>>({});
 
+  // Which task-group accordions are open (controlled so "Add Tasks" can open the new one)
+  const [openAccordionIds, setOpenAccordionIds] = useState<string[]>([]);
+
   const [newTask, setNewTask] = useState<TemplateTask>({
     title: '',
     description: '',
@@ -157,6 +197,30 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  );
+
+  const handleTaskDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const parseId = (sid: string) => {
+      const lastDash = String(sid).lastIndexOf('-');
+      if (lastDash === -1) return { processId: '', index: -1 };
+      return {
+        processId: String(sid).slice(0, lastDash),
+        index: parseInt(String(sid).slice(lastDash + 1), 10) || 0,
+      };
+    };
+    const from = parseId(active.id as string);
+    const to = parseId(over.id as string);
+    if (from.processId && to.processId && from.processId === to.processId) {
+      reorderTasksInProcess(from.processId, from.index, to.index);
+    }
+  };
 
   // Create/Update template mutation
   const saveTemplateMutation = useMutation({
@@ -230,11 +294,11 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
         return {} as TaskTemplate;
       }
     },
-    onSuccess: async (resp: any) => {
+    onSuccess: async (resp: TaskTemplate | undefined) => {
       toast.success(template?.id ? 'Process updated successfully' : 'Process created successfully');
       try {
         const token = localStorage.getItem('access_token') || '';
-        const tplName = (resp?.name || formData.name || 'Process');
+        const tplName = (resp?.name ?? formData.name ?? 'Process');
         await api.createAnnouncement(token, {
           title: `Process updated: ${tplName}`,
           message: `A process has been ${template?.id ? 'updated' : 'created'} and is available to use.`,
@@ -242,6 +306,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
           tags: ['template_update']
         });
       } catch {
+        // ignore announcement errors
       }
       onSuccess();
     },
@@ -302,7 +367,8 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
   const addProcess = (name?: string) => {
     const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const color = ['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'][processes.length % 5];
-    setProcesses(prev => [...prev, { id, name: name || 'New Process', color, tasks: [] }]);
+    setProcesses(prev => [...prev, { id, name: name || 'New task', color, tasks: [] }]);
+    setOpenAccordionIds(prev => [...prev, id]);
   };
 
   const updateProcessName = (id: string, name: string) => {
@@ -345,6 +411,15 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       if (newIndex < 0 || newIndex >= p.tasks.length) return p;
       const tasks = [...p.tasks];
       [tasks[index], tasks[newIndex]] = [tasks[newIndex], tasks[index]];
+      return { ...p, tasks };
+    }));
+  };
+
+  const reorderTasksInProcess = (processId: string, oldIndex: number, newIndex: number) => {
+    if (oldIndex === newIndex) return;
+    setProcesses(prev => prev.map(p => {
+      if (p.id !== processId) return p;
+      const tasks = arrayMove(p.tasks, oldIndex, newIndex);
       return { ...p, tasks };
     }));
   };
@@ -508,7 +583,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
-            Processes & Tasks ({processes.reduce((sum, p) => sum + p.tasks.length, 0)})
+            Tasks ({processes.reduce((sum, p) => sum + p.tasks.length, 0)})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -516,7 +591,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
           <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
             <div className="relative w-full md:w-1/2">
               <Input
-                placeholder="Search tasks within processes..."
+                placeholder="Search tasks..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
@@ -525,8 +600,8 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
               <SearchIcon className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             </div>
             <div className="flex gap-2">
-              <Button type="button" variant="secondary" onClick={() => addProcess('New Process')}>
-                <FolderPlus className="h-4 w-4 mr-1" /> Add Process
+              <Button type="button" variant="secondary" onClick={() => addProcess('New task')}>
+                <FolderPlus className="h-4 w-4 mr-1" /> Add Tasks
               </Button>
             </div>
           </div>
@@ -535,10 +610,10 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
           {processes.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <FolderMinus className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No processes yet. Create one to add tasks.</p>
+              <p>No tasks yet. Add tasks to get started.</p>
             </div>
           ) : (
-            <Accordion type="multiple" className="space-y-3">
+            <Accordion type="multiple" className="space-y-3" value={openAccordionIds} onValueChange={setOpenAccordionIds}>
               {filteredProcesses.map((process) => (
                 <AccordionItem key={process.id} value={process.id}>
                   <AccordionTrigger className="bg-muted px-4 py-3 rounded-md">
@@ -552,23 +627,6 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                   </AccordionTrigger>
 
                   <AccordionContent className="px-2 md:px-4 pb-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: process.color }} aria-hidden />
-                        <Input
-                          value={process.name}
-                          onChange={(e) => updateProcessName(process.id, e.target.value)}
-                          className="h-8 w-56"
-                          aria-label={`Process name ${process.name}`}
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">{process.tasks.length} tasks</Badge>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => removeProcess(process.id)} className="text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
                     {/* Add task within this process */}
                     <Card className="border-dashed">
                       <CardContent className="pt-6">
@@ -602,15 +660,16 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                               placeholder="Select priority"
                             />
                           </div>
-                          <div className="md:col-span-2">
+                          <div className="md:col-span-2 min-w-0">
                             <Label htmlFor={`new_task_duration_${process.id}`}>Duration (min)</Label>
                             <Input
                               id={`new_task_duration_${process.id}`}
                               type="number"
-                              value={newTask.estimated_duration}
-                              onChange={(e) => setNewTask(prev => ({ ...prev, estimated_duration: parseInt(e.target.value) || 0 }))}
+                              value={newTask.estimated_duration ?? 30}
+                              onChange={(e) => setNewTask(prev => ({ ...prev, estimated_duration: parseInt(e.target.value, 10) || 30 }))}
                               min="1"
                               max="480"
+                              className="min-w-[4.5rem]"
                             />
                           </div>
                           <div className="md:col-span-1">
@@ -626,41 +685,53 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                     {process.tasks.length === 0 ? (
                       <div className="text-muted-foreground py-4">No tasks in this process.</div>
                     ) : (
-                      <div className="space-y-3 mt-3">
-                        {/* Bulk actions */}
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => bulkDeleteSelected(process.id)}
-                            disabled={!selectedTasks[process.id] || selectedTasks[process.id].size === 0}
-                          >
-                            Delete Selected
-                          </Button>
-                        </div>
-                        {process.tasks.map((task, index) => (
-                          <Card key={index} className="border-l-4" style={{ borderLeftColor: process.color || '#0ea5e9' }}>
-                            <CardContent className="pt-4">
-                              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-                                <div className="md:col-span-1 flex flex-col items-center gap-2">
-                                  <Checkbox
-                                    checked={!!selectedTasks[process.id]?.has(index)}
-                                    onCheckedChange={() => toggleTaskSelection(process.id, index)}
-                                    aria-label="Select task"
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => moveTaskWithinProcess(process.id, index, 'up')}
-                                    disabled={index === 0}
-                                    className="h-8 w-8 p-0"
-                                  >
-                                    <GripVertical className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                                <div className="md:col-span-4">
+                      <DndContext
+                        sensors={dndSensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleTaskDragEnd}
+                      >
+                        <SortableContext
+                          items={process.tasks.map((_, i) => `${process.id}-${i}`)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="space-y-3 mt-3">
+                            {/* Bulk actions */}
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => bulkDeleteSelected(process.id)}
+                                disabled={!selectedTasks[process.id] || selectedTasks[process.id].size === 0}
+                              >
+                                Delete Selected
+                              </Button>
+                            </div>
+                            {process.tasks.map((task, index) => (
+                              <SortableTaskCard key={`${process.id}-${index}`} id={`${process.id}-${index}`}>
+                                {({ setNodeRef, style, attributes, listeners }) => (
+                                  <div ref={setNodeRef} style={style}>
+                                    <Card className="border-l-4" style={{ borderLeftColor: process.color || '#0ea5e9' }}>
+                                      <CardContent className="pt-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                                          <div className="md:col-span-1 flex flex-col items-center gap-2">
+                                            <Checkbox
+                                              checked={!!selectedTasks[process.id]?.has(index)}
+                                              onCheckedChange={() => toggleTaskSelection(process.id, index)}
+                                              aria-label="Select task"
+                                            />
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-8 w-8 p-0 cursor-grab active:cursor-grabbing"
+                                              {...attributes}
+                                              {...listeners}
+                                            >
+                                              <GripVertical className="h-4 w-4" />
+                                            </Button>
+                                          </div>
+                                <div className="md:col-span-3">
                                   <Label htmlFor={`task_${process.id}_${index}_title`}>Title *</Label>
                                   <Input
                                     id={`task_${process.id}_${index}_title`}
@@ -691,15 +762,16 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                                     placeholder="Select priority"
                                   />
                                 </div>
-                                <div className="md:col-span-1">
-                                  <Label htmlFor={`task_${process.id}_${index}_duration`}>Duration</Label>
+                                <div className="md:col-span-2 min-w-0">
+                                  <Label htmlFor={`task_${process.id}_${index}_duration`}>Duration (min)</Label>
                                   <Input
                                     id={`task_${process.id}_${index}_duration`}
                                     type="number"
-                                    value={task.estimated_duration || 30}
-                                    onChange={(e) => updateTaskInProcess(process.id, index, 'estimated_duration', parseInt(e.target.value) || 30)}
+                                    value={Number(task.estimated_duration) || 30}
+                                    onChange={(e) => updateTaskInProcess(process.id, index, 'estimated_duration', parseInt(e.target.value, 10) || 30)}
                                     min="1"
                                     max="480"
+                                    className="w-full min-w-[4.5rem]"
                                   />
                                 </div>
                                 <div className="md:col-span-1">
@@ -717,8 +789,13 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                               </div>
                             </CardContent>
                           </Card>
+                                </div>
+                              )}
+                            </SortableTaskCard>
                         ))}
-                      </div>
+                          </div>
+                        </SortableContext>
+                      </DndContext>
                     )}
                   </AccordionContent>
                 </AccordionItem>
