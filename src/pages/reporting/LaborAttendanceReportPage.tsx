@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,10 +21,12 @@ import {
 } from "@/components/ui/select";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { API_BASE } from "@/lib/api";
-import { AlertTriangle, Clock, FileCheck, FileDown, Loader2 } from "lucide-react";
+import { AlertTriangle, Clock, FileCheck, FileDown, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const PAGE_SIZE = 15;
 
 const LaborAttendanceReportPage: React.FC = () => {
   const { t } = useLanguage();
@@ -33,11 +35,16 @@ const LaborAttendanceReportPage: React.FC = () => {
   const [endDate, setEndDate] = useState(format(endOfWeek(today), "yyyy-MM-dd"));
   const [exportFormat, setExportFormat] = useState<"pdf" | "excel">("excel");
   const [exporting, setExporting] = useState(false);
+  const [staffPage, setStaffPage] = useState(1);
+
+  useEffect(() => {
+    setStaffPage(1);
+  }, [startDate, endDate]);
 
   const downloadAttendanceForHR = async () => {
     const token = localStorage.getItem("access_token");
     if (!token) {
-      toast.error("Please log in to download the report.");
+      toast.error(t("reporting.labor.export_login"));
       return;
     }
     setExporting(true);
@@ -63,9 +70,9 @@ const LaborAttendanceReportPage: React.FC = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(a.href);
-      toast.success(`Report downloaded as ${fmt.toUpperCase()}. You can send it to HR for payroll.`);
+      toast.success(t("reporting.labor.export_success", { format: fmt.toUpperCase() }));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to download report");
+      toast.error(e instanceof Error ? e.message : t("reporting.labor.export_failed"));
     } finally {
       setExporting(false);
     }
@@ -108,7 +115,13 @@ const LaborAttendanceReportPage: React.FC = () => {
   });
 
   const summary = plannedVsActual?.summary;
-  const byStaff = plannedVsActual?.by_staff ?? [];
+  const byStaffRaw = plannedVsActual?.by_staff ?? [];
+  const byStaff = useMemo(() => [...byStaffRaw].sort((a: { staff_name: string }, b: { staff_name: string }) => (a.staff_name || "").localeCompare(b.staff_name || "")), [byStaffRaw]);
+  const staffTotalPages = Math.max(1, Math.ceil(byStaff.length / PAGE_SIZE));
+  const staffPaginated = useMemo(() => {
+    const start = (staffPage - 1) * PAGE_SIZE;
+    return byStaff.slice(start, start + PAGE_SIZE);
+  }, [byStaff, staffPage]);
   const overtimeIncidents = compliance?.overtime_incidents ?? [];
   const certs = certsExpiring?.certifications_expiring ?? [];
 
@@ -121,15 +134,15 @@ const LaborAttendanceReportPage: React.FC = () => {
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Labor & Attendance Report
+              {t("reporting.labor.page_title")}
             </h1>
             <p className="mt-1.5 text-sm text-muted-foreground max-w-xl">
-              Planned vs actual hours, attendance quality, overtime, and certifications expiring.
+              {t("reporting.labor.page_subtitle")}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
-              <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">From</label>
+              <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">{t("reporting.labor.from")}</label>
               <Input
                 type="date"
                 value={startDate}
@@ -138,7 +151,7 @@ const LaborAttendanceReportPage: React.FC = () => {
               />
             </div>
             <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
-              <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">To</label>
+              <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">{t("reporting.labor.to")}</label>
               <Input
                 type="date"
                 value={endDate}
@@ -166,7 +179,7 @@ const LaborAttendanceReportPage: React.FC = () => {
               ) : (
                 <FileDown className="h-4 w-4" />
               )}
-              {exporting ? "Generating…" : "Download"}
+              {exporting ? t("reporting.labor.generating") : t("reporting.labor.download")}
             </Button>
           </div>
         </div>
@@ -192,15 +205,15 @@ const LaborAttendanceReportPage: React.FC = () => {
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                   {[
-                    { label: "Total planned (h)", value: summary.total_planned_hours, className: "" },
-                    { label: "Total actual (h)", value: summary.total_actual_hours, className: "" },
+                    { label: t("reporting.labor.total_planned_h"), value: summary.total_planned_hours, className: "" },
+                    { label: t("reporting.labor.total_actual_h"), value: summary.total_actual_hours, className: "" },
                     {
-                      label: "Variance",
+                      label: t("reporting.labor.variance"),
                       value: summary.total_variance,
                       className: varianceNum < 0 ? "text-red-600 dark:text-red-400" : varianceNum > 0 ? "text-emerald-600 dark:text-emerald-400" : "",
                     },
                     { label: t("common.late_arrivals"), value: summary.late_arrivals, className: "text-amber-600 dark:text-amber-400" },
-                    { label: "No-shows", value: summary.no_shows, className: "text-red-600 dark:text-red-400" },
+                    { label: t("reporting.labor.no_shows"), value: summary.no_shows, className: "text-red-600 dark:text-red-400" },
                   ].map(({ label, value, className }) => (
                     <div
                       key={label}
@@ -213,19 +226,22 @@ const LaborAttendanceReportPage: React.FC = () => {
                 </div>
                 {byStaff.length > 0 && (
                   <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden">
+                    <div className="px-4 py-2 border-b border-slate-200/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-900/30 text-sm text-muted-foreground">
+                      {t("reporting.labor.active_staff_count", { count: byStaff.length })}
+                    </div>
                     <Table>
                       <TableHeader>
                         <TableRow className="border-slate-200 dark:border-slate-800 hover:bg-transparent">
-                          <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Staff</TableHead>
-                          <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">Planned (h)</TableHead>
-                          <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">Actual (h)</TableHead>
-                          <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">Variance</TableHead>
-                          <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">Lates</TableHead>
-                          <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">No-shows</TableHead>
+                          <TableHead className="font-semibold text-slate-700 dark:text-slate-300">{t("reporting.labor.staff")}</TableHead>
+                          <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">{t("reporting.labor.planned_h")}</TableHead>
+                          <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">{t("reporting.labor.actual_h")}</TableHead>
+                          <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">{t("reporting.labor.variance")}</TableHead>
+                          <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">{t("reporting.labor.lates")}</TableHead>
+                          <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">{t("reporting.labor.no_shows")}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {byStaff.map((row: {
+                        {staffPaginated.map((row: {
                           staff_name: string;
                           planned_hours: number;
                           actual_hours: number;
@@ -253,11 +269,38 @@ const LaborAttendanceReportPage: React.FC = () => {
                         ))}
                       </TableBody>
                     </Table>
+                    {staffTotalPages > 1 && (
+                      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-900/30">
+                        <span className="text-sm text-muted-foreground">
+                          {t("reporting.labor.pagination_page", { current: staffPage, total: staffTotalPages })}
+                        </span>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={staffPage <= 1}
+                            onClick={() => setStaffPage((p) => Math.max(1, p - 1))}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            {t("reporting.labor.pagination_prev")}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={staffPage >= staffTotalPages}
+                            onClick={() => setStaffPage((p) => Math.min(staffTotalPages, p + 1))}
+                          >
+                            {t("reporting.labor.pagination_next")}
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </>
             ) : (
-              <p className="py-8 text-center text-sm text-muted-foreground">No data for this period.</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">{t("reporting.labor.no_data")}</p>
             )}
           </CardContent>
         </Card>
@@ -269,10 +312,10 @@ const LaborAttendanceReportPage: React.FC = () => {
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
                 <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               </span>
-              Overtime (Labor Compliance)
+              {t("reporting.labor.overtime_title")}
             </CardTitle>
             <CardDescription className="text-sm leading-relaxed">
-              Staff exceeding {compliance?.overtime_threshold_hours_per_week ?? 40} hours per week in this period.
+              {t("reporting.labor.overtime_desc", { hours: compliance?.overtime_threshold_hours_per_week ?? 40 })}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -283,10 +326,10 @@ const LaborAttendanceReportPage: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-slate-200 dark:border-slate-800 hover:bg-transparent">
-                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Staff</TableHead>
-                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Week</TableHead>
-                      <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">Hours</TableHead>
-                      <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">Threshold</TableHead>
+                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">{t("reporting.labor.staff")}</TableHead>
+                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">{t("reporting.labor.week")}</TableHead>
+                      <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">{t("reporting.labor.hours")}</TableHead>
+                      <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">{t("reporting.labor.threshold")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -296,7 +339,7 @@ const LaborAttendanceReportPage: React.FC = () => {
                         className="border-slate-100 dark:border-slate-800/80 hover:bg-slate-50/80 dark:hover:bg-slate-800/30"
                       >
                         <TableCell className="font-medium py-3">{inc.staff_name}</TableCell>
-                        <TableCell className="py-3">Week {inc.week}</TableCell>
+                        <TableCell className="py-3">{t("reporting.labor.week_num", { num: inc.week })}</TableCell>
                         <TableCell className="text-right tabular-nums py-3">{inc.hours}</TableCell>
                         <TableCell className="text-right tabular-nums py-3">{inc.threshold}</TableCell>
                       </TableRow>
@@ -305,7 +348,7 @@ const LaborAttendanceReportPage: React.FC = () => {
                 </Table>
               </div>
             ) : (
-              <p className="py-6 text-center text-sm text-muted-foreground">No overtime incidents in this period.</p>
+              <p className="py-6 text-center text-sm text-muted-foreground">{t("reporting.labor.no_overtime")}</p>
             )}
           </CardContent>
         </Card>
@@ -317,10 +360,10 @@ const LaborAttendanceReportPage: React.FC = () => {
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
                 <FileCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               </span>
-              Certifications Expiring (Next 30 Days)
+              {t("reporting.labor.certs_title")}
             </CardTitle>
             <CardDescription className="text-sm leading-relaxed">
-              Staff with certifications expiring soon. Update StaffProfile.certifications with expiry dates.
+              {t("reporting.labor.certs_desc")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -331,8 +374,8 @@ const LaborAttendanceReportPage: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-slate-200 dark:border-slate-800 hover:bg-transparent">
-                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Staff</TableHead>
-                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Certification</TableHead>
+                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">{t("reporting.labor.staff")}</TableHead>
+                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">{t("reporting.labor.certification")}</TableHead>
                       <TableHead className="font-semibold text-slate-700 dark:text-slate-300">{t("common.expiry_date")}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -351,7 +394,7 @@ const LaborAttendanceReportPage: React.FC = () => {
                 </Table>
               </div>
             ) : (
-              <p className="py-6 text-center text-sm text-muted-foreground">No certifications expiring in the next 30 days.</p>
+              <p className="py-6 text-center text-sm text-muted-foreground">{t("reporting.labor.no_certs_expiring")}</p>
             )}
           </CardContent>
         </Card>

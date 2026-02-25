@@ -33,24 +33,24 @@ const StaffSchedulingPage: React.FC = () => {
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Staff Scheduling & Task Management</h1>
+        <h1 className="text-2xl font-bold">{t("schedule.page_title")}</h1>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("schedule.card_total_staff")}</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{statsLoading ? "..." : stats?.total_staff || 0}</div>
-            <p className="text-xs text-muted-foreground">Active team members</p>
+            <p className="text-xs text-muted-foreground">{t("schedule.active_team_members")}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Scheduled Shifts</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("schedule.card_scheduled_shifts")}</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -60,22 +60,22 @@ const StaffSchedulingPage: React.FC = () => {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Open Tasks</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("schedule.card_open_tasks")}</CardTitle>
             <CheckSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{statsLoading ? "..." : stats?.open_tasks || 0}</div>
-            <p className="text-xs text-muted-foreground">Tasks to be completed</p>
+            <p className="text-xs text-muted-foreground">{t("schedule.tasks_to_complete")}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed Tasks</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("schedule.card_completed_tasks")}</CardTitle>
             <BarChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{statsLoading ? "..." : stats?.completed_tasks || 0}</div>
-            <p className="text-xs text-muted-foreground">Last 7 days</p>
+            <p className="text-xs text-muted-foreground">{t("schedule.last_7_days")}</p>
           </CardContent>
         </Card>
       </div>
@@ -84,10 +84,10 @@ const StaffSchedulingPage: React.FC = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="schedule">
-            <Calendar className="h-4 w-4 mr-2" /> Staff Scheduling
+            <Calendar className="h-4 w-4 mr-2" /> {t("schedule.tab_staff_scheduling")}
           </TabsTrigger>
           <TabsTrigger value="tasks">
-            <CheckSquare className="h-4 w-4 mr-2" /> Task Management
+            <CheckSquare className="h-4 w-4 mr-2" /> {t("schedule.tab_task_management")}
           </TabsTrigger>
         </TabsList>
         
@@ -102,9 +102,9 @@ const StaffSchedulingPage: React.FC = () => {
         <TabsContent value="tasks" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Task Management</CardTitle>
+              <CardTitle>{t("schedule.task_management_title")}</CardTitle>
               <CardDescription>
-                Create and assign tasks, track completion, and manage task templates.
+                {t("schedule.task_management_description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">

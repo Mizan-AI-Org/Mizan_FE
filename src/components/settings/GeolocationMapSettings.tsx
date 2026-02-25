@@ -27,6 +27,7 @@ import "leaflet/dist/leaflet.css";
 import { toast } from "sonner";
 import * as L from "leaflet";
 import { MapContainer } from "react-leaflet";
+import { useLanguage } from "@/hooks/use-language";
 interface GeolocationMapSettingsProps {
   latitude: number;
   longitude: number;
@@ -52,6 +53,7 @@ export default function GeolocationMapSettings({
   onSave,
   isSaving,
 }: GeolocationMapSettingsProps) {
+  const { t } = useLanguage();
   const fallbackCenter = useMemo<MapCenter>(() => {
     if (!latitude && !longitude) {
       return { lat: 40.7128, lng: -74.006 };
@@ -412,18 +414,17 @@ export default function GeolocationMapSettings({
             <MapPin className="w-5 h-5 text-white" />
           </div>
           <div>
-            <CardTitle className="text-lg font-bold text-slate-900">Restaurant Location & Geofencing</CardTitle>
-            <CardDescription className="text-slate-500">Set your restaurant's location for staff clock-in verification</CardDescription>
+            <CardTitle className="text-lg font-bold text-slate-900">{t("settings.geolocation.title")}</CardTitle>
+            <CardDescription className="text-slate-500">{t("settings.geolocation.description")}</CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-slate-900">Geofence Monitoring</p>
+            <p className="text-sm font-semibold text-slate-900">{t("settings.geolocation.geofence_monitoring")}</p>
             <p className="text-xs text-slate-500">
-              Require team members to be within your geolocked zone before
-              clocking in.
+              {t("settings.geolocation.geofence_monitoring_desc")}
             </p>
           </div>
           <Switch
@@ -441,8 +442,8 @@ export default function GeolocationMapSettings({
                 <Crosshair className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-900">Quick Location Setup</p>
-                <p className="text-xs text-slate-500">Get your exact current location with one click</p>
+                <p className="text-sm font-semibold text-slate-900">{t("settings.geolocation.quick_setup")}</p>
+                <p className="text-xs text-slate-500">{t("settings.geolocation.quick_setup_desc")}</p>
               </div>
             </div>
             <Button
@@ -453,12 +454,12 @@ export default function GeolocationMapSettings({
               {isGettingLocation ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Getting Location...
+                  {t("settings.geolocation.getting_location")}
                 </>
               ) : (
                 <>
                   <Navigation className="w-4 h-4 mr-2" />
-                  Get My Location
+                  {t("settings.geolocation.get_my_location")}
                 </>
               )}
             </Button>
@@ -519,17 +520,17 @@ export default function GeolocationMapSettings({
           <AlertCircle className="mt-0.5 h-5 w-5 text-accent" />
           <div className="flex-1 space-y-1">
             <p className="text-sm font-medium">
-              {geofenceEnabled ? "Geofencing Active" : "Geofencing Disabled"}
+              {geofenceEnabled ? t("settings.geolocation.geofence_active") : t("settings.geolocation.geofence_disabled")}
             </p>
             <p className="text-xs text-muted-foreground">
-              Staff must clock in within {radiusInKm} km of the map marker.
+              {t("settings.geolocation.staff_clock_in_within", { km: radiusInKm })}
             </p>
           </div>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <Label htmlFor="radius-slider" className="text-sm font-medium text-slate-700">Geofence Radius</Label>
+            <Label htmlFor="radius-slider" className="text-sm font-medium text-slate-700">{t("settings.geolocation.geofence_radius")}</Label>
             <Badge variant="secondary" className="font-mono bg-slate-100 text-slate-700">
               {radiusMeters}m ({radiusInKm} km)
             </Badge>
@@ -551,20 +552,19 @@ export default function GeolocationMapSettings({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="radius-input" className="text-sm font-medium text-slate-700">Radius (meters)</Label>
+          <Label htmlFor="radius-input" className="text-sm font-medium text-slate-700">{t("settings.geolocation.radius_meters")}</Label>
           <Input
             id="radius-input"
             type="number"
             value={radiusMeters}
             onChange={(e) => {
               let value = parseInt(e.target.value) || 0;
-              // Clamp value between 5 and 100
               value = Math.max(5, Math.min(100, value));
               setRadiusMeters(value);
             }}
             min={5}
             max={100}
-            placeholder="Enter radius in meters (5-100)"
+            placeholder={t("settings.geolocation.radius_placeholder")}
             className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
           />
         </div>
@@ -580,7 +580,7 @@ export default function GeolocationMapSettings({
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            Save Location Settings
+            {t("settings.geolocation.save_location")}
           </Button>
         </div>
       </CardContent>

@@ -38,6 +38,7 @@ export interface AuthContextType {
         latitude?: number | null,
         longitude?: number | null
     ) => Promise<void>;
+    loginWithPhone: (phone: string) => Promise<void>;
     ownerSignup: (signupData: SignupData) => Promise<void>;
     acceptInvitation: (
         token: string,
