@@ -373,18 +373,32 @@ const SafetyDashboard: React.FC = () => {
                   <div className="font-medium text-muted-foreground mb-1">{t("safety.dashboard.incident_details.occurred_at")}</div>
                   <div>{incidentDetail.occurred_at ? new Date(incidentDetail.occurred_at).toLocaleString(language) : '—'}</div>
                 </div>
-                <div>
-                  <div className="font-medium text-muted-foreground mb-1">{t("safety.dashboard.incident_details.shift_reference")}</div>
-                  <div>{incidentDetail.shift ? String(incidentDetail.shift).slice(0, 8) : '—'}</div>
-                </div>
-                <div>
-                  <div className="font-medium text-muted-foreground mb-1">{t("common.id")}</div>
-                  <div>{incidentDetail.id}</div>
-                </div>
+                {incidentDetail.assigned_to_details && (
+                  <div>
+                    <div className="font-medium text-muted-foreground mb-1">Assigned To</div>
+                    <div>{incidentDetail.assigned_to_details.first_name} {incidentDetail.assigned_to_details.last_name}</div>
+                  </div>
+                )}
               </div>
+
               <div className="text-sm">
-                {incidentDetail.description}
+                <div className="font-medium text-muted-foreground mb-1">{t("safety.dashboard.incident_details.description") || "Description"}</div>
+                <div className="border rounded-md p-3 bg-muted/30 whitespace-pre-wrap">
+                  {incidentDetail.description}
+                </div>
               </div>
+
+              {incidentDetail.photo && (
+                <div>
+                  <div className="font-medium text-muted-foreground mb-2 text-sm">Photo Evidence</div>
+                  <img
+                    src={typeof incidentDetail.photo === 'string' && incidentDetail.photo.startsWith('/') ? `${(import.meta as any).env?.VITE_BACKEND_URL || ''}${incidentDetail.photo}` : incidentDetail.photo}
+                    alt="Incident evidence"
+                    className="max-h-96 rounded-md border object-contain"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
