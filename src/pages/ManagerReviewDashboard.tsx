@@ -128,6 +128,7 @@ const ManagerReviewDashboard: React.FC = () => {
   const [selectedIncident, setSelectedIncident] = useState<string | null>(null);
   const [updateStatus, setUpdateStatus] = useState('');
   const [resolutionNotes, setResolutionNotes] = useState('');
+  const [assignTo, setAssignTo] = useState<string>('');
 
   // Pagination state for Incidents
   const [incidentPage, setIncidentPage] = useState(1);
@@ -514,6 +515,41 @@ const ManagerReviewDashboard: React.FC = () => {
     },
     onError: () => toast.error('Failed to update incident status'),
   });
+
+  const { data: staffList } = useQuery({
+    queryKey: ['staff-members-for-assign'],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/staff/`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : data?.results || [];
+    },
+    enabled: !!selectedIncident,
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: async (data: { id: string; assigned_to: string | null }) => {
+      const res = await fetch(`${API_BASE}/staff/safety-concerns/${data.id}/assign/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`
+        },
+        body: JSON.stringify({ assigned_to: data.assigned_to })
+      });
+      if (!res.ok) throw new Error('Failed to assign incident');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['safety-incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['safety-incident-detail'] });
+      toast.success('Incident assigned successfully');
+    },
+    onError: () => toast.error('Failed to assign incident'),
+  });
+
   // Live checklist progress (WhatsApp step-by-step) for managers
   const { data: liveProgress, isLoading: liveProgressLoading } = useQuery({
     queryKey: ["live-checklist-progress"],
@@ -978,10 +1014,10 @@ const ManagerReviewDashboard: React.FC = () => {
                           <TableHeader>
                             <TableRow>
                               <TableHead>Title</TableHead>
-                              <TableHead>Location</TableHead>
                               <TableHead>Severity</TableHead>
                               <TableHead>Status</TableHead>
                               <TableHead>Reporter</TableHead>
+                              <TableHead>Assigned To</TableHead>
                               <TableHead>Reported At</TableHead>
                               <TableHead>Actions</TableHead>
                             </TableRow>
@@ -990,7 +1026,6 @@ const ManagerReviewDashboard: React.FC = () => {
                             {paginatedIncidents.map((incident: SafetyIncident) => (
                               <TableRow key={incident.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedIncident(incident.id)}>
                                 <TableCell className="font-medium">{incident.title}</TableCell>
-                                <TableCell>{incident.location || '—'}</TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className={getSeverityColor(String(incident.severity || ''))}>
                                     {formatStatus(String(incident.severity || ''))}
@@ -1007,6 +1042,11 @@ const ManagerReviewDashboard: React.FC = () => {
                                     : incident.reporter_details
                                       ? `${incident.reporter_details.first_name} ${incident.reporter_details.last_name}`
                                       : '—'}
+                                </TableCell>
+                                <TableCell>
+                                  {(incident as any).assigned_to_details
+                                    ? `${(incident as any).assigned_to_details.first_name} ${(incident as any).assigned_to_details.last_name}`
+                                    : <span className="text-muted-foreground">Unassigned</span>}
                                 </TableCell>
                                 <TableCell>{new Date(incident.created_at).toLocaleDateString()}</TableCell>
                                 <TableCell onClick={(e) => e.stopPropagation()}>
@@ -1067,7 +1107,7 @@ const ManagerReviewDashboard: React.FC = () => {
                 </Card>
 
                 {/* Incident Detail Modal */}
-                <Dialog open={!!selectedIncident} onOpenChange={(open) => { if (!open) { setSelectedIncident(null); setUpdateStatus(''); setResolutionNotes(''); } }}>
+                <Dialog open={!!selectedIncident} onOpenChange={(open) => { if (!open) { setSelectedIncident(null); setUpdateStatus(''); setResolutionNotes(''); setAssignTo(''); } }}>
                   <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>Incident Details</DialogTitle>
@@ -1117,10 +1157,6 @@ const ManagerReviewDashboard: React.FC = () => {
                             <div className="font-medium text-muted-foreground mb-1">Time of Occurrence</div>
                             <div>{incidentDetail.occurred_at ? new Date(incidentDetail.occurred_at).toLocaleString() : '—'}</div>
                           </div>
-                          <div>
-                            <div className="font-medium text-muted-foreground mb-1">Shift Reference</div>
-                            <div>{incidentDetail.shift ? String(incidentDetail.shift).slice(0, 8) : '—'}</div>
-                          </div>
                         </div>
 
                         <div>
@@ -1134,12 +1170,49 @@ const ManagerReviewDashboard: React.FC = () => {
                           <div>
                             <div className="font-medium text-muted-foreground mb-2 text-sm">Photo Evidence</div>
                             <img
-                              src={incidentDetail.photo}
+                              src={typeof incidentDetail.photo === 'string' && incidentDetail.photo.startsWith('/') ? `${(import.meta.env.VITE_BACKEND_URL || '')}${incidentDetail.photo}` : incidentDetail.photo}
                               alt="Incident evidence"
-                              className="max-h-96 rounded-md border"
+                              className="max-h-96 rounded-md border object-contain"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
                           </div>
                         )}
+
+                        <div className="border-t pt-4">
+                          <div className="font-medium mb-2 text-sm">Assign To</div>
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={assignTo || incidentDetail.assigned_to || ''}
+                              onChange={(e) => setAssignTo(e.target.value)}
+                              className="flex-1 border rounded-md px-3 py-2 text-sm"
+                            >
+                              <option value="">Unassigned</option>
+                              {(staffList || []).map((s: any) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.first_name} {s.last_name}{s.role ? ` (${s.role})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <Button
+                              size="sm"
+                              disabled={assignMutation.isPending}
+                              onClick={() => {
+                                const val = assignTo || incidentDetail.assigned_to || '';
+                                assignMutation.mutate({
+                                  id: incidentDetail.id,
+                                  assigned_to: val || null,
+                                });
+                              }}
+                            >
+                              {assignMutation.isPending ? 'Assigning...' : 'Assign'}
+                            </Button>
+                          </div>
+                          {incidentDetail.assigned_to_details && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Currently assigned to: {incidentDetail.assigned_to_details.first_name} {incidentDetail.assigned_to_details.last_name}
+                            </div>
+                          )}
+                        </div>
 
                         {incidentDetail.resolution_notes && (
                           <div>
@@ -1190,7 +1263,7 @@ const ManagerReviewDashboard: React.FC = () => {
                               />
                             </div>
                             <div className="flex gap-2 justify-end">
-                              <Button variant="outline" onClick={() => { setSelectedIncident(null); setUpdateStatus(''); setResolutionNotes(''); }}>
+                              <Button variant="outline" onClick={() => { setSelectedIncident(null); setUpdateStatus(''); setResolutionNotes(''); setAssignTo(''); }}>
                                 Close
                               </Button>
                               <Button
