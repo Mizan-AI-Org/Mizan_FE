@@ -101,8 +101,8 @@ const ProfileSettings: React.FC = () => {
                 localStorage.setItem("user", JSON.stringify(responseData));
             }
             toast({
-                title: "Profile updated successfully!",
-                description: newPassword ? "Your password and profile have been updated." : "Your personal information has been saved.",
+                title: t("profile.updated_success"),
+                description: newPassword ? t("profile.updated_password_desc") : t("profile.updated_success_desc"),
             });
         } catch (error: unknown) {
             console.error("Profile update error:", error);
@@ -113,7 +113,7 @@ const ProfileSettings: React.FC = () => {
                         ? error
                         : "An unexpected error occurred.";
             toast({
-                title: "Profile update failed.",
+                title: t("profile.update_failed"),
                 description: message,
                 variant: "destructive",
             });
@@ -131,14 +131,14 @@ const ProfileSettings: React.FC = () => {
                         <User className="w-5 h-5 text-emerald-600" />
                     </div>
                     <div>
-                        <h3 className="text-base font-semibold text-slate-900">Personal Information</h3>
-                        <p className="text-xs text-slate-500">Your basic profile details</p>
+                        <h3 className="text-base font-semibold text-slate-900">{t("profile.section_personal")}</h3>
+                        <p className="text-xs text-slate-500">{t("profile.section_personal_desc")}</p>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div className="space-y-2">
-                        <Label htmlFor="firstName" className="text-sm font-medium text-slate-700">First Name</Label>
+                        <Label htmlFor="firstName" className="text-sm font-medium text-slate-700">{t("profile.first_name")}</Label>
                         <Input
                             id="firstName"
                             value={firstName}
@@ -149,7 +149,7 @@ const ProfileSettings: React.FC = () => {
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="lastName" className="text-sm font-medium text-slate-700">Last Name</Label>
+                        <Label htmlFor="lastName" className="text-sm font-medium text-slate-700">{t("profile.last_name")}</Label>
                         <Input
                             id="lastName"
                             value={lastName}
@@ -169,14 +169,14 @@ const ProfileSettings: React.FC = () => {
                         <Mail className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                        <h3 className="text-base font-semibold text-slate-900">Contact Information</h3>
-                        <p className="text-xs text-slate-500">How we can reach you</p>
+                        <h3 className="text-base font-semibold text-slate-900">{t("profile.section_contact")}</h3>
+                        <p className="text-xs text-slate-500">{t("profile.section_contact_desc")}</p>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div className="space-y-2">
-                        <Label htmlFor="email" className="text-sm font-medium text-slate-700">Email Address</Label>
+                        <Label htmlFor="email" className="text-sm font-medium text-slate-700">{t("profile.email_address")}</Label>
                         <Input
                             id="email"
                             type="email"
@@ -184,10 +184,10 @@ const ProfileSettings: React.FC = () => {
                             disabled
                             className="h-12 rounded-xl border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
                         />
-                        <p className="text-xs text-slate-400">Email cannot be changed</p>
+                        <p className="text-xs text-slate-400">{t("profile.email_cannot_change")}</p>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="phone" className="text-sm font-medium text-slate-700">Phone Number</Label>
+                        <Label htmlFor="phone" className="text-sm font-medium text-slate-700">{t("profile.phone_number")}</Label>
                         <div className="relative">
                             <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <Input
@@ -196,14 +196,14 @@ const ProfileSettings: React.FC = () => {
                                 value={phone}
                                 onChange={(e) => setPhone(e.target.value)}
                                 className="h-12 pl-11 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
-                                placeholder="+1 (555) 000-0000"
+                                placeholder={t("profile.phone_placeholder")}
                             />
                         </div>
                     </div>
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-700">Role</Label>
+                    <Label className="text-sm font-medium text-slate-700">{t("profile.role")}</Label>
                     <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100">
                         <div className="p-2 rounded-lg bg-emerald-100">
                             <ShieldAlert className="w-4 h-4 text-emerald-600" />
@@ -216,7 +216,7 @@ const ProfileSettings: React.FC = () => {
 
                 <div className="space-y-2">
                     <Label htmlFor="preferredLanguage" className="text-sm font-medium text-slate-700">
-                        Preferred Language
+                        {t("profile.preferred_language")}
                     </Label>
                     <select
                         id="preferredLanguage"
@@ -224,13 +224,13 @@ const ProfileSettings: React.FC = () => {
                         onChange={(e) => setPreferredLanguage(e.target.value)}
                         className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
                     >
-                        <option value="">Use restaurant default</option>
+                        <option value="">{t("profile.use_restaurant_default")}</option>
                         <option value="en">English</option>
                         <option value="fr">Français</option>
                         <option value="ar">العربية</option>
                     </select>
                     <p className="text-xs text-slate-500">
-                        Used for staff notifications and Miya responses. If not set, the restaurant language is used.
+                        {t("profile.language_hint")}
                     </p>
                 </div>
             </div>
@@ -242,14 +242,14 @@ const ProfileSettings: React.FC = () => {
                         <ShieldAlert className="w-5 h-5 text-amber-600" />
                     </div>
                     <div>
-                        <h3 className="text-base font-semibold text-slate-900">Emergency Contact</h3>
-                        <p className="text-xs text-slate-500">In case of emergency</p>
+                        <h3 className="text-base font-semibold text-slate-900">{t("profile.emergency_contact")}</h3>
+                        <p className="text-xs text-slate-500">{t("profile.emergency_contact_desc")}</p>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div className="space-y-2">
-                        <Label htmlFor="emergencyContactName" className="text-sm font-medium text-slate-700">Contact Name</Label>
+                        <Label htmlFor="emergencyContactName" className="text-sm font-medium text-slate-700">{t("profile.contact_name")}</Label>
                         <Input
                             id="emergencyContactName"
                             value={emergencyContactName}
@@ -259,7 +259,7 @@ const ProfileSettings: React.FC = () => {
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="emergencyContactPhone" className="text-sm font-medium text-slate-700">Contact Phone</Label>
+                        <Label htmlFor="emergencyContactPhone" className="text-sm font-medium text-slate-700">{t("profile.contact_phone")}</Label>
                         <div className="relative">
                             <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <Input
@@ -268,7 +268,7 @@ const ProfileSettings: React.FC = () => {
                                 value={emergencyContactPhone}
                                 onChange={(e) => setEmergencyContactPhone(e.target.value)}
                                 className="h-12 pl-11 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
-                                placeholder="+1 (555) 000-0000"
+                                placeholder={t("profile.phone_placeholder")}
                             />
                         </div>
                     </div>
@@ -282,14 +282,14 @@ const ProfileSettings: React.FC = () => {
                         <Lock className="w-5 h-5 text-purple-600" />
                     </div>
                     <div>
-                        <h3 className="text-base font-semibold text-slate-900">Change Password</h3>
-                        <p className="text-xs text-slate-500">Leave blank to keep current password</p>
+                        <h3 className="text-base font-semibold text-slate-900">{t("profile.change_password")}</h3>
+                        <p className="text-xs text-slate-500">{t("profile.change_password_desc")}</p>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                     <div className="space-y-2">
-                        <Label htmlFor="currentPassword" className="text-sm font-medium text-slate-700">Current Password</Label>
+                        <Label htmlFor="currentPassword" className="text-sm font-medium text-slate-700">{t("profile.current_password")}</Label>
                         <Input
                             id="currentPassword"
                             type="password"
@@ -300,7 +300,7 @@ const ProfileSettings: React.FC = () => {
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="newPassword" className="text-sm font-medium text-slate-700">New Password</Label>
+                        <Label htmlFor="newPassword" className="text-sm font-medium text-slate-700">{t("profile.new_password")}</Label>
                         <Input
                             id="newPassword"
                             type="password"
@@ -311,7 +311,7 @@ const ProfileSettings: React.FC = () => {
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700">Confirm Password</Label>
+                        <Label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700">{t("profile.confirm_password")}</Label>
                         <Input
                             id="confirmPassword"
                             type="password"
@@ -334,12 +334,12 @@ const ProfileSettings: React.FC = () => {
                     {isLoading ? (
                         <>
                             <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                            Saving Changes...
+                            {t("profile.saving_changes")}
                         </>
                     ) : (
                         <>
                             <Save className="w-5 h-5 mr-2" />
-                            Save Changes
+                            {t("profile.save_changes")}
                         </>
                     )}
                 </Button>

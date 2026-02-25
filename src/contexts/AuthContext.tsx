@@ -268,6 +268,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const loginWithPhone = async (phone: string) => {
+    const raw = (phone || "").trim();
+    if (!raw) throw new Error("WhatsApp number is required.");
+    const response = await fetch(`${API_BASE}/auth/staff-phone-login/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone_number: raw }),
+    });
+    const contentType = response.headers.get("content-type") || "";
+    const isJson = contentType.includes("application/json");
+    const rawText = await response.text();
+    if (!response.ok) {
+      let errorMsg = "Login failed";
+      if (isJson && rawText) {
+        try {
+          const parsed = JSON.parse(rawText);
+          errorMsg = parsed.error || parsed.message || "Login failed";
+        } catch {
+          errorMsg = `Login failed (${response.status})`;
+        }
+      }
+      throw new Error(errorMsg);
+    }
+    const data = isJson ? JSON.parse(rawText) : {};
+    setUser(data.user);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    applyLanguageForUser(data.user);
+    localStorage.setItem("access_token", data.tokens?.access || data.access);
+    localStorage.setItem("refresh_token", data.tokens?.refresh || data.refresh);
+    const isSupervisor =
+      data.user?.role === "SUPER_ADMIN" ||
+      data.user?.role === "ADMIN" ||
+      data.user?.role === "MANAGER" ||
+      data.user?.role === "OWNER";
+    navigate(isSupervisor ? "/dashboard" : "/staff-dashboard");
+  };
+
   const ownerSignup = async (signupData: SignupData) => {
     const response = await fetch(`${API_BASE}/register/`, {
       method: "POST",
@@ -426,6 +463,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     updateUser,
     login,
     loginWithPin,
+    loginWithPhone,
     ownerSignup,
     acceptInvitation,
     inviteStaff,

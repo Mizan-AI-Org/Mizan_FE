@@ -596,7 +596,7 @@ const ManagerReviewDashboard: React.FC = () => {
                     {t("analytics.submissions_trend")}
                   </CardTitle>
                   <CardDescription className="text-sm">
-                    {t("analytics.daily_submitted")} • Last {trendDays} days
+                    {t("analytics.daily_submitted")} • {t("analytics.last_days", { count: trendDays })}
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
@@ -617,34 +617,34 @@ const ManagerReviewDashboard: React.FC = () => {
             <CardContent className="space-y-5">
               <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                 <div className="rounded-xl border bg-white p-3">
-                  <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Submissions</div>
+                  <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{t("analytics.kpi_submissions")}</div>
                   <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.totalInRange}</div>
                 </div>
                 <div className="rounded-xl border bg-white p-3">
-                  <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Completion</div>
+                  <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{t("analytics.kpi_completion")}</div>
                   <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.completionPctInRange}%</div>
-                  <div className="text-[11px] text-muted-foreground mt-1">{trendKpis.completedInRange}/{trendKpis.totalInRange} completed</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">{t("analytics.completed_count", { completed: trendKpis.completedInRange, total: trendKpis.totalInRange })}</div>
                 </div>
                 <div className="rounded-xl border bg-white p-3">
-                  <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Submitters</div>
+                  <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{t("analytics.kpi_submitters")}</div>
                   <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.uniqueStaff}</div>
                   <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
                     <Users className="h-3 w-3" />
-                    unique staff
+                    {t("analytics.unique_staff")}
                   </div>
                 </div>
                 <div className="rounded-xl border bg-white p-3">
                   <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{t("common.avg_score")}</div>
                   <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.avgCompletion ?? "—"}{typeof trendKpis.avgCompletion === 'number' ? "%" : ""}</div>
-                  <div className="text-[11px] text-muted-foreground mt-1">From checklist summaries</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">{t("analytics.from_checklist_summaries")}</div>
                 </div>
                 <div className="rounded-xl border bg-white p-3 md:col-span-2">
                   <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3 text-amber-600" />
-                    Issue rate
+                    {t("analytics.issue_rate")}
                   </div>
                   <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.issueRate ?? "—"}{typeof trendKpis.issueRate === 'number' ? "%" : ""}</div>
-                  <div className="text-[11px] text-muted-foreground mt-1">Failed / missing / out-of-range / open actions</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">{t("analytics.issue_rate_desc")}</div>
                 </div>
               </div>
 
@@ -654,8 +654,8 @@ const ManagerReviewDashboard: React.FC = () => {
                     {trendDaily.reduce((a, b) => a + b.count, 0) === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground">
                         <ClipboardCheck className="h-10 w-10 opacity-30 mb-3" />
-                        <div className="font-medium">No submissions in the last {trendDays} days</div>
-                        <div className="text-sm mt-1">Try widening the range or clear filters below.</div>
+                        <div className="font-medium">{t("analytics.no_submissions_in_range", { count: trendDays })}</div>
+                        <div className="text-sm mt-1">{t("analytics.try_widening_range")}</div>
                       </div>
                     ) : (
                       <ResponsiveContainer width="100%" height="100%">
@@ -734,8 +734,8 @@ const ManagerReviewDashboard: React.FC = () => {
               <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-44" />
               <Tabs value={tab} onValueChange={(v) => setTab(v as 'cards' | 'table')}>
                 <TabsList>
-                  <TabsTrigger value="table">Table</TabsTrigger>
-                  <TabsTrigger value="cards">Cards</TabsTrigger>
+                  <TabsTrigger value="table">{t("analytics.view_table")}</TabsTrigger>
+                  <TabsTrigger value="cards">{t("analytics.view_cards")}</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
@@ -891,12 +891,12 @@ const ManagerReviewDashboard: React.FC = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Live Activity</CardTitle>
-              <CardDescription className="text-sm">Recent signed/edit/save events</CardDescription>
+              <CardTitle className="text-base">{t("analytics.live_activity")}</CardTitle>
+              <CardDescription className="text-sm">{t("analytics.live_activity_desc")}</CardDescription>
             </CardHeader>
             <CardContent>
               {recentActivity.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No recent activity</div>
+                <div className="text-sm text-muted-foreground">{t("analytics.no_recent_activity")}</div>
               ) : (
                 <div className="space-y-2">
                   {recentActivity.map((n) => (
@@ -920,8 +920,8 @@ const ManagerReviewDashboard: React.FC = () => {
               <>
                 <Card>
                   <CardHeader>
-                    <CardTitle>Reported Incidents</CardTitle>
-                    <CardDescription>View and manage safety incident reports from staff</CardDescription>
+                    <CardTitle>{t("analytics.reported_incidents")}</CardTitle>
+                    <CardDescription>{t("analytics.incidents_subtitle")}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {/* Filters */}
@@ -937,7 +937,7 @@ const ManagerReviewDashboard: React.FC = () => {
                         onChange={(e) => setIncidentFilters({ ...incidentFilters, severity: e.target.value })}
                         className="border rounded-md px-3 py-2 text-sm"
                       >
-                        <option value="">All Severities</option>
+                        <option value="">{t("analytics.all_severities")}</option>
                         <option value="critical">Critical</option>
                         <option value="high">High</option>
                         <option value="medium">Medium</option>
@@ -948,7 +948,7 @@ const ManagerReviewDashboard: React.FC = () => {
                         onChange={(e) => setIncidentFilters({ ...incidentFilters, status: e.target.value })}
                         className="border rounded-md px-3 py-2 text-sm"
                       >
-                        <option value="">All Statuses</option>
+                        <option value="">{t("analytics.all_statuses")}</option>
                         <option value="reported">Reported</option>
                         <option value="under_review">Under Review</option>
                         <option value="addressed">Addressed</option>
@@ -959,17 +959,17 @@ const ManagerReviewDashboard: React.FC = () => {
 
                     {/* Incidents Table */}
                     {incidentsLoading ? (
-                      <div className="text-center py-8 text-muted-foreground">Loading incidents...</div>
+                      <div className="text-center py-8 text-muted-foreground">{t("analytics.loading_incidents")}</div>
                     ) : filteredIncidents.length === 0 ? (
                       <div className="text-center py-12 text-muted-foreground">
                         <svg className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
-                        <p className="text-lg font-medium mb-2">No incidents found</p>
+                        <p className="text-lg font-medium mb-2">{t("analytics.no_incidents_found")}</p>
                         <p className="text-sm">
                           {incidentFilters.search || incidentFilters.severity || incidentFilters.status
-                            ? 'Try adjusting your filters'
-                            : 'All incidents will appear here'}
+                            ? t("analytics.try_adjusting_filters_incidents")
+                            : t("analytics.all_incidents_here")}
                         </p>
                       </div>
                     ) : (
