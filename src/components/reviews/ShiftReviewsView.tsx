@@ -12,6 +12,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Loader2, ArrowUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { logError, logInfo } from "@/lib/logging";
+import { useLanguage } from "@/hooks/use-language";
 
 type ReviewItem = {
     id: string;
@@ -48,6 +49,7 @@ type CsvRow = {
 };
 
 export default function ShiftReviewsView() {
+    const { t } = useLanguage();
     const { accessToken } = useAuth();
     const [search, setSearch] = useState("");
     const [rating, setRating] = useState<string>("all");
@@ -221,26 +223,26 @@ export default function ShiftReviewsView() {
             {/* Analytics summary */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Shift Review Analytics</CardTitle>
+                    <CardTitle>{t("shift_reviews.analytics.title")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     {statsError && (
-                        <div className="py-2 text-sm text-red-600">{(statsErr as any)?.message || "Failed to load analytics."}</div>
+                        <div className="py-2 text-sm text-red-600">{(statsErr as any)?.message || t("shift_reviews.analytics.error")}</div>
                     )}
                     {!stats ? (
-                        <div className="py-6 text-sm text-muted-foreground">No data yet.</div>
+                        <div className="py-6 text-sm text-muted-foreground">{t("shift_reviews.analytics.no_data")}</div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <div className="text-sm text-muted-foreground">Total Reviews</div>
+                                <div className="text-sm text-muted-foreground">{t("shift_reviews.analytics.total_reviews")}</div>
                                 <div className="text-2xl font-semibold">{stats.total_reviews}</div>
                             </div>
                             <div>
-                                <div className="text-sm text-muted-foreground">Total Likes</div>
+                                <div className="text-sm text-muted-foreground">{t("shift_reviews.analytics.total_likes")}</div>
                                 <div className="text-2xl font-semibold">{stats.total_likes}</div>
                             </div>
                             <div>
-                                <div className="text-sm text-muted-foreground">Ratings</div>
+                                <div className="text-sm text-muted-foreground">{t("shift_reviews.analytics.ratings")}</div>
                                 <div className="flex gap-2 flex-wrap mt-1">
                                     {stats.by_rating?.map((r: { rating: number; count: number }) => (
                                         <span key={r.rating} className="px-2 py-1 rounded bg-muted text-sm">
@@ -251,7 +253,7 @@ export default function ShiftReviewsView() {
                             </div>
                             {stats.tag_counts && (
                                 <div className="md:col-span-3">
-                                    <div className="text-sm text-muted-foreground">Top Tags</div>
+                                    <div className="text-sm text-muted-foreground">{t("shift_reviews.analytics.top_tags")}</div>
                                     <div className="flex gap-2 flex-wrap mt-1">
                                         {Object.entries(stats.tag_counts)
                                             .slice(0, 10)
@@ -270,20 +272,20 @@ export default function ShiftReviewsView() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Shift Reviews</CardTitle>
+                    <CardTitle>{t("shift_reviews.title")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                        <Input placeholder="Search by employee, comments, or tags" value={search} onChange={(e) => setSearch(e.target.value)} />
+                        <Input placeholder={t("shift_reviews.search.placeholder")} value={search} onChange={(e) => setSearch(e.target.value)} />
                         <Select value={rating} onValueChange={setRating}>
-                            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Rating" /></SelectTrigger>
+                            <SelectTrigger className="w-[180px]"><SelectValue placeholder={t("shift_reviews.filters.rating")} /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">All Ratings</SelectItem>
-                                <SelectItem value="5">Great (5)</SelectItem>
-                                <SelectItem value="4">Good (4)</SelectItem>
-                                <SelectItem value="3">Decent (3)</SelectItem>
-                                <SelectItem value="2">Bad (2)</SelectItem>
-                                <SelectItem value="1">Awful (1)</SelectItem>
+                                <SelectItem value="all">{t("shift_reviews.filters.all_ratings")}</SelectItem>
+                                <SelectItem value="5">{t("shift_reviews.filters.rating_5")}</SelectItem>
+                                <SelectItem value="4">{t("shift_reviews.filters.rating_4")}</SelectItem>
+                                <SelectItem value="3">{t("shift_reviews.filters.rating_3")}</SelectItem>
+                                <SelectItem value="2">{t("shift_reviews.filters.rating_2")}</SelectItem>
+                                <SelectItem value="1">{t("shift_reviews.filters.rating_1")}</SelectItem>
                             </SelectContent>
                         </Select>
                         <Button
@@ -337,12 +339,12 @@ export default function ShiftReviewsView() {
                                 URL.revokeObjectURL(url);
                             }}
                         >
-                            Export CSV
+                            {t("shift_reviews.export_csv")}
                         </Button>
                     </div>
 
                     {isError && (
-                        <div className="py-2 text-sm text-red-600">{(error as any)?.message || "Failed to load reviews."}</div>
+                        <div className="py-2 text-sm text-red-600">{(error as any)?.message || t("shift_reviews.error")}</div>
                     )}
                     {isLoading ? (
                         <div className="py-12 flex items-center justify-center">
@@ -353,17 +355,17 @@ export default function ShiftReviewsView() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead onClick={() => toggleSort("date")}>
-                                        <div className="flex items-center">Date <ArrowUpDown className="ml-2 h-4 w-4" /></div>
+                                        <div className="flex items-center">{t("shift_reviews.table.date")} <ArrowUpDown className="ml-2 h-4 w-4" /></div>
                                     </TableHead>
                                     <TableHead onClick={() => toggleSort("staff")}>
-                                        <div className="flex items-center">Staff Name <ArrowUpDown className="ml-2 h-4 w-4" /></div>
+                                        <div className="flex items-center">{t("shift_reviews.table.staff_name")} <ArrowUpDown className="ml-2 h-4 w-4" /></div>
                                     </TableHead>
                                     <TableHead onClick={() => toggleSort("rating")}>
-                                        <div className="flex items-center">Rating <ArrowUpDown className="ml-2 h-4 w-4" /></div>
+                                        <div className="flex items-center">{t("shift_reviews.table.rating")} <ArrowUpDown className="ml-2 h-4 w-4" /></div>
                                     </TableHead>
-                                    <TableHead>Department</TableHead>
-                                    <TableHead>Tags</TableHead>
-                                    <TableHead>Comments</TableHead>
+                                    <TableHead>{t("shift_reviews.table.department")}</TableHead>
+                                    <TableHead>{t("shift_reviews.table.tags")}</TableHead>
+                                    <TableHead>{t("shift_reviews.table.comments")}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -388,7 +390,7 @@ export default function ShiftReviewsView() {
                                 ))}
                                 {filteredSorted.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={11} className="text-center text-muted-foreground py-8">No reviews found.</TableCell>
+                                        <TableCell colSpan={11} className="text-center text-muted-foreground py-8">{t("shift_reviews.table.none")}</TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>

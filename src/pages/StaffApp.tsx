@@ -1009,6 +1009,22 @@ const TeamTab: React.FC = () => {
         }
     };
 
+    const handleDeletePendingActivation = async (activationId: string) => {
+        if (!confirm(t("staff.pending.delete_confirm"))) return;
+        try {
+            const response = await fetch(`${API_BASE}/staff/activation/pending/${activationId}/`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+            });
+            if (!response.ok) throw new Error("Failed to remove pending invitation");
+            toast.success(t("staff.pending.deleted"));
+            refetchInvites();
+            refetchActivationPending();
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, "Failed to remove pending invitation"));
+        }
+    };
+
     const refetch = () => {
         refetchStaff();
         refetchInvites();
@@ -2576,10 +2592,15 @@ const TeamTab: React.FC = () => {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Button variant="outline" size="sm" className="text-emerald-600 hover:text-emerald-700 border-emerald-200" onClick={handleCopyActivationLink}>
-                                                    <Copy className="w-3.5 h-3.5 mr-1.5" />
-                                                    {t("staff.pending.copy_link")}
-                                                </Button>
+                                                <div className="flex items-center gap-2">
+                                                    <Button variant="outline" size="sm" className="text-emerald-600 hover:text-emerald-700 border-emerald-200" onClick={handleCopyActivationLink}>
+                                                        <Copy className="w-3.5 h-3.5 mr-1.5" />
+                                                        {t("staff.pending.copy_link")}
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={() => handleDeletePendingActivation(pa.id)} title={t("staff.pending.delete")}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -2638,6 +2659,9 @@ const TeamTab: React.FC = () => {
 const AttendanceTab: React.FC = () => {
     const { logout } = useAuth() as AuthContextType;
     const { t } = useLanguage();
+    const [liveSearch, setLiveSearch] = useState("");
+    const [livePage, setLivePage] = useState(1);
+    const [livePageSize, setLivePageSize] = useState(25);
     const { data: dashboardData, isLoading, refetch } = useQuery<AttendanceDashboardData>({
         queryKey: ["attendance-dashboard"],
         queryFn: async () => {
@@ -2664,6 +2688,20 @@ const AttendanceTab: React.FC = () => {
 
     const attendanceList: AttendanceListItem[] = dashboardData?.attendance_list || [];
     const recentActivity: AttendanceActivityEvent[] = dashboardData?.recent_activity || [];
+
+    // Live list: filter by search, then paginate (ready for 100+ staff)
+    const liveSearchLower = (liveSearch || "").trim().toLowerCase();
+    const filteredLiveList = liveSearchLower
+        ? attendanceList.filter(
+            (item) =>
+                item.staff.name?.toLowerCase().includes(liveSearchLower) ||
+                (item.staff.role && item.staff.role.replace(/_/g, " ").toLowerCase().includes(liveSearchLower))
+        )
+        : attendanceList;
+    const totalLive = filteredLiveList.length;
+    const liveFrom = (livePage - 1) * livePageSize;
+    const liveTo = Math.min(liveFrom + livePageSize, totalLive);
+    const paginatedLiveList = filteredLiveList.slice(liveFrom, liveTo);
 
     // Helper for timeline width calculation (08:00 to 22:00 window = 14 hours)
     const getTimelinePosition = (timeStr: string | null) => {
@@ -2777,6 +2815,7 @@ const AttendanceTab: React.FC = () => {
                             <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> {t("staff.attendance.on_time")}</span>
                             <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500"></div> {t("staff.attendance.late")}</span>
                             <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div> {t("staff.attendance.absent")}</span>
+                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-slate-400"></div> {t("staff.attendance.shift_over")}</span>
                         </div>
                     </div>
                 </CardHeader>
@@ -2801,6 +2840,7 @@ const AttendanceTab: React.FC = () => {
                             if (item.status === 'on_time') colorClass = "bg-emerald-500";
                             if (item.status === 'late') colorClass = "bg-amber-500";
                             if (item.status === 'absent') colorClass = "bg-red-500";
+                            if (item.status === 'clocked_out') colorClass = "bg-slate-400";
 
                             // If absent, use shift start time for position
                             const timeToUse = item.clock_in ? item.clock_in : (item.shift?.start || "09:00");
@@ -2811,7 +2851,7 @@ const AttendanceTab: React.FC = () => {
                                     key={item.staff.id}
                                     className={cn("absolute top-5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 shadow-sm transform -translate-x-1/2 transition-all hover:scale-125 z-10", colorClass)}
                                     style={{ left: `${leftPos}%` }}
-                                    title={`${item.staff.name}: ${item.status}`}
+                                    title={`${item.staff.name}: ${item.status === 'clocked_out' ? 'Shift Over' : item.status}`}
                                 ></div>
                             )
                         })}
@@ -2820,13 +2860,41 @@ const AttendanceTab: React.FC = () => {
             </Card>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
-                {/* 3. Live Attendance Table */}
+                {/* 3. Live Attendance Table - scalable for 100+ staff */}
                 <div className="space-y-4 flex flex-col">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <Users className="w-5 h-5 text-slate-500" />
                         {t("staff.attendance.live_list")}
                     </h3>
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1">
+                    <div className="flex flex-col gap-3">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <Input
+                                placeholder={t("staff.attendance.search_placeholder")}
+                                value={liveSearch}
+                                onChange={(e) => { setLiveSearch(e.target.value); setLivePage(1); }}
+                                className="pl-9 h-10 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                            />
+                        </div>
+                        <div className="flex items-center justify-between gap-2 flex-wrap text-xs text-slate-500 dark:text-slate-400">
+                            <span>{t("staff.attendance.showing", { from: totalLive === 0 ? 0 : liveFrom + 1, to: liveTo, total: totalLive })}</span>
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="live-page-size" className="text-slate-500 whitespace-nowrap">{t("staff.attendance.page_size")}</Label>
+                                <select
+                                    id="live-page-size"
+                                    value={livePageSize}
+                                    onChange={(e) => { setLivePageSize(Number(e.target.value)); setLivePage(1); }}
+                                    className="h-8 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs px-2"
+                                >
+                                    {[25, 50, 100].map((n) => (
+                                        <option key={n} value={n}>{n}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1 min-h-[320px] flex flex-col">
+                        <div className="overflow-auto flex-1">
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-slate-50/50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800">
@@ -2860,8 +2928,14 @@ const AttendanceTab: React.FC = () => {
                                             <p className="text-slate-500 text-sm">{t("staff.attendance.free_day")}</p>
                                         </TableCell>
                                     </TableRow>
+                                ) : paginatedLiveList.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                                            {t("staff.attendance.search_placeholder")} — no match.
+                                        </TableCell>
+                                    </TableRow>
                                 ) : (
-                                    attendanceList.map((item) => (
+                                    paginatedLiveList.map((item) => (
                                         <TableRow key={item.staff.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors border-slate-100 dark:border-slate-800">
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
@@ -2920,12 +2994,29 @@ const AttendanceTab: React.FC = () => {
                                                         {item.status === 'scheduled' ? t("staff.attendance.scheduled") : t("staff.attendance.present")}
                                                     </Badge>
                                                 )}
+                                                {(item.status === 'clocked_out') && (
+                                                    <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 border-none px-2 py-1 gap-1.5 flex w-fit">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                                                        {t("staff.attendance.shift_over")}
+                                                    </Badge>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     ))
                                 )}
                             </TableBody>
                         </Table>
+                        </div>
+                        {totalLive > livePageSize && (
+                            <div className="border-t border-slate-100 dark:border-slate-800 p-2 flex justify-center">
+                                <PaginationControls
+                                    currentPage={livePage}
+                                    count={totalLive}
+                                    pageSize={livePageSize}
+                                    onPageChange={setLivePage}
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
 

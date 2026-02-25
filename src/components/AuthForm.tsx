@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Mail, Lock } from "lucide-react";
+import { Loader2, Mail, Lock, Phone } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "@/hooks/use-language";
 import { ForgotPasswordForm } from "./ForgotPasswordForm";
@@ -21,6 +21,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
   const [userType, setUserType] = useState<UserType>("manager");
   const [pinInput, setPinInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const { toast } = useToast();
   const auth = useAuth();
@@ -43,12 +44,19 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
     const credential =
-      userType === "staff" ? pinInput : (formData.get("credential") as string);
+      userType === "staff" ? undefined : (formData.get("credential") as string);
+    const phone = userType === "staff" ? (formData.get("phone") as string) || phoneInput : undefined;
 
-    // Validate PIN for staff users
     if (userType === "staff") {
-      if (!/^\d{4}$/.test(credential)) {
-        setError(t("auth.errors.pin_invalid"));
+      const raw = (phone || "").trim();
+      if (!raw || raw.replace(/\D/g, "").length < 6) {
+        setError(t("auth.errors.phone_required"));
+        setIsLoading(false);
+        return;
+      }
+    } else if (userType === "manager") {
+      if (!credential) {
+        setError(t("auth.errors.invalid_credentials"));
         setIsLoading(false);
         return;
       }
@@ -56,10 +64,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
 
     try {
       if (userType === "staff") {
-        // Use PIN login for staff (email is optional for PIN authentication)
-        await auth.loginWithPin(credential, email);
+        await auth.loginWithPhone(phone!.trim());
       } else {
-        // Use regular login for managers/owners
         await auth.login(email, credential);
       }
 
@@ -77,10 +83,13 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
         const raw = (error.message || "").toLowerCase();
         let friendly = "";
         if (userType === "staff") {
-          if (raw.includes("invalid pin") || raw.includes("pin login failed")) {
-            friendly = t("auth.errors.invalid_pin");
+          if (raw.includes("no active account") || raw.includes("activate via")) {
+            friendly = t("auth.errors.phone_not_found");
+          } else if (raw.includes("whatsapp number")) {
+            friendly = t("auth.errors.phone_required");
           }
-        } else {
+        }
+        if (!friendly && userType === "manager") {
           if (raw.includes("invalid email") || raw.includes("login failed")) {
             friendly = t("auth.errors.invalid_credentials");
           }
@@ -122,6 +131,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
             setUserType("staff");
             setPinInput("");
             setPasswordInput("");
+            setPhoneInput("");
           }}
           className={`flex-1 py-2 px-4 rounded-md font-medium transition-all text-sm duration-300 ${userType === "staff"
             ? "bg-gradient-to-r from-[#00E676] to-[#00C853] text-white shadow-lg shadow-[#00E676]/20"
@@ -136,6 +146,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
             setUserType("manager");
             setPinInput("");
             setPasswordInput("");
+            setPhoneInput("");
           }}
           className={`flex-1 py-2 px-4 rounded-md font-medium transition-all text-sm duration-300 ${userType === "manager"
             ? "bg-gradient-to-r from-[#00E676] to-[#00C853] text-white shadow-lg shadow-[#00E676]/20"
@@ -147,68 +158,76 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
       </div>
 
       <form onSubmit={handleSignIn} className="space-y-5">
-        {/* Email Field  */}
-        <div className="space-y-2">
-          <Label
-            htmlFor="signin-email"
-            className="text-white font-semibold text-sm tracking-wider"
-          >
-            {t("auth.labels.email")}
-          </Label>
-          <div className="relative group">
-            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#00E676]/60 group-focus-within:text-[#00E676] transition-colors" />
-            <Input
-              id="signin-email"
-              name="email"
-              type="email"
-              placeholder={t("auth.placeholders.email")}
-              required
-              className="pl-10 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] rounded-lg transition-all duration-300 focus:shadow-[0_0_15px_rgba(0,230,118,0.2)] backdrop-blur-sm"
-            />
-          </div>
-        </div>
-
-        {/* Credential Field (PIN/Password)  */}
-        <div className="space-y-2">
-          <Label
-            htmlFor="signin-credential"
-            className="text-white font-semibold text-sm tracking-wider"
-          >
-            {userType === "staff" ? t("auth.labels.pin") : t("auth.labels.password")}
-          </Label>
-          <div className="relative group">
-            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#00E676]/60 group-focus-within:text-[#00E676] transition-colors" />
-            {userType === "staff" ? (
+        {/* Staff: WhatsApp number only (backup to primary WhatsApp flow). Manager: Email + Password */}
+        {userType === "staff" ? (
+          <div className="space-y-2">
+            <Label
+              htmlFor="signin-phone"
+              className="text-white font-semibold text-sm tracking-wider"
+            >
+              {t("auth.labels.phone")}
+            </Label>
+            <div className="relative group">
+              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#00E676]/60 group-focus-within:text-[#00E676] transition-colors" />
               <Input
-                id="signin-credential"
-                type="text"
-                placeholder={t("auth.placeholders.pin")}
+                id="signin-phone"
+                name="phone"
+                type="tel"
+                placeholder={t("auth.placeholders.phone")}
                 required
-                value={pinInput}
-                onChange={handlePinChange}
-                inputMode="numeric"
-                maxLength={4}
+                value={phoneInput}
+                onChange={(e) => setPhoneInput(e.target.value)}
                 className="pl-10 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] rounded-lg transition-all duration-300 focus:shadow-[0_0_15px_rgba(0,230,118,0.2)] backdrop-blur-sm"
               />
-            ) : (
-              <Input
-                id="signin-credential"
-                name="credential"
-                type="password"
-                placeholder={t("auth.placeholders.password")}
-                required
-                value={passwordInput}
-                onChange={handlePasswordChange}
-                className="pl-10 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] rounded-lg transition-all duration-300 focus:shadow-[0_0_15px_rgba(0,230,118,0.2)] backdrop-blur-sm"
-              />
-            )}
-          </div>
-          {userType === "staff" && (
+            </div>
             <p className="text-xs text-[#B0BEC5] font-medium">
-              {t("auth.helper.pin_hint")}
+              {t("auth.helper.phone_hint")}
             </p>
-          )}
-        </div>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-2">
+              <Label
+                htmlFor="signin-email"
+                className="text-white font-semibold text-sm tracking-wider"
+              >
+                {t("auth.labels.email")}
+              </Label>
+              <div className="relative group">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#00E676]/60 group-focus-within:text-[#00E676] transition-colors" />
+                <Input
+                  id="signin-email"
+                  name="email"
+                  type="email"
+                  placeholder={t("auth.placeholders.email")}
+                  required
+                  className="pl-10 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] rounded-lg transition-all duration-300 focus:shadow-[0_0_15px_rgba(0,230,118,0.2)] backdrop-blur-sm"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label
+                htmlFor="signin-credential"
+                className="text-white font-semibold text-sm tracking-wider"
+              >
+                {t("auth.labels.password")}
+              </Label>
+              <div className="relative group">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#00E676]/60 group-focus-within:text-[#00E676] transition-colors" />
+                <Input
+                  id="signin-credential"
+                  name="credential"
+                  type="password"
+                  placeholder={t("auth.placeholders.password")}
+                  required
+                  value={passwordInput}
+                  onChange={handlePasswordChange}
+                  className="pl-10 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] rounded-lg transition-all duration-300 focus:shadow-[0_0_15px_rgba(0,230,118,0.2)] backdrop-blur-sm"
+                />
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Sign In Button */}
         <Button
@@ -224,17 +243,20 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
       {/* Elegant Divider and Footer Section */}
       <div className="text-center space-y-4 text-sm pt-2">
         <p>
-          <button
-            type="button"
-            onClick={() => {
-              if (userType === "manager") {
-                setShowForgotPassword(true);
-              }
-            }}
-            className="text-[#00E676] hover:text-[#00F77B] transition-colors font-medium underline-offset-2 hover:underline"
-          >
-            {userType === "staff" ? t("auth.misc.forgot_pin") : "Forgot Password?"}
-          </button>
+          {userType === "manager" && (
+            <button
+              type="button"
+              onClick={() => setShowForgotPassword(true)}
+              className="text-[#00E676] hover:text-[#00F77B] transition-colors font-medium underline-offset-2 hover:underline"
+            >
+              Forgot Password?
+            </button>
+          )}
+          {userType === "staff" && (
+            <span className="text-[#B0BEC5] text-xs">
+              {t("auth.helper.phone_backup")}
+            </span>
+          )}
         </p>
 
         {/* Divider */}

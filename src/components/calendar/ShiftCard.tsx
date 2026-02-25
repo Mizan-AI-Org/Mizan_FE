@@ -184,6 +184,14 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
                   {(staff.first_name?.[0] ?? '') + (staff.last_name?.[0] ?? '') || '?'}
                 </div>
               ))}
+              {shift.staff_members_details.length > 3 && (
+                <div
+                  className="h-5 w-5 rounded-full bg-[#0d5c3e]/90 flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0 ring-1 ring-white"
+                  title={`${shift.staff_members_details.length - 3} more staff`}
+                >
+                  +{shift.staff_members_details.length - 3}
+                </div>
+              )}
             </div>
           )}
         </div>

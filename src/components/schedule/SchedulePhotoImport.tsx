@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { API_BASE } from "@/lib/api";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
+import { useLanguage } from "@/hooks/use-language";
 
 const ACCEPT_DOCUMENTS = ".csv,.xlsx,.xls,application/csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel";
 
@@ -38,6 +39,7 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
   onApplied,
   onTemplateSaved,
 }) => {
+  const { t } = useLanguage();
   const [uploading, setUploading] = useState(false);
   const [parsed, setParsed] = useState<ParsedSchedule | null>(null);
   const [applying, setApplying] = useState(false);
@@ -277,10 +279,10 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5 text-green-600" />
-              Import schedule from document
+              {t("schedule.import_title")}
             </CardTitle>
             <CardDescription>
-              Upload your Excel or CSV schedule. 
+              {t("schedule.import_description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 flex-1">
@@ -305,9 +307,9 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
               ) : (
                 <Upload className="h-4 w-4 mr-2" />
               )}
-              Upload Excel or CSV
+              {t("schedule.upload_excel_csv")}
             </Button>
-            <span className="text-sm text-neutral-500">or</span>
+            <span className="text-sm text-neutral-500">{t("schedule.import_or")}</span>
             <input
               type="file"
               accept="image/*"
@@ -323,7 +325,7 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
               disabled={uploading}
             >
               <Camera className="h-4 w-4 mr-2" />
-              Upload photo instead
+              {t("schedule.upload_photo_instead")}
             </Button>
           </div>
         )}
@@ -340,9 +342,9 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
               />
             </div>
             <div className="flex gap-2">
-              <Button onClick={capturePhoto}>Capture</Button>
+              <Button onClick={capturePhoto}>{t("schedule.capture")}</Button>
               <Button variant="outline" onClick={stopCamera}>
-                Cancel
+                {t("schedule.cancel")}
               </Button>
             </div>
           </div>
@@ -356,24 +358,24 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
             {parsed.shifts.length > 0 && (
               <>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <label className="text-sm font-medium text-gray-700">Template name:</label>
+                  <label className="text-sm font-medium text-gray-700">{t("schedule.template_name_label")}</label>
                   <input
                     type="text"
                     value={templateName}
                     onChange={(e) => setTemplateName(e.target.value)}
                     className="border rounded-md px-2 py-1 text-sm w-48"
-                    placeholder="e.g. Week of Jan 15"
+                    placeholder={t("schedule.template_name_placeholder")}
                   />
                 </div>
                 <div className="overflow-x-auto rounded-md border bg-white max-h-64 overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-100 sticky top-0">
                       <tr>
-                        <th className="text-left p-2">Employee</th>
-                        <th className="text-left p-2">Role</th>
-                        <th className="text-left p-2">Day</th>
-                        <th className="text-left p-2">Start</th>
-                        <th className="text-left p-2">End</th>
+                        <th className="text-left p-2">{t("schedule.table_employee")}</th>
+                        <th className="text-left p-2">{t("schedule.table_role")}</th>
+                        <th className="text-left p-2">{t("schedule.table_day")}</th>
+                        <th className="text-left p-2">{t("schedule.table_start")}</th>
+                        <th className="text-left p-2">{t("schedule.table_end")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -397,7 +399,7 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
                     className="border-green-600 text-green-700 hover:bg-green-50"
                   >
                     {applying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
-                    Save as reusable template
+                    {t("schedule.save_as_template")}
                   </Button>
                   <Button
                     onClick={applyToWeek}
@@ -405,7 +407,7 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
                     className="bg-green-600 hover:bg-green-700"
                   >
                     {applying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    Apply to this week ({format(new Date(weekStart), "MMM d")} – {format(addDays(new Date(weekStart), 6), "MMM d")})
+                    {t("schedule.apply_to_week")} ({format(new Date(weekStart), "MMM d")} – {format(addDays(new Date(weekStart), 6), "MMM d")})
                   </Button>
                   <Button
                     variant="ghost"
@@ -414,7 +416,7 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
                     className="text-gray-500"
                   >
                     <X className="h-4 w-4 mr-1" />
-                    Discard
+                    {t("schedule.discard")}
                   </Button>
                 </div>
               </>
@@ -431,29 +433,29 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <ListOrdered className="h-4 w-4 text-green-600" />
-              How it works
+              {t("schedule.how_it_works")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-0">
             <div className="flex gap-3">
               <span className="flex-shrink-0 w-7 h-7 rounded-full bg-green-100 text-green-700 font-semibold text-sm flex items-center justify-center">1</span>
               <div>
-                <p className="font-medium text-neutral-900">Upload your file</p>
-                <p className="text-sm text-neutral-600">Use an Excel (.xlsx, .xls) or CSV file from your existing schedule or export.</p>
+                <p className="font-medium text-neutral-900">{t("schedule.import_step1_title")}</p>
+                <p className="text-sm text-neutral-600">{t("schedule.import_step1_desc")}</p>
               </div>
             </div>
             <div className="flex gap-3">
               <span className="flex-shrink-0 w-7 h-7 rounded-full bg-green-100 text-green-700 font-semibold text-sm flex items-center justify-center">2</span>
               <div>
-                <p className="font-medium text-neutral-900">We adapt to your format</p>
-                <p className="text-sm text-neutral-600">We detect columns like Date, Employee, Role, Start, and End—no fixed template required.</p>
+                <p className="font-medium text-neutral-900">{t("schedule.import_step2_title")}</p>
+                <p className="text-sm text-neutral-600">{t("schedule.import_step2_desc")}</p>
               </div>
             </div>
             <div className="flex gap-3">
               <span className="flex-shrink-0 w-7 h-7 rounded-full bg-green-100 text-green-700 font-semibold text-sm flex items-center justify-center">3</span>
               <div>
-                <p className="font-medium text-neutral-900">Review, then apply or save</p>
-                <p className="text-sm text-neutral-600">Check the parsed shifts, then apply them to this week or save as a reusable template.</p>
+                <p className="font-medium text-neutral-900">{t("schedule.import_step3_title")}</p>
+                <p className="text-sm text-neutral-600">{t("schedule.import_step3_desc")}</p>
               </div>
             </div>
           </CardContent>
@@ -463,37 +465,37 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <Table2 className="h-4 w-4 text-green-600" />
-              Supported columns
+              {t("schedule.supported_columns")}
             </CardTitle>
             <CardDescription className="text-sm">
-              We recognize many header names—use what you already have.
+              {t("schedule.supported_columns_desc")}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
             <ul className="space-y-2 text-sm">
               <li className="flex flex-wrap gap-1.5">
-                <span className="font-medium text-neutral-700">Date / Day:</span>
-                <span className="text-neutral-600">Date, Day, Schedule Date, Shift Date</span>
+                <span className="font-medium text-neutral-700">{t("schedule.col_date_day")}</span>
+                <span className="text-neutral-600">{t("schedule.col_date_examples")}</span>
               </li>
               <li className="flex flex-wrap gap-1.5">
-                <span className="font-medium text-neutral-700">Employee:</span>
-                <span className="text-neutral-600">Name, Employee, Staff, Full Name</span>
+                <span className="font-medium text-neutral-700">{t("schedule.col_employee")}</span>
+                <span className="text-neutral-600">{t("schedule.col_employee_examples")}</span>
               </li>
               <li className="flex flex-wrap gap-1.5">
-                <span className="font-medium text-neutral-700">Role:</span>
-                <span className="text-neutral-600">Role, Position, Title, Job</span>
+                <span className="font-medium text-neutral-700">{t("schedule.col_role")}</span>
+                <span className="text-neutral-600">{t("schedule.col_role_examples")}</span>
               </li>
               <li className="flex flex-wrap gap-1.5">
-                <span className="font-medium text-neutral-700">Start / End:</span>
-                <span className="text-neutral-600">Start, End, Clock In/Out, Time In/Out</span>
+                <span className="font-medium text-neutral-700">{t("schedule.col_start_end")}</span>
+                <span className="text-neutral-600">{t("schedule.col_start_end_examples")}</span>
               </li>
               <li className="flex flex-wrap gap-1.5">
-                <span className="font-medium text-neutral-700">Department (optional):</span>
-                <span className="text-neutral-600">Department, Dept, Section</span>
+                <span className="font-medium text-neutral-700">{t("schedule.col_department")}</span>
+                <span className="text-neutral-600">{t("schedule.col_department_examples")}</span>
               </li>
             </ul>
             <p className="mt-3 text-xs text-neutral-500 border-t border-neutral-100 pt-3">
-              Dates can be Excel dates, YYYY-MM-DD, DD/MM/YYYY, or day names (e.g. Monday). Times like 9am, 17:00, or 5pm are supported.
+              {t("schedule.dates_times_note")}
             </p>
           </CardContent>
         </Card>

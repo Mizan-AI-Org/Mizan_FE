@@ -385,7 +385,7 @@ export default function TaskTemplateManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Manage Processes</h1>
+          <h1 className="text-2xl font-bold">{t("processes.manage_processes")}</h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -393,14 +393,14 @@ export default function TaskTemplateManagement() {
             <DialogTrigger asChild>
               <Button className="premium-button">
                 <Plus className="h-4 w-4 mr-2" />
-                New Process
+                {t("processes.new_process")}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create New Process</DialogTitle>
+                <DialogTitle>{t("processes.create_new_process")}</DialogTitle>
                 <DialogDescription>
-                  Create a new operational process that can be reused across shifts and schedules.
+                  {t("processes.create_new_process_desc")}
                 </DialogDescription>
               </DialogHeader>
               <TaskTemplateForm
@@ -414,7 +414,7 @@ export default function TaskTemplateManagement() {
             onClick={() => seedTemplatesMutation.mutate()}
             disabled={seedTemplatesMutation.isPending}
           >
-            Load Pre-Built Processes
+            {t("processes.load_prebuilt_processes")}
           </Button>
         </div>
       </div>
@@ -441,7 +441,7 @@ export default function TaskTemplateManagement() {
                 <SelectValue placeholder={t("processes.filter_by_type")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="all">{t("processes.all_types")}</SelectItem>
                 <SelectItem value="CLEANING">Cleaning</SelectItem>
                 <SelectItem value="TEMPERATURE">Temperature</SelectItem>
                 <SelectItem value="OPENING">Opening</SelectItem>
@@ -462,7 +462,7 @@ export default function TaskTemplateManagement() {
                 <SelectValue placeholder={t("processes.filter_by_frequency")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Frequencies</SelectItem>
+                <SelectItem value="all">{t("processes.all_frequencies")}</SelectItem>
                 <SelectItem value="DAILY">Daily</SelectItem>
                 <SelectItem value="WEEKLY">Weekly</SelectItem>
                 <SelectItem value="MONTHLY">Monthly</SelectItem>
@@ -482,17 +482,17 @@ export default function TaskTemplateManagement() {
         <Card className="premium-card">
           <CardContent className="text-center py-12">
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No processes found</h3>
+            <h3 className="text-lg font-semibold mb-2">{t("processes.no_processes_found")}</h3>
             <p className="text-muted-foreground mb-4">
               {searchTerm || filterType !== 'all' || filterFrequency !== 'all'
-                ? 'Try adjusting your search or filters'
-                : 'Create your first operational process to get started'
+                ? t("processes.try_adjusting_filters")
+                : t("processes.create_first_process")
               }
             </p>
             {!searchTerm && filterType === 'all' && filterFrequency === 'all' && (
               <Button onClick={() => setIsProcessModalOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                Create Process
+                {t("processes.create_process")}
               </Button>
             )}
           </CardContent>
@@ -516,7 +516,7 @@ export default function TaskTemplateManagement() {
                     )}
                     {template.is_critical && (
                       <Badge variant="destructive" className="text-xs">
-                        Critical
+                        {t("processes.critical_badge")}
                       </Badge>
                     )}
                   </div>
@@ -545,8 +545,8 @@ export default function TaskTemplateManagement() {
 
                 <div className="text-xs text-muted-foreground">
                   <div className="flex justify-between">
-                    <span>{template.tasks.length} tasks</span>
-                    <span>Used {template.usage_count} times</span>
+                    <span>{t("processes.tasks_count", { count: template.tasks.length })}</span>
+                    <span>{t("processes.used_times", { count: template.usage_count })}</span>
                   </div>
                 </div>
 
@@ -558,7 +558,7 @@ export default function TaskTemplateManagement() {
                     className="flex-1"
                   >
                     <Edit className="h-3 w-3 mr-1" />
-                    Edit
+                    {t("processes.edit")}
                   </Button>
 
                   <Button
@@ -591,18 +591,18 @@ export default function TaskTemplateManagement() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Template</AlertDialogTitle>
+                        <AlertDialogTitle>{t("processes.delete_template")}</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Are you sure you want to delete "{template.name}"? This action cannot be undone.
+                          {t("processes.delete_template_confirm", { name: template.name })}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel>{t("schedule.cancel")}</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={() => handleDelete(template.id)}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                          Delete
+                          {t("processes.delete_button")}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -619,9 +619,9 @@ export default function TaskTemplateManagement() {
         <Dialog open={!!editingProcess} onOpenChange={() => setEditingProcess(null)}>
           <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit Process</DialogTitle>
+              <DialogTitle>{t("processes.edit_process")}</DialogTitle>
               <DialogDescription>
-                Update the process details and tasks.
+                {t("processes.edit_process_desc")}
               </DialogDescription>
             </DialogHeader>
             <TaskTemplateForm

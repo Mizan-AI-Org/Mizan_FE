@@ -122,22 +122,22 @@ export default function TaskManagementBoard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
           {
-            label: "Active Ongoing Processes",
+            label: t("live_board.active_ongoing_processes"),
             value: activeProcessesCount,
             icon: PlayCircle,
             color: "text-blue-500",
             bg: "bg-blue-50 dark:bg-blue-900/10"
           },
           {
-            label: "Processes/Tasks Today",
+            label: t("live_board.processes_tasks_today"),
             value: `${tasksToday.completed}/${tasksToday.total}`,
-            subtext: `${tasksToday.ongoing} In Progress`,
+            subtext: `${tasksToday.ongoing} ${t("live_board.in_progress")}`,
             icon: CheckCircle,
             color: "text-emerald-500",
             bg: "bg-emerald-50 dark:bg-emerald-900/10"
           },
           {
-            label: "On-Time Rate",
+            label: t("live_board.on_time_rate"),
             value: `${onTimeRate}%`,
             change: onTimeChange,
             icon: Clock,
@@ -145,7 +145,7 @@ export default function TaskManagementBoard() {
             bg: "bg-violet-50 dark:bg-violet-900/10"
           },
           {
-            label: "Attention Needed",
+            label: t("live_board.attention_needed"),
             value: attentionNeeded,
             icon: AlertCircle,
             color: "text-rose-500",
@@ -181,28 +181,28 @@ export default function TaskManagementBoard() {
             <div>
               <CardTitle className="text-xl font-bold flex items-center gap-2">
                 <User className="w-5 h-5 text-indigo-500" />
-                Staff Live Progress
+                {t("live_board.staff_live_progress")}
               </CardTitle>
-              <p className="text-sm text-slate-500 mt-1">Live view of task and process progress for active shifts</p>
+              <p className="text-sm text-slate-500 mt-1">{t("live_board.staff_live_progress_desc")}</p>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="font-normal">
-                {staffMetrics.length} Active Staff
+                {t("live_board.active_staff", { count: staffMetrics.length })}
               </Badge>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="p-8 text-center text-slate-500">Loading live data...</div>
+            <div className="p-8 text-center text-slate-500">{t("live_board.loading_live_data")}</div>
           ) : staffMetrics.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center">
               <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
                 <User className="w-8 h-8 text-slate-400" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">No active shifts</h3>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">{t("live_board.no_active_shifts")}</h3>
               <p className="text-slate-500 max-w-sm mb-6">
-                There are no staff members currently clocked in or scheduled for today.
+                {t("live_board.no_active_shifts_desc")}
               </p>
             </div>
           ) : (
@@ -227,7 +227,7 @@ export default function TaskManagementBoard() {
                           "font-medium",
                           staff.shift_status === 'ON_SHIFT' ? "text-emerald-600" : "text-amber-600"
                         )}>
-                          {staff.shift_status === 'ON_SHIFT' ? 'On Shift' : staff.shift_status}
+                          {staff.shift_status === 'ON_SHIFT' ? t("live_board.on_shift") : staff.shift_status}
                         </span>
                       </div>
                     </div>
@@ -252,7 +252,7 @@ export default function TaskManagementBoard() {
                       {staff.tasks.is_completed ? (
                         <CheckCircle className="w-4 h-4 text-emerald-500" />
                       ) : (
-                        <span className="text-slate-400 font-mono tracking-wider text-xs">TASKS:</span>
+                        <span className="text-slate-400 font-mono tracking-wider text-xs">{t("live_board.tasks_label")}</span>
                       )}
                       <span className="font-semibold">
                         {staff.tasks.completed}/{staff.tasks.total}
@@ -293,7 +293,7 @@ export default function TaskManagementBoard() {
                     {staff.attention.needed ? (
                       <div className="flex items-center gap-1.5 text-rose-600 text-sm font-medium animate-pulse">
                         <AlertTriangle className="w-4 h-4" />
-                        <span>{staff.attention.reason}</span>
+                        <span>{staff.attention.reason || t("live_board.behind_schedule")}</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1.5 text-emerald-600 text-sm font-medium opacity-70">

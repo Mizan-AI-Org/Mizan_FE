@@ -141,7 +141,9 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                                         {format(parseISO(date), "EEEE, MMMM do")}
                                     </h3>
                                     <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                                        {groupedShifts[date].length} {groupedShifts[date].length === 1 ? 'Shift' : 'Shifts'} scheduled
+                                        {groupedShifts[date].length === 1
+                                            ? t("schedule.shifts_scheduled_one")
+                                            : t("schedule.shifts_scheduled_many", { count: groupedShifts[date].length })}
                                     </span>
                                 </div>
                                 <div className="h-px flex-1 bg-gray-200 ml-2" />
