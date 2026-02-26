@@ -273,33 +273,33 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[700px] bg-white rounded-3xl p-6 border-none shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[700px] bg-white dark:bg-slate-900 rounded-3xl p-6 border-none shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
                 <DialogHeader className="pb-2">
-                    <DialogTitle className="text-xl font-bold text-[#1F2937]">
+                    <DialogTitle className="text-xl font-bold text-[#1F2937] dark:text-gray-100">
                         {initialShift ? t("schedule.edit_schedule") : t("schedule.create_schedule")}
                     </DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-5 mt-4">
                     <div className="space-y-1">
-                        <Label className="text-sm font-semibold text-[#1F2937]">{t("schedule.shift_title")}</Label>
+                        <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">{t("schedule.shift_title")}</Label>
                         <Input
                             id="title"
                             placeholder={t("schedule.shift_title_placeholder")}
                             value={shiftData.title}
                             onChange={(e) => setShiftData(prev => ({ ...prev, title: e.target.value }))}
-                            className="h-12 rounded-xl border-gray-200 focus:ring-[#106B4E] focus:border-[#106B4E]"
+                            className="h-12 rounded-xl border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100 focus:ring-[#106B4E] focus:border-[#106B4E]"
                         />
                     </div>
 
                     {/* Multi-Staff Selection */}
                     <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-[#1F2937]">Assign Staff ({selectedStaffIds.length} selected)</Label>
+                        <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">Assign Staff ({selectedStaffIds.length} selected)</Label>
                         <Popover open={isStaffPopoverOpen} onOpenChange={setIsStaffPopoverOpen}>
                             <PopoverTrigger asChild>
                                 <Button
                                     variant="outline"
-                                    className="w-full h-12 bg-orange-100 hover:bg-orange-200 text-orange-900 border-none rounded-xl px-4 flex justify-between items-center text-base font-medium transition-colors shadow-sm"
+                                    className="w-full h-12 bg-orange-100 dark:bg-orange-900/30 hover:bg-orange-200 dark:hover:bg-orange-900/40 text-orange-900 dark:text-orange-200 border-none rounded-xl px-4 flex justify-between items-center text-base font-medium transition-colors shadow-sm"
                                 >
                                     <div className="flex items-center gap-2 overflow-hidden">
                                         {selectedStaffIds.length > 0 ? (
@@ -309,13 +309,13 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                                     : `${selectedStaffIds.length} members selected`}
                                             </span>
                                         ) : (
-                                            <span className="text-orange-900/50">Select staff members...</span>
+                                            <span className="text-orange-900/50 dark:text-orange-300/50">Select staff members...</span>
                                         )}
                                     </div>
                                     <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl shadow-2xl border-gray-100 overflow-hidden z-[9999]" align="start">
+                            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl shadow-2xl border-gray-100 dark:border-slate-700 dark:bg-slate-900 overflow-hidden z-[9999]" align="start">
                                 <Command className="rounded-xl border-none">
                                     <CommandInput
                                         placeholder={t("common.search_staff")}
@@ -324,7 +324,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                         onValueChange={setStaffSearch}
                                     />
                                     <CommandList className="max-h-[300px] overflow-y-auto">
-                                        <CommandEmpty className="py-6 text-center text-sm text-gray-500">No staff found.</CommandEmpty>
+                                        <CommandEmpty className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">No staff found.</CommandEmpty>
                                         <CommandGroup>
                                             {staffMembers
                                                 .filter(s => String(s.user?.id) !== String(user?.id))
@@ -332,13 +332,13 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                                     <CommandItem
                                                         key={s.id}
                                                         onSelect={() => toggleStaffSelection(s.id)}
-                                                        className="flex items-center gap-2 p-3 aria-selected:bg-orange-50 cursor-pointer"
+                                                        className="flex items-center gap-2 p-3 aria-selected:bg-orange-50 dark:aria-selected:bg-orange-900/20 cursor-pointer"
                                                     >
                                                         <div className={cn(
                                                             "w-5 h-5 rounded-md border flex items-center justify-center transition-colors",
                                                             selectedStaffIds.includes(s.id)
                                                                 ? "bg-orange-500 border-orange-500"
-                                                                : "border-orange-200 bg-white"
+                                                                : "border-orange-200 dark:border-slate-600 bg-white dark:bg-slate-800"
                                                         )}>
                                                             {selectedStaffIds.includes(s.id) && <Check className="h-3 w-3 text-white" />}
                                                         </div>
@@ -348,10 +348,10 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                                             </AvatarFallback>
                                                         </Avatar>
                                                         <div className="flex flex-col">
-                                                            <span className="text-sm font-semibold text-gray-900">
+                                                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                                                                 {`${s.user?.first_name || s.first_name || ""} ${s.user?.last_name || s.last_name || ""}`}
                                                             </span>
-                                                            <span className="text-xs text-gray-500 uppercase">{s.role}</span>
+                                                            <span className="text-xs text-gray-500 dark:text-gray-400 uppercase">{s.role}</span>
                                                         </div>
                                                     </CommandItem>
                                                 ))}
@@ -364,23 +364,23 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                            <Label className="text-sm font-semibold text-[#1F2937]">Date</Label>
+                            <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">Date</Label>
                             <Input
                                 type="date"
                                 value={shiftData.date}
                                 onChange={(e) => setShiftData(prev => ({ ...prev, date: e.target.value }))}
-                                className="h-12 rounded-xl border-gray-200 focus:ring-[#106B4E]"
+                                className="h-12 rounded-xl border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100 focus:ring-[#106B4E]"
                                 required
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
-                                <Label className="text-sm font-semibold text-[#1F2937]">Start</Label>
+                                <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">Start</Label>
                                 <Select
                                     value={shiftData.start}
                                     onValueChange={(value) => setShiftData(prev => ({ ...prev, start: value }))}
                                 >
-                                    <SelectTrigger className="h-12 rounded-xl border-gray-200">
+                                    <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100">
                                         <SelectValue placeholder={t("common.start")} />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-[200px] z-[9999]">
@@ -400,12 +400,12 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                 </Select>
                             </div>
                             <div className="space-y-1">
-                                <Label className="text-sm font-semibold text-[#1F2937]">End</Label>
+                                <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">End</Label>
                                 <Select
                                     value={shiftData.end}
                                     onValueChange={(value) => setShiftData(prev => ({ ...prev, end: value }))}
                                 >
-                                    <SelectTrigger className="h-12 rounded-xl border-gray-200">
+                                    <SelectTrigger className="h-12 rounded-xl border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100">
                                         <SelectValue placeholder={t("common.end")} />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-[200px] z-[9999]">
@@ -428,11 +428,11 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                     </div>
 
                     {/* Recurring Shift Section */}
-                    <div className="bg-slate-50 p-4 rounded-2xl space-y-4 border border-slate-100">
+                    <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl space-y-4 border border-slate-100 dark:border-slate-700">
                         <div className="flex items-center justify-between">
                             <div className="flex flex-col">
-                                <Label className="text-sm font-bold text-slate-900 leading-none">Recurring Shift</Label>
-                                <p className="text-[10px] text-slate-500 mt-1">Create this shift repeatedly until the end date.</p>
+                                <Label className="text-sm font-bold text-slate-900 dark:text-gray-100 leading-none">Recurring Shift</Label>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Create this shift repeatedly until the end date.</p>
                             </div>
                             <div
                                 onClick={() => setIsRecurring(!isRecurring)}
@@ -450,8 +450,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
                         {isRecurring && (
                             <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                                <Label className="text-xs font-semibold text-slate-700 block mb-2">Repeat</Label>
-                                <p className="text-[10px] text-slate-500 mb-2">Daily = every day; Weekly = same day each week; Monthly = same date each month; Custom = pick specific weekdays (e.g. Mon, Wed, Fri).</p>
+                                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-2">Repeat</Label>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-2">Daily = every day; Weekly = same day each week; Monthly = same date each month; Custom = pick specific weekdays (e.g. Mon, Wed, Fri).</p>
                                 <div className="flex flex-wrap gap-2">
                                     <Button
                                         type="button"
@@ -459,7 +459,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                         onClick={() => setFrequency('DAILY')}
                                         className={cn(
                                             "h-10 rounded-xl text-xs font-bold transition-all",
-                                            frequency === 'DAILY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                            frequency === 'DAILY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                                         )}
                                     >
                                         Daily
@@ -470,7 +470,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                         onClick={() => setFrequency('WEEKLY')}
                                         className={cn(
                                             "h-10 rounded-xl text-xs font-bold transition-all",
-                                            frequency === 'WEEKLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                            frequency === 'WEEKLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                                         )}
                                     >
                                         Weekly
@@ -481,7 +481,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                         onClick={() => setFrequency('MONTHLY')}
                                         className={cn(
                                             "h-10 rounded-xl text-xs font-bold transition-all",
-                                            frequency === 'MONTHLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                            frequency === 'MONTHLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                                         )}
                                     >
                                         Monthly
@@ -492,7 +492,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                         onClick={() => setFrequency('CUSTOM')}
                                         className={cn(
                                             "h-10 rounded-xl text-xs font-bold transition-all",
-                                            frequency === 'CUSTOM' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                            frequency === 'CUSTOM' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                                         )}
                                     >
                                         Custom
@@ -500,7 +500,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                 </div>
                                 {frequency === 'CUSTOM' && (
                                     <div className="mt-3">
-                                        <Label className="text-xs font-semibold text-slate-700 block mb-2">{t("common.repeat_on")}</Label>
+                                        <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-2">{t("common.repeat_on")}</Label>
                                         <div className="flex flex-wrap gap-2">
                                             {(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const).map((label, i) => {
                                                 const isSelected = daysOfWeek.includes(i);
@@ -514,7 +514,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                                         }}
                                                         className={cn(
                                                             "w-10 h-10 rounded-xl text-xs font-bold transition-all border",
-                                                            isSelected ? "bg-[#106B4E] text-white border-[#106B4E]" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                                            isSelected ? "bg-[#106B4E] text-white border-[#106B4E]" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                                                         )}
                                                     >
                                                         {label}
@@ -526,13 +526,13 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                     </div>
                                 )}
                                 <div className="mt-4">
-                                    <Label className="text-xs font-semibold text-slate-700 block mb-2">End Date</Label>
+                                    <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-2">End Date</Label>
                                     <Input
                                         type="date"
                                         value={recurringEndDate}
                                         onChange={(e) => setRecurringEndDate(e.target.value)}
                                         min={shiftData.date}
-                                        className="h-10 rounded-xl border-slate-200 focus:ring-[#106B4E] focus:border-[#106B4E]"
+                                        className="h-10 rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100 focus:ring-[#106B4E] focus:border-[#106B4E]"
                                     />
                                     {!recurringEndDate && <p className="text-[10px] text-amber-600 mt-1">Please select an end date for recurring shifts.</p>}
                                 </div>
@@ -542,25 +542,25 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
                     <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                            <Label className="text-sm font-semibold text-[#1F2937]">Process & Task Templates</Label>
+                            <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">Process & Task Templates</Label>
                             <div className="relative w-48">
                                 <Input
                                     placeholder={t("common.search_templates")}
                                     value={templateSearch}
                                     onChange={(e) => setTemplateSearch(e.target.value)}
-                                    className="h-8 rounded-lg border-gray-200 pl-8 pr-2 text-xs focus:ring-[#106B4E]"
+                                    className="h-8 rounded-lg border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100 pl-8 pr-2 text-xs focus:ring-[#106B4E]"
                                 />
                                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                             </div>
                         </div>
-                        <div className="bg-[#F9FAFB] border border-gray-100 rounded-xl p-2 max-h-[250px] overflow-y-auto space-y-1">
+                        <div className="bg-[#F9FAFB] dark:bg-slate-800/50 border border-gray-100 dark:border-slate-700 rounded-xl p-2 max-h-[250px] overflow-y-auto space-y-1">
                             {templatesLoading ? (
-                                <p className="text-sm text-gray-500 text-center py-4">Loading templates...</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Loading templates...</p>
                             ) : (templates || []).filter(t =>
                                 !templateSearch || t.name.toLowerCase().includes(templateSearch.toLowerCase()) ||
                                 (t.description || '').toLowerCase().includes(templateSearch.toLowerCase())
                             ).length === 0 ? (
-                                <p className="text-sm text-gray-500 text-center py-4">No templates found.</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No templates found.</p>
                             ) : (
                                 (templates || []).filter(t =>
                                     !templateSearch || t.name.toLowerCase().includes(templateSearch.toLowerCase()) ||
@@ -573,8 +573,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                             className={cn(
                                                 "flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-all border",
                                                 isSelected
-                                                    ? "bg-emerald-50 border-emerald-200 shadow-sm"
-                                                    : "bg-white border-transparent hover:bg-gray-50 hover:border-gray-200"
+                                                    ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700 shadow-sm"
+                                                    : "bg-white dark:bg-slate-800 border-transparent hover:bg-gray-50 dark:hover:bg-slate-700 hover:border-gray-200 dark:hover:border-slate-600"
                                             )}
                                             onClick={() => {
                                                 const current = selectedTemplateIds;
@@ -589,7 +589,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                                 "mt-0.5 w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0",
                                                 isSelected
                                                     ? "bg-[#106B4E] border-[#106B4E]"
-                                                    : "border-gray-300 bg-white"
+                                                    : "border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800"
                                             )}>
                                                 {isSelected && (
                                                     <Check className="w-2.5 h-2.5 text-white" />
@@ -598,13 +598,13 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                             <div className="space-y-0.5 min-w-0">
                                                 <p className={cn(
                                                     "text-sm font-bold leading-none",
-                                                    isSelected ? "text-emerald-900" : "text-[#1F2937]"
+                                                    isSelected ? "text-emerald-900 dark:text-emerald-300" : "text-[#1F2937] dark:text-gray-100"
                                                 )}>
                                                     {template.name}
                                                 </p>
                                                 <p className={cn(
                                                     "text-[11px] line-clamp-1",
-                                                    isSelected ? "text-emerald-700/80" : "text-gray-500"
+                                                    isSelected ? "text-emerald-700/80 dark:text-emerald-400/80" : "text-gray-500 dark:text-gray-400"
                                                 )}>
                                                     {template.description || "Daily preparation and inventory check"}
                                                 </p>
@@ -614,25 +614,25 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                 })
                             )}
                         </div>
-                        <p className="text-[10px] text-gray-400 pt-1">Select templates to automatically add tasks to this shift.</p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 pt-1">Select templates to automatically add tasks to this shift.</p>
                     </div>
 
                     {/* Manual Task Creation Section */}
-                    <div className="space-y-3 pt-4 border-t border-gray-100">
-                        <Label className="text-sm font-semibold text-[#1F2937]">Custom Tasks</Label>
+                    <div className="space-y-3 pt-4 border-t border-gray-100 dark:border-slate-700">
+                        <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">Custom Tasks</Label>
 
                         <div className="flex gap-2">
                             <Input
                                 placeholder={t("common.add_custom_task")}
                                 value={newTaskTitle}
                                 onChange={(e) => setNewTaskTitle(e.target.value)}
-                                className="flex-1 h-10 rounded-xl border-gray-200 text-sm focus:ring-[#106B4E]"
+                                className="flex-1 h-10 rounded-xl border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100 text-sm focus:ring-[#106B4E]"
                             />
                             <Select
                                 value={newTaskPriority}
                                 onValueChange={(v: TaskPriority) => setNewTaskPriority(v)}
                             >
-                                <SelectTrigger className="w-[120px] h-10 rounded-xl border-gray-200">
+                                <SelectTrigger className="w-[120px] h-10 rounded-xl border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100">
                                     <SelectValue placeholder={t("common.priority")} />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -656,7 +656,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                             {(shiftData.tasks || []).map((task, index) => (
                                 <div
                                     key={index}
-                                    className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-gray-100 group"
+                                    className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-slate-800/50 rounded-xl border border-gray-100 dark:border-slate-700 group"
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className={cn(
@@ -665,7 +665,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                                 task.priority === 'HIGH' ? "bg-orange-500" :
                                                     task.priority === 'MEDIUM' ? "bg-blue-500" : "bg-gray-400"
                                         )} />
-                                        <span className="text-sm font-medium text-gray-700">{task.title}</span>
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{task.title}</span>
                                     </div>
                                     <Button
                                         type="button"
@@ -681,7 +681,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-50 mt-4">
+                    <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-50 dark:border-slate-700 mt-4">
                         {initialShift && onDelete && (
                             <Button
                                 variant="ghost"
@@ -700,7 +700,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                             type="button"
                             variant="ghost"
                             onClick={onClose}
-                            className="h-12 px-8 rounded-xl text-gray-600 font-semibold hover:bg-gray-100"
+                            className="h-12 px-8 rounded-xl text-gray-600 dark:text-gray-300 font-semibold hover:bg-gray-100 dark:hover:bg-slate-800"
                         >
                             Cancel
                         </Button>

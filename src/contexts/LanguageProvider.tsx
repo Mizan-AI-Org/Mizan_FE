@@ -12,12 +12,24 @@ const normalizeLanguage = (lng: string): Language => {
 };
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
+  const [ready, setReady] = useState(i18n.isInitialized);
   const [language, setLanguageState] = useState<Language>(() => {
     const saved = localStorage.getItem('language');
     return normalizeLanguage(saved || i18n.language || 'en');
   });
   const [isChanging, setIsChanging] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Gate rendering until i18next has loaded its translation resources
+  useEffect(() => {
+    if (i18n.isInitialized) {
+      setReady(true);
+      return;
+    }
+    const onInit = () => setReady(true);
+    i18n.on('initialized', onInit);
+    return () => { i18n.off('initialized', onInit); };
+  }, []);
 
   const isRTL = language === 'ar';
 
@@ -112,6 +124,16 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }
     return result;
   }, []);
+
+  // Don't render children until i18n translation resources have loaded;
+  // this prevents raw keys like "auth.tagline" from flashing on screen.
+  if (!ready) {
+    return (
+      <div className="min-h-screen bg-[#0A0D10] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#00E676] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t, isRTL, isChanging, error }}>

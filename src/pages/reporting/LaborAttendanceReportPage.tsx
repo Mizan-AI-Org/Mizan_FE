@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { TableSkeleton } from "@/components/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200, 500] as const;
 
 const LaborAttendanceReportPage: React.FC = () => {
   const { t } = useLanguage();
@@ -36,10 +36,11 @@ const LaborAttendanceReportPage: React.FC = () => {
   const [exportFormat, setExportFormat] = useState<"pdf" | "excel">("excel");
   const [exporting, setExporting] = useState(false);
   const [staffPage, setStaffPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(25);
 
   useEffect(() => {
     setStaffPage(1);
-  }, [startDate, endDate]);
+  }, [startDate, endDate, pageSize]);
 
   const downloadAttendanceForHR = async () => {
     const token = localStorage.getItem("access_token");
@@ -117,11 +118,11 @@ const LaborAttendanceReportPage: React.FC = () => {
   const summary = plannedVsActual?.summary;
   const byStaffRaw = plannedVsActual?.by_staff ?? [];
   const byStaff = useMemo(() => [...byStaffRaw].sort((a: { staff_name: string }, b: { staff_name: string }) => (a.staff_name || "").localeCompare(b.staff_name || "")), [byStaffRaw]);
-  const staffTotalPages = Math.max(1, Math.ceil(byStaff.length / PAGE_SIZE));
+  const staffTotalPages = Math.max(1, Math.ceil(byStaff.length / pageSize));
   const staffPaginated = useMemo(() => {
-    const start = (staffPage - 1) * PAGE_SIZE;
-    return byStaff.slice(start, start + PAGE_SIZE);
-  }, [byStaff, staffPage]);
+    const start = (staffPage - 1) * pageSize;
+    return byStaff.slice(start, start + pageSize);
+  }, [byStaff, staffPage, pageSize]);
   const overtimeIncidents = compliance?.overtime_incidents ?? [];
   const certs = certsExpiring?.certifications_expiring ?? [];
 
@@ -269,11 +270,31 @@ const LaborAttendanceReportPage: React.FC = () => {
                         ))}
                       </TableBody>
                     </Table>
-                    {staffTotalPages > 1 && (
-                      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-900/30">
-                        <span className="text-sm text-muted-foreground">
-                          {t("reporting.labor.pagination_page", { current: staffPage, total: staffTotalPages })}
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-muted-foreground whitespace-nowrap">
+                          {t("reporting.labor.rows_per_page")}
                         </span>
+                        <Select
+                          value={String(pageSize)}
+                          onValueChange={(v) => setPageSize(Number(v))}
+                        >
+                          <SelectTrigger className="h-8 w-[70px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PAGE_SIZE_OPTIONS.map((size) => (
+                              <SelectItem key={size} value={String(size)}>
+                                {size}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <span className="text-sm text-muted-foreground tabular-nums">
+                          {(staffPage - 1) * pageSize + 1}–{Math.min(staffPage * pageSize, byStaff.length)} of {byStaff.length}
+                        </span>
+                      </div>
+                      {staffTotalPages > 1 && (
                         <div className="flex gap-2">
                           <Button
                             variant="outline"
@@ -294,8 +315,8 @@ const LaborAttendanceReportPage: React.FC = () => {
                             <ChevronRight className="h-4 w-4" />
                           </Button>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )}
               </>
