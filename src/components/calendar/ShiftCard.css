@@ -10,6 +10,13 @@
   transition: all 0.2s ease;
 }
 
+:is(.dark) .shift-card {
+  border-color: var(--shift-color, #334155);
+  /* Fallback for browsers without color-mix support */
+  background-color: rgba(51, 65, 85, 0.35) !important;
+  background-color: color-mix(in srgb, var(--shift-color, #334155) 25%, transparent) !important;
+}
+
 .shift-card:hover {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   transform: scale(1.02);
@@ -51,10 +58,18 @@
   flex: 1;
 }
 
+:is(.dark) .shift-card-title {
+  color: #f1f5f9;
+}
+
 .shift-card-time {
   font-size: 0.75rem;
   color: #4b5563;
   margin-top: 0.25rem;
+}
+
+:is(.dark) .shift-card-time {
+  color: #94a3b8;
 }
 
 .shift-card-details {
@@ -63,6 +78,11 @@
   border-top: 1px solid #e5e7eb;
   font-size: 0.75rem;
   color: #6b7280;
+}
+
+:is(.dark) .shift-card-details {
+  border-top-color: #334155;
+  color: #94a3b8;
 }
 
 /* Tooltip Styles */

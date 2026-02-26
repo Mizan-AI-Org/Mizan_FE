@@ -94,10 +94,10 @@ interface WeeklyTimeGridViewProps {
 
 function WeeklyTimeGridSkeleton() {
     return (
-        <div className="bg-white rounded-lg border shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
-            <div className="flex items-center justify-between p-4 border-b flex-shrink-0 bg-white z-20">
+        <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0 bg-white dark:bg-slate-900 z-20">
                 <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+                    <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
                         <Skeleton className="h-8 w-8 rounded-lg" />
                         <Skeleton className="h-8 w-24 rounded-lg" />
                         <Skeleton className="h-8 w-8 rounded-lg" />
@@ -106,20 +106,20 @@ function WeeklyTimeGridSkeleton() {
                 </div>
             </div>
             <div className="flex-1 overflow-auto p-4">
-                <div className="grid grid-cols-8 gap-px bg-gray-200 rounded-lg overflow-hidden">
-                    <div className="bg-gray-50 p-2 min-w-[60px]" />
+                <div className="grid grid-cols-8 gap-px bg-gray-200 dark:bg-slate-700 rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 dark:bg-slate-800/50 p-2 min-w-[60px]" />
                     {Array.from({ length: 7 }).map((_, i) => (
-                        <div key={i} className="bg-gray-50 p-2">
+                        <div key={i} className="bg-gray-50 dark:bg-slate-800/50 p-2">
                             <Skeleton className="h-4 w-10 mx-auto" />
                         </div>
                     ))}
                     {Array.from({ length: 12 }).map((_, row) => (
                         <React.Fragment key={row}>
-                            <div className="bg-gray-50 p-1">
+                            <div className="bg-gray-50 dark:bg-slate-800/50 p-1">
                                 <Skeleton className="h-3 w-8" />
                             </div>
                             {Array.from({ length: 7 }).map((_, col) => (
-                                <div key={`${row}-${col}`} className="bg-white p-1 min-h-[32px]">
+                                <div key={`${row}-${col}`} className="bg-white dark:bg-slate-900 p-1 min-h-[32px]">
                                     <Skeleton className="h-4 w-full rounded" />
                                 </div>
                             ))}
@@ -390,30 +390,30 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
             if (d) setCurrentDate(d);
         };
         return (
-            <div className="bg-white rounded-lg border shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
-                <div className="flex items-center justify-between p-4 border-b flex-shrink-0 bg-white z-20 shadow-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
+                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0 bg-white dark:bg-slate-900 z-20 shadow-sm">
                     <div className="flex items-center space-x-6">
-                        <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-xl">
-                            <UIButton variant="ghost" className="h-8 w-8 p-0 rounded-lg hover:bg-white hover:shadow-sm" onClick={() => navigateDate("prev")}><ChevronLeft className="w-4 h-4" /></UIButton>
-                            <UIButton variant="ghost" className="text-sm font-bold px-3 py-1 rounded-lg hover:bg-white hover:shadow-sm" onClick={() => setCurrentDate(new Date())}>{t("schedule.today")}</UIButton>
-                            <UIButton variant="ghost" className="h-8 w-8 p-0 rounded-lg hover:bg-white hover:shadow-sm" onClick={() => navigateDate("next")}><ChevronRight className="w-4 h-4" /></UIButton>
+                        <div className="flex items-center space-x-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
+                            <UIButton variant="ghost" className="h-8 w-8 p-0 rounded-lg hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm" onClick={() => navigateDate("prev")}><ChevronLeft className="w-4 h-4" /></UIButton>
+                            <UIButton variant="ghost" className="text-sm font-bold px-3 py-1 rounded-lg hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm" onClick={() => setCurrentDate(new Date())}>{t("schedule.today")}</UIButton>
+                            <UIButton variant="ghost" className="h-8 w-8 p-0 rounded-lg hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm" onClick={() => navigateDate("next")}><ChevronRight className="w-4 h-4" /></UIButton>
                         </div>
-                        <h2 className="text-xl font-extrabold text-gray-900 tracking-tight">{getDateDisplay()}</h2>
+                        <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">{getDateDisplay()}</h2>
                     </div>
-                    <div className="flex bg-gray-100 p-1 rounded-xl">
-                        <UIButton variant="ghost" className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "day" ? "bg-white shadow-sm text-green-700" : "text-gray-500 hover:text-gray-700")} onClick={() => setView("day")}>{t("schedule.day")}</UIButton>
-                        <UIButton variant="ghost" className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "week" ? "bg-white shadow-sm text-green-700" : "text-gray-500 hover:text-gray-700")} onClick={() => setView("week")}>{t("schedule.week")}</UIButton>
-                        <UIButton variant="ghost" className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "month" ? "bg-white shadow-sm text-green-700" : "text-gray-500 hover:text-gray-700")} onClick={() => setView("month")}>{t("schedule.month")}</UIButton>
+                    <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
+                        <UIButton variant="ghost" className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "day" ? "bg-white dark:bg-slate-700 shadow-sm text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")} onClick={() => setView("day")}>{t("schedule.day")}</UIButton>
+                        <UIButton variant="ghost" className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "week" ? "bg-white dark:bg-slate-700 shadow-sm text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")} onClick={() => setView("week")}>{t("schedule.week")}</UIButton>
+                        <UIButton variant="ghost" className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "month" ? "bg-white dark:bg-slate-700 shadow-sm text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")} onClick={() => setView("month")}>{t("schedule.month")}</UIButton>
                     </div>
                 </div>
                 <div className="flex-1 overflow-auto p-4">
-                    <div className="grid grid-cols-7 gap-px bg-gray-200 rounded-lg overflow-hidden">
+                    <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-slate-700 rounded-lg overflow-hidden">
                         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-                            <div key={day} className="bg-gray-50 py-2 text-center text-xs font-bold text-gray-500 uppercase">{day}</div>
+                            <div key={day} className="bg-gray-50 dark:bg-slate-800/50 py-2 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{day}</div>
                         ))}
                         {monthDays.map((d, i) => {
                             if (!d) {
-                                return <div key={`empty-${i}`} className="bg-gray-50/50 min-h-[80px]" />;
+                                return <div key={`empty-${i}`} className="bg-gray-50/50 dark:bg-slate-800/30 min-h-[80px]" />;
                             }
                             const dateStr = format(d, "yyyy-MM-dd");
                             const dayShifts = shiftsByDate[dateStr] || [];
@@ -423,11 +423,11 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                                     key={dateStr}
                                     onClick={() => handleMonthDayClick(d)}
                                     className={cn(
-                                        "min-h-[80px] bg-white p-2 cursor-pointer hover:bg-green-50/50 transition-colors",
-                                        isToday && "bg-green-50 ring-1 ring-green-500/30"
+                                        "min-h-[80px] bg-white dark:bg-slate-900 p-2 cursor-pointer hover:bg-green-50/50 dark:hover:bg-green-900/10 transition-colors",
+                                        isToday && "bg-green-50 dark:bg-green-900/20 ring-1 ring-green-500/30"
                                     )}
                                 >
-                                    <span className={cn("text-sm font-bold", isToday ? "text-green-700" : "text-gray-700")}>{format(d, "d")}</span>
+                                    <span className={cn("text-sm font-bold", isToday ? "text-green-700 dark:text-green-400" : "text-gray-700 dark:text-gray-300")}>{format(d, "d")}</span>
                                     {dayShifts.length > 0 && (
                                         <div className="mt-1 space-y-0.5">
                                             {dayShifts.slice(0, 3).map((s) => {
@@ -435,12 +435,12 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                                                 const name = staff ? `${staff.first_name || ""} ${staff.last_name || ""}`.trim() || "—" : "—";
                                                 const timeStr = `${(s.start || "").slice(0, 5)}-${(s.end || "").slice(0, 5)}`;
                                                 return (
-                                                    <div key={s.id} className="text-[10px] truncate rounded px-1 py-0.5 bg-gray-100 text-gray-700" title={`${name} ${timeStr}`}>
+                                                    <div key={s.id} className="text-[10px] truncate rounded px-1 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300" title={`${name} ${timeStr}`}>
                                                         {timeStr}
                                                     </div>
                                                 );
                                             })}
-                                            {dayShifts.length > 3 && <div className="text-[10px] text-gray-400">+{dayShifts.length - 3}</div>}
+                                            {dayShifts.length > 3 && <div className="text-[10px] text-gray-400 dark:text-gray-500">+{dayShifts.length - 3}</div>}
                                         </div>
                                     )}
                                 </div>
@@ -453,35 +453,35 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
     }
 
     return (
-        <div className="bg-white rounded-lg border shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
-            <div className="flex items-center justify-between p-4 border-b flex-shrink-0 bg-white z-20 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0 bg-white dark:bg-slate-900 z-20 shadow-sm">
                 <div className="flex items-center space-x-6">
-                    <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-xl">
-                        <UIButton variant="ghost" className="h-8 w-8 p-0 rounded-lg hover:bg-white hover:shadow-sm" onClick={() => navigateDate("prev")}><ChevronLeft className="w-4 h-4" /></UIButton>
-                        <UIButton variant="ghost" className="text-sm font-bold px-3 py-1 rounded-lg hover:bg-white hover:shadow-sm" onClick={() => setCurrentDate(new Date())}>{t("schedule.today")}</UIButton>
-                        <UIButton variant="ghost" className="h-8 w-8 p-0 rounded-lg hover:bg-white hover:shadow-sm" onClick={() => navigateDate("next")}><ChevronRight className="w-4 h-4" /></UIButton>
+                    <div className="flex items-center space-x-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
+                        <UIButton variant="ghost" className="h-8 w-8 p-0 rounded-lg hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm" onClick={() => navigateDate("prev")}><ChevronLeft className="w-4 h-4" /></UIButton>
+                        <UIButton variant="ghost" className="text-sm font-bold px-3 py-1 rounded-lg hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm" onClick={() => setCurrentDate(new Date())}>{t("schedule.today")}</UIButton>
+                        <UIButton variant="ghost" className="h-8 w-8 p-0 rounded-lg hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm" onClick={() => navigateDate("next")}><ChevronRight className="w-4 h-4" /></UIButton>
                     </div>
-                    <h2 className="text-xl font-extrabold text-gray-900 tracking-tight">{getDateDisplay()}</h2>
+                    <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">{getDateDisplay()}</h2>
                 </div>
                 <div className="flex items-center space-x-3">
-                    <div className="flex bg-gray-100 p-1 rounded-xl">
+                    <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
                         <UIButton
                             variant="ghost"
-                            className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "day" ? "bg-white shadow-sm text-green-700" : "text-gray-500 hover:text-gray-700")}
+                            className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "day" ? "bg-white dark:bg-slate-700 shadow-sm text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")}
                             onClick={() => setView("day")}
                         >
                             {t("schedule.day")}
                         </UIButton>
                         <UIButton
                             variant="ghost"
-                            className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "week" ? "bg-white shadow-sm text-green-700" : "text-gray-500 hover:text-gray-700")}
+                            className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "week" ? "bg-white dark:bg-slate-700 shadow-sm text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")}
                             onClick={() => setView("week")}
                         >
                             {t("schedule.week")}
                         </UIButton>
                         <UIButton
                             variant="ghost"
-                            className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "month" ? "bg-white shadow-sm text-green-700" : "text-gray-500 hover:text-gray-700")}
+                            className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "month" ? "bg-white dark:bg-slate-700 shadow-sm text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")}
                             onClick={() => setView("month")}
                         >
                             {t("schedule.month")}
@@ -490,11 +490,11 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                 </div>
             </div>
 
-            <div className="flex-1 overflow-auto relative bg-white">
+            <div className="flex-1 overflow-auto relative bg-white dark:bg-slate-900">
                 <div className="flex min-w-full">
-                    <div className="w-20 flex-shrink-0 bg-gray-50 border-r border-gray-100 sticky left-0 z-30">
-                        <div className="h-14 border-b border-gray-100 flex items-center justify-center">
-                            <Clock className="w-4 h-4 text-gray-400" />
+                    <div className="w-20 flex-shrink-0 bg-gray-50 dark:bg-slate-800/50 border-r border-gray-100 dark:border-slate-800 sticky left-0 z-30">
+                        <div className="h-14 border-b border-gray-100 dark:border-slate-800 flex items-center justify-center">
+                            <Clock className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                         </div>
                         {hours.map((hour) => {
                             const h = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
@@ -502,7 +502,7 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                             return (
                                 <div
                                     key={hour}
-                                    className="border-b border-gray-100 text-[11px] text-gray-400 p-3 font-bold flex flex-col items-end justify-start"
+                                    className="border-b border-gray-100 dark:border-slate-800 text-[11px] text-gray-400 dark:text-gray-500 p-3 font-bold flex flex-col items-end justify-start"
                                     style={{ height: config.hourHeight }}
                                 >
                                     <span>{h}:00</span>
@@ -518,15 +518,15 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                             const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
 
                             return (
-                                <div key={`${day}-${dayIndex}`} className={cn("border-r border-gray-100 group relative", isToday && "bg-green-50/20")}>
+                                <div key={`${day}-${dayIndex}`} className={cn("border-r border-gray-100 dark:border-slate-800 group relative", isToday && "bg-green-50/20 dark:bg-green-900/10")}>
                                     <div className={cn(
-                                        "h-14 border-b border-gray-100 sticky top-0 bg-white/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center",
-                                        isToday && "bg-green-50/80"
+                                        "h-14 border-b border-gray-100 dark:border-slate-800 sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center",
+                                        isToday && "bg-green-50/80 dark:bg-green-900/20"
                                     )}>
-                                        <span className={cn("text-[10px] font-bold uppercase tracking-widest", isToday ? "text-green-700" : "text-gray-400")}>{day}</span>
+                                        <span className={cn("text-[10px] font-bold uppercase tracking-widest", isToday ? "text-green-700 dark:text-green-400" : "text-gray-400 dark:text-gray-500")}>{day}</span>
                                         <span className={cn(
                                             "text-lg font-black mt-0.5 h-8 w-8 flex items-center justify-center rounded-full leading-none",
-                                            isToday ? "bg-green-600 text-white shadow-sm" : "text-gray-900"
+                                            isToday ? "bg-green-600 text-white shadow-sm" : "text-gray-900 dark:text-gray-100"
                                         )}>
                                             {format(date, "d")}
                                         </span>
@@ -539,10 +539,10 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                                                 onMouseEnter={() => handleMouseEnter(dayIndex, hour)}
                                                 onClick={() => !isDragging && handleGridCellClick(dayIndex, hour)}
                                                 className={cn(
-                                                    "border-b border-gray-100 transition-colors cursor-crosshair",
+                                                    "border-b border-gray-100 dark:border-slate-800 transition-colors cursor-crosshair",
                                                     isDragging && dragStart?.day === dayIndex && hour >= Math.min(dragStart.hour, dragEnd?.hour || 0) && hour <= Math.max(dragStart.hour, dragEnd?.hour || 0)
-                                                        ? "bg-green-100/50"
-                                                        : "hover:bg-gray-50/50"
+                                                        ? "bg-green-100/50 dark:bg-green-900/20"
+                                                        : "hover:bg-gray-50/50 dark:hover:bg-slate-800/30"
                                                 )}
                                                 style={{ height: config.hourHeight }}
                                             >

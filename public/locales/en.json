@@ -259,6 +259,7 @@
   "reporting.labor.pagination_prev": "Previous",
   "reporting.labor.pagination_next": "Next",
   "reporting.labor.pagination_page": "Page {{current}} of {{total}}",
+  "reporting.labor.rows_per_page": "Rows per page",
   "reporting.labor.active_staff_count": "{{count}} active staff",
   "settings.title": "Settings",
   "settings.tabs.profile": "Profile",

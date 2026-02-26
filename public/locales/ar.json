@@ -255,6 +255,7 @@
   "reporting.labor.pagination_prev": "السابق",
   "reporting.labor.pagination_next": "التالي",
   "reporting.labor.pagination_page": "صفحة {{current}} من {{total}}",
+  "reporting.labor.rows_per_page": "صفوف لكل صفحة",
   "reporting.labor.active_staff_count": "{{count}} موظف نشط",
   "settings.title": "الإعدادات",
   "settings.tabs.profile": "الملف الشخصي",

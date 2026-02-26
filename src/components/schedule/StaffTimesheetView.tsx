@@ -38,11 +38,10 @@ function StaffTimesheetViewSkeleton() {
     { role: "CHEF", staffCount: 2 },
   ];
   return (
-    <div className="bg-white rounded-lg border shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
-      {/* Header skeleton */}
-      <div className="flex items-center justify-between p-4 border-b flex-shrink-0 bg-white z-20">
+    <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0 bg-white dark:bg-slate-900 z-20">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
             <Skeleton className="h-8 w-8 rounded-lg" />
             <Skeleton className="h-8 w-24 rounded-lg" />
             <Skeleton className="h-8 w-8 rounded-lg" />
@@ -50,16 +49,15 @@ function StaffTimesheetViewSkeleton() {
           <Skeleton className="h-6 w-48" />
         </div>
       </div>
-      {/* Table skeleton */}
       <div className="flex-1 overflow-auto">
         <table className="w-full border-collapse min-w-[900px]">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-              <th className="text-left py-3 px-4 w-48 border-r border-gray-200">
+            <tr className="bg-gray-50 dark:bg-slate-800/50 border-b border-gray-200 dark:border-slate-700 sticky top-0 z-10">
+              <th className="text-left py-3 px-4 w-48 border-r border-gray-200 dark:border-slate-700">
                 <Skeleton className="h-4 w-24" />
               </th>
               {weekDates.map((i) => (
-                <th key={i} className="py-3 px-2 text-center border-r border-gray-200 last:border-r-0">
+                <th key={i} className="py-3 px-2 text-center border-r border-gray-200 dark:border-slate-700 last:border-r-0">
                   <Skeleton className="h-4 w-8 mx-auto" />
                   <Skeleton className="h-4 w-6 mx-auto mt-1" />
                 </th>
@@ -69,21 +67,21 @@ function StaffTimesheetViewSkeleton() {
           <tbody>
             {roleRows.map(({ role, staffCount }) => (
               <React.Fragment key={role}>
-                <tr className="bg-gray-100/80 border-b border-gray-100">
+                <tr className="bg-gray-100/80 dark:bg-slate-800/60 border-b border-gray-100 dark:border-slate-800">
                   <td colSpan={8} className="py-2 px-4">
                     <Skeleton className="h-4 w-20" />
                   </td>
                 </tr>
                 {Array.from({ length: staffCount }).map((_, i) => (
-                  <tr key={`${role}-${i}`} className="border-b border-gray-100">
-                    <td className="py-2 px-4 border-r border-gray-100">
+                  <tr key={`${role}-${i}`} className="border-b border-gray-100 dark:border-slate-800">
+                    <td className="py-2 px-4 border-r border-gray-100 dark:border-slate-800">
                       <div className="flex items-center gap-2">
                         <Skeleton className="h-8 w-8 rounded-full shrink-0" />
                         <Skeleton className="h-4 flex-1 max-w-[120px]" />
                       </div>
                     </td>
                     {weekDates.map((j) => (
-                      <td key={j} className="py-1.5 px-2 align-top border-r border-gray-100 last:border-r-0">
+                      <td key={j} className="py-1.5 px-2 align-top border-r border-gray-100 dark:border-slate-800 last:border-r-0">
                         <div className="space-y-1">
                           <Skeleton className="h-6 w-full rounded" />
                           {i === 0 && j < 2 && <Skeleton className="h-6 w-full rounded" />}
@@ -212,10 +210,10 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-lg border shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
-      <div className="flex items-center justify-between p-4 border-b flex-shrink-0 bg-white z-20">
+    <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0 bg-white dark:bg-slate-900 z-20">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
             <UIButton variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => navigateWeek("prev")}>
               <ChevronLeft className="w-4 h-4" />
             </UIButton>
@@ -226,15 +224,15 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
               <ChevronRight className="w-4 h-4" />
             </UIButton>
           </div>
-          <h2 className="text-lg font-bold text-gray-900">{displayRange}</h2>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{displayRange}</h2>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto">
         <table className="w-full border-collapse min-w-[900px]">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-              <th className="text-left py-3 px-4 w-48 text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200">
+            <tr className="bg-gray-50 dark:bg-slate-800/50 border-b border-gray-200 dark:border-slate-700 sticky top-0 z-10">
+              <th className="text-left py-3 px-4 w-48 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-r border-gray-200 dark:border-slate-700">
                 Staff / Role
               </th>
               {weekDates.map((d) => {
@@ -243,12 +241,12 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
                   <th
                     key={dateStr(d)}
                     className={cn(
-                      "py-3 px-2 text-center text-xs font-bold uppercase tracking-wider border-r border-gray-200 last:border-r-0",
-                      isToday ? "bg-green-50 text-green-800" : "text-gray-500"
+                      "py-3 px-2 text-center text-xs font-bold uppercase tracking-wider border-r border-gray-200 dark:border-slate-700 last:border-r-0",
+                      isToday ? "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300" : "text-gray-500 dark:text-gray-400"
                     )}
                   >
                     <div>{format(d, "EEE")}</div>
-                    <div className={cn("mt-0.5", isToday ? "text-green-700 font-black" : "text-gray-700")}>
+                    <div className={cn("mt-0.5", isToday ? "text-green-700 dark:text-green-400 font-black" : "text-gray-700 dark:text-gray-300")}>
                       {format(d, "d")}
                     </div>
                   </th>
@@ -259,8 +257,8 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
           <tbody>
             {staffByRole.map(({ role, staff }) => (
               <React.Fragment key={role}>
-                <tr className="bg-gray-100/80 border-b border-gray-100">
-                  <td colSpan={8} className="py-2 px-4 text-sm font-bold text-gray-700 uppercase tracking-wider">
+                <tr className="bg-gray-100/80 dark:bg-slate-800/60 border-b border-gray-100 dark:border-slate-800">
+                  <td colSpan={8} className="py-2 px-4 text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     {role}
                   </td>
                 </tr>
@@ -268,15 +266,15 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
                   const name = `${member.first_name || ""} ${member.last_name || ""}`.trim() || "—";
                   const initials = name !== "—" ? name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() : "—";
                   return (
-                    <tr key={member.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
-                      <td className="py-2 px-4 border-r border-gray-100">
+                    <tr key={member.id} className="border-b border-gray-100 dark:border-slate-800 hover:bg-gray-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="py-2 px-4 border-r border-gray-100 dark:border-slate-800">
                         <div className="flex items-center gap-2">
-                          <Avatar className="h-8 w-8 rounded-full border-2 border-white shadow-sm">
-                            <AvatarFallback className="text-xs font-bold bg-gray-200 text-gray-700">
+                          <Avatar className="h-8 w-8 rounded-full border-2 border-white dark:border-slate-700 shadow-sm">
+                            <AvatarFallback className="text-xs font-bold bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300">
                               {initials}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="text-sm font-medium text-gray-900 truncate">{name}</span>
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{name}</span>
                         </div>
                       </td>
                       {weekDates.map((d) => {
@@ -286,13 +284,13 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
                           <td
                             key={dateStr(d)}
                             className={cn(
-                              "py-1.5 px-2 align-top border-r border-gray-100 last:border-r-0",
-                              isToday && "bg-green-50/30"
+                              "py-1.5 px-2 align-top border-r border-gray-100 dark:border-slate-800 last:border-r-0",
+                              isToday && "bg-green-50/30 dark:bg-green-900/10"
                             )}
                           >
                             <div className="space-y-1">
                               {dayShifts.length === 0 ? (
-                                <span className="text-xs text-gray-300">—</span>
+                                <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
                               ) : (
                                 dayShifts.map((shift) => {
                                   const roleInitial = (member.role || "S").charAt(0).toUpperCase();
@@ -326,7 +324,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
           </tbody>
         </table>
         {staffByRole.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
             <p className="text-sm font-medium">{t("schedule.no_staff_period")}</p>
             <p className="text-xs mt-1">{t("schedule.add_staff_timesheet")}</p>
           </div>

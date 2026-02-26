@@ -467,23 +467,23 @@ const ManagerReviewDashboard: React.FC = () => {
   const getSeverityColor = (severity: string) => {
     const sev = (severity || '').toLowerCase();
     switch (sev) {
-      case 'critical': return 'bg-red-100 text-red-800 border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-gray-100 text-gray-800 border-gray-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'critical': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800';
+      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800';
+      case 'low': return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-700';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-700';
     }
   };
 
   const getStatusColor = (status: string) => {
     const st = (status || '').toLowerCase();
     switch (st) {
-      case 'reported': return 'bg-amber-100 text-amber-800 border-amber-200';
-      case 'under_review': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'addressed': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'resolved': return 'bg-green-100 text-green-800 border-green-200';
-      case 'dismissed': return 'bg-gray-100 text-gray-800 border-gray-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'reported': return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800';
+      case 'under_review': return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800';
+      case 'addressed': return 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800';
+      case 'resolved': return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800';
+      case 'dismissed': return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-700';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-700';
     }
   };
 
@@ -652,16 +652,16 @@ const ManagerReviewDashboard: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                <div className="rounded-xl border bg-white p-3">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
                   <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{t("analytics.kpi_submissions")}</div>
                   <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.totalInRange}</div>
                 </div>
-                <div className="rounded-xl border bg-white p-3">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
                   <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{t("analytics.kpi_completion")}</div>
                   <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.completionPctInRange}%</div>
                   <div className="text-[11px] text-muted-foreground mt-1">{t("analytics.completed_count", { completed: trendKpis.completedInRange, total: trendKpis.totalInRange })}</div>
                 </div>
-                <div className="rounded-xl border bg-white p-3">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
                   <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{t("analytics.kpi_submitters")}</div>
                   <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.uniqueStaff}</div>
                   <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
@@ -669,12 +669,12 @@ const ManagerReviewDashboard: React.FC = () => {
                     {t("analytics.unique_staff")}
                   </div>
                 </div>
-                <div className="rounded-xl border bg-white p-3">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
                   <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{t("common.avg_score")}</div>
                   <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.avgCompletion ?? "—"}{typeof trendKpis.avgCompletion === 'number' ? "%" : ""}</div>
                   <div className="text-[11px] text-muted-foreground mt-1">{t("analytics.from_checklist_summaries")}</div>
                 </div>
-                <div className="rounded-xl border bg-white p-3 md:col-span-2">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 md:col-span-2">
                   <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3 text-amber-600" />
                     {t("analytics.issue_rate")}
@@ -685,7 +685,7 @@ const ManagerReviewDashboard: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-2 rounded-xl border bg-white p-3">
+                <div className="lg:col-span-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
                   <div className="h-64">
                     {trendDaily.reduce((a, b) => a + b.count, 0) === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground">
@@ -702,15 +702,17 @@ const ManagerReviewDashboard: React.FC = () => {
                               <stop offset="95%" stopColor="#16a34a" stopOpacity={0.05} />
                             </linearGradient>
                           </defs>
-                          <CartesianGrid strokeDasharray="3 3" />
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-700" />
                           <XAxis
                             dataKey="date"
+                            tick={{ fill: 'currentColor', className: 'text-slate-500 dark:text-slate-400 text-xs' }}
                             tickFormatter={(v) => {
                               try { return new Date(v).toLocaleDateString(undefined, { month: "short", day: "numeric" }); } catch { return v; }
                             }}
                           />
-                          <YAxis allowDecimals={false} />
+                          <YAxis allowDecimals={false} tick={{ fill: 'currentColor', className: 'text-slate-500 dark:text-slate-400 text-xs' }} />
                           <Tooltip
+                            contentStyle={{ backgroundColor: 'var(--color-background, #fff)', border: '1px solid var(--color-border, #e2e8f0)', borderRadius: '0.5rem', color: 'var(--color-foreground, #0f172a)' }}
                             formatter={(val: number | string) => [val, "Submissions"]}
                             labelFormatter={(label: string) => {
                               try { return new Date(label).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }); } catch { return String(label); }
@@ -723,8 +725,8 @@ const ManagerReviewDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="rounded-xl border bg-white p-3 space-y-3">
-                  <div className="text-sm font-semibold text-slate-900">{t("common.top_checklists")}</div>
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 space-y-3">
+                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("common.top_checklists")}</div>
                   {topTemplates.length === 0 ? (
                     <div className="text-sm text-muted-foreground">—</div>
                   ) : (
@@ -744,8 +746,8 @@ const ManagerReviewDashboard: React.FC = () => {
               </div>
 
               {topStaff.length > 0 ? (
-                <div className="rounded-xl border bg-white p-3">
-                  <div className="text-sm font-semibold text-slate-900 mb-3">Top submitters</div>
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Top submitters</div>
                   <div className="h-44">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={topStaff} layout="vertical" margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
@@ -808,7 +810,7 @@ const ManagerReviewDashboard: React.FC = () => {
                     </TableHeader>
                     <TableBody>
                       {paginatedChecklists.map((s) => (
-                        <TableRow key={s.id} className={isCompletedLike(s.status) ? '' : 'bg-yellow-50'}>
+                        <TableRow key={s.id} className={isCompletedLike(s.status) ? '' : 'bg-yellow-50 dark:bg-yellow-900/20'}>
                           <TableCell>{s.submitted_by?.name || '—'}</TableCell>
                           <TableCell>{s.submitted_at ? new Date(s.submitted_at).toLocaleString() : '—'}</TableCell>
                           <TableCell>{s.template?.name || '—'}</TableCell>
@@ -971,7 +973,7 @@ const ManagerReviewDashboard: React.FC = () => {
                       <select
                         value={incidentFilters.severity}
                         onChange={(e) => setIncidentFilters({ ...incidentFilters, severity: e.target.value })}
-                        className="border rounded-md px-3 py-2 text-sm"
+                        className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 text-sm"
                       >
                         <option value="">{t("analytics.all_severities")}</option>
                         <option value="critical">Critical</option>
@@ -982,7 +984,7 @@ const ManagerReviewDashboard: React.FC = () => {
                       <select
                         value={incidentFilters.status}
                         onChange={(e) => setIncidentFilters({ ...incidentFilters, status: e.target.value })}
-                        className="border rounded-md px-3 py-2 text-sm"
+                        className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 text-sm"
                       >
                         <option value="">{t("analytics.all_statuses")}</option>
                         <option value="reported">Reported</option>
@@ -1184,7 +1186,7 @@ const ManagerReviewDashboard: React.FC = () => {
                             <select
                               value={assignTo || incidentDetail.assigned_to || ''}
                               onChange={(e) => setAssignTo(e.target.value)}
-                              className="flex-1 border rounded-md px-3 py-2 text-sm"
+                              className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 text-sm"
                             >
                               <option value="">Unassigned</option>
                               {(staffList || []).map((s: any) => (
@@ -1244,7 +1246,7 @@ const ManagerReviewDashboard: React.FC = () => {
                               <select
                                 value={updateStatus || incidentDetail.status}
                                 onChange={(e) => setUpdateStatus(e.target.value)}
-                                className="w-full border rounded-md px-3 py-2"
+                                className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2"
                               >
                                 <option value="REPORTED">Reported</option>
                                 <option value="UNDER_REVIEW">Under Review</option>
