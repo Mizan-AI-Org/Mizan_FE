@@ -46,7 +46,9 @@ const getPositionStyles = (shift: CalendarShift): React.CSSProperties => {
     borderLeftColor: color,
     borderLeftWidth: '4px',
     borderLeftStyle: 'solid',
-  };
+    // CSS variable consumed by .dark .shift-card override in ShiftCard.css
+    '--shift-color': color,
+  } as React.CSSProperties;
 };
 
 export const ShiftCard: React.FC<ShiftCardProps> = ({
@@ -115,15 +117,15 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
             </Badge>
           )}
         </div>
-        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-600 flex-wrap">
+        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-600 dark:text-gray-300 flex-wrap">
           <span>{startTime} - {endTime}</span>
           {hasProcessTasks && (
-            <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-700">
+            <span className="rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 dark:text-emerald-300">
               {processCount} process & tasks
             </span>
           )}
           {hasCustomTasks && (
-            <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-700">
+            <span className="rounded-full bg-sky-100 dark:bg-sky-900/40 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 dark:text-sky-300">
               {customCount} custom tasks
             </span>
           )}
@@ -144,11 +146,11 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
       aria-label={`Shift from ${startTime} to ${endTime}, duration ${duration}`}
     >
       <div className="flex items-start justify-between mb-1">
-        <div className="font-medium text-gray-900 truncate flex-1">
+        <div className="font-medium text-gray-900 dark:text-gray-100 truncate flex-1">
           {shift.title || 'Unnamed Shift'}
         </div>
         {isOvernight && (
-          <Badge variant="outline" className="text-[10px] ml-1 flex-shrink-0">
+          <Badge variant="outline" className="text-[10px] ml-1 flex-shrink-0 dark:border-gray-600 dark:text-gray-300">
             <Calendar className="w-3 h-3 mr-1" />
             Overnight
           </Badge>
@@ -156,7 +158,7 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
       </div>
 
       <div className="space-y-1">
-        <div className="flex items-center text-xs text-gray-600">
+        <div className="flex items-center text-xs text-gray-600 dark:text-gray-300">
           <Clock className="w-3 h-3 mr-1 flex-shrink-0" />
           <span className="truncate">
             {startTime} - {endTime}
@@ -164,12 +166,12 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
         </div>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           {hasProcessTasks && (
-            <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-gray-700">
+            <span className="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-[10px] font-medium text-gray-700 dark:text-emerald-300">
               {processCount} process & task{processCount !== 1 ? 's' : ''}
             </span>
           )}
           {hasCustomTasks && (
-            <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-gray-700">
+            <span className="inline-flex items-center rounded-full bg-sky-100 dark:bg-sky-900/40 px-2 py-0.5 text-[10px] font-medium text-gray-700 dark:text-sky-300">
               {customCount} custom task{customCount !== 1 ? 's' : ''}
             </span>
           )}
@@ -178,7 +180,7 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
               {shift.staff_members_details.slice(0, 3).map((staff) => (
                 <div
                   key={staff.id}
-                  className="h-5 w-5 rounded-full bg-[#0d5c3e] flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0 ring-1 ring-white"
+                  className="h-5 w-5 rounded-full bg-[#0d5c3e] flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0 ring-1 ring-white dark:ring-slate-800"
                   title={`${staff.first_name} ${staff.last_name}`}
                 >
                   {(staff.first_name?.[0] ?? '') + (staff.last_name?.[0] ?? '') || '?'}
@@ -186,7 +188,7 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
               ))}
               {shift.staff_members_details.length > 3 && (
                 <div
-                  className="h-5 w-5 rounded-full bg-[#0d5c3e]/90 flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0 ring-1 ring-white"
+                  className="h-5 w-5 rounded-full bg-[#0d5c3e]/90 flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0 ring-1 ring-white dark:ring-slate-800"
                   title={`${shift.staff_members_details.length - 3} more staff`}
                 >
                   +{shift.staff_members_details.length - 3}
@@ -198,7 +200,7 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
       </div>
 
       {showDetails && (
-        <div className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-500">
+        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-700 text-xs text-gray-500 dark:text-gray-400">
           <div>Timezone: {timezone}</div>
           <div>Day: {shift.day}</div>
           <div>Date: {shift.date}</div>

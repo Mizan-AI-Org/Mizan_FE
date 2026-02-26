@@ -646,16 +646,16 @@ export default function Settings() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList
-          className="mb-4 flex w-full gap-3 overflow-x-auto whitespace-nowrap scroll-smooth snap-x snap-mandatory [-webkit-overflow-scrolling:touch] p-2 bg-slate-100/80 backdrop-blur-sm rounded-2xl sm:grid sm:grid-cols-3 lg:grid-cols-5"
+          className="mb-4 flex w-full gap-3 overflow-x-auto whitespace-nowrap scroll-smooth snap-x snap-mandatory [-webkit-overflow-scrolling:touch] p-2 bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl sm:grid sm:grid-cols-3 lg:grid-cols-5"
           aria-label="Settings sections"
         >
           <TabsTrigger
             value="profile"
             aria-label="Profile settings"
-            className="flex min-w-[140px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-white/60 hover:text-slate-900 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
+            className="flex min-w-[140px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 dark:text-slate-400 transition-all duration-200 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-slate-100 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
           >
-            <div className="p-1.5 rounded-lg bg-blue-100 data-[state=active]:bg-emerald-100 transition-colors">
-              <Users className="w-4 h-4 text-blue-600" aria-hidden="true" />
+            <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 data-[state=active]:bg-emerald-100 transition-colors">
+              <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" aria-hidden="true" />
             </div>
             {t("settings.tabs.profile")}
           </TabsTrigger>
@@ -664,40 +664,40 @@ export default function Settings() {
               <TabsTrigger
                 value="location"
                 aria-label="Geolocation settings"
-                className="flex min-w-[160px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-white/60 hover:text-slate-900 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
+                className="flex min-w-[160px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 dark:text-slate-400 transition-all duration-200 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-slate-100 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
               >
-                <div className="p-1.5 rounded-lg bg-rose-100 transition-colors">
-                  <MapPin className="w-4 h-4 text-rose-600" aria-hidden="true" />
+                <div className="p-1.5 rounded-lg bg-rose-100 dark:bg-rose-900/30 transition-colors">
+                  <MapPin className="w-4 h-4 text-rose-600 dark:text-rose-400" aria-hidden="true" />
                 </div>
                 {t("settings.tabs.geolocation")}
               </TabsTrigger>
               <TabsTrigger
                 value="general"
                 aria-label="General settings"
-                className="flex min-w-[140px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-white/60 hover:text-slate-900 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
+                className="flex min-w-[140px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 dark:text-slate-400 transition-all duration-200 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-slate-100 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
               >
-                <div className="p-1.5 rounded-lg bg-indigo-100 transition-colors">
-                  <Building2 className="w-4 h-4 text-indigo-600" aria-hidden="true" />
+                <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 transition-colors">
+                  <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
                 </div>
                 {t("settings.tabs.general")}
               </TabsTrigger>
               <TabsTrigger
                 value="integrations"
                 aria-label="Integrations"
-                className="flex min-w-[160px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-white/60 hover:text-slate-900 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
+                className="flex min-w-[160px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 dark:text-slate-400 transition-all duration-200 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-slate-100 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
               >
-                <div className="p-1.5 rounded-lg bg-purple-100 transition-colors">
-                  <Plug className="w-4 h-4 text-purple-600" aria-hidden="true" />
+                <div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-900/30 transition-colors">
+                  <Plug className="w-4 h-4 text-purple-600 dark:text-purple-400" aria-hidden="true" />
                 </div>
                 {t("settings.tabs.integrations")}
               </TabsTrigger>
               <TabsTrigger
                 value="billing"
                 aria-label="Billing"
-                className="flex min-w-[130px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-white/60 hover:text-slate-900 data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
+                className="flex min-w-[130px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 dark:text-slate-400 transition-all duration-200 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-slate-100 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
               >
-                <div className="p-1.5 rounded-lg bg-amber-100 transition-colors">
-                  <CreditCardIcon className="w-4 h-4 text-amber-600" aria-hidden="true" />
+                <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 transition-colors">
+                  <CreditCardIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                 </div>
                 {t("settings.tabs.billing")}
               </TabsTrigger>
@@ -743,58 +743,58 @@ export default function Settings() {
 
         {!isStaff && (
           <TabsContent value="general" className="space-y-6">
-            <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50">
+            <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
               <CardHeader className="pb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
                     <Building2 className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg font-bold text-slate-900">{t("settings.general.restaurant_info.title")}</CardTitle>
-                    <CardDescription className="text-slate-500">{t("settings.general.restaurant_info.description")}</CardDescription>
+                    <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("settings.general.restaurant_info.title")}</CardTitle>
+                    <CardDescription className="text-slate-500 dark:text-slate-400">{t("settings.general.restaurant_info.description")}</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="restaurant-name" className="text-sm font-medium text-slate-700">{t("settings.general.fields.name")}</Label>
+                    <Label htmlFor="restaurant-name" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("settings.general.fields.name")}</Label>
                     <Input
                       id="restaurant-name"
                       value={restaurantName}
                       onChange={(e) => setRestaurantName(e.target.value)}
-                      className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                      className="h-12 rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-gray-100 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
                       placeholder={t("settings.general.fields.name_placeholder")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="address" className="text-sm font-medium text-slate-700">{t("settings.general.fields.address")}</Label>
+                    <Label htmlFor="address" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("settings.general.fields.address")}</Label>
                     <Input
                       id="address"
                       value={restaurantAddress}
                       onChange={(e) => setRestaurantAddress(e.target.value)}
-                      className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                      className="h-12 rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-gray-100 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
                       placeholder={t("settings.general.fields.address_placeholder")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone" className="text-sm font-medium text-slate-700">{t("settings.general.fields.phone")}</Label>
+                    <Label htmlFor="phone" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("settings.general.fields.phone")}</Label>
                     <Input
                       id="phone"
                       value={restaurantPhone}
                       onChange={(e) => setRestaurantPhone(e.target.value)}
-                      className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                      className="h-12 rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-gray-100 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
                       placeholder={t("settings.general.fields.phone_placeholder")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium text-slate-700">{t("settings.general.fields.email")}</Label>
+                    <Label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("settings.general.fields.email")}</Label>
                     <Input
                       id="email"
                       type="email"
                       value={restaurantEmail}
                       onChange={(e) => setRestaurantEmail(e.target.value)}
-                      className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                      className="h-12 rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-gray-100 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
                       placeholder={t("settings.general.fields.email_placeholder")}
                     />
                   </div>
@@ -804,14 +804,14 @@ export default function Settings() {
 
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="language" className="text-sm font-medium text-slate-700">
+                    <Label htmlFor="language" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                       {t("settings.general.language")}
                     </Label>
                     <select
                       id="language"
                       value={language}
                       onChange={(e) => persistLanguagePreference(e.target.value as Language)}
-                      className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                      className="h-12 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-sm font-medium text-slate-700 dark:text-slate-300 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
                     >
                       <option value="en">English</option>
                       <option value="fr">Français</option>
@@ -826,10 +826,10 @@ export default function Settings() {
                 <Separator />
 
                 <div className="space-y-4">
-                  <h4 className="text-sm font-semibold text-slate-800">{t("settings.general.preferences")}</h4>
-                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                  <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t("settings.general.preferences")}</h4>
+                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 p-4">
                     <div className="space-y-0.5">
-                      <Label htmlFor="automatic-clock-out" className="text-sm font-medium text-slate-700 cursor-pointer">
+                      <Label htmlFor="automatic-clock-out" className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
                         {t("settings.general.automatic_clock_out")}
                       </Label>
                       <p className="text-xs text-slate-500">
@@ -845,7 +845,7 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-slate-200">
+                <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
                   <Button onClick={saveGeneralSettings} className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-emerald-500/25 transition-all hover:shadow-emerald-500/40">
                     <Save className="w-4 h-4 mr-2" />
                     {t("settings.general.save_general")}
@@ -859,21 +859,21 @@ export default function Settings() {
 
         {!isStaff && (
           <TabsContent value="integrations" className="space-y-6">
-            <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50">
+            <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
               <CardHeader className="pb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 shadow-lg shadow-purple-500/25">
                     <Plug className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg font-bold text-slate-900">{t("pos.title")}</CardTitle>
-                    <CardDescription className="text-slate-500">{t("pos.description")}</CardDescription>
+                    <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("pos.title")}</CardTitle>
+                    <CardDescription className="text-slate-500 dark:text-slate-400">{t("pos.description")}</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="pos-provider" className="text-sm font-medium text-slate-700">{t("pos.provider")}</Label>
+                  <Label htmlFor="pos-provider" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("pos.provider")}</Label>
                   <select
                     id="pos-provider"
                     value={posSettings.pos_provider}
@@ -883,7 +883,7 @@ export default function Settings() {
                         pos_provider: e.target.value,
                       })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100 rounded-md"
                   >
                     <option value="NONE">{t("pos.not_configured")}</option>
                     <option value="SQUARE">Square</option>
@@ -900,12 +900,12 @@ export default function Settings() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="space-y-1">
-                          <div className="text-sm font-medium text-slate-700">{t("settings.square_account") || "Square account"}</div>
-                          <div className="text-xs text-slate-500">
+                          <div className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("settings.square_account") || "Square account"}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
                             Connect via OAuth so no API keys are stored in the browser.
                           </div>
                         </div>
-                        <Badge variant="outline" className={posSettings.pos_is_connected ? "border-emerald-200 text-emerald-700" : "border-slate-200 text-slate-600"}>
+                        <Badge variant="outline" className={posSettings.pos_is_connected ? "border-emerald-200 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400"}>
                           {posSettings.pos_is_connected ? t("settings.connected") : t("settings.not_connected")}
                         </Badge>
                       </div>
@@ -931,19 +931,19 @@ export default function Settings() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="space-y-1">
-                          <div className="text-sm font-medium text-slate-700">Custom API</div>
-                          <div className="text-xs text-slate-500">
+                          <div className="text-sm font-medium text-slate-700 dark:text-slate-300">Custom API</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
                             Connect your own POS or sales API. Mizan will pull sales, menu, and order data.
                           </div>
                         </div>
-                        <Badge variant="outline" className={posSettings.pos_is_connected ? "border-emerald-200 text-emerald-700" : "border-slate-200 text-slate-600"}>
+                        <Badge variant="outline" className={posSettings.pos_is_connected ? "border-emerald-200 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400"}>
                           {posSettings.pos_is_connected ? t("settings.connected") : t("settings.not_connected")}
                         </Badge>
                       </div>
 
-                      <div className="space-y-3 p-4 rounded-xl border border-slate-200 bg-slate-50">
+                      <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
                         <div className="space-y-1">
-                          <Label htmlFor="custom-api-url" className="text-sm font-medium text-slate-700">API Base URL *</Label>
+                          <Label htmlFor="custom-api-url" className="text-sm font-medium text-slate-700 dark:text-slate-300">API Base URL *</Label>
                           <Input
                             id="custom-api-url"
                             type="url"
@@ -956,7 +956,7 @@ export default function Settings() {
                           </p>
                         </div>
                         <div className="space-y-1">
-                          <Label htmlFor="custom-api-key" className="text-sm font-medium text-slate-700">API Key / Token</Label>
+                          <Label htmlFor="custom-api-key" className="text-sm font-medium text-slate-700 dark:text-slate-300">API Key / Token</Label>
                           <Input
                             id="custom-api-key"
                             type="password"
@@ -982,17 +982,17 @@ export default function Settings() {
                       </div>
                     </div>
                   ) : posSettings.pos_provider === "NONE" ? null : (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="space-y-1">
-                          <div className="text-sm font-medium text-slate-800">
+                          <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
                             {posSettings.pos_provider} integration
                           </div>
-                          <div className="text-xs text-slate-500">
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
                             Coming soon. Square and Custom API are available now.
                           </div>
                         </div>
-                        <Badge variant="outline" className="border-slate-200 text-slate-600">
+                        <Badge variant="outline" className="border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400">
                           Coming soon
                         </Badge>
                       </div>
@@ -1003,21 +1003,21 @@ export default function Settings() {
                 {posConnectionStatus !== "idle" && (
                   <div
                     className={`flex items-center gap-2 p-3 rounded-lg ${posConnectionStatus === "connected"
-                      ? "bg-green-50 border border-green-200"
-                      : "bg-red-50 border border-red-200"
+                      ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                      : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
                       }`}
                   >
                     {posConnectionStatus === "connected" ? (
                       <>
                         <CheckCircle className="w-5 h-5 text-green-600" />
-                        <span className="text-green-800">
+                        <span className="text-green-800 dark:text-green-300">
                           POS connection successful
                         </span>
                       </>
                     ) : (
                       <>
                         <AlertCircle className="w-5 h-5 text-red-600" />
-                        <span className="text-red-800">
+                        <span className="text-red-800 dark:text-red-300">
                           POS connection failed
                         </span>
                       </>
@@ -1045,31 +1045,31 @@ export default function Settings() {
 
         {!isStaff && (
           <TabsContent value="billing" className="space-y-6">
-            <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50">
+            <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
               <CardHeader className="pb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25">
                     <CreditCardIcon className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg font-bold text-slate-900">{t("settings.billing_info")}</CardTitle>
-                    <CardDescription className="text-slate-500">{t("settings.billing_description")}</CardDescription>
+                    <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("settings.billing_info")}</CardTitle>
+                    <CardDescription className="text-slate-500 dark:text-slate-400">{t("settings.billing_description")}</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Current Plan - Open Access */}
-                <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100">
+                <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-100 dark:border-emerald-800">
                   <div className="flex flex-col items-center text-center gap-4">
-                    <div className="p-4 rounded-full bg-emerald-100">
+                    <div className="p-4 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
                       <Sparkles className="w-8 h-8 text-emerald-600" />
                     </div>
                     <div>
                       <div className="flex items-center justify-center gap-2 mb-2">
-                        <h4 className="text-xl font-bold text-slate-900">Free Access</h4>
+                        <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100">Free Access</h4>
                         <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Active</Badge>
                       </div>
-                      <p className="text-sm text-slate-600 max-w-md">
+                      <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md">
                         You currently have full access to all Mizan AI features. No subscription or payment is required at this time.
                       </p>
                     </div>
@@ -1077,14 +1077,14 @@ export default function Settings() {
                 </div>
 
                 {/* Coming Soon Notice */}
-                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                   <div className="flex items-start gap-4">
-                    <div className="p-2 rounded-lg bg-slate-200">
-                      <CreditCardIcon className="w-5 h-5 text-slate-600" />
+                    <div className="p-2 rounded-lg bg-slate-200 dark:bg-slate-700">
+                      <CreditCardIcon className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-semibold text-slate-900">{t("settings.subscription_coming_soon")}</h4>
-                      <p className="text-sm text-slate-600 mt-1">
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("settings.subscription_coming_soon")}</h4>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                         We're working on flexible subscription options for teams of all sizes. You'll be notified when billing options become available.
                       </p>
                     </div>
@@ -1093,10 +1093,10 @@ export default function Settings() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-soft border-red-100 bg-gradient-to-br from-red-50 to-rose-50">
+            <Card className="shadow-soft border-red-100 dark:border-red-900/50 bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20">
               <CardHeader className="pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-red-100">
+                  <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/40">
                     <AlertCircle className="w-5 h-5 text-red-600" />
                   </div>
                   <div>

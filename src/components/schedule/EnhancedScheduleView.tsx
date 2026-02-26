@@ -328,29 +328,29 @@ const EnhancedScheduleView: React.FC = () => {
   return (
     <div className="space-y-4 max-w-[1600px] mx-auto p-4 md:p-8">
       {/* Sticky header so Grid Weekly / Timesheet / List View tabs stay visible when scrolling */}
-      <div className="sticky top-0 z-10 -mx-4 px-4 md:-mx-8 md:px-8 py-3 bg-white/95 backdrop-blur-sm border-b border-gray-100 mb-2">
+      <div className="sticky top-0 z-10 -mx-4 px-4 md:-mx-8 md:px-8 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-gray-100 dark:border-slate-800 mb-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-black text-gray-900 tracking-tight">{t("schedule.staff_schedule")}</h1>
+            <h1 className="text-3xl font-black text-gray-900 dark:text-gray-100 tracking-tight">{t("schedule.staff_schedule")}</h1>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as "week" | "timesheet" | "list")} className="bg-gray-100/80 p-1.5 rounded-xl shrink-0 border border-gray-200/80">
+            <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as "week" | "timesheet" | "list")} className="bg-gray-100/80 dark:bg-slate-800/80 p-1.5 rounded-xl shrink-0 border border-gray-200/80 dark:border-slate-700/80">
               <TabsList className="bg-transparent border-none flex flex-wrap gap-1">
                 <TabsTrigger
                   value="week"
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:border-0 transition-colors"
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200/60 dark:hover:bg-slate-700/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:border-0 transition-colors"
                 >
                   {t("schedule.weekly_grid_view")}
                 </TabsTrigger>
                 <TabsTrigger
                   value="timesheet"
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:border-0 transition-colors"
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200/60 dark:hover:bg-slate-700/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:border-0 transition-colors"
                 >
                   {t("schedule.timesheet_view")}
                 </TabsTrigger>
                 <TabsTrigger
                   value="list"
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:border-0 transition-colors"
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200/60 dark:hover:bg-slate-700/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:border-0 transition-colors"
                 >
                   {t("schedule.list_view")}
                 </TabsTrigger>

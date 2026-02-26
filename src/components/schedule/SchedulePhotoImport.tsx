@@ -275,7 +275,7 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 min-h-[calc(100vh-12rem)]">
       {/* Upload & result */}
       <div className="lg:col-span-3">
-        <Card className="border-dashed border-2 border-green-200 bg-green-50/50 h-full flex flex-col">
+        <Card className="border-dashed border-2 border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10 h-full flex flex-col">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5 text-green-600" />
@@ -309,7 +309,7 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
               )}
               {t("schedule.upload_excel_csv")}
             </Button>
-            <span className="text-sm text-neutral-500">{t("schedule.import_or")}</span>
+            <span className="text-sm text-neutral-500 dark:text-neutral-400">{t("schedule.import_or")}</span>
             <input
               type="file"
               accept="image/*"
@@ -320,7 +320,7 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
             <Button
               type="button"
               variant="outline"
-              className="border-green-300 bg-white"
+              className="border-green-300 dark:border-green-700 bg-white dark:bg-slate-800"
               onClick={() => document.getElementById("schedule-import-photo")?.click()}
               disabled={uploading}
             >
@@ -353,23 +353,23 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
         {parsed && (
           <div className="space-y-3">
             {parsed.error && (
-              <p className="text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-md">{parsed.error}</p>
+              <p className="text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-md">{parsed.error}</p>
             )}
             {parsed.shifts.length > 0 && (
               <>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <label className="text-sm font-medium text-gray-700">{t("schedule.template_name_label")}</label>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t("schedule.template_name_label")}</label>
                   <input
                     type="text"
                     value={templateName}
                     onChange={(e) => setTemplateName(e.target.value)}
-                    className="border rounded-md px-2 py-1 text-sm w-48"
+                    className="border dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100 rounded-md px-2 py-1 text-sm w-48"
                     placeholder={t("schedule.template_name_placeholder")}
                   />
                 </div>
-                <div className="overflow-x-auto rounded-md border bg-white max-h-64 overflow-y-auto">
+                <div className="overflow-x-auto rounded-md border dark:border-slate-700 bg-white dark:bg-slate-900 max-h-64 overflow-y-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-100 sticky top-0">
+                    <thead className="bg-gray-100 dark:bg-slate-800 sticky top-0">
                       <tr>
                         <th className="text-left p-2">{t("schedule.table_employee")}</th>
                         <th className="text-left p-2">{t("schedule.table_role")}</th>
@@ -380,7 +380,7 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
                     </thead>
                     <tbody>
                       {parsed.shifts.map((s, i) => (
-                        <tr key={i} className="border-t">
+                        <tr key={i} className="border-t dark:border-slate-700">
                           <td className="p-2">{s.employee_name || "—"}</td>
                           <td className="p-2">{s.role}</td>
                           <td className="p-2">{DAY_NAMES[s.day_of_week] ?? s.day_of_week}</td>
@@ -413,7 +413,7 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
                     variant="ghost"
                     size="sm"
                     onClick={() => setParsed(null)}
-                    className="text-gray-500"
+                    className="text-gray-500 dark:text-gray-400"
                   >
                     <X className="h-4 w-4 mr-1" />
                     {t("schedule.discard")}
@@ -429,7 +429,7 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
 
       {/* How it works & supported format */}
       <div className="lg:col-span-2 space-y-6">
-        <Card className="border border-neutral-200 bg-white">
+        <Card className="border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <ListOrdered className="h-4 w-4 text-green-600" />
@@ -438,30 +438,30 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
           </CardHeader>
           <CardContent className="space-y-4 pt-0">
             <div className="flex gap-3">
-              <span className="flex-shrink-0 w-7 h-7 rounded-full bg-green-100 text-green-700 font-semibold text-sm flex items-center justify-center">1</span>
+              <span className="flex-shrink-0 w-7 h-7 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold text-sm flex items-center justify-center">1</span>
               <div>
-                <p className="font-medium text-neutral-900">{t("schedule.import_step1_title")}</p>
-                <p className="text-sm text-neutral-600">{t("schedule.import_step1_desc")}</p>
+                <p className="font-medium text-neutral-900 dark:text-neutral-100">{t("schedule.import_step1_title")}</p>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">{t("schedule.import_step1_desc")}</p>
               </div>
             </div>
             <div className="flex gap-3">
-              <span className="flex-shrink-0 w-7 h-7 rounded-full bg-green-100 text-green-700 font-semibold text-sm flex items-center justify-center">2</span>
+              <span className="flex-shrink-0 w-7 h-7 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold text-sm flex items-center justify-center">2</span>
               <div>
-                <p className="font-medium text-neutral-900">{t("schedule.import_step2_title")}</p>
-                <p className="text-sm text-neutral-600">{t("schedule.import_step2_desc")}</p>
+                <p className="font-medium text-neutral-900 dark:text-neutral-100">{t("schedule.import_step2_title")}</p>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">{t("schedule.import_step2_desc")}</p>
               </div>
             </div>
             <div className="flex gap-3">
-              <span className="flex-shrink-0 w-7 h-7 rounded-full bg-green-100 text-green-700 font-semibold text-sm flex items-center justify-center">3</span>
+              <span className="flex-shrink-0 w-7 h-7 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold text-sm flex items-center justify-center">3</span>
               <div>
-                <p className="font-medium text-neutral-900">{t("schedule.import_step3_title")}</p>
-                <p className="text-sm text-neutral-600">{t("schedule.import_step3_desc")}</p>
+                <p className="font-medium text-neutral-900 dark:text-neutral-100">{t("schedule.import_step3_title")}</p>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">{t("schedule.import_step3_desc")}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-neutral-200 bg-white">
+        <Card className="border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <Table2 className="h-4 w-4 text-green-600" />
@@ -474,27 +474,27 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
           <CardContent className="pt-0">
             <ul className="space-y-2 text-sm">
               <li className="flex flex-wrap gap-1.5">
-                <span className="font-medium text-neutral-700">{t("schedule.col_date_day")}</span>
-                <span className="text-neutral-600">{t("schedule.col_date_examples")}</span>
+                <span className="font-medium text-neutral-700 dark:text-neutral-300">{t("schedule.col_date_day")}</span>
+                <span className="text-neutral-600 dark:text-neutral-400">{t("schedule.col_date_examples")}</span>
               </li>
               <li className="flex flex-wrap gap-1.5">
-                <span className="font-medium text-neutral-700">{t("schedule.col_employee")}</span>
-                <span className="text-neutral-600">{t("schedule.col_employee_examples")}</span>
+                <span className="font-medium text-neutral-700 dark:text-neutral-300">{t("schedule.col_employee")}</span>
+                <span className="text-neutral-600 dark:text-neutral-400">{t("schedule.col_employee_examples")}</span>
               </li>
               <li className="flex flex-wrap gap-1.5">
-                <span className="font-medium text-neutral-700">{t("schedule.col_role")}</span>
-                <span className="text-neutral-600">{t("schedule.col_role_examples")}</span>
+                <span className="font-medium text-neutral-700 dark:text-neutral-300">{t("schedule.col_role")}</span>
+                <span className="text-neutral-600 dark:text-neutral-400">{t("schedule.col_role_examples")}</span>
               </li>
               <li className="flex flex-wrap gap-1.5">
-                <span className="font-medium text-neutral-700">{t("schedule.col_start_end")}</span>
-                <span className="text-neutral-600">{t("schedule.col_start_end_examples")}</span>
+                <span className="font-medium text-neutral-700 dark:text-neutral-300">{t("schedule.col_start_end")}</span>
+                <span className="text-neutral-600 dark:text-neutral-400">{t("schedule.col_start_end_examples")}</span>
               </li>
               <li className="flex flex-wrap gap-1.5">
-                <span className="font-medium text-neutral-700">{t("schedule.col_department")}</span>
-                <span className="text-neutral-600">{t("schedule.col_department_examples")}</span>
+                <span className="font-medium text-neutral-700 dark:text-neutral-300">{t("schedule.col_department")}</span>
+                <span className="text-neutral-600 dark:text-neutral-400">{t("schedule.col_department_examples")}</span>
               </li>
             </ul>
-            <p className="mt-3 text-xs text-neutral-500 border-t border-neutral-100 pt-3">
+            <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400 border-t border-neutral-100 dark:border-slate-700 pt-3">
               {t("schedule.dates_times_note")}
             </p>
           </CardContent>

@@ -407,23 +407,23 @@ export default function GeolocationMapSettings({
   const hasPolygon = polygonPoints.length >= 3;
 
   return (
-    <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50">
+    <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
       <CardHeader className="pb-6">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-lg shadow-rose-500/25">
             <MapPin className="w-5 h-5 text-white" />
           </div>
           <div>
-            <CardTitle className="text-lg font-bold text-slate-900">{t("settings.geolocation.title")}</CardTitle>
-            <CardDescription className="text-slate-500">{t("settings.geolocation.description")}</CardDescription>
+            <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("settings.geolocation.title")}</CardTitle>
+            <CardDescription className="text-slate-500 dark:text-slate-400">{t("settings.geolocation.description")}</CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-slate-900">{t("settings.geolocation.geofence_monitoring")}</p>
-            <p className="text-xs text-slate-500">
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("settings.geolocation.geofence_monitoring")}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {t("settings.geolocation.geofence_monitoring_desc")}
             </p>
           </div>
@@ -435,15 +435,15 @@ export default function GeolocationMapSettings({
         </div>
 
         {/* Get My Location Button - Prominent */}
-        <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100">
+        <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-100 dark:border-emerald-800">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-emerald-100">
+              <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-900/40">
                 <Crosshair className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-900">{t("settings.geolocation.quick_setup")}</p>
-                <p className="text-xs text-slate-500">{t("settings.geolocation.quick_setup_desc")}</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("settings.geolocation.quick_setup")}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t("settings.geolocation.quick_setup_desc")}</p>
               </div>
             </div>
             <Button
@@ -530,8 +530,8 @@ export default function GeolocationMapSettings({
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <Label htmlFor="radius-slider" className="text-sm font-medium text-slate-700">{t("settings.geolocation.geofence_radius")}</Label>
-            <Badge variant="secondary" className="font-mono bg-slate-100 text-slate-700">
+            <Label htmlFor="radius-slider" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("settings.geolocation.geofence_radius")}</Label>
+            <Badge variant="secondary" className="font-mono bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
               {radiusMeters}m ({radiusInKm} km)
             </Badge>
           </div>
@@ -544,7 +544,7 @@ export default function GeolocationMapSettings({
             onValueChange={(value) => setRadiusMeters(value[0])}
             className="w-full"
           />
-          <div className="flex justify-between text-xs text-slate-400">
+          <div className="flex justify-between text-xs text-slate-400 dark:text-slate-500">
             <span>5m</span>
             <span>50m</span>
             <span>100m</span>
@@ -552,7 +552,7 @@ export default function GeolocationMapSettings({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="radius-input" className="text-sm font-medium text-slate-700">{t("settings.geolocation.radius_meters")}</Label>
+          <Label htmlFor="radius-input" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("settings.geolocation.radius_meters")}</Label>
           <Input
             id="radius-input"
             type="number"
@@ -565,11 +565,11 @@ export default function GeolocationMapSettings({
             min={5}
             max={100}
             placeholder={t("settings.geolocation.radius_placeholder")}
-            className="h-12 rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+            className="h-12 rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-gray-100 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
           />
         </div>
 
-        <div className="pt-4 border-t border-slate-200">
+        <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
           <Button
             onClick={handleSave}
             className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-emerald-500/25 transition-all hover:shadow-emerald-500/40"
