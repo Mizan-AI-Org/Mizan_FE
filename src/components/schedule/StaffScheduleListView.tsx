@@ -93,7 +93,7 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
     if (isLoading) {
         return (
             <div className="space-y-6">
-                <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border shadow-sm sticky top-0 z-10">
+                <div className="flex items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm sticky top-0 z-10">
                     <Skeleton className="h-11 flex-1 rounded-xl" />
                     <Skeleton className="h-5 w-24" />
                 </div>
@@ -104,24 +104,24 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border shadow-sm sticky top-0 z-10">
+            <div className="flex items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm sticky top-0 z-10">
                 <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
                     <Input
                         placeholder={t("schedule.search_staff_role_title")}
-                        className="pl-10 h-11 border-gray-200 rounded-xl focus:ring-green-600/20 focus:border-green-600 transition-all"
+                        className="pl-10 h-11 border-gray-200 dark:border-slate-700 rounded-xl focus:ring-green-600/20 focus:border-green-600 transition-all"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <div className="text-sm font-medium text-gray-500 whitespace-nowrap">
+                <div className="text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {filteredShifts.length} {t("schedule.shifts_found")}
                 </div>
             </div>
 
             {sortedDates.length === 0 ? (
-                <Card className="border-dashed">
-                    <CardContent className="flex flex-col items-center justify-center py-12 text-gray-400">
+                <Card className="border-dashed dark:border-slate-700">
+                    <CardContent className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500">
                         <User className="h-12 w-12 mb-4 opacity-20" />
                         <p className="text-lg font-medium">{t("schedule.no_shifts_week")}</p>
                         <p className="text-sm">{t("schedule.try_adjust_search_week")}</p>
@@ -131,22 +131,22 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                 <div className="space-y-6 pb-10">
                     {sortedDates.map(date => (
                         <div key={date} className="space-y-3">
-                            <div className="flex items-center gap-2.5 sticky top-[108px] bg-gray-50/95 py-1.5 z-[5] backdrop-blur-sm">
+                            <div className="flex items-center gap-2.5 sticky top-[108px] bg-gray-50/95 dark:bg-slate-900/95 py-1.5 z-[5] backdrop-blur-sm">
                                 <div className="h-9 w-9 rounded-lg bg-green-600 text-white flex flex-col items-center justify-center shadow-sm">
                                     <span className="text-[9px] font-bold uppercase leading-none">{format(parseISO(date), "EEE")}</span>
                                     <span className="text-base font-bold leading-none">{format(parseISO(date), "d")}</span>
                                 </div>
                                 <div className="flex flex-col">
-                                    <h3 className="text-base font-bold text-gray-900 leading-tight">
+                                    <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-tight">
                                         {format(parseISO(date), "EEEE, MMMM do")}
                                     </h3>
-                                    <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                                    <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         {groupedShifts[date].length === 1
                                             ? t("schedule.shifts_scheduled_one")
                                             : t("schedule.shifts_scheduled_many", { count: groupedShifts[date].length })}
                                     </span>
                                 </div>
-                                <div className="h-px flex-1 bg-gray-200 ml-2" />
+                                <div className="h-px flex-1 bg-gray-200 dark:bg-slate-700 ml-2" />
                             </div>
 
                             <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -156,7 +156,7 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                                     const initials = `${(staff?.user?.first_name || staff?.first_name || "")[0] || ""}${(staff?.user?.last_name || staff?.last_name || "")[0] || ""}`;
 
                                     return (
-                                        <Card key={`${shift.id}-${displayStaffId}-${idx}`} className="group hover:shadow-md transition-all duration-300 border-gray-100 overflow-hidden rounded-xl">
+                                        <Card key={`${shift.id}-${displayStaffId}-${idx}`} className="group hover:shadow-md transition-all duration-300 border-gray-100 dark:border-slate-700 overflow-hidden rounded-xl">
                                             <CardContent className="p-0">
                                                 <div className="flex items-stretch min-h-0">
                                                     <div
@@ -165,17 +165,17 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                                                     />
                                                     <div className="flex-1 p-2.5 flex flex-col justify-center min-h-[72px]">
                                                         <div className="flex items-center gap-2 mb-1">
-                                                            <Avatar className="h-7 w-7 border border-white shadow-sm ring-1 ring-gray-100 flex-shrink-0">
-                                                                <AvatarFallback className="bg-orange-50 text-orange-700 text-xs font-bold">
+                                                            <Avatar className="h-7 w-7 border border-white dark:border-slate-700 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 flex-shrink-0">
+                                                                <AvatarFallback className="bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-bold">
                                                                     {initials}
                                                                 </AvatarFallback>
                                                             </Avatar>
                                                             <div className="flex flex-col min-w-0 flex-1">
-                                                                <span className="font-semibold text-gray-900 text-sm leading-tight truncate">
+                                                                <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-tight truncate">
                                                                     {staff?.user?.first_name || staff?.first_name || "Unknown"} {staff?.user?.last_name || staff?.last_name || ""}
                                                                 </span>
                                                                 {staff?.role && (
-                                                                    <span className="text-[9px] font-bold text-green-700 uppercase tracking-wide bg-green-50 px-1 py-0 rounded mt-0.5 inline-block w-fit">
+                                                                    <span className="text-[9px] font-bold text-green-700 dark:text-green-400 uppercase tracking-wide bg-green-50 dark:bg-green-900/30 px-1 py-0 rounded mt-0.5 inline-block w-fit">
                                                                         {staff.role}
                                                                     </span>
                                                                 )}
@@ -183,16 +183,16 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                                                         </div>
 
                                                         <div className="space-y-0.5 mt-1">
-                                                            <div className="flex items-center text-xs font-medium text-gray-600">
-                                                                <Clock className="h-3 w-3 mr-1.5 text-gray-400 flex-shrink-0" />
+                                                            <div className="flex items-center text-xs font-medium text-gray-600 dark:text-gray-400">
+                                                                <Clock className="h-3 w-3 mr-1.5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                                                                 <span>{formatTime(shift.start)}</span>
-                                                                <span className="mx-1 text-gray-300">→</span>
+                                                                <span className="mx-1 text-gray-300 dark:text-gray-600">→</span>
                                                                 <span>{formatTime(shift.end)}</span>
                                                             </div>
 
                                                             {shift.title && (
-                                                                <div className="flex items-start text-xs text-gray-500">
-                                                                    <div className="h-1 w-1 rounded-full bg-gray-300 mt-1.5 mr-1.5 flex-shrink-0" />
+                                                                <div className="flex items-start text-xs text-gray-500 dark:text-gray-400">
+                                                                    <div className="h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-600 mt-1.5 mr-1.5 flex-shrink-0" />
                                                                     <p className="line-clamp-1 leading-tight">{shift.title}</p>
                                                                 </div>
                                                             )}

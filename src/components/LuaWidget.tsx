@@ -8,7 +8,7 @@ import { logError } from '@/lib/logging';
 declare global {
     interface Window {
         LuaPop: {
-            init: (config: any) => void;
+            init: (config: any) => { destroy: () => void };
         };
     }
 }
@@ -17,7 +17,22 @@ export const LuaWidget: React.FC = () => {
     const { user, accessToken } = useAuth() as AuthContextType;
     const { t, language, isRTL } = useLanguage();
     const initialized = useRef<string | boolean>(false);
+    const widgetRef = useRef<{ destroy: () => void } | null>(null);
     const agentId = import.meta.env.VITE_LUA_AGENT_ID as string | undefined;
+
+    // Tear down the widget when user logs out so chat history doesn't persist
+    useEffect(() => {
+        if (!user) {
+            if (widgetRef.current) {
+                try { widgetRef.current.destroy(); } catch (_) { /* ignore */ }
+                widgetRef.current = null;
+            }
+            // Remove leftover DOM from previous session
+            const host = document.querySelector('#lua-shadow-root');
+            if (host) host.remove();
+            initialized.current = false;
+        }
+    }, [user]);
 
     // Robust Shadow DOM Injection
     useEffect(() => {
@@ -121,10 +136,13 @@ export const LuaWidget: React.FC = () => {
         if (window.LuaPop && accessToken) {
             // Base identity for backend/webhook linkage
             const baseSessionId = `tenant-${user.restaurant_data?.id || user.restaurant}-user-${user.id}`;
-            // Append date for fresh daily conversations – keeps chat UI clean while metadata
-            // (userId, restaurantId, fullName) ensures Miya always knows who's chatting and restaurant context
-            const today = new Date().toISOString().slice(0, 10); // yyyy-MM-dd
-            const sessionId = `${baseSessionId}-${today}`;
+            // Per-login nonce ensures a fresh conversation after every logout/login cycle
+            let loginNonce = sessionStorage.getItem('lua_login_nonce');
+            if (!loginNonce) {
+                loginNonce = Date.now().toString(36);
+                sessionStorage.setItem('lua_login_nonce', loginNonce);
+            }
+            const sessionId = `${baseSessionId}-${loginNonce}`;
 
             if (initialized.current === sessionId) return;
 
@@ -139,7 +157,7 @@ export const LuaWidget: React.FC = () => {
                     role: user.role
                 });
 
-                window.LuaPop.init({
+                widgetRef.current = window.LuaPop.init({
                     agentId,
                     environment: "production",
                     apiUrl: "https://api.heylua.ai",
