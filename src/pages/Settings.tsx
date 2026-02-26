@@ -65,6 +65,8 @@ interface POSSettings {
   pos_provider: string;
   pos_merchant_id: string;
   pos_is_connected: boolean;
+  pos_custom_api_url?: string;
+  pos_custom_api_key?: string;
 }
 
 interface AISettings {
@@ -289,6 +291,8 @@ export default function Settings() {
         pos_provider: data.pos_provider || "NONE",
         pos_merchant_id: data.pos_merchant_id || "",
         pos_is_connected: data.pos_is_connected || false,
+        pos_custom_api_url: data.pos_custom_api_url || "",
+        pos_custom_api_key: data.pos_custom_api_key_set ? "••••••••" : "",
       });
       setPosConnectionStatus(data.pos_is_connected ? "connected" : "idle");
 
@@ -546,11 +550,12 @@ export default function Settings() {
     setSavingPos(true);
     try {
       if (posSettings.pos_provider === "SQUARE") {
-        // Square uses OAuth connect flow; nothing to persist client-side.
         await testPosConnection();
         await fetchUnifiedSettings();
+      } else if (posSettings.pos_provider === "CUSTOM") {
+        await saveCustomApi();
       } else {
-        toast.error(t("common.coming_soon"));
+        toast.error(t("common.coming_soon") || "Coming soon");
       }
     } catch (error) {
       console.error("Failed to update POS settings:", error);
@@ -572,6 +577,29 @@ export default function Settings() {
     } catch (error) {
       const axiosErr = error as AxiosError<{ detail?: string; error?: string }>;
       toast.error(translateApiError(axiosErr));
+    }
+  };
+
+  const saveCustomApi = async () => {
+    if (!posSettings.pos_custom_api_url) {
+      toast.error("Please enter your API base URL.");
+      return;
+    }
+    setSavingPos(true);
+    try {
+      await apiClient.put("/settings/unified/", {
+        pos_provider: "CUSTOM",
+        pos_custom_api_url: posSettings.pos_custom_api_url,
+        pos_custom_api_key: posSettings.pos_custom_api_key || "",
+      });
+      toast.success("Custom API saved. Testing connection...");
+      await testPosConnection();
+      await fetchUnifiedSettings();
+    } catch (error) {
+      const axiosErr = error as AxiosError<{ detail?: string; error?: string }>;
+      toast.error(translateApiError(axiosErr));
+    } finally {
+      setSavingPos(false);
     }
   };
 
@@ -863,7 +891,7 @@ export default function Settings() {
                     <option value="LIGHTSPEED" disabled={posSettings.pos_provider !== "LIGHTSPEED"}>Lightspeed (Coming soon…)</option>
                     <option value="CLOVER" disabled={posSettings.pos_provider !== "CLOVER"}>Clover (Coming soon…)</option>
                     <option value="STRIPE" disabled={posSettings.pos_provider !== "STRIPE"}>Stripe (Coming soon…)</option>
-                    <option value="CUSTOM" disabled={posSettings.pos_provider !== "CUSTOM"}>{t("pos.custom_api")} (Coming soon…)</option>
+                    <option value="CUSTOM">{t("pos.custom_api") || "Custom API"}</option>
                   </select>
                 </div>
 
@@ -872,7 +900,7 @@ export default function Settings() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="space-y-1">
-                          <div className="text-sm font-medium text-slate-700">{t("settings.square_account")}</div>
+                          <div className="text-sm font-medium text-slate-700">{t("settings.square_account") || "Square account"}</div>
                           <div className="text-xs text-slate-500">
                             Connect via OAuth so no API keys are stored in the browser.
                           </div>
@@ -899,6 +927,60 @@ export default function Settings() {
                         </div>
                       )}
                     </div>
+                  ) : posSettings.pos_provider === "CUSTOM" ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-slate-700">Custom API</div>
+                          <div className="text-xs text-slate-500">
+                            Connect your own POS or sales API. Mizan will pull sales, menu, and order data.
+                          </div>
+                        </div>
+                        <Badge variant="outline" className={posSettings.pos_is_connected ? "border-emerald-200 text-emerald-700" : "border-slate-200 text-slate-600"}>
+                          {posSettings.pos_is_connected ? t("settings.connected") : t("settings.not_connected")}
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-3 p-4 rounded-xl border border-slate-200 bg-slate-50">
+                        <div className="space-y-1">
+                          <Label htmlFor="custom-api-url" className="text-sm font-medium text-slate-700">API Base URL *</Label>
+                          <Input
+                            id="custom-api-url"
+                            type="url"
+                            placeholder="https://your-pos-api.com/v1"
+                            value={posSettings.pos_custom_api_url || ''}
+                            onChange={(e) => setPosSettings({ ...posSettings, pos_custom_api_url: e.target.value })}
+                          />
+                          <p className="text-xs text-slate-400">
+                            Your API should expose <code>/menu</code> and <code>/orders</code> endpoints.
+                          </p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="custom-api-key" className="text-sm font-medium text-slate-700">API Key / Token</Label>
+                          <Input
+                            id="custom-api-key"
+                            type="password"
+                            placeholder="Bearer token or API key (optional)"
+                            value={posSettings.pos_custom_api_key || ''}
+                            onChange={(e) => setPosSettings({ ...posSettings, pos_custom_api_key: e.target.value })}
+                          />
+                          <p className="text-xs text-slate-400">
+                            Sent as <code>Authorization: Bearer &lt;key&gt;</code> header.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button onClick={saveCustomApi} disabled={savingPos || !posSettings.pos_custom_api_url} className="flex-1">
+                          {savingPos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                          Save & Connect
+                        </Button>
+                        <Button onClick={testPosConnection} variant="outline" disabled={posTestingConnection || !posSettings.pos_custom_api_url}>
+                          {posTestingConnection ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plug className="mr-2 h-4 w-4" />}
+                          Test
+                        </Button>
+                      </div>
+                    </div>
                   ) : posSettings.pos_provider === "NONE" ? null : (
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                       <div className="flex items-center justify-between gap-3">
@@ -907,44 +989,15 @@ export default function Settings() {
                             {posSettings.pos_provider} integration
                           </div>
                           <div className="text-xs text-slate-500">
-                            Coming soon… Square is the only supported POS integration at launch.
+                            Coming soon. Square and Custom API are available now.
                           </div>
                         </div>
                         <Badge variant="outline" className="border-slate-200 text-slate-600">
-                          Coming soon…
+                          Coming soon
                         </Badge>
                       </div>
                     </div>
                   )}
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    onClick={updatePosSettings}
-                    disabled={savingPos || posSettings.pos_provider === "NONE" || posSettings.pos_provider !== "SQUARE"}
-                    className="flex-1"
-                  >
-                    {savingPos ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="mr-2 h-4 w-4" />
-                    )}
-                    Test Connection
-                  </Button>
-                  <Button
-                    onClick={testPosConnection}
-                    variant="outline"
-                    disabled={
-                      posTestingConnection || posSettings.pos_provider === "NONE" || posSettings.pos_provider !== "SQUARE"
-                    }
-                  >
-                    {posTestingConnection ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Plug className="mr-2 h-4 w-4" />
-                    )}
-                    Test Connection
-                  </Button>
                 </div>
 
                 {posConnectionStatus !== "idle" && (

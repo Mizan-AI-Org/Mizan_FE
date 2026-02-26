@@ -1,12 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -16,24 +14,22 @@ import {
 } from '@/components/ui/select';
 import {
   Plug,
-  Settings,
   RefreshCw,
-  Webhook,
   Key,
-  DollarSign,
-  CreditCard,
   CheckCircle2,
   AlertCircle,
   Clock,
+  ExternalLink,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { API_BASE } from '@/lib/api';
 
 interface POSProvider {
   id: string;
   name: string;
   logo: string;
-  requiresApiKey: boolean;
-  requiresWebhook: boolean;
+  supportsOAuth: boolean;
   supportsTaxSync: boolean;
   supportsInventorySync: boolean;
 }
@@ -43,8 +39,7 @@ const posProviders: POSProvider[] = [
     id: 'square',
     name: 'Square',
     logo: '⬛',
-    requiresApiKey: true,
-    requiresWebhook: true,
+    supportsOAuth: true,
     supportsTaxSync: true,
     supportsInventorySync: true,
   },
@@ -52,8 +47,7 @@ const posProviders: POSProvider[] = [
     id: 'toast',
     name: 'Toast',
     logo: '🍞',
-    requiresApiKey: true,
-    requiresWebhook: true,
+    supportsOAuth: false,
     supportsTaxSync: true,
     supportsInventorySync: true,
   },
@@ -61,30 +55,19 @@ const posProviders: POSProvider[] = [
     id: 'clover',
     name: 'Clover',
     logo: '🍀',
-    requiresApiKey: true,
-    requiresWebhook: false,
+    supportsOAuth: false,
     supportsTaxSync: true,
     supportsInventorySync: false,
   },
-  {
-    id: 'lightspeed',
-    name: 'Lightspeed',
-    logo: '⚡',
-    requiresApiKey: true,
-    requiresWebhook: true,
-    supportsTaxSync: true,
-    supportsInventorySync: true,
-  },
-  {
-    id: 'shopify',
-    name: 'Shopify POS',
-    logo: '🛍️',
-    requiresApiKey: true,
-    requiresWebhook: true,
-    supportsTaxSync: false,
-    supportsInventorySync: true,
-  },
 ];
+
+interface ConnectionStatus {
+  provider: string;
+  is_connected: boolean;
+  merchant_id: string | null;
+  location_id: string | null;
+  last_sync: string | null;
+}
 
 interface EnhancedPOSSettingsProps {
   onSave?: (settings: any) => void;
@@ -92,382 +75,381 @@ interface EnhancedPOSSettingsProps {
 
 export default function EnhancedPOSSettings({ onSave }: EnhancedPOSSettingsProps) {
   const [selectedProvider, setSelectedProvider] = useState<string>('');
-  const [apiKey, setApiKey] = useState('');
-  const [apiSecret, setApiSecret] = useState('');
-  const [webhookUrl, setWebhookUrl] = useState('');
   const [autoSync, setAutoSync] = useState(true);
   const [syncInterval, setSyncInterval] = useState('15');
   const [syncSales, setSyncSales] = useState(true);
   const [syncInventory, setSyncInventory] = useState(true);
   const [syncTaxes, setSyncTaxes] = useState(true);
   const [syncPayments, setSyncPayments] = useState(true);
-  const [isConnected, setIsConnected] = useState(false);
-  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
+  const isConnected = connectionStatus?.is_connected ?? false;
+  const connectedProvider = posProviders.find((p) => p.id === connectionStatus?.provider?.toLowerCase());
   const provider = posProviders.find((p) => p.id === selectedProvider);
 
-  const handleConnect = () => {
-    if (!selectedProvider) {
-      toast.error('Please select a POS provider');
+  useEffect(() => {
+    fetchConnectionStatus();
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('pos_connected') === 'true') {
+      toast.success('POS connected successfully!');
+      window.history.replaceState({}, '', window.location.pathname);
+      fetchConnectionStatus();
+    }
+    if (params.get('pos_error')) {
+      toast.error(`POS connection failed: ${params.get('pos_error')}`);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
+  const authHeaders = (): Record<string, string> => ({
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+  });
+
+  const fetchConnectionStatus = async () => {
+    try {
+      setIsLoading(true);
+      const resp = await fetch(`${API_BASE}/pos/connection-status/`, { headers: authHeaders() });
+      if (resp.ok) {
+        const data = await resp.json();
+        setConnectionStatus(data);
+        if (data?.provider && data.provider !== 'NONE') {
+          setSelectedProvider(data.provider.toLowerCase());
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch POS status:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOAuthConnect = async (providerId: string) => {
+    if (providerId !== 'square') {
+      toast.info(`${posProviders.find(p => p.id === providerId)?.name} integration coming soon. Currently only Square is supported via OAuth.`);
       return;
     }
-    if (provider?.requiresApiKey && !apiKey) {
-      toast.error('API Key is required');
-      return;
+
+    try {
+      setIsConnecting(true);
+      const resp = await fetch(`${API_BASE}/pos/square/authorize/`, { headers: authHeaders() });
+      const data = await resp.json();
+      if (resp.ok && data.authorization_url) {
+        window.location.href = data.authorization_url;
+      } else {
+        toast.error(data.error || 'Failed to generate authorization URL.');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Connection failed.');
+    } finally {
+      setIsConnecting(false);
     }
-
-    // Simulate connection
-    setIsConnected(true);
-    setLastSyncTime(new Date());
-    toast.success(`Successfully connected to ${provider?.name}`);
   };
 
-  const handleDisconnect = () => {
-    setIsConnected(false);
-    setApiKey('');
-    setApiSecret('');
-    setWebhookUrl('');
-    toast.success('Disconnected from POS system');
+  const handleDisconnect = async () => {
+    try {
+      setIsDisconnecting(true);
+      const resp = await fetch(`${API_BASE}/pos/square/disconnect/`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        toast.success('POS disconnected.');
+        setConnectionStatus(null);
+        setSelectedProvider('');
+      } else {
+        toast.error(data.error || 'Failed to disconnect.');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to disconnect.');
+    } finally {
+      setIsDisconnecting(false);
+    }
   };
 
-  const handleTestConnection = () => {
-    toast.info('Testing connection...');
-    setTimeout(() => {
-      toast.success('Connection test successful!');
-    }, 1500);
+  const handleManualSync = async () => {
+    try {
+      setIsSyncing(true);
+      await fetch(`${API_BASE}/pos/sync/menu/`, { method: 'POST', headers: authHeaders() });
+      await fetch(`${API_BASE}/pos/sync/orders/`, { method: 'POST', headers: authHeaders() });
+      toast.success('Sync started. Data will be updated shortly.');
+      setTimeout(fetchConnectionStatus, 3000);
+    } catch (err: any) {
+      toast.error('Sync failed. Please try again.');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
-  const handleManualSync = () => {
-    toast.info('Starting manual sync...');
-    setTimeout(() => {
-      setLastSyncTime(new Date());
-      toast.success('Sync completed successfully!');
-    }, 2000);
-  };
-
-  const handleSave = () => {
-    const settings = {
-      provider: selectedProvider,
-      apiKey,
-      apiSecret,
-      webhookUrl,
-      autoSync,
-      syncInterval: parseInt(syncInterval),
-      syncSales,
-      syncInventory,
-      syncTaxes,
-      syncPayments,
-    };
-    onSave?.(settings);
-    toast.success('POS settings saved successfully!');
-  };
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Loading POS settings...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Provider Selection */}
-      <Card className="shadow-soft">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Plug className="w-5 h-5 mr-2" />
-            POS Provider
-          </CardTitle>
-          <CardDescription>Select and configure your Point of Sale system</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="pos-provider">Select Provider</Label>
-            <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-              <SelectTrigger id="pos-provider">
-                <SelectValue placeholder="Choose a POS provider" />
-              </SelectTrigger>
-              <SelectContent>
-                {posProviders.map((provider) => (
-                  <SelectItem key={provider.id} value={provider.id}>
-                    <div className="flex items-center">
-                      <span className="mr-2">{provider.logo}</span>
-                      {provider.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {isConnected && provider && (
-            <div className="flex flex-col gap-3 p-4 bg-success/10 rounded-lg border border-success/20 sm:flex-row sm:items-center sm:justify-between">
+      {/* Connection Status */}
+      {isConnected && connectedProvider && (
+        <Card className="shadow-soft border-success/30">
+          <CardContent className="pt-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center space-x-3">
-                <CheckCircle2 className="w-5 h-5 text-success" />
+                <CheckCircle2 className="w-6 h-6 text-success" />
                 <div>
-                  <p className="font-medium text-success">Connected to {provider.name}</p>
-                  {lastSyncTime && (
-                    <p className="text-sm text-muted-foreground">
-                      Last synced: {lastSyncTime.toLocaleTimeString()}
+                  <p className="font-semibold text-success">
+                    Connected to {connectedProvider.logo} {connectedProvider.name}
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {connectionStatus?.merchant_id && (
+                      <Badge variant="outline" className="text-xs">
+                        Merchant: {connectionStatus.merchant_id}
+                      </Badge>
+                    )}
+                    {connectionStatus?.location_id && (
+                      <Badge variant="outline" className="text-xs">
+                        Location: {connectionStatus.location_id}
+                      </Badge>
+                    )}
+                  </div>
+                  {connectionStatus?.last_sync && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Token expires: {new Date(connectionStatus.last_sync).toLocaleDateString()}
                     </p>
                   )}
                 </div>
               </div>
-              <Button onClick={handleDisconnect} variant="outline" size="sm">
+              <Button
+                onClick={handleDisconnect}
+                variant="destructive"
+                size="sm"
+                disabled={isDisconnecting}
+              >
+                {isDisconnecting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
                 Disconnect
               </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {selectedProvider && !isConnected && (
-        <Tabs defaultValue="credentials" className="space-y-6">
-          <TabsList className="flex flex-col gap-2 sm:grid sm:grid-cols-3">
-            <TabsTrigger value="credentials" className="w-full">Credentials</TabsTrigger>
-            <TabsTrigger value="sync" className="w-full">Sync Settings</TabsTrigger>
-            <TabsTrigger value="advanced" className="w-full">Advanced</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="credentials" className="space-y-6">
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Key className="w-5 h-5 mr-2" />
-                  API Credentials
-                </CardTitle>
-                <CardDescription>
-                  Enter your {provider?.name} API credentials to establish connection
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {provider?.requiresApiKey && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="api-key">API Key *</Label>
-                      <Input
-                        id="api-key"
-                        type="password"
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        placeholder="Enter your API key"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="api-secret">API Secret</Label>
-                      <Input
-                        id="api-secret"
-                        type="password"
-                        value={apiSecret}
-                        onChange={(e) => setApiSecret(e.target.value)}
-                        placeholder="Enter your API secret (optional)"
-                      />
-                    </div>
-                  </>
-                )}
-
-                {provider?.requiresWebhook && (
-                  <div className="space-y-2">
-                    <Label htmlFor="webhook-url">Webhook URL</Label>
-                    <Input
-                      id="webhook-url"
-                      value={webhookUrl}
-                      onChange={(e) => setWebhookUrl(e.target.value)}
-                      placeholder="https://your-domain.com/webhook"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Configure this URL in your {provider?.name} dashboard for real-time updates
-                    </p>
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button onClick={handleConnect} className="w-full sm:flex-1">
-                    Connect to {provider?.name}
-                  </Button>
-                  <Button onClick={handleTestConnection} variant="outline" className="w-full sm:w-auto">
-                    Test Connection
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="sync" className="space-y-6">
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <RefreshCw className="w-5 h-5 mr-2" />
-                  Synchronization Settings
-                </CardTitle>
-                <CardDescription>Configure what data to sync and how often</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Automatic Sync</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Automatically sync data at regular intervals
-                    </p>
-                  </div>
-                  <Switch checked={autoSync} onCheckedChange={setAutoSync} />
-                </div>
-
-                {autoSync && (
-                  <div className="space-y-2">
-                    <Label htmlFor="sync-interval">Sync Interval (minutes)</Label>
-                    <Select value={syncInterval} onValueChange={setSyncInterval}>
-                      <SelectTrigger id="sync-interval">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="5">Every 5 minutes</SelectItem>
-                        <SelectItem value="15">Every 15 minutes</SelectItem>
-                        <SelectItem value="30">Every 30 minutes</SelectItem>
-                        <SelectItem value="60">Every hour</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                <Separator />
-
-                <div className="space-y-4">
-                  <h4 className="font-medium">Data to Sync</h4>
-
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Sales Data</Label>
-                      <p className="text-xs text-muted-foreground">Sync orders and transactions</p>
-                    </div>
-                    <Switch checked={syncSales} onCheckedChange={setSyncSales} />
-                  </div>
-
-                  {provider?.supportsInventorySync && (
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Inventory Levels</Label>
-                        <p className="text-xs text-muted-foreground">
-                          Keep inventory in sync
-                        </p>
-                      </div>
-                      <Switch checked={syncInventory} onCheckedChange={setSyncInventory} />
-                    </div>
-                  )}
-
-                  {provider?.supportsTaxSync && (
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Tax Rates</Label>
-                        <p className="text-xs text-muted-foreground">Sync tax configurations</p>
-                      </div>
-                      <Switch checked={syncTaxes} onCheckedChange={setSyncTaxes} />
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Payment Methods</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Sync payment method data
-                      </p>
-                    </div>
-                    <Switch checked={syncPayments} onCheckedChange={setSyncPayments} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="advanced" className="space-y-6">
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Settings className="w-5 h-5 mr-2" />
-                  Advanced Configuration
-                </CardTitle>
-                <CardDescription>Fine-tune your POS integration</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="location-id">Location ID</Label>
-                  <Input
-                    id="location-id"
-                    placeholder="Enter location ID (if applicable)"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    For multi-location setups, specify which location to sync
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="merchant-id">Merchant ID</Label>
-                  <Input
-                    id="merchant-id"
-                    placeholder="Enter merchant ID (if applicable)"
-                  />
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Retry Failed Syncs</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Automatically retry failed synchronizations
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Log Sync Activity</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Keep detailed logs of all sync operations
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+          </CardContent>
+        </Card>
       )}
 
-      {isConnected && (
+      {/* Provider Selection (when not connected) */}
+      {!isConnected && (
         <Card className="shadow-soft">
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Clock className="w-5 h-5 mr-2" />
-              Sync Management
+              <Plug className="w-5 h-5 mr-2" />
+              Connect Your POS
             </CardTitle>
-            <CardDescription>Manage your data synchronization</CardDescription>
+            <CardDescription>
+              Connect your POS system so Miya can pull sales data, analyze trends, and generate prep lists.
+              Each restaurant's data is completely isolated.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Button onClick={handleManualSync} variant="outline" className="w-full">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Manual Sync
-              </Button>
-              <Button onClick={handleSave} className="w-full">
-                Save Settings
-              </Button>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {posProviders.map((prov) => (
+                <button
+                  key={prov.id}
+                  onClick={() => setSelectedProvider(prov.id)}
+                  className={`flex flex-col items-center gap-2 p-6 rounded-xl border-2 transition-all ${
+                    selectedProvider === prov.id
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/40 hover:bg-muted/50'
+                  }`}
+                >
+                  <span className="text-3xl">{prov.logo}</span>
+                  <span className="font-medium">{prov.name}</span>
+                  {prov.supportsOAuth && (
+                    <Badge variant="secondary" className="text-xs">OAuth</Badge>
+                  )}
+                  {!prov.supportsOAuth && (
+                    <Badge variant="outline" className="text-xs">Coming Soon</Badge>
+                  )}
+                </button>
+              ))}
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-              <div className="p-4 bg-secondary rounded-lg">
-                <p className="text-xs text-muted-foreground">Sales Synced</p>
-                <p className="text-2xl font-bold">1,234</p>
+            {selectedProvider && (
+              <div className="pt-4">
+                <Separator className="mb-4" />
+                {provider?.supportsOAuth ? (
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                      <Key className="w-5 h-5 text-blue-600 mt-0.5" />
+                      <div className="text-sm">
+                        <p className="font-medium text-blue-900 dark:text-blue-100">Secure OAuth Connection</p>
+                        <p className="text-blue-700 dark:text-blue-300 mt-1">
+                          You'll be redirected to {provider.name} to authorize Mizan AI. We never see your
+                          {provider.name} password. Your data is encrypted and isolated to your restaurant only.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => handleOAuthConnect(selectedProvider)}
+                      className="w-full"
+                      size="lg"
+                      disabled={isConnecting}
+                    >
+                      {isConnecting ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                      )}
+                      Connect to {provider.name}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
+                    <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium text-amber-900 dark:text-amber-100">{provider?.name} integration coming soon</p>
+                      <p className="text-amber-700 dark:text-amber-300 mt-1">
+                        Square is currently the only supported POS. We're working on {provider?.name} next.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="p-4 bg-secondary rounded-lg">
-                <p className="text-xs text-muted-foreground">Items Synced</p>
-                <p className="text-2xl font-bold">456</p>
-              </div>
-              <div className="p-4 bg-secondary rounded-lg">
-                <p className="text-xs text-muted-foreground">Last Sync</p>
-                <p className="text-sm font-medium">2 min ago</p>
-              </div>
-              <div className="p-4 bg-secondary rounded-lg">
-                <p className="text-xs text-muted-foreground">Status</p>
-                <Badge variant="default" className="mt-1">Active</Badge>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Sync Management (when connected) */}
+      {isConnected && (
+        <>
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <RefreshCw className="w-5 h-5 mr-2" />
+                Sync Settings
+              </CardTitle>
+              <CardDescription>Configure what data to sync and how often</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-0.5">
+                  <Label>Automatic Sync</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Automatically sync data at regular intervals
+                  </p>
+                </div>
+                <Switch checked={autoSync} onCheckedChange={setAutoSync} />
+              </div>
+
+              {autoSync && (
+                <div className="space-y-2">
+                  <Label htmlFor="sync-interval">Sync Interval</Label>
+                  <Select value={syncInterval} onValueChange={setSyncInterval}>
+                    <SelectTrigger id="sync-interval">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">Every 5 minutes</SelectItem>
+                      <SelectItem value="15">Every 15 minutes</SelectItem>
+                      <SelectItem value="30">Every 30 minutes</SelectItem>
+                      <SelectItem value="60">Every hour</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h4 className="font-medium">Data to Sync</h4>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Sales & Orders</Label>
+                    <p className="text-xs text-muted-foreground">Orders, payments, and transactions</p>
+                  </div>
+                  <Switch checked={syncSales} onCheckedChange={setSyncSales} />
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Menu & Catalog</Label>
+                    <p className="text-xs text-muted-foreground">Keep menu items in sync with POS</p>
+                  </div>
+                  <Switch checked={syncInventory} onCheckedChange={setSyncInventory} />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Tax Rates</Label>
+                    <p className="text-xs text-muted-foreground">Sync tax configurations</p>
+                  </div>
+                  <Switch checked={syncTaxes} onCheckedChange={setSyncTaxes} />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Payment Methods</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Sync payment method data
+                    </p>
+                  </div>
+                  <Switch checked={syncPayments} onCheckedChange={setSyncPayments} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Clock className="w-5 h-5 mr-2" />
+                Manual Actions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button
+                  onClick={handleManualSync}
+                  variant="outline"
+                  className="flex-1"
+                  disabled={isSyncing}
+                >
+                  {isSyncing ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                  )}
+                  Sync Now
+                </Button>
+                <Button
+                  onClick={() => {
+                    const settings = {
+                      provider: selectedProvider,
+                      autoSync,
+                      syncInterval: parseInt(syncInterval),
+                      syncSales,
+                      syncInventory,
+                      syncTaxes,
+                      syncPayments,
+                    };
+                    onSave?.(settings);
+                    toast.success('Sync settings saved!');
+                  }}
+                  className="flex-1"
+                >
+                  Save Settings
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   );
