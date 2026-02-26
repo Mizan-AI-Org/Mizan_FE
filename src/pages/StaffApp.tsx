@@ -2703,20 +2703,6 @@ const AttendanceTab: React.FC = () => {
     const liveTo = Math.min(liveFrom + livePageSize, totalLive);
     const paginatedLiveList = filteredLiveList.slice(liveFrom, liveTo);
 
-    // Helper for timeline width calculation (08:00 to 22:00 window = 14 hours)
-    const getTimelinePosition = (timeStr: string | null) => {
-        if (!timeStr) return 0;
-        const [h, m] = timeStr.split(':').map(Number);
-        const minutes = (h * 60) + m;
-        const startMinutes = 8 * 60; // 08:00
-        const endMinutes = 22 * 60; // 22:00
-        const totalWindow = endMinutes - startMinutes;
-
-        // Clamp
-        const relative = Math.max(0, Math.min(minutes - startMinutes, totalWindow));
-        return (relative / totalWindow) * 100;
-    };
-
     return (
         <div className="space-y-8">
             {/* 1. Top Summary Cards */}
@@ -2805,59 +2791,6 @@ const AttendanceTab: React.FC = () => {
                     </CardContent>
                 </Card>
             </div>
-
-            {/* 2. Shift Timeline */}
-            <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hidden md:block">
-                <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg font-bold text-slate-900 dark:text-white">{t("staff.attendance.shift_timeline")}</CardTitle>
-                        <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
-                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> {t("staff.attendance.on_time")}</span>
-                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500"></div> {t("staff.attendance.late")}</span>
-                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div> {t("staff.attendance.absent")}</span>
-                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-slate-400"></div> {t("staff.attendance.shift_over")}</span>
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="relative h-16 pt-6">
-                        {/* Time Markers */}
-                        <div className="absolute top-0 left-0 w-full h-full pointer-events-none flex justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                            <span>08:00</span>
-                            <span>12:00</span>
-                            <span>16:00</span>
-                            <span>20:00</span>
-                            <span>22:00</span>
-                        </div>
-                        {/* Axis Line */}
-                        <div className="absolute top-6 left-0 w-full h-px bg-slate-100 dark:bg-slate-800"></div>
-
-                        {/* Dots */}
-                        {attendanceList.map((item) => {
-                            if (!item.clock_in && item.status !== 'absent') return null;
-
-                            let colorClass = "bg-slate-300";
-                            if (item.status === 'on_time') colorClass = "bg-emerald-500";
-                            if (item.status === 'late') colorClass = "bg-amber-500";
-                            if (item.status === 'absent') colorClass = "bg-red-500";
-                            if (item.status === 'clocked_out') colorClass = "bg-slate-400";
-
-                            // If absent, use shift start time for position
-                            const timeToUse = item.clock_in ? item.clock_in : (item.shift?.start || "09:00");
-                            const leftPos = getTimelinePosition(timeToUse);
-
-                            return (
-                                <div
-                                    key={item.staff.id}
-                                    className={cn("absolute top-5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 shadow-sm transform -translate-x-1/2 transition-all hover:scale-125 z-10", colorClass)}
-                                    style={{ left: `${leftPos}%` }}
-                                    title={`${item.staff.name}: ${item.status === 'clocked_out' ? 'Shift Over' : item.status}`}
-                                ></div>
-                            )
-                        })}
-                    </div>
-                </CardContent>
-            </Card>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
                 {/* 3. Live Attendance Table - scalable for 100+ staff */}

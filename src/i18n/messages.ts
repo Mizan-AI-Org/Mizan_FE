@@ -4,7 +4,7 @@ import i18n from '@/i18n';
 export const translateApiError = (error: AxiosError<any>): string => {
   const status = error.response?.status;
   const data: any = error.response?.data || {};
-  const detail = data?.detail || data?.message;
+  const detail = data?.detail || data?.error || data?.message;
 
   if (status) {
     const key = `errors.http.${status}`;
