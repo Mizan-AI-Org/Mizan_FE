@@ -31,7 +31,8 @@ import { TableSkeleton, CardGridSkeleton } from "@/components/skeletons";
 
 type SubmittedChecklist = {
   id: string;
-  template?: { id: string; name?: string; description?: string } | null;
+  source_type?: 'execution' | 'shift_progress';
+  template?: { id: string; name?: string; description?: string; category?: string } | null;
   submitted_by?: { id?: string; name?: string } | null;
   submitted_at?: string | null;
   status?: string | null;
@@ -117,6 +118,7 @@ const ManagerReviewDashboard: React.FC = () => {
   const [filterDate, setFilterDate] = useState("");
   const [filterType, setFilterType] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailSourceType, setDetailSourceType] = useState<'execution' | 'shift_progress'>('execution');
   const [reviewComment, setReviewComment] = useState<string>("");
 
   // Pagination state for Submitted Checklists
@@ -138,6 +140,7 @@ const ManagerReviewDashboard: React.FC = () => {
     queryKey: ["manager-submitted-checklists", filterDate, filterSubmitter, filterType],
     queryFn: async () => {
       const url = toAbsoluteUrl(`${API_BASE}/checklists/executions/submitted/`);
+      url.searchParams.set("page_size", "200");
       if (filterDate) url.searchParams.set("date", filterDate);
       if (filterSubmitter) url.searchParams.set("submitted_by", filterSubmitter);
       if (filterType) url.searchParams.set("type", filterType);
@@ -196,9 +199,11 @@ const ManagerReviewDashboard: React.FC = () => {
         const displayStatus = review || (approved === true ? 'APPROVED' : approved === false ? 'PENDING' : rawStatus);
         const tmplRaw = (itm.template || itm.template_info || null) as unknown;
         const tmplRec = isRec(tmplRaw) ? tmplRaw : null;
-        const template = tmplRec && ("id" in tmplRec) ? { id: String(tmplRec.id ?? ""), name: typeof tmplRec.name === "string" ? tmplRec.name : undefined, description: typeof tmplRec.description === "string" ? tmplRec.description : undefined } : null;
+        const template = tmplRec && ("id" in tmplRec) ? { id: String(tmplRec.id ?? ""), name: typeof tmplRec.name === "string" ? tmplRec.name : undefined, description: typeof tmplRec.description === "string" ? tmplRec.description : undefined, category: typeof (tmplRec as Record<string, unknown>).category === "string" ? (tmplRec as Record<string, unknown>).category as string : undefined } : null;
+        const sourceType = (typeof itm.source_type === "string" && (itm.source_type === "execution" || itm.source_type === "shift_progress")) ? itm.source_type : "execution";
         return {
           id: String(itm.id ?? ""),
+          source_type: sourceType,
           template,
           submitted_at: (typeof itm.submitted_at === "string" ? itm.submitted_at : (typeof itm.completed_at === "string" ? itm.completed_at : (typeof itm.updated_at === "string" ? itm.updated_at : null))),
           status: displayStatus,
@@ -213,44 +218,55 @@ const ManagerReviewDashboard: React.FC = () => {
         } as SubmittedChecklist;
       });
     },
-    refetchInterval: 15000,
+    refetchInterval: 10000,
     staleTime: 0,
   });
 
   const { notifications } = useNotifications();
 
-  const approveMutation = useMutation({
-    mutationFn: async (vars: { id: string; reason?: string }) => {
-      const res = await fetch(`${API_BASE}/checklists/executions/${vars.id}/manager_review/`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("access_token")}` }, body: JSON.stringify({ decision: "APPROVED", reason: vars.reason || "" }), credentials: "include" });
+  const managerReviewMutation = useMutation({
+    mutationFn: async (vars: { id: string; decision: 'APPROVED' | 'REJECTED'; reason?: string; source_type?: string }) => {
+      const isShift = vars.source_type === 'shift_progress';
+      const url = isShift
+        ? `${API_BASE}/checklists/shift-progress/${vars.id}/manager_review/`
+        : `${API_BASE}/checklists/executions/${vars.id}/manager_review/`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+        body: JSON.stringify({ decision: vars.decision, reason: vars.reason || "", notes: vars.reason || "" }),
+        credentials: "include",
+      });
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { detail?: string; error?: string; message?: string };
-        throw new Error(err?.detail || err?.error || err?.message || "Failed to approve submission");
+        throw new Error(err?.detail || err?.error || err?.message || `Failed to ${vars.decision.toLowerCase()} submission`);
       }
       return res.json();
     },
-    onSuccess: async (_data, variables) => { queryClient.invalidateQueries({ queryKey: ["manager-submitted-checklists"] }); toast.success(t("toasts.submission_approved")); try { await api.logAdminAction(String(variables.id), { action: 'MANAGER_REVIEW_DECISION', message: 'Approved' }); } catch { /* ignore */ } },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Approval failed"),
-  });
-  const rejectMutation = useMutation({
-    mutationFn: async (vars: { id: string; reason?: string }) => {
-      const res = await fetch(`${API_BASE}/checklists/executions/${vars.id}/manager_review/`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("access_token")}` }, body: JSON.stringify({ decision: "REJECTED", reason: vars.reason || "" }), credentials: "include" });
-      if (!res.ok) {
-        const err = (await res.json().catch(() => ({}))) as { detail?: string; error?: string; message?: string };
-        throw new Error(err?.detail || err?.error || err?.message || "Failed to reject submission");
-      }
-      return res.json();
+    onSuccess: async (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["manager-submitted-checklists"] });
+      queryClient.invalidateQueries({ queryKey: ["manager-review-detail"] });
+      toast.success(variables.decision === 'APPROVED' ? t("toasts.submission_approved") : t("toasts.submission_rejected"));
+      try { await api.logAdminAction(String(variables.id), { action: 'MANAGER_REVIEW_DECISION', message: variables.decision }); } catch { /* ignore */ }
     },
-    onSuccess: async (_data, variables) => { queryClient.invalidateQueries({ queryKey: ["manager-submitted-checklists"] }); toast.success(t("toasts.submission_rejected")); try { await api.logAdminAction(String(variables.id), { action: 'MANAGER_REVIEW_DECISION', message: 'Rejected' }); } catch { /* ignore */ } },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Rejection failed"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Review failed"),
   });
+  const approveMutation = { mutate: (v: { id: string; reason?: string; source_type?: string }) => managerReviewMutation.mutate({ ...v, decision: 'APPROVED' }), isPending: managerReviewMutation.isPending };
+  const rejectMutation = { mutate: (v: { id: string; reason?: string; source_type?: string }) => managerReviewMutation.mutate({ ...v, decision: 'REJECTED' }), isPending: managerReviewMutation.isPending };
 
   const detailQuery = useQuery({
-    queryKey: ["manager-review-detail", detailId],
+    queryKey: ["manager-review-detail", detailId, detailSourceType],
     enabled: !!detailId,
     queryFn: async () => {
       const id = String(detailId);
-      const data = await api.getChecklistExecution(id);
-      return data;
+      if (detailSourceType === 'shift_progress') {
+        const res = await fetch(`${API_BASE}/checklists/shift-progress/${id}/`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Failed to load shift checklist detail");
+        return res.json();
+      }
+      return api.getChecklistExecution(id);
     },
     staleTime: 0,
   });
@@ -813,7 +829,12 @@ const ManagerReviewDashboard: React.FC = () => {
                         <TableRow key={s.id} className={isCompletedLike(s.status) ? '' : 'bg-yellow-50 dark:bg-yellow-900/20'}>
                           <TableCell>{s.submitted_by?.name || '—'}</TableCell>
                           <TableCell>{s.submitted_at ? new Date(s.submitted_at).toLocaleString() : '—'}</TableCell>
-                          <TableCell>{s.template?.name || '—'}</TableCell>
+                          <TableCell>
+                            <span>{s.template?.name || '—'}</span>
+                            {(s as SubmittedChecklist).source_type === 'shift_progress' ? (
+                              <Badge variant="outline" className="ml-1 text-[10px]">WhatsApp</Badge>
+                            ) : null}
+                          </TableCell>
                           <TableCell>
                             <Badge variant={isCompletedLike(s.status) ? 'secondary' : 'outline'} className="text-xs">{s.status || '—'}</Badge>
                           </TableCell>
@@ -839,7 +860,7 @@ const ManagerReviewDashboard: React.FC = () => {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Button size="sm" variant="outline" onClick={async () => { setDetailId(s.id); try { await api.logAdminAction(String(s.id), { action: 'VIEW_SUBMISSION', message: 'Opened submission details' }); } catch { /* ignore */ } }}>View</Button>
+                            <Button size="sm" variant="outline" onClick={async () => { setDetailId(s.id); setDetailSourceType((s as SubmittedChecklist).source_type || 'execution'); setReviewComment(s.notes || ''); try { await api.logAdminAction(String(s.id), { action: 'VIEW_SUBMISSION', message: 'Opened submission details' }); } catch { /* ignore */ } }}>View</Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -917,9 +938,9 @@ const ManagerReviewDashboard: React.FC = () => {
                       <Badge variant="outline">Quality</Badge>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button size="sm" onClick={() => approveMutation.mutate({ id: s.id })}>Approve</Button>
-                      <Button size="sm" variant="outline" onClick={() => rejectMutation.mutate({ id: s.id })}>Reject</Button>
-                      <Button size="sm" variant="ghost" onClick={() => toast.info('Open detailed report…')}>View Report</Button>
+                      <Button size="sm" onClick={() => { setDetailId(s.id); setDetailSourceType(s.source_type || 'execution'); setReviewComment(s.notes || ''); }}>View</Button>
+                      <Button size="sm" onClick={() => approveMutation.mutate({ id: s.id, source_type: s.source_type })}>Approve</Button>
+                      <Button size="sm" variant="outline" onClick={() => rejectMutation.mutate({ id: s.id, source_type: s.source_type })}>Reject</Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -1382,7 +1403,15 @@ const ManagerReviewDashboard: React.FC = () => {
                       <div className="space-y-3 text-sm">
                         <div className="space-y-1">
                           <div className="font-medium">{t("common.checklist_report")}</div>
-                          {exec.assigned_shift_info ? (
+                          {(exec as any).shift ? (
+                            <div className="text-xs text-muted-foreground">
+                              Shift: {(exec as any).shift.shift_date || '—'}{' '}
+                              {(exec as any).shift.start_time ? `(${new Date((exec as any).shift.start_time).toLocaleTimeString()}` : ''}
+                              {(exec as any).shift.end_time ? ` – ${new Date((exec as any).shift.end_time).toLocaleTimeString()})` : (exec as any).shift.start_time ? ')' : ''}
+                              {(exec as any).shift.role ? ` • Role: ${(exec as any).shift.role}` : ''}
+                              {(exec as any).channel ? ` • Channel: ${(exec as any).channel}` : ''}
+                            </div>
+                          ) : exec.assigned_shift_info ? (
                             <div className="text-xs text-muted-foreground">
                               Shift: {exec.assigned_shift_info.shift_date || '—'}{' '}
                               {exec.assigned_shift_info.start_time ? `(${new Date(exec.assigned_shift_info.start_time).toLocaleTimeString()}` : ''}
@@ -1391,15 +1420,19 @@ const ManagerReviewDashboard: React.FC = () => {
                               {exec.assigned_shift_info.department ? ` • Dept: ${exec.assigned_shift_info.department}` : ''}
                             </div>
                           ) : null}
+                          {(exec as any).manager_notes ? (
+                            <div className="text-xs mt-1 p-2 bg-muted/50 rounded">Manager notes: {(exec as any).manager_notes}</div>
+                          ) : null}
                         </div>
 
                         <div className="font-medium">Steps</div>
-                        {(exec.step_responses || []).map((sr: ExecutionStepResponse, idx: number) => (
-                          <div key={sr.id || idx} className="border rounded-md p-3">
-                            <div className="font-medium">{sr.step?.title || `Step ${idx + 1}`}</div>
-                            <div className="text-xs text-muted-foreground">{sr.step?.description || ''}</div>
+                        {(exec.step_responses || []).map((sr: ExecutionStepResponse & { title?: string; response?: string }, idx: number) => (
+                          <div key={(sr as any).id || idx} className="border rounded-md p-3">
+                            <div className="font-medium">{(sr as any).title || sr.step?.title || `Step ${idx + 1}`}</div>
+                            <div className="text-xs text-muted-foreground">{(sr as any).description || sr.step?.description || ''}</div>
                             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                              <Badge variant="outline">Status: {sr.status || (sr.is_completed ? 'COMPLETED' : 'PENDING')}</Badge>
+                              <Badge variant="outline">Status: {(sr as any).status || sr.status || (sr.is_completed ? 'COMPLETED' : 'PENDING')}</Badge>
+                              {(sr as any).response ? (<Badge variant="outline">Response: {(sr as any).response}</Badge>) : null}
                               {sr.text_response ? (<Badge variant="outline">Response: {sr.text_response}</Badge>) : null}
                               {sr.measurement_value != null ? (<Badge variant="outline">Measure: {String(sr.measurement_value)}{sr.step?.measurement_unit ? ` ${sr.step.measurement_unit}` : ''}</Badge>) : null}
                               {typeof sr.boolean_response === 'boolean' ? (<Badge variant="outline">Answer: {sr.boolean_response ? 'Yes' : 'No'}</Badge>) : null}
@@ -1450,8 +1483,8 @@ const ManagerReviewDashboard: React.FC = () => {
                   <Textarea value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} placeholder={t("analytics.add_review_comments")} />
                   <div className="flex items-center gap-2 justify-end">
                     <Button variant="outline" onClick={() => setDetailId(null)}>Close</Button>
-                    <Button onClick={() => approveMutation.mutate({ id: String(summary.id), reason: reviewComment })} disabled={approveMutation.isPending}>Approve</Button>
-                    <Button variant="destructive" onClick={() => rejectMutation.mutate({ id: String(summary.id), reason: reviewComment })} disabled={rejectMutation.isPending}>Reject</Button>
+                    <Button onClick={() => approveMutation.mutate({ id: String(summary.id), reason: reviewComment, source_type: (summary as SubmittedChecklist).source_type })} disabled={approveMutation.isPending}>Approve</Button>
+                    <Button variant="destructive" onClick={() => rejectMutation.mutate({ id: String(summary.id), reason: reviewComment, source_type: (summary as SubmittedChecklist).source_type })} disabled={rejectMutation.isPending}>Reject</Button>
                   </div>
                 </div>
               </div>
