@@ -135,7 +135,10 @@ export const LuaWidget: React.FC = () => {
 
         if (window.LuaPop && accessToken) {
             // Base identity for backend/webhook linkage
-            const baseSessionId = `tenant-${user.restaurant_data?.id || user.restaurant}-user-${user.id}`;
+            const restaurantIdForSession = user.restaurant_data?.id
+                ?? (typeof user.restaurant === "string" ? user.restaurant : (user.restaurant as { id?: string })?.id)
+                ?? user.restaurant;
+            const baseSessionId = `tenant-${restaurantIdForSession}-user-${user.id}`;
             // Per-login nonce ensures a fresh conversation after every logout/login cycle
             let loginNonce = sessionStorage.getItem('lua_login_nonce');
             if (!loginNonce) {
@@ -151,9 +154,14 @@ export const LuaWidget: React.FC = () => {
                 const now = new Date();
                 const userFullName = `${user.first_name} ${user.last_name}`.trim() || "Unknown User";
 
+                const restaurantId = user.restaurant_data?.id
+                    ?? (typeof user.restaurant === "string" ? user.restaurant : (user.restaurant as { id?: string })?.id)
+                    ?? user.restaurant;
+                const restaurantName = user.restaurant_data?.name || user.restaurant_name
+                    || (typeof user.restaurant === "object" && user.restaurant !== null ? (user.restaurant as { name?: string }).name : undefined);
                 console.log("[LuaWidget] Initializing with context:", {
-                    restaurantName: user.restaurant_data?.name || user.restaurant_name,
-                    restaurantId: user.restaurant_data?.id || user.restaurant,
+                    restaurantName: restaurantName || "Unknown",
+                    restaurantId,
                     role: user.role
                 });
 
@@ -167,8 +175,8 @@ export const LuaWidget: React.FC = () => {
                     // Structured context (preferred over runtimeContext string)
                     // Helps the agent avoid asking for restaurant ID.
                     metadata: {
-                        restaurantId: user.restaurant_data?.id || user.restaurant,
-                        restaurantName: user.restaurant_data?.name || user.restaurant_name,
+                        restaurantId,
+                        restaurantName: restaurantName || user.restaurant_data?.name || user.restaurant_name || "Unknown",
                         userId: user.id,
                         role: user.role,
                         token: accessToken,
@@ -192,7 +200,7 @@ export const LuaWidget: React.FC = () => {
                     // Session context – date suffix gives fresh conversation each day; metadata preserves user+restaurant context
                     sessionId,
                     runtimeContext: [
-                        `Restaurant: ${user.restaurant_data?.name || user.restaurant_name || "Unknown"} (ID: ${user.restaurant_data?.id || user.restaurant}), User: ${userFullName} (ID: ${user.id}), Role: ${user.role}, Token: ${accessToken}, Current Time: ${now.toLocaleDateString()} ${now.toLocaleTimeString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
+                        `Restaurant: ${restaurantName || user.restaurant_data?.name || user.restaurant_name || "Unknown"} (ID: ${restaurantId}), User: ${userFullName} (ID: ${user.id}), Role: ${user.role}, Token: ${accessToken}, Current Time: ${now.toLocaleDateString()} ${now.toLocaleTimeString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
                         "Operational directives: You are Miya, the AI Operations Manager for this restaurant only. Never hallucinate: verify every answer from the database, filtered by restaurant_id, date, and staff. Execute actions only when permitted and after validating permissions, staff, and shift exist. Respect role: managers get full team visibility and recommendations; staff see only their own data. Resolve relative dates (e.g. Tuesday 17th) to the current calendar week. When giving insights, label as Verified Data (state confidently), Recommendation (predictive), or Missing Data (state limitation). Precision over creativity; verification over assumption.",
                     ].join(" | "),
 
