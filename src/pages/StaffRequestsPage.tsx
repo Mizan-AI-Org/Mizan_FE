@@ -27,6 +27,7 @@ type StaffRequestComment = {
 type StaffRequest = {
   id: string;
   staff_name?: string;
+  staff_display_name?: string;
   staff_phone?: string;
   category: string;
   priority: string;
@@ -261,7 +262,7 @@ const StaffRequestsPage: React.FC = () => {
                                   )}
                                 </div>
                                 <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                                  <span className="font-medium text-foreground/80 truncate">{(r.staff_name || "Staff")}</span>
+                                  <span className="font-bold text-foreground truncate">{(r.staff_display_name || r.staff_name || "Staff")}</span>
                                   <span>•</span>
                                   <span className="flex items-center gap-1">
                                     {getCategoryIcon(r.category)}
@@ -320,7 +321,7 @@ const StaffRequestsPage: React.FC = () => {
                         </div>
                         <h3 className="text-2xl font-bold text-foreground tracking-tight leading-tight">{selected.subject || "Staff request"}</h3>
                         <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                          <span className="font-semibold text-foreground/80">{(selected.staff_name || "Staff")}</span>
+                          <span className="font-bold text-foreground">{(selected.staff_display_name || selected.staff_name || "Staff")}</span>
                           <span>•</span>
                           <span>{selected.staff_phone || "No phone"}</span>
                         </div>

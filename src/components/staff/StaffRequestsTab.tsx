@@ -26,6 +26,7 @@ type StaffRequestComment = {
 type StaffRequest = {
   id: string;
   staff_name?: string;
+  staff_display_name?: string;
   staff_phone?: string;
   category: string;
   priority: string;
@@ -201,7 +202,7 @@ const StaffRequestsTab: React.FC = () => {
                             <div className="min-w-0">
                               <div className="font-medium truncate">{r.subject || t("staff.request_fallback")}</div>
                               <div className="text-xs text-muted-foreground truncate">
-                                {(r.staff_name || t("staff.page.title"))}{r.staff_phone ? ` • ${r.staff_phone}` : ""} • {r.category}
+                                <span className="font-bold text-foreground">{(r.staff_display_name || r.staff_name || t("staff.page.title"))}</span>{r.staff_phone ? ` • ${r.staff_phone}` : ""} • {r.category}
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-1">
@@ -246,7 +247,7 @@ const StaffRequestsTab: React.FC = () => {
                       <div className="min-w-0">
                         <div className="text-lg font-semibold">{selected.subject || t("staff.request_fallback")}</div>
                         <div className="text-sm text-muted-foreground">
-                          {(selected.staff_name || t("staff.page.title"))}{selected.staff_phone ? ` • ${selected.staff_phone}` : ""} • {selected.category}
+                          <span className="font-bold text-foreground">{(selected.staff_display_name || selected.staff_name || t("staff.page.title"))}</span>{selected.staff_phone ? ` • ${selected.staff_phone}` : ""} • {selected.category}
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1">
