@@ -156,7 +156,7 @@ export default function Dashboard() {
   const cardHeaderBase = "flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6";
 
   const insights = (summary?.insights?.items || []) as InsightItem[];
-  const insightsVisible = showAllInsights ? insights.slice(0, 5) : insights.slice(0, 3);
+  const insightsVisible = showAllInsights ? insights.slice(0, 8) : insights.slice(0, 3);
   const criticalCount = Number(summary?.insights?.counts?.CRITICAL || 0);
   const operationalCount = Number(summary?.insights?.counts?.OPERATIONAL || 0);
   const attentionNow = criticalCount + operationalCount;
@@ -307,7 +307,9 @@ export default function Dashboard() {
                               ? "bg-amber-500"
                               : level === "PERFORMANCE"
                                 ? "bg-blue-500"
-                                : "bg-emerald-500";
+                                : level === "RESOLVED"
+                                  ? "bg-slate-400 dark:bg-slate-500"
+                                  : "bg-emerald-500";
 
                         const levelPill =
                           level === "CRITICAL"
@@ -316,7 +318,9 @@ export default function Dashboard() {
                               ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
                               : level === "PERFORMANCE"
                                 ? "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200"
-                                : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200";
+                                : level === "RESOLVED"
+                                  ? "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
+                                  : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200";
 
                         const containerExtra =
                           level === "CRITICAL"
@@ -346,7 +350,7 @@ export default function Dashboard() {
                                 </div>
                                 {it.recommended_action && (
                                   <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug line-clamp-2 mt-0.5">
-                                    {level === "CRITICAL" ? "Action" : "Recommendation"}: {it.recommended_action}
+                                    {level === "CRITICAL" ? "Action" : level === "RESOLVED" ? "Resolved" : "Recommendation"}: {it.recommended_action}
                                   </div>
                                 )}
                               </div>
@@ -370,7 +374,9 @@ export default function Dashboard() {
                           ? "bg-amber-500"
                           : level === "PERFORMANCE"
                             ? "bg-blue-500"
-                            : "bg-emerald-500";
+                            : level === "RESOLVED"
+                              ? "bg-slate-400 dark:bg-slate-500"
+                              : "bg-emerald-500";
 
                     const levelPill =
                       level === "CRITICAL"
@@ -379,7 +385,9 @@ export default function Dashboard() {
                           ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
                           : level === "PERFORMANCE"
                             ? "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200"
-                            : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200";
+                            : level === "RESOLVED"
+                              ? "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
+                              : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200";
 
                     return (
                       <button
@@ -404,7 +412,7 @@ export default function Dashboard() {
                             </div>
                             {it.recommended_action && (
                               <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug line-clamp-2 mt-0.5">
-                                {level === "CRITICAL" ? "Action" : "Recommendation"}: {it.recommended_action}
+                                {level === "CRITICAL" ? "Action" : level === "RESOLVED" ? "Resolved" : "Recommendation"}: {it.recommended_action}
                               </div>
                             )}
                           </div>
