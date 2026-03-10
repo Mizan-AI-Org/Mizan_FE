@@ -675,6 +675,7 @@
   "analytics.incidents_subtitle": "عرض وإدارة تقارير حوادث السلامة من الموظفين",
   "analytics.all_severities": "جميع الدرجات",
   "analytics.all_statuses": "جميع الحالات",
+  "analytics.open_only": "المفتوحة فقط",
   "analytics.no_incidents_found": "لم يتم العثور على حوادث",
   "analytics.try_adjusting_filters_incidents": "غيّر الفلاتر",
   "analytics.all_incidents_here": "ستظهر جميع الحوادث هنا",
