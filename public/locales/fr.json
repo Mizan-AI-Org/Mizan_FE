@@ -898,6 +898,7 @@
   "analytics.incidents_subtitle": "Voir et gérer les signalements d'incidents de sécurité du personnel",
   "analytics.all_severities": "Toutes les gravités",
   "analytics.all_statuses": "Tous les statuts",
+  "analytics.open_only": "Ouverts uniquement",
   "analytics.no_incidents_found": "Aucun incident trouvé",
   "analytics.try_adjusting_filters_incidents": "Modifiez vos filtres",
   "analytics.all_incidents_here": "Tous les incidents apparaîtront ici",

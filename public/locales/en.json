@@ -902,6 +902,7 @@
   "analytics.incidents_subtitle": "View and manage safety incident reports from staff",
   "analytics.all_severities": "All Severities",
   "analytics.all_statuses": "All Statuses",
+  "analytics.open_only": "Open only",
   "analytics.no_incidents_found": "No incidents found",
   "analytics.try_adjusting_filters_incidents": "Try adjusting your filters",
   "analytics.all_incidents_here": "All incidents will appear here",
