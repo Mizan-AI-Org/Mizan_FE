@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { FormSectionSkeleton } from "@/components/skeletons";
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";
-import MenuScanner from "@/components/MenuScanner";
+import ReservationIntegration from "@/components/ReservationIntegration";
 // Lazy-load heavy settings sections for better mobile performance
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
@@ -554,6 +554,8 @@ export default function Settings() {
         await fetchUnifiedSettings();
       } else if (posSettings.pos_provider === "CUSTOM") {
         await saveCustomApi();
+      } else if (posSettings.pos_provider === "LIGHTSPEED") {
+        await saveLightSpeed();
       } else {
         toast.error(t("common.coming_soon") || "Coming soon");
       }
@@ -577,6 +579,29 @@ export default function Settings() {
     } catch (error) {
       const axiosErr = error as AxiosError<{ detail?: string; error?: string }>;
       toast.error(translateApiError(axiosErr));
+    }
+  };
+
+  const saveLightSpeed = async () => {
+    if (!posAPIKey || !posSettings.pos_merchant_id) {
+      toast.error("Access token and Business Location ID are required.");
+      return;
+    }
+    setSavingPos(true);
+    try {
+      await apiClient.put("/settings/unified/", {
+        pos_provider: "LIGHTSPEED",
+        pos_api_key: posAPIKey,
+        pos_merchant_id: posSettings.pos_merchant_id,
+      });
+      toast.success("Lightspeed saved. Testing connection...");
+      await testPosConnection();
+      await fetchUnifiedSettings();
+    } catch (error) {
+      console.error("Failed to save Lightspeed:", error);
+      toast.error(t("settings.failed_update_pos"));
+    } finally {
+      setSavingPos(false);
     }
   };
 
@@ -888,7 +913,7 @@ export default function Settings() {
                     <option value="NONE">{t("pos.not_configured")}</option>
                     <option value="SQUARE">Square</option>
                     <option value="TOAST" disabled={posSettings.pos_provider !== "TOAST"}>Toast (Coming soon…)</option>
-                    <option value="LIGHTSPEED" disabled={posSettings.pos_provider !== "LIGHTSPEED"}>Lightspeed (Coming soon…)</option>
+                    <option value="LIGHTSPEED">Lightspeed</option>
                     <option value="CLOVER" disabled={posSettings.pos_provider !== "CLOVER"}>Clover (Coming soon…)</option>
                     <option value="STRIPE" disabled={posSettings.pos_provider !== "STRIPE"}>Stripe (Coming soon…)</option>
                     <option value="CUSTOM">{t("pos.custom_api") || "Custom API"}</option>
@@ -981,6 +1006,54 @@ export default function Settings() {
                         </Button>
                       </div>
                     </div>
+                  ) : posSettings.pos_provider === "LIGHTSPEED" ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-slate-800 dark:text-slate-200">Lightspeed Restaurant K-Series</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            Connect to fetch and display sales from your Lightspeed POS.
+                          </div>
+                        </div>
+                        <Badge variant="outline" className={posSettings.pos_is_connected ? "border-emerald-200 text-emerald-700 dark:text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400"}>
+                          {posSettings.pos_is_connected ? t("settings.connected") : t("settings.not_connected")}
+                        </Badge>
+                      </div>
+                      <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                        <div className="space-y-1">
+                          <Label htmlFor="lightspeed-api-key" className="text-sm font-medium text-slate-700 dark:text-slate-300">Access Token (API Key) *</Label>
+                          <Input
+                            id="lightspeed-api-key"
+                            type={showAPIKey ? "text" : "password"}
+                            placeholder="Bearer token from Lightspeed Developer Portal"
+                            value={posAPIKey}
+                            onChange={(e) => setPosAPIKey(e.target.value)}
+                          />
+                          <p className="text-xs text-slate-400">OAuth2 access token with sales:read scope.</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="lightspeed-location-id" className="text-sm font-medium text-slate-700 dark:text-slate-300">Business Location ID *</Label>
+                          <Input
+                            id="lightspeed-location-id"
+                            type="text"
+                            placeholder="e.g. 45454565682155"
+                            value={posSettings.pos_merchant_id || ""}
+                            onChange={(e) => setPosSettings({ ...posSettings, pos_merchant_id: e.target.value })}
+                          />
+                          <p className="text-xs text-slate-400">Your restaurant location ID in Lightspeed.</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={saveLightSpeed} disabled={savingPos || !posAPIKey || !posSettings.pos_merchant_id} className="flex-1">
+                          {savingPos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                          Save & Connect
+                        </Button>
+                        <Button onClick={testPosConnection} variant="outline" disabled={posTestingConnection || !posSettings.pos_merchant_id || (!posAPIKey && !posSettings.pos_is_connected)}>
+                          {posTestingConnection ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plug className="mr-2 h-4 w-4" />}
+                          Test
+                        </Button>
+                      </div>
+                    </div>
                   ) : posSettings.pos_provider === "NONE" ? null : (
                     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4">
                       <div className="flex items-center justify-between gap-3">
@@ -1027,18 +1100,7 @@ export default function Settings() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle>{t("settings.menu_scanner")}</CardTitle>
-                <CardDescription>
-                  Scan physical menus to digitize them.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <MenuScanner />
-              </CardContent>
-            </Card>
-
+            <ReservationIntegration />
 
           </TabsContent>
         )}

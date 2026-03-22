@@ -1,30 +1,63 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
 import { useAuth } from "../hooks/use-auth";
 import { AuthContextType } from "../contexts/AuthContext.types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BarChart3,
   Users,
   FileText,
   Settings,
-  Sparkles,
-  Calendar,
   ClipboardCheck,
-  Heart,
-  AlertCircle,
-  AlertTriangle,
-  Clock,
-  TrendingUp,
-  ChevronRight,
+  LayoutGrid,
+  Plus,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { Badge } from "@/components/ui/badge";
-import { LiveDateTime } from "@/components/LiveDateTime";
+import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { DashboardSkeleton } from "@/components/skeletons";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+import {
+  DashboardWidgetById,
+  DashboardWidgetId,
+  DASHBOARD_WIDGET_IDS,
+  DEFAULT_DASHBOARD_WIDGET_ORDER,
+  parseStoredWidgetOrder,
+  SortableDashboardWidget,
+  getActionRoute,
+  WIDGET_ADD_ICONS,
+  WIDGET_ADD_DESC_KEYS,
+} from "@/pages/dashboard/DashboardWidgets";
+
+type InsightItem = {
+  id?: string;
+  level?: string;
+  action_url?: string;
+  summary?: string;
+  recommended_action?: string;
+};
 
 type AppItem = {
   name: string;
@@ -91,38 +124,37 @@ const apps: AppItem[] = [
   },
 ];
 
-/** Map backend action_url to a valid frontend route. Default to attendance for "view more" on insight items. */
-function getActionRoute(actionUrl: string | undefined): string {
-  if (!actionUrl) return "/dashboard/attendance";
-  if (actionUrl === "/dashboard/staff-scheduling") return "/dashboard/scheduling";
-  return actionUrl;
-}
-
-type InsightItem = {
-  id?: string;
-  level?: string;
-  action_url?: string;
-  summary?: string;
-  recommended_action?: string;
-};
-
-type TaskDueItem = {
-  label?: string;
-  status?: string;
-};
-
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, hasRole } = useAuth() as AuthContextType;
+  const { user, hasRole, accessToken } = useAuth() as AuthContextType;
   const { t } = useLanguage();
   const [showAllInsights, setShowAllInsights] = useState(false);
+
+  const { data: todaySales, isLoading: salesLoading, isError: salesError } = useQuery({
+    queryKey: ["pos-sales-today", accessToken],
+    queryFn: () => api.getTodaySales(accessToken!),
+    enabled: !!accessToken && hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER"]),
+    staleTime: 0,
+    refetchInterval: 30000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: prepList, isLoading: prepLoading, isError: prepError } = useQuery({
+    queryKey: ["pos-prep-list", accessToken],
+    queryFn: () => api.getPrepList(accessToken!),
+    enabled: !!accessToken && hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER"]),
+    refetchInterval: 300000,
+  });
 
   const { data: summary, isLoading } = useQuery({
     queryKey: ["dashboard-summary"],
     queryFn: () => api.getDashboardSummary(),
+    staleTime: 0,
     refetchInterval: 10000,
     refetchIntervalInBackground: true,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const greeting = useMemo(() => {
@@ -152,15 +184,135 @@ export default function Dashboard() {
   const noShowsDescKey = `dashboard.staffing.no_shows_${noShowsPeriod}` as const;
 
   const cardBase =
-    "border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all duration-300 rounded-2xl";
+    "border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all duration-300 rounded-2xl flex h-full min-h-[200px] flex-col";
   const cardHeaderBase = "flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6";
 
   const insights = (summary?.insights?.items || []) as InsightItem[];
-  const insightsVisible = showAllInsights ? insights.slice(0, 8) : insights.slice(0, 3);
+  const insightsVisible = showAllInsights ? insights.slice(0, 8) : insights.slice(0, 2);
   const criticalCount = Number(summary?.insights?.counts?.CRITICAL || 0);
   const operationalCount = Number(summary?.insights?.counts?.OPERATIONAL || 0);
   const attentionNow = criticalCount + operationalCount;
   const prevCriticalRef = useRef<number>(0);
+
+  const canCustomizeDashboard = hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER"]);
+  const widgetStorageKey = user?.id ? `mizan-dashboard-widget-order:${user.id}` : null;
+  const [customizeMode, setCustomizeMode] = useState(false);
+  const [addWidgetOpen, setAddWidgetOpen] = useState(false);
+  const [widgetOrder, setWidgetOrder] = useState<DashboardWidgetId[]>(() => [...DEFAULT_DASHBOARD_WIDGET_ORDER]);
+  const skipNextPersist = useRef(true);
+
+  useEffect(() => {
+    if (!canCustomizeDashboard || !widgetStorageKey) return;
+    const parsed = parseStoredWidgetOrder(localStorage.getItem(widgetStorageKey));
+    if (parsed) setWidgetOrder(parsed);
+    skipNextPersist.current = false;
+  }, [canCustomizeDashboard, widgetStorageKey]);
+
+  useEffect(() => {
+    if (!canCustomizeDashboard || !widgetStorageKey || skipNextPersist.current) return;
+    localStorage.setItem(widgetStorageKey, JSON.stringify({ order: widgetOrder }));
+  }, [widgetOrder, canCustomizeDashboard, widgetStorageKey]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setWidgetOrder((items) => {
+      const oldIndex = items.indexOf(active.id as DashboardWidgetId);
+      const newIndex = items.indexOf(over.id as DashboardWidgetId);
+      if (oldIndex < 0 || newIndex < 0) return items;
+      return arrayMove(items, oldIndex, newIndex);
+    });
+  }, []);
+
+  const hiddenWidgets = useMemo(
+    () => (DASHBOARD_WIDGET_IDS as readonly DashboardWidgetId[]).filter((id) => !widgetOrder.includes(id)),
+    [widgetOrder],
+  );
+
+  const widgetBundle = useMemo(
+    () => ({
+      t,
+      navigate,
+      cardBase,
+      cardHeaderBase,
+      summary: summary as Record<string, unknown>,
+      isLoading,
+      showAllInsights,
+      setShowAllInsights,
+      criticalCount,
+      insights,
+      insightsVisible,
+      attentionNow,
+      noShowsCount,
+      noShowsLabelKey,
+      noShowsDescKey,
+      todaySales,
+      prepList,
+      salesLoading,
+      prepLoading,
+      hasRole,
+    }),
+    [
+      t,
+      navigate,
+      cardBase,
+      cardHeaderBase,
+      summary,
+      isLoading,
+      showAllInsights,
+      criticalCount,
+      insights,
+      insightsVisible,
+      attentionNow,
+      noShowsCount,
+      noShowsLabelKey,
+      noShowsDescKey,
+      todaySales,
+      prepList,
+      salesLoading,
+      prepLoading,
+      hasRole,
+      setShowAllInsights,
+    ],
+  );
+
+  const widgetLabel = useCallback(
+    (id: DashboardWidgetId) => {
+      switch (id) {
+        case "insights":
+          return t("dashboard.insights.title");
+        case "staffing":
+          return t("dashboard.staffing.title");
+        case "sales_or_tasks":
+          return hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER"])
+            ? t("dashboard.sales.title")
+            : t("dashboard.tasks.title");
+        case "operations":
+          return t("dashboard.operations.title");
+        case "wellbeing":
+          return t("dashboard.wellbeing.title");
+        case "live_attendance":
+          return t("dashboard.live_attendance.title");
+        case "compliance_risk":
+          return t("dashboard.compliance_risk.title");
+        case "inventory_delivery":
+          return t("dashboard.inventory_delivery.title");
+        case "task_execution":
+          return t("dashboard.task_execution.title");
+        case "take_orders":
+          return t("dashboard.take_orders.title");
+        default:
+          return id;
+      }
+    },
+    [hasRole, t],
+  );
+
+  const displayOrder = canCustomizeDashboard ? widgetOrder : DEFAULT_DASHBOARD_WIDGET_ORDER;
 
   useEffect(() => {
     if (isLoading) return;
@@ -187,16 +339,53 @@ export default function Dashboard() {
   }, [criticalCount, isLoading, insights, navigate, t]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0f1419] p-4 md:p-6 lg:p-7 pb-28 font-sans antialiased text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0f1419] p-4 md:p-6 lg:p-7 pb-40 font-sans antialiased text-slate-900 dark:text-slate-100 transition-colors duration-300">
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* Header Section */}
         <header className="mb-2">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
             <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
               {greeting}, {user?.first_name || ""}
             </h1>
-            <LiveDateTime showTime={false} />
+            <div className="flex items-center gap-2">
+              {canCustomizeDashboard && (
+                <>
+                  {customizeMode && hiddenWidgets.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => setAddWidgetOpen(true)}
+                    >
+                      <Plus className="h-4 w-4" />
+                      {t("dashboard.customize.add_widget")}
+                    </Button>
+                  )}
+                  {customizeMode && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setWidgetOrder([...DEFAULT_DASHBOARD_WIDGET_ORDER])}
+                    >
+                      {t("dashboard.customize.reset")}
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant={customizeMode ? "default" : "outline"}
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => setCustomizeMode((v) => !v)}
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                    {customizeMode ? t("dashboard.customize.done") : t("dashboard.customize.edit")}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
           <p className="text-slate-600 dark:text-slate-400 text-sm font-medium mt-1">
             {isLoading
@@ -205,465 +394,110 @@ export default function Dashboard() {
                 ? t("dashboard.status.attention_now")
                 : t("dashboard.status.all_clear")}
           </p>
+          {canCustomizeDashboard && customizeMode && (
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-1">
+              {t("dashboard.customize.hint")}
+            </p>
+          )}
         </header>
 
         {isLoading ? (
           <DashboardSkeleton statCount={3} contentCards={2} />
         ) : (
         <>
-        {/* Attention Now */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* MIZAN AI INSIGHTS (Primary) */}
-          <Card
-            className={`${cardBase} lg:col-span-2 relative overflow-hidden ${criticalCount > 0 ? "border-red-200 dark:border-red-900/40" : ""
-              }`}
-          >
-            <div
-              className={`absolute inset-0 pointer-events-none ${criticalCount > 0
-                  ? "bg-gradient-to-br from-red-500/12 via-transparent to-transparent"
-                  : "bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent"
-                }`}
-            ></div>
-            <CardHeader className="pb-2 px-6 pt-6">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center ${criticalCount > 0
-                        ? "bg-red-500/10 dark:bg-red-500/15"
-                        : "bg-emerald-500/10 dark:bg-emerald-500/15"
-                      } ${criticalCount > 0 ? "animate-pulse" : ""}`}
+        <Dialog open={addWidgetOpen} onOpenChange={setAddWidgetOpen}>
+          <DialogContent className="z-[3100] max-w-lg sm:max-w-2xl border-slate-200/80 bg-gradient-to-b from-white to-slate-50/90 dark:from-slate-900 dark:to-slate-950 dark:border-slate-800">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold tracking-tight">{t("dashboard.customize.add_widget_title")}</DialogTitle>
+              <DialogDescription className="text-sm text-slate-600 dark:text-slate-400">
+                {t("dashboard.customize.add_widget_subtitle")}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-3 sm:grid-cols-2 pt-2 max-h-[min(70vh,520px)] overflow-y-auto pr-1">
+              {hiddenWidgets.map((wid) => {
+                const Icon = WIDGET_ADD_ICONS[wid];
+                const descKey = WIDGET_ADD_DESC_KEYS[wid];
+                return (
+                  <button
+                    key={wid}
+                    type="button"
+                    onClick={() => {
+                      setWidgetOrder((o) => (o.includes(wid) ? o : [...o, wid]));
+                      setAddWidgetOpen(false);
+                    }}
+                    className={cn(
+                      "group flex gap-3 rounded-2xl border border-slate-200/90 bg-white p-4 text-left shadow-sm transition-all",
+                      "hover:border-emerald-300 hover:shadow-md hover:bg-emerald-50/40 dark:border-slate-800 dark:bg-slate-900/80",
+                      "dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+                    )}
                   >
-                    {criticalCount > 0 ? (
-                      <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
-                    ) : (
-                      <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 dark:from-emerald-500/20 dark:to-teal-500/10 dark:text-emerald-400">
+                      <Icon className="h-6 w-6" aria-hidden />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-slate-900 dark:text-white leading-snug">{widgetLabel(wid)}</div>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{t(descKey)}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {canCustomizeDashboard ? (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={widgetOrder} strategy={rectSortingStrategy}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch auto-rows-[minmax(200px,auto)]">
+                {displayOrder.length === 0 ? (
+                  <div className="lg:col-span-3 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 px-6 py-12 text-center">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">{t("dashboard.customize.empty")}</p>
+                    {hiddenWidgets.length > 0 && (
+                      <Button type="button" variant="outline" className="mt-4 gap-1.5" onClick={() => setAddWidgetOpen(true)}>
+                        <Plus className="h-4 w-4" />
+                        {t("dashboard.customize.add_widget")}
+                      </Button>
                     )}
                   </div>
-                  <div className="leading-tight">
-                    <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                      {t("dashboard.insights.title")}
-                    </CardTitle>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                      {t("dashboard.insights.subtitle")}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className={`border-none text-[10px] font-bold h-5 px-2 ${attentionNow > 0 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"
-                      }`}
-                  >
-                    {isLoading ? "…" : attentionNow} {t("dashboard.insights.need_attention")}
-                  </Badge>
-                  {criticalCount > 0 && (
-                    <Badge
-                      variant="outline"
-                      className="border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300 text-[10px] font-black h-5 px-2"
-                    >
-                      {criticalCount} CRITICAL
-                    </Badge>
-                  )}
-                  {insights.length > 3 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllInsights((v) => !v)}
-                      className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
-                    >
-                      {showAllInsights ? t("common.show_less") : t("common.show_more")}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="space-y-3 px-6 pb-6 pt-3">
-              {isLoading ? (
-                <div className="text-sm text-slate-400">{t("dashboard.insights.loading")}</div>
-              ) : criticalCount > 0 ? (
-                <>
-                  <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 dark:border-red-900/40 dark:bg-red-950/25">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-red-800 dark:text-red-200">
-                          Critical issues need attention
-                        </div>
-                        <div className="text-[11px] text-red-700/90 dark:text-red-300/80">
-                          Review the top item(s) below and take action immediately.
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {insightsVisible.length > 0 ? (
-                    <div className="space-y-2">
-                      {insightsVisible.map((it, idx) => {
-                        const level = String(it.level || "").toUpperCase();
-                        const dot =
-                          level === "CRITICAL"
-                            ? "bg-red-500"
-                            : level === "OPERATIONAL"
-                              ? "bg-amber-500"
-                              : level === "PERFORMANCE"
-                                ? "bg-blue-500"
-                                : level === "RESOLVED"
-                                  ? "bg-slate-400 dark:bg-slate-500"
-                                  : "bg-emerald-500";
-
-                        const levelPill =
-                          level === "CRITICAL"
-                            ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
-                            : level === "OPERATIONAL"
-                              ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
-                              : level === "PERFORMANCE"
-                                ? "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200"
-                                : level === "RESOLVED"
-                                  ? "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
-                                  : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200";
-
-                        const containerExtra =
-                          level === "CRITICAL"
-                            ? "bg-red-50/40 dark:bg-red-950/10"
-                            : "";
-
-                        return (
-                          <button
-                            key={it.id || idx}
-                            type="button"
-                            onClick={() => navigate(getActionRoute(it.action_url))}
-                            className={`group w-full text-left rounded-xl px-3 py-2 -mx-3 transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${containerExtra}`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className={`w-2 h-2 rounded-full shrink-0 mt-2 ${dot}`}></div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="text-sm text-slate-900 dark:text-white leading-tight font-semibold truncate">
-                                    {it.summary || t("dashboard.insights.item_fallback")}
-                                  </div>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    <Badge variant="outline" className={`text-[10px] font-bold ${levelPill}`}>
-                                      {level}
-                                    </Badge>
-                                    <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 mt-0.5" />
-                                  </div>
-                                </div>
-                                {it.recommended_action && (
-                                  <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug line-clamp-2 mt-0.5">
-                                    {level === "CRITICAL" ? "Action" : level === "RESOLVED" ? "Resolved" : "Recommendation"}: {it.recommended_action}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-slate-400">{t("dashboard.insights.none")}</div>
-                  )}
-                </>
-              ) : insightsVisible.length > 0 ? (
-                <div className="space-y-2">
-                  {insightsVisible.map((it, idx) => {
-                    const level = String(it.level || "").toUpperCase();
-                    const dot =
-                      level === "CRITICAL"
-                        ? "bg-red-500"
-                        : level === "OPERATIONAL"
-                          ? "bg-amber-500"
-                          : level === "PERFORMANCE"
-                            ? "bg-blue-500"
-                            : level === "RESOLVED"
-                              ? "bg-slate-400 dark:bg-slate-500"
-                              : "bg-emerald-500";
-
-                    const levelPill =
-                      level === "CRITICAL"
-                        ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
-                        : level === "OPERATIONAL"
-                          ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
-                          : level === "PERFORMANCE"
-                            ? "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200"
-                            : level === "RESOLVED"
-                              ? "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
-                              : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200";
-
+                ) : (
+                  displayOrder.map((wid, index) => {
+                    const colSpan = index === 0 && wid === "insights" ? "lg:col-span-2" : "lg:col-span-1";
+                    const node = <DashboardWidgetById id={wid} props={widgetBundle} />;
                     return (
-                      <button
-                        key={it.id || idx}
-                        type="button"
-                        onClick={() => navigate(getActionRoute(it.action_url))}
-                        className="group w-full text-left rounded-xl px-3 py-2 -mx-3 transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      <SortableDashboardWidget
+                        key={wid}
+                        id={wid}
+                        editMode={customizeMode}
+                        colClassName={cn("relative", colSpan)}
+                        onRemove={() => setWidgetOrder((o) => o.filter((x) => x !== wid))}
                       >
-                        <div className="flex items-start gap-3">
-                          <div className={`w-2 h-2 rounded-full shrink-0 mt-2 ${dot}`}></div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="text-sm text-slate-900 dark:text-white leading-tight font-semibold truncate">
-                                {it.summary || t("dashboard.insights.item_fallback")}
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <Badge variant="outline" className={`text-[10px] font-bold ${levelPill}`}>
-                                  {level}
-                                </Badge>
-                                <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 mt-0.5" />
-                              </div>
-                            </div>
-                            {it.recommended_action && (
-                              <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug line-clamp-2 mt-0.5">
-                                {level === "CRITICAL" ? "Action" : level === "RESOLVED" ? "Resolved" : "Recommendation"}: {it.recommended_action}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </button>
+                        {node}
+                      </SortableDashboardWidget>
                     );
-                  })}
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></div>
-                  <span className="text-sm text-slate-800 dark:text-white leading-tight font-medium">
-                    {t("dashboard.insights.none")}
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Staffing & Coverage */}
-          <Card className={cardBase}>
-            <CardHeader className={cardHeaderBase}>
-              <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                {t("dashboard.staffing.title")}
-              </CardTitle>
-              <Users className="w-4 h-4 text-slate-300 dark:text-slate-600" />
-            </CardHeader>
-            <CardContent className="space-y-4 pt-2 pb-6 px-6">
-              <div className="flex items-baseline justify-between">
-                <div>
-                  <div className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-                    {isLoading ? "…" : summary?.attendance?.shift_gaps || 0}
-                  </div>
-                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                    {t("dashboard.staffing.uncovered")}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-                    {isLoading ? "…" : noShowsCount}
-                  </div>
-                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                    {t(noShowsLabelKey)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3 pt-1">
-                <div className="flex items-start gap-3">
-                  <AlertCircle
-                    className={`w-4 h-4 mt-0.5 shrink-0 ${noShowsCount > 0 ? "text-red-500" : "text-slate-300 dark:text-slate-600"
-                      }`}
-                  />
-                  <p className="text-sm text-slate-700 dark:text-slate-300">
-                    <span className="font-semibold text-slate-900 dark:text-white">
-                      {isLoading ? "…" : noShowsCount}
-                    </span>{" "}
-                    {t(noShowsDescKey)}
-                  </p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Clock className="w-4 h-4 text-slate-300 dark:text-slate-600 mt-0.5 shrink-0" />
-                  <p className="text-sm text-slate-700 dark:text-slate-300">
-                    <span className="font-semibold text-slate-900 dark:text-white">
-                      {isLoading ? "…" : summary?.attendance?.shift_gaps || 0}
-                    </span>{" "}
-                    {t("dashboard.staffing.need_coverage")}
-                  </p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <TrendingUp
-                    className={`w-4 h-4 mt-0.5 shrink-0 ${(summary?.attendance?.ot_risk || 0) > 0 ? "text-amber-500" : "text-slate-300 dark:text-slate-600"
-                      }`}
-                  />
-                  <p className="text-sm text-slate-700 dark:text-slate-300">
-                    <span className="font-semibold text-slate-900 dark:text-white">
-                      {isLoading ? "…" : summary?.attendance?.ot_risk || 0}
-                    </span>{" "}
-                    {t("dashboard.staffing.ot_risk")}
-                  </p>
-                </div>
-                {(summary?.attendance?.late_staff_today?.length || 0) > 0 && (
-                  <div className="flex items-start gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <Clock
-                      className={`w-4 h-4 mt-0.5 shrink-0 ${(summary?.attendance?.late_staff_today?.length || 0) > 0 ? "text-amber-500" : "text-slate-300 dark:text-slate-600"
-                        }`}
-                    />
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                        {summary.attendance.late_staff_today.length} {t("dashboard.staffing.late_staff")}
-                      </p>
-                      <ul className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 space-y-0.5">
-                        {summary.attendance.late_staff_today.slice(0, 3).map((m: { name: string; reason?: string }, i: number) => (
-                          <li key={i}>
-                            {m.name}
-                            {m.reason === "missed_clock_in" ? " (no clock-in)" : " (late)"}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
-                {(summary?.attendance?.ot_risk_staff?.length || 0) > 0 && (summary?.attendance?.ot_risk || 0) > 0 && (
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                      {summary.attendance.ot_risk_staff.slice(0, 3).map((s: { staff_name?: string }) => s.staff_name || s).join(", ")}
-                      {(summary.attendance.ot_risk_staff.length > 3) && " …"}
-                    </p>
-                  </div>
+                  })
                 )}
               </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Today at a glance */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Tasks Due Today */}
-          <Card className={cardBase}>
-            <CardHeader className={cardHeaderBase}>
-              <div className="flex items-center gap-2">
-                <ClipboardCheck className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                <CardTitle className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                  {t("dashboard.tasks.title")}
-                </CardTitle>
-              </div>
-              <Badge variant="outline" className="text-slate-500 border-none px-0 text-[10px] font-bold h-4">{isLoading ? "..." : summary?.tasks_due?.length || 0} TODAY</Badge>
-            </CardHeader>
-            <CardContent className="space-y-4 px-6 pb-6 pt-2">
-              {isLoading ? (
-                <div className="text-sm text-slate-400">{t("dashboard.tasks.loading")}</div>
-              ) : summary?.tasks_due?.length > 0 ? (
-                summary.tasks_due.slice(0, 4).map((task: TaskDueItem, i: number) => (
-                  <div key={i} className="flex items-center justify-between group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 p-1 -mx-1 rounded-lg transition-colors">
-                    <span className="text-sm text-slate-700 dark:text-slate-300 truncate pr-4">{task.label}</span>
-                    <span className={`text-[10px] whitespace-nowrap tracking-wider ${task.status === "OVERDUE" ? "text-red-500 font-bold" : "text-slate-500 dark:text-slate-400 font-medium"}`}>{task.status}</span>
-                  </div>
-                ))
-              ) : (
-                <div className="text-sm text-slate-500 py-2 text-center">{t("dashboard.tasks.none")}</div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Operations */}
-          <Card className={cardBase}>
-            <CardHeader className={cardHeaderBase}>
-              <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                {t("dashboard.operations.title")}
-              </CardTitle>
-              <Calendar className="w-4 h-4 text-slate-300 dark:text-slate-600" />
-            </CardHeader>
-            <CardContent className="space-y-4 pt-2 pb-6 px-6">
-              <div className="flex items-baseline justify-between">
-                <div>
-                  <div className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-                    {isLoading ? "…" : summary?.operations?.completion_rate || 0}%
-                  </div>
-                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                    {t("dashboard.operations.completion_today")}
-                  </div>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch auto-rows-[minmax(200px,auto)]">
+            {displayOrder.map((wid, index) => {
+              const colSpan = index === 0 && wid === "insights" ? "lg:col-span-2" : "lg:col-span-1";
+              return (
+                <div key={wid} className={cn("relative flex min-h-0 flex-col", colSpan)}>
+                  <DashboardWidgetById id={wid} props={widgetBundle} />
                 </div>
-                <Badge
-                  variant="outline"
-                  className="border-none text-[10px] font-bold h-5 px-2 text-slate-600 dark:text-slate-300"
-                >
-                  {isLoading ? "…" : summary?.operations?.avg_rating || 0} AVG
-                </Badge>
-              </div>
-
-              <div className="space-y-3 pt-1">
-                <div className="flex items-start gap-3">
-                  <FileText
-                    className={`w-4 h-4 mt-0.5 shrink-0 ${(summary?.operations?.negative_reviews || 0) > 0 ? "text-red-500" : "text-slate-300 dark:text-slate-600"
-                      }`}
-                  />
-                  <p className="text-sm text-slate-700 dark:text-slate-300">
-                    <span className="font-semibold text-slate-900 dark:text-white">
-                      {isLoading ? "…" : summary?.operations?.negative_reviews || 0}
-                    </span>{" "}
-                    {t("dashboard.operations.negative_reviews_24h")}
-                  </p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <TrendingUp className="w-4 h-4 text-slate-300 dark:text-slate-600 mt-0.5 shrink-0" />
-                  <p className="text-sm text-slate-700 dark:text-slate-300">
-                    {t("dashboard.operations.avg_rating")}{" "}
-                    <span className="font-semibold text-slate-900 dark:text-white">
-                      {isLoading ? "…" : summary?.operations?.avg_rating || 0}
-                    </span>
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Staff Wellbeing */}
-          <Card className={cardBase}>
-            <CardHeader className={cardHeaderBase}>
-              <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                {t("dashboard.wellbeing.title")}
-              </CardTitle>
-              <Heart className="w-4 h-4 text-slate-300 dark:text-slate-600" />
-            </CardHeader>
-            <CardContent className="space-y-4 pt-2 pb-6 px-6">
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
-                <p className="text-sm text-slate-700 dark:text-slate-300 font-semibold truncate">
-                  {isLoading
-                    ? t("dashboard.wellbeing.loading")
-                    : summary?.wellbeing?.risk_staff?.length > 0
-                      ? `${summary.wellbeing.risk_staff[0].name} ${t("dashboard.wellbeing.flagged")}`
-                      : t("dashboard.wellbeing.none")}
-                </p>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">
-                  {t("dashboard.wellbeing.based_on")}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Clock className="w-4 h-4 text-slate-300 dark:text-slate-600" />
-                    <p className="text-sm text-slate-700 dark:text-slate-300">
-                      <span className="font-semibold text-slate-900 dark:text-white">{isLoading ? "…" : summary?.wellbeing?.swap_requests || 0}</span>{" "}
-                      {t("dashboard.wellbeing.swap_requests")}
-                    </p>
-                  </div>
-                  {(summary?.wellbeing?.swap_requests || 0) > 0 && (
-                    <Badge variant="outline" className="border-none text-[10px] font-bold h-5 px-2 text-amber-600 dark:text-amber-400">
-                      NEW
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-start gap-3">
-                  <Users className="w-4 h-4 text-slate-300 dark:text-slate-600 mt-0.5 shrink-0" />
-                  <p className="text-sm text-slate-700 dark:text-slate-300">
-                    <span className="font-semibold text-slate-900 dark:text-white">{isLoading ? "…" : summary?.wellbeing?.new_hires || 0}</span>{" "}
-                    {t("dashboard.wellbeing.new_hires_7d")}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         </>
         )}
 
       </div>
 
-      {/* Quick Actions Dock (fixed, always visible) */}
+      {/* Quick Actions Dock (floating, always visible) */}
       <div className="fixed bottom-4 left-4 right-4 z-30">
         <div className="max-w-7xl mx-auto">
           <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-white/85 dark:bg-slate-900/70 backdrop-blur shadow-lg">
