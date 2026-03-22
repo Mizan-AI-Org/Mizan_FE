@@ -25,9 +25,9 @@ export const RestaurantShowcase: React.FC = () => {
       label: "Expert Chefs",
     },
     {
-      url: "https://images.unsplash.com/photo-1682608491709-e21df86f1e5b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbGVnYW50JTIwcmVzdGF1cmFudCUyMHdhaXRlciUyMHNlcnZpbmd8ZW58MXx8fHwxNzYxNjY2MTY5fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      alt: "Elegant waiter serving",
-      label: "Premium Service",
+      url: "/image.png",
+      alt: "Staff member using a digital tablet in a warm, modern cafe",
+      label: "Empower Your Team",
     },
     {
       url: "https://images.unsplash.com/flagged/photo-1561350600-6606486921f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjByZXN0YXVyYW50JTIwY3VzdG9tZXJzJTIwZGluaW5nfGVufDF8fHx8MTc2MTY2NjE3MHww&ixlib=rb-4.1.0&q=80&w=1080",
@@ -35,8 +35,8 @@ export const RestaurantShowcase: React.FC = () => {
       label: "Happy Guests",
     },
     {
-      url: "https://images.unsplash.com/photo-1759419038843-29749ac4cd2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmaW5lJTIwZGluaW5nJTIwaW50ZXJpb3IlMjBlbGVnYW50fGVufDF8fHx8MTc2MTY2NjE3MHww&ixlib=rb-4.1.0&q=80&w=1080",
-      alt: "Fine dining interior",
+      url: "/restaurant-waterfront.png",
+      alt: "Modern restaurant interior with waterfront view, staff preparing for service",
       label: "Elegant Ambiance",
     },
   ];

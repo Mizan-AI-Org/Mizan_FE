@@ -86,6 +86,38 @@ export interface StaffInvitation {
     extra_data?: { phone?: string;[key: string]: any };
 }
 
+/** Staff-captured order log (Miya voice/text or manual form). */
+export type StaffCapturedOrderFulfillmentStatus = "NEW" | "IN_PROGRESS" | "FULFILLED" | "CANCELLED";
+
+export interface StaffCapturedOrderRow {
+    id: string;
+    customer_name: string;
+    customer_phone: string;
+    order_type: "DINE_IN" | "TAKEOUT" | "DELIVERY" | "OTHER";
+    table_or_location: string;
+    items_summary: string;
+    dietary_notes: string;
+    special_instructions: string;
+    channel: "VOICE" | "TEXT" | "MANUAL";
+    fulfillment_status: StaffCapturedOrderFulfillmentStatus;
+    created_at: string;
+    updated_at: string;
+    recorded_by_name: string | null;
+}
+
+/** PATCH body for staff-captured orders (partial update). */
+export type StaffCapturedOrderPatchBody = Partial<{
+    customer_name: string;
+    customer_phone: string;
+    order_type: StaffCapturedOrderRow["order_type"];
+    table_or_location: string;
+    items_summary: string;
+    dietary_notes: string;
+    special_instructions: string;
+    channel: StaffCapturedOrderRow["channel"];
+    fulfillment_status: StaffCapturedOrderFulfillmentStatus;
+}>;
+
 export interface DailyKPI {
     id: string;
     restaurant: string;

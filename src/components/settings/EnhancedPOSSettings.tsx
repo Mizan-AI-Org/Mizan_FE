@@ -44,6 +44,14 @@ const posProviders: POSProvider[] = [
     supportsInventorySync: true,
   },
   {
+    id: 'lightspeed',
+    name: 'Lightspeed',
+    logo: '⚡',
+    supportsOAuth: false,
+    supportsTaxSync: true,
+    supportsInventorySync: false,
+  },
+  {
     id: 'toast',
     name: 'Toast',
     logo: '🍞',
