@@ -22,6 +22,9 @@ i18n
   .init({
     supportedLngs: supportedLanguages as unknown as string[],
     fallbackLng: 'en',
+    // Locale JSON uses flat keys with dots (e.g. "take_orders.page_hint"); default
+    // keySeparator "." would treat those as nested paths and miss translations.
+    keySeparator: false,
     returnEmptyString: false,
     saveMissing: false,
     // Load resources from public folder for smaller bundle

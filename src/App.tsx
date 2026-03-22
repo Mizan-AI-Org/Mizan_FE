@@ -18,6 +18,7 @@ import SuppliersPage from "./pages/inventory/SuppliersPage";
 import PurchaseOrdersPage from "./pages/inventory/PurchaseOrdersPage";
 import StockAdjustmentsPage from "./pages/inventory/StockAdjustmentsPage";
 import DailySalesReportsPage from "./pages/reporting/DailySalesReportsPage";
+import SalesAndPrepPage from "./pages/SalesAndPrepPage";
 import AttendanceReportsPage from "./pages/reporting/AttendanceReportsPage";
 import InventoryReportsPage from "./pages/reporting/InventoryReportsPage";
 import LaborAttendanceReportPage from "./pages/reporting/LaborAttendanceReportPage";
@@ -106,6 +107,7 @@ const ShiftReviewsAdminPage = React.lazy(
 const DashboardAttendancePage = React.lazy(
   () => import("./pages/DashboardAttendancePage")
 );
+const TakeOrdersPage = React.lazy(() => import("./pages/TakeOrdersPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -187,6 +189,16 @@ const App = () => {
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
                       <Dashboard />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/take-orders"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}
+                    >
+                      <TakeOrdersPage />
                     </RoleBasedRoute>
                   }
                 />
@@ -453,6 +465,14 @@ const App = () => {
                   }
                 />
                 <Route
+                  path="dashboard/sales-and-prep"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                      <SalesAndPrepPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
                   path="dashboard/attendance"
                   element={
                     <RoleBasedRoute
@@ -611,6 +631,7 @@ const App = () => {
                   }
                 />
                 <Route path="chat" element={<StaffChat />} />
+                <Route path="take-orders" element={<TakeOrdersPage />} />
                 <Route
                   path="announcements"
                   element={<StaffAnnouncementsList />}
