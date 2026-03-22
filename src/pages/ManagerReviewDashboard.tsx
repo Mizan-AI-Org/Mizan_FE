@@ -468,7 +468,7 @@ const ManagerReviewDashboard: React.FC = () => {
   }, [incidents]);
 
   const filteredIncidents = useMemo(() => {
-    const OPEN_STATUSES = ['reported', 'under_review'];
+    const OPEN_STATUSES = ['open'];
     return incidentList.filter((inc) => {
       const statusLower = String(inc.status || '').toLowerCase();
       const matchesStatus =
@@ -506,12 +506,14 @@ const ManagerReviewDashboard: React.FC = () => {
   const getStatusColor = (status: string) => {
     const st = (status || '').toLowerCase();
     switch (st) {
-      case 'reported': return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800';
-      case 'under_review': return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800';
-      case 'addressed': return 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800';
-      case 'resolved': return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800';
-      case 'dismissed': return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-700';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-700';
+      case 'open':
+        return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800';
+      case 'resolved':
+        return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800';
+      case 'dismissed':
+        return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-700';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-700';
     }
   };
 
@@ -1021,9 +1023,6 @@ const ManagerReviewDashboard: React.FC = () => {
                       >
                         <option value="open">{t("analytics.open_only") ?? "Open only"}</option>
                         <option value="">{t("analytics.all_statuses")}</option>
-                        <option value="reported">Reported</option>
-                        <option value="under_review">Under Review</option>
-                        <option value="addressed">Addressed</option>
                         <option value="resolved">Resolved</option>
                         <option value="dismissed">Dismissed</option>
                       </select>
@@ -1282,9 +1281,7 @@ const ManagerReviewDashboard: React.FC = () => {
                                 onChange={(e) => setUpdateStatus(e.target.value)}
                                 className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2"
                               >
-                                <option value="REPORTED">Reported</option>
-                                <option value="UNDER_REVIEW">Under Review</option>
-                                <option value="ADDRESSED">Addressed</option>
+                                <option value="OPEN">Open</option>
                                 <option value="RESOLVED">Resolved</option>
                                 <option value="DISMISSED">Dismissed</option>
                               </select>

@@ -65,7 +65,7 @@ const SafetyDashboard: React.FC = () => {
     ? allConcerns
     : (allConcerns?.results || []);
 
-  const openConcerns = concernsData.filter((c: any) => String(c.status).toUpperCase() !== 'RESOLVED');
+  const openConcerns = concernsData.filter((c: any) => String(c.status).toUpperCase() === 'OPEN');
 
   // React Query: Task Statistics
   const { data: taskStats, isLoading: taskStatsLoading } = useQuery({
