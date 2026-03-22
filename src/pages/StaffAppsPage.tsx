@@ -14,6 +14,7 @@ import {
   Users,
   ChefHat,
   FileText,
+  Mic,
 } from "lucide-react";
 
 type LayoutContext = { query: string };
@@ -58,6 +59,7 @@ const StaffAppsPage: React.FC = () => {
     time: { bg: '#E8F5E9', color: '#00C853' },
     schedule: { bg: '#E3F2FD', color: '#2196F3' },
     kitchen: { bg: '#FFF3E0', color: '#FB8C00' },
+    take_orders: { bg: '#E8F5E9', color: '#00C853' },
     chat: { bg: '#F3E5F5', color: '#8E24AA' },
     cleaning: { bg: '#E0F2F1', color: '#26A69A' },
     safety: { bg: '#FFEBEE', color: '#E53935' },

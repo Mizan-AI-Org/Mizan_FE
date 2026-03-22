@@ -80,14 +80,9 @@ const DashboardLayout: React.FC = () => {
               <BrandLogo size="sm" />
               <h1 className="text-2xl font-bold select-none">{t("common.brand")}</h1>
             </button>
-            <div className="flex items-center gap-4">
-
-              {/* Theme Toggle */}
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0 flex-wrap justify-end">
+              <LiveDateTime showTime={false} />
               <ThemeToggle />
-
-
-              <div className="hidden lg:flex items-center gap-2">
-              </div>
 
               <div className="relative">
                 <DropdownMenu>

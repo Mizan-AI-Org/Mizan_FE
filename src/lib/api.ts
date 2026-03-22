@@ -10,6 +10,9 @@ import {
   StaffOperationResponse,
   StaffInvitation,
   DailyKPI,
+  StaffCapturedOrderRow,
+  StaffCapturedOrderFulfillmentStatus,
+  StaffCapturedOrderPatchBody,
   Alert,
   Task,
   InventoryItem,
@@ -325,7 +328,8 @@ export class BackendService {
 
   async getDailyKpis(accessToken: string): Promise<DailyKPI[]> {
     try {
-      const response = await fetch(`${API_BASE}/dashboard/kpis/`, {
+      // DRF default pagination returns { count, results } — not a bare array. Request a large page for aggregates.
+      const response = await fetch(`${API_BASE}/dashboard/kpis/?page_size=500`, {
         method: "GET",
         headers: this.getHeaders(accessToken),
       });
@@ -333,7 +337,12 @@ export class BackendService {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch daily KPIs");
       }
-      return await response.json();
+      const json = await response.json();
+      if (Array.isArray(json)) return json as DailyKPI[];
+      if (json && typeof json === "object" && Array.isArray((json as { results?: unknown }).results)) {
+        return (json as { results: DailyKPI[] }).results;
+      }
+      return [];
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch daily KPIs");
     }
@@ -357,6 +366,67 @@ export class BackendService {
 
   async getDashboardSummary() {
     return this.fetchWithError("/dashboard/summary/");
+  }
+
+  async listStaffCapturedOrders(params?: {
+    today?: boolean;
+    active?: boolean;
+    /** Single calendar day (YYYY-MM-DD). Ignored if dateFrom + dateTo are set. */
+    date?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<StaffCapturedOrderRow[]> {
+    const search = new URLSearchParams();
+    if (params?.today) search.set("today", "true");
+    if (params?.active) search.set("active", "true");
+    if (params?.dateFrom) search.set("date_from", params.dateFrom);
+    if (params?.dateTo) search.set("date_to", params.dateTo);
+    if (params?.date) search.set("date", params.date);
+    const qs = search.toString();
+    return this.fetchWithError(`/dashboard/captured-orders/${qs ? `?${qs}` : ""}`);
+  }
+
+  async createStaffCapturedOrder(
+    body: Pick<
+      StaffCapturedOrderRow,
+      | "customer_name"
+      | "customer_phone"
+      | "order_type"
+      | "table_or_location"
+      | "items_summary"
+      | "dietary_notes"
+      | "special_instructions"
+      | "channel"
+    >
+  ): Promise<StaffCapturedOrderRow> {
+    return this.fetchWithError("/dashboard/captured-orders/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async patchStaffCapturedOrder(id: string, body: StaffCapturedOrderPatchBody): Promise<StaffCapturedOrderRow> {
+    return this.fetchWithError(`/dashboard/captured-orders/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async deleteStaffCapturedOrder(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/dashboard/captured-orders/${id}/`, {
+      method: "DELETE",
+      headers: this.getHeaders(),
+    });
+    if (!response.ok) {
+      let message = "Request failed";
+      try {
+        const err = await response.json();
+        message = err.detail || err.error || err.message || message;
+      } catch {
+        message = `Request failed (${response.status})`;
+      }
+      throw new Error(message);
+    }
   }
 
   /** Mark an assigned shift as no-show (Critical issues & attendance dashboard). */
@@ -1886,6 +1956,69 @@ export class BackendService {
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch daily sales report");
     }
+  }
+
+  /** Today's sales summary from POS (live data). Optional date: YYYY-MM-DD. */
+  async getTodaySales(
+    accessToken: string,
+    date?: string
+  ): Promise<{
+    success: boolean;
+    connected: boolean;
+    date?: string;
+    total_sales?: number;
+    order_count?: number;
+    avg_ticket?: number;
+    total_tax?: number;
+    total_discount?: number;
+    tips?: number;
+    cash_total?: number;
+    card_total?: number;
+    by_order_type?: Record<string, { count: number; total: number }>;
+    currency?: string;
+    error?: string;
+  }> {
+    const params = date ? `?date=${date}` : "";
+    const response = await fetch(`${API_BASE}/pos/sales/today/${params}`, {
+      method: "GET",
+      headers: this.getHeaders(accessToken),
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || err.message || "Failed to fetch today's sales");
+    }
+    return response.json();
+  }
+
+  /** Prep list / purchase recommendations. Optional: date (single) or start_date + end_date (range). */
+  async getPrepList(accessToken: string, date?: string, startDate?: string, endDate?: string): Promise<{
+    success: boolean;
+    target_date?: string;
+    target_end_date?: string;
+    day_of_week?: string;
+    forecast_portions?: { menu_item: string; forecast_portions: number }[];
+    ingredient_prep_list?: { ingredient: string; needed: number; unit: string; in_stock?: number; gap?: number }[];
+    shortages?: string[];
+    message_for_user?: string;
+    miya_recommendation?: { title: string; body: string; action_label?: string };
+  }> {
+    const search = new URLSearchParams();
+    if (startDate && endDate) {
+      search.set("start_date", startDate);
+      search.set("end_date", endDate);
+    } else if (date) {
+      search.set("date", date);
+    }
+    const params = search.toString() ? `?${search.toString()}` : "";
+    const response = await fetch(`${API_BASE}/pos/prep-list/${params}`, {
+      method: "GET",
+      headers: this.getHeaders(accessToken),
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || err.message || "Failed to fetch prep list");
+    }
+    return response.json();
   }
 
   async getAttendanceReports(accessToken: string): Promise<AttendanceReport[]> {

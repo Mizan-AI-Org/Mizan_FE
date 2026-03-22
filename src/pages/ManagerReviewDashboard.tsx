@@ -126,7 +126,7 @@ const ManagerReviewDashboard: React.FC = () => {
   const checklistPageSize = 10;
 
   // Incident management state
-  const [incidentFilters, setIncidentFilters] = useState({ status: '', severity: '', search: '' });
+  const [incidentFilters, setIncidentFilters] = useState({ status: 'open', severity: '', search: '' });
   const [selectedIncident, setSelectedIncident] = useState<string | null>(null);
   const [updateStatus, setUpdateStatus] = useState('');
   const [resolutionNotes, setResolutionNotes] = useState('');
@@ -433,6 +433,7 @@ const ManagerReviewDashboard: React.FC = () => {
     status?: string | null;
     is_anonymous?: boolean | null;
     reporter_details?: { first_name?: string | null; last_name?: string | null } | null;
+    assigned_to_details?: { first_name?: string | null; last_name?: string | null } | null;
     created_at?: string | null;
     resolution_notes?: string | null;
     incident_type?: string | null;
@@ -458,13 +459,24 @@ const ManagerReviewDashboard: React.FC = () => {
           first_name: typeof x.reporter_details.first_name === "string" ? x.reporter_details.first_name : null,
           last_name: typeof x.reporter_details.last_name === "string" ? x.reporter_details.last_name : null,
         } : null,
+        assigned_to_details: isRecord(x.assigned_to_details) ? {
+          first_name: typeof x.assigned_to_details.first_name === "string" ? x.assigned_to_details.first_name : null,
+          last_name: typeof x.assigned_to_details.last_name === "string" ? x.assigned_to_details.last_name : null,
+        } : null,
         created_at: typeof x.created_at === "string" ? x.created_at : null,
       }));
   }, [incidents]);
 
   const filteredIncidents = useMemo(() => {
+    const OPEN_STATUSES = ['reported', 'under_review'];
     return incidentList.filter((inc) => {
-      const matchesStatus = !incidentFilters.status || String(inc.status || '').toLowerCase() === incidentFilters.status.toLowerCase();
+      const statusLower = String(inc.status || '').toLowerCase();
+      const matchesStatus =
+        incidentFilters.status === ''
+          ? true
+          : incidentFilters.status === 'open'
+            ? OPEN_STATUSES.includes(statusLower)
+            : statusLower === incidentFilters.status.toLowerCase();
       const matchesSeverity = !incidentFilters.severity || String(inc.severity || '').toLowerCase() === incidentFilters.severity.toLowerCase();
       const q = incidentFilters.search.trim().toLowerCase();
       const matchesSearch = !q
@@ -1007,6 +1019,7 @@ const ManagerReviewDashboard: React.FC = () => {
                         onChange={(e) => setIncidentFilters({ ...incidentFilters, status: e.target.value })}
                         className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 text-sm"
                       >
+                        <option value="open">{t("analytics.open_only") ?? "Open only"}</option>
                         <option value="">{t("analytics.all_statuses")}</option>
                         <option value="reported">Reported</option>
                         <option value="under_review">Under Review</option>
@@ -1067,8 +1080,8 @@ const ManagerReviewDashboard: React.FC = () => {
                                       : '—'}
                                 </TableCell>
                                 <TableCell>
-                                  {(incident as any).assigned_to_details
-                                    ? `${(incident as any).assigned_to_details.first_name} ${(incident as any).assigned_to_details.last_name}`
+                                  {incident.assigned_to_details
+                                    ? `${incident.assigned_to_details.first_name ?? ''} ${incident.assigned_to_details.last_name ?? ''}`.trim()
                                     : <span className="text-muted-foreground">Unassigned</span>}
                                 </TableCell>
                                 <TableCell>{new Date(incident.created_at).toLocaleDateString()}</TableCell>
