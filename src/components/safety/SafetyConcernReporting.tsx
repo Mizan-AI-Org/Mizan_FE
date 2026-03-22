@@ -46,7 +46,7 @@ const SafetyConcernReporting: React.FC = () => {
     description: '',
     location: '',
     severity: 'medium',
-    status: 'reported',
+    status: 'open',
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -86,7 +86,7 @@ const SafetyConcernReporting: React.FC = () => {
       form.append('description', data.description || '');
       form.append('location', data.location || '');
       form.append('severity', (data.severity || 'medium').toUpperCase());
-      form.append('status', (data.status || 'reported').toUpperCase());
+      form.append('status', (data.status || 'open').toUpperCase());
       form.append('is_anonymous', 'false');
       if (photoFile) {
         form.append('photo', photoFile);
@@ -119,7 +119,7 @@ const SafetyConcernReporting: React.FC = () => {
         description: '',
         location: '',
         severity: 'medium',
-        status: 'reported',
+        status: 'open',
       });
       setPhotoFile(null);
       setPhotoPreview(null);
@@ -165,11 +165,8 @@ const SafetyConcernReporting: React.FC = () => {
   const getStatusBadge = (status: string) => {
     const s = (status || '').toLowerCase();
     switch (s) {
-      case 'reported':
-        return <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">Reported</Badge>;
-      case 'investigating':
-      case 'under_review':
-        return <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">Investigating</Badge>;
+      case 'open':
+        return <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">Open</Badge>;
       case 'resolved':
         return <Badge className="bg-green-100 text-green-800 border-green-200">Resolved</Badge>;
       case 'dismissed':
