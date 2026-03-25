@@ -64,9 +64,13 @@ interface GeolocationSettings {
 interface POSSettings {
   pos_provider: string;
   pos_merchant_id: string;
+  pos_location_id?: string;
   pos_is_connected: boolean;
   pos_custom_api_url?: string;
   pos_custom_api_key?: string;
+  /** Lightspeed product line: Restaurant K-Series vs Retail X-Series */
+  lightspeed_line?: "RESTAURANT_K" | "RETAIL_X";
+  lightspeed_domain_prefix?: string;
 }
 
 interface AISettings {
@@ -134,7 +138,10 @@ export default function Settings() {
   const [posSettings, setPosSettings] = useState<POSSettings>({
     pos_provider: "NONE",
     pos_merchant_id: "",
+    pos_location_id: "",
     pos_is_connected: false,
+    lightspeed_line: "RESTAURANT_K",
+    lightspeed_domain_prefix: "",
   });
   const [posAPIKey, setPosAPIKey] = useState("");
   const [showAPIKey, setShowAPIKey] = useState(false);
@@ -290,9 +297,12 @@ export default function Settings() {
       setPosSettings({
         pos_provider: data.pos_provider || "NONE",
         pos_merchant_id: data.pos_merchant_id || "",
+        pos_location_id: data.pos_location_id || "",
         pos_is_connected: data.pos_is_connected || false,
         pos_custom_api_url: data.pos_custom_api_url || "",
         pos_custom_api_key: data.pos_custom_api_key_set ? "••••••••" : "",
+        lightspeed_line: (data.lightspeed_line as POSSettings["lightspeed_line"]) || "RESTAURANT_K",
+        lightspeed_domain_prefix: data.lightspeed_domain_prefix || "",
       });
       setPosConnectionStatus(data.pos_is_connected ? "connected" : "idle");
 
@@ -583,8 +593,17 @@ export default function Settings() {
   };
 
   const saveLightSpeed = async () => {
-    if (!posAPIKey || !posSettings.pos_merchant_id) {
-      toast.error("Access token and Business Location ID are required.");
+    const line = posSettings.lightspeed_line || "RESTAURANT_K";
+    if (!posAPIKey) {
+      toast.error("Access token is required.");
+      return;
+    }
+    if (line === "RESTAURANT_K" && !posSettings.pos_merchant_id) {
+      toast.error("Business Location ID is required for Restaurant (K-Series).");
+      return;
+    }
+    if (line === "RETAIL_X" && !posSettings.lightspeed_domain_prefix?.trim()) {
+      toast.error("Domain prefix is required for Retail (X-Series), e.g. mystore from mystore.retail.lightspeed.app.");
       return;
     }
     setSavingPos(true);
@@ -593,6 +612,9 @@ export default function Settings() {
         pos_provider: "LIGHTSPEED",
         pos_api_key: posAPIKey,
         pos_merchant_id: posSettings.pos_merchant_id,
+        pos_location_id: posSettings.pos_location_id || "",
+        lightspeed_line: line,
+        lightspeed_domain_prefix: posSettings.lightspeed_domain_prefix,
       });
       toast.success("Lightspeed saved. Testing connection...");
       await testPosConnection();
@@ -1010,45 +1032,114 @@ export default function Settings() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="space-y-1">
-                          <div className="text-sm font-medium text-slate-800 dark:text-slate-200">Lightspeed Restaurant K-Series</div>
+                          <div className="text-sm font-medium text-slate-800 dark:text-slate-200">Lightspeed POS</div>
                           <div className="text-xs text-slate-500 dark:text-slate-400">
-                            Connect to fetch and display sales from your Lightspeed POS.
+                            Restaurant (K-Series) or Retail (X-Series). See{" "}
+                            <a href="https://www.lightspeedhq.com/" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
+                              lightspeedhq.com
+                            </a>{" "}
+                            for product docs.
                           </div>
                         </div>
                         <Badge variant="outline" className={posSettings.pos_is_connected ? "border-emerald-200 text-emerald-700 dark:text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400"}>
                           {posSettings.pos_is_connected ? t("settings.connected") : t("settings.not_connected")}
                         </Badge>
                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="lightspeed-line" className="text-sm font-medium text-slate-700 dark:text-slate-300">Product line</Label>
+                        <select
+                          id="lightspeed-line"
+                          value={posSettings.lightspeed_line || "RESTAURANT_K"}
+                          onChange={(e) =>
+                            setPosSettings({
+                              ...posSettings,
+                              lightspeed_line: e.target.value as POSSettings["lightspeed_line"],
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100 rounded-md"
+                        >
+                          <option value="RESTAURANT_K">Restaurant — K-Series API</option>
+                          <option value="RETAIL_X">Retail — X-Series API</option>
+                        </select>
+                      </div>
                       <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
                         <div className="space-y-1">
-                          <Label htmlFor="lightspeed-api-key" className="text-sm font-medium text-slate-700 dark:text-slate-300">Access Token (API Key) *</Label>
+                          <Label htmlFor="lightspeed-api-key" className="text-sm font-medium text-slate-700 dark:text-slate-300">Access token *</Label>
                           <Input
                             id="lightspeed-api-key"
                             type={showAPIKey ? "text" : "password"}
-                            placeholder="Bearer token from Lightspeed Developer Portal"
+                            placeholder="Token from Lightspeed Developer Portal"
                             value={posAPIKey}
                             onChange={(e) => setPosAPIKey(e.target.value)}
                           />
-                          <p className="text-xs text-slate-400">OAuth2 access token with sales:read scope.</p>
+                          <p className="text-xs text-slate-400">
+                            {posSettings.lightspeed_line === "RETAIL_X"
+                              ? "Bearer token with sales:read (Retail X-Series)."
+                              : "Bearer token with access to your location sales (Restaurant K-Series)."}
+                          </p>
                         </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="lightspeed-location-id" className="text-sm font-medium text-slate-700 dark:text-slate-300">Business Location ID *</Label>
-                          <Input
-                            id="lightspeed-location-id"
-                            type="text"
-                            placeholder="e.g. 45454565682155"
-                            value={posSettings.pos_merchant_id || ""}
-                            onChange={(e) => setPosSettings({ ...posSettings, pos_merchant_id: e.target.value })}
-                          />
-                          <p className="text-xs text-slate-400">Your restaurant location ID in Lightspeed.</p>
-                        </div>
+                        {posSettings.lightspeed_line === "RETAIL_X" ? (
+                          <>
+                            <div className="space-y-1">
+                              <Label htmlFor="lightspeed-domain" className="text-sm font-medium text-slate-700 dark:text-slate-300">Domain prefix *</Label>
+                              <Input
+                                id="lightspeed-domain"
+                                type="text"
+                                placeholder="e.g. mystore (from mystore.retail.lightspeed.app)"
+                                value={posSettings.lightspeed_domain_prefix || ""}
+                                onChange={(e) => setPosSettings({ ...posSettings, lightspeed_domain_prefix: e.target.value })}
+                              />
+                              <p className="text-xs text-slate-400">Subdomain only, before .retail.lightspeed.app</p>
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="lightspeed-outlet" className="text-sm font-medium text-slate-700 dark:text-slate-300">Outlet ID (optional)</Label>
+                              <Input
+                                id="lightspeed-outlet"
+                                type="text"
+                                placeholder="Limit search to one outlet"
+                                value={posSettings.pos_location_id || ""}
+                                onChange={(e) => setPosSettings({ ...posSettings, pos_location_id: e.target.value })}
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <div className="space-y-1">
+                            <Label htmlFor="lightspeed-location-id" className="text-sm font-medium text-slate-700 dark:text-slate-300">Business Location ID *</Label>
+                            <Input
+                              id="lightspeed-location-id"
+                              type="text"
+                              placeholder="e.g. from K-Series admin / API"
+                              value={posSettings.pos_merchant_id || ""}
+                              onChange={(e) => setPosSettings({ ...posSettings, pos_merchant_id: e.target.value })}
+                            />
+                            <p className="text-xs text-slate-400">Used in K-Series /f/v2/business-location/&#123;id&#125;/sales</p>
+                          </div>
+                        )}
                       </div>
                       <div className="flex gap-2">
-                        <Button onClick={saveLightSpeed} disabled={savingPos || !posAPIKey || !posSettings.pos_merchant_id} className="flex-1">
+                        <Button
+                          onClick={saveLightSpeed}
+                          disabled={
+                            savingPos ||
+                            !posAPIKey ||
+                            (posSettings.lightspeed_line === "RESTAURANT_K" && !posSettings.pos_merchant_id) ||
+                            (posSettings.lightspeed_line === "RETAIL_X" && !posSettings.lightspeed_domain_prefix?.trim())
+                          }
+                          className="flex-1"
+                        >
                           {savingPos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                           Save & Connect
                         </Button>
-                        <Button onClick={testPosConnection} variant="outline" disabled={posTestingConnection || !posSettings.pos_merchant_id || (!posAPIKey && !posSettings.pos_is_connected)}>
+                        <Button
+                          onClick={testPosConnection}
+                          variant="outline"
+                          disabled={
+                            posTestingConnection ||
+                            (!posAPIKey && !posSettings.pos_is_connected) ||
+                            (posSettings.lightspeed_line === "RESTAURANT_K" && !posSettings.pos_merchant_id) ||
+                            (posSettings.lightspeed_line === "RETAIL_X" && !posSettings.lightspeed_domain_prefix?.trim())
+                          }
+                        >
                           {posTestingConnection ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plug className="mr-2 h-4 w-4" />}
                           Test
                         </Button>

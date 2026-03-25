@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { NavigateFunction } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { addDays, format } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
 import type { AuthContextType } from "@/contexts/AuthContext.types";
@@ -27,6 +28,7 @@ import {
   Package,
   ListTodo,
   ShoppingCart,
+  CalendarDays,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -44,6 +46,7 @@ export const DASHBOARD_WIDGET_IDS = [
   "inventory_delivery",
   "task_execution",
   "take_orders",
+  "reservations",
 ] as const;
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
 
@@ -59,6 +62,7 @@ export const WIDGET_ADD_ICONS: Record<DashboardWidgetId, LucideIcon> = {
   inventory_delivery: Package,
   task_execution: ListTodo,
   take_orders: ShoppingCart,
+  reservations: CalendarDays,
 };
 
 /** i18n keys for one-line descriptions in the Add widget dialog. */
@@ -73,6 +77,7 @@ export const WIDGET_ADD_DESC_KEYS: Record<DashboardWidgetId, string> = {
   inventory_delivery: "dashboard.widget_add.inventory_delivery",
   task_execution: "dashboard.widget_add.task_execution",
   take_orders: "dashboard.widget_add.take_orders",
+  reservations: "dashboard.widget_add.reservations",
 };
 
 /** System default: five core cards only. Optional widgets are added via Customize dashboard. */
@@ -100,9 +105,8 @@ export function parseStoredWidgetOrder(raw: string | null): DashboardWidgetId[] 
       seen.add(x);
       out.push(x);
     }
-    for (const id of DEFAULT_DASHBOARD_WIDGET_ORDER) {
-      if (!seen.has(id)) out.push(id);
-    }
+    // Do not merge DEFAULT_DASHBOARD_WIDGET_ORDER here: the saved list is the user's
+    // explicit layout (including removed core cards). Re-adding defaults broke removals.
     return out.length ? out : [...DEFAULT_DASHBOARD_WIDGET_ORDER];
   } catch {
     return null;
@@ -312,6 +316,113 @@ function TakeOrdersDashboardCard({
           className="mt-auto flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
         >
           {t("dashboard.take_orders.open")}
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ReservationsDashboardCard({
+  cardBase,
+  cardHeaderBase,
+  t,
+  navigate,
+  hasRole,
+}: {
+  cardBase: string;
+  cardHeaderBase: string;
+  t: (key: string, options?: Record<string, string | number>) => string;
+  navigate: NavigateFunction;
+  hasRole: (roles: string[]) => boolean;
+}) {
+  const { accessToken } = useAuth() as AuthContextType;
+  const startDate = format(new Date(), "yyyy-MM-dd");
+  const endDate = format(addDays(new Date(), 14), "yyyy-MM-dd");
+  const canQuery = !!accessToken && hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER"]);
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["eatnow-reservations", "dashboard", accessToken, startDate, endDate],
+    queryFn: () => api.getEatNowReservations(accessToken!, startDate, endDate),
+    enabled: canQuery,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const rows = data?.reservations ?? [];
+  const preview = rows.slice(0, 5);
+
+  return (
+    <Card
+      className={`${cardBase} cursor-pointer hover:shadow-md transition-shadow flex flex-col`}
+      onClick={() => navigate("/dashboard/reservations")}
+    >
+      <CardHeader className={cardHeaderBase}>
+        <div className="flex items-center gap-2 min-w-0">
+          <CalendarDays className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+          <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+            {t("dashboard.reservations.title")}
+          </CardTitle>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Badge variant="outline" className="text-slate-500 border-none px-0 text-[10px] font-bold h-4">
+            {isLoading ? "…" : isError ? "—" : rows.length}
+          </Badge>
+          <ArrowRight className="w-4 h-4 text-slate-400" />
+        </div>
+      </CardHeader>
+      <CardContent className="flex min-h-0 flex-1 flex-col space-y-3 pt-2 pb-6 px-6">
+        {!canQuery ? (
+          <p className="text-sm text-slate-600 dark:text-slate-400">{t("dashboard.reservations.role_only")}</p>
+        ) : isLoading ? (
+          <div className="text-sm text-slate-400">{t("dashboard.reservations.loading")}</div>
+        ) : isError ? (
+          <p className="text-sm text-slate-600 dark:text-slate-400">{t("dashboard.reservations.connect_settings")}</p>
+        ) : preview.length === 0 ? (
+          <p className="text-sm text-slate-600 dark:text-slate-400">{t("dashboard.reservations.empty_range")}</p>
+        ) : (
+          <>
+            <ul className="space-y-2 min-w-0 max-h-[220px] overflow-y-auto pr-0.5">
+              {preview.map((r) => (
+                <li
+                  key={r.id || `${r.start_time}-${r.guest_name}`}
+                  className="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 px-2.5 py-1.5"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-xs font-semibold text-slate-900 dark:text-white truncate min-w-0">
+                      {r.guest_name || "—"}
+                    </span>
+                    {r.status ? (
+                      <Badge variant="secondary" className="shrink-0 text-[10px] font-normal max-w-[7rem] truncate">
+                        {String(r.status)}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                    <span className="truncate">{r.start_time ? String(r.start_time) : "—"}</span>
+                    {r.covers != null ? (
+                      <span>
+                        {t("dashboard.reservations.covers")} {r.covers}
+                      </span>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {rows.length > preview.length ? (
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                {t("dashboard.reservations.more_count", { count: rows.length - preview.length })}
+              </p>
+            ) : null}
+          </>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate("/dashboard/reservations");
+          }}
+          className="mt-auto flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
+        >
+          {t("dashboard.reservations.view_all")}
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </CardContent>
@@ -1082,6 +1193,17 @@ export function DashboardWidgetById({
           cardHeaderBase={cardHeaderBase}
           t={t}
           navigate={navigate}
+        />
+      );
+
+    case "reservations":
+      return (
+        <ReservationsDashboardCard
+          cardBase={cardBase}
+          cardHeaderBase={cardHeaderBase}
+          t={t}
+          navigate={navigate}
+          hasRole={hasRole}
         />
       );
 
