@@ -2021,6 +2021,70 @@ export class BackendService {
     return response.json();
   }
 
+  /** Eat Now / Eat App Concierge reservations (backend proxies API). */
+  async getEatNowReservations(
+    accessToken: string,
+    startDate: string,
+    endDate: string
+  ): Promise<{
+    success: boolean;
+    reservations?: Array<{
+      id: string;
+      start_time?: string;
+      covers?: number;
+      status?: string;
+      guest_name?: string;
+      phone?: string;
+      email?: string;
+      notes?: string;
+    }>;
+    count?: number;
+    error?: string;
+  }> {
+    const search = new URLSearchParams({ start_date: startDate, end_date: endDate });
+    const response = await fetch(`${API_BASE}/settings/reservations/eatnow/?${search}`, {
+      method: "GET",
+      headers: this.getHeaders(accessToken),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || data.detail || "Failed to load reservations");
+    }
+    return data;
+  }
+
+  async postEatNowDiscover(
+    accessToken: string,
+    body?: { api_key?: string; eatnow_api_base?: string }
+  ): Promise<{ success: boolean; groups?: { id: string; name: string }[]; restaurants_by_group?: unknown[]; error?: string }> {
+    const response = await fetch(`${API_BASE}/settings/reservations/eatnow/discover/`, {
+      method: "POST",
+      headers: { ...this.getHeaders(accessToken), "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || data.detail || "Discover failed");
+    }
+    return data;
+  }
+
+  async postEatNowTest(
+    accessToken: string,
+    body?: { api_key?: string; eatnow_restaurant_id?: string; eatnow_api_base?: string }
+  ): Promise<{ success: boolean; connected?: boolean; message?: string; sample_count?: number }> {
+    const response = await fetch(`${API_BASE}/settings/reservations/eatnow/test/`, {
+      method: "POST",
+      headers: { ...this.getHeaders(accessToken), "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || data.message || "Connection test failed");
+    }
+    return data;
+  }
+
   async getAttendanceReports(accessToken: string): Promise<AttendanceReport[]> {
     try {
       const response = await fetch(`${API_BASE}/reporting/attendance/`, {

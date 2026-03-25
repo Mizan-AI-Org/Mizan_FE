@@ -305,6 +305,8 @@ export default function Dashboard() {
           return t("dashboard.task_execution.title");
         case "take_orders":
           return t("dashboard.take_orders.title");
+        case "reservations":
+          return t("dashboard.reservations.title");
         default:
           return id;
       }
