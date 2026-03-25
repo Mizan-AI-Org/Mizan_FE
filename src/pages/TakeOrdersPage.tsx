@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ClipboardList, ClipboardPlus, FileDown, FileSpreadsheet, Loader2, Pencil, Search, Trash2 } from "lucide-react";
+import { CalendarRange, ClipboardList, ClipboardPlus, FileDown, FileSpreadsheet, Loader2, Pencil, Search, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -279,13 +279,13 @@ export default function TakeOrdersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<StaffCapturedOrderRow | null>(null);
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | StaffCapturedOrderFulfillmentStatus>("all");
-  const [filterType, setFilterType] = useState<"all" | StaffCapturedOrderRow["order_type"]>("all");
-  const [filterChannel, setFilterChannel] = useState<"all" | StaffCapturedOrderRow["channel"]>("all");
   const [sortBy, setSortBy] = useState<SortKey>("newest");
   const [pendingStatusId, setPendingStatusId] = useState<string | null>(null);
   const [exportDateFrom, setExportDateFrom] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [exportDateTo, setExportDateTo] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  /** List view: default today→today uses active queue (today + open from earlier days); any other range uses date_from/date_to only. */
+  const [listDateFrom, setListDateFrom] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const [listDateTo, setListDateTo] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [exportBusy, setExportBusy] = useState<null | "pdf" | "xlsx">(null);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -308,12 +308,24 @@ export default function TakeOrdersPage() {
     setSpecialInstructions("");
   }, []);
 
+  const todayYmd = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
+  const listUsesActiveQueue = listDateFrom === listDateTo && listDateFrom === todayYmd;
+
   const { data: todayRows, isLoading } = useQuery({
-    queryKey: ["staff-captured-orders", "active", accessToken],
-    queryFn: () => api.listStaffCapturedOrders({ active: true }),
+    queryKey: [
+      "staff-captured-orders",
+      listUsesActiveQueue ? "active" : "range",
+      listDateFrom,
+      listDateTo,
+      accessToken,
+    ],
+    queryFn: () =>
+      listUsesActiveQueue
+        ? api.listStaffCapturedOrders({ active: true })
+        : api.listStaffCapturedOrders({ dateFrom: listDateFrom, dateTo: listDateTo }),
     enabled: !!accessToken,
     staleTime: 20_000,
-    refetchInterval: 30_000,
+    refetchInterval: listUsesActiveQueue ? 30_000 : false,
   });
 
   const list = useMemo(() => (Array.isArray(todayRows) ? todayRows : []), [todayRows]);
@@ -330,15 +342,6 @@ export default function TakeOrdersPage() {
         return hay.includes(q);
       });
     }
-    if (filterStatus !== "all") {
-      rows = rows.filter((r) => (r.fulfillment_status ?? "NEW") === filterStatus);
-    }
-    if (filterType !== "all") {
-      rows = rows.filter((r) => r.order_type === filterType);
-    }
-    if (filterChannel !== "all") {
-      rows = rows.filter((r) => r.channel === filterChannel);
-    }
     rows.sort((a, b) => {
       if (sortBy === "newest") {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -352,10 +355,10 @@ export default function TakeOrdersPage() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
     return rows;
-  }, [list, search, filterStatus, filterType, filterChannel, sortBy]);
+  }, [list, search, sortBy]);
 
   const hasActiveFilters =
-    search.trim().length > 0 || filterStatus !== "all" || filterType !== "all" || filterChannel !== "all";
+    search.trim().length > 0 || listDateFrom !== todayYmd || listDateTo !== todayYmd;
 
   const openCreate = useCallback(() => {
     resetForm();
@@ -376,7 +379,6 @@ export default function TakeOrdersPage() {
   }, []);
 
   const queueStats = useMemo(() => {
-    const todayStr = new Date().toDateString();
     let totalToday = 0;
     let filled = 0;
     let cancelled = 0;
@@ -384,7 +386,7 @@ export default function TakeOrdersPage() {
       const st = (row.fulfillment_status ?? "NEW") as StaffCapturedOrderFulfillmentStatus;
       if (st === "FULFILLED") filled += 1;
       if (st === "CANCELLED") cancelled += 1;
-      if (new Date(row.created_at).toDateString() === todayStr) totalToday += 1;
+      totalToday += 1;
     }
     return { totalToday, filled, cancelled };
   }, [list]);
@@ -584,8 +586,54 @@ export default function TakeOrdersPage() {
             </div>
 
             <div className="flex min-w-0 justify-center">
-            {!isLoading && list.length > 0 ? (
-              <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-1.5 rounded-lg border border-slate-200/90 bg-white/90 px-2 py-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 lg:max-w-xl lg:px-2.5 lg:py-2 xl:max-w-2xl">
+              <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-1.5 rounded-lg border border-slate-200/90 bg-white/90 px-2 py-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 lg:px-2.5 lg:py-2 lg:max-w-[min(100%,56rem)] xl:max-w-[min(100%,64rem)]">
+                <div className="flex w-full min-w-0 flex-[1_1_100%] items-center justify-center gap-1.5 sm:flex-[1_1_auto] sm:w-auto border-b border-slate-100 pb-1.5 mb-0.5 sm:border-0 sm:pb-0 sm:mb-0 dark:border-slate-700/80">
+                  <CalendarRange className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+                  <div className="flex flex-wrap items-center gap-1">
+                    <Label htmlFor="take-orders-from" className="sr-only">
+                      {t("take_orders.filter_date_from")}
+                    </Label>
+                    <Input
+                      id="take-orders-from"
+                      type="date"
+                      value={listDateFrom}
+                      max={listDateTo}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setListDateFrom(v);
+                        if (listDateTo < v) setListDateTo(v);
+                      }}
+                      className="h-8 w-[9.75rem] rounded-md border-slate-200 bg-white px-2 text-[11px] dark:border-slate-600 dark:bg-slate-900/50"
+                      aria-label={t("take_orders.filter_date_from")}
+                    />
+                    <span className="text-[10px] text-slate-400">—</span>
+                    <Label htmlFor="take-orders-to" className="sr-only">
+                      {t("take_orders.filter_date_to")}
+                    </Label>
+                    <Input
+                      id="take-orders-to"
+                      type="date"
+                      value={listDateTo}
+                      min={listDateFrom}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setListDateTo(v);
+                        if (listDateFrom > v) setListDateFrom(v);
+                      }}
+                      className="h-8 w-[9.75rem] rounded-md border-slate-200 bg-white px-2 text-[11px] dark:border-slate-600 dark:bg-slate-900/50"
+                      aria-label={t("take_orders.filter_date_to")}
+                    />
+                  </div>
+                  {listUsesActiveQueue ? (
+                    <span className="hidden text-[10px] text-slate-500 dark:text-slate-400 sm:inline max-w-[14rem] leading-tight">
+                      {t("take_orders.queue_hint_active")}
+                    </span>
+                  ) : (
+                    <span className="hidden text-[10px] text-slate-500 dark:text-slate-400 sm:inline">
+                      {t("take_orders.queue_hint_range")}
+                    </span>
+                  )}
+                </div>
                 <div className="relative min-w-[140px] max-w-[220px] flex-1">
                   <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                   <Input
@@ -596,51 +644,6 @@ export default function TakeOrdersPage() {
                     aria-label={t("take_orders.search_placeholder")}
                   />
                 </div>
-                <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}>
-                  <SelectTrigger
-                    className="h-8 w-[min(100%,7.5rem)] rounded-md text-[11px] lg:w-[7.25rem]"
-                    aria-label={t("take_orders.filter_status")}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t("take_orders.filter_all")}</SelectItem>
-                    {FULFILLMENT_SEQUENCE.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {t(`take_orders.status.${s}`)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={filterType} onValueChange={(v) => setFilterType(v as typeof filterType)}>
-                  <SelectTrigger
-                    className="h-8 w-[min(100%,7.5rem)] rounded-md text-[11px] lg:w-[7.25rem]"
-                    aria-label={t("take_orders.filter_type")}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t("take_orders.filter_all")}</SelectItem>
-                    <SelectItem value="DINE_IN">{t("take_orders.type.dine_in")}</SelectItem>
-                    <SelectItem value="TAKEOUT">{t("take_orders.type.takeout")}</SelectItem>
-                    <SelectItem value="DELIVERY">{t("take_orders.type.delivery")}</SelectItem>
-                    <SelectItem value="OTHER">{t("take_orders.type.other")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={filterChannel} onValueChange={(v) => setFilterChannel(v as typeof filterChannel)}>
-                  <SelectTrigger
-                    className="h-8 w-[min(100%,7.5rem)] rounded-md text-[11px] lg:w-[7.25rem]"
-                    aria-label={t("take_orders.filter_channel")}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t("take_orders.filter_all")}</SelectItem>
-                    <SelectItem value="MANUAL">{t("take_orders.channel.manual")}</SelectItem>
-                    <SelectItem value="VOICE">{t("take_orders.channel.voice")}</SelectItem>
-                    <SelectItem value="TEXT">{t("take_orders.channel.text")}</SelectItem>
-                  </SelectContent>
-                </Select>
                 <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
                   <SelectTrigger
                     className="h-8 w-[min(100%,8.5rem)] rounded-md text-[11px] lg:w-[8.25rem]"
@@ -654,13 +657,12 @@ export default function TakeOrdersPage() {
                     <SelectItem value="status">{t("take_orders.sort_status")}</SelectItem>
                   </SelectContent>
                 </Select>
-                {hasActiveFilters ? (
+                {hasActiveFilters || filteredSorted.length !== list.length ? (
                   <span className="whitespace-nowrap px-1 text-[10px] text-slate-500 dark:text-slate-400">
                     {t("take_orders.showing_filtered", { visible: filteredSorted.length, total: list.length })}
                   </span>
                 ) : null}
               </div>
-            ) : null}
             </div>
 
             <div className="flex shrink-0 justify-start lg:justify-end">
@@ -702,7 +704,17 @@ export default function TakeOrdersPage() {
                 ) : filteredSorted.length === 0 ? (
                   <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-14 dark:border-slate-700 dark:bg-slate-900/40">
                     <p className="text-sm text-slate-600 dark:text-slate-400">{t("take_orders.no_matches")}</p>
-                    <Button type="button" variant="outline" size="sm" onClick={() => { setSearch(""); setFilterStatus("all"); setFilterType("all"); setFilterChannel("all"); }}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const d = format(new Date(), "yyyy-MM-dd");
+                        setSearch("");
+                        setListDateFrom(d);
+                        setListDateTo(d);
+                      }}
+                    >
                       {t("take_orders.clear_filters")}
                     </Button>
                   </div>
@@ -729,7 +741,9 @@ export default function TakeOrdersPage() {
           <aside className="space-y-4 xl:col-span-3 xl:min-w-0">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1 xl:gap-3">
               <div className="rounded-xl border border-slate-200/90 bg-white/90 px-3 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/80 sm:px-4 sm:py-4">
-                <p className="text-xs font-medium leading-snug text-slate-600 dark:text-slate-400">{t("take_orders.stat_total_today")}</p>
+                <p className="text-xs font-medium leading-snug text-slate-600 dark:text-slate-400">
+                  {t(listUsesActiveQueue ? "take_orders.stat_total_today" : "take_orders.stat_total_range")}
+                </p>
                 <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{isLoading ? "…" : queueStats.totalToday}</p>
               </div>
               <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/50 px-3 py-3 shadow-sm dark:border-emerald-900/50 dark:bg-emerald-950/25 sm:px-4 sm:py-4">
