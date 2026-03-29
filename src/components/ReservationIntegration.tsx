@@ -8,16 +8,32 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Globe2, Link as LinkIcon, Loader2, Plug, ListOrdered, Copy } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Globe2, Link as LinkIcon, Loader2, Plug, ListOrdered, Copy, Unplug } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE, api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/hooks/use-language";
 
 type ReservationProvider = "NONE" | "EATAPP" | "OPENTABLE" | "THEFORK" | "SEVENROOMS" | "CUSTOM";
 
-export default function ReservationIntegration() {
+type ReservationIntegrationProps = {
+  /** Called after save/disconnect so parent can refresh integration health banner. */
+  onIntegrationChange?: () => void;
+};
+
+export default function ReservationIntegration({ onIntegrationChange }: ReservationIntegrationProps) {
   const { accessToken } = useAuth();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [provider, setProvider] = useState<ReservationProvider>("NONE");
   const [widgetUrl, setWidgetUrl] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -35,6 +51,8 @@ export default function ReservationIntegration() {
   const [eatnowWebhookUrl, setEatnowWebhookUrl] = useState("");
   const [eatnowWebhookSecret, setEatnowWebhookSecret] = useState("");
   const [webhookSecretSet, setWebhookSecretSet] = useState(false);
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   const load = useCallback(async () => {
     if (!accessToken) {
@@ -71,15 +89,19 @@ export default function ReservationIntegration() {
         typeof data.settings_schema_version === "number" ? data.settings_schema_version : null
       );
     } catch {
-      toast.error("Could not load reservation settings");
+      toast.error(t("settings.reservation.load_error"));
     } finally {
       setLoading(false);
     }
-  }, [accessToken]);
+  }, [accessToken, t]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const notifyParent = () => {
+    onIntegrationChange?.();
+  };
 
   const handleSave = async () => {
     if (!accessToken || schemaVersion === null) {
@@ -114,10 +136,11 @@ export default function ReservationIntegration() {
       });
       const data = await r.json();
       if (!r.ok) {
-        toast.error(data.detail || data.error || "Save failed");
+        toast.error(data.detail || data.error || t("settings.reservation.save_error"));
         return;
       }
-      toast.success("Reservation settings saved");
+      toast.success(t("settings.reservation.save_success"));
+      notifyParent();
       setEatnowApiKey("");
       setEatnowWebhookSecret("");
       setApiKeySet(!!data.eatnow_api_key_set || !!(eatnowApiKey && eatnowApiKey.trim()));
@@ -129,7 +152,7 @@ export default function ReservationIntegration() {
         typeof data.settings_schema_version === "number" ? data.settings_schema_version : schemaVersion
       );
     } catch {
-      toast.error("Save failed");
+      toast.error(t("settings.reservation.save_error"));
     } finally {
       setSaving(false);
     }
@@ -189,13 +212,79 @@ export default function ReservationIntegration() {
     }
   };
 
-  const hasWidget = provider !== "NONE" && widgetUrl.trim().length > 0;
+  const handleDisconnect = async () => {
+    if (!accessToken || schemaVersion === null) {
+      toast.error(t("settings.reservation.disconnect_error_version"));
+      return;
+    }
+    setDisconnecting(true);
+    try {
+      const r = await fetch(`${API_BASE}/settings/unified/`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          settings_schema_version: schemaVersion,
+          reservation_disconnect: true,
+        }),
+      });
+      const data = await r.json();
+      if (r.status === 409) {
+        toast.error(data.detail || t("settings.reservation.disconnect_error_conflict"));
+        await load();
+        return;
+      }
+      if (!r.ok) {
+        toast.error(data.detail || data.error || t("settings.reservation.disconnect_error"));
+        return;
+      }
+      toast.success(t("settings.reservation.disconnect_success"));
+      notifyParent();
+      setDisconnectOpen(false);
+      setProvider("NONE");
+      setEatnowGroupId("");
+      setEatnowRestaurantId("");
+      setEatnowApiBase("");
+      setEatnowApiKey("");
+      setEatnowWebhookSecret("");
+      setApiKeySet(false);
+      setWebhookSecretSet(false);
+      setDiscoverJson(null);
+      if (typeof data.settings_schema_version === "number") {
+        setSchemaVersion(data.settings_schema_version);
+      } else {
+        await load();
+      }
+    } catch {
+      toast.error(t("settings.reservation.disconnect_error"));
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
   /** Webhook path: restaurant ID + signing secret (same as in Eat Now webhook settings). */
   const eatnowWebhookReady =
     provider === "EATAPP" &&
     eatnowRestaurantId.trim().length > 0 &&
     (webhookSecretSet || eatnowWebhookSecret.trim().length > 0);
   const canViewReservations = provider === "EATAPP" && eatnowRestaurantId.trim().length > 0;
+  const canDisconnectReservation = provider !== "NONE";
+
+  const reservationStatusLabel =
+    provider === "NONE"
+      ? t("integrations.status.reservation_not_configured")
+      : provider === "EATAPP" && eatnowWebhookReady
+        ? t("integrations.status.fully_connected")
+        : provider === "CUSTOM" && widgetUrl.trim().length > 0
+          ? t("integrations.status.fully_connected")
+          : t("integrations.status.setup_incomplete");
+  const reservationStatusOk =
+    provider === "NONE" ||
+    (provider === "EATAPP" && eatnowWebhookReady) ||
+    (provider === "CUSTOM" && widgetUrl.trim().length > 0);
 
   if (loading) {
     return (
@@ -210,15 +299,29 @@ export default function ReservationIntegration() {
   return (
     <Card className="shadow-soft">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Globe2 className="w-5 h-5 text-emerald-500" />
-          Reservation Booking
-        </CardTitle>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-2">
+            <Globe2 className="w-5 h-5 text-emerald-500 shrink-0" />
+            <CardTitle className="text-lg">{t("settings.reservation.card_title")}</CardTitle>
+          </div>
+          <Badge
+            variant="outline"
+            className={
+              provider === "NONE"
+                ? "shrink-0 border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400"
+                : reservationStatusOk
+                  ? "shrink-0 border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                  : "shrink-0 border-amber-500 bg-amber-50 text-amber-900 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-200"
+            }
+          >
+            {reservationStatusLabel}
+          </Badge>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
           <Label htmlFor="reservation-provider" className="text-sm font-medium">
-            Reservation provider
+            {t("settings.reservation.provider_label")}
           </Label>
           <select
             id="reservation-provider"
@@ -226,7 +329,7 @@ export default function ReservationIntegration() {
             onChange={(e) => setProvider(e.target.value as ReservationProvider)}
             className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100 rounded-md text-sm"
           >
-            <option value="NONE">Not configured</option>
+            <option value="NONE">{t("settings.reservation.provider_none")}</option>
             <option value="EATAPP">Eat App (Eat Now)</option>
             <option value="OPENTABLE" disabled>
               OpenTable (soon)
@@ -237,8 +340,11 @@ export default function ReservationIntegration() {
             <option value="SEVENROOMS" disabled>
               SevenRooms (soon)
             </option>
-            <option value="CUSTOM">Custom booking widget</option>
+            <option value="CUSTOM">{t("settings.reservation.provider_custom")}</option>
           </select>
+          {provider === "NONE" && (
+            <p className="text-xs text-muted-foreground">{t("settings.reservation.connect_hint")}</p>
+          )}
         </div>
 
         <Separator />
@@ -446,54 +552,86 @@ export default function ReservationIntegration() {
               <Badge
                 variant="outline"
                 className={
-                  provider === "EATAPP" && eatnowWebhookReady
-                    ? "border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300"
-                    : hasWidget || (provider === "EATAPP" && (apiKeySet || eatnowRestaurantId.trim()))
-                      ? "border-amber-200 text-amber-800"
-                      : ""
+                  provider === "NONE"
+                    ? "border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400"
+                    : reservationStatusOk
+                      ? "border-emerald-400 text-emerald-800 dark:border-emerald-700 dark:text-emerald-300"
+                      : "border-amber-500 text-amber-900 dark:border-amber-600 dark:text-amber-200"
                 }
               >
-                {provider === "EATAPP" && eatnowWebhookReady
-                  ? "Webhooks ready"
-                  : provider === "NONE"
-                    ? "Not configured"
-                    : "Partial"}
+                {reservationStatusLabel}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground leading-snug">
               {provider === "EATAPP" ? (
                 <>
-                  Save URL + secret, then use <strong className="font-medium text-slate-700 dark:text-slate-300">Save configuration</strong>.{" "}
-                  <span className="text-muted-foreground/90">Promote bookings with the widget link below when set.</span>
+                  {t("settings.reservation.status_help_eatapp_prefix")}{" "}
+                  <strong className="font-medium text-slate-700 dark:text-slate-300">
+                    {t("settings.reservation.status_help_save")}
+                  </strong>
+                  . {t("settings.reservation.status_help_eatapp_suffix")}
                 </>
               ) : (
-                <>
-                  Use the booking link on your site, QR codes, or menu to send guests to your reservation flow.
-                </>
+                <>{t("settings.reservation.status_help_generic")}</>
               )}
             </p>
-            <div className="flex gap-2 pt-2">
-              <Button onClick={handleSave} disabled={saving || schemaVersion === null} className="flex-1">
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving…
-                  </>
-                ) : (
-                  <>
-                    <Globe2 className="w-4 h-4 mr-2" />
-                    Save configuration
-                  </>
-                )}
-              </Button>
-              <Button type="button" variant="outline" disabled={!widgetUrl} onClick={handleTestLink} className="flex-1">
-                <LinkIcon className="w-4 h-4 mr-2" />
-                Open booking link
-              </Button>
+            <div className="flex flex-col gap-2 pt-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button onClick={handleSave} disabled={saving || schemaVersion === null} className="flex-1">
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {t("settings.reservation.saving")}
+                    </>
+                  ) : (
+                    <>
+                      <Globe2 className="w-4 h-4 mr-2" />
+                      {t("settings.reservation.save_configuration")}
+                    </>
+                  )}
+                </Button>
+                <Button type="button" variant="outline" disabled={!widgetUrl} onClick={handleTestLink} className="flex-1">
+                  <LinkIcon className="w-4 h-4 mr-2" />
+                  {t("settings.reservation.open_booking_link")}
+                </Button>
+              </div>
+              {canDisconnectReservation && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
+                  onClick={() => setDisconnectOpen(true)}
+                  disabled={disconnecting}
+                >
+                  <Unplug className="w-4 h-4 mr-2 shrink-0" />
+                  {t("settings.reservation.disconnect")}
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </CardContent>
+
+      <AlertDialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("settings.reservation.disconnect_confirm_title")}</AlertDialogTitle>
+            <AlertDialogDescription className="text-left">{t("settings.reservation.disconnect_confirm_desc")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={disconnecting}>{t("settings.reservation.disconnect_cancel")}</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={disconnecting}
+              onClick={() => void handleDisconnect()}
+            >
+              {disconnecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              {t("settings.reservation.disconnect")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
