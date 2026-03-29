@@ -13,6 +13,15 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Building2,
   Users,
   MapPin,
@@ -27,6 +36,7 @@ import {
   EyeOff,
   CheckCircle,
   AlertCircle,
+  Unplug,
 } from "lucide-react";
 import { FormSectionSkeleton } from "@/components/skeletons";
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";
@@ -151,6 +161,8 @@ export default function Settings() {
     useState<PosConnectionStatus>("idle");
   // Tracks backend settings schema/version for optimistic concurrency
   const [settingsSchemaVersion, setSettingsSchemaVersion] = useState<number | null>(null);
+  const [posDisconnectOpen, setPosDisconnectOpen] = useState(false);
+  const [posDisconnecting, setPosDisconnecting] = useState(false);
   const [aiSettings, setAiSettings] = useState<AISettings>({
     enabled: true,
     ai_provider: "GROQ",
@@ -333,6 +345,11 @@ export default function Settings() {
       }
     }
   };
+
+  const posFullyConnected = useMemo(
+    () => posSettings.pos_provider !== "NONE" && posSettings.pos_is_connected,
+    [posSettings.pos_provider, posSettings.pos_is_connected]
+  );
 
   const saveLocationSettings = async (
     lat: number,
@@ -650,14 +667,36 @@ export default function Settings() {
     }
   };
 
-  const disconnectSquare = async () => {
+  /** Clears all POS credentials (Square OAuth, Custom API, Lightspeed) via unified settings. */
+  const disconnectPosPlatform = async () => {
+    if (settingsSchemaVersion === null) {
+      toast.error(t("pos.disconnect_version_error"));
+      return;
+    }
+    setPosDisconnecting(true);
     try {
-      await apiClient.post("/settings/square/oauth/disconnect/", {});
-      toast.success(t("settings.square_disconnected"));
+      const response = await apiClient.put("/settings/unified/", {
+        settings_schema_version: settingsSchemaVersion,
+        pos_disconnect: true,
+      });
+      toast.success(t("pos.disconnect_success"));
+      setPosDisconnectOpen(false);
+      setPosAPIKey("");
+      const v = response.data?.settings_schema_version ?? response.data?.settingsVersion;
+      if (typeof v === "number") {
+        setSettingsSchemaVersion(v);
+      }
       await fetchUnifiedSettings();
     } catch (error) {
       const axiosErr = error as AxiosError<{ detail?: string; error?: string }>;
-      toast.error(translateApiError(axiosErr));
+      if (axiosErr.response?.status === 409) {
+        toast.error(t("pos.disconnect_conflict"));
+        await fetchUnifiedSettings();
+      } else {
+        toast.error(translateApiError(axiosErr) || t("pos.disconnect_error"));
+      }
+    } finally {
+      setPosDisconnecting(false);
     }
   };
 
@@ -908,14 +947,32 @@ export default function Settings() {
           <TabsContent value="integrations" className="space-y-6">
             <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
               <CardHeader className="pb-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 shadow-lg shadow-purple-500/25">
-                    <Plug className="w-5 h-5 text-white" />
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 shadow-lg shadow-purple-500/25">
+                      <Plug className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("pos.title")}</CardTitle>
+                      <CardDescription className="text-slate-500 dark:text-slate-400">{t("pos.description")}</CardDescription>
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("pos.title")}</CardTitle>
-                    <CardDescription className="text-slate-500 dark:text-slate-400">{t("pos.description")}</CardDescription>
-                  </div>
+                  <Badge
+                    variant="outline"
+                    className={
+                      posSettings.pos_provider === "NONE"
+                        ? "shrink-0 border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400"
+                        : posFullyConnected
+                          ? "shrink-0 border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                          : "shrink-0 border-amber-500 bg-amber-50 text-amber-900 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-200"
+                    }
+                  >
+                    {posSettings.pos_provider === "NONE"
+                      ? t("integrations.status.pos_not_configured")
+                      : posFullyConnected
+                        ? t("integrations.status.fully_connected")
+                        : t("integrations.status.setup_incomplete")}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -952,8 +1009,17 @@ export default function Settings() {
                             Connect via OAuth so no API keys are stored in the browser.
                           </div>
                         </div>
-                        <Badge variant="outline" className={posSettings.pos_is_connected ? "border-emerald-200 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400"}>
-                          {posSettings.pos_is_connected ? t("settings.connected") : t("settings.not_connected")}
+                        <Badge
+                          variant="outline"
+                          className={
+                            posFullyConnected
+                              ? "border-emerald-400 text-emerald-800 dark:border-emerald-700 dark:text-emerald-300"
+                              : "border-amber-500 text-amber-900 dark:border-amber-600 dark:text-amber-200"
+                          }
+                        >
+                          {posFullyConnected
+                            ? t("integrations.status.fully_connected")
+                            : t("integrations.status.setup_incomplete")}
                         </Badge>
                       </div>
 
@@ -963,14 +1029,22 @@ export default function Settings() {
                           Connect with Square
                         </Button>
                       ) : (
-                        <div className="flex gap-2">
-                          <Button onClick={testPosConnection} variant="outline" className="flex-1">
-                            <Plug className="mr-2 h-4 w-4" />
-                            Test Connection
-                          </Button>
-                          <Button onClick={disconnectSquare} variant="destructive" className="flex-1">
-                            Disconnect
-                          </Button>
+                        <div className="space-y-2">
+                          <div className="flex flex-col gap-2 sm:flex-row">
+                            <Button onClick={testPosConnection} variant="outline" className="flex-1">
+                              <Plug className="mr-2 h-4 w-4" />
+                              {t("pos.test_connection")}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              className="flex-1"
+                              onClick={() => setPosDisconnectOpen(true)}
+                            >
+                              <Unplug className="mr-2 h-4 w-4" />
+                              {t("pos.disconnect")}
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -983,8 +1057,17 @@ export default function Settings() {
                             Connect your own POS or sales API. Mizan will pull sales, menu, and order data.
                           </div>
                         </div>
-                        <Badge variant="outline" className={posSettings.pos_is_connected ? "border-emerald-200 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400"}>
-                          {posSettings.pos_is_connected ? t("settings.connected") : t("settings.not_connected")}
+                        <Badge
+                          variant="outline"
+                          className={
+                            posFullyConnected
+                              ? "border-emerald-400 text-emerald-800 dark:border-emerald-700 dark:text-emerald-300"
+                              : "border-amber-500 text-amber-900 dark:border-amber-600 dark:text-amber-200"
+                          }
+                        >
+                          {posFullyConnected
+                            ? t("integrations.status.fully_connected")
+                            : t("integrations.status.setup_incomplete")}
                         </Badge>
                       </div>
 
@@ -1017,16 +1100,27 @@ export default function Settings() {
                         </div>
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row">
                         <Button onClick={saveCustomApi} disabled={savingPos || !posSettings.pos_custom_api_url} className="flex-1">
                           {savingPos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                          Save & Connect
+                          {t("pos.save_connect")}
                         </Button>
-                        <Button onClick={testPosConnection} variant="outline" disabled={posTestingConnection || !posSettings.pos_custom_api_url}>
+                        <Button onClick={testPosConnection} variant="outline" disabled={posTestingConnection || !posSettings.pos_custom_api_url} className="flex-1">
                           {posTestingConnection ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plug className="mr-2 h-4 w-4" />}
-                          Test
+                          {t("pos.test_connection_short")}
                         </Button>
                       </div>
+                      {posSettings.pos_is_connected && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
+                          onClick={() => setPosDisconnectOpen(true)}
+                        >
+                          <Unplug className="mr-2 h-4 w-4" />
+                          {t("pos.disconnect")}
+                        </Button>
+                      )}
                     </div>
                   ) : posSettings.pos_provider === "LIGHTSPEED" ? (
                     <div className="space-y-4">
@@ -1041,8 +1135,17 @@ export default function Settings() {
                             for product docs.
                           </div>
                         </div>
-                        <Badge variant="outline" className={posSettings.pos_is_connected ? "border-emerald-200 text-emerald-700 dark:text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400"}>
-                          {posSettings.pos_is_connected ? t("settings.connected") : t("settings.not_connected")}
+                        <Badge
+                          variant="outline"
+                          className={
+                            posFullyConnected
+                              ? "border-emerald-400 text-emerald-800 dark:border-emerald-700 dark:text-emerald-300"
+                              : "border-amber-500 text-amber-900 dark:border-amber-600 dark:text-amber-200"
+                          }
+                        >
+                          {posFullyConnected
+                            ? t("integrations.status.fully_connected")
+                            : t("integrations.status.setup_incomplete")}
                         </Badge>
                       </div>
                       <div className="space-y-2">
@@ -1116,7 +1219,7 @@ export default function Settings() {
                           </div>
                         )}
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row">
                         <Button
                           onClick={saveLightSpeed}
                           disabled={
@@ -1128,11 +1231,12 @@ export default function Settings() {
                           className="flex-1"
                         >
                           {savingPos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                          Save & Connect
+                          {t("pos.save_connect")}
                         </Button>
                         <Button
                           onClick={testPosConnection}
                           variant="outline"
+                          className="flex-1"
                           disabled={
                             posTestingConnection ||
                             (!posAPIKey && !posSettings.pos_is_connected) ||
@@ -1141,9 +1245,20 @@ export default function Settings() {
                           }
                         >
                           {posTestingConnection ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plug className="mr-2 h-4 w-4" />}
-                          Test
+                          {t("pos.test_connection_short")}
                         </Button>
                       </div>
+                      {posSettings.pos_is_connected && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
+                          onClick={() => setPosDisconnectOpen(true)}
+                        >
+                          <Unplug className="mr-2 h-4 w-4" />
+                          {t("pos.disconnect")}
+                        </Button>
+                      )}
                     </div>
                   ) : posSettings.pos_provider === "NONE" ? null : (
                     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4">
@@ -1191,7 +1306,30 @@ export default function Settings() {
               </CardContent>
             </Card>
 
-            <ReservationIntegration />
+            <AlertDialog open={posDisconnectOpen} onOpenChange={setPosDisconnectOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t("pos.disconnect_confirm_title")}</AlertDialogTitle>
+                  <AlertDialogDescription className="text-left">
+                    {t("pos.disconnect_confirm_desc")}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={posDisconnecting}>{t("settings.reservation.disconnect_cancel")}</AlertDialogCancel>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={posDisconnecting}
+                    onClick={() => void disconnectPosPlatform()}
+                  >
+                    {posDisconnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Unplug className="mr-2 h-4 w-4" />}
+                    {t("pos.disconnect")}
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <ReservationIntegration onIntegrationChange={() => void fetchUnifiedSettings()} />
 
           </TabsContent>
         )}

@@ -2085,6 +2085,33 @@ export class BackendService {
     return data;
   }
 
+  /**
+   * Pull reservations from Eat App Concierge API into local DB for the date range (backfill).
+   * Requires API key + restaurant ID saved in Settings; webhooks alone do not include history.
+   */
+  async postEatNowReservationsSync(
+    accessToken: string,
+    body: { start_date: string; end_date: string }
+  ): Promise<{
+    success: boolean;
+    imported?: number;
+    api_count?: number;
+    start_date?: string;
+    end_date?: string;
+    error?: string;
+  }> {
+    const response = await fetch(`${API_BASE}/settings/reservations/eatnow/sync/`, {
+      method: "POST",
+      headers: { ...this.getHeaders(accessToken), "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || data.detail || "Failed to import reservations from Eat Now API");
+    }
+    return data;
+  }
+
   async getAttendanceReports(accessToken: string): Promise<AttendanceReport[]> {
     try {
       const response = await fetch(`${API_BASE}/reporting/attendance/`, {

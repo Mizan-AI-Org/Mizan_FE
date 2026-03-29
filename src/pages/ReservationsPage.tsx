@@ -17,7 +17,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CalendarDays, RefreshCw, Plug, Users } from "lucide-react";
+import { CalendarDays, CloudDownload, RefreshCw, Plug, Users } from "lucide-react";
+import { toast } from "sonner";
 
 /** Backend errors that mean no provider / credentials (not upstream/API outages). */
 function isReservationConnectionConfigError(message: string | undefined): boolean {
@@ -39,6 +40,7 @@ export default function ReservationsPage() {
   const { t } = useLanguage();
   const [startDate, setStartDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [endDate, setEndDate] = useState(() => format(addDays(new Date(), 14), "yyyy-MM-dd"));
+  const [isImporting, setIsImporting] = useState(false);
 
   const { data, isLoading, isError, refetch, error } = useQuery({
     queryKey: ["eatnow-reservations", accessToken, startDate, endDate],
@@ -58,6 +60,24 @@ export default function ReservationsPage() {
     (isError || (data != null && !data.success)) &&
     isReservationConnectionConfigError(rawErrorMessage);
 
+  async function handleImportFromEatNowApi() {
+    if (!accessToken) return;
+    setIsImporting(true);
+    try {
+      const res = await api.postEatNowReservationsSync(accessToken, {
+        start_date: startDate,
+        end_date: endDate,
+      });
+      const n = res.imported ?? 0;
+      toast.success(t("dashboard.reservations.import_success", { count: String(n) }));
+      await refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("dashboard.reservations.load_failed"));
+    } finally {
+      setIsImporting(false);
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-[1300px] px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -68,10 +88,22 @@ export default function ReservationsPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">{t("dashboard.reservations.page_subtitle")}</p>
         </div>
-        <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => void handleImportFromEatNowApi()}
+            disabled={isLoading || notConnected || isImporting}
+            title={notConnected ? undefined : t("dashboard.reservations.import_from_api_title")}
+          >
+            <CloudDownload className={`h-4 w-4 mr-2 ${isImporting ? "animate-pulse" : ""}`} />
+            {t("dashboard.reservations.import_from_api")}
+          </Button>
+          <Button variant="outline" onClick={() => refetch()} disabled={isLoading || isImporting}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+            {t("dashboard.reservations.refresh")}
+          </Button>
+        </div>
       </div>
 
       <Card className="w-full border-slate-200 dark:border-slate-800 shadow-sm">
@@ -137,9 +169,12 @@ export default function ReservationsPage() {
             <p className="text-sm text-destructive py-4">{data.error || t("dashboard.reservations.load_failed")}</p>
           )}
           {!isLoading && !notConnected && data?.success && rows.length === 0 && (
-            <p className="text-sm text-muted-foreground py-8 text-center">
-              {t("dashboard.reservations.empty_table")}
-            </p>
+            <div className="space-y-2 py-8 text-center px-2">
+              <p className="text-sm text-muted-foreground">{t("dashboard.reservations.empty_table")}</p>
+              <p className="text-xs text-muted-foreground max-w-lg mx-auto">
+                {t("dashboard.reservations.empty_import_hint")}
+              </p>
+            </div>
           )}
           {!isLoading && !notConnected && data?.success && rows.length > 0 && (
             <div className="rounded-md border overflow-x-auto">

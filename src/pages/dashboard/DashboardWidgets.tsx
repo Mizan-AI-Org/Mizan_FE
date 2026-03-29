@@ -239,7 +239,9 @@ function StaffingCoverageCard({
                   {(attendance?.late_staff_today as { name: string; reason?: string }[]).slice(0, 3).map((m, i: number) => (
                     <li key={i}>
                       {m.name}
-                      {m.reason === "missed_clock_in" ? " (no clock-in)" : " (late)"}
+                      {m.reason === "missed_clock_in"
+                        ? ` ${t("dashboard.staffing.attendance_suffix_no_clock_in")}`
+                        : ` ${t("dashboard.staffing.attendance_suffix_late")}`}
                     </li>
                   ))}
                 </ul>
@@ -566,8 +568,8 @@ export function DashboardWidgetById({
         >
           <div
             className={`absolute inset-0 pointer-events-none ${criticalCount > 0
-                ? "bg-gradient-to-br from-red-500/12 via-transparent to-transparent"
-                : "bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent"
+              ? "bg-gradient-to-br from-red-500/12 via-transparent to-transparent"
+              : "bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent"
               }`}
           ></div>
           <CardHeader className="pb-1.5 px-6 pt-5">
@@ -575,8 +577,8 @@ export function DashboardWidgetById({
               <div className="flex items-center gap-2">
                 <div
                   className={`w-8 h-8 rounded-xl flex items-center justify-center ${criticalCount > 0
-                      ? "bg-red-500/10 dark:bg-red-500/15"
-                      : "bg-emerald-500/10 dark:bg-emerald-500/15"
+                    ? "bg-red-500/10 dark:bg-red-500/15"
+                    : "bg-emerald-500/10 dark:bg-emerald-500/15"
                     } ${criticalCount > 0 ? "animate-pulse" : ""}`}
                 >
                   {criticalCount > 0 ? (
@@ -1036,7 +1038,8 @@ export function DashboardWidgetById({
       const safetyOpen = az?.safety_alerts_open ?? 0;
       const incOpen = az?.incidents_open ?? 0;
       const missingGeo = az?.missing_geo_clock_ins ?? 0;
-      const risk = safetyOpen + incOpen + missingGeo;
+      // safetyOpen is HIGH/CRITICAL only; incOpen is all open incidents (superset). Do not sum both.
+      const risk = incOpen + missingGeo;
       return (
         <Card className={cardBase}>
           <CardHeader className={cardHeaderBase}>

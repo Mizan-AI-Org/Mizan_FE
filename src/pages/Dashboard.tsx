@@ -406,95 +406,95 @@ export default function Dashboard() {
         {isLoading ? (
           <DashboardSkeleton statCount={3} contentCards={2} />
         ) : (
-        <>
-        <Dialog open={addWidgetOpen} onOpenChange={setAddWidgetOpen}>
-          <DialogContent className="z-[3100] max-w-lg sm:max-w-2xl border-slate-200/80 bg-gradient-to-b from-white to-slate-50/90 dark:from-slate-900 dark:to-slate-950 dark:border-slate-800">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold tracking-tight">{t("dashboard.customize.add_widget_title")}</DialogTitle>
-              <DialogDescription className="text-sm text-slate-600 dark:text-slate-400">
-                {t("dashboard.customize.add_widget_subtitle")}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-3 sm:grid-cols-2 pt-2 max-h-[min(70vh,520px)] overflow-y-auto pr-1">
-              {hiddenWidgets.map((wid) => {
-                const Icon = WIDGET_ADD_ICONS[wid];
-                const descKey = WIDGET_ADD_DESC_KEYS[wid];
-                return (
-                  <button
-                    key={wid}
-                    type="button"
-                    onClick={() => {
-                      setWidgetOrder((o) => (o.includes(wid) ? o : [...o, wid]));
-                      setAddWidgetOpen(false);
-                    }}
-                    className={cn(
-                      "group flex gap-3 rounded-2xl border border-slate-200/90 bg-white p-4 text-left shadow-sm transition-all",
-                      "hover:border-emerald-300 hover:shadow-md hover:bg-emerald-50/40 dark:border-slate-800 dark:bg-slate-900/80",
-                      "dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
-                    )}
-                  >
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 dark:from-emerald-500/20 dark:to-teal-500/10 dark:text-emerald-400">
-                      <Icon className="h-6 w-6" aria-hidden />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-semibold text-slate-900 dark:text-white leading-snug">{widgetLabel(wid)}</div>
-                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{t(descKey)}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </DialogContent>
-        </Dialog>
+          <>
+            <Dialog open={addWidgetOpen} onOpenChange={setAddWidgetOpen}>
+              <DialogContent className="z-[3100] max-w-lg sm:max-w-2xl border-slate-200/80 bg-gradient-to-b from-white to-slate-50/90 dark:from-slate-900 dark:to-slate-950 dark:border-slate-800">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-bold tracking-tight">{t("dashboard.customize.add_widget_title")}</DialogTitle>
+                  <DialogDescription className="text-sm text-slate-600 dark:text-slate-400">
+                    {t("dashboard.customize.add_widget_subtitle")}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-3 sm:grid-cols-2 pt-2 max-h-[min(70vh,520px)] overflow-y-auto pr-1">
+                  {hiddenWidgets.map((wid) => {
+                    const Icon = WIDGET_ADD_ICONS[wid];
+                    const descKey = WIDGET_ADD_DESC_KEYS[wid];
+                    return (
+                      <button
+                        key={wid}
+                        type="button"
+                        onClick={() => {
+                          setWidgetOrder((o) => (o.includes(wid) ? o : [...o, wid]));
+                          setAddWidgetOpen(false);
+                        }}
+                        className={cn(
+                          "group flex gap-3 rounded-2xl border border-slate-200/90 bg-white p-4 text-left shadow-sm transition-all",
+                          "hover:border-emerald-300 hover:shadow-md hover:bg-emerald-50/40 dark:border-slate-800 dark:bg-slate-900/80",
+                          "dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+                        )}
+                      >
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 dark:from-emerald-500/20 dark:to-teal-500/10 dark:text-emerald-400">
+                          <Icon className="h-6 w-6" aria-hidden />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-slate-900 dark:text-white leading-snug">{widgetLabel(wid)}</div>
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{t(descKey)}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </DialogContent>
+            </Dialog>
 
-        {canCustomizeDashboard ? (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={widgetOrder} strategy={rectSortingStrategy}>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch auto-rows-[minmax(200px,auto)]">
-                {displayOrder.length === 0 ? (
-                  <div className="lg:col-span-3 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 px-6 py-12 text-center">
-                    <p className="text-sm text-slate-600 dark:text-slate-400">{t("dashboard.customize.empty")}</p>
-                    {hiddenWidgets.length > 0 && (
-                      <Button type="button" variant="outline" className="mt-4 gap-1.5" onClick={() => setAddWidgetOpen(true)}>
-                        <Plus className="h-4 w-4" />
-                        {t("dashboard.customize.add_widget")}
-                      </Button>
+            {canCustomizeDashboard ? (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={widgetOrder} strategy={rectSortingStrategy}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch auto-rows-[minmax(200px,auto)]">
+                    {displayOrder.length === 0 ? (
+                      <div className="lg:col-span-3 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 px-6 py-12 text-center">
+                        <p className="text-sm text-slate-600 dark:text-slate-400">{t("dashboard.customize.empty")}</p>
+                        {hiddenWidgets.length > 0 && (
+                          <Button type="button" variant="outline" className="mt-4 gap-1.5" onClick={() => setAddWidgetOpen(true)}>
+                            <Plus className="h-4 w-4" />
+                            {t("dashboard.customize.add_widget")}
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      displayOrder.map((wid, index) => {
+                        const colSpan = index === 0 && wid === "insights" ? "lg:col-span-2" : "lg:col-span-1";
+                        const node = <DashboardWidgetById id={wid} props={widgetBundle} />;
+                        return (
+                          <SortableDashboardWidget
+                            key={wid}
+                            id={wid}
+                            editMode={customizeMode}
+                            colClassName={cn("relative", colSpan)}
+                            onRemove={() => setWidgetOrder((o) => o.filter((x) => x !== wid))}
+                          >
+                            {node}
+                          </SortableDashboardWidget>
+                        );
+                      })
                     )}
                   </div>
-                ) : (
-                  displayOrder.map((wid, index) => {
-                    const colSpan = index === 0 && wid === "insights" ? "lg:col-span-2" : "lg:col-span-1";
-                    const node = <DashboardWidgetById id={wid} props={widgetBundle} />;
-                    return (
-                      <SortableDashboardWidget
-                        key={wid}
-                        id={wid}
-                        editMode={customizeMode}
-                        colClassName={cn("relative", colSpan)}
-                        onRemove={() => setWidgetOrder((o) => o.filter((x) => x !== wid))}
-                      >
-                        {node}
-                      </SortableDashboardWidget>
-                    );
-                  })
-                )}
+                </SortableContext>
+              </DndContext>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch auto-rows-[minmax(200px,auto)]">
+                {displayOrder.map((wid, index) => {
+                  const colSpan = index === 0 && wid === "insights" ? "lg:col-span-2" : "lg:col-span-1";
+                  return (
+                    <div key={wid} className={cn("relative flex min-h-0 flex-col", colSpan)}>
+                      <DashboardWidgetById id={wid} props={widgetBundle} />
+                    </div>
+                  );
+                })}
               </div>
-            </SortableContext>
-          </DndContext>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch auto-rows-[minmax(200px,auto)]">
-            {displayOrder.map((wid, index) => {
-              const colSpan = index === 0 && wid === "insights" ? "lg:col-span-2" : "lg:col-span-1";
-              return (
-                <div key={wid} className={cn("relative flex min-h-0 flex-col", colSpan)}>
-                  <DashboardWidgetById id={wid} props={widgetBundle} />
-                </div>
-              );
-            })}
-          </div>
-        )}
+            )}
 
-        </>
+          </>
         )}
 
       </div>
