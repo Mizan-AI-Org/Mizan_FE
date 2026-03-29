@@ -369,8 +369,8 @@ export default function DashboardAttendancePage() {
                       <li key={i}>
                         {m.name}
                         {m.reason === "missed_clock_in"
-                          ? " (no clock-in)"
-                          : " (late)"}
+                          ? ` ${t("dashboard.staffing.attendance_suffix_no_clock_in")}`
+                          : ` ${t("dashboard.staffing.attendance_suffix_late")}`}
                       </li>
                     )
                   )}
@@ -385,7 +385,7 @@ export default function DashboardAttendancePage() {
                 onClick={() => navigate("/dashboard/scheduling")}
               >
                 <Calendar className="w-4 h-4" />
-                Find coverage
+                {t("common.find_coverage")}
               </Button>
               <Button
                 variant="outline"
@@ -394,7 +394,7 @@ export default function DashboardAttendancePage() {
                 onClick={() => navigate("/dashboard/staff-app")}
               >
                 <MessageSquare className="w-4 h-4" />
-                Open Staff app
+                {t("dashboard.attendance.open_staff_app")}
               </Button>
               <Button
                 variant="outline"
@@ -402,7 +402,7 @@ export default function DashboardAttendancePage() {
                 className="rounded-lg border-slate-200 dark:border-slate-600"
                 onClick={() => navigate("/dashboard/reports/labor-attendance")}
               >
-                Labor & attendance report
+                {t("dashboard.attendance.labor_report")}
               </Button>
             </div>
           </CardContent>
