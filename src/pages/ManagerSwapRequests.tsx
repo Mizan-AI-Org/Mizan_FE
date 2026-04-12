@@ -50,7 +50,7 @@ const ManagerSwapRequests: React.FC = () => {
             return response.json();
         },
         enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN'),
-        refetchInterval: 15000, // Refetch every 15 seconds
+        refetchInterval: 60_000,
     });
 
     const handleActionMutation = useMutation({

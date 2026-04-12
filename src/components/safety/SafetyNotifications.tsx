@@ -50,7 +50,7 @@ const SafetyNotifications: React.FC = () => {
       }
       return response.json();
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 60_000,
     retry: 3,
   });
 

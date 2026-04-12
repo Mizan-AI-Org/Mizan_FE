@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '@/contexts/AuthContext.types';
 import { useLanguage } from '@/hooks/use-language';
+import { useBusinessVertical } from '@/hooks/use-business-vertical';
 import { logError } from '@/lib/logging';
 
 declare global {
@@ -17,6 +18,7 @@ declare global {
 export const LuaWidget: React.FC = () => {
     const { user, accessToken } = useAuth() as AuthContextType;
     const { t, language, isRTL } = useLanguage();
+    const businessVerticalQuery = useBusinessVertical();
     const location = useLocation();
     const takeOrdersMode = location.pathname.includes('take-orders');
     const initialized = useRef<string | boolean>(false);
@@ -123,6 +125,9 @@ export const LuaWidget: React.FC = () => {
 
     useEffect(() => {
         if (!user) return;
+        if (businessVerticalQuery.isPending) return;
+
+        const businessVertical = businessVerticalQuery.data?.businessVertical ?? "RESTAURANT";
 
         // Managers + front-of-house who take orders with Miya (voice/text)
         const allowedRoles = ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OWNER', 'WAITER', 'CASHIER', 'CHEF'];
@@ -149,10 +154,19 @@ export const LuaWidget: React.FC = () => {
                 sessionStorage.setItem('lua_login_nonce', loginNonce);
             }
             const sessionId = `${baseSessionId}-${loginNonce}`;
+            const initMarker = `${sessionId}:${businessVertical}`;
+            if (initialized.current === initMarker) return;
 
-            if (initialized.current === sessionId) return;
+            if (widgetRef.current) {
+                try {
+                    widgetRef.current.destroy();
+                } catch (_) {
+                    /* ignore */
+                }
+                widgetRef.current = null;
+            }
 
-            console.log("[LuaWidget] Initializing fresh Miya session:", sessionId);
+            console.log("[LuaWidget] Initializing fresh Miya session:", sessionId, "vertical:", businessVertical);
             try {
                 const now = new Date();
                 const userFullName = `${user.first_name} ${user.last_name}`.trim() || "Unknown User";
@@ -165,7 +179,8 @@ export const LuaWidget: React.FC = () => {
                 console.log("[LuaWidget] Initializing with context:", {
                     restaurantName: restaurantName || "Unknown",
                     restaurantId,
-                    role: user.role
+                    role: user.role,
+                    businessVertical,
                 });
 
                 widgetRef.current = window.LuaPop.init({
@@ -180,6 +195,7 @@ export const LuaWidget: React.FC = () => {
                     metadata: {
                         restaurantId,
                         restaurantName: restaurantName || user.restaurant_data?.name || user.restaurant_name || "Unknown",
+                        businessVertical,
                         userId: user.id,
                         role: user.role,
                         token: accessToken,
@@ -203,8 +219,8 @@ export const LuaWidget: React.FC = () => {
                     // Session context – date suffix gives fresh conversation each day; metadata preserves user+restaurant context
                     sessionId,
                     runtimeContext: [
-                        `Restaurant: ${restaurantName || user.restaurant_data?.name || user.restaurant_name || "Unknown"} (ID: ${restaurantId}), User: ${userFullName} (ID: ${user.id}), Role: ${user.role}, Token: ${accessToken}, Current Time: ${now.toLocaleDateString()} ${now.toLocaleTimeString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
-                        "Operational directives: You are Miya, the AI Operations Manager for this restaurant only. Never hallucinate: verify every answer from the database, filtered by restaurant_id, date, and staff. Execute actions only when permitted and after validating permissions, staff, and shift exist. Respect role: managers get full team visibility and recommendations; staff see only their own data. Resolve relative dates (e.g. Tuesday 17th) to the current calendar week. When giving insights, label as Verified Data (state confidently), Recommendation (predictive), or Missing Data (state limitation). Precision over creativity; verification over assumption.",
+                        `Workspace: ${restaurantName || user.restaurant_data?.name || user.restaurant_name || "Unknown"} | business_vertical: ${businessVertical} | tenant_id (API field restaurant_id): ${restaurantId} | User: ${userFullName} (ID: ${user.id}) | Role: ${user.role} | Token: ${accessToken} | Current time: ${now.toLocaleDateString()} ${now.toLocaleTimeString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
+                        "Operational directives: You are Miya, the AI Operations Manager for this Mizan workspace only. Mizan is multi-vertical (restaurant, retail, manufacturing, construction, healthcare operations, hospitality, professional services, other). Use business_vertical to choose appropriate language; restaurant_id is always the tenant/workspace id. Never hallucinate: verify every answer from the database using that tenant id, date, and staff. Execute actions only when permitted and after validating permissions, staff, and shift exist. Respect role: managers get full team visibility and recommendations; staff see only their own data. Resolve relative dates (e.g. Tuesday 17th) to the current calendar week. When giving insights, label as Verified Data (state confidently), Recommendation (predictive), or Missing Data (state limitation). Precision over creativity; verification over assumption.",
                         takeOrdersMode
                             ? "Order-taking mode: For every guest order, capture and confirm: customer name; phone for takeout/delivery; order type (dine-in, takeout, delivery); table or pickup location; each menu item with quantity and modifiers; allergens and dietary restrictions; special instructions; repeat the full order back for confirmation before closing. Help staff log details accurately."
                             : "",
@@ -252,12 +268,12 @@ export const LuaWidget: React.FC = () => {
 
                     chatInputPlaceholder: t("ai.chat_placeholder")
                 });
-                initialized.current = sessionId;
+                initialized.current = initMarker;
             } catch (err) {
                 logError({ feature: 'lua-widget', action: 'init' }, err as Error);
             }
         }
-    }, [user, t, agentId, accessToken, language, isRTL, takeOrdersMode]);
+    }, [user, t, agentId, accessToken, language, isRTL, takeOrdersMode, businessVerticalQuery.isPending, businessVerticalQuery.data?.businessVertical]);
 
     return null;
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -88,6 +88,13 @@ import { format, parseISO } from "date-fns";
 import StaffRequestsTab from "@/components/staff/StaffRequestsTab";
 import DeleteStaffConfirmation from "@/components/staff/DeleteStaffConfirmation";
 import DeactivateStaffConfirmation from "@/components/staff/DeactivateStaffConfirmation";
+import { splitInviteRoleSelection, useBusinessVertical } from "@/hooks/use-business-vertical";
+import {
+  defaultRoleForVertical,
+  getStaffInviteRoleGroups,
+  isRoleAllowedForVertical,
+  type BusinessVertical,
+} from "@/config/staffInviteRolesByVertical";
 
 // Types
 interface StaffMember {
@@ -96,6 +103,8 @@ interface StaffMember {
     last_name: string;
     email: string;
     role: string;
+    /** Human-readable role; use for CUSTOM titles */
+    role_display?: string;
     is_active: boolean;
     phone?: string;
     profile?: {
@@ -110,6 +119,11 @@ interface StaffMember {
         hours_monthly: number;
         hours_yearly: number;
     };
+}
+
+function staffRoleLabel(m: Pick<StaffMember, "role" | "role_display">): string {
+    if (m.role_display) return m.role_display;
+    return m.role?.toLowerCase().replace(/_/g, " ") ?? "";
 }
 
 interface Invitation {
@@ -442,7 +456,7 @@ const PresenceTab: React.FC = () => {
             }
             return response.json();
         },
-        refetchInterval: 30000,
+        refetchInterval: 60_000,
     });
 
     // Fetch weekly schedule to filter for scheduled staff
@@ -1097,7 +1111,7 @@ const TeamTab: React.FC = () => {
                                         {selectedMember.first_name} {selectedMember.last_name}
                                     </h3>
                                     <Badge variant="outline" className="capitalize mt-2 border-emerald-100 bg-emerald-50/50 text-emerald-600 dark:bg-emerald-900/10 dark:text-emerald-400 font-bold text-[11px] px-3 py-0.5 rounded-lg border-none">
-                                        {selectedMember.role?.toLowerCase().replace(/_/g, " ")}
+                                        {staffRoleLabel(selectedMember)}
                                     </Badge>
                                 </div>
                             </div>
@@ -1822,6 +1836,9 @@ const TeamTab: React.FC = () => {
 
     // Invite Staff Modal
     const InviteStaffModal = () => {
+        const { data: staffSettings } = useBusinessVertical();
+        const businessVertical = staffSettings?.businessVertical ?? "RESTAURANT";
+        const customStaffRoles = staffSettings?.customStaffRoles ?? [];
         const [inviteMethod, setInviteMethod] = useState<"email" | "whatsapp">("email");
         const [isBulkMode, setIsBulkMode] = useState(false);
         const [bulkData, setBulkData] = useState<BulkInviteRow[]>([]);
@@ -1833,6 +1850,18 @@ const TeamTab: React.FC = () => {
             role: "MANAGER",
             phone_number: "",
         });
+
+        const inviteRoleGroups = useMemo(
+            () => getStaffInviteRoleGroups(businessVertical as BusinessVertical),
+            [businessVertical]
+        );
+
+        useEffect(() => {
+            setFormData((fd) => {
+                if (isRoleAllowedForVertical(fd.role, businessVertical as BusinessVertical)) return fd;
+                return { ...fd, role: defaultRoleForVertical(businessVertical as BusinessVertical) };
+            });
+        }, [businessVertical]);
 
         const splitDelimitedRow = (row: string, delimiter: string) => {
             const out: string[] = [];
@@ -2021,6 +2050,7 @@ const TeamTab: React.FC = () => {
             setIsInviteLoading(true);
             try {
                 const token = localStorage.getItem("access_token") || "";
+                const rolePayload = splitInviteRoleSelection(formData.role);
                 const response = await fetch(`${API_BASE}/staff/invite/`, {
                     method: "POST",
                     headers: {
@@ -2028,8 +2058,15 @@ const TeamTab: React.FC = () => {
                         Authorization: `Bearer ${token}`
                     },
                     body: JSON.stringify({
-                        ...formData,
-                        send_whatsapp: inviteMethod === "whatsapp"
+                        first_name: formData.first_name,
+                        last_name: formData.last_name,
+                        email: formData.email,
+                        phone_number: formData.phone_number,
+                        role: rolePayload.role,
+                        ...(rolePayload.custom_role_id
+                            ? { custom_role_id: rolePayload.custom_role_id }
+                            : {}),
+                        send_whatsapp: inviteMethod === "whatsapp",
                     }),
                 });
                 if (!response.ok) {
@@ -2156,40 +2193,32 @@ const TeamTab: React.FC = () => {
 
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("staff.invite.role")}</label>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                        {t("staff.invite.role_industry_hint")}
+                                    </p>
                                     <select
                                         value={formData.role}
                                         onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                                         className="w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                     >
-                                        <optgroup label={t("staff.invite.management")}>
-                                            <option value="OWNER">{t("staff.roles.owner")}</option>
-                                            <option value="SUPER_ADMIN">{t("staff.roles.super_admin")}</option>
-                                            <option value="ADMIN">{t("staff.roles.admin")}</option>
-                                            <option value="MANAGER">{t("staff.roles.manager")}</option>
-                                        </optgroup>
-                                        <optgroup label={t("staff.invite.kitchen")}>
-                                            <option value="CHEF">{t("staff.roles.chef")}</option>
-                                            <option value="SOUS_CHEF">{t("staff.roles.sous_chef")}</option>
-                                            <option value="PASTRY_CHEF">{t("staff.roles.pastry_chef")}</option>
-                                            <option value="KITCHEN_STAFF">{t("staff.roles.kitchen_staff")}</option>
-                                            <option value="DISHWASHER">{t("staff.roles.dishwasher")}</option>
-                                        </optgroup>
-                                        <optgroup label={t("staff.invite.front_of_house")}>
-                                            <option value="WAITER">{t("staff.roles.waiter")}</option>
-                                            <option value="WAITRESS">{t("staff.roles.waitress")}</option>
-                                            <option value="HOST">{t("staff.roles.host")}</option>
-                                            <option value="HOSTESS">{t("staff.roles.hostess")}</option>
-                                            <option value="BARTENDER">{t("staff.roles.bartender")}</option>
-                                            <option value="SOMMELIER">{t("staff.roles.sommelier")}</option>
-                                            <option value="RUNNER">{t("staff.roles.runner")}</option>
-                                            <option value="BUSSER">{t("staff.roles.busser")}</option>
-                                            <option value="CASHIER">{t("staff.roles.cashier")}</option>
-                                        </optgroup>
-                                        <optgroup label={t("staff.invite.other")}>
-                                            <option value="BARISTA">{t("staff.roles.barista")}</option>
-                                            <option value="CLEANER">{t("staff.roles.cleaner")}</option>
-                                            <option value="SECURITY">{t("staff.roles.security")}</option>
-                                        </optgroup>
+                                        {inviteRoleGroups.map((g) => (
+                                            <optgroup key={g.groupLabelKey} label={t(g.groupLabelKey)}>
+                                                {g.roles.map((r) => (
+                                                    <option key={r.value} value={r.value}>
+                                                        {t(r.labelKey)}
+                                                    </option>
+                                                ))}
+                                            </optgroup>
+                                        ))}
+                                        {customStaffRoles.length > 0 ? (
+                                            <optgroup label={t("staff.invite.custom_roles_group")}>
+                                                {customStaffRoles.map((cr) => (
+                                                    <option key={cr.id} value={`CUSTOM:${cr.id}`}>
+                                                        {cr.name}
+                                                    </option>
+                                                ))}
+                                            </optgroup>
+                                        ) : null}
                                     </select>
                                 </div>
                             </>
@@ -2414,7 +2443,7 @@ const TeamTab: React.FC = () => {
                                                     </TableCell>
                                                     <TableCell>
                                                         <Badge variant="outline" className="capitalize">
-                                                            {member.role?.toLowerCase().replace(/_/g, " ")}
+                                                            {staffRoleLabel(member)}
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell>
@@ -2471,7 +2500,7 @@ const TeamTab: React.FC = () => {
                                                         {member.first_name} {member.last_name}
                                                     </h3>
                                                     <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:indigo-400 mt-1 mb-2">
-                                                        {member.role?.toLowerCase().replace(/_/g, " ")}
+                                                        {staffRoleLabel(member)}
                                                     </p>
                                                     <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-3">
                                                         {(() => {
@@ -2676,7 +2705,7 @@ const AttendanceTab: React.FC = () => {
             }
             return response.json();
         },
-        refetchInterval: 30000,
+        refetchInterval: 60_000,
     });
 
     const summary: AttendanceDashboardSummary = dashboardData?.summary || {

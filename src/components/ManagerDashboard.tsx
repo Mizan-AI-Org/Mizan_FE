@@ -270,7 +270,7 @@ const ManagerDashboard: React.FC = () => {
     loadDashboardData();
     
     // Set up auto-refresh every 30 seconds
-    const interval = setInterval(loadDashboardData, 30000);
+    const interval = setInterval(loadDashboardData, 90_000);
     setRefreshInterval(interval);
     
     return () => {

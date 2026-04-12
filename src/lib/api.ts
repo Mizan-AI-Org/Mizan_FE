@@ -65,6 +65,20 @@ export const toAbsoluteUrl = (pathOrUrl: string): URL => {
   return new URL(pathOrUrl, base);
 };
 
+/** DRF paginated list responses use `{ count, results }`; older code expected a bare array. */
+export function unwrapDrfListResponse<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data;
+  if (
+    data &&
+    typeof data === "object" &&
+    "results" in data &&
+    Array.isArray((data as { results: unknown }).results)
+  ) {
+    return (data as { results: T[] }).results;
+  }
+  return [];
+}
+
 export class BackendService {
   [x: string]: any;
   // In a real frontend application, HttpService and ConfigService would not be used directly
@@ -366,6 +380,69 @@ export class BackendService {
 
   async getDashboardSummary() {
     return this.fetchWithError("/dashboard/summary/");
+  }
+
+  /** Persisted widget layout (null order = use client default until user saves). */
+  async getDashboardWidgetOrder(): Promise<{ order: string[] | null }> {
+    return this.fetchWithError("/dashboard/widget-order/");
+  }
+
+  async patchDashboardWidgetOrder(body: { order?: string[]; add?: string[] }): Promise<{ order: string[] }> {
+    return this.fetchWithError("/dashboard/widget-order/", {
+      method: "PATCH",
+      body: JSON.stringify(body ?? {}),
+    });
+  }
+
+  /** Miya-created dashboard tiles (referenced in layout as custom:<uuid>). */
+  /** Live team attendance for a calendar day (shifts + clock events). Optional date=YYYY-MM-DD (default: today). */
+  async getAttendanceDashboard(date?: string): Promise<{
+    report_date: string;
+    is_today: boolean;
+    summary: {
+      present: { count: number; total: number; percentage: number };
+      late: { count: number; avg_minutes: number };
+      absent: { count: number; reason?: string };
+      on_leave: { count: number; subtitle?: string };
+    };
+    attendance_list: Array<{
+      staff: { id: string; name: string; role: string; avatar: string | null };
+      shift: { start: string | null; end: string | null; status: string };
+      shift_id: string | null;
+      clock_in: string | null;
+      clock_in_method?: string | null;
+      is_manager_override?: boolean;
+      override_reason?: string | null;
+      status: string;
+      late_minutes: number;
+      location: string;
+      timeline: Array<{ time: string; type: string }>;
+      signals: string[];
+    }>;
+    recent_activity: Array<{
+      id: string;
+      staff_name: string;
+      event: string;
+      time: string;
+      location: string;
+    }>;
+  }> {
+    const qs = date ? `?date=${encodeURIComponent(date)}` : "";
+    return this.fetchWithError(`/dashboard/analytics/attendance_dashboard/${qs}`);
+  }
+
+  async getDashboardCustomWidgets(): Promise<{
+    widgets: Array<{
+      id: string;
+      slot_id: string;
+      title: string;
+      subtitle: string;
+      link_url: string;
+      icon: string;
+      created_at?: string | null;
+    }>;
+  }> {
+    return this.fetchWithError("/dashboard/custom-widgets/");
   }
 
   async listStaffCapturedOrders(params?: {
@@ -1918,17 +1995,21 @@ export class BackendService {
 
   async getDailySalesReports(accessToken: string): Promise<DailySalesReport[]> {
     try {
-      const response = await fetch(`${API_BASE}/reporting/sales/daily/`, {
-        method: "GET",
-        headers: this.getHeaders(accessToken),
-      });
+      const response = await fetch(
+        `${API_BASE}/reporting/sales/daily/?page_size=500`,
+        {
+          method: "GET",
+          headers: this.getHeaders(accessToken),
+        }
+      );
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
           errorData.message || "Failed to fetch daily sales reports"
         );
       }
-      return await response.json();
+      const data = await response.json();
+      return unwrapDrfListResponse<DailySalesReport>(data);
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch daily sales reports");
     }
@@ -2114,17 +2195,21 @@ export class BackendService {
 
   async getAttendanceReports(accessToken: string): Promise<AttendanceReport[]> {
     try {
-      const response = await fetch(`${API_BASE}/reporting/attendance/`, {
-        method: "GET",
-        headers: this.getHeaders(accessToken),
-      });
+      const response = await fetch(
+        `${API_BASE}/reporting/attendance/?page_size=500`,
+        {
+          method: "GET",
+          headers: this.getHeaders(accessToken),
+        }
+      );
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
           errorData.message || "Failed to fetch attendance reports"
         );
       }
-      return await response.json();
+      const data = await response.json();
+      return unwrapDrfListResponse<AttendanceReport>(data);
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch attendance reports");
     }
@@ -2156,17 +2241,21 @@ export class BackendService {
 
   async getInventoryReports(accessToken: string): Promise<InventoryReport[]> {
     try {
-      const response = await fetch(`${API_BASE}/reporting/inventory/`, {
-        method: "GET",
-        headers: this.getHeaders(accessToken),
-      });
+      const response = await fetch(
+        `${API_BASE}/reporting/inventory/?page_size=500`,
+        {
+          method: "GET",
+          headers: this.getHeaders(accessToken),
+        }
+      );
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
           errorData.message || "Failed to fetch inventory reports"
         );
       }
-      return await response.json();
+      const data = await response.json();
+      return unwrapDrfListResponse<InventoryReport>(data);
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch inventory reports");
     }

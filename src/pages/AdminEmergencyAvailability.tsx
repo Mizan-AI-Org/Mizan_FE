@@ -60,7 +60,7 @@ const AdminEmergencyAvailability: React.FC = () => {
       const data = await res.json();
       return Array.isArray(data) ? data : (data.results || []);
     },
-    refetchInterval: 5000,
+    refetchInterval: 30_000,
     staleTime: 0,
   });
 

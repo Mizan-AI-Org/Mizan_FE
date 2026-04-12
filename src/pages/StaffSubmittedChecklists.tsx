@@ -42,7 +42,7 @@ const StaffSubmittedChecklists: React.FC = () => {
         return [];
       }
     },
-    refetchInterval: 15000,
+    refetchInterval: 60_000,
     staleTime: 15000,
   });
 

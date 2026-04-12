@@ -118,7 +118,7 @@ const StaffDashboard: React.FC = () => {
 
             return response.json();
         },
-        refetchInterval: 30000,
+        refetchInterval: 60_000,
     });
 
     useEffect(() => {

@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 
 type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED";
 
@@ -102,6 +103,7 @@ const StaffRequestsTab: React.FC = () => {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [comment, setComment] = useState("");
+  const [escalateModalOpen, setEscalateModalOpen] = useState(false);
 
   const listQuery = useQuery({
     queryKey: ["staff-requests-tab", activeStatus, search],
@@ -327,10 +329,10 @@ const StaffRequestsTab: React.FC = () => {
                       </Button>
                       <Button
                         variant="outline"
-                        onClick={() => mutateAction.mutate({ action: "escalate", payload: { note: "Escalated" } })}
+                        onClick={() => setEscalateModalOpen(true)}
                         disabled={mutateAction.isPending}
                       >
-                        Escalate
+                        {t("staff.requests.escalate")}
                       </Button>
                       <Button
                         variant="outline"
@@ -368,6 +370,19 @@ const StaffRequestsTab: React.FC = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      <EscalateStaffRequestModal
+        open={escalateModalOpen}
+        onOpenChange={setEscalateModalOpen}
+        isPending={mutateAction.isPending}
+        onConfirm={(assigneeId) => {
+          const note = comment.trim() || "Escalated";
+          mutateAction.mutate(
+            { action: "escalate", payload: { note, assignee_id: assigneeId } },
+            { onSuccess: () => setEscalateModalOpen(false) }
+          );
+        }}
+      />
     </div>
   );
 };
