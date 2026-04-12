@@ -68,7 +68,7 @@ const StaffMyTasks: React.FC = () => {
     queryFn: async () => {
       return await api.getMyChecklists({ page: 1, page_size: pageSize });
     },
-    refetchInterval: 15000,
+    refetchInterval: 60_000,
     staleTime: 60 * 1000,
   });
 
@@ -89,7 +89,7 @@ const StaffMyTasks: React.FC = () => {
         template: t.template || { id: t.task_id, name: t.title, description: t.description },
       })) as ChecklistExecutionItem[];
     },
-    refetchInterval: 15000,
+    refetchInterval: 60_000,
     staleTime: 60 * 1000,
   });
 
@@ -115,8 +115,8 @@ const StaffMyTasks: React.FC = () => {
     queries: (merged || []).map((it) => ({
       queryKey: ["staff-checklist-exec", it.id, "details"],
       queryFn: async () => api.getChecklistExecution(String(it.id)) as Promise<ExecutionDetails>,
-      staleTime: 60 * 1000,
-      refetchInterval: 60 * 1000,
+      staleTime: 120_000,
+      refetchInterval: 120_000,
       enabled: !!it?.id,
     })),
   });
@@ -128,8 +128,8 @@ const StaffMyTasks: React.FC = () => {
     queryFn: async () => {
       return await api.getChecklistTemplates(String(token), { is_active: true });
     },
-    staleTime: 30 * 1000,
-    refetchInterval: 15000,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
   });
 
   const { data: taskTemplates } = useQuery<TaskTemplateApi[]>({
@@ -153,8 +153,8 @@ const StaffMyTasks: React.FC = () => {
       const data = await response.json();
       return Array.isArray(data) ? data : (data?.results || []);
     },
-    staleTime: 30 * 1000,
-    refetchInterval: 15000,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
   });
 
   const detailsById: Record<string, ExecutionDetails | undefined> = useMemo(() => {
@@ -481,8 +481,8 @@ const StaffMyTasks: React.FC = () => {
       }
       return await response.json();
     },
-    refetchInterval: 10000,
-    staleTime: 0,
+    refetchInterval: 60_000,
+    staleTime: 60_000,
   });
 
   useEffect(() => {

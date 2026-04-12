@@ -112,7 +112,7 @@ const MyChecklistsPage: React.FC = () => {
         throw e as Error;
       }
     },
-    refetchInterval: 15000,
+    refetchInterval: 60_000,
     staleTime: 60 * 1000,
   });
 
@@ -162,8 +162,8 @@ const MyChecklistsPage: React.FC = () => {
         throw e as Error;
       }
     },
-    refetchInterval: 5000, // Refetch every 5 seconds
-    staleTime: 0, // Always consider data stale
+    refetchInterval: 60_000,
+    staleTime: 60_000,
   });
 
   // No-op - debug logs removed
@@ -177,7 +177,7 @@ const MyChecklistsPage: React.FC = () => {
   const { data: sessionData, isFetching: loadingSession } = useQuery({
     queryKey: ["current-session"],
     queryFn: () => api.getCurrentSession(),
-    refetchInterval: 30000,
+    refetchInterval: 60_000,
     enabled: Boolean(token && user),
   });
 
@@ -239,7 +239,7 @@ const MyChecklistsPage: React.FC = () => {
         return deriveSignatureMeta(exec);
       },
       staleTime: 60 * 1000,
-      refetchInterval: 30000,
+      refetchInterval: 120_000,
       enabled: !!it?.id,
     })),
   });
@@ -264,8 +264,8 @@ const MyChecklistsPage: React.FC = () => {
         const exec = await api.getChecklistExecution(String(it.id));
         return exec as ExecutionDetails;
       },
-      staleTime: 60 * 1000,
-      refetchInterval: 60 * 1000,
+      staleTime: 120_000,
+      refetchInterval: 120_000,
       enabled: !!it?.id,
     })),
   });

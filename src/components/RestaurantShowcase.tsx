@@ -1,10 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Users, Building2, Smile } from "lucide-react";
+import { useLanguage } from "@/hooks/use-language";
+
+const SLIDE_COUNT = 4;
 
 export const RestaurantShowcase: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const { t } = useLanguage();
+
+  const isLocalPublicAsset = (url: string) => url.startsWith("/") && !url.startsWith("//");
 
   const withUnsplashParams = (url: string, width: number, quality = 92) => {
+    // Local assets in /public should not get Unsplash CDN query params.
+    if (isLocalPublicAsset(url)) {
+      return url;
+    }
     // Unsplash image CDN supports width/quality params, which render reliably in most apps.
     const next = url
       .replace(/([?&])w=\d+/g, `$1w=${width}`)
@@ -18,77 +28,53 @@ export const RestaurantShowcase: React.FC = () => {
     return next;
   };
 
-  const images = [
-    {
-      url: "https://images.unsplash.com/photo-1663530761401-15eefb544889?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmaW5lJTIwZGluaW5nJTIwY2hlZiUyMGNvb2tpbmd8ZW58MXx8fHwxNzYxNjY2MTY5fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      alt: "Fine dining chef cooking",
-      label: "Expert Chefs",
-    },
-    {
-      url: "/image.png",
-      alt: "Staff member using a digital tablet in a warm, modern cafe",
-      label: "Empower Your Team",
-    },
-    {
-      url: "https://images.unsplash.com/flagged/photo-1561350600-6606486921f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjByZXN0YXVyYW50JTIwY3VzdG9tZXJzJTIwZGluaW5nfGVufDF8fHx8MTc2MTY2NjE3MHww&ixlib=rb-4.1.0&q=80&w=1080",
-      alt: "Luxury restaurant customers",
-      label: "Happy Guests",
-    },
-    {
-      url: "/restaurant-waterfront.png",
-      alt: "Modern restaurant interior with waterfront view, staff preparing for service",
-      label: "Elegant Ambiance",
-    },
-  ];
+  const images = useMemo(
+    () => [
+      {
+        url: "/showcase-retail-hero.png",
+        labelKey: "auth.showcase.img0.label",
+        altKey: "auth.showcase.img0.alt",
+      },
+      {
+        url: "/image.png",
+        labelKey: "auth.showcase.img1.label",
+        altKey: "auth.showcase.img1.alt",
+      },
+      {
+        url: "/showcase-construction-hero.png",
+        labelKey: "auth.showcase.img2.label",
+        altKey: "auth.showcase.img2.alt",
+      },
+      {
+        url: "/restaurant-waterfront.png",
+        labelKey: "auth.showcase.img3.label",
+        altKey: "auth.showcase.img3.alt",
+      },
+    ],
+    []
+  );
 
-  const stats = [
-    {
-      icon: Users,
-      number: "500+",
-      label: "Staff Supported",
-    },
-    {
-      icon: Building2,
-      number: "10+",
-      label: "Restaurants Served",
-    },
-    {
-      icon: Smile,
-      number: "98%",
-      label: "Customer Satisfaction",
-    },
-  ];
-
-  const slides = [
-    {
-      headline: "Excellence in Every Detail",
-      subheading: "Streamline operations, delight customers, maximize profits with Mizan AI's intelligent restaurant management platform.",
-    },
-    {
-      headline: "Empower Your Team",
-      subheading: "Give your staff the tools they need to deliver exceptional service every single time.",
-    },
-    {
-      headline: "Hospitality Reimagined",
-      subheading: "Create unforgettable dining experiences with our comprehensive restaurant management solution.",
-    },
-    {
-      headline: "Operational Excellence",
-      subheading: "Transform your restaurant with smart scheduling, inventory management, and real-time analytics.",
-    },
-  ];
+  const stats = useMemo(
+    () => [
+      { icon: Users, number: "500+", labelKey: "auth.showcase.stat.staff" },
+      { icon: Building2, number: "10+", labelKey: "auth.showcase.stat.restaurants" },
+      { icon: Smile, number: "98%", labelKey: "auth.showcase.stat.satisfaction" },
+    ],
+    []
+  );
 
   // Auto-rotate carousel every 5 seconds
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % images.length);
+      setCurrentSlide((prev) => (prev + 1) % SLIDE_COUNT);
     }, 5000);
     return () => clearInterval(timer);
   }, []);
 
-  const currentContent = slides[currentSlide];
-
-  const currentImage = images[currentSlide];
+  const slideIdx = currentSlide % SLIDE_COUNT;
+  const headline = t(`auth.showcase.slide${slideIdx}.headline`);
+  const subheading = t(`auth.showcase.slide${slideIdx}.subheading`);
+  const currentImage = images[slideIdx];
 
   return (
     <div className="hidden lg:flex w-1/2 relative overflow-hidden bg-[#0A0D10]">
@@ -97,14 +83,18 @@ export const RestaurantShowcase: React.FC = () => {
         {/* Background Image with Fade Transition */}
         <img
           src={withUnsplashParams(currentImage.url, 1600, 92)}
-          srcSet={[
-            `${withUnsplashParams(currentImage.url, 1200, 92)} 1200w`,
-            `${withUnsplashParams(currentImage.url, 1600, 92)} 1600w`,
-            `${withUnsplashParams(currentImage.url, 2200, 92)} 2200w`,
-            `${withUnsplashParams(currentImage.url, 2800, 92)} 2800w`,
-          ].join(", ")}
+          srcSet={
+            isLocalPublicAsset(currentImage.url)
+              ? undefined
+              : [
+                `${withUnsplashParams(currentImage.url, 1200, 92)} 1200w`,
+                `${withUnsplashParams(currentImage.url, 1600, 92)} 1600w`,
+                `${withUnsplashParams(currentImage.url, 2200, 92)} 2200w`,
+                `${withUnsplashParams(currentImage.url, 2800, 92)} 2800w`,
+              ].join(", ")
+          }
           sizes="(min-width: 1024px) 50vw, 100vw"
-          alt={currentImage.alt}
+          alt={t(currentImage.altKey)}
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
           loading="eager"
           decoding="async"
@@ -126,10 +116,10 @@ export const RestaurantShowcase: React.FC = () => {
         <div className="flex-1 flex items-center">
           <div className="max-w-lg">
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 leading-tight">
-              {currentContent.headline}
+              {headline}
             </h2>
             <p className="text-lg text-white/80 leading-relaxed">
-              {currentContent.subheading}
+              {subheading}
             </p>
           </div>
         </div>
@@ -155,7 +145,7 @@ export const RestaurantShowcase: React.FC = () => {
                         {stat.number}
                       </span>
                     </div>
-                    <p className="text-xs text-[#B0BEC5]">{stat.label}</p>
+                    <p className="text-xs text-[#B0BEC5]">{t(stat.labelKey)}</p>
                   </div>
                 </div>
               );
@@ -164,7 +154,7 @@ export const RestaurantShowcase: React.FC = () => {
 
           {/* Image Label */}
           <div className="text-center">
-            <p className="text-sm font-semibold text-[#00E676]">{currentImage.label}</p>
+            <p className="text-sm font-semibold text-[#00E676]">{t(currentImage.labelKey)}</p>
           </div>
 
           {/* Pagination Dots */}
@@ -177,7 +167,7 @@ export const RestaurantShowcase: React.FC = () => {
                   ? "w-8 h-2 bg-[#00E676] rounded-full"
                   : "w-2 h-2 bg-[#00E676]/40 rounded-full hover:bg-[#00E676]/60"
                   }`}
-                aria-label={`Go to image ${index + 1}`}
+                aria-label={t("auth.showcase.aria_goto_slide", { n: index + 1 })}
               />
             ))}
           </div>

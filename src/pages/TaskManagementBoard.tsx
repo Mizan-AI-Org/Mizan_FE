@@ -99,11 +99,10 @@ export default function TaskManagementBoard() {
   useEffect(() => {
     loadLiveBoardMetrics();
     loadStaffMetrics();
-    // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
       loadLiveBoardMetrics();
       loadStaffMetrics();
-    }, 30000);
+    }, 90_000);
     return () => clearInterval(interval);
   }, []);
 

@@ -71,7 +71,7 @@ const TableManagement: React.FC = () => {
             return response.json();
         },
         enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN'),
-        refetchInterval: 10000, // Refetch every 10 seconds to keep statuses updated
+        refetchInterval: 60_000,
     });
 
     // Fetch pending orders to assign

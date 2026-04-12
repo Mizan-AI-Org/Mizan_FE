@@ -22,7 +22,7 @@ export interface TaskTemplateItem {
 const STORAGE_KEY = "selectedTaskTemplateId";
 
 export function useTaskTemplates(opts?: { pollIntervalMs?: number; autoStart?: boolean }) {
-  const pollMs = opts?.pollIntervalMs ?? 10000;
+  const pollMs = opts?.pollIntervalMs ?? 30_000;
   const [templates, setTemplates] = useState<TaskTemplateItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");

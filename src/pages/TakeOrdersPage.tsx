@@ -325,7 +325,7 @@ export default function TakeOrdersPage() {
         : api.listStaffCapturedOrders({ dateFrom: listDateFrom, dateTo: listDateTo }),
     enabled: !!accessToken,
     staleTime: 20_000,
-    refetchInterval: listUsesActiveQueue ? 30_000 : false,
+    refetchInterval: listUsesActiveQueue ? 60_000 : false,
   });
 
   const list = useMemo(() => (Array.isArray(todayRows) ? todayRows : []), [todayRows]);
