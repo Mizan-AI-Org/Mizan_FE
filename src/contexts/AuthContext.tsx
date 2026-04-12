@@ -123,7 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         // Do not clear auth on transient errors
         console.warn("Periodic role refresh failed:", err);
       }
-    }, 60000); // 60 seconds
+    }, 180_000); // 3 min — reduces steady-state /auth/me/ load on small EC2
 
     return () => clearInterval(refreshInterval);
   }, [user]);
@@ -393,6 +393,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     inviteData: {
       email: string;
       role: string;
+      custom_role_id?: string;
       first_name?: string;
       last_name?: string;
       phone_number?: string;

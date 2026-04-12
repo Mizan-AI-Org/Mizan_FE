@@ -273,7 +273,7 @@ const ChecklistRunner: React.FC = () => {
       } catch (err) {
         // Ignore refresh errors silently
       }
-    }, 15000);
+    }, 45_000);
     return () => clearInterval(interval);
   }, [executionId, template]);
 

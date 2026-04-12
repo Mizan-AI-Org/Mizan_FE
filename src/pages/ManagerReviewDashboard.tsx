@@ -218,7 +218,7 @@ const ManagerReviewDashboard: React.FC = () => {
         } as SubmittedChecklist;
       });
     },
-    refetchInterval: 10000,
+    refetchInterval: 60_000,
     staleTime: 0,
   });
 
@@ -409,7 +409,7 @@ const ManagerReviewDashboard: React.FC = () => {
       if (!res.ok) throw new Error('Failed to fetch incidents');
       return res.json();
     },
-    refetchInterval: 15000,
+    refetchInterval: 60_000,
   });
 
   // Fetch selected incident details
@@ -584,7 +584,7 @@ const ManagerReviewDashboard: React.FC = () => {
   const { data: liveProgress, isLoading: liveProgressLoading } = useQuery({
     queryKey: ["live-checklist-progress"],
     queryFn: () => api.getLiveChecklistProgress(),
-    refetchInterval: 10000,
+    refetchInterval: 60_000,
     staleTime: 0,
   });
   const liveItems = liveProgress?.items ?? [];

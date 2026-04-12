@@ -34,7 +34,7 @@ const CleaningTasks: React.FC = () => {
             return response.json();
         },
         enabled: !!user?.restaurant?.id && user.role === 'CLEANER',
-        refetchInterval: 10000, // Refetch every 10 seconds to get latest status
+        refetchInterval: 60_000,
     });
 
     const markTableCleanMutation = useMutation({

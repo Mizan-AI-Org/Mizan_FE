@@ -50,7 +50,7 @@ const SupervisorDashboard: React.FC = () => {
             return response.json();
         },
         enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || user.role === 'MANAGER'),
-        refetchInterval: 15000, // Refresh data every 15 seconds 
+        refetchInterval: 60_000,
     });
 
     const { data: tables = [], isLoading: isLoadingTables, error: tablesError } = useQuery<Table[]>({
@@ -68,7 +68,7 @@ const SupervisorDashboard: React.FC = () => {
             return response.json();
         },
         enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || user.role === 'MANAGER'),
-        refetchInterval: 15000, // Refresh data every 15 seconds 
+        refetchInterval: 60_000,
     });
 
     if (isLoadingOrders || isLoadingTables) {

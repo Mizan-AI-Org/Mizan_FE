@@ -30,7 +30,7 @@ export const TaskTemplateSelector: React.FC<TaskTemplateSelectorProps> = ({ sele
     setFilterFrequency,
     selectedId: hookSelectedId,
     setSelectedId,
-  } = useTaskTemplates({ pollIntervalMs: 10000 });
+  } = useTaskTemplates({ pollIntervalMs: 30_000 });
 
   const effectiveSelectedId = selectedId ?? hookSelectedId;
   const effectiveSelectedIds = useMemo(() => (selectedIds || []).map(String), [selectedIds]);

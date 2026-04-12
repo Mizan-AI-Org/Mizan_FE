@@ -7,31 +7,22 @@ import { useToast } from "@/components/ui/use-toast";
 import { Loader2, User, Mail, Lock, Building2 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "@/hooks/use-language";
+import type { SignupData } from "@/lib/types";
+import {
+  DEFAULT_BUSINESS_VERTICAL,
+  SIGNUP_SECTOR_OPTIONS,
+  type BusinessVertical,
+} from "@/config/staffInviteRolesByVertical";
 
 interface SignUpFormProps {
   onNavigateToLogin: () => void;
-}
-
-interface SignupData {
-  user: {
-    email: string;
-    password: string;
-    first_name: string;
-    last_name: string;
-    phone?: string;
-  };
-  restaurant: {
-    name: string;
-    address: string;
-    phone: string;
-    email: string;
-  };
 }
 
 export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [sector, setSector] = useState<BusinessVertical>(DEFAULT_BUSINESS_VERTICAL);
   const { toast } = useToast();
   const { t } = useLanguage();
   const auth = useAuth();
@@ -60,7 +51,6 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
       return;
     }
 
-    // Split full name into first and last
     const nameParts = fullName.trim().split(" ");
     const firstName = nameParts[0];
     const lastName = nameParts.slice(1).join(" ") || "User";
@@ -77,6 +67,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
         address: "",
         phone: "",
         email: email,
+        business_vertical: sector,
       },
     };
 
@@ -115,7 +106,6 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
       </div>
 
       <form onSubmit={handleOwnerSignUp} className="space-y-4">
-        {/* Business Name */}
         <div className="space-y-2">
           <Label htmlFor="businessName" className="text-white text-sm">
             {t("auth.signup.restaurant_name")}
@@ -132,7 +122,29 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
           </div>
         </div>
 
-        {/* Full Name */}
+        <div className="space-y-2 pt-1">
+          <Label htmlFor="businessVertical" className="text-white text-sm">
+            {t("auth.signup.sector_label")}
+          </Label>
+          <p id="sector-hint" className="text-[11px] text-[#B0BEC5] leading-snug">
+            {t("auth.signup.sector_hint")}
+          </p>
+          <select
+            id="businessVertical"
+            name="businessVertical"
+            value={sector}
+            onChange={(e) => setSector(e.target.value as BusinessVertical)}
+            aria-describedby="sector-hint"
+            className="w-full h-11 rounded-md border border-white/10 bg-[#0A0D10]/50 px-3 text-sm text-white focus:border-[#00E676] focus:outline-none focus:ring-1 focus:ring-[#00E676]/50"
+          >
+            {SIGNUP_SECTOR_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value} title={t(opt.taglineKey)}>
+                {opt.emoji} {t(opt.nameKey)}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="fullName" className="text-white text-sm">
             {t("auth.signup.owner_full_name")}
@@ -149,7 +161,6 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
           </div>
         </div>
 
-        {/* Email */}
         <div className="space-y-2">
           <Label htmlFor="signup-email" className="text-white text-sm">
             {t("auth.signup.email")}
@@ -167,7 +178,6 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
           </div>
         </div>
 
-        {/* Password */}
         <div className="space-y-2">
           <Label htmlFor="signup-password" className="text-white text-sm">
             {t("auth.signup.password")}
@@ -185,7 +195,6 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
           </div>
         </div>
 
-        {/* Confirm Password */}
         <div className="space-y-2">
           <Label htmlFor="confirmPassword" className="text-white text-sm">
             {t("auth.signup.confirm_password")}
@@ -203,7 +212,6 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
           </div>
         </div>
 
-        {/* Terms Checkbox */}
         <div className="flex items-start space-x-3 py-2">
           <input
             type="checkbox"

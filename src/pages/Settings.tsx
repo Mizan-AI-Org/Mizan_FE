@@ -37,9 +37,11 @@ import {
   CheckCircle,
   AlertCircle,
   Unplug,
+  ShieldAlert,
 } from "lucide-react";
 import { FormSectionSkeleton } from "@/components/skeletons";
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import ReservationIntegration from "@/components/ReservationIntegration";
 // Lazy-load heavy settings sections for better mobile performance
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -60,6 +62,11 @@ import { User } from "@/contexts/AuthContext.types";
 import { translateApiError } from "@/i18n/messages";
 
 import { API_BASE } from "@/lib/api";
+import {
+  ALL_BUSINESS_VERTICALS,
+  parseBusinessVertical,
+  type BusinessVertical,
+} from "@/config/staffInviteRolesByVertical";
 
 type PosConnectionStatus = "idle" | "connected" | "error";
 
@@ -89,7 +96,59 @@ interface AISettings {
   features_enabled: Record<string, boolean>;
 }
 
+/** Keys align with `SafetyConcernReport.incident_type` defaults used in reporting. */
+const INCIDENT_CATEGORY_KEYS = [
+  "Safety",
+  "Maintenance",
+  "HR",
+  "Food Safety",
+  "Customer Issue",
+  "General",
+] as const;
+
+/** Matches `StaffSerializer` (GET /api/staff/): flat CustomUser fields. */
+interface StaffListRow {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+}
+
+/** `/api/staff/` returns flat users; some callers may still use nested `{ user: {...} }`. */
+function normalizeStaffListRows(data: unknown): StaffListRow[] {
+  const arr: unknown[] = Array.isArray(data)
+    ? data
+    : data && typeof data === "object" && "results" in (data as object)
+      ? ((data as { results?: unknown[] }).results ?? [])
+      : [];
+  const out: StaffListRow[] = [];
+  for (const row of arr) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as Record<string, unknown>;
+    const nested = r.user as Record<string, unknown> | undefined;
+    if (nested && typeof nested.id === "string") {
+      out.push({
+        id: nested.id,
+        email: String(nested.email ?? ""),
+        first_name: String(nested.first_name ?? ""),
+        last_name: String(nested.last_name ?? ""),
+      });
+      continue;
+    }
+    if (typeof r.id === "string") {
+      out.push({
+        id: r.id,
+        email: String(r.email ?? ""),
+        first_name: String(r.first_name ?? ""),
+        last_name: String(r.last_name ?? ""),
+      });
+    }
+  }
+  return out;
+}
+
 export default function Settings() {
+  const queryClient = useQueryClient();
   const { language, setLanguage: setAppLanguage, t } = useLanguage();
   const [latitude, setLatitude] = useState<number>(0);
   const [longitude, setLongitude] = useState<number>(0);
@@ -116,6 +175,13 @@ export default function Settings() {
     Sunday: { open: "10:00", close: "14:00", isClosed: true },
   });
   const [automaticClockOut, setAutomaticClockOut] = useState(false);
+  /** Maps incident category (e.g. Safety) → CustomUser id for default routing */
+  const [incidentCategoryAssignees, setIncidentCategoryAssignees] = useState<
+    Record<string, string>
+  >({});
+  const [staffForSelectors, setStaffForSelectors] = useState<StaffListRow[]>([]);
+  const [businessVertical, setBusinessVertical] = useState<BusinessVertical>("RESTAURANT");
+  const [customStaffRoles, setCustomStaffRoles] = useState<{ id: string; name: string }[]>([]);
   const [breakDuration, setBreakDuration] = useState(30);
   const [emailNotifications, setEmailNotifications] = useState({
     lowInventory: true,
@@ -335,6 +401,36 @@ export default function Settings() {
           ? data.settings_schema_version
           : (typeof data.settingsVersion === "number" ? data.settingsVersion : 0)
       );
+
+      const rawAssignees = data.incident_category_assignees;
+      if (rawAssignees && typeof rawAssignees === "object" && !Array.isArray(rawAssignees)) {
+        setIncidentCategoryAssignees(rawAssignees as Record<string, string>);
+      } else {
+        setIncidentCategoryAssignees({});
+      }
+
+      setBusinessVertical(parseBusinessVertical(data.business_vertical));
+      const csr = data.custom_staff_roles;
+      if (Array.isArray(csr)) {
+        setCustomStaffRoles(
+          csr
+            .filter((x: unknown) => x && typeof x === "object")
+            .map((x: { id?: string; name?: string }) => ({
+              id: String(x.id || ""),
+              name: String(x.name || ""),
+            }))
+            .filter((x: { id: string }) => x.id)
+        );
+      } else {
+        setCustomStaffRoles([]);
+      }
+
+      try {
+        const staffRes = await apiClient.get("/staff/");
+        setStaffForSelectors(normalizeStaffListRows(staffRes.data));
+      } catch {
+        setStaffForSelectors([]);
+      }
     } catch (error) {
       const axiosErr = error as AxiosError<{ detail?: string }>;
       console.error("Failed to load unified settings:", axiosErr);
@@ -407,11 +503,26 @@ export default function Settings() {
         break_duration: breakDuration,
         email_notifications: emailNotifications,
         push_notifications: pushNotifications,
+        incident_category_assignees: incidentCategoryAssignees,
+        business_vertical: businessVertical,
+        custom_staff_roles: customStaffRoles
+          .map((r) => ({ id: r.id, name: r.name.trim() }))
+          .filter((r) => r.name.length > 0),
         // Include the version for optimistic locking
         settings_schema_version: settingsSchemaVersion,
       });
       if (response.status === 200) {
+        const ver =
+          typeof response.data?.settings_schema_version === "number"
+            ? response.data.settings_schema_version
+            : typeof response.data?.settingsVersion === "number"
+              ? response.data.settingsVersion
+              : null;
+        if (typeof ver === "number") {
+          setSettingsSchemaVersion(ver);
+        }
         toast.success(t("settings.general.save_success"));
+        void queryClient.invalidateQueries({ queryKey: ["settings", "business_vertical"] });
         fetchUnifiedSettings();
       } else {
         const errorData = response.data;
@@ -886,9 +997,82 @@ export default function Settings() {
                   </div>
                 </div>
 
+                <div className="space-y-2 max-w-xl">
+                  <Label htmlFor="business-vertical" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    {t("settings.general.business_vertical")}
+                  </Label>
+                  <select
+                    id="business-vertical"
+                    value={businessVertical}
+                    onChange={(e) => setBusinessVertical(e.target.value as BusinessVertical)}
+                    className="h-12 w-full max-w-xl rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-sm font-medium text-slate-700 dark:text-slate-300 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                  >
+                    {ALL_BUSINESS_VERTICALS.map((v) => (
+                      <option key={v} value={v}>
+                        {t(`settings.general.business_vertical_${v.toLowerCase()}`)}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500">
+                    {t("settings.general.business_vertical_hint")}
+                  </p>
+                </div>
+
+                <div className="space-y-3 max-w-xl rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-4">
+                  <div>
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      {t("settings.general.custom_staff_roles_title")}
+                    </Label>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      {t("settings.general.custom_staff_roles_desc")}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    {customStaffRoles.map((row, idx) => (
+                      <div key={row.id} className="flex gap-2 items-center">
+                        <Input
+                          value={row.name}
+                          onChange={(e) => {
+                            const next = [...customStaffRoles];
+                            next[idx] = { ...row, name: e.target.value };
+                            setCustomStaffRoles(next);
+                          }}
+                          placeholder={t("settings.general.custom_staff_roles_placeholder")}
+                          className="h-10 flex-1 rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          onClick={() =>
+                            setCustomStaffRoles(customStaffRoles.filter((_, i) => i !== idx))
+                          }
+                        >
+                          {t("settings.general.custom_staff_roles_remove")}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    onClick={() =>
+                      setCustomStaffRoles((prev) => [
+                        ...prev,
+                        { id: crypto.randomUUID(), name: "" },
+                      ])
+                    }
+                  >
+                    {t("settings.general.custom_staff_roles_add")}
+                  </Button>
+                </div>
+
                 <Separator />
 
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start">
                   <div className="space-y-2">
                     <Label htmlFor="language" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                       {t("settings.general.language")}
@@ -907,27 +1091,78 @@ export default function Settings() {
                       {t("settings.general.language_hint")}
                     </p>
                   </div>
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t("settings.general.preferences")}</h4>
+                    <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 p-4">
+                      <div className="space-y-0.5 min-w-0 flex-1">
+                        <Label htmlFor="automatic-clock-out" className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                          {t("settings.general.automatic_clock_out")}
+                        </Label>
+                        <p className="text-xs text-slate-500">
+                          {t("settings.general.automatic_clock_out_desc")}
+                        </p>
+                      </div>
+                      <Switch
+                        id="automatic-clock-out"
+                        checked={automaticClockOut}
+                        onCheckedChange={setAutomaticClockOut}
+                        className="data-[state=checked]:bg-emerald-600 shrink-0"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <Separator />
 
                 <div className="space-y-4">
-                  <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t("settings.general.preferences")}</h4>
-                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 p-4">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="automatic-clock-out" className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
-                        {t("settings.general.automatic_clock_out")}
-                      </Label>
-                      <p className="text-xs text-slate-500">
-                        {t("settings.general.automatic_clock_out_desc")}
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/30 shrink-0">
+                      <ShieldAlert className="w-5 h-5 text-amber-700 dark:text-amber-400" aria-hidden />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                        {t("settings.general.incident_routing.title")}
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {t("settings.general.incident_routing.description")}
                       </p>
                     </div>
-                    <Switch
-                      id="automatic-clock-out"
-                      checked={automaticClockOut}
-                      onCheckedChange={setAutomaticClockOut}
-                      className="data-[state=checked]:bg-emerald-600"
-                    />
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {INCIDENT_CATEGORY_KEYS.map((cat) => {
+                      const i18nKey = `settings.general.incident_categories.${cat.toLowerCase().replace(/\s+/g, "_")}`;
+                      return (
+                        <div key={cat} className="space-y-1.5">
+                          <Label
+                            htmlFor={`incident-assign-${cat}`}
+                            className="text-sm font-medium text-slate-700 dark:text-slate-300"
+                          >
+                            {t(i18nKey)}
+                          </Label>
+                          <select
+                            id={`incident-assign-${cat}`}
+                            value={incidentCategoryAssignees[cat] ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setIncidentCategoryAssignees((prev) => {
+                                const next = { ...prev };
+                                if (!v) delete next[cat];
+                                else next[cat] = v;
+                                return next;
+                              });
+                            }}
+                            className="h-11 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-sm text-slate-700 dark:text-slate-300 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                          >
+                            <option value="">{t("settings.general.incident_routing.unassigned")}</option>
+                            {staffForSelectors.map((row) => (
+                              <option key={row.id} value={row.id}>
+                                {[row.first_name, row.last_name].filter(Boolean).join(" ") || row.email}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 

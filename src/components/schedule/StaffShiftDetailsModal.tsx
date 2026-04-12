@@ -188,7 +188,7 @@ const StaffShiftDetailsModal: React.FC<StaffShiftDetailsModalProps> = ({ open, s
     queryKey: ['shift-tasks', shiftId],
     enabled: open && !!shiftId,
     staleTime: 30 * 1000,
-    refetchInterval: 15 * 1000,
+    refetchInterval: 60_000,
     queryFn: async () => {
       if (!shiftId) return [];
       const token = localStorage.getItem('access_token');
@@ -220,7 +220,7 @@ const StaffShiftDetailsModal: React.FC<StaffShiftDetailsModalProps> = ({ open, s
     queryKey: ['process-tasks', shiftId, user?.id, shift?.shift_date],
     enabled: open && !!shiftId && !!user?.id && !!shift?.shift_date,
     staleTime: 30 * 1000,
-    refetchInterval: 15 * 1000,
+    refetchInterval: 60_000,
     queryFn: async () => {
       const params: Record<string, string> = {};
       if (user?.id) params['assigned_to'] = String(user.id);

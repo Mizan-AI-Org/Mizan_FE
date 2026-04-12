@@ -49,8 +49,15 @@ export interface AuthContextType {
         invitation_pin?: string | null
     ) => Promise<void>;
     inviteStaff: (
-        accessToken: string,
-        inviteData: { email: string; role: string; first_name?: string; last_name?: string; phone_number?: string }
+      accessToken: string,
+      inviteData: {
+        email: string;
+        role: string;
+        custom_role_id?: string;
+        first_name?: string;
+        last_name?: string;
+        phone_number?: string;
+      }
     ) => Promise<any>;
     logout: () => void;
     hasRole: (roles: string[]) => boolean;
