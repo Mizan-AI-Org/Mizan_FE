@@ -132,146 +132,146 @@ export default function SalesAndPrepPage() {
         </header>
 
         <Card className={`${cardBase} flex flex-col`}>
-            <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-emerald-50/80 to-transparent dark:from-emerald-950/20 dark:to-transparent">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                    <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <CardTitle className="text-lg font-bold text-slate-900 dark:text-white">
-                    {t("dashboard.sales.title") || "Sales Analysis"}
-                  </CardTitle>
+          <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-emerald-50/80 to-transparent dark:from-emerald-950/20 dark:to-transparent">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                  <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={salesDate}
-                    onChange={(e) => setSalesDate(e.target.value)}
-                    className="text-xs px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-                  />
-                  <Badge variant="outline" className={todaySales?.connected ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400" : "text-slate-500"}>
-                    {todaySales?.connected ? "LIVE" : "POS"}
-                  </Badge>
-                </div>
+                <CardTitle className="text-lg font-bold text-slate-900 dark:text-white">
+                  {t("dashboard.sales.title") || "Sales Analysis"}
+                </CardTitle>
               </div>
-            </CardHeader>
-            <CardContent className="pt-6 pb-8 px-6 md:px-8">
-              {salesLoading ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-4">
-                  <div className="w-10 h-10 border-2 border-emerald-200 dark:border-emerald-800 border-t-emerald-500 rounded-full animate-spin" />
-                  <span className="text-sm text-slate-500 dark:text-slate-400">{t("dashboard.sales.loading") || "Loading…"}</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={salesDate}
+                  onChange={(e) => setSalesDate(e.target.value)}
+                  className="text-xs px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                />
+                <Badge variant="outline" className={todaySales?.connected ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400" : "text-slate-500"}>
+                  {todaySales?.connected ? "LIVE" : "POS"}
+                </Badge>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6 pb-8 px-6 md:px-8">
+            {salesLoading ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-4">
+                <div className="w-10 h-10 border-2 border-emerald-200 dark:border-emerald-800 border-t-emerald-500 rounded-full animate-spin" />
+                <span className="text-sm text-slate-500 dark:text-slate-400">{t("dashboard.sales.loading") || "Loading…"}</span>
+              </div>
+            ) : salesError ? (
+              <div className="py-10 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+                  <BarChart3 className="w-8 h-8 text-slate-400 dark:text-slate-500" />
                 </div>
-              ) : salesError ? (
-                <div className="py-10 text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
-                    <BarChart3 className="w-8 h-8 text-slate-400 dark:text-slate-500" />
-                  </div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-5">{t("dashboard.sales.error") || "Could not load sales. Try again later."}</p>
-                  <Button variant="outline" size="default" onClick={() => navigate("/dashboard/settings")}>
-                    {t("common.settings") || "Settings"}
-                  </Button>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-5">{t("dashboard.sales.error") || "Could not load sales. Try again later."}</p>
+                <Button variant="outline" size="default" onClick={() => navigate("/dashboard/settings")}>
+                  {t("common.settings") || "Settings"}
+                </Button>
+              </div>
+            ) : !todaySales?.connected ? (
+              <div className="py-10 text-center">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/40 dark:to-emerald-900/20 flex items-center justify-center mx-auto mb-5 border border-emerald-100/50 dark:border-emerald-800/30">
+                  <DollarSign className="w-10 h-10 text-emerald-500 dark:text-emerald-400" />
                 </div>
-              ) : !todaySales?.connected ? (
-                <div className="py-10 text-center">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/40 dark:to-emerald-900/20 flex items-center justify-center mx-auto mb-5 border border-emerald-100/50 dark:border-emerald-800/30">
-                    <DollarSign className="w-10 h-10 text-emerald-500 dark:text-emerald-400" />
-                  </div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 max-w-[260px] mx-auto leading-relaxed">
-                    {todaySales?.error || (t("dashboard.sales.connect_pos") || "Connect your POS in Settings to see sales.")}
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 max-w-[260px] mx-auto leading-relaxed">
+                  {todaySales?.error || (t("dashboard.sales.connect_pos") || "Connect your POS in Settings to see sales.")}
+                </p>
+                <Button size="default" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => navigate("/dashboard/settings")}>
+                  {t("dashboard.sales.connect_pos_cta") || "Connect POS"}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {/* Primary metrics */}
+                <div className="p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30">
+                  <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">
+                    {t("dashboard.sales.total") || "Total revenue"}
                   </p>
-                  <Button size="default" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => navigate("/dashboard/settings")}>
-                    {t("dashboard.sales.connect_pos_cta") || "Connect POS"}
-                  </Button>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                    {todaySales?.currency || ""} {(todaySales?.total_sales ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
-              ) : (
-                <div className="space-y-5">
-                  {/* Primary metrics */}
-                  <div className="p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30">
-                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">
-                      {t("dashboard.sales.total") || "Total revenue"}
-                    </p>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                      {todaySales?.currency || ""} {(todaySales?.total_sales ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{t("dashboard.sales.orders") || "Orders"}</p>
+                    <p className="text-lg font-semibold text-slate-900 dark:text-white">{todaySales?.order_count ?? 0}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{t("dashboard.sales.avg_ticket") || "Avg ticket"}</p>
+                    <p className="text-lg font-semibold text-slate-900 dark:text-white">
+                      {todaySales?.currency || ""} {(todaySales?.avg_ticket ?? 0).toFixed(2)}
                     </p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{t("dashboard.sales.orders") || "Orders"}</p>
-                      <p className="text-lg font-semibold text-slate-900 dark:text-white">{todaySales?.order_count ?? 0}</p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{t("dashboard.sales.avg_ticket") || "Avg ticket"}</p>
-                      <p className="text-lg font-semibold text-slate-900 dark:text-white">
-                        {todaySales?.currency || ""} {(todaySales?.avg_ticket ?? 0).toFixed(2)}
-                      </p>
+                </div>
+
+                {/* Payment breakdown */}
+                {(todaySales?.tips ?? 0) > 0 || (todaySales?.cash_total ?? 0) > 0 || (todaySales?.card_total ?? 0) > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">Payment breakdown</p>
+                    <div className="grid grid-cols-3 gap-2 text-sm">
+                      {(todaySales?.cash_total ?? 0) > 0 && (
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                          <Banknote className="w-4 h-4 text-emerald-600" />
+                          <span className="text-slate-700 dark:text-slate-300">Cash</span>
+                          <span className="font-medium ml-auto">{todaySales?.currency} {(todaySales?.cash_total ?? 0).toFixed(0)}</span>
+                        </div>
+                      )}
+                      {(todaySales?.card_total ?? 0) > 0 && (
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                          <CreditCard className="w-4 h-4 text-emerald-600" />
+                          <span className="text-slate-700 dark:text-slate-300">Card</span>
+                          <span className="font-medium ml-auto">{todaySales?.currency} {(todaySales?.card_total ?? 0).toFixed(0)}</span>
+                        </div>
+                      )}
+                      {(todaySales?.tips ?? 0) > 0 && (
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                          <Receipt className="w-4 h-4 text-amber-600" />
+                          <span className="text-slate-700 dark:text-slate-300">Tips</span>
+                          <span className="font-medium ml-auto">{todaySales?.currency} {(todaySales?.tips ?? 0).toFixed(0)}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
+                ) : null}
 
-                  {/* Payment breakdown */}
-                  {(todaySales?.tips ?? 0) > 0 || (todaySales?.cash_total ?? 0) > 0 || (todaySales?.card_total ?? 0) > 0 ? (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">Payment breakdown</p>
-                      <div className="grid grid-cols-3 gap-2 text-sm">
-                        {(todaySales?.cash_total ?? 0) > 0 && (
-                          <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                            <Banknote className="w-4 h-4 text-emerald-600" />
-                            <span className="text-slate-700 dark:text-slate-300">Cash</span>
-                            <span className="font-medium ml-auto">{todaySales?.currency} {(todaySales?.cash_total ?? 0).toFixed(0)}</span>
-                          </div>
-                        )}
-                        {(todaySales?.card_total ?? 0) > 0 && (
-                          <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                            <CreditCard className="w-4 h-4 text-emerald-600" />
-                            <span className="text-slate-700 dark:text-slate-300">Card</span>
-                            <span className="font-medium ml-auto">{todaySales?.currency} {(todaySales?.card_total ?? 0).toFixed(0)}</span>
-                          </div>
-                        )}
-                        {(todaySales?.tips ?? 0) > 0 && (
-                          <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                            <Receipt className="w-4 h-4 text-amber-600" />
-                            <span className="text-slate-700 dark:text-slate-300">Tips</span>
-                            <span className="font-medium ml-auto">{todaySales?.currency} {(todaySales?.tips ?? 0).toFixed(0)}</span>
-                          </div>
-                        )}
-                      </div>
+                {/* Tax & discount */}
+                {((todaySales?.total_tax ?? 0) > 0 || (todaySales?.total_discount ?? 0) > 0) && (
+                  <div className="flex gap-4 text-xs text-slate-500 dark:text-slate-400">
+                    {(todaySales?.total_tax ?? 0) > 0 && (
+                      <span>Tax: {todaySales?.currency} {(todaySales?.total_tax ?? 0).toFixed(2)}</span>
+                    )}
+                    {(todaySales?.total_discount ?? 0) > 0 && (
+                      <span>Discount: {todaySales?.currency} {(todaySales?.total_discount ?? 0).toFixed(2)}</span>
+                    )}
+                  </div>
+                )}
+
+                {/* By order type */}
+                {todaySales?.by_order_type && Object.keys(todaySales.by_order_type).length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">By order type</p>
+                    <div className="space-y-1">
+                      {Object.entries(todaySales.by_order_type).map(([type, data]) => (
+                        <div key={type} className="flex justify-between text-sm py-1 border-b border-slate-50 dark:border-slate-800/50 last:border-0">
+                          <span className="text-slate-700 dark:text-slate-300">{ORDER_TYPE_LABELS[type] || type}</span>
+                          <span className="font-medium text-slate-900 dark:text-white">
+                            {data.count} orders · {todaySales?.currency} {data.total.toFixed(0)}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                  ) : null}
+                  </div>
+                )}
 
-                  {/* Tax & discount */}
-                  {((todaySales?.total_tax ?? 0) > 0 || (todaySales?.total_discount ?? 0) > 0) && (
-                    <div className="flex gap-4 text-xs text-slate-500 dark:text-slate-400">
-                      {(todaySales?.total_tax ?? 0) > 0 && (
-                        <span>Tax: {todaySales?.currency} {(todaySales?.total_tax ?? 0).toFixed(2)}</span>
-                      )}
-                      {(todaySales?.total_discount ?? 0) > 0 && (
-                        <span>Discount: {todaySales?.currency} {(todaySales?.total_discount ?? 0).toFixed(2)}</span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* By order type */}
-                  {todaySales?.by_order_type && Object.keys(todaySales.by_order_type).length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">By order type</p>
-                      <div className="space-y-1">
-                        {Object.entries(todaySales.by_order_type).map(([type, data]) => (
-                          <div key={type} className="flex justify-between text-sm py-1 border-b border-slate-50 dark:border-slate-800/50 last:border-0">
-                            <span className="text-slate-700 dark:text-slate-300">{ORDER_TYPE_LABELS[type] || type}</span>
-                            <span className="font-medium text-slate-900 dark:text-white">
-                              {data.count} orders · {todaySales?.currency} {data.total.toFixed(0)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => navigate("/dashboard/reports/sales/daily")}>
-                    {t("dashboard.sales.view_reports") || "View full reports"}
-                  </Button>
-                </div>
-              )}
-            </CardContent>
+                <Button variant="outline" size="sm" className="w-full" onClick={() => navigate("/dashboard/reports/sales/daily")}>
+                  {t("dashboard.sales.view_reports") || "View full reports"}
+                </Button>
+              </div>
+            )}
+          </CardContent>
 
           {/* Prep List section - same card, below sales */}
           <div className="border-t border-slate-100 dark:border-slate-800">

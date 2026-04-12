@@ -440,7 +440,7 @@ const EnhancedManagerDashboard: React.FC = () => {
         if (!refreshing) {
           loadDashboardData(true);
         }
-      }, 30000); // Update every 30 seconds
+      }, 90_000);
     }
 
     return () => {

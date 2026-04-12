@@ -161,7 +161,7 @@ export const AutoScheduler = ({
 
     const [taskTemplates, setTaskTemplates] = useState<Task[]>([]);
     const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
-    const { templates, error: templatesError } = useTaskTemplates({ pollIntervalMs: 10000 });
+    const { templates, error: templatesError } = useTaskTemplates({ pollIntervalMs: 30_000 });
 
     interface TemplateTask {
         title?: string;

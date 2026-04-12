@@ -42,6 +42,8 @@ import { cn } from "@/lib/utils";
 import {
   DashboardWidgetById,
   DashboardWidgetId,
+  DashboardWidgetSlotId,
+  DashboardCustomWidgetDef,
   DASHBOARD_WIDGET_IDS,
   DEFAULT_DASHBOARD_WIDGET_ORDER,
   parseStoredWidgetOrder,
@@ -49,6 +51,9 @@ import {
   getActionRoute,
   WIDGET_ADD_ICONS,
   WIDGET_ADD_DESC_KEYS,
+  DASHBOARD_WIDGET_CATEGORY_ORDER,
+  DASHBOARD_WIDGET_CATEGORY_KEYS,
+  getWidgetCategory,
 } from "@/pages/dashboard/DashboardWidgets";
 
 type InsightItem = {
@@ -134,9 +139,9 @@ export default function Dashboard() {
     queryKey: ["pos-sales-today", accessToken],
     queryFn: () => api.getTodaySales(accessToken!),
     enabled: !!accessToken && hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER"]),
-    staleTime: 0,
-    refetchInterval: 30000,
-    refetchIntervalInBackground: true,
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
 
@@ -150,9 +155,9 @@ export default function Dashboard() {
   const { data: summary, isLoading } = useQuery({
     queryKey: ["dashboard-summary"],
     queryFn: () => api.getDashboardSummary(),
-    staleTime: 0,
-    refetchInterval: 10000,
-    refetchIntervalInBackground: true,
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
@@ -194,12 +199,28 @@ export default function Dashboard() {
   const attentionNow = criticalCount + operationalCount;
   const prevCriticalRef = useRef<number>(0);
 
-  const canCustomizeDashboard = hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER"]);
+  const canCustomizeDashboard = hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]);
+
+  const { data: customWidgetsPayload } = useQuery({
+    queryKey: ["dashboard-custom-widgets", accessToken],
+    queryFn: () => api.getDashboardCustomWidgets(),
+    enabled: !!accessToken && canCustomizeDashboard,
+  });
+  const customWidgetsById = useMemo(() => {
+    const m: Record<string, DashboardCustomWidgetDef> = {};
+    for (const w of customWidgetsPayload?.widgets ?? []) {
+      m[w.slot_id] = w;
+    }
+    return m;
+  }, [customWidgetsPayload]);
+
   const widgetStorageKey = user?.id ? `mizan-dashboard-widget-order:${user.id}` : null;
   const [customizeMode, setCustomizeMode] = useState(false);
   const [addWidgetOpen, setAddWidgetOpen] = useState(false);
-  const [widgetOrder, setWidgetOrder] = useState<DashboardWidgetId[]>(() => [...DEFAULT_DASHBOARD_WIDGET_ORDER]);
+  const [widgetOrder, setWidgetOrder] = useState<DashboardWidgetSlotId[]>(() => [...DEFAULT_DASHBOARD_WIDGET_ORDER]);
+  const [serverLayoutReady, setServerLayoutReady] = useState(false);
   const skipNextPersist = useRef(true);
+  const ignoreNextServerPatch = useRef(false);
 
   useEffect(() => {
     if (!canCustomizeDashboard || !widgetStorageKey) return;
@@ -209,9 +230,53 @@ export default function Dashboard() {
   }, [canCustomizeDashboard, widgetStorageKey]);
 
   useEffect(() => {
+    if (!canCustomizeDashboard || !accessToken) {
+      setServerLayoutReady(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api.getDashboardWidgetOrder();
+        if (cancelled) return;
+        if (data?.order && Array.isArray(data.order) && data.order.length > 0) {
+          ignoreNextServerPatch.current = true;
+          skipNextPersist.current = true;
+          setWidgetOrder(data.order as DashboardWidgetSlotId[]);
+          if (widgetStorageKey) {
+            localStorage.setItem(widgetStorageKey, JSON.stringify({ order: data.order }));
+          }
+          queueMicrotask(() => {
+            skipNextPersist.current = false;
+            setTimeout(() => {
+              ignoreNextServerPatch.current = false;
+            }, 80);
+          });
+        }
+      } catch {
+        /* offline or older backend */
+      } finally {
+        if (!cancelled) setServerLayoutReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canCustomizeDashboard, accessToken, widgetStorageKey]);
+
+  useEffect(() => {
     if (!canCustomizeDashboard || !widgetStorageKey || skipNextPersist.current) return;
     localStorage.setItem(widgetStorageKey, JSON.stringify({ order: widgetOrder }));
   }, [widgetOrder, canCustomizeDashboard, widgetStorageKey]);
+
+  useEffect(() => {
+    if (!canCustomizeDashboard || !accessToken || !serverLayoutReady) return;
+    if (ignoreNextServerPatch.current) return;
+    const t = setTimeout(() => {
+      api.patchDashboardWidgetOrder({ order: widgetOrder }).catch(() => {});
+    }, 900);
+    return () => clearTimeout(t);
+  }, [widgetOrder, canCustomizeDashboard, accessToken, serverLayoutReady]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -221,8 +286,8 @@ export default function Dashboard() {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     setWidgetOrder((items) => {
-      const oldIndex = items.indexOf(active.id as DashboardWidgetId);
-      const newIndex = items.indexOf(over.id as DashboardWidgetId);
+      const oldIndex = items.indexOf(String(active.id));
+      const newIndex = items.indexOf(String(over.id));
       if (oldIndex < 0 || newIndex < 0) return items;
       return arrayMove(items, oldIndex, newIndex);
     });
@@ -255,6 +320,7 @@ export default function Dashboard() {
       salesLoading,
       prepLoading,
       hasRole,
+      customWidgetsById,
     }),
     [
       t,
@@ -277,12 +343,16 @@ export default function Dashboard() {
       prepLoading,
       hasRole,
       setShowAllInsights,
+      customWidgetsById,
     ],
   );
 
   const widgetLabel = useCallback(
-    (id: DashboardWidgetId) => {
-      switch (id) {
+    (id: string) => {
+      if (id.startsWith("custom:")) {
+        return customWidgetsById[id]?.title ?? id;
+      }
+      switch (id as DashboardWidgetId) {
         case "insights":
           return t("dashboard.insights.title");
         case "staffing":
@@ -307,11 +377,19 @@ export default function Dashboard() {
           return t("dashboard.take_orders.title");
         case "reservations":
           return t("dashboard.reservations.title");
+        case "retail_store_ops":
+          return t("dashboard.retail_store_ops.title");
+        case "jobsite_crew":
+          return t("dashboard.jobsite_crew.title");
+        case "ops_reports":
+          return t("dashboard.ops_reports.title");
+        case "staff_inbox":
+          return t("dashboard.staff_inbox.title");
         default:
           return id;
       }
     },
-    [hasRole, t],
+    [customWidgetsById, hasRole, t],
   );
 
   const displayOrder = canCustomizeDashboard ? widgetOrder : DEFAULT_DASHBOARD_WIDGET_ORDER;
@@ -408,39 +486,52 @@ export default function Dashboard() {
         ) : (
           <>
             <Dialog open={addWidgetOpen} onOpenChange={setAddWidgetOpen}>
-              <DialogContent className="z-[3100] max-w-lg sm:max-w-2xl border-slate-200/80 bg-gradient-to-b from-white to-slate-50/90 dark:from-slate-900 dark:to-slate-950 dark:border-slate-800">
+              <DialogContent className="z-[3100] max-w-lg sm:max-w-3xl border-slate-200/80 bg-gradient-to-b from-white to-slate-50/90 dark:from-slate-900 dark:to-slate-950 dark:border-slate-800">
                 <DialogHeader>
                   <DialogTitle className="text-xl font-bold tracking-tight">{t("dashboard.customize.add_widget_title")}</DialogTitle>
                   <DialogDescription className="text-sm text-slate-600 dark:text-slate-400">
                     {t("dashboard.customize.add_widget_subtitle")}
                   </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-3 sm:grid-cols-2 pt-2 max-h-[min(70vh,520px)] overflow-y-auto pr-1">
-                  {hiddenWidgets.map((wid) => {
-                    const Icon = WIDGET_ADD_ICONS[wid];
-                    const descKey = WIDGET_ADD_DESC_KEYS[wid];
+                <div className="space-y-6 pt-2 max-h-[min(70vh,560px)] overflow-y-auto pr-1">
+                  {DASHBOARD_WIDGET_CATEGORY_ORDER.map((catId) => {
+                    const inCategory = hiddenWidgets.filter((wid) => getWidgetCategory(wid) === catId);
+                    if (inCategory.length === 0) return null;
                     return (
-                      <button
-                        key={wid}
-                        type="button"
-                        onClick={() => {
-                          setWidgetOrder((o) => (o.includes(wid) ? o : [...o, wid]));
-                          setAddWidgetOpen(false);
-                        }}
-                        className={cn(
-                          "group flex gap-3 rounded-2xl border border-slate-200/90 bg-white p-4 text-left shadow-sm transition-all",
-                          "hover:border-emerald-300 hover:shadow-md hover:bg-emerald-50/40 dark:border-slate-800 dark:bg-slate-900/80",
-                          "dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
-                        )}
-                      >
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 dark:from-emerald-500/20 dark:to-teal-500/10 dark:text-emerald-400">
-                          <Icon className="h-6 w-6" aria-hidden />
+                      <section key={catId} className="space-y-2">
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-0.5">
+                          {t(DASHBOARD_WIDGET_CATEGORY_KEYS[catId])}
+                        </h3>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {inCategory.map((wid) => {
+                            const Icon = WIDGET_ADD_ICONS[wid];
+                            const descKey = WIDGET_ADD_DESC_KEYS[wid];
+                            return (
+                              <button
+                                key={wid}
+                                type="button"
+                                onClick={() => {
+                                  setWidgetOrder((o) => (o.includes(wid) ? o : [...o, wid]));
+                                  setAddWidgetOpen(false);
+                                }}
+                                className={cn(
+                                  "group flex gap-3 rounded-2xl border border-slate-200/90 bg-white p-4 text-left shadow-sm transition-all",
+                                  "hover:border-emerald-300 hover:shadow-md hover:bg-emerald-50/40 dark:border-slate-800 dark:bg-slate-900/80",
+                                  "dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+                                )}
+                              >
+                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 dark:from-emerald-500/20 dark:to-teal-500/10 dark:text-emerald-400">
+                                  <Icon className="h-6 w-6" aria-hidden />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-semibold text-slate-900 dark:text-white leading-snug">{widgetLabel(wid)}</div>
+                                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{t(descKey)}</p>
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-slate-900 dark:text-white leading-snug">{widgetLabel(wid)}</div>
-                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{t(descKey)}</p>
-                        </div>
-                      </button>
+                      </section>
                     );
                   })}
                 </div>

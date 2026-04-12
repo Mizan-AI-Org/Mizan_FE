@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { MessageCircle, FileText, Calendar, Wallet, Settings, Briefcase, Plus, AlertCircle, Clock, CheckCircle2, ChevronRight } from "lucide-react";
+import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 
 type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED";
 
@@ -120,6 +121,7 @@ const StaffRequestsPage: React.FC = () => {
   const [activeStatus, setActiveStatus] = useState<StaffRequestStatus>("PENDING");
   const [search, setSearch] = useState("");
   const [comment, setComment] = useState("");
+  const [escalateModalOpen, setEscalateModalOpen] = useState(false);
 
   const listQuery = useQuery({
     queryKey: ["staff-requests", activeStatus, search],
@@ -141,7 +143,7 @@ const StaffRequestsPage: React.FC = () => {
       const data = await apiGet<any>("/staff/requests/counts/");
       return data?.counts || {};
     },
-    refetchInterval: 30000,
+    refetchInterval: 60_000,
   });
 
   const selectedQuery = useQuery({
@@ -431,7 +433,7 @@ const StaffRequestsPage: React.FC = () => {
                         <Button
                           variant="outline"
                           className="px-6 rounded-full border-2 transition-all active:scale-95"
-                          onClick={() => mutateAction.mutate({ action: "escalate", payload: { note: "Escalated" } })}
+                          onClick={() => setEscalateModalOpen(true)}
                           disabled={mutateAction.isPending}
                         >
                           Escalate
@@ -475,6 +477,23 @@ const StaffRequestsPage: React.FC = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      <EscalateStaffRequestModal
+        open={escalateModalOpen}
+        onOpenChange={setEscalateModalOpen}
+        isPending={mutateAction.isPending}
+        onConfirm={(assigneeId) => {
+          const note = comment.trim() || "Escalated";
+          mutateAction.mutate(
+            { action: "escalate", payload: { note, assignee_id: assigneeId } },
+            {
+              onSuccess: () => {
+                setEscalateModalOpen(false);
+              },
+            }
+          );
+        }}
+      />
     </div>
   );
 };

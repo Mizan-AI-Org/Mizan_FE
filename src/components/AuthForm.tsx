@@ -249,7 +249,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onNavigateToSignup }) => {
               onClick={() => setShowForgotPassword(true)}
               className="text-[#00E676] hover:text-[#00F77B] transition-colors font-medium underline-offset-2 hover:underline"
             >
-              Forgot Password?
+              {t("auth.forgot.title")}
             </button>
           )}
           {userType === "staff" && (

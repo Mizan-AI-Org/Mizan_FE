@@ -496,7 +496,7 @@ const App = () => {
                 <Route
                   path="dashboard/reports/attendance"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
                       <AttendanceReportsPage />
                     </RoleBasedRoute>
                   }

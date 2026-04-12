@@ -3,14 +3,16 @@ import { NavigateFunction } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
-import { api } from "@/lib/api";
+import { api, API_BASE } from "@/lib/api";
 import type { AuthContextType } from "@/contexts/AuthContext.types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Sparkles,
   Calendar,
   ClipboardCheck,
+  ClipboardList,
   Heart,
   AlertCircle,
   AlertTriangle,
@@ -29,6 +31,12 @@ import {
   ListTodo,
   ShoppingCart,
   CalendarDays,
+  Store,
+  HardHat,
+  FileBarChart2,
+  Inbox,
+  BarChart2,
+  LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -47,6 +55,10 @@ export const DASHBOARD_WIDGET_IDS = [
   "task_execution",
   "take_orders",
   "reservations",
+  "retail_store_ops",
+  "jobsite_crew",
+  "ops_reports",
+  "staff_inbox",
 ] as const;
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
 
@@ -63,6 +75,10 @@ export const WIDGET_ADD_ICONS: Record<DashboardWidgetId, LucideIcon> = {
   task_execution: ListTodo,
   take_orders: ShoppingCart,
   reservations: CalendarDays,
+  retail_store_ops: Store,
+  jobsite_crew: HardHat,
+  ops_reports: FileBarChart2,
+  staff_inbox: Inbox,
 };
 
 /** i18n keys for one-line descriptions in the Add widget dialog. */
@@ -78,7 +94,51 @@ export const WIDGET_ADD_DESC_KEYS: Record<DashboardWidgetId, string> = {
   task_execution: "dashboard.widget_add.task_execution",
   take_orders: "dashboard.widget_add.take_orders",
   reservations: "dashboard.widget_add.reservations",
+  retail_store_ops: "dashboard.widget_add.retail_store_ops",
+  jobsite_crew: "dashboard.widget_add.jobsite_crew",
+  ops_reports: "dashboard.widget_add.ops_reports",
+  staff_inbox: "dashboard.widget_add.staff_inbox",
 };
+
+/** Grouping for the Add widget dialog—each id appears in exactly one category. */
+export type DashboardWidgetCategoryId = "general" | "retail" | "hospitality" | "construction";
+
+export const DASHBOARD_WIDGET_CATEGORY_ORDER: DashboardWidgetCategoryId[] = [
+  "general",
+  "retail",
+  "hospitality",
+  "construction",
+];
+
+/** i18n keys for section headings in the Add widget dialog. */
+export const DASHBOARD_WIDGET_CATEGORY_KEYS: Record<DashboardWidgetCategoryId, string> = {
+  general: "dashboard.widget_categories.general",
+  retail: "dashboard.widget_categories.retail",
+  hospitality: "dashboard.widget_categories.hospitality",
+  construction: "dashboard.widget_categories.construction",
+};
+
+const WIDGET_ID_TO_CATEGORY: Record<DashboardWidgetId, DashboardWidgetCategoryId> = {
+  insights: "general",
+  staffing: "general",
+  sales_or_tasks: "general",
+  operations: "general",
+  wellbeing: "general",
+  live_attendance: "general",
+  ops_reports: "general",
+  staff_inbox: "general",
+  retail_store_ops: "retail",
+  take_orders: "retail",
+  inventory_delivery: "retail",
+  reservations: "hospitality",
+  jobsite_crew: "construction",
+  compliance_risk: "construction",
+  task_execution: "construction",
+};
+
+export function getWidgetCategory(id: DashboardWidgetId): DashboardWidgetCategoryId {
+  return WIDGET_ID_TO_CATEGORY[id];
+}
 
 /** System default: five core cards only. Optional widgets are added via Customize dashboard. */
 export const DEFAULT_DASHBOARD_WIDGET_ORDER: DashboardWidgetId[] = [
@@ -93,15 +153,60 @@ function isDashboardWidgetId(v: string): v is DashboardWidgetId {
   return (DASHBOARD_WIDGET_IDS as readonly string[]).includes(v);
 }
 
-export function parseStoredWidgetOrder(raw: string | null): DashboardWidgetId[] | null {
+/** Miya-created tiles use `custom:<uuid>` in saved layout (matches backend CUSTOM_WIDGET_PREFIX). */
+export const CUSTOM_WIDGET_PREFIX = "custom:";
+
+export function isCustomWidgetSlotId(s: string): boolean {
+  if (!s.startsWith(CUSTOM_WIDGET_PREFIX)) return false;
+  const rest = s.slice(CUSTOM_WIDGET_PREFIX.length);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rest);
+}
+
+/** A slot on the dashboard grid: built-in widget id or a Miya custom tile id. */
+export type DashboardWidgetSlotId = DashboardWidgetId | (string & {});
+
+export type DashboardCustomWidgetDef = {
+  id: string;
+  slot_id: string;
+  title: string;
+  subtitle: string;
+  link_url: string;
+  icon: string;
+  created_at?: string | null;
+};
+
+const CUSTOM_WIDGET_ICONS: Record<string, LucideIcon> = {
+  sparkles: Sparkles,
+  "clipboard-check": ClipboardCheck,
+  "list-todo": ListTodo,
+  calendar: Calendar,
+  users: Users,
+  package: Package,
+  "shopping-cart": ShoppingCart,
+  "file-text": FileText,
+  "bar-chart-2": BarChart2,
+  "clipboard-list": ClipboardList,
+  "hard-hat": HardHat,
+  store: Store,
+  inbox: Inbox,
+  activity: Activity,
+  "shield-alert": ShieldAlert,
+  clock: Clock,
+  heart: Heart,
+  "calendar-days": CalendarDays,
+  "layout-grid": LayoutGrid,
+};
+
+export function parseStoredWidgetOrder(raw: string | null): DashboardWidgetSlotId[] | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as { order?: unknown };
     if (!Array.isArray(parsed.order)) return null;
-    const out: DashboardWidgetId[] = [];
+    const out: DashboardWidgetSlotId[] = [];
     const seen = new Set<string>();
     for (const x of parsed.order) {
-      if (typeof x !== "string" || !isDashboardWidgetId(x) || seen.has(x)) continue;
+      if (typeof x !== "string" || seen.has(x)) continue;
+      if (!isDashboardWidgetId(x) && !isCustomWidgetSlotId(x)) continue;
       seen.add(x);
       out.push(x);
     }
@@ -325,6 +430,157 @@ function TakeOrdersDashboardCard({
   );
 }
 
+function OpsReportsEnterpriseCard({
+  cardBase,
+  cardHeaderBase,
+  t,
+  navigate,
+}: {
+  cardBase: string;
+  cardHeaderBase: string;
+  t: (key: string) => string;
+  navigate: NavigateFunction;
+}) {
+  const shortcuts = [
+    { to: "/dashboard/reports/sales/daily", labelKey: "dashboard.ops_reports.link_sales", Icon: BarChart2 },
+    { to: "/dashboard/reports/attendance", labelKey: "dashboard.ops_reports.link_attendance", Icon: Users },
+    { to: "/dashboard/reports/inventory", labelKey: "dashboard.ops_reports.link_inventory", Icon: Package },
+    { to: "/dashboard/reports/labor-attendance", labelKey: "dashboard.ops_reports.link_labor", Icon: Clock },
+  ];
+  return (
+    <Card
+      className={`${cardBase} cursor-pointer hover:shadow-md transition-shadow flex flex-col`}
+      onClick={() => navigate("/dashboard/reports")}
+    >
+      <CardHeader className={cardHeaderBase}>
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/12 text-sky-600 dark:text-sky-400">
+            <FileBarChart2 className="w-5 h-5" aria-hidden />
+          </div>
+          <div className="min-w-0 flex-1">
+            <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
+              {t("dashboard.ops_reports.title")}
+            </CardTitle>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-1">
+              {t("dashboard.ops_reports.subtitle")}
+            </p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="flex min-h-0 flex-1 flex-col space-y-3 pt-0 pb-6 px-6">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          {t("dashboard.ops_reports.shortcuts_hint")}
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {shortcuts.map(({ to, labelKey, Icon }) => (
+            <button
+              key={to}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(to);
+              }}
+              className="flex items-center gap-2 rounded-lg border border-slate-200/90 bg-white/80 dark:bg-slate-800/50 dark:border-slate-700 px-2.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-200 hover:border-sky-300/80 hover:bg-sky-50/50 dark:hover:bg-slate-800 transition-colors"
+            >
+              <Icon className="h-3.5 w-3.5 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
+              <span className="truncate">{t(labelKey)}</span>
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate("/dashboard/reports");
+          }}
+          className="mt-auto flex items-center gap-1 text-xs font-medium text-sky-600 dark:text-sky-400 hover:underline"
+        >
+          {t("dashboard.ops_reports.open")}
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function StaffInboxEnterpriseCard({
+  cardBase,
+  cardHeaderBase,
+  t,
+  navigate,
+}: {
+  cardBase: string;
+  cardHeaderBase: string;
+  t: (key: string) => string;
+  navigate: NavigateFunction;
+}) {
+  const { accessToken } = useAuth() as AuthContextType;
+  const { data, isLoading } = useQuery({
+    queryKey: ["staff-requests-counts", "dashboard-widget", accessToken],
+    queryFn: async () => {
+      const r = await fetch(`${API_BASE}/staff/requests/counts/`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+        },
+      });
+      if (!r.ok) throw new Error("counts");
+      return r.json();
+    },
+    enabled: !!accessToken,
+    staleTime: 45_000,
+  });
+  const counts = (data?.counts ?? {}) as Record<string, number>;
+  const pending = Number(counts.PENDING ?? 0);
+  const escalated = Number(counts.ESCALATED ?? 0);
+
+  return (
+    <Card
+      className={`${cardBase} cursor-pointer hover:shadow-md transition-shadow flex flex-col`}
+      onClick={() => navigate("/dashboard/staff-requests")}
+    >
+      <CardHeader className={cardHeaderBase}>
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/12 text-violet-600 dark:text-violet-400">
+            <Inbox className="w-5 h-5" aria-hidden />
+          </div>
+          <div className="min-w-0 flex-1">
+            <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
+              {t("dashboard.staff_inbox.title")}
+            </CardTitle>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-1">
+              {t("dashboard.staff_inbox.subtitle")}
+            </p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="flex min-h-0 flex-1 flex-col space-y-3 pt-0 pb-6 px-6">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 px-3 py-2">
+            <div className="text-2xl font-black text-slate-900 dark:text-white">{isLoading ? "…" : pending}</div>
+            <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{t("dashboard.staff_inbox.pending_label")}</div>
+          </div>
+          <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 px-3 py-2">
+            <div className="text-2xl font-black text-amber-600 dark:text-amber-400">{isLoading ? "…" : escalated}</div>
+            <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{t("dashboard.staff_inbox.escalated_label")}</div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate("/dashboard/staff-requests");
+          }}
+          className="mt-auto flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-400 hover:underline"
+        >
+          {t("dashboard.staff_inbox.open")}
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ReservationsDashboardCard({
   cardBase,
   cardHeaderBase,
@@ -453,6 +709,8 @@ export type DashboardWidgetBundleProps = {
   salesLoading: boolean;
   prepLoading: boolean;
   hasRole: (roles: string[]) => boolean;
+  /** Map slot_id → definition for Miya-created tiles (`custom:<uuid>`). */
+  customWidgetsById: Record<string, DashboardCustomWidgetDef>;
 };
 
 export function SortableDashboardWidget({
@@ -462,7 +720,7 @@ export function SortableDashboardWidget({
   onRemove,
   children,
 }: {
-  id: DashboardWidgetId;
+  id: string;
   editMode: boolean;
   colClassName: string;
   onRemove: () => void;
@@ -525,11 +783,82 @@ export function SortableDashboardWidget({
   );
 }
 
+function MiyaCustomDashboardWidgetCard({
+  def,
+  cardBase,
+  cardHeaderBase,
+  t,
+  navigate,
+}: {
+  def: DashboardCustomWidgetDef;
+  cardBase: string;
+  cardHeaderBase: string;
+  t: (key: string) => string;
+  navigate: NavigateFunction;
+}) {
+  const Icon = CUSTOM_WIDGET_ICONS[def.icon] || Sparkles;
+  const open = () => {
+    const u = (def.link_url || "").trim();
+    if (!u) return;
+    if (/^https?:\/\//i.test(u)) {
+      window.open(u, "_blank", "noopener,noreferrer");
+      return;
+    }
+    const path = u.startsWith("/") ? u : `/${u}`;
+    navigate(path);
+  };
+
+  return (
+    <Card className={`${cardBase} border-violet-200/60 dark:border-violet-900/35`}>
+      <CardHeader className={`${cardHeaderBase} pb-2 pt-5`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10 text-violet-600 dark:from-violet-500/20 dark:to-fuchsia-500/10 dark:text-violet-300">
+              <Icon className="h-6 w-6" aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                  {def.title}
+                </CardTitle>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-semibold border-violet-300/60 text-violet-700 dark:border-violet-700/50 dark:text-violet-300"
+                >
+                  {t("dashboard.miya_widget.badge")}
+                </Badge>
+              </div>
+              {def.subtitle ? (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">{def.subtitle}</p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="flex min-h-0 flex-1 flex-col px-5 pb-4 pt-0">
+        {def.link_url ? (
+          <Button
+            type="button"
+            size="sm"
+            className="mt-1 w-fit gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
+            onClick={open}
+          >
+            {t("dashboard.miya_widget.open")}
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        ) : (
+          <p className="text-xs text-slate-500 dark:text-slate-400">{t("dashboard.miya_widget.no_link")}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function DashboardWidgetById({
   id,
   props,
 }: {
-  id: DashboardWidgetId;
+  id: string;
   props: DashboardWidgetBundleProps;
 }) {
   const {
@@ -553,13 +882,35 @@ export function DashboardWidgetById({
     salesLoading,
     prepLoading,
     hasRole,
+    customWidgetsById,
   } = props;
+
+  if (id.startsWith(CUSTOM_WIDGET_PREFIX)) {
+    const def = customWidgetsById[id];
+    if (!def) {
+      return (
+        <Card className={cardBase}>
+          <CardContent className="p-5 text-sm text-slate-500 dark:text-slate-400">{t("dashboard.miya_widget.loading")}</CardContent>
+        </Card>
+      );
+    }
+    return (
+      <MiyaCustomDashboardWidgetCard
+        def={def}
+        cardBase={cardBase}
+        cardHeaderBase={cardHeaderBase}
+        t={t}
+        navigate={navigate}
+      />
+    );
+  }
 
   const attendance = summary?.attendance as Record<string, unknown> | undefined;
   const operations = summary?.operations as Record<string, unknown> | undefined;
   const wellbeing = summary?.wellbeing as Record<string, unknown> | undefined;
 
-  switch (id) {
+  const builtinId = id as DashboardWidgetId;
+  switch (builtinId) {
     case "insights":
       return (
         <Card
@@ -1208,6 +1559,131 @@ export function DashboardWidgetById({
           navigate={navigate}
           hasRole={hasRole}
         />
+      );
+
+    case "retail_store_ops": {
+      const nextDel = operations?.next_delivery as { supplier?: string; date?: string } | undefined;
+      const supplier = nextDel?.supplier && nextDel.supplier !== "None" ? nextDel.supplier : null;
+      const dStr = nextDel?.date && nextDel.date !== "None" ? nextDel.date : null;
+      const present = (attendance?.present_count as number) ?? 0;
+      return (
+        <Card
+          className={`${cardBase} cursor-pointer hover:shadow-md transition-shadow flex flex-col`}
+          onClick={() => navigate("/dashboard/inventory")}
+        >
+          <CardHeader className={cardHeaderBase}>
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/12 text-emerald-600 dark:text-emerald-400">
+                <Store className="w-5 h-5" aria-hidden />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                    {t("dashboard.retail_store_ops.title")}
+                  </CardTitle>
+                  <Badge variant="secondary" className="text-[10px] font-bold h-5 px-2 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20">
+                    {t("dashboard.retail_store_ops.badge")}
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{t("dashboard.retail_store_ops.subtitle")}</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex min-h-0 flex-1 flex-col space-y-3 pt-0 pb-6 px-6">
+            <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 px-3 py-2">
+              <div className="text-2xl font-black text-slate-900 dark:text-white">{isLoading ? "…" : present}</div>
+              <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{t("dashboard.retail_store_ops.kpi_clocked_in")}</div>
+            </div>
+            {isLoading ? (
+              <div className="text-sm text-slate-400">{t("dashboard.status.updating")}</div>
+            ) : supplier && dStr ? (
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] dark:bg-emerald-950/20 px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">{t("dashboard.inventory_delivery.title")}</div>
+                <div className="text-xs font-semibold text-slate-900 dark:text-white truncate mt-0.5">{supplier}</div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">{dStr}</div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-600 dark:text-slate-400">{t("dashboard.retail_store_ops.empty_hint")}</p>
+            )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate("/dashboard/inventory");
+              }}
+              className="mt-auto flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
+            >
+              {t("dashboard.retail_store_ops.open")}
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    case "jobsite_crew": {
+      const active = (attendance?.active_shifts as number) ?? 0;
+      const gaps = (attendance?.shift_gaps as number) ?? 0;
+      const onSite = (attendance?.present_count as number) ?? 0;
+      return (
+        <Card
+          className={`${cardBase} cursor-pointer hover:shadow-md transition-shadow flex flex-col`}
+          onClick={() => navigate("/dashboard/scheduling")}
+        >
+          <CardHeader className={cardHeaderBase}>
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/12 text-amber-600 dark:text-amber-400">
+                <HardHat className="w-5 h-5" aria-hidden />
+              </div>
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                  {t("dashboard.jobsite_crew.title")}
+                </CardTitle>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{t("dashboard.jobsite_crew.subtitle")}</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex min-h-0 flex-1 flex-col space-y-3 pt-0 pb-6 px-6">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 px-2 py-2 text-center sm:text-left">
+                <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tabular-nums">{isLoading ? "…" : onSite}</div>
+                <div className="text-[9px] sm:text-[10px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">{t("dashboard.jobsite_crew.kpi_on_site")}</div>
+              </div>
+              <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 px-2 py-2 text-center sm:text-left">
+                <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tabular-nums">{isLoading ? "…" : active}</div>
+                <div className="text-[9px] sm:text-[10px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">{t("dashboard.jobsite_crew.active_shifts")}</div>
+              </div>
+              <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 px-2 py-2 text-center sm:text-left">
+                <div className={`text-xl sm:text-2xl font-black tabular-nums ${gaps > 0 ? "text-amber-600 dark:text-amber-400" : "text-slate-900 dark:text-white"}`}>
+                  {isLoading ? "…" : gaps}
+                </div>
+                <div className="text-[9px] sm:text-[10px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">{t("dashboard.jobsite_crew.open_roles")}</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate("/dashboard/scheduling");
+              }}
+              className="mt-auto flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline"
+            >
+              {t("dashboard.jobsite_crew.open")}
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    case "ops_reports":
+      return (
+        <OpsReportsEnterpriseCard cardBase={cardBase} cardHeaderBase={cardHeaderBase} t={t} navigate={navigate} />
+      );
+
+    case "staff_inbox":
+      return (
+        <StaffInboxEnterpriseCard cardBase={cardBase} cardHeaderBase={cardHeaderBase} t={t} navigate={navigate} />
       );
 
     default:

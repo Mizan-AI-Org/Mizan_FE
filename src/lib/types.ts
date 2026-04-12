@@ -38,6 +38,8 @@ export interface SignupData {
         address: string;
         phone: string;
         email: string;
+        /** Saved to general_settings.business_vertical on the backend */
+        business_vertical?: string;
     };
 }
 

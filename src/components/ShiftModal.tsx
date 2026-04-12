@@ -171,7 +171,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
     const {
         templates,
         loading: templatesLoading,
-    } = useTaskTemplates({ pollIntervalMs: 10000 });
+    } = useTaskTemplates({ pollIntervalMs: 30_000 });
 
     const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
     const [staffSearch, setStaffSearch] = useState('');

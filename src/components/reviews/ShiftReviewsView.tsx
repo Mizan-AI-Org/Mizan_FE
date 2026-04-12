@@ -63,7 +63,7 @@ export default function ShiftReviewsView() {
         queryFn: () => api.getShiftReviewStats(accessToken!),
         enabled: !!accessToken,
         refetchOnWindowFocus: false,
-        refetchInterval: 5000,
+        refetchInterval: 60_000,
     });
 
     // Fetch raw review items and normalize to our ReviewItem shape to tolerate backend field variations
@@ -72,7 +72,7 @@ export default function ShiftReviewsView() {
         queryFn: () => api.getShiftReviews(accessToken!),
         enabled: !!accessToken,
         refetchOnWindowFocus: false,
-        refetchInterval: 5000,
+        refetchInterval: 60_000,
     });
 
     React.useEffect(() => {
