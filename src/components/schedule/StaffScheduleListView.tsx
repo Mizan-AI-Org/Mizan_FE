@@ -60,15 +60,14 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
         });
     }, [shifts, staffMembers, searchTerm]);
 
+    // One card per shift, not per member. Multi-staff (team) shifts render once
+    // with every attendee as an avatar chip — matches the "Assign Staff (N selected)"
+    // modal UX. Single-staff legacy shifts still show a primary avatar + name.
     const groupedShifts = useMemo(() => {
-        const groups: { [key: string]: (Shift & { _displayStaffId?: string })[] } = {};
+        const groups: { [key: string]: Shift[] } = {};
         filteredShifts.forEach(shift => {
-            const staffIds = (shift.staff_members && shift.staff_members.length) ? shift.staff_members : [shift.staffId];
-            staffIds.forEach((staffId) => {
-                if (!staffId) return;
-                if (!groups[shift.date]) groups[shift.date] = [];
-                groups[shift.date].push({ ...shift, _displayStaffId: staffId });
-            });
+            if (!groups[shift.date]) groups[shift.date] = [];
+            groups[shift.date].push(shift);
         });
         return groups;
     }, [filteredShifts]);
@@ -151,12 +150,23 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
 
                             <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                                 {groupedShifts[date].map((shift, idx) => {
-                                    const displayStaffId = (shift as Shift & { _displayStaffId?: string })._displayStaffId ?? shift.staffId;
-                                    const staff = staffMembers.find(s => s.id === displayStaffId);
-                                    const initials = `${(staff?.user?.first_name || staff?.first_name || "")[0] || ""}${(staff?.user?.last_name || staff?.last_name || "")[0] || ""}`;
+                                    // Collect every staff on this shift: M2M first, else the legacy single FK.
+                                    const memberIds: string[] = (shift.staff_members && shift.staff_members.length)
+                                        ? shift.staff_members
+                                        : (shift.staffId ? [shift.staffId] : []);
+                                    const members = memberIds
+                                        .map(id => ({ id, staff: staffMembers.find(s => s.id === id) }))
+                                        .filter(m => !!m.id);
+                                    const isTeam = members.length > 1;
+                                    const displayMember = members[0];
+                                    const displayStaff = displayMember?.staff;
+                                    const displayInitials = displayStaff
+                                        ? `${(displayStaff.user?.first_name || displayStaff.first_name || "")[0] || ""}${(displayStaff.user?.last_name || displayStaff.last_name || "")[0] || ""}`
+                                        : "?";
+                                    const roleLabel = (shift as Shift & { role?: string }).role || displayStaff?.role;
 
                                     return (
-                                        <Card key={`${shift.id}-${displayStaffId}-${idx}`} className="group hover:shadow-md transition-all duration-300 border-gray-100 dark:border-slate-700 overflow-hidden rounded-xl">
+                                        <Card key={`${shift.id}-${idx}`} className="group hover:shadow-md transition-all duration-300 border-gray-100 dark:border-slate-700 overflow-hidden rounded-xl">
                                             <CardContent className="p-0">
                                                 <div className="flex items-stretch min-h-0">
                                                     <div
@@ -165,18 +175,43 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                                                     />
                                                     <div className="flex-1 p-2.5 flex flex-col justify-center min-h-[72px]">
                                                         <div className="flex items-center gap-2 mb-1">
-                                                            <Avatar className="h-7 w-7 border border-white dark:border-slate-700 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 flex-shrink-0">
-                                                                <AvatarFallback className="bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-bold">
-                                                                    {initials}
-                                                                </AvatarFallback>
-                                                            </Avatar>
+                                                            {isTeam ? (
+                                                                <div className="flex items-center -space-x-1.5 flex-shrink-0">
+                                                                    {members.slice(0, 4).map(({ id, staff: sm }) => {
+                                                                        const i = `${(sm?.user?.first_name || sm?.first_name || "")[0] || ""}${(sm?.user?.last_name || sm?.last_name || "")[0] || ""}`;
+                                                                        return (
+                                                                            <Avatar key={id} className="h-7 w-7 border-2 border-white dark:border-slate-800 shadow-sm">
+                                                                                <AvatarFallback className="bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-[10px] font-bold">
+                                                                                    {i || "?"}
+                                                                                </AvatarFallback>
+                                                                            </Avatar>
+                                                                        );
+                                                                    })}
+                                                                    {members.length > 4 && (
+                                                                        <Avatar className="h-7 w-7 border-2 border-white dark:border-slate-800 shadow-sm">
+                                                                            <AvatarFallback className="bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 text-[10px] font-bold">
+                                                                                +{members.length - 4}
+                                                                            </AvatarFallback>
+                                                                        </Avatar>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <Avatar className="h-7 w-7 border border-white dark:border-slate-700 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 flex-shrink-0">
+                                                                    <AvatarFallback className="bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-bold">
+                                                                        {displayInitials}
+                                                                    </AvatarFallback>
+                                                                </Avatar>
+                                                            )}
                                                             <div className="flex flex-col min-w-0 flex-1">
                                                                 <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-tight truncate">
-                                                                    {staff?.user?.first_name || staff?.first_name || "Unknown"} {staff?.user?.last_name || staff?.last_name || ""}
+                                                                    {isTeam
+                                                                        ? t("schedule.team_shift_n_staff", { count: members.length })
+                                                                            || `Team shift — ${members.length} staff`
+                                                                        : `${displayStaff?.user?.first_name || displayStaff?.first_name || "Unknown"} ${displayStaff?.user?.last_name || displayStaff?.last_name || ""}`.trim()}
                                                                 </span>
-                                                                {staff?.role && (
+                                                                {roleLabel && (
                                                                     <span className="text-[9px] font-bold text-green-700 dark:text-green-400 uppercase tracking-wide bg-green-50 dark:bg-green-900/30 px-1 py-0 rounded mt-0.5 inline-block w-fit">
-                                                                        {staff.role}
+                                                                        {roleLabel}
                                                                     </span>
                                                                 )}
                                                             </div>

@@ -119,13 +119,17 @@ export const calculateShiftPosition = (
       .filter(other => other.id !== shift.id && shiftsOverlap(shift, other, baseDate, config.timezone))
       .map(other => other.id);
 
-    // Calculate position within overlapping group
+    // Calculate position within overlapping group. We split the day column into
+    // N equal slices (one per overlapping shift) so cards never stack exactly
+    // on top of each other — the manager can see every booking for that slot.
     const overlapGroup = getOverlapGroup(shift, allShifts, baseDate, config.timezone);
     const positionInGroup = overlapGroup.findIndex(s => s.id === shift.id);
-    const totalInGroup = overlapGroup.length;
+    const totalInGroup = Math.max(1, overlapGroup.length);
 
-    const left = 4 + (positionInGroup * (100 / totalInGroup));
-    const width = Math.max(90 / totalInGroup, 30); // Minimum 30px width
+    // Values are interpreted as percentages by ShiftCard.tsx.
+    const slice = 100 / totalInGroup;
+    const left = positionInGroup * slice;
+    const width = slice; // ShiftCard.tsx applies a 1% gutter
     const zIndex = 10 + positionInGroup;
 
     return {
@@ -273,14 +277,16 @@ export const parseShiftToCalendar = (
     position.top = (startHour - config.startHour) * config.hourHeight;
     position.height = Math.max((durationHours * config.hourHeight), 20);
 
-    // Handle overlapping positioning
+    // Handle overlapping positioning — consistent with calculateShiftPosition:
+    // split the column into equal slices, one per overlapping shift.
     if (allShifts && overlapsWith.length > 0) {
       const overlapGroup = getOverlapGroup(shift, allShifts, baseDate, timezone);
       const groupIndex = overlapGroup.findIndex(s => s.id === shift.id);
-      const groupSize = overlapGroup.length;
+      const groupSize = Math.max(1, overlapGroup.length);
+      const slice = 100 / groupSize;
 
-      position.left = (groupIndex / groupSize) * 80; // 80% max width for overlaps
-      position.width = 80 / groupSize;
+      position.left = groupIndex * slice;
+      position.width = slice;
       position.zIndex = groupIndex + 1;
     }
   }

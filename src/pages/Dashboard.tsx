@@ -24,6 +24,8 @@ import {
   ClipboardCheck,
   LayoutGrid,
   Plus,
+  Sparkles,
+  Sliders,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +57,9 @@ import {
   DASHBOARD_WIDGET_CATEGORY_KEYS,
   getWidgetCategory,
 } from "@/pages/dashboard/DashboardWidgets";
+import { ManageDashboardCategoriesDialog } from "@/pages/dashboard/ManageDashboardCategoriesDialog";
+import { useDashboardCategories } from "@/hooks/use-dashboard-categories";
+import { usePermissions } from "@/hooks/use-permissions";
 
 type InsightItem = {
   id?: string;
@@ -74,6 +79,8 @@ type AppItem = {
   comingSoon?: boolean;
   nameKey?: string;
   descKey?: string;
+  /** RBAC app id — also filtered by usePermissions().canApp */
+  appId?: string;
 };
 
 const apps: AppItem[] = [
@@ -86,6 +93,7 @@ const apps: AppItem[] = [
     nameKey: "app.tasks",
     descKey: "app.tasks.desc",
     roles: ["SUPER_ADMIN", "ADMIN"],
+    appId: "tasks",
   },
   {
     name: "STAFF",
@@ -96,6 +104,7 @@ const apps: AppItem[] = [
     nameKey: "app.staff",
     descKey: "app.staff.desc",
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
+    appId: "staff",
   },
   {
     name: "CHECKLISTS & INCIDENCES",
@@ -106,6 +115,7 @@ const apps: AppItem[] = [
     nameKey: "app.analytics",
     descKey: "app.analytics.desc",
     roles: ["SUPER_ADMIN", "ADMIN"],
+    appId: "checklists",
   },
   {
     name: "STAFF SCHEDULES",
@@ -116,6 +126,7 @@ const apps: AppItem[] = [
     nameKey: "app.shift_reviews",
     descKey: "app.shift_reviews.desc",
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
+    appId: "shift_reviews",
   },
   {
     name: "SETTINGS",
@@ -126,6 +137,7 @@ const apps: AppItem[] = [
     nameKey: "app.settings",
     descKey: "app.settings.desc",
     roles: ["SUPER_ADMIN", "ADMIN"],
+    appId: "settings",
   },
 ];
 
@@ -133,6 +145,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user, hasRole, accessToken } = useAuth() as AuthContextType;
   const { t } = useLanguage();
+  const { canApp, canWidget } = usePermissions();
   const [showAllInsights, setShowAllInsights] = useState(false);
 
   const { data: todaySales, isLoading: salesLoading, isError: salesError } = useQuery({
@@ -214,9 +227,19 @@ export default function Dashboard() {
     return m;
   }, [customWidgetsPayload]);
 
+  const categoriesQuery = useDashboardCategories(!!accessToken);
+  const managerCategories = useMemo(
+    () =>
+      [...(categoriesQuery.data ?? [])].sort(
+        (a, b) => a.order_index - b.order_index || a.name.localeCompare(b.name),
+      ),
+    [categoriesQuery.data],
+  );
+
   const widgetStorageKey = user?.id ? `mizan-dashboard-widget-order:${user.id}` : null;
   const [customizeMode, setCustomizeMode] = useState(false);
   const [addWidgetOpen, setAddWidgetOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
   const [widgetOrder, setWidgetOrder] = useState<DashboardWidgetSlotId[]>(() => [...DEFAULT_DASHBOARD_WIDGET_ORDER]);
   const [serverLayoutReady, setServerLayoutReady] = useState(false);
   const skipNextPersist = useRef(true);
@@ -294,9 +317,26 @@ export default function Dashboard() {
   }, []);
 
   const hiddenWidgets = useMemo(
-    () => (DASHBOARD_WIDGET_IDS as readonly DashboardWidgetId[]).filter((id) => !widgetOrder.includes(id)),
-    [widgetOrder],
+    () =>
+      (DASHBOARD_WIDGET_IDS as readonly DashboardWidgetId[])
+        .filter((id) => !widgetOrder.includes(id))
+        .filter((id) => canWidget(id)),
+    [widgetOrder, canWidget],
   );
+
+  const hiddenCustomWidgetsByCategory = useMemo(() => {
+    const byCat: Record<string, DashboardCustomWidgetDef[]> = {};
+    const uncategorized: DashboardCustomWidgetDef[] = [];
+    for (const w of customWidgetsPayload?.widgets ?? []) {
+      if (widgetOrder.includes(w.slot_id)) continue;
+      if (w.category_id) {
+        (byCat[w.category_id] ||= []).push(w);
+      } else {
+        uncategorized.push(w);
+      }
+    }
+    return { byCat, uncategorized };
+  }, [customWidgetsPayload, widgetOrder]);
 
   const widgetBundle = useMemo(
     () => ({
@@ -392,7 +432,13 @@ export default function Dashboard() {
     [customWidgetsById, hasRole, t],
   );
 
-  const displayOrder = canCustomizeDashboard ? widgetOrder : DEFAULT_DASHBOARD_WIDGET_ORDER;
+  const rawDisplayOrder = canCustomizeDashboard ? widgetOrder : DEFAULT_DASHBOARD_WIDGET_ORDER;
+  // Hide built-in widgets the current user no longer has permission for.
+  // Custom widgets (slot_id starts with "custom-") are not gated here.
+  const displayOrder = rawDisplayOrder.filter((id) => {
+    if (typeof id === "string" && id.startsWith("custom-")) return true;
+    return canWidget(id as string);
+  });
 
   useEffect(() => {
     if (isLoading) return;
@@ -431,7 +477,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               {canCustomizeDashboard && (
                 <>
-                  {customizeMode && hiddenWidgets.length > 0 && (
+                  {customizeMode && (
                     <Button
                       type="button"
                       variant="outline"
@@ -441,6 +487,18 @@ export default function Dashboard() {
                     >
                       <Plus className="h-4 w-4" />
                       {t("dashboard.customize.add_widget")}
+                    </Button>
+                  )}
+                  {customizeMode && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => setManageOpen(true)}
+                    >
+                      <Sliders className="h-4 w-4" />
+                      {t("dashboard.customize.manage")}
                     </Button>
                   )}
                   {customizeMode && (
@@ -485,6 +543,12 @@ export default function Dashboard() {
           <DashboardSkeleton statCount={3} contentCards={2} />
         ) : (
           <>
+            <ManageDashboardCategoriesDialog
+              open={manageOpen}
+              onOpenChange={setManageOpen}
+              t={t}
+              canEdit={canCustomizeDashboard}
+            />
             <Dialog open={addWidgetOpen} onOpenChange={setAddWidgetOpen}>
               <DialogContent className="z-[3100] max-w-lg sm:max-w-3xl border-slate-200/80 bg-gradient-to-b from-white to-slate-50/90 dark:from-slate-900 dark:to-slate-950 dark:border-slate-800">
                 <DialogHeader>
@@ -534,6 +598,110 @@ export default function Dashboard() {
                       </section>
                     );
                   })}
+
+                  {/* Manager-created categories: tenant-wide, shown after built-in sections. */}
+                  {managerCategories.map((cat) => {
+                    const tiles = hiddenCustomWidgetsByCategory.byCat[cat.id] ?? [];
+                    if (tiles.length === 0) return null;
+                    return (
+                      <section key={`mgr-${cat.id}`} className="space-y-2">
+                        <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-300 px-0.5">
+                          <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                          {cat.name}
+                        </h3>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {tiles.map((w) => (
+                            <button
+                              key={w.slot_id}
+                              type="button"
+                              onClick={() => {
+                                setWidgetOrder((o) => (o.includes(w.slot_id) ? o : [...o, w.slot_id]));
+                                setAddWidgetOpen(false);
+                              }}
+                              className={cn(
+                                "group flex gap-3 rounded-2xl border border-violet-200/70 bg-white p-4 text-left shadow-sm transition-all",
+                                "hover:border-violet-300 hover:shadow-md hover:bg-violet-50/40 dark:border-violet-900/50 dark:bg-slate-900/80",
+                                "dark:hover:border-violet-700 dark:hover:bg-violet-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40",
+                              )}
+                            >
+                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10 text-violet-600 dark:from-violet-500/20 dark:to-fuchsia-500/10 dark:text-violet-300">
+                                <Sparkles className="h-6 w-6" aria-hidden />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-semibold text-slate-900 dark:text-white leading-snug">{w.title}</div>
+                                {w.subtitle && (
+                                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">{w.subtitle}</p>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  })}
+
+                  {hiddenCustomWidgetsByCategory.uncategorized.length > 0 && (
+                    <section className="space-y-2">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-0.5">
+                        {t("dashboard.widget_categories.uncategorized")}
+                      </h3>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {hiddenCustomWidgetsByCategory.uncategorized.map((w) => (
+                          <button
+                            key={w.slot_id}
+                            type="button"
+                            onClick={() => {
+                              setWidgetOrder((o) => (o.includes(w.slot_id) ? o : [...o, w.slot_id]));
+                              setAddWidgetOpen(false);
+                            }}
+                            className={cn(
+                              "group flex gap-3 rounded-2xl border border-slate-200/90 bg-white p-4 text-left shadow-sm transition-all",
+                              "hover:border-emerald-300 hover:shadow-md hover:bg-emerald-50/40 dark:border-slate-800 dark:bg-slate-900/80",
+                              "dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+                            )}
+                          >
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 dark:from-emerald-500/20 dark:to-teal-500/10 dark:text-emerald-400">
+                              <Sparkles className="h-6 w-6" aria-hidden />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-semibold text-slate-900 dark:text-white leading-snug">{w.title}</div>
+                              {w.subtitle && (
+                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">{w.subtitle}</p>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {hiddenWidgets.length === 0 &&
+                    hiddenCustomWidgetsByCategory.uncategorized.length === 0 &&
+                    managerCategories.every(
+                      (c) => (hiddenCustomWidgetsByCategory.byCat[c.id] ?? []).length === 0,
+                    ) && (
+                      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/40">
+                        {t("dashboard.customize.nothing_to_add")}
+                      </div>
+                    )}
+
+                  {canCustomizeDashboard && (
+                    <div className="border-t border-slate-200/70 pt-3 text-center dark:border-slate-800">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1.5 text-emerald-700 dark:text-emerald-400"
+                        onClick={() => {
+                          setAddWidgetOpen(false);
+                          setManageOpen(true);
+                        }}
+                      >
+                        <Sliders className="h-4 w-4" />
+                        {t("dashboard.customize.manage_open")}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </DialogContent>
             </Dialog>
@@ -607,6 +775,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pr-24 md:pr-28">
                 {apps
                   .filter((app) => !app.roles || hasRole(app.roles))
+                  .filter((app) => !app.appId || canApp(app.appId))
                   .map((app) => (
                     <button
                       key={app.name}
