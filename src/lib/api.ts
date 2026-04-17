@@ -439,10 +439,132 @@ export class BackendService {
       subtitle: string;
       link_url: string;
       icon: string;
+      category_id?: string | null;
       created_at?: string | null;
     }>;
   }> {
     return this.fetchWithError("/dashboard/custom-widgets/");
+  }
+
+  /** Tenant-wide categories for grouping manager/Miya-created dashboard widgets. */
+  async listDashboardCategories(): Promise<{
+    categories: Array<{
+      id: string;
+      name: string;
+      order_index: number;
+      created_by?: string | null;
+      created_at?: string | null;
+      updated_at?: string | null;
+    }>;
+  }> {
+    return this.fetchWithError("/dashboard/categories/");
+  }
+
+  async createDashboardCategory(body: { name: string; order_index?: number }): Promise<{
+    category: {
+      id: string;
+      name: string;
+      order_index: number;
+    };
+  }> {
+    return this.fetchWithError("/dashboard/categories/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async updateDashboardCategory(
+    id: string,
+    body: { name?: string; order_index?: number },
+  ): Promise<{ category: { id: string; name: string; order_index: number } }> {
+    return this.fetchWithError(`/dashboard/categories/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(body ?? {}),
+    });
+  }
+
+  async deleteDashboardCategory(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/dashboard/categories/${id}/`, {
+      method: "DELETE",
+      headers: this.getHeaders(),
+    });
+    if (!response.ok) {
+      let message = "Request failed";
+      try {
+        const err = await response.json();
+        message = err.detail || err.error || err.message || message;
+      } catch {
+        message = `Request failed (${response.status})`;
+      }
+      throw new Error(message);
+    }
+  }
+
+  async createDashboardCustomWidget(body: {
+    title: string;
+    subtitle?: string;
+    link_url?: string;
+    icon?: string;
+    category_id?: string | null;
+    add_to_dashboard?: boolean;
+  }): Promise<{
+    widget: {
+      id: string;
+      slot_id: string;
+      title: string;
+      subtitle: string;
+      link_url: string;
+      icon: string;
+      category_id?: string | null;
+    };
+  }> {
+    return this.fetchWithError("/dashboard/custom-widgets/create/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async updateDashboardCustomWidget(
+    id: string,
+    body: {
+      title?: string;
+      subtitle?: string;
+      link_url?: string;
+      icon?: string;
+      category_id?: string | null;
+    },
+  ): Promise<{
+    widget: {
+      id: string;
+      slot_id: string;
+      title: string;
+      subtitle: string;
+      link_url: string;
+      icon: string;
+      category_id?: string | null;
+    };
+  }> {
+    return this.fetchWithError(`/dashboard/custom-widgets/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(body ?? {}),
+    });
+  }
+
+  async deleteDashboardCustomWidget(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/dashboard/custom-widgets/${id}/`, {
+      method: "DELETE",
+      headers: this.getHeaders(),
+    });
+    if (!response.ok) {
+      let message = "Request failed";
+      try {
+        const err = await response.json();
+        message = err.detail || err.error || err.message || message;
+      } catch {
+        message = `Request failed (${response.status})`;
+      }
+      throw new Error(message);
+    }
   }
 
   async listStaffCapturedOrders(params?: {
@@ -3672,6 +3794,70 @@ export class BackendService {
       throw new Error(message);
     }
     return await response.json();
+  }
+
+  // ----- RBAC -------------------------------------------------------------
+
+  async getRBACCatalog(): Promise<{
+    apps: { id: string; label: string }[];
+    widgets: { id: string; label: string }[];
+    actions: { id: string; label: string }[];
+    editable_roles: string[];
+    privileged_roles: string[];
+    role_defaults: Record<string, { apps: string[]; widgets: string[]; actions: string[] }>;
+  }> {
+    return this.fetchWithError("/rbac/catalog/");
+  }
+
+  async listRolePermissions(): Promise<{
+    results: {
+      role: string;
+      permissions: { apps: string[]; widgets: string[]; actions: string[] };
+      updated_by: string | null;
+      updated_at: string | null;
+    }[];
+  }> {
+    return this.fetchWithError("/rbac/role-permissions/");
+  }
+
+  async updateRolePermissions(
+    role: string,
+    permissions: { apps: string[]; widgets: string[]; actions: string[] },
+  ): Promise<{
+    role: string;
+    permissions: { apps: string[]; widgets: string[]; actions: string[] };
+    updated_by: string | null;
+    updated_at: string | null;
+  }> {
+    return this.fetchWithError(`/rbac/role-permissions/${encodeURIComponent(role)}/`, {
+      method: "PUT",
+      body: JSON.stringify({ permissions }),
+    });
+  }
+
+  async resetRolePermissions(role: string): Promise<void> {
+    const response = await fetch(
+      `${API_BASE}/rbac/role-permissions/${encodeURIComponent(role)}/`,
+      { method: "DELETE", headers: this.getHeaders() },
+    );
+    if (!response.ok) {
+      let message = "Request failed";
+      try {
+        const err = await response.json();
+        message = err.detail || err.error || err.message || message;
+      } catch {
+        message = `Request failed (${response.status})`;
+      }
+      throw new Error(message);
+    }
+  }
+
+  async getEffectivePermissions(): Promise<{
+    role: string;
+    source: "privileged" | "tenant" | "defaults";
+    permissions: { apps: string[]; widgets: string[]; actions: string[] };
+  }> {
+    return this.fetchWithError("/rbac/me/");
   }
 }
 

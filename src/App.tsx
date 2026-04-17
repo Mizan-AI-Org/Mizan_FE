@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, keepPreviousData } from "@tanstack/react-query";
 import { Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/layout/DashboardLayout";
@@ -13,22 +13,22 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import OfflineWarning from "./components/OfflineWarning";
 import { PageLoadingSkeleton } from "./components/skeletons";
-import InventoryItemsPage from "./pages/inventory/InventoryItemsPage";
-import SuppliersPage from "./pages/inventory/SuppliersPage";
-import PurchaseOrdersPage from "./pages/inventory/PurchaseOrdersPage";
-import StockAdjustmentsPage from "./pages/inventory/StockAdjustmentsPage";
-import DailySalesReportsPage from "./pages/reporting/DailySalesReportsPage";
-import SalesAndPrepPage from "./pages/SalesAndPrepPage";
-import ReservationsPage from "./pages/ReservationsPage";
-import AttendanceReportsPage from "./pages/reporting/AttendanceReportsPage";
-import InventoryReportsPage from "./pages/reporting/InventoryReportsPage";
-import LaborAttendanceReportPage from "./pages/reporting/LaborAttendanceReportPage";
-import TimeClockPage from "./pages/TimeClockPage";
-import ShiftDetailView from "./pages/ShiftDetailView";
-import StaffAnnouncementsList from "./pages/StaffAnnouncement";
-// Removed legacy staff imports
+// All route components are lazy-loaded below. Keep the top-level module graph
+// tiny so the initial JS chunk can paint the shell + skeleton immediately.
+const InventoryItemsPage = React.lazy(() => import("./pages/inventory/InventoryItemsPage"));
+const SuppliersPage = React.lazy(() => import("./pages/inventory/SuppliersPage"));
+const PurchaseOrdersPage = React.lazy(() => import("./pages/inventory/PurchaseOrdersPage"));
+const StockAdjustmentsPage = React.lazy(() => import("./pages/inventory/StockAdjustmentsPage"));
+const DailySalesReportsPage = React.lazy(() => import("./pages/reporting/DailySalesReportsPage"));
+const SalesAndPrepPage = React.lazy(() => import("./pages/SalesAndPrepPage"));
+const ReservationsPage = React.lazy(() => import("./pages/ReservationsPage"));
+const AttendanceReportsPage = React.lazy(() => import("./pages/reporting/AttendanceReportsPage"));
+const InventoryReportsPage = React.lazy(() => import("./pages/reporting/InventoryReportsPage"));
+const LaborAttendanceReportPage = React.lazy(() => import("./pages/reporting/LaborAttendanceReportPage"));
+const TimeClockPage = React.lazy(() => import("./pages/TimeClockPage"));
+const ShiftDetailView = React.lazy(() => import("./pages/ShiftDetailView"));
+const StaffAnnouncementsList = React.lazy(() => import("./pages/StaffAnnouncement"));
 
-// Lazy-loaded components
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const AdminDashboard = React.lazy(() => import("./pages/AdminAnalytics"));
 const KitchenDisplay = React.lazy(() => import("./pages/KitchenDisplay"));
@@ -56,6 +56,7 @@ const SchedulingAnalytics = React.lazy(
 const ProfileSettings = React.lazy(() => import("./pages/ProfileSettings"));
 const AdminEmergencyAvailability = React.lazy(() => import("./pages/AdminEmergencyAvailability"));
 const AdvancedSettings = React.lazy(() => import("./pages/Settings"));
+const RolePermissionsPage = React.lazy(() => import("./pages/settings/RolePermissionsPage"));
 const StaffManagement = React.lazy(() => import("./pages/StaffManagement"));
 const StaffRequestsPage = React.lazy(() => import("./pages/StaffRequestsPage"));
 const ScheduleManagement = React.lazy(
@@ -110,13 +111,35 @@ const DashboardAttendancePage = React.lazy(
 );
 const TakeOrdersPage = React.lazy(() => import("./pages/TakeOrdersPage"));
 
+// Global defaults shared by every useQuery in the app.
+// These defaults are tuned for perceived speed on a SaaS dashboard:
+// - staleTime 60s: cached data is treated as fresh when flipping pages/tabs
+//   so switching between Schedule -> Inventory -> Schedule doesn't refetch.
+// - gcTime 10min: keep the cached payload around long after a page unmounts so
+//   coming back to it is instant.
+// - placeholderData keepPreviousData: when a query's key changes (tab switch,
+//   date change, filter change) keep the last result visible while the next
+//   request is in flight — no "Loading…" flash.
+// - refetchOnWindowFocus / refetchOnReconnect off: avoid the usual flurry of
+//   background refetches that re-render the whole dashboard whenever the tab
+//   regains focus (very expensive on mobile and on laptops switching Wi-Fi).
+// - retry with short backoff + capped at 1: first real failure surfaces fast
+//   instead of stalling the UI for 30s on a dead endpoint.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
-      retry: false,
+      retry: 1,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
       staleTime: 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      placeholderData: keepPreviousData,
+      networkMode: "online",
+    },
+    mutations: {
+      retry: 0,
+      networkMode: "online",
     },
   },
 });
@@ -378,6 +401,16 @@ const App = () => {
                 <Route
                   path="dashboard/settings"
                   element={<AdvancedSettings />}
+                />
+                <Route
+                  path="dashboard/settings/permissions"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "OWNER"]}>
+                      <React.Suspense fallback={<PageLoadingSkeleton />}>
+                        <RolePermissionsPage />
+                      </React.Suspense>
+                    </RoleBasedRoute>
+                  }
                 />
                 <Route path="dashboard/profile" element={<ProfileSettings />} />
                 {/* Removed /dashboard/advanced-settings route per UI cleanup */}

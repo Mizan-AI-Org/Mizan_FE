@@ -172,7 +172,14 @@ export type DashboardCustomWidgetDef = {
   subtitle: string;
   link_url: string;
   icon: string;
+  category_id?: string | null;
   created_at?: string | null;
+};
+
+export type DashboardManagerCategory = {
+  id: string;
+  name: string;
+  order_index: number;
 };
 
 const CUSTOM_WIDGET_ICONS: Record<string, LucideIcon> = {
@@ -797,14 +804,31 @@ function MiyaCustomDashboardWidgetCard({
   navigate: NavigateFunction;
 }) {
   const Icon = CUSTOM_WIDGET_ICONS[def.icon] || Sparkles;
+  const link = (def.link_url || "").trim();
+  const hasLink = !!link && !link.startsWith("miya:");
+
+  const askMiya = () => {
+    try {
+      const host = document.querySelector("#lua-shadow-root");
+      const btn = host?.shadowRoot?.querySelector?.(
+        "button.lua-pop-button, button",
+      ) as HTMLButtonElement | null | undefined;
+      btn?.click();
+    } catch {
+      /* Miya widget not mounted — silently no-op */
+    }
+  };
+
   const open = () => {
-    const u = (def.link_url || "").trim();
-    if (!u) return;
-    if (/^https?:\/\//i.test(u)) {
-      window.open(u, "_blank", "noopener,noreferrer");
+    if (!hasLink) {
+      askMiya();
       return;
     }
-    const path = u.startsWith("/") ? u : `/${u}`;
+    if (/^https?:\/\//i.test(link)) {
+      window.open(link, "_blank", "noopener,noreferrer");
+      return;
+    }
+    const path = link.startsWith("/") ? link : `/${link}`;
     navigate(path);
   };
 
@@ -836,18 +860,21 @@ function MiyaCustomDashboardWidgetCard({
         </div>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col px-5 pb-4 pt-0">
-        {def.link_url ? (
-          <Button
-            type="button"
-            size="sm"
-            className="mt-1 w-fit gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
-            onClick={open}
-          >
-            {t("dashboard.miya_widget.open")}
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        ) : (
-          <p className="text-xs text-slate-500 dark:text-slate-400">{t("dashboard.miya_widget.no_link")}</p>
+        <Button
+          type="button"
+          size="sm"
+          className="mt-1 w-fit gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
+          onClick={open}
+        >
+          {hasLink
+            ? t("dashboard.miya_widget.open")
+            : t("dashboard.miya_widget.ask_miya")}
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Button>
+        {!hasLink && (
+          <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+            {t("dashboard.miya_widget.ask_miya_hint")}
+          </p>
         )}
       </CardContent>
     </Card>

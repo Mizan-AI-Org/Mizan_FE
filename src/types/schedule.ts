@@ -43,6 +43,8 @@ export interface Shift {
   tasks?: Task[];
   task_templates?: string[];
   task_templates_details?: { id: string; name?: string; title?: string; }[];
+  /** Shift's declared role (e.g. WAITER / CHEF), independent of any member's role. */
+  role?: string;
 }
 
 export interface StaffMember {
