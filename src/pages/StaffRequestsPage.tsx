@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import React, { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { API_BASE } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -120,21 +120,38 @@ const StaffRequestsPage: React.FC = () => {
   const selectedId = params.id || null;
   const [activeStatus, setActiveStatus] = useState<StaffRequestStatus>("PENDING");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [comment, setComment] = useState("");
   const [escalateModalOpen, setEscalateModalOpen] = useState(false);
 
+  // Debounce the search term so we don't hit the backend on every keystroke.
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(id);
+  }, [search]);
+
   const listQuery = useQuery({
-    queryKey: ["staff-requests", activeStatus, search],
+    queryKey: ["staff-requests", activeStatus, debouncedSearch],
     queryFn: async (): Promise<StaffRequest[]> => {
       const qs = new URLSearchParams();
       qs.set("status", activeStatus);
-      if (search.trim()) qs.set("search", search.trim());
+      if (debouncedSearch) qs.set("search", debouncedSearch);
+      // Inbox list pulls a lean payload from the backend (no comments,
+      // no nested staff profile); we can show 50 per page comfortably.
+      qs.set("page_size", "50");
       const data = await apiGet<any>(`/staff/requests/?${qs.toString()}`);
       if (Array.isArray(data)) return data as StaffRequest[];
       if (data && Array.isArray(data.results)) return data.results as StaffRequest[];
       if (data && Array.isArray(data.requests)) return data.requests as StaffRequest[];
       return [];
     },
+    // Keep the previous results visible while revalidating so switching tabs /
+    // typing in search doesn't flash "Loading…".
+    placeholderData: keepPreviousData,
+    // Rows don't change that often — treat them as fresh for 30s so flipping
+    // between tabs/pages is instant from cache.
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   const countsQuery = useQuery({
@@ -144,6 +161,9 @@ const StaffRequestsPage: React.FC = () => {
       return data?.counts || {};
     },
     refetchInterval: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   const selectedQuery = useQuery({
@@ -153,6 +173,8 @@ const StaffRequestsPage: React.FC = () => {
       return apiGet<StaffRequest>(`/staff/requests/${selectedId}/`);
     },
     enabled: !!selectedId,
+    staleTime: 15_000,
+    refetchOnWindowFocus: false,
   });
 
   const requests = useMemo(() => (Array.isArray(listQuery.data) ? listQuery.data : []), [listQuery.data]);

@@ -94,12 +94,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     initializeAuth();
   }, [initializeAuth]);
 
-  // Periodically refresh user role and permissions for real-time UI updates
+  // Periodically refresh user role and permissions for real-time UI updates.
+  // Skip the call when the tab is hidden so background tabs don't hammer the API,
+  // and bump the interval to 5 min on production-sized workspaces.
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) return;
 
-    const refreshInterval = setInterval(async () => {
+    let cancelled = false;
+
+    const refresh = async () => {
+      if (cancelled) return;
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       try {
         const response = await fetch(`${API_BASE}/auth/me/`, {
           method: "GET",
@@ -110,7 +116,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         });
         if (response.ok) {
           const latest: User = await response.json();
-          // Update user in memory and localStorage only if something changed
           const prev = user ? JSON.stringify(user) : null;
           const next = JSON.stringify(latest);
           if (prev !== next) {
@@ -120,13 +125,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           }
         }
       } catch (err) {
-        // Do not clear auth on transient errors
         console.warn("Periodic role refresh failed:", err);
       }
-    }, 180_000); // 3 min — reduces steady-state /auth/me/ load on small EC2
+    };
 
-    return () => clearInterval(refreshInterval);
-  }, [user]);
+    const refreshInterval = setInterval(refresh, 300_000); // 5 min
+
+    return () => {
+      cancelled = true;
+      clearInterval(refreshInterval);
+    };
+  }, [user, applyLanguageForUser]);
 
   const login = async (email: string, password: string) => {
     try {
