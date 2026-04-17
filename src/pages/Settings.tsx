@@ -38,6 +38,8 @@ import {
   AlertCircle,
   Unplug,
   ShieldAlert,
+  ShieldCheck,
+  ArrowRight,
 } from "lucide-react";
 import { FormSectionSkeleton } from "@/components/skeletons";
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";
@@ -840,6 +842,24 @@ export default function Settings() {
           </Badge>
         )}
       </div>
+
+      {(roleUpper === "SUPER_ADMIN" || roleUpper === "ADMIN" || roleUpper === "OWNER") && (
+        <a
+          href="/dashboard/settings/permissions"
+          className="group flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-gradient-to-r from-emerald-50 to-white dark:from-emerald-900/20 dark:to-slate-900 px-4 py-3 hover:shadow-sm transition"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold">{t("rbac.title")}</div>
+              <div className="text-xs text-muted-foreground">{t("rbac.subtitle")}</div>
+            </div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+        </a>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList

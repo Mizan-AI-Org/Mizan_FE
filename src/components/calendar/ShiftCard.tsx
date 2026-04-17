@@ -36,11 +36,26 @@ function getColorForDayOfWeek(shift: CalendarShift): string {
 
 const getPositionStyles = (shift: CalendarShift): React.CSSProperties => {
   const color = getColorForDayOfWeek(shift);
+
+  // Overlap handling: calendarUtils.calculateShiftPosition assigns each shift in
+  // an overlap group a column — `position.left` is the starting % within the
+  // day column and `position.width` is the % width. If width<=0 (no overlap
+  // group recorded), fall back to filling the column so older data still renders.
+  const hasOverlapLayout =
+    typeof shift.position.width === 'number' &&
+    shift.position.width > 0 &&
+    shift.position.width < 100;
+
+  const leftPct = hasOverlapLayout ? Math.max(0, shift.position.left) : 0;
+  const widthPct = hasOverlapLayout
+    ? Math.max(10, shift.position.width - 1) // 1% gutter so cards don't touch
+    : 100;
+
   return {
     top: `${shift.position.top}px`,
     height: `${shift.position.height}px`,
-    left: `0%`,
-    width: `100%`,
+    left: `${leftPct}%`,
+    width: `${widthPct}%`,
     zIndex: shift.position.zIndex,
     backgroundColor: `${color}18`,
     borderLeftColor: color,
