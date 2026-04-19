@@ -26,6 +26,7 @@ import {
   Plus,
   Sparkles,
   Sliders,
+  Building2,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { Badge } from "@/components/ui/badge";
@@ -84,6 +85,17 @@ type AppItem = {
 };
 
 const apps: AppItem[] = [
+  {
+    name: "LOCATIONS OVERVIEW",
+    href: "/dashboard/locations-overview",
+    icon: Building2,
+    gradient: "bg-sky-500",
+    description: "Live status across every branch",
+    nameKey: "app.locations_overview",
+    descKey: "app.locations_overview.desc",
+    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+    appId: "locations_overview",
+  },
   {
     name: "PROCESSES & TASKS",
     href: "/dashboard/processes-tasks-app",

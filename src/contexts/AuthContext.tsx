@@ -406,6 +406,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       first_name?: string;
       last_name?: string;
       phone_number?: string;
+      primary_location?: string;
+      allowed_locations?: string[];
+      managed_locations?: string[];
     }
   ) => {
     const response = await fetch(`${API_BASE}/staff/invite/`, {
