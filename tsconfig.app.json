@@ -5,6 +5,7 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -14,11 +15,17 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting */
+    /* Linting — tighten incrementally.
+       Next steps, one at a time:
+         1. strictNullChecks: true   (will surface ~dozens of null issues)
+         2. noImplicitAny: true      (typing of untyped params)
+         3. strict: true             (enables the remaining safety flags)
+       Keep these off for now so pre-existing code still compiles. */
     "strict": false,
+    "strictNullChecks": false,
+    "noImplicitAny": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noImplicitAny": false,
     "noFallthroughCasesInSwitch": false,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
@@ -27,7 +34,7 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "types": ["vite/client", "vite-plugin-pwa/client"]
+    "types": ["vite/client"]
   },
   "include": ["src"]
 }

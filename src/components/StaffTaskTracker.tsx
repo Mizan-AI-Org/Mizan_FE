@@ -10,8 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { 
 import { API_BASE } from "@/lib/api";
+import {
   Camera,
   CheckCircle,
   Circle,

@@ -8,9 +8,9 @@ import DashboardLayout from "./components/layout/DashboardLayout";
 import { LanguageProvider } from "./contexts/LanguageProvider";
 import StaffGridLayout from "./components/layout/StaffGridLayout";
 import RoleBasedRoute from "./components/RoleBasedRoute";
+import OnboardingGate from "./components/OnboardingGate";
 import { useIdleTimeout } from "./hooks/use-idle-timeout";
 import React, { useEffect, useState } from "react";
-import { useAuth } from "./contexts/AuthContext";
 import OfflineWarning from "./components/OfflineWarning";
 import { PageLoadingSkeleton } from "./components/skeletons";
 // All route components are lazy-loaded below. Keep the top-level module graph
@@ -27,9 +27,11 @@ const InventoryReportsPage = React.lazy(() => import("./pages/reporting/Inventor
 const LaborAttendanceReportPage = React.lazy(() => import("./pages/reporting/LaborAttendanceReportPage"));
 const TimeClockPage = React.lazy(() => import("./pages/TimeClockPage"));
 const ShiftDetailView = React.lazy(() => import("./pages/ShiftDetailView"));
-const StaffAnnouncementsList = React.lazy(() => import("./pages/StaffAnnouncement"));
 
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
+const LocationsOverview = React.lazy(
+  () => import("./pages/LocationsOverview")
+);
 const AdminDashboard = React.lazy(() => import("./pages/AdminAnalytics"));
 const KitchenDisplay = React.lazy(() => import("./pages/KitchenDisplay"));
 const InventoryManagement = React.lazy(
@@ -37,7 +39,6 @@ const InventoryManagement = React.lazy(
 );
 const MenuManagement = React.lazy(() => import("./pages/MenuManagement"));
 const FloorManagement = React.lazy(() => import("./pages/FloorManagement"));
-const Inventory = React.lazy(() => import("./pages/Inventory"));
 const Auth = React.lazy(() => import("./pages/Auth"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
 const Unauthorized = React.lazy(() => import("./pages/Unauthorized"));
@@ -46,7 +47,6 @@ const SafetyDashboard = React.lazy(() => import("./pages/SafetyDashboard"));
 const PinLogin = React.lazy(() => import("./components/auth/PinLogin"));
 const StaffApp = React.lazy(() => import("./pages/StaffApp"));
 const ProcessesTasksApp = React.lazy(() => import("./pages/ProcessesTasksApp"));
-const StaffSchedulesApp = React.lazy(() => import("./pages/StaffSchedulesApp"));
 const StaffSchedulingPage = React.lazy(
   () => import("./pages/StaffSchedulingPage")
 );
@@ -110,6 +110,9 @@ const DashboardAttendancePage = React.lazy(
   () => import("./pages/DashboardAttendancePage")
 );
 const TakeOrdersPage = React.lazy(() => import("./pages/TakeOrdersPage"));
+const CleaningTasks = React.lazy(() => import("./pages/CleaningTasks"));
+const ActivityLogPage = React.lazy(() => import("./pages/ActivityLogPage"));
+const OnboardingWizard = React.lazy(() => import("./pages/OnboardingWizard"));
 
 // Global defaults shared by every useQuery in the app.
 // These defaults are tuned for perceived speed on a SaaS dashboard:
@@ -145,20 +148,7 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
-  useIdleTimeout(); // Initialize the idle timeout hook
-  // Notifications disabled
-  // const { requestPermissionAndGetToken, deleteToken } = usePushNotifications();
-  const { user, logout } = useAuth();
-
-  // Notifications disabled
-  // useEffect(() => {
-  //   if (user) {
-  //     requestPermissionAndGetToken();
-  //   } else {
-  //     // Optionally, delete token on logout
-  //     deleteToken();
-  //   }
-  // }, [user, requestPermissionAndGetToken, deleteToken]);
+  useIdleTimeout();
 
   const [showOfflineWarning, setShowOfflineWarning] = useState(
     !navigator.onLine
@@ -197,6 +187,14 @@ const App = () => {
               <Route path="/staff-login" element={<PinLogin />} />
               <Route path="/accept-invitation" element={<AcceptInvitation />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route
+                path="/onboarding"
+                element={
+                  <ProtectedRoute>
+                    <OnboardingWizard />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Admin/Manager Routes for Dashboard */}
               <Route
@@ -212,7 +210,9 @@ const App = () => {
                   path="dashboard"
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
-                      <Dashboard />
+                      <OnboardingGate>
+                        <Dashboard />
+                      </OnboardingGate>
                     </RoleBasedRoute>
                   }
                 />
@@ -223,6 +223,21 @@ const App = () => {
                       allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}
                     >
                       <TakeOrdersPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/locations-overview"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={[
+                        "SUPER_ADMIN",
+                        "ADMIN",
+                        "OWNER",
+                        "MANAGER",
+                      ]}
+                    >
+                      <LocationsOverview />
                     </RoleBasedRoute>
                   }
                 />
@@ -282,7 +297,7 @@ const App = () => {
                     <RoleBasedRoute
                       allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
                     >
-                      <StaffSchedulesApp />
+                      <ShiftReviewsAdminPage />
                     </RoleBasedRoute>
                   }
                 />
@@ -331,22 +346,6 @@ const App = () => {
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
                       <ProductManagement />
-                    </RoleBasedRoute>
-                  }
-                />
-                <Route
-                  path="dashboard/floors"
-                  element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
-                      <FloorManagement />
-                    </RoleBasedRoute>
-                  }
-                />
-                <Route
-                  path="dashboard/inventory"
-                  element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
-                      <Inventory />
                     </RoleBasedRoute>
                   }
                 />
@@ -599,6 +598,32 @@ const App = () => {
                   }
                 />
                 <Route
+                  path="dashboard/cleaning"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={[
+                        "SUPER_ADMIN",
+                        "ADMIN",
+                        "OWNER",
+                        "MANAGER",
+                        "CLEANER",
+                      ]}
+                    >
+                      <CleaningTasks />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/activity-log"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"]}
+                    >
+                      <ActivityLogPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
                   path="staff-management/:user_id/attendance"
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
@@ -655,6 +680,23 @@ const App = () => {
                 <Route path="staff-checklists" element={<StaffChecklistBoard />} />
                 <Route path="submissions" element={<StaffSubmittedChecklists />} />
                 <Route
+                  path="cleaning"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={[
+                        "SUPER_ADMIN",
+                        "ADMIN",
+                        "OWNER",
+                        "MANAGER",
+                        "CLEANER",
+                        "WAITER",
+                      ]}
+                    >
+                      <CleaningTasks />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
                   path="task-checklist/:taskId"
                   element={<TaskChecklistRunner />}
                 />
@@ -676,7 +718,7 @@ const App = () => {
                 <Route path="take-orders" element={<TakeOrdersPage />} />
                 <Route
                   path="announcements"
-                  element={<StaffAnnouncementsList />}
+                  element={<StaffChat />}
                 />
               </Route>
 

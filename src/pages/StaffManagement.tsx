@@ -18,8 +18,15 @@ import InviteStaffModal from "@/components/staff/InviteStaffModal";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { API_BASE } from "@/lib/api";
+import { useBusinessLocations } from "@/hooks/use-business-locations";
 
 
+
+interface LocationBrief {
+    id: string;
+    name: string;
+    is_primary?: boolean;
+}
 
 interface StaffMember {
     id: string;
@@ -31,15 +38,25 @@ interface StaffMember {
         role: string;
         is_active: boolean;
         phone: string;
+        primary_location_data?: LocationBrief | null;
+        allowed_locations_data?: LocationBrief[];
     };
     employee_id: string;
     date_joined: string;
     is_active: boolean;
     department: string | null;
+    // Flat fields are returned by StaffSerializer (backend uses a flat shape;
+    // existing code also reads from the nested `.user` for legacy reasons).
+    primary_location_data?: LocationBrief | null;
+    allowed_locations_data?: LocationBrief[];
 }
 
 const StaffManagement: React.FC = () => {
     const { user, logout } = useAuth() as AuthContextType;
+    const { data: tenantLocations = [] } = useBusinessLocations();
+    // Only surface a Location column for chains. Single-site tenants don't
+    // benefit from it.
+    const showLocationColumn = tenantLocations.length >= 2;
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
@@ -114,6 +131,7 @@ const StaffManagement: React.FC = () => {
                             <TableHead>Name</TableHead>
                             <TableHead>Email</TableHead>
                             <TableHead>Role</TableHead>
+                            {showLocationColumn && <TableHead>Location</TableHead>}
                             <TableHead>Employee ID</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Actions</TableHead>
@@ -127,6 +145,44 @@ const StaffManagement: React.FC = () => {
                                 <TableCell className="capitalize">
                                     {member.user.role?.toLowerCase().replace(/_/g, " ")}
                                 </TableCell>
+                                {showLocationColumn && (
+                                    <TableCell>
+                                        {(() => {
+                                            const primary =
+                                                member.primary_location_data ??
+                                                member.user?.primary_location_data ??
+                                                null;
+                                            const allowed =
+                                                member.allowed_locations_data ??
+                                                member.user?.allowed_locations_data ??
+                                                [];
+                                            if (!primary && allowed.length === 0) {
+                                                return (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        Any branch
+                                                    </span>
+                                                );
+                                            }
+                                            const extra = allowed.filter(
+                                                (l) => !primary || l.id !== primary.id
+                                            );
+                                            return (
+                                                <div className="flex flex-col gap-0.5">
+                                                    {primary && (
+                                                        <span className="text-sm">
+                                                            {primary.name}
+                                                        </span>
+                                                    )}
+                                                    {extra.length > 0 && (
+                                                        <span className="text-xs text-muted-foreground">
+                                                            + {extra.length} more
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+                                    </TableCell>
+                                )}
                                 <TableCell>{member.employee_id || "N/A"}</TableCell>
                                 <TableCell>
                                     <span

@@ -21,10 +21,11 @@ import {
 } from "@/components/ui/select";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { API_BASE } from "@/lib/api";
-import { AlertTriangle, Clock, FileCheck, FileDown, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertTriangle, Clock, FileCheck, FileDown, Loader2, ChevronLeft, ChevronRight, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useBusinessLocations } from "@/hooks/use-business-locations";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200, 500] as const;
 
@@ -37,10 +38,14 @@ const LaborAttendanceReportPage: React.FC = () => {
   const [exporting, setExporting] = useState(false);
   const [staffPage, setStaffPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(25);
+  const [locationId, setLocationId] = useState<string>("all");
+  const { data: businessLocations = [] } = useBusinessLocations();
+  const isMultiLocation = businessLocations.length > 1;
+  const locationParam = isMultiLocation && locationId !== "all" ? locationId : "";
 
   useEffect(() => {
     setStaffPage(1);
-  }, [startDate, endDate, pageSize]);
+  }, [startDate, endDate, pageSize, locationId]);
 
   const downloadAttendanceForHR = async () => {
     const token = localStorage.getItem("access_token");
@@ -51,7 +56,9 @@ const LaborAttendanceReportPage: React.FC = () => {
     setExporting(true);
     try {
       const fmt = exportFormat === "pdf" ? "pdf" : "excel";
-      const url = `${API_BASE}/reporting/attendance/export/?format=${fmt}&start_date=${startDate}&end_date=${endDate}`;
+      const qs = new URLSearchParams({ format: fmt, start_date: startDate, end_date: endDate });
+      if (locationParam) qs.set("location", locationParam);
+      const url = `${API_BASE}/reporting/attendance/export/?${qs.toString()}`;
       const res = await fetch(url, {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
@@ -80,10 +87,12 @@ const LaborAttendanceReportPage: React.FC = () => {
   };
 
   const { data: plannedVsActual, isLoading: loadingPvA } = useQuery({
-    queryKey: ["labor-planned-vs-actual", startDate, endDate],
+    queryKey: ["labor-planned-vs-actual", startDate, endDate, locationParam],
     queryFn: async () => {
+      const qs = new URLSearchParams({ start_date: startDate, end_date: endDate });
+      if (locationParam) qs.set("location", locationParam);
       const res = await fetch(
-        `${API_BASE}/reporting/labor/planned-vs-actual/?start_date=${startDate}&end_date=${endDate}`,
+        `${API_BASE}/reporting/labor/planned-vs-actual/?${qs.toString()}`,
         { headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` } }
       );
       if (!res.ok) return null;
@@ -92,10 +101,12 @@ const LaborAttendanceReportPage: React.FC = () => {
   });
 
   const { data: compliance, isLoading: loadingCompliance } = useQuery({
-    queryKey: ["labor-compliance", startDate, endDate],
+    queryKey: ["labor-compliance", startDate, endDate, locationParam],
     queryFn: async () => {
+      const qs = new URLSearchParams({ start_date: startDate, end_date: endDate });
+      if (locationParam) qs.set("location", locationParam);
       const res = await fetch(
-        `${API_BASE}/reporting/labor/compliance/?start_date=${startDate}&end_date=${endDate}`,
+        `${API_BASE}/reporting/labor/compliance/?${qs.toString()}`,
         { headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` } }
       );
       if (!res.ok) return null;
@@ -142,6 +153,24 @@ const LaborAttendanceReportPage: React.FC = () => {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            {isMultiLocation && (
+              <Select value={locationId} onValueChange={setLocationId}>
+                <SelectTrigger className="h-11 w-56 gap-2">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder={t("reporting.labor.branch_all") || "All branches"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    {t("reporting.labor.branch_all") || "All branches"}
+                  </SelectItem>
+                  {businessLocations.map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id}>
+                      {loc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
               <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">{t("reporting.labor.from")}</label>
               <Input
