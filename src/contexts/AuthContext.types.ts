@@ -14,6 +14,8 @@ export interface User {
         name: string;
         address: string;
         language?: string;
+        onboarding_completed_at?: string | null;
+        onboarding_state?: Record<string, boolean>;
     };
     phone?: string;
     preferred_language?: string | null;
@@ -57,6 +59,9 @@ export interface AuthContextType {
         first_name?: string;
         last_name?: string;
         phone_number?: string;
+        primary_location?: string;
+        allowed_locations?: string[];
+        managed_locations?: string[];
       }
     ) => Promise<any>;
     logout: () => void;

@@ -15,6 +15,7 @@ import {
   ChefHat,
   FileText,
   Mic,
+  Sparkles,
 } from "lucide-react";
 
 type LayoutContext = { query: string };
@@ -50,6 +51,7 @@ const StaffAppsPage: React.FC = () => {
     { key: 'chat', name: 'Team Announcements', description: 'Team messaging', icon: MessageSquare, href: '/staff-dashboard/chat', category: 'Communication' },
     { key: 'safety', name: 'Incidents and Safety', description: 'Incidents & reports', icon: Shield, href: '/staff-dashboard/safety', category: 'Safety' },
     { key: 'my_checklists', name: 'My Checklists', description: 'Assigned checklists', icon: ClipboardList, href: '/staff-dashboard/my-checklists', category: 'Safety' },
+    { key: 'cleaning', name: 'Cleaning Queue', description: 'Tables awaiting cleaning', icon: Sparkles, href: '/staff-dashboard/cleaning', roles: ['SUPER_ADMIN', 'ADMIN', 'OWNER', 'MANAGER', 'CLEANER', 'WAITER'], category: 'Operations' },
     { key: 'attendance', name: 'Attendance', description: 'History & records', icon: FileText, href: '/staff-dashboard/attendance', category: 'Management' },
     { key: 'supervisor', name: 'Supervisor Tools', description: 'Manager tools', icon: Users, href: '/supervisor', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OWNER'], external: true, category: 'Management' },
   ], []);

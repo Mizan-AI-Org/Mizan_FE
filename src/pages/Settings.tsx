@@ -51,7 +51,7 @@ import ReservationIntegration from "@/components/ReservationIntegration";
 const ProfileSettings = lazy(() => import("./ProfileSettings"));
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
-const GeolocationMapSettings = lazy(() => import("@/components/settings/GeolocationMapSettings"));
+const MultiLocationSettings = lazy(() => import("@/components/settings/MultiLocationSettings"));
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/use-language";
 import { Language } from "@/contexts/LanguageContext.types";
@@ -943,16 +943,14 @@ export default function Settings() {
             <Suspense
               fallback={<FormSectionSkeleton fields={4} />}
             >
-              <GeolocationMapSettings
-                latitude={latitude}
-                longitude={longitude}
-                radius={radius}
-                geofenceEnabled={geofenceEnabled}
-                geofencePolygon={geofencePolygon}
-                onToggleGeofence={setGeofenceEnabled}
-                onPolygonChange={setGeofencePolygon}
-                onSave={saveLocationSettings}
-                isSaving={savingGeolocation}
+              <MultiLocationSettings
+                apiClient={apiClient}
+                onMutated={() => {
+                  // Restaurant.* fields are kept in sync on the server; refresh
+                  // the cached legacy state so the rest of the UI (sidebar
+                  // badges, agent header) reflects coordinate changes.
+                  fetchUnifiedSettings();
+                }}
               />
             </Suspense>
           </TabsContent>

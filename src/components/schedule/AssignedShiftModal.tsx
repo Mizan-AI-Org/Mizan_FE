@@ -20,6 +20,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { Search, Calendar as CalendarIcon, X, Check, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Task, TaskPriority } from '@/types/schedule';
+import { useBusinessLocations } from "@/hooks/use-business-locations";
 
 interface StaffMember {
     id: string;
@@ -31,6 +32,8 @@ interface StaffMember {
     first_name?: string;
     last_name?: string;
     role?: string;
+    primary_location?: string | null;
+    primary_location_data?: { id: string; name: string } | null;
 }
 
 interface AssignedShift {
@@ -54,6 +57,8 @@ interface AssignedShift {
     task_templates?: string[]; // Array of task template IDs
     task_templates_details?: { id: string; name?: string; title?: string; }[]; // From API after save
     tasks?: Task[];
+    location?: string | null;
+    location_data?: { id: string; name: string } | null;
 }
 
 interface AssignedShiftModalProps {
@@ -79,6 +84,13 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
     const [selectedTemplates, setSelectedTemplates] = useState<string[]>(shift?.task_templates || []);
     const [templateSearch, setTemplateSearch] = useState('');
     const [isStaffPopoverOpen, setIsStaffPopoverOpen] = useState(false);
+    // Multi-location: which branch this shift is scheduled at. Empty string
+    // means "let the backend default to the staff member's primary branch"
+    // (single-site tenants also hit this path transparently).
+    const [locationId, setLocationId] = useState<string>(shift?.location || shift?.location_data?.id || '');
+    // True once the user explicitly edits the branch; once touched we stop
+    // silently overriding it when the staff selection changes.
+    const [locationTouched, setLocationTouched] = useState<boolean>(false);
 
     // Recurrence states
     const [isRecurring, setIsRecurring] = useState(false);
@@ -101,6 +113,8 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             setSelectedTemplates(shift.task_templates || []);
             setManualTasks(shift.tasks || []);
             setIsRecurring(false); // Reset recurrence on edit for safety
+            setLocationId(shift.location || shift.location_data?.id || '');
+            setLocationTouched(true); // editing an existing shift: don't auto-replace
         } else {
             setSelectedStaffIds([]);
             setShiftDate(initialDate ? format(initialDate, 'yyyy-MM-dd') : '');
@@ -111,6 +125,8 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             setSelectedTemplates([]);
             setManualTasks([]);
             setIsRecurring(false);
+            setLocationId('');
+            setLocationTouched(false);
         }
         setTemplateSearch('');
     }, [shift, initialDate]);
@@ -178,6 +194,22 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
         },
     });
 
+    const { data: businessLocations = [] } = useBusinessLocations();
+    const isMultiLocation = businessLocations.length > 1;
+
+    useEffect(() => {
+        if (locationTouched || !isMultiLocation) return;
+        if (locationId) return;
+        const firstStaff = staffMembers?.find((s) => s.id === selectedStaffIds[0]);
+        const staffPrimary = firstStaff?.primary_location || firstStaff?.primary_location_data?.id;
+        if (staffPrimary) {
+            setLocationId(String(staffPrimary));
+            return;
+        }
+        const primaryBranch = businessLocations.find((b) => b.is_primary);
+        if (primaryBranch) setLocationId(primaryBranch.id);
+    }, [selectedStaffIds, staffMembers, businessLocations, isMultiLocation, locationId, locationTouched]);
+
     const { data: taskTemplates, isLoading: isLoadingTemplates } = useQuery<any[]>({
         queryKey: ['task-templates'],
         queryFn: async () => {
@@ -199,7 +231,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
     });
 
     const createUpdateShiftMutation = useMutation({
-        mutationFn: async (data: AssignedShift & { multi_staff?: string[], is_recurring?: boolean, frequency?: string }) => {
+        mutationFn: async (data: AssignedShift & { multi_staff?: string[], is_recurring?: boolean, frequency?: string, recurring_end_date?: string }) => {
             const token = localStorage.getItem('access_token');
             if (!token) throw new Error('No access token');
 
@@ -424,6 +456,10 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
             is_recurring: isRecurring,
             frequency: frequency,
             recurring_end_date: isRecurring ? recurringEndDate : undefined,
+            // Only send `location` when the tenant has multiple branches; for
+            // single-site tenants it's a no-op and we'd rather let the backend
+            // serializer pick the default via `effective_shift_location`.
+            ...(isMultiLocation && locationId ? { location: locationId } : {}),
             ...(weeklyScheduleId && { schedule: weeklyScheduleId }),
         };
 
@@ -562,6 +598,39 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                             </div>
                         </div>
                     </div>
+
+                    {/* Branch picker (multi-location tenants only) */}
+                    {isMultiLocation && (
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold text-[#1F2937]">
+                                {t("schedule.branch") || "Branch"}
+                            </Label>
+                            <Select
+                                value={locationId || "__default__"}
+                                onValueChange={(v) => {
+                                    setLocationTouched(true);
+                                    setLocationId(v === "__default__" ? "" : v);
+                                }}
+                            >
+                                <SelectTrigger className="h-12 rounded-xl border-gray-200">
+                                    <SelectValue placeholder={t("schedule.branch_placeholder") || "Select a branch..."} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__default__">
+                                        {t("schedule.branch_default") || "Staff's primary branch (default)"}
+                                    </SelectItem>
+                                    {businessLocations.map((loc) => (
+                                        <SelectItem key={loc.id} value={loc.id}>
+                                            {loc.name}{loc.is_primary ? ` • ${t("schedule.branch_primary") || "primary"}` : ""}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-[10px] text-slate-500">
+                                {t("schedule.branch_help") || "Where this shift is worked. Defaults to the selected staff member's home branch."}
+                            </p>
+                        </div>
+                    )}
 
                     {/* Recurring Shift Section */}
                     <div className="bg-slate-50 p-4 rounded-2xl space-y-4 border border-slate-100">
