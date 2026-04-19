@@ -7,10 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '../../contexts/AuthContext.types';
 import { API_BASE } from "@/lib/api";
+import { useBusinessLocations } from "@/hooks/use-business-locations";
 
 interface StaffMember {
     id: string;
@@ -22,6 +24,9 @@ interface StaffMember {
         email: string;
         role: string;
         is_active: boolean;
+        primary_location?: string | null;
+        allowed_locations?: string[];
+        managed_locations?: string[];
     };
     employee_id: string;
     date_joined: string;
@@ -49,6 +54,13 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
     const [isActive, setIsActive] = useState(staffMember?.user.is_active || false);
     const [password, setPassword] = useState(''); // Password not pre-filled for security
     const [pinCode, setPinCode] = useState(''); // PIN code not pre-filled for security
+    const [primaryLocation, setPrimaryLocation] = useState<string>('');
+    const [allowedLocations, setAllowedLocations] = useState<string[]>([]);
+    const [managedLocations, setManagedLocations] = useState<string[]>([]);
+
+    const { data: locations = [] } = useBusinessLocations();
+    const multiLocation = locations.length >= 2;
+    const isManagerRole = role === 'MANAGER';
 
     useEffect(() => {
         if (staffMember) {
@@ -61,8 +73,14 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
             setIsActive(staffMember.user.is_active);
             setPassword('');
             setPinCode('');
+            setPrimaryLocation(staffMember.user.primary_location || '');
+            setAllowedLocations(staffMember.user.allowed_locations || []);
+            setManagedLocations(staffMember.user.managed_locations || []);
         }
     }, [staffMember]);
+
+    const toggleInArray = (arr: string[], id: string) =>
+        arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
 
     const staffRoles = [
         { value: 'SUPER_ADMIN', label: 'Super Admin' },
@@ -111,6 +129,42 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
         },
     });
 
+    const updateLocationsMutation = useMutation({
+        mutationFn: async () => {
+            if (!staffMember) return null;
+            // Location assignments go through the dedicated profile-update
+            // endpoint that uses CustomUserSerializer (the PUT endpoint
+            // above uses a different shape). We PATCH only location fields
+            // so this request is safe to run alongside the main update.
+            const body: Record<string, unknown> = {};
+            if (primaryLocation) body.primary_location = primaryLocation;
+            body.allowed_locations = allowedLocations;
+            body.managed_locations = isManagerRole ? managedLocations : [];
+
+            const response = await fetch(
+                `${API_BASE}/staff/profile/${staffMember.user.id}/update/`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+                    },
+                    body: JSON.stringify(body),
+                }
+            );
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(
+                    errorData.detail || errorData.message || 'Failed to update locations'
+                );
+            }
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['staff-list']);
+        },
+    });
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!staffMember) return;
@@ -129,11 +183,14 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
             employee_id: employeeId,
         };
         updateStaffMutation.mutate(updatedStaffData);
+        if (multiLocation) {
+            updateLocationsMutation.mutate();
+        }
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Edit Staff Member</DialogTitle>
                     <DialogDescription>
@@ -236,6 +293,87 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                             placeholder="Leave blank to keep current PIN"
                         />
                     </div>
+
+                    {multiLocation && (
+                        <>
+                            <div className="col-span-full border-t pt-4 mt-2">
+                                <p className="text-sm font-medium">Branch assignment</p>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="edit-primary-location" className="text-right">
+                                    Primary location
+                                </Label>
+                                <Select value={primaryLocation} onValueChange={setPrimaryLocation}>
+                                    <SelectTrigger className="col-span-3" id="edit-primary-location">
+                                        <SelectValue placeholder="Select home branch" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {locations.map((loc) => (
+                                            <SelectItem key={loc.id} value={loc.id}>
+                                                {loc.name}{loc.is_primary ? ' ★' : ''}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label className="text-right pt-2">Also allowed at</Label>
+                                <div className="col-span-3 space-y-2">
+                                    <p className="text-xs text-muted-foreground">
+                                        Leave all unchecked to allow this staff at any branch.
+                                    </p>
+                                    {locations.map((loc) => {
+                                        const id = `edit-allow-${loc.id}`;
+                                        return (
+                                            <label
+                                                key={loc.id}
+                                                htmlFor={id}
+                                                className="flex items-center gap-2 text-sm cursor-pointer"
+                                            >
+                                                <Checkbox
+                                                    id={id}
+                                                    checked={allowedLocations.includes(loc.id)}
+                                                    onCheckedChange={() =>
+                                                        setAllowedLocations((prev) => toggleInArray(prev, loc.id))
+                                                    }
+                                                />
+                                                <span>{loc.name}{loc.is_primary ? ' ★' : ''}</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            {isManagerRole && (
+                                <div className="grid grid-cols-4 items-start gap-4">
+                                    <Label className="text-right pt-2">Manages branches</Label>
+                                    <div className="col-span-3 space-y-2">
+                                        <p className="text-xs text-muted-foreground">
+                                            Leave unchecked for a manager of the whole business.
+                                        </p>
+                                        {locations.map((loc) => {
+                                            const id = `edit-manage-${loc.id}`;
+                                            return (
+                                                <label
+                                                    key={loc.id}
+                                                    htmlFor={id}
+                                                    className="flex items-center gap-2 text-sm cursor-pointer"
+                                                >
+                                                    <Checkbox
+                                                        id={id}
+                                                        checked={managedLocations.includes(loc.id)}
+                                                        onCheckedChange={() =>
+                                                            setManagedLocations((prev) => toggleInArray(prev, loc.id))
+                                                        }
+                                                    />
+                                                    <span>{loc.name}{loc.is_primary ? ' ★' : ''}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
                     <DialogFooter>
                         <Button type="submit" disabled={updateStaffMutation.isLoading}>
                             {updateStaffMutation.isLoading ? 'Saving Changes...' : 'Save Changes'}

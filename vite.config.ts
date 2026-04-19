@@ -33,44 +33,36 @@ export default defineConfig(({ mode }) => ({
     minify: 'esbuild',
     rollupOptions: {
       output: {
+        // Manual chunking strategy:
+        //
+        // We deliberately do NOT carve out a separate `vendor-react` bucket.
+        // Doing so used to cause inter-chunk cycles (vendor-react ↔ vendor-map,
+        // vendor-react ↔ vendor-misc, vendor-misc ↔ vendor-radix), which at
+        // runtime produced `Cannot read properties of undefined (reading
+        // 'createContext')` and a blank screen — because Rollup can hoist a
+        // CJS interop helper into vendor-map while react-leaflet's body lands
+        // in the same chunk; vendor-react then imports the helper from there
+        // and vendor-map imports React back, so React is `undefined` when
+        // vendor-map evaluates first.
+        //
+        // Only carve out chunks that are TRUE LEAVES — they don't import each
+        // other, only React (which we now leave in the entry chunk). This
+        // gives us code-splitting wins without circular dependencies.
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;
 
-          // Core React runtime — loaded on every page
-          if (/node_modules\/(react|react-dom|scheduler|use-sync-external-store)\//.test(id)) {
-            return 'vendor-react';
-          }
-          if (id.includes('react-router')) return 'vendor-router';
-          if (id.includes('@tanstack/react-query')) return 'vendor-query';
-
-          // UI kits (split so we don't ship everything upfront)
-          if (id.includes('@radix-ui/')) return 'vendor-radix';
-          if (id.includes('@mui/') || id.includes('@emotion/')) return 'vendor-mui';
-          if (id.includes('lucide-react')) return 'vendor-icons';
-
-          // Forms
-          if (/node_modules\/(react-hook-form|@hookform|zod)\//.test(id)) {
-            return 'vendor-forms';
-          }
-
-          // Heavy viz / docs — kept out of the main chunk so the app paints fast
-          if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
+          // Heavy, leaf-only libraries — safe to split off because nothing
+          // else in node_modules imports them and they don't import each
+          // other.
           if (id.includes('xlsx')) return 'vendor-xlsx';
           if (id.includes('jspdf') || id.includes('html2canvas')) return 'vendor-pdf';
-          if (id.includes('leaflet') || id.includes('react-leaflet')) return 'vendor-map';
           if (id.includes('firebase')) return 'vendor-firebase';
 
-          // DnD
-          if (id.includes('@dnd-kit') || id.includes('react-dnd')) return 'vendor-dnd';
-
-          // i18n
-          if (id.includes('i18next') || id.includes('react-i18next')) return 'vendor-i18n';
-
-          // Date utils
-          if (id.includes('date-fns')) return 'vendor-date';
-
-          // Long-tail libs → single vendor bucket (not in main)
-          return 'vendor-misc';
+          // Everything else (including React, Radix, recharts, leaflet, etc.)
+          // lands in the entry chunk or in per-route chunks chosen by Rollup,
+          // which is cycle-free because there is no second `vendor-*` bucket
+          // for the entry chunk to round-trip through.
+          return undefined;
         },
       },
     },
