@@ -106,6 +106,25 @@ export default function LocationsOverview() {
         </Card>
       )}
 
+      {data?.degraded && !isLoading && (
+        <Card>
+          <CardContent className="flex items-start gap-3 p-4 text-sm text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="space-y-1">
+              <div className="font-medium">
+                Live metrics couldn't be computed — showing your branches
+                without today's numbers.
+              </div>
+              {data.error && (
+                <div className="text-xs text-amber-700/80 dark:text-amber-400/80 break-words">
+                  {data.error}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {isLoading ? (
         <PortfolioSkeleton />
       ) : data ? (
