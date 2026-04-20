@@ -1,13 +1,25 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { NavigateFunction } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
 import { api, API_BASE } from "@/lib/api";
 import type { AuthContextType } from "@/contexts/AuthContext.types";
+import type {
+  DashboardTaskDemandItem,
+  DashboardTasksDemandsResponse,
+} from "@/lib/types";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sparkles,
   Calendar,
@@ -37,6 +49,12 @@ import {
   Inbox,
   BarChart2,
   LayoutGrid,
+  MoreHorizontal,
+  MessageSquare,
+  Mail,
+  Sparkle,
+  Cog,
+  CircleDot,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -45,6 +63,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 export const DASHBOARD_WIDGET_IDS = [
   "insights",
+  "tasks_demands",
   "staffing",
   "sales_or_tasks",
   "operations",
@@ -65,6 +84,7 @@ export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
 /** Icons for the Add widget dialog (one per dashboard widget id). */
 export const WIDGET_ADD_ICONS: Record<DashboardWidgetId, LucideIcon> = {
   insights: Sparkles,
+  tasks_demands: ListTodo,
   staffing: Users,
   sales_or_tasks: DollarSign,
   operations: Calendar,
@@ -84,6 +104,7 @@ export const WIDGET_ADD_ICONS: Record<DashboardWidgetId, LucideIcon> = {
 /** i18n keys for one-line descriptions in the Add widget dialog. */
 export const WIDGET_ADD_DESC_KEYS: Record<DashboardWidgetId, string> = {
   insights: "dashboard.widget_add.insights",
+  tasks_demands: "dashboard.widget_add.tasks_demands",
   staffing: "dashboard.widget_add.staffing",
   sales_or_tasks: "dashboard.widget_add.sales_or_tasks",
   operations: "dashboard.widget_add.operations",
@@ -120,6 +141,7 @@ export const DASHBOARD_WIDGET_CATEGORY_KEYS: Record<DashboardWidgetCategoryId, s
 
 const WIDGET_ID_TO_CATEGORY: Record<DashboardWidgetId, DashboardWidgetCategoryId> = {
   insights: "general",
+  tasks_demands: "general",
   staffing: "general",
   sales_or_tasks: "general",
   operations: "general",
@@ -140,9 +162,10 @@ export function getWidgetCategory(id: DashboardWidgetId): DashboardWidgetCategor
   return WIDGET_ID_TO_CATEGORY[id];
 }
 
-/** System default: five core cards only. Optional widgets are added via Customize dashboard. */
+/** System default: six core cards. Optional widgets are added via Customize dashboard. */
 export const DEFAULT_DASHBOARD_WIDGET_ORDER: DashboardWidgetId[] = [
   "insights",
+  "tasks_demands",
   "staffing",
   "sales_or_tasks",
   "operations",
@@ -688,6 +711,370 @@ function ReservationsDashboardCard({
           className="mt-auto flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
         >
           {t("dashboard.reservations.view_all")}
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -----------------------------------------------------------------------
+ * Tasks & Demands widget
+ *
+ * Inbox-style list of the most important tasks for today, bucketed into
+ * Pending / In progress / Completed tabs. Each row shows the provenance
+ * (WhatsApp group, email sender, Miya AI, …) above the title, the AI
+ * summary as a tinted subline, the assignee avatar + name, a colored
+ * status pill, and a row menu that lets the manager flip status in one
+ * click. Data comes from GET /api/dashboard/tasks-demands/ (our new
+ * lightweight endpoint) and writes go through PATCH …/<id>/status/.
+ * ---------------------------------------------------------------------*/
+
+type TasksDemandsTab = "pending" | "in_progress" | "completed";
+
+function sourceIcon(src: DashboardTaskDemandItem["source"]): LucideIcon {
+  switch (src) {
+    case "WHATSAPP":
+      return MessageSquare;
+    case "EMAIL":
+      return Mail;
+    case "MIYA":
+      return Sparkle;
+    case "SYSTEM":
+      return Cog;
+    default:
+      return CircleDot;
+  }
+}
+
+function sourcePrefix(src: DashboardTaskDemandItem["source"]): string {
+  switch (src) {
+    case "WHATSAPP":
+      return "WA";
+    case "EMAIL":
+      return "Email";
+    case "MIYA":
+      return "Miya";
+    case "SYSTEM":
+      return "System";
+    default:
+      return "Task";
+  }
+}
+
+function statusPillClass(
+  status: DashboardTaskDemandItem["status"],
+  priority: DashboardTaskDemandItem["priority"],
+): { dot: string; text: string; bg: string; label: string } {
+  if (status === "COMPLETED") {
+    return {
+      dot: "bg-emerald-500",
+      text: "text-emerald-700 dark:text-emerald-300",
+      bg: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50",
+      label: "done",
+    };
+  }
+  if (status === "IN_PROGRESS") {
+    return {
+      dot: "bg-sky-500",
+      text: "text-sky-700 dark:text-sky-300",
+      bg: "bg-sky-50 dark:bg-sky-950/30 border-sky-200 dark:border-sky-900/50",
+      label: "in_progress",
+    };
+  }
+  if (status === "CANCELLED") {
+    return {
+      dot: "bg-slate-400",
+      text: "text-slate-600 dark:text-slate-400",
+      bg: "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700",
+      label: "cancelled",
+    };
+  }
+  if (priority === "URGENT") {
+    return {
+      dot: "bg-red-500",
+      text: "text-red-700 dark:text-red-300",
+      bg: "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50",
+      label: "urgent",
+    };
+  }
+  return {
+    dot: "bg-amber-500",
+    text: "text-amber-700 dark:text-amber-300",
+    bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/50",
+    label: "pending",
+  };
+}
+
+function TasksDemandsCard({
+  cardBase,
+  cardHeaderBase,
+  t,
+  navigate,
+}: {
+  cardBase: string;
+  cardHeaderBase: string;
+  t: (key: string) => string;
+  navigate: NavigateFunction;
+}) {
+  const qc = useQueryClient();
+  const [tab, setTab] = useState<TasksDemandsTab>("pending");
+
+  const { data, isLoading, isError } = useQuery<DashboardTasksDemandsResponse>({
+    queryKey: ["dashboard", "tasks-demands", 5],
+    queryFn: () => api.getDashboardTasksDemands(5),
+    // Dashboard widget — bounded cost. 60 s refetch matches the other
+    // operational cards, with staleTime so tab switches don't re-fetch.
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
+  const mutation = useMutation({
+    mutationFn: ({
+      id,
+      nextStatus,
+    }: {
+      id: string;
+      nextStatus: DashboardTaskDemandItem["status"];
+    }) => api.updateDashboardTaskStatus(id, nextStatus),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Failed to update task";
+      toast.error(msg);
+    },
+  });
+
+  const counts = data?.counts ?? { pending: 0, in_progress: 0, completed: 0 };
+  const rows: DashboardTaskDemandItem[] = useMemo(() => {
+    if (!data) return [];
+    if (tab === "pending") return data.pending;
+    if (tab === "in_progress") return data.in_progress;
+    return data.completed;
+  }, [data, tab]);
+
+  const tabs: { id: TasksDemandsTab; labelKey: string; count: number }[] = [
+    { id: "pending", labelKey: "dashboard.tasks_demands.tab_pending", count: counts.pending },
+    {
+      id: "in_progress",
+      labelKey: "dashboard.tasks_demands.tab_in_progress",
+      count: counts.in_progress,
+    },
+    {
+      id: "completed",
+      labelKey: "dashboard.tasks_demands.tab_completed",
+      count: counts.completed,
+    },
+  ];
+
+  return (
+    <Card className={`${cardBase} flex flex-col`}>
+      <CardHeader className={cardHeaderBase}>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/12 text-indigo-600 dark:text-indigo-400">
+            <ListTodo className="h-4 w-4" aria-hidden />
+          </div>
+          <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+            {t("dashboard.tasks_demands.title")}
+          </CardTitle>
+        </div>
+        <Badge
+          variant="outline"
+          className="border-rose-200 bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-900/60 text-[10px] font-semibold px-2 h-5"
+        >
+          {t("dashboard.tasks_demands.priority_badge")}
+        </Badge>
+      </CardHeader>
+
+      <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-4 px-5">
+        {/* Tabs */}
+        <div className="flex items-center gap-1 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30 p-0.5 mb-3">
+          {tabs.map((tb) => {
+            const active = tab === tb.id;
+            return (
+              <button
+                key={tb.id}
+                type="button"
+                onClick={() => setTab(tb.id)}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-colors",
+                  active
+                    ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
+                )}
+              >
+                <span className="truncate">{t(tb.labelKey)}</span>
+                <span
+                  className={cn(
+                    "inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[9px] font-bold tabular-nums",
+                    active
+                      ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300"
+                      : "bg-slate-200/70 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300",
+                  )}
+                >
+                  {tb.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Rows */}
+        <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+          {isLoading ? (
+            <div className="py-6 text-center text-sm text-slate-400">
+              {t("dashboard.tasks_demands.loading")}
+            </div>
+          ) : isError ? (
+            <div className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+              {t("dashboard.tasks_demands.error")}
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+              {t(`dashboard.tasks_demands.empty_${tab}`)}
+            </div>
+          ) : (
+            <ul className="space-y-1.5">
+              {rows.map((row) => {
+                const pill = statusPillClass(row.status, row.priority);
+                const SrcIcon = sourceIcon(row.source);
+                const srcLabel =
+                  row.source_label?.trim() || sourcePrefix(row.source);
+                return (
+                  <li
+                    key={row.id}
+                    className="group rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700/80 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 px-2 py-1.5 transition-colors"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      {/* Avatar */}
+                      <div className="shrink-0 mt-0.5">
+                        {row.assignee ? (
+                          <div
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-[10px] font-bold text-white"
+                            aria-label={row.assignee.name}
+                            title={row.assignee.name}
+                          >
+                            {row.assignee.initials}
+                          </div>
+                        ) : (
+                          <div
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold text-slate-400"
+                            title={t("dashboard.tasks_demands.unassigned")}
+                          >
+                            ?
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Body */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                          <SrcIcon className="h-3 w-3 shrink-0" aria-hidden />
+                          <span className="truncate">{srcLabel}</span>
+                        </div>
+                        <div className="mt-0.5 text-[13px] font-semibold text-slate-900 dark:text-white leading-snug truncate">
+                          {row.title}
+                        </div>
+                        {row.ai_summary || row.description ? (
+                          <div className="mt-0.5 text-[11px] text-emerald-600 dark:text-emerald-400 leading-snug line-clamp-1">
+                            {t("dashboard.tasks_demands.ai_prefix")}{" "}
+                            {row.ai_summary || row.description}
+                          </div>
+                        ) : null}
+                        <div className="mt-1 flex items-center justify-between gap-2">
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+                              pill.bg,
+                              pill.text,
+                            )}
+                          >
+                            <span
+                              className={cn("h-1.5 w-1.5 rounded-full", pill.dot)}
+                              aria-hidden
+                            />
+                            {t(`dashboard.tasks_demands.status_${pill.label}`)}
+                          </span>
+                          {row.assignee ? (
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-[10rem]">
+                              {row.assignee.name}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* Action menu */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            aria-label={t("dashboard.tasks_demands.row_actions")}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="h-4 w-4" aria-hidden />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          {row.status !== "PENDING" && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                mutation.mutate({
+                                  id: row.id,
+                                  nextStatus: "PENDING",
+                                })
+                              }
+                            >
+                              {t("dashboard.tasks_demands.mark_pending")}
+                            </DropdownMenuItem>
+                          )}
+                          {row.status !== "IN_PROGRESS" && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                mutation.mutate({
+                                  id: row.id,
+                                  nextStatus: "IN_PROGRESS",
+                                })
+                              }
+                            >
+                              {t("dashboard.tasks_demands.mark_in_progress")}
+                            </DropdownMenuItem>
+                          )}
+                          {row.status !== "COMPLETED" && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                mutation.mutate({
+                                  id: row.id,
+                                  nextStatus: "COMPLETED",
+                                })
+                              }
+                            >
+                              {t("dashboard.tasks_demands.mark_completed")}
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => navigate("/dashboard/tasks")}
+                          >
+                            {t("dashboard.tasks_demands.open_board")}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => navigate("/dashboard/tasks")}
+          className="mt-3 flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline self-start"
+        >
+          {t("dashboard.tasks_demands.open_all")}
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </CardContent>
@@ -1711,6 +2098,11 @@ export function DashboardWidgetById({
     case "staff_inbox":
       return (
         <StaffInboxEnterpriseCard cardBase={cardBase} cardHeaderBase={cardHeaderBase} t={t} navigate={navigate} />
+      );
+
+    case "tasks_demands":
+      return (
+        <TasksDemandsCard cardBase={cardBase} cardHeaderBase={cardHeaderBase} t={t} navigate={navigate} />
       );
 
     default:

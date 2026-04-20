@@ -30,6 +30,8 @@ import {
   StaffProfileItem,
   CreateAnnouncementResponse,
   ShiftReviewSubmission,
+  DashboardTaskDemandItem,
+  DashboardTasksDemandsResponse,
 } from "./types"; // Updated import path
 
 // In dev, use relative /api so Vite proxy (vite.config proxy /api -> localhost:8000) is used.
@@ -444,6 +446,26 @@ export class BackendService {
     }>;
   }> {
     return this.fetchWithError("/dashboard/custom-widgets/");
+  }
+
+  /**
+   * Tasks & Demands widget data (top N rows bucketed by status). Backs
+   * the dashboard card that gives managers an inbox-style view of AI /
+   * WhatsApp / email / manually-created tasks.
+   */
+  async getDashboardTasksDemands(limit = 5): Promise<DashboardTasksDemandsResponse> {
+    const qs = `?limit=${encodeURIComponent(String(limit))}`;
+    return this.fetchWithError(`/dashboard/tasks-demands/${qs}`);
+  }
+
+  async updateDashboardTaskStatus(
+    taskId: string,
+    nextStatus: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED",
+  ): Promise<DashboardTaskDemandItem> {
+    return this.fetchWithError(
+      `/dashboard/tasks-demands/${taskId}/status/`,
+      { method: "PATCH", body: JSON.stringify({ status: nextStatus }) },
+    );
   }
 
   /** Tenant-wide categories for grouping manager/Miya-created dashboard widgets. */

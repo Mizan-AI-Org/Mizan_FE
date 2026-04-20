@@ -152,11 +152,45 @@ export interface Task {
     assigned_to_info?: User;
     title: string;
     description: string;
-    priority: 'LOW' | 'MEDIUM' | 'HIGH';
+    priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
     status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
     due_date: string;
     created_at: string;
     updated_at: string;
+    source?: 'MANUAL' | 'WHATSAPP' | 'EMAIL' | 'MIYA' | 'SYSTEM';
+    source_label?: string;
+    ai_summary?: string;
+}
+
+/** Row shape served by GET /api/dashboard/tasks-demands/. Kept
+ * deliberately small for the dashboard widget — no restaurant id, no
+ * full user object. */
+export interface DashboardTaskDemandItem {
+    id: string;
+    title: string;
+    description: string | null;
+    priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+    status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+    due_date: string | null;
+    source: 'MANUAL' | 'WHATSAPP' | 'EMAIL' | 'MIYA' | 'SYSTEM';
+    source_label: string;
+    ai_summary: string;
+    assignee: {
+        id: string;
+        name: string;
+        initials: string;
+        role?: string | null;
+    } | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface DashboardTasksDemandsResponse {
+    counts: { pending: number; in_progress: number; completed: number };
+    pending: DashboardTaskDemandItem[];
+    in_progress: DashboardTaskDemandItem[];
+    completed: DashboardTaskDemandItem[];
+    generated_at: string;
 }
 
 export interface InventoryItem {
