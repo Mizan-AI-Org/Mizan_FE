@@ -114,7 +114,7 @@ const ActivityLogPage: React.FC = () => {
             }
             if (q) params.set('q', q);
             const res = await fetch(
-                `${API_BASE}/accounts/audit-logs/?${params.toString()}`,
+                `${API_BASE}/audit-logs/?${params.toString()}`,
                 {
                     headers: {
                         Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`,
