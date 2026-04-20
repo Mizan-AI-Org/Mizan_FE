@@ -50,7 +50,10 @@ const CleaningTasks: React.FC = () => {
             return Array.isArray(data) ? data : data.results || [];
         },
         enabled: canView,
-        refetchInterval: 30_000,
+        // Cleaning queue does not need sub-minute freshness — managers
+        // glance and act, they don't watch it like a stock ticker.
+        refetchInterval: 90_000,
+        staleTime: 60_000,
     });
 
     const markClean = useMutation({

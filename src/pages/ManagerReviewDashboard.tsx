@@ -219,7 +219,7 @@ const ManagerReviewDashboard: React.FC = () => {
       });
     },
     refetchInterval: 60_000,
-    staleTime: 0,
+    staleTime: 30_000,
   });
 
   const { notifications } = useNotifications();
@@ -268,7 +268,7 @@ const ManagerReviewDashboard: React.FC = () => {
       }
       return api.getChecklistExecution(id);
     },
-    staleTime: 0,
+    staleTime: 30_000,
   });
 
   const filtered = useMemo(() => {
@@ -585,7 +585,7 @@ const ManagerReviewDashboard: React.FC = () => {
     queryKey: ["live-checklist-progress"],
     queryFn: () => api.getLiveChecklistProgress(),
     refetchInterval: 60_000,
-    staleTime: 0,
+    staleTime: 30_000,
   });
   const liveItems = liveProgress?.items ?? [];
 

@@ -217,10 +217,12 @@ const ChecklistRunner: React.FC = () => {
     loadExecution();
   }, [executionId]);
 
-  // Live refresh to reflect template changes in real-time
+  // Live refresh to reflect template changes in real-time. Skip when the
+  // tab is hidden so we don't pay for API calls a user can't see.
   useEffect(() => {
     if (!executionId) return;
     const interval = setInterval(async () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       try {
         const execution = await api.getChecklistExecution(String(executionId));
         const t = execution?.template as BackendTemplate | undefined;
