@@ -88,7 +88,7 @@ const OnboardingWizard: React.FC = () => {
     } = useQuery<OnboardingStatus>({
         queryKey: ['onboarding-status'],
         queryFn: async () => {
-            const res = await fetch(`${API_BASE}/accounts/onboarding/`, {
+            const res = await fetch(`${API_BASE}/onboarding/`, {
                 headers: authHeaders(),
             });
             if (!res.ok) {
@@ -107,7 +107,7 @@ const OnboardingWizard: React.FC = () => {
 
     const markStep = useMutation({
         mutationFn: async (step: StepKey) => {
-            const res = await fetch(`${API_BASE}/accounts/onboarding/`, {
+            const res = await fetch(`${API_BASE}/onboarding/`, {
                 method: 'POST',
                 headers: authHeaders(),
                 body: JSON.stringify({ step }),
@@ -136,7 +136,7 @@ const OnboardingWizard: React.FC = () => {
     const seed = useMutation({
         mutationFn: async () => {
             const res = await fetch(
-                `${API_BASE}/accounts/onboarding/seed/`,
+                `${API_BASE}/onboarding/seed/`,
                 { method: 'POST', headers: authHeaders() }
             );
             if (!res.ok) {
