@@ -55,6 +55,7 @@ export default function SuppliersPage() {
         email: "",
         phone: "",
         address: "",
+        lead_time_days: 2,
     });
 
     const { data: suppliers, isLoading, isError, error } = useQuery<Supplier[]>({ 
@@ -75,6 +76,7 @@ export default function SuppliersPage() {
                 email: "",
                 phone: "",
                 address: "",
+                lead_time_days: 2,
             });
         },
         onError: (err) => {
@@ -268,6 +270,20 @@ export default function SuppliersPage() {
                                 <Label htmlFor="address" className="text-right">Address</Label>
                                 <Input id="address" value={newSupplier.address || ""} onChange={(e) => setNewSupplier({ ...newSupplier, address: e.target.value })} className="col-span-3" />
                             </div>
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label htmlFor="lead_time_days" className="text-right pt-2">Lead time (days)</Label>
+                                <div className="col-span-3 space-y-1">
+                                    <Input
+                                        id="lead_time_days"
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        value={newSupplier.lead_time_days ?? 2}
+                                        onChange={(e) => setNewSupplier({ ...newSupplier, lead_time_days: e.target.value === "" ? 0 : parseInt(e.target.value, 10) })}
+                                    />
+                                    <p className="text-[11px] text-muted-foreground">Used by the prep list to compute the 'order-by' date.</p>
+                                </div>
+                            </div>
                         </div>
                         <DialogFooter>
                             <Button type="submit" disabled={createMutation.isPending}>
@@ -307,6 +323,20 @@ export default function SuppliersPage() {
                                 <div className="grid grid-cols-4 items-center gap-4">
                                     <Label htmlFor="edit-address" className="text-right">Address</Label>
                                     <Input id="edit-address" value={selectedSupplier.address || ""} onChange={(e) => setSelectedSupplier({ ...selectedSupplier, address: e.target.value })} className="col-span-3" />
+                                </div>
+                                <div className="grid grid-cols-4 items-start gap-4">
+                                    <Label htmlFor="edit-lead_time_days" className="text-right pt-2">Lead time (days)</Label>
+                                    <div className="col-span-3 space-y-1">
+                                        <Input
+                                            id="edit-lead_time_days"
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            value={selectedSupplier.lead_time_days ?? 2}
+                                            onChange={(e) => setSelectedSupplier({ ...selectedSupplier, lead_time_days: e.target.value === "" ? 0 : parseInt(e.target.value, 10) })}
+                                        />
+                                        <p className="text-[11px] text-muted-foreground">Used by the prep list to compute the 'order-by' date.</p>
+                                    </div>
                                 </div>
                             </div>
                             <DialogFooter>
