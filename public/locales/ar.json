@@ -28,6 +28,8 @@
   "app.tasks.desc": "إنشاء وإدارة المهام",
   "app.shift_reviews": "مراجعات الورديات",
   "app.shift_reviews.desc": "عرض وتصفية ملاحظات ورديات الموظفين",
+  "app.locations_overview": "نظرة عامة على الفروع",
+  "app.locations_overview.desc": "الحالة المباشرة لكل فرع",
   "ai.chat_button": "الدردشة مع Miya",
   "ai.chat_title": "Miya",
   "ai.chat_placeholder": "اسأل Miya أي شيء...",

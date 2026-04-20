@@ -30,6 +30,8 @@
   "app.tasks.desc": "Créer et gérer des tâches",
   "app.shift_reviews": "Revues de Service",
   "app.shift_reviews.desc": "Voir et filtrer les retours de service du personnel",
+  "app.locations_overview": "Vue d'ensemble des sites",
+  "app.locations_overview.desc": "État en temps réel de chaque établissement",
   "ai.chat_button": "Discuter avec Miya",
   "ai.chat_title": "Miya",
   "ai.chat_placeholder": "Demandez-moi n'importe quoi...",

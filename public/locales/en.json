@@ -28,6 +28,8 @@
   "app.tasks.desc": "Create and manage processes and tasks",
   "app.shift_reviews": "Staff Scheduling",
   "app.shift_reviews.desc": "View and manage staff schedules",
+  "app.locations_overview": "Locations Overview",
+  "app.locations_overview.desc": "Live status across every branch",
   "ai.chat_button": "Chat with Miya",
   "ai.chat_title": "Miya",
   "ai.chat_placeholder": "Ask Miya anything...",
