@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import { LogOut, User, Bell, ArrowLeft } from "lucide-react";
+import { Bell, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from '@/hooks/use-auth';
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useNotifications } from '../../hooks/useNotifications';
 import {
   DropdownMenu,
@@ -12,19 +10,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { UserAvatarMenu } from "@/components/layout/UserAvatarMenu";
 // Removed mobile sidebar Sheet components per design update
-import { AuthContextType } from "@/contexts/AuthContext.types";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import BrandLogo from "@/components/BrandLogo";
 import { useLanguage } from "@/hooks/use-language";
 import { LuaWidget } from "@/components/LuaWidget";
 import { LiveDateTime } from "@/components/LiveDateTime";
+import { cn } from "@/lib/utils";
 
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth() as AuthContextType;
-  const { notifications, isConnected, markAllAsRead, markAsRead } = useNotifications();
+  const { notifications, markAllAsRead, markAsRead } = useNotifications();
+  const isOnDashboardRoot = location.pathname === "/dashboard";
   const { t } = useLanguage();
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -48,23 +47,6 @@ const DashboardLayout: React.FC = () => {
     }
     prevUnreadRef.current = unreadCount;
   }, [unreadCount]);
-
-  // Derive a safe restaurant label from various possible user shapes without using `any`
-  // Compute a restaurant label, but hide raw UUIDs
-  const restaurantLabel: string = (() => {
-    const dataName = user?.restaurant_data?.name;
-    if (typeof dataName === "string" && dataName.length > 0) return dataName;
-    const restaurantRaw = user?.restaurant;
-    if (typeof restaurantRaw === "string" && restaurantRaw.length > 0) return restaurantRaw;
-    if (typeof restaurantRaw === "object" && restaurantRaw !== null) {
-      const name = (restaurantRaw as { name?: unknown }).name;
-      if (typeof name === "string" && (name as string).length > 0) return name as string;
-    }
-    return "";
-  })();
-
-  const isUuid = (val: string): boolean =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -150,42 +132,11 @@ const DashboardLayout: React.FC = () => {
                 </DropdownMenu>
               </div>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-10 w-10 rounded-full p-0" aria-label="User profile menu">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-gradient-to-br from-primary to-primary-glow text-white">
-                        {user?.first_name && user?.last_name
-                          ? `${user.first_name[0]}${user.last_name[0]}`
-                          : "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="px-4 py-2">
-                    <p className="text-sm font-medium">
-                      {user?.first_name && user?.last_name
-                        ? `${user.first_name} ${user.last_name}`
-                        : t("common.welcome")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {user?.email || ""}
-                    </p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {user?.role ? user.role.toLowerCase().replace(/_/g, ' ') : ""}
-                    </p>
-                    {restaurantLabel && !isUuid(restaurantLabel) && (
-                      <p className="text-xs text-muted-foreground">{restaurantLabel}</p>
-                    )}
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout} className="text-destructive" aria-label={t("common.sign_out")}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    {t("common.sign_out")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {/* Avatar lives in the Dashboard side pane on lg+ when on the dashboard root.
+                  Show it here on every other page, and on mobile/tablet always. */}
+              <div className={cn(isOnDashboardRoot && "lg:hidden")}>
+                <UserAvatarMenu variant="icon" />
+              </div>
             </div>
           </div>
         </div>
