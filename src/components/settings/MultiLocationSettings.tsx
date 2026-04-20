@@ -40,6 +40,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import GeolocationMapSettings from "@/components/settings/GeolocationMapSettings";
 import { useLanguage } from "@/hooks/use-language";
 import type { AxiosError, AxiosInstance } from "axios";
@@ -88,6 +89,15 @@ export default function MultiLocationSettings({
   onMutated,
 }: MultiLocationSettingsProps) {
   const { t } = useLanguage();
+  const queryClient = useQueryClient();
+  // Any successful mutation on a branch should also refresh the caches the
+  // rest of the app reads from (picker dropdowns, the multi-location
+  // portfolio overview, etc.) so the UI updates without a full page reload.
+  const invalidateTenantLocationCaches = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["business-locations"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard", "portfolio"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard", "summary"] });
+  }, [queryClient]);
   const [locations, setLocations] = useState<BusinessLocation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -157,6 +167,7 @@ export default function MultiLocationSettings({
           prev.map((l) => (l.id === loc.id ? resp.data : l))
         );
         toast.success(t("settings.locations.save_success"));
+        invalidateTenantLocationCaches();
         onMutated?.();
       } catch (error) {
         toast.error(describeError(error, t("settings.locations.save_error")));
@@ -164,7 +175,7 @@ export default function MultiLocationSettings({
         setSavingId(null);
       }
     },
-    [apiClient, t, onMutated]
+    [apiClient, t, onMutated, invalidateTenantLocationCaches]
   );
 
   const handleToggleGeofence = useCallback(
@@ -177,12 +188,13 @@ export default function MultiLocationSettings({
         setLocations((prev) =>
           prev.map((l) => (l.id === loc.id ? resp.data : l))
         );
+        invalidateTenantLocationCaches();
         onMutated?.();
       } catch (error) {
         toast.error(describeError(error, t("settings.locations.save_error")));
       }
     },
-    [apiClient, t, onMutated]
+    [apiClient, t, onMutated, invalidateTenantLocationCaches]
   );
 
   const handlePolygonChange = useCallback(
@@ -208,12 +220,13 @@ export default function MultiLocationSettings({
         setLocations((prev) =>
           prev.map((l) => (l.id === loc.id ? resp.data : l))
         );
+        invalidateTenantLocationCaches();
         onMutated?.();
       } catch (error) {
         toast.error(describeError(error, t("settings.locations.save_error")));
       }
     },
-    [apiClient, t, onMutated]
+    [apiClient, t, onMutated, invalidateTenantLocationCaches]
   );
 
   const handleRename = useCallback(
@@ -226,12 +239,13 @@ export default function MultiLocationSettings({
         setLocations((prev) =>
           prev.map((l) => (l.id === loc.id ? resp.data : l))
         );
+        invalidateTenantLocationCaches();
         onMutated?.();
       } catch (error) {
         toast.error(describeError(error, t("settings.locations.save_error")));
       }
     },
-    [apiClient, t, onMutated]
+    [apiClient, t, onMutated, invalidateTenantLocationCaches]
   );
 
   const handleSetPrimary = useCallback(
@@ -249,6 +263,7 @@ export default function MultiLocationSettings({
           )
         );
         toast.success(t("settings.locations.primary_set"));
+        invalidateTenantLocationCaches();
         onMutated?.();
       } catch (error) {
         toast.error(describeError(error, t("settings.locations.primary_error")));
@@ -256,7 +271,7 @@ export default function MultiLocationSettings({
         setPrimarySwitchingId(null);
       }
     },
-    [apiClient, t, onMutated]
+    [apiClient, t, onMutated, invalidateTenantLocationCaches]
   );
 
   const handleDelete = useCallback(
@@ -266,6 +281,7 @@ export default function MultiLocationSettings({
         await apiClient.delete(`/locations/${loc.id}/`);
         setLocations((prev) => prev.filter((l) => l.id !== loc.id));
         toast.success(t("settings.locations.delete_success"));
+        invalidateTenantLocationCaches();
         onMutated?.();
       } catch (error) {
         toast.error(describeError(error, t("settings.locations.delete_error")));
@@ -273,7 +289,7 @@ export default function MultiLocationSettings({
         setDeletingId(null);
       }
     },
-    [apiClient, t, onMutated]
+    [apiClient, t, onMutated, invalidateTenantLocationCaches]
   );
 
   const handleCreate = useCallback(async () => {
@@ -309,13 +325,14 @@ export default function MultiLocationSettings({
       setNewAddress("");
       setAddOpen(false);
       toast.success(t("settings.locations.add_success"));
+      invalidateTenantLocationCaches();
       onMutated?.();
     } catch (error) {
       toast.error(describeError(error, t("settings.locations.add_error")));
     } finally {
       setCreating(false);
     }
-  }, [apiClient, newName, newAddress, t, onMutated]);
+  }, [apiClient, newName, newAddress, t, onMutated, invalidateTenantLocationCaches]);
 
   return (
     <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
