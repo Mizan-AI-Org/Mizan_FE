@@ -32,6 +32,9 @@ const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const LocationsOverview = React.lazy(
   () => import("./pages/LocationsOverview")
 );
+const BranchDetailPage = React.lazy(
+  () => import("./pages/BranchDetailPage")
+);
 const AdminDashboard = React.lazy(() => import("./pages/AdminAnalytics"));
 const KitchenDisplay = React.lazy(() => import("./pages/KitchenDisplay"));
 const InventoryManagement = React.lazy(
@@ -235,6 +238,21 @@ const App = () => {
                       ]}
                     >
                       <LocationsOverview />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/locations-overview/:locationId"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={[
+                        "SUPER_ADMIN",
+                        "ADMIN",
+                        "OWNER",
+                        "MANAGER",
+                      ]}
+                    >
+                      <BranchDetailPage />
                     </RoleBasedRoute>
                   }
                 />

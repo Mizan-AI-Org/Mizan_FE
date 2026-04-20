@@ -111,7 +111,9 @@ export default function LocationsOverview() {
                   key={loc.id}
                   loc={loc}
                   onOpen={() =>
-                    navigate(`/dashboard?location=${encodeURIComponent(loc.id)}`)
+                    navigate(
+                      `/dashboard/locations-overview/${encodeURIComponent(loc.id)}`,
+                    )
                   }
                 />
               ))}
