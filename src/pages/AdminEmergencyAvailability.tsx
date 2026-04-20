@@ -60,8 +60,8 @@ const AdminEmergencyAvailability: React.FC = () => {
       const data = await res.json();
       return Array.isArray(data) ? data : (data.results || []);
     },
-    refetchInterval: 30_000,
-    staleTime: 0,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   });
 
   const approveMutation = useMutation({
