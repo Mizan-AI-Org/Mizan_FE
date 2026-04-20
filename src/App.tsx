@@ -32,6 +32,9 @@ const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const LocationsOverview = React.lazy(
   () => import("./pages/LocationsOverview")
 );
+const BranchDetailPage = React.lazy(
+  () => import("./pages/BranchDetailPage")
+);
 const AdminDashboard = React.lazy(() => import("./pages/AdminAnalytics"));
 const KitchenDisplay = React.lazy(() => import("./pages/KitchenDisplay"));
 const InventoryManagement = React.lazy(
@@ -59,9 +62,6 @@ const AdvancedSettings = React.lazy(() => import("./pages/Settings"));
 const RolePermissionsPage = React.lazy(() => import("./pages/settings/RolePermissionsPage"));
 const StaffManagement = React.lazy(() => import("./pages/StaffManagement"));
 const StaffRequestsPage = React.lazy(() => import("./pages/StaffRequestsPage"));
-const ScheduleManagement = React.lazy(
-  () => import("./pages/ScheduleManagement")
-);
 const WeeklyScheduleView = React.lazy(
   () => import("./pages/WeeklyScheduleView")
 );
@@ -238,6 +238,21 @@ const App = () => {
                       ]}
                     >
                       <LocationsOverview />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/locations-overview/:locationId"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={[
+                        "SUPER_ADMIN",
+                        "ADMIN",
+                        "OWNER",
+                        "MANAGER",
+                      ]}
+                    >
+                      <BranchDetailPage />
                     </RoleBasedRoute>
                   }
                 />
@@ -578,14 +593,6 @@ const App = () => {
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
                       <StaffRequestsPage />
-                    </RoleBasedRoute>
-                  }
-                />
-                <Route
-                  path="schedule-management"
-                  element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
-                      <ScheduleManagement />
                     </RoleBasedRoute>
                   }
                 />

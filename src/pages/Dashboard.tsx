@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   DndContext,
@@ -27,6 +27,8 @@ import {
   Sparkles,
   Sliders,
   Building2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +63,7 @@ import {
 import { ManageDashboardCategoriesDialog } from "@/pages/dashboard/ManageDashboardCategoriesDialog";
 import { useDashboardCategories } from "@/hooks/use-dashboard-categories";
 import { usePermissions } from "@/hooks/use-permissions";
+import { UserAvatarMenu } from "@/components/layout/UserAvatarMenu";
 
 type InsightItem = {
   id?: string;
@@ -130,11 +133,22 @@ const apps: AppItem[] = [
     appId: "checklists",
   },
   {
-    name: "STAFF SCHEDULES",
-    href: "/dashboard/shift-reviews",
+    name: "STAFF SCHEDULING",
+    href: "/dashboard/scheduling",
     icon: FileText,
     gradient: "bg-emerald-500",
-    description: "View and filter staff schedules",
+    description: "Build the weekly schedule and assign shifts",
+    nameKey: "app.scheduling",
+    descKey: "app.scheduling.desc",
+    roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
+    appId: "scheduling",
+  },
+  {
+    name: "SHIFT REVIEWS",
+    href: "/dashboard/shift-reviews",
+    icon: FileText,
+    gradient: "bg-rose-500",
+    description: "Browse staff shift reviews and ratings",
     nameKey: "app.shift_reviews",
     descKey: "app.shift_reviews.desc",
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
@@ -155,6 +169,7 @@ const apps: AppItem[] = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { user, hasRole, accessToken } = useAuth() as AuthContextType;
   const { t } = useLanguage();
   const { canApp, canWidget } = usePermissions();
@@ -249,6 +264,24 @@ export default function Dashboard() {
   );
 
   const widgetStorageKey = user?.id ? `mizan-dashboard-widget-order:${user.id}` : null;
+  const appsPaneStorageKey = user?.id ? `mizan-apps-pane-collapsed:${user.id}` : "mizan-apps-pane-collapsed";
+  const [appsPaneCollapsed, setAppsPaneCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const stored = window.localStorage.getItem(appsPaneStorageKey);
+      // Default to collapsed when nothing has been stored yet.
+      return stored === null ? true : stored === "1";
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(appsPaneStorageKey, appsPaneCollapsed ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [appsPaneCollapsed, appsPaneStorageKey]);
   const [customizeMode, setCustomizeMode] = useState(false);
   const [addWidgetOpen, setAddWidgetOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
@@ -477,7 +510,12 @@ export default function Dashboard() {
   }, [criticalCount, isLoading, insights, navigate, t]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0f1419] p-4 md:p-6 lg:p-7 pb-40 font-sans antialiased text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div
+      className={cn(
+        "min-h-screen bg-slate-50 dark:bg-[#0f1419] p-4 md:p-6 lg:p-7 pb-32 lg:pb-10 font-sans antialiased text-slate-900 dark:text-slate-100 transition-[padding] duration-300",
+        appsPaneCollapsed ? "lg:pl-24" : "lg:pl-72",
+      )}
+    >
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* Header Section */}
@@ -770,52 +808,184 @@ export default function Dashboard() {
 
       </div>
 
-      {/* Quick Actions Dock (floating, always visible) */}
-      <div className="fixed bottom-4 left-4 right-4 z-30">
-        <div className="max-w-7xl mx-auto">
-          <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-white/85 dark:bg-slate-900/70 backdrop-blur shadow-lg">
-            <div className="flex items-center justify-between px-4 pt-3 pb-2">
-              <div className="text-xs font-bold tracking-tight text-slate-900 dark:text-white">
-                {t("dashboard.quick_actions.title")}
-              </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden md:block">
-                {t("dashboard.quick_actions.subtitle")}
-              </div>
-            </div>
-
-            <div className="px-3 pb-3">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pr-24 md:pr-28">
-                {apps
-                  .filter((app) => !app.roles || hasRole(app.roles))
-                  .filter((app) => !app.appId || canApp(app.appId))
-                  .map((app) => (
-                    <button
-                      key={app.name}
-                      type="button"
-                      onClick={() => navigate(app.href)}
-                      className="group flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors shadow-sm"
-                    >
-                      <div
-                        className={`w-11 h-11 rounded-2xl ${app.gradient} flex items-center justify-center shrink-0 shadow-sm shadow-black/10`}
-                      >
-                        <app.icon className="w-6 h-6 text-white" />
-                      </div>
-                      <div className="min-w-0 text-left leading-tight">
-                        <div className="text-sm font-semibold text-slate-900 dark:text-white tracking-tight truncate">
-                          {app.nameKey ? t(app.nameKey) : app.name}
-                        </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium line-clamp-1">
-                          {app.descKey ? t(app.descKey) : app.description}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-              </div>
-            </div>
+      {/* Quick Actions Mobile Dock (horizontal, < lg only) */}
+      <div className="lg:hidden fixed bottom-3 left-3 right-3 z-30">
+        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-white/85 dark:bg-slate-900/70 backdrop-blur shadow-lg px-2 py-2">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            {apps
+              .filter((app) => !app.roles || hasRole(app.roles))
+              .filter((app) => !app.appId || canApp(app.appId))
+              .map((app) => {
+                const label = app.nameKey ? t(app.nameKey) : app.name;
+                return (
+                  <button
+                    key={`m-${app.name}`}
+                    type="button"
+                    onClick={() => navigate(app.href)}
+                    title={label}
+                    aria-label={label}
+                    className="shrink-0 inline-flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors"
+                  >
+                    <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm shadow-black/10", app.gradient)}>
+                      <app.icon className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="text-[10px] font-medium text-slate-700 dark:text-slate-300 max-w-[72px] truncate">
+                      {label}
+                    </div>
+                  </button>
+                );
+              })}
           </div>
-          <div className="h-2"></div>
         </div>
       </div>
+
+      {/* Quick Actions Side Pane (collapsible, left, vertical, lg+ only) */}
+      <aside
+        className={cn(
+          "hidden lg:flex fixed left-0 z-30 flex-col",
+          "top-[68px] bottom-3 ml-3",
+          "rounded-2xl border border-slate-200/70 dark:border-slate-800/80",
+          "bg-gradient-to-b from-white/95 via-white/90 to-slate-50/95 dark:from-slate-900/90 dark:via-slate-900/85 dark:to-slate-950/90",
+          "backdrop-blur-xl shadow-[0_10px_40px_-15px_rgba(15,23,42,0.25)] dark:shadow-[0_10px_40px_-15px_rgba(0,0,0,0.55)]",
+          "transition-[width] duration-300 ease-out",
+          appsPaneCollapsed ? "w-[72px]" : "w-64",
+        )}
+        aria-label={t("dashboard.quick_actions.title")}
+      >
+        {/* Header */}
+        <div
+          className={cn(
+            "relative flex items-center gap-2 px-3 pt-4 pb-3",
+            appsPaneCollapsed ? "justify-center" : "justify-between",
+          )}
+        >
+          {!appsPaneCollapsed && (
+            <div className="min-w-0 flex items-center gap-2">
+              <div className="h-7 w-7 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md shadow-emerald-500/30">
+                <Sparkles className="h-3.5 w-3.5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[13px] font-bold tracking-tight text-slate-900 dark:text-white truncate leading-tight">
+                  {t("dashboard.quick_actions.title")}
+                </div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold truncate">
+                  {t("dashboard.quick_actions.subtitle")}
+                </div>
+              </div>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setAppsPaneCollapsed((v) => !v)}
+            className={cn(
+              "shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-lg",
+              "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white",
+              "hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-all",
+            )}
+            aria-label={appsPaneCollapsed ? t("dashboard.quick_actions.expand") : t("dashboard.quick_actions.collapse")}
+            aria-expanded={!appsPaneCollapsed}
+            title={appsPaneCollapsed ? t("dashboard.quick_actions.expand") : t("dashboard.quick_actions.collapse")}
+          >
+            {appsPaneCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+
+        <div className="mx-3 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent" />
+
+        {/* Apps */}
+        <nav
+          className={cn(
+            "flex-1 overflow-y-auto py-3 space-y-1",
+            appsPaneCollapsed ? "px-2" : "px-2",
+          )}
+        >
+          {apps
+            .filter((app) => !app.roles || hasRole(app.roles))
+            .filter((app) => !app.appId || canApp(app.appId))
+            .map((app) => {
+              const label = app.nameKey ? t(app.nameKey) : app.name;
+              const desc = app.descKey ? t(app.descKey) : app.description;
+              const isActive = pathname === app.href || pathname.startsWith(app.href + "/");
+              return (
+                <button
+                  key={app.name}
+                  type="button"
+                  onClick={() => navigate(app.href)}
+                  title={appsPaneCollapsed ? label : undefined}
+                  aria-label={label}
+                  aria-current={isActive ? "page" : undefined}
+                  className={cn(
+                    "group relative w-full flex items-center gap-3 rounded-xl transition-all duration-200",
+                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
+                    appsPaneCollapsed ? "justify-center px-2 py-2" : "px-2.5 py-2",
+                    isActive
+                      ? "bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800/80 dark:to-slate-800/40 shadow-sm"
+                      : "hover:bg-slate-100/70 dark:hover:bg-slate-800/50",
+                  )}
+                >
+                  {/* Active indicator bar */}
+                  <span
+                    className={cn(
+                      "absolute left-0 top-1/2 -translate-y-1/2 w-1 rounded-r-full transition-all duration-300",
+                      isActive
+                        ? "h-7 bg-gradient-to-b from-emerald-500 to-teal-500 opacity-100"
+                        : "h-0 opacity-0",
+                    )}
+                    aria-hidden
+                  />
+                  <div
+                    className={cn(
+                      "relative w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                      "shadow-md shadow-black/10 ring-1 ring-white/10",
+                      "transition-transform duration-200 group-hover:scale-[1.06] group-active:scale-95",
+                      app.gradient,
+                    )}
+                  >
+                    <app.icon className="w-5 h-5 text-white drop-shadow-sm" />
+                    {/* Subtle inner gloss */}
+                    <span className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-b from-white/25 to-transparent" aria-hidden />
+                  </div>
+                  {!appsPaneCollapsed && (
+                    <div className="min-w-0 text-left leading-tight">
+                      <div
+                        className={cn(
+                          "text-[13px] font-semibold tracking-tight truncate transition-colors",
+                          isActive
+                            ? "text-slate-900 dark:text-white"
+                            : "text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white",
+                        )}
+                      >
+                        {label}
+                      </div>
+                      <div className="text-[10.5px] text-slate-500 dark:text-slate-400 font-medium line-clamp-1">
+                        {desc}
+                      </div>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+        </nav>
+
+        {/* Footer — user avatar / account menu */}
+        <div
+          className={cn(
+            "mt-auto px-2 pb-3 pt-2",
+            "border-t border-slate-100 dark:border-slate-800/70",
+          )}
+        >
+          <UserAvatarMenu
+            variant={appsPaneCollapsed ? "icon" : "row"}
+            align="start"
+            side="right"
+            className={appsPaneCollapsed ? "mx-auto" : ""}
+          />
+        </div>
+      </aside>
     </div>
   );
 }
