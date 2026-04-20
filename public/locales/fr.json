@@ -28,6 +28,8 @@
   "app.settings.desc": "Configurer le système",
   "app.tasks": "Tâches",
   "app.tasks.desc": "Créer et gérer des tâches",
+  "app.scheduling": "Planning du personnel",
+  "app.scheduling.desc": "Construire le planning hebdomadaire et assigner les services",
   "app.shift_reviews": "Revues de Service",
   "app.shift_reviews.desc": "Voir et filtrer les retours de service du personnel",
   "app.locations_overview": "Vue d'ensemble des sites",

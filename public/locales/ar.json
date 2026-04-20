@@ -26,6 +26,8 @@
   "app.settings.desc": "تهيئة النظام",
   "app.tasks": "المهام",
   "app.tasks.desc": "إنشاء وإدارة المهام",
+  "app.scheduling": "جدولة الموظفين",
+  "app.scheduling.desc": "إعداد الجدول الأسبوعي وتعيين الورديات",
   "app.shift_reviews": "مراجعات الورديات",
   "app.shift_reviews.desc": "عرض وتصفية ملاحظات ورديات الموظفين",
   "app.locations_overview": "نظرة عامة على الفروع",
