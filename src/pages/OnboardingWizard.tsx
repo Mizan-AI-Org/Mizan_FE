@@ -47,7 +47,7 @@ const STEP_META: Record<
         description:
             'Give the scheduler a starting shape so Miya can auto-generate next week in one click.',
         icon: ClipboardList,
-        deepLink: '/schedule-management',
+        deepLink: '/dashboard/scheduling',
     },
     checklist: {
         title: 'Publish an opening checklist',

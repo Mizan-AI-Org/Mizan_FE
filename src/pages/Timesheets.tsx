@@ -218,7 +218,13 @@ const Timesheets: React.FC = () => {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` },
       });
       if (!response.ok) return [];
-      return response.json();
+      const body = await response.json();
+      // /api/users/ is a DRF ModelViewSet — paginated callers get
+      // { count, next, previous, results: [...] } while unpaginated
+      // ones get a bare array. Handle both.
+      if (Array.isArray(body)) return body;
+      if (body && Array.isArray(body.results)) return body.results;
+      return [];
     },
   });
 
