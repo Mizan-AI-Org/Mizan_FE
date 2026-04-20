@@ -59,9 +59,6 @@ const AdvancedSettings = React.lazy(() => import("./pages/Settings"));
 const RolePermissionsPage = React.lazy(() => import("./pages/settings/RolePermissionsPage"));
 const StaffManagement = React.lazy(() => import("./pages/StaffManagement"));
 const StaffRequestsPage = React.lazy(() => import("./pages/StaffRequestsPage"));
-const ScheduleManagement = React.lazy(
-  () => import("./pages/ScheduleManagement")
-);
 const WeeklyScheduleView = React.lazy(
   () => import("./pages/WeeklyScheduleView")
 );
@@ -578,14 +575,6 @@ const App = () => {
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
                       <StaffRequestsPage />
-                    </RoleBasedRoute>
-                  }
-                />
-                <Route
-                  path="schedule-management"
-                  element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
-                      <ScheduleManagement />
                     </RoleBasedRoute>
                   }
                 />

@@ -131,7 +131,7 @@ const apps: AppItem[] = [
   },
   {
     name: "STAFF SCHEDULING",
-    href: "/schedule-management",
+    href: "/dashboard/scheduling",
     icon: FileText,
     gradient: "bg-emerald-500",
     description: "Build the weekly schedule and assign shifts",
