@@ -23,6 +23,10 @@ import {
   Banknote,
   Receipt,
   Sparkles,
+  CalendarClock,
+  PackagePlus,
+  Users,
+  Info,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { useLanguage } from "../hooks/use-language";
@@ -74,7 +78,7 @@ export default function SalesAndPrepPage() {
     toast.success("Prep list regenerated");
   };
 
-  const prepItems = (prepList?.ingredient_prep_list ?? prepList?.forecast_portions ?? []) as {
+  type PrepRow = {
     ingredient?: string;
     menu_item?: string;
     needed?: number;
@@ -82,7 +86,74 @@ export default function SalesAndPrepPage() {
     unit?: string;
     in_stock?: number;
     gap?: number;
-  }[];
+    pack_size?: number | null;
+    min_order_qty?: number | null;
+    shelf_life_days?: number | null;
+    cost_per_unit?: number;
+    inventory_item_id?: string | null;
+    supplier_id?: string | null;
+    supplier_name?: string | null;
+    lead_time_days?: number | null;
+    order_by?: string;
+    suggested_order_qty?: number;
+    suggested_order_cost?: number;
+  };
+  const prepItems = (prepList?.ingredient_prep_list ?? prepList?.forecast_portions ?? []) as PrepRow[];
+
+  const shortageRows = prepItems.filter((i) => (i.gap ?? 0) > 0 && i.supplier_id && i.inventory_item_id);
+  const canAutoPO = shortageRows.length > 0;
+  const coversMult = prepList?.covers_multiplier ?? 1;
+  const coversNote = prepList?.baseline_covers && prepList?.expected_covers
+    ? `${prepList.expected_covers} covers expected vs ${prepList.baseline_covers} baseline`
+    : null;
+  const [autoPOLoading, setAutoPOLoading] = useState(false);
+
+  const handleAutoPO = async () => {
+    if (!accessToken || !canAutoPO) return;
+    setAutoPOLoading(true);
+    try {
+      const params = useDateRange
+        ? { startDate: prepStartDate, endDate: prepEndDate }
+        : { date: prepStartDate };
+      const result = await api.autoDraftPurchaseOrders(accessToken, params);
+      const createdCount = result.created_orders.length;
+      const skippedCount = result.skipped.length;
+      if (createdCount > 0) {
+        toast.success(
+          `Drafted ${createdCount} purchase order(s)${skippedCount ? ` · ${skippedCount} skipped` : ""}`,
+          {
+            action: {
+              label: t("common.view") || "View",
+              onClick: () => navigate("/dashboard/inventory/purchase-orders"),
+            },
+          },
+        );
+      } else if (skippedCount > 0) {
+        toast.warning(
+          t("dashboard.prep.auto_po_skipped") ||
+            `${skippedCount} ingredient(s) skipped. Link them to a supplier in Inventory → Items to include them.`,
+        );
+      } else {
+        toast.info(result.message || t("dashboard.prep.auto_po_none") || "No shortages to draft.");
+      }
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["pos-prep-list"] });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`${t("dashboard.prep.auto_po_failed") || "Couldn't draft purchase orders"}: ${msg}`);
+    } finally {
+      setAutoPOLoading(false);
+    }
+  };
+
+  const formatDate = (iso?: string) => {
+    if (!iso) return "—";
+    try {
+      return format(new Date(iso), "MMM d");
+    } catch {
+      return iso;
+    }
+  };
 
   const handleExportPrep = async (format: "pdf" | "excel") => {
     if (!prepItems.length) return;
@@ -398,15 +469,57 @@ export default function SalesAndPrepPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {(coversMult !== 1 || prepList?.forecast_algo) && (
+                    <div className="flex flex-wrap gap-2 text-[11px]">
+                      {prepList?.forecast_algo && (
+                        <Badge variant="outline" className="border-slate-200 dark:border-slate-700 font-normal">
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          {t("dashboard.prep.ewma_label") || "EWMA forecast"} · {prepList.buffer_mode || "dynamic"} buffer
+                        </Badge>
+                      )}
+                      {coversMult !== 1 && (
+                        <Badge
+                          variant="outline"
+                          className={`font-normal ${coversMult > 1 ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400" : "border-slate-200 text-slate-600 dark:text-slate-400"}`}
+                        >
+                          <Users className="w-3 h-3 mr-1" />
+                          {coversMult > 1 ? "+" : ""}{Math.round((coversMult - 1) * 100)}% {t("dashboard.prep.covers_label") || "EatNow covers"}
+                          {coversNote ? ` · ${coversNote}` : ""}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                   <div className="max-h-48 overflow-y-auto space-y-2">
-                    {prepItems.slice(0, 10).map((item, i) => (
-                      <div key={i} className="flex justify-between text-sm py-1 border-b border-slate-50 dark:border-slate-800/50 last:border-0">
-                        <span className="font-medium text-slate-900 dark:text-white truncate pr-2">{item.ingredient ?? item.menu_item ?? "—"}</span>
-                        <span className={`shrink-0 font-medium ${(item as { gap?: number }).gap > 0 ? "text-amber-600" : "text-slate-600 dark:text-slate-400"}`}>
-                          {item.needed ?? item.forecast_portions ?? 0} {item.unit ?? "portions"}
-                        </span>
-                      </div>
-                    ))}
+                    {prepItems.slice(0, 10).map((item, i) => {
+                      const gap = item.gap ?? 0;
+                      return (
+                        <div key={i} className="flex flex-col gap-0.5 py-1 border-b border-slate-50 dark:border-slate-800/50 last:border-0">
+                          <div className="flex justify-between text-sm">
+                            <span className="font-medium text-slate-900 dark:text-white truncate pr-2">
+                              {item.ingredient ?? item.menu_item ?? "—"}
+                            </span>
+                            <span className={`shrink-0 font-medium ${gap > 0 ? "text-amber-600" : "text-slate-600 dark:text-slate-400"}`}>
+                              {item.needed ?? item.forecast_portions ?? 0} {item.unit ?? "portions"}
+                            </span>
+                          </div>
+                          {(gap > 0 && (item.suggested_order_qty || item.order_by || item.supplier_name)) && (
+                            <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                              <span>
+                                {item.supplier_name
+                                  ? `${item.supplier_name}${item.lead_time_days ? ` · ${item.lead_time_days}d lead` : ""}`
+                                  : t("dashboard.prep.no_supplier") || "No supplier linked"}
+                              </span>
+                              <span>
+                                {item.suggested_order_qty
+                                  ? `${t("dashboard.prep.order_short") || "order"} ${item.suggested_order_qty}${item.unit ?? ""}`
+                                  : ""}
+                                {item.order_by ? ` · by ${formatDate(item.order_by)}` : ""}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                   {(prepList?.shortages?.length ?? 0) > 0 && (
                     <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">⚠ {prepList!.shortages!.length} {t("dashboard.prep.shortages") || "items may need reordering"}</p>
@@ -440,6 +553,20 @@ export default function SalesAndPrepPage() {
                     <Button variant="outline" size="sm" onClick={() => setPrepListModalOpen(true)}>
                       {t("dashboard.prep.view_full_list") || "View full list"} ({prepItems.length})
                     </Button>
+                    <Button
+                      size="sm"
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                      disabled={!canAutoPO || autoPOLoading}
+                      onClick={handleAutoPO}
+                    >
+                      {autoPOLoading ? (
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <PackagePlus className="w-4 h-4 mr-2" />
+                      )}
+                      {t("dashboard.prep.generate_pos") || "Draft Purchase Orders"}
+                      {canAutoPO ? ` (${shortageRows.length})` : ""}
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => handleExportPrep("excel")} disabled={!!exportingPrep}>
                       Excel
                     </Button>
@@ -450,6 +577,12 @@ export default function SalesAndPrepPage() {
                       {t("dashboard.prep.view_inventory") || "View inventory"}
                     </Button>
                   </div>
+                  {!canAutoPO && shortageRows.length === 0 && (prepList?.shortages?.length ?? 0) > 0 && (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      <Info className="w-3 h-3" />
+                      {t("dashboard.prep.link_supplier_hint") || "Link each short ingredient to a supplier in Inventory → Items to enable auto-drafting."}
+                    </p>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -459,11 +592,26 @@ export default function SalesAndPrepPage() {
 
       {/* Full Prep List Modal */}
       <Dialog open={prepListModalOpen} onOpenChange={setPrepListModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>Prep List — {prepList?.target_end_date ? `${prepList?.target_date} – ${prepList.target_end_date}` : (prepList?.target_date || prepStartDate)} ({prepList?.day_of_week})</span>
-              <div className="flex gap-2">
+            <DialogTitle className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                Prep List — {prepList?.target_end_date ? `${prepList?.target_date} – ${prepList.target_end_date}` : (prepList?.target_date || prepStartDate)} ({prepList?.day_of_week})
+              </span>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                  onClick={handleAutoPO}
+                  disabled={!canAutoPO || autoPOLoading}
+                >
+                  {autoPOLoading ? (
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <PackagePlus className="w-4 h-4 mr-2" />
+                  )}
+                  {t("dashboard.prep.generate_pos") || "Draft Purchase Orders"}
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => handleExportPrep("excel")} disabled={!!exportingPrep}>
                   {exportingPrep === "excel" ? "Exporting…" : "Excel"}
                 </Button>
@@ -478,24 +626,68 @@ export default function SalesAndPrepPage() {
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-700">
                   <th className="text-left py-3 font-medium text-slate-700 dark:text-slate-300">Item</th>
-                  <th className="text-right py-3 font-medium text-slate-700 dark:text-slate-300">Qty</th>
-                  <th className="text-right py-3 font-medium text-slate-700 dark:text-slate-300">Unit</th>
-                  <th className="text-right py-3 font-medium text-slate-700 dark:text-slate-300">In Stock</th>
+                  <th className="text-right py-3 font-medium text-slate-700 dark:text-slate-300">Need</th>
+                  <th className="text-right py-3 font-medium text-slate-700 dark:text-slate-300">Stock</th>
                   <th className="text-right py-3 font-medium text-slate-700 dark:text-slate-300">Short</th>
+                  <th className="text-right py-3 font-medium text-slate-700 dark:text-slate-300">Order</th>
+                  <th className="text-left py-3 font-medium text-slate-700 dark:text-slate-300">Supplier</th>
+                  <th className="text-right py-3 font-medium text-slate-700 dark:text-slate-300">Order by</th>
                 </tr>
               </thead>
               <tbody>
-                {prepItems.map((item, i) => (
-                  <tr key={i} className="border-b border-slate-100 dark:border-slate-800/50">
-                    <td className="py-2 font-medium text-slate-900 dark:text-white">{item.ingredient ?? item.menu_item ?? "—"}</td>
-                    <td className="py-2 text-right">{item.needed ?? item.forecast_portions ?? 0}</td>
-                    <td className="py-2 text-right text-slate-500">{item.unit ?? "portions"}</td>
-                    <td className="py-2 text-right">{item.in_stock != null ? item.in_stock : "—"}</td>
-                    <td className={`py-2 text-right font-medium ${(item as { gap?: number }).gap > 0 ? "text-amber-600" : "text-slate-400"}`}>
-                      {(item as { gap?: number }).gap != null && (item as { gap?: number }).gap! > 0 ? (item as { gap?: number }).gap : "—"}
-                    </td>
-                  </tr>
-                ))}
+                {prepItems.map((item, i) => {
+                  const gap = item.gap ?? 0;
+                  return (
+                    <tr key={i} className="border-b border-slate-100 dark:border-slate-800/50">
+                      <td className="py-2 font-medium text-slate-900 dark:text-white">
+                        {item.ingredient ?? item.menu_item ?? "—"}
+                        {item.shelf_life_days != null && (
+                          <span className="ml-1 text-[10px] text-slate-500">· {item.shelf_life_days}d shelf</span>
+                        )}
+                      </td>
+                      <td className="py-2 text-right">
+                        {item.needed ?? item.forecast_portions ?? 0}
+                        <span className="text-slate-400"> {item.unit ?? "portions"}</span>
+                      </td>
+                      <td className="py-2 text-right text-slate-600 dark:text-slate-400">
+                        {item.in_stock != null ? item.in_stock : "—"}
+                      </td>
+                      <td className={`py-2 text-right font-medium ${gap > 0 ? "text-amber-600" : "text-slate-400"}`}>
+                        {gap > 0 ? gap : "—"}
+                      </td>
+                      <td className="py-2 text-right">
+                        {item.suggested_order_qty ? (
+                          <span className="font-semibold text-slate-900 dark:text-white">
+                            {item.suggested_order_qty} <span className="font-normal text-slate-400">{item.unit ?? ""}</span>
+                            {item.pack_size ? (
+                              <span className="block text-[10px] text-slate-500">
+                                {Math.round(item.suggested_order_qty / item.pack_size)} × pack {item.pack_size}
+                              </span>
+                            ) : null}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="py-2 text-left text-slate-600 dark:text-slate-400">
+                        {item.supplier_name || (gap > 0 ? <span className="text-amber-600">no supplier</span> : "—")}
+                        {item.lead_time_days != null && item.supplier_name && (
+                          <span className="block text-[10px] text-slate-500">{item.lead_time_days}d lead</span>
+                        )}
+                      </td>
+                      <td className="py-2 text-right text-slate-600 dark:text-slate-400">
+                        {item.order_by ? (
+                          <span className="inline-flex items-center gap-1">
+                            <CalendarClock className="w-3 h-3 text-slate-400" />
+                            {formatDate(item.order_by)}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

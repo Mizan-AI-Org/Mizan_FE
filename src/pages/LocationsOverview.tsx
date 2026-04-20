@@ -37,7 +37,7 @@ import {
  * param filter themselves, pages that don't are simply unchanged.
  */
 export default function LocationsOverview() {
-  const { data, isLoading, isError, refetch, isFetching } =
+  const { data, isLoading, isError, error, refetch, isFetching } =
     useLocationsPortfolio();
   const navigate = useNavigate();
 
@@ -90,9 +90,18 @@ export default function LocationsOverview() {
 
       {isError && !isLoading && (
         <Card>
-          <CardContent className="flex items-center gap-3 p-4 text-sm text-red-600">
-            <AlertTriangle className="h-4 w-4" />
-            Couldn't load portfolio data. Try refreshing.
+          <CardContent className="flex items-start gap-3 p-4 text-sm text-red-600">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="space-y-1">
+              <div className="font-medium">
+                Couldn't load portfolio data. Try refreshing.
+              </div>
+              {error instanceof Error && error.message && (
+                <div className="text-xs text-red-600/80 break-words">
+                  {error.message}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}

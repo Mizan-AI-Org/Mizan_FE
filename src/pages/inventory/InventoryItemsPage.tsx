@@ -63,6 +63,9 @@ export default function InventoryItemsPage() {
         cost_per_unit: 0,
         supplier: undefined,
         last_restock_date: undefined,
+        pack_size: null,
+        min_order_qty: null,
+        shelf_life_days: null,
     });
 
     const { data: inventoryItems, isLoading, isError, error } = useQuery<InventoryItem[]>({
@@ -93,6 +96,9 @@ export default function InventoryItemsPage() {
                 cost_per_unit: 0,
                 supplier: undefined,
                 last_restock_date: undefined,
+                pack_size: null,
+                min_order_qty: null,
+                shelf_life_days: null,
             });
         },
         onError: (err) => {
@@ -329,6 +335,51 @@ export default function InventoryItemsPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label htmlFor="pack_size" className="text-right pt-2">Pack size</Label>
+                                <div className="col-span-3 space-y-1">
+                                    <Input
+                                        id="pack_size"
+                                        type="number"
+                                        step="0.001"
+                                        min="0"
+                                        value={newItem.pack_size ?? ""}
+                                        onChange={(e) => setNewItem({ ...newItem, pack_size: e.target.value === "" ? null : parseFloat(e.target.value) })}
+                                        placeholder="e.g. 12 (units / case)"
+                                    />
+                                    <p className="text-[11px] text-muted-foreground">Units per case. Leave blank if you buy loose.</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label htmlFor="min_order_qty" className="text-right pt-2">Min order qty</Label>
+                                <div className="col-span-3 space-y-1">
+                                    <Input
+                                        id="min_order_qty"
+                                        type="number"
+                                        step="0.001"
+                                        min="0"
+                                        value={newItem.min_order_qty ?? ""}
+                                        onChange={(e) => setNewItem({ ...newItem, min_order_qty: e.target.value === "" ? null : parseFloat(e.target.value) })}
+                                        placeholder="Supplier minimum"
+                                    />
+                                    <p className="text-[11px] text-muted-foreground">Enforced when auto-drafting POs.</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label htmlFor="shelf_life_days" className="text-right pt-2">Shelf life (days)</Label>
+                                <div className="col-span-3 space-y-1">
+                                    <Input
+                                        id="shelf_life_days"
+                                        type="number"
+                                        step="1"
+                                        min="0"
+                                        value={newItem.shelf_life_days ?? ""}
+                                        onChange={(e) => setNewItem({ ...newItem, shelf_life_days: e.target.value === "" ? null : parseInt(e.target.value, 10) })}
+                                        placeholder="Perishable = 1–2"
+                                    />
+                                    <p className="text-[11px] text-muted-foreground">Leave blank for dry goods.</p>
+                                </div>
+                            </div>
                         </div>
                         <DialogFooter>
                             <Button type="submit" disabled={createMutation.isPending}>
@@ -391,6 +442,51 @@ export default function InventoryItemsPage() {
                                             ))}
                                         </SelectContent>
                                     </Select>
+                                </div>
+                                <div className="grid grid-cols-4 items-start gap-4">
+                                    <Label htmlFor="edit-pack_size" className="text-right pt-2">Pack size</Label>
+                                    <div className="col-span-3 space-y-1">
+                                        <Input
+                                            id="edit-pack_size"
+                                            type="number"
+                                            step="0.001"
+                                            min="0"
+                                            value={selectedItem.pack_size ?? ""}
+                                            onChange={(e) => setSelectedItem({ ...selectedItem, pack_size: e.target.value === "" ? null : parseFloat(e.target.value) })}
+                                            placeholder="e.g. 12 (units / case)"
+                                        />
+                                        <p className="text-[11px] text-muted-foreground">Units per case. Leave blank if you buy loose.</p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-4 items-start gap-4">
+                                    <Label htmlFor="edit-min_order_qty" className="text-right pt-2">Min order qty</Label>
+                                    <div className="col-span-3 space-y-1">
+                                        <Input
+                                            id="edit-min_order_qty"
+                                            type="number"
+                                            step="0.001"
+                                            min="0"
+                                            value={selectedItem.min_order_qty ?? ""}
+                                            onChange={(e) => setSelectedItem({ ...selectedItem, min_order_qty: e.target.value === "" ? null : parseFloat(e.target.value) })}
+                                            placeholder="Supplier minimum"
+                                        />
+                                        <p className="text-[11px] text-muted-foreground">Enforced when auto-drafting POs.</p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-4 items-start gap-4">
+                                    <Label htmlFor="edit-shelf_life_days" className="text-right pt-2">Shelf life (days)</Label>
+                                    <div className="col-span-3 space-y-1">
+                                        <Input
+                                            id="edit-shelf_life_days"
+                                            type="number"
+                                            step="1"
+                                            min="0"
+                                            value={selectedItem.shelf_life_days ?? ""}
+                                            onChange={(e) => setSelectedItem({ ...selectedItem, shelf_life_days: e.target.value === "" ? null : parseInt(e.target.value, 10) })}
+                                            placeholder="Perishable = 1–2"
+                                        />
+                                        <p className="text-[11px] text-muted-foreground">Leave blank for dry goods.</p>
+                                    </div>
                                 </div>
                             </div>
                             <DialogFooter>
