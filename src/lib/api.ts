@@ -2199,9 +2199,31 @@ export class BackendService {
     target_date?: string;
     target_end_date?: string;
     day_of_week?: string;
-    forecast_portions?: { menu_item: string; forecast_portions: number }[];
-    ingredient_prep_list?: { ingredient: string; needed: number; unit: string; in_stock?: number; gap?: number }[];
+    forecast_portions?: { menu_item: string; forecast_portions: number; baseline_mean?: number; buffer?: number; samples?: number }[];
+    ingredient_prep_list?: {
+      ingredient: string;
+      needed: number;
+      unit: string;
+      in_stock?: number;
+      gap?: number;
+      pack_size?: number | null;
+      min_order_qty?: number | null;
+      shelf_life_days?: number | null;
+      cost_per_unit?: number;
+      inventory_item_id?: string | null;
+      supplier_id?: string | null;
+      supplier_name?: string | null;
+      lead_time_days?: number | null;
+      order_by?: string;
+      suggested_order_qty?: number;
+      suggested_order_cost?: number;
+    }[];
     shortages?: string[];
+    covers_multiplier?: number;
+    expected_covers?: number;
+    baseline_covers?: number;
+    forecast_algo?: string;
+    buffer_mode?: string;
     message_for_user?: string;
     miya_recommendation?: { title: string; body: string; action_label?: string };
   }> {
@@ -2222,6 +2244,52 @@ export class BackendService {
       throw new Error(err.error || err.message || "Failed to fetch prep list");
     }
     return response.json();
+  }
+
+  /** Auto-draft purchase orders from the current prep-list shortages. */
+  async autoDraftPurchaseOrders(
+    accessToken: string,
+    params?: { date?: string; startDate?: string; endDate?: string },
+  ): Promise<{
+    success: boolean;
+    message?: string;
+    created_orders: Array<{
+      id: string;
+      supplier_id: string;
+      supplier_name: string;
+      expected_delivery_date?: string | null;
+      total_amount: number;
+      currency: string;
+      items: Array<{
+        inventory_item_id: string;
+        ingredient: string;
+        quantity: number;
+        unit: string;
+        unit_price: number;
+        line_total: number;
+      }>;
+    }>;
+    skipped: Array<{ ingredient?: string; reason: string; needed?: number; unit?: string }>;
+    target_date?: string;
+    target_end_date?: string;
+  }> {
+    const body: Record<string, string> = {};
+    if (params?.startDate && params?.endDate) {
+      body.start_date = params.startDate;
+      body.end_date = params.endDate;
+    } else if (params?.date) {
+      body.date = params.date;
+    }
+    const response = await fetch(`${API_BASE}/pos/prep-list/auto-po/`, {
+      method: "POST",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify(body),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || data.error || "Failed to draft purchase orders");
+    }
+    return data;
   }
 
   /** Eat Now / Eat App Concierge reservations (backend proxies API). */

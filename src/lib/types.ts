@@ -168,10 +168,15 @@ export interface InventoryItem {
     unit: string;
     current_stock: number;
     min_stock_level: number;
+    reorder_level?: number | null;
     cost_per_unit: number;
     supplier?: string; // Supplier ID
     supplier_info?: Supplier;
     last_restock_date?: string;
+    // Prep-planning / purchasing hints (Phase 1).
+    pack_size?: number | null;
+    min_order_qty?: number | null;
+    shelf_life_days?: number | null;
     created_at: string;
     updated_at: string;
 }
@@ -184,6 +189,7 @@ export interface Supplier {
     email?: string;
     phone?: string;
     address?: string;
+    lead_time_days?: number;
     created_at: string;
     updated_at: string;
 }

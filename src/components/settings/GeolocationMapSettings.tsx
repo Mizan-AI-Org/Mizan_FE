@@ -273,49 +273,121 @@ export default function GeolocationMapSettings({
   }, [addressInput]);
 
   const getCurrentLocation = useCallback(() => {
-    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
-      toast.error("Geolocation is not supported by your browser.");
-      return;
-    }
     setIsGettingLocation(true);
 
-    const setLocation = (lat: number, lng: number, accuracy: number | null, message: string, isInfo = false) => {
-      setLat(lat);
-      setLng(lng);
-      setLatInput(lat.toString());
-      setLngInput(lng.toString());
+    const setLocation = (
+      nextLat: number,
+      nextLng: number,
+      accuracy: number | null,
+      message: string,
+      level: "success" | "info" = "success"
+    ) => {
+      setLat(nextLat);
+      setLng(nextLng);
+      setLatInput(nextLat.toString());
+      setLngInput(nextLng.toString());
       setIsGettingLocation(false);
       const accuracyText = accuracy ? ` (±${Math.round(accuracy)}m)` : "";
-      if (isInfo) {
+      if (level === "info") {
         toast.info(message + accuracyText);
       } else {
         toast.success(message + accuracyText);
       }
     };
 
+    // Chain of IP-based geolocation providers. We try each one in order and
+    // return as soon as any of them yields a valid lat/lng. This keeps the
+    // "Get My Location" flow resilient even when the browser geolocation API
+    // is unavailable (denied permission, insecure context, network error, ...).
+    const ipProviders: Array<{
+      url: string;
+      pick: (data: Record<string, unknown>) => { lat: number; lng: number } | null;
+    }> = [
+      {
+        url: "https://ipwho.is/",
+        pick: (d) => {
+          const lat = Number((d as { latitude?: unknown }).latitude);
+          const lng = Number((d as { longitude?: unknown }).longitude);
+          return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+        },
+      },
+      {
+        url: "https://ipapi.co/json/",
+        pick: (d) => {
+          const lat = Number((d as { latitude?: unknown }).latitude);
+          const lng = Number((d as { longitude?: unknown }).longitude);
+          return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+        },
+      },
+      {
+        url: "https://get.geojs.io/v1/ip/geo.json",
+        pick: (d) => {
+          const lat = Number((d as { latitude?: unknown }).latitude);
+          const lng = Number((d as { longitude?: unknown }).longitude);
+          return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+        },
+      },
+      {
+        url: "https://freeipapi.com/api/json",
+        pick: (d) => {
+          const lat = Number((d as { latitude?: unknown }).latitude);
+          const lng = Number((d as { longitude?: unknown }).longitude);
+          return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+        },
+      },
+    ];
+
     const tryIpFallback = async () => {
-      try {
-        const resp = await fetch("https://ipwho.is/", { mode: "cors", cache: "no-store" });
-        if (resp.ok) {
+      for (const provider of ipProviders) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000);
+          const resp = await fetch(provider.url, {
+            mode: "cors",
+            cache: "no-store",
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          if (!resp.ok) continue;
           const data = await resp.json();
-          const ipLat = Number(data?.latitude);
-          const ipLng = Number(data?.longitude);
-          if (Number.isFinite(ipLat) && Number.isFinite(ipLng)) {
-            setLocation(ipLat, ipLng, null, "Approximate location via IP. Please verify before saving.", true);
+          const coords = provider.pick(data as Record<string, unknown>);
+          if (coords) {
+            setLocation(
+              coords.lat,
+              coords.lng,
+              null,
+              "Approximate location via IP. Please verify before saving.",
+              "info"
+            );
             return;
           }
+        } catch (error) {
+          console.debug("IP geolocation provider failed", provider.url, error);
         }
-      } catch (error) {
-        console.debug("IP geolocation fallback failed", error);
       }
+      // Last-resort: keep whatever coordinates the user already has and
+      // surface an informational (non-error) toast so the flow never ends
+      // in a red error state. The user can still pan the map, search by
+      // address, or enter coordinates manually.
       setIsGettingLocation(false);
-      toast.error("Failed to get current location. Please enter manually.");
+      toast.info(
+        "Couldn't auto-detect your location. Drag the map pin, search by address, or enter coordinates manually."
+      );
     };
 
     const tryLowAccuracy = () => {
+      if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+        tryIpFallback();
+        return;
+      }
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, "Location detected (low accuracy).");
+          setLocation(
+            pos.coords.latitude,
+            pos.coords.longitude,
+            pos.coords.accuracy,
+            "Location detected (low accuracy)."
+          );
         },
         () => {
           tryIpFallback();
@@ -324,23 +396,31 @@ export default function GeolocationMapSettings({
       );
     };
 
-    // Use watchPosition to collect multiple readings and pick the best one
+    // Use watchPosition to collect multiple readings and pick the best one.
     const tryHighAccuracyWatch = () => {
+      if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+        tryIpFallback();
+        return;
+      }
+
       let bestPosition: GeolocationPosition | null = null;
       let cleared = false;
 
       const watchId = navigator.geolocation.watchPosition(
         (pos) => {
           if (cleared) return;
-          // Keep the most accurate reading
           if (!bestPosition || pos.coords.accuracy < bestPosition.coords.accuracy) {
             bestPosition = pos;
           }
-          // If we get a very accurate reading (< 50m), use it immediately
           if (pos.coords.accuracy < 50) {
             cleared = true;
             navigator.geolocation.clearWatch(watchId);
-            setLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, "Location detected successfully.");
+            setLocation(
+              pos.coords.latitude,
+              pos.coords.longitude,
+              pos.coords.accuracy,
+              "Location detected successfully."
+            );
           }
         },
         () => {
@@ -348,7 +428,12 @@ export default function GeolocationMapSettings({
           cleared = true;
           navigator.geolocation.clearWatch(watchId);
           if (bestPosition) {
-            setLocation(bestPosition.coords.latitude, bestPosition.coords.longitude, bestPosition.coords.accuracy, "Location detected.");
+            setLocation(
+              bestPosition.coords.latitude,
+              bestPosition.coords.longitude,
+              bestPosition.coords.accuracy,
+              "Location detected."
+            );
           } else {
             tryLowAccuracy();
           }
@@ -356,20 +441,23 @@ export default function GeolocationMapSettings({
         { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
       );
 
-      // After 10 seconds, use the best position we have
       setTimeout(() => {
         if (cleared) return;
         cleared = true;
         navigator.geolocation.clearWatch(watchId);
         if (bestPosition) {
-          setLocation(bestPosition.coords.latitude, bestPosition.coords.longitude, bestPosition.coords.accuracy, "Best available location detected.");
+          setLocation(
+            bestPosition.coords.latitude,
+            bestPosition.coords.longitude,
+            bestPosition.coords.accuracy,
+            "Best available location detected."
+          );
         } else {
           tryLowAccuracy();
         }
       }, 10000);
     };
 
-    // Start with watchPosition to collect the best reading
     tryHighAccuracyWatch();
   }, []);
 

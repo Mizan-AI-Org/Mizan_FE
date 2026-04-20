@@ -64,8 +64,23 @@ export function useLocationsPortfolio() {
         credentials: "include",
       });
       if (!res.ok) {
+        // Preserve the backend's human-readable reason (permissions, missing
+        // workspace, server error…) so the UI can show something actionable
+        // instead of a generic "Couldn't load portfolio data".
+        let detail = "";
+        try {
+          const body = await res.json();
+          detail =
+            body?.error || body?.detail || body?.message || JSON.stringify(body);
+        } catch {
+          try {
+            detail = await res.text();
+          } catch {
+            detail = "";
+          }
+        }
         throw new Error(
-          `Failed to load portfolio summary (HTTP ${res.status})`
+          detail || `Failed to load portfolio summary (HTTP ${res.status})`
         );
       }
       return (await res.json()) as PortfolioSummary;

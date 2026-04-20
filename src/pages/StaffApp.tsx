@@ -89,6 +89,7 @@ import StaffRequestsTab from "@/components/staff/StaffRequestsTab";
 import DeleteStaffConfirmation from "@/components/staff/DeleteStaffConfirmation";
 import DeactivateStaffConfirmation from "@/components/staff/DeactivateStaffConfirmation";
 import { splitInviteRoleSelection, useBusinessVertical } from "@/hooks/use-business-vertical";
+import { useBusinessLocations } from "@/hooks/use-business-locations";
 import {
   defaultRoleForVertical,
   getStaffInviteRoleGroups,
@@ -1839,6 +1840,10 @@ const TeamTab: React.FC = () => {
         const { data: staffSettings } = useBusinessVertical();
         const businessVertical = staffSettings?.businessVertical ?? "RESTAURANT";
         const customStaffRoles = staffSettings?.customStaffRoles ?? [];
+        const { data: tenantLocations = [] } = useBusinessLocations();
+        // Only show branch pickers when the tenant has more than one location;
+        // single-site tenants shouldn't see fields they don't care about.
+        const multiLocation = tenantLocations.length >= 2;
         const [inviteMethod, setInviteMethod] = useState<"email" | "whatsapp">("email");
         const [isBulkMode, setIsBulkMode] = useState(false);
         const [bulkData, setBulkData] = useState<BulkInviteRow[]>([]);
@@ -1850,11 +1855,28 @@ const TeamTab: React.FC = () => {
             role: "MANAGER",
             phone_number: "",
         });
+        const [primaryLocation, setPrimaryLocation] = useState<string>("");
+        const [allowedLocations, setAllowedLocations] = useState<string[]>([]);
+        const [managedLocations, setManagedLocations] = useState<string[]>([]);
 
         const inviteRoleGroups = useMemo(
             () => getStaffInviteRoleGroups(businessVertical as BusinessVertical),
             [businessVertical]
         );
+
+        const isManagerRole = formData.role === "MANAGER";
+
+        // Default the primary-location picker to the tenant's primary branch as
+        // soon as locations load, so the common case requires zero clicks.
+        useEffect(() => {
+            if (!primaryLocation && tenantLocations.length > 0) {
+                const def = tenantLocations.find((l) => l.is_primary) || tenantLocations[0];
+                setPrimaryLocation(def.id);
+            }
+        }, [tenantLocations, primaryLocation]);
+
+        const toggleInArray = (arr: string[], id: string) =>
+            arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
 
         useEffect(() => {
             setFormData((fd) => {
@@ -1995,7 +2017,14 @@ const TeamTab: React.FC = () => {
                                 "Content-Type": "application/json",
                                 Authorization: `Bearer ${token}`,
                             },
-                            body: JSON.stringify({ staff_list: staffList }),
+                            body: JSON.stringify({
+                                staff_list: staffList,
+                                // Tag every row in this upload with the chosen
+                                // branch so the backend can assign it on activation.
+                                ...(multiLocation && primaryLocation
+                                    ? { primary_location: primaryLocation }
+                                    : {}),
+                            }),
                         });
                         const data = await response.json().catch(() => ({}));
                         if (!response.ok)
@@ -2023,6 +2052,12 @@ const TeamTab: React.FC = () => {
                         body: JSON.stringify({
                             staff_list: bulkData,
                             invitation_method: inviteMethod,
+                            // Assign every invited row to the chosen branch by
+                            // default. Per-row overrides can still come from
+                            // the CSV if a 'primary_location' column is added.
+                            ...(multiLocation && primaryLocation
+                                ? { primary_location: primaryLocation }
+                                : {}),
                         }),
                     });
                     const data = await response.json().catch(() => ({}));
@@ -2067,6 +2102,18 @@ const TeamTab: React.FC = () => {
                             ? { custom_role_id: rolePayload.custom_role_id }
                             : {}),
                         send_whatsapp: inviteMethod === "whatsapp",
+                        // Multi-location assignments: only send when the tenant
+                        // actually has multiple branches so single-site tenants
+                        // aren't forced to think about it.
+                        ...(multiLocation && primaryLocation
+                            ? { primary_location: primaryLocation }
+                            : {}),
+                        ...(multiLocation && allowedLocations.length
+                            ? { allowed_locations: allowedLocations }
+                            : {}),
+                        ...(multiLocation && isManagerRole && managedLocations.length
+                            ? { managed_locations: managedLocations }
+                            : {}),
                     }),
                 });
                 if (!response.ok) {
@@ -2093,13 +2140,13 @@ const TeamTab: React.FC = () => {
                 open={isInviteModalOpen}
                 onOpenChange={(open) => setIsInviteModalOpen(open)}
             >
-                <DialogContent className="sm:max-w-3xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-                    <DialogHeader>
+                <DialogContent className="sm:max-w-3xl w-[calc(100vw-2rem)] max-h-[90vh] flex flex-col gap-0 p-0 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 overflow-hidden">
+                    <DialogHeader className="flex-none px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
                         <DialogTitle className="text-slate-900 dark:text-white">
                             {t("staff.invite.title")}
                         </DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-6 pt-4">
+                    <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
                         {/* Mode Selector */}
                         <div className="flex justify-center mb-2">
                             <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-full max-w-sm">
@@ -2221,6 +2268,182 @@ const TeamTab: React.FC = () => {
                                         ) : null}
                                     </select>
                                 </div>
+
+                                {multiLocation && (
+                                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm">
+                                        <div className="flex items-start gap-3 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-br from-emerald-50/60 to-transparent dark:from-emerald-900/10 px-4 py-3">
+                                            <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400">
+                                                <MapPin className="h-4 w-4" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                                    {t("staff.invite.branch_assignment")}
+                                                </p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                    {t("staff.invite.branch_assignment_desc")}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-5 px-4 py-4">
+                                            <div className="space-y-1.5">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
+                                                        {t("staff.invite.primary_location")}
+                                                    </Label>
+                                                </div>
+                                                <select
+                                                    value={primaryLocation}
+                                                    onChange={(e) => setPrimaryLocation(e.target.value)}
+                                                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
+                                                >
+                                                    {tenantLocations.map((loc) => (
+                                                        <option key={loc.id} value={loc.id}>
+                                                            {loc.name}
+                                                            {loc.is_primary ? " ★" : ""}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                                    {t("staff.invite.primary_location_hint")}
+                                                </p>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <Label className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
+                                                        {t("staff.invite.allowed_locations")}
+                                                    </Label>
+                                                    <div className="flex items-center gap-1 text-[11px]">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setAllowedLocations(tenantLocations.map((l) => l.id))
+                                                            }
+                                                            className="rounded-md px-2 py-0.5 font-medium text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                                                        >
+                                                            {t("staff.invite.select_all")}
+                                                        </button>
+                                                        <span className="text-slate-300 dark:text-slate-700">·</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setAllowedLocations([])}
+                                                            className="rounded-md px-2 py-0.5 font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                        >
+                                                            {t("staff.invite.clear_all")}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                                    {allowedLocations.length === 0
+                                                        ? t("staff.invite.allowed_locations_empty")
+                                                        : t("staff.invite.allowed_locations_hint")}
+                                                </p>
+                                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                                    {tenantLocations.map((loc) => {
+                                                        const id = `allow-${loc.id}`;
+                                                        const checked = allowedLocations.includes(loc.id);
+                                                        const isPrimary = loc.id === primaryLocation;
+                                                        return (
+                                                            <label
+                                                                key={loc.id}
+                                                                htmlFor={id}
+                                                                className={`group flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition ${
+                                                                    checked
+                                                                        ? "border-emerald-500/60 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-500/40"
+                                                                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:bg-slate-800"
+                                                                }`}
+                                                            >
+                                                                <input
+                                                                    id={id}
+                                                                    type="checkbox"
+                                                                    className="h-4 w-4 flex-none rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-700"
+                                                                    checked={checked}
+                                                                    onChange={() =>
+                                                                        setAllowedLocations((prev) => toggleInArray(prev, loc.id))
+                                                                    }
+                                                                />
+                                                                <span className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">
+                                                                    {loc.name}
+                                                                </span>
+                                                                {isPrimary ? (
+                                                                    <span className="flex-none rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                                                        ★
+                                                                    </span>
+                                                                ) : null}
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            {isManagerRole && (
+                                                <div className="space-y-2 rounded-lg border border-amber-200/70 bg-amber-50/50 p-3 dark:border-amber-800/40 dark:bg-amber-950/20">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <Label className="text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                                                            {t("staff.invite.managed_locations")}
+                                                        </Label>
+                                                        <div className="flex items-center gap-1 text-[11px]">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setManagedLocations(tenantLocations.map((l) => l.id))
+                                                                }
+                                                                className="rounded-md px-2 py-0.5 font-medium text-amber-700 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                                                            >
+                                                                {t("staff.invite.select_all")}
+                                                            </button>
+                                                            <span className="text-amber-300 dark:text-amber-700">·</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setManagedLocations([])}
+                                                                className="rounded-md px-2 py-0.5 font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                            >
+                                                                {t("staff.invite.clear_all")}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
+                                                        {managedLocations.length === 0
+                                                            ? t("staff.invite.managed_locations_empty")
+                                                            : t("staff.invite.managed_locations_hint")}
+                                                    </p>
+                                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                                        {tenantLocations.map((loc) => {
+                                                            const id = `manage-${loc.id}`;
+                                                            const checked = managedLocations.includes(loc.id);
+                                                            return (
+                                                                <label
+                                                                    key={loc.id}
+                                                                    htmlFor={id}
+                                                                    className={`group flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition ${
+                                                                        checked
+                                                                            ? "border-amber-500/60 bg-white dark:bg-amber-900/10 dark:border-amber-500/50"
+                                                                            : "border-amber-200/60 bg-white hover:border-amber-300 dark:border-amber-800/40 dark:bg-slate-800/40 dark:hover:bg-slate-800"
+                                                                    }`}
+                                                                >
+                                                                    <input
+                                                                        id={id}
+                                                                        type="checkbox"
+                                                                        className="h-4 w-4 flex-none rounded border-slate-300 text-amber-600 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700"
+                                                                        checked={checked}
+                                                                        onChange={() =>
+                                                                            setManagedLocations((prev) => toggleInArray(prev, loc.id))
+                                                                        }
+                                                                    />
+                                                                    <span className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">
+                                                                        {loc.name}
+                                                                        {loc.is_primary ? " ★" : ""}
+                                                                    </span>
+                                                                </label>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         ) : (
                             <div className="space-y-4">
@@ -2257,6 +2480,38 @@ const TeamTab: React.FC = () => {
                                     {t("staff.invite.download_template")}
                                 </button>
 
+                                {multiLocation && (
+                                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm">
+                                        <div className="flex items-start gap-3 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-br from-emerald-50/60 to-transparent dark:from-emerald-900/10 px-4 py-3">
+                                            <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400">
+                                                <MapPin className="h-4 w-4" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                                    {t("staff.invite.bulk_primary_location")}
+                                                </Label>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                    {t("staff.invite.bulk_primary_location_hint")}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="px-4 py-3">
+                                            <select
+                                                value={primaryLocation}
+                                                onChange={(e) => setPrimaryLocation(e.target.value)}
+                                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
+                                            >
+                                                {tenantLocations.map((loc) => (
+                                                    <option key={loc.id} value={loc.id}>
+                                                        {loc.name}
+                                                        {loc.is_primary ? " ★" : ""}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
                                     <p className="text-[11px] text-amber-800 dark:text-amber-400">
                                         <strong>Tip:</strong>{" "}
@@ -2268,8 +2523,10 @@ const TeamTab: React.FC = () => {
                                 </div>
                             </div>
                         )}
+                    </div>
+                    <div className="flex-none border-t border-slate-100 dark:border-slate-800 px-6 py-4 bg-white dark:bg-slate-900">
                         <Button
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white mt-4"
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
                             onClick={handleInvite}
                             disabled={isInviteLoading}
                         >
