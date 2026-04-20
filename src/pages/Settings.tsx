@@ -1015,77 +1015,79 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <div className="space-y-2 max-w-xl">
-                  <Label htmlFor="business-vertical" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    {t("settings.general.business_vertical")}
-                  </Label>
-                  <select
-                    id="business-vertical"
-                    value={businessVertical}
-                    onChange={(e) => setBusinessVertical(e.target.value as BusinessVertical)}
-                    className="h-12 w-full max-w-xl rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-sm font-medium text-slate-700 dark:text-slate-300 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
-                  >
-                    {ALL_BUSINESS_VERTICALS.map((v) => (
-                      <option key={v} value={v}>
-                        {t(`settings.general.business_vertical_${v.toLowerCase()}`)}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-[11px] text-slate-500">
-                    {t("settings.general.business_vertical_hint")}
-                  </p>
-                </div>
-
-                <div className="space-y-3 max-w-xl rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-4">
-                  <div>
-                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      {t("settings.general.custom_staff_roles_title")}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:items-start">
+                  <div className="space-y-2">
+                    <Label htmlFor="business-vertical" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      {t("settings.general.business_vertical")}
                     </Label>
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      {t("settings.general.custom_staff_roles_desc")}
+                    <select
+                      id="business-vertical"
+                      value={businessVertical}
+                      onChange={(e) => setBusinessVertical(e.target.value as BusinessVertical)}
+                      className="h-12 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-sm font-medium text-slate-700 dark:text-slate-300 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                    >
+                      {ALL_BUSINESS_VERTICALS.map((v) => (
+                        <option key={v} value={v}>
+                          {t(`settings.general.business_vertical_${v.toLowerCase()}`)}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-slate-500">
+                      {t("settings.general.business_vertical_hint")}
                     </p>
                   </div>
-                  <div className="space-y-2">
-                    {customStaffRoles.map((row, idx) => (
-                      <div key={row.id} className="flex gap-2 items-center">
-                        <Input
-                          value={row.name}
-                          onChange={(e) => {
-                            const next = [...customStaffRoles];
-                            next[idx] = { ...row, name: e.target.value };
-                            setCustomStaffRoles(next);
-                          }}
-                          placeholder={t("settings.general.custom_staff_roles_placeholder")}
-                          className="h-10 flex-1 rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="shrink-0"
-                          onClick={() =>
-                            setCustomStaffRoles(customStaffRoles.filter((_, i) => i !== idx))
-                          }
-                        >
-                          {t("settings.general.custom_staff_roles_remove")}
-                        </Button>
-                      </div>
-                    ))}
+
+                  <div className="space-y-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-4">
+                    <div>
+                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        {t("settings.general.custom_staff_roles_title")}
+                      </Label>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        {t("settings.general.custom_staff_roles_desc")}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      {customStaffRoles.map((row, idx) => (
+                        <div key={row.id} className="flex gap-2 items-center">
+                          <Input
+                            value={row.name}
+                            onChange={(e) => {
+                              const next = [...customStaffRoles];
+                              next[idx] = { ...row, name: e.target.value };
+                              setCustomStaffRoles(next);
+                            }}
+                            placeholder={t("settings.general.custom_staff_roles_placeholder")}
+                            className="h-10 flex-1 rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0"
+                            onClick={() =>
+                              setCustomStaffRoles(customStaffRoles.filter((_, i) => i !== idx))
+                            }
+                          >
+                            {t("settings.general.custom_staff_roles_remove")}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                      onClick={() =>
+                        setCustomStaffRoles((prev) => [
+                          ...prev,
+                          { id: crypto.randomUUID(), name: "" },
+                        ])
+                      }
+                    >
+                      {t("settings.general.custom_staff_roles_add")}
+                    </Button>
                   </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="w-full sm:w-auto"
-                    onClick={() =>
-                      setCustomStaffRoles((prev) => [
-                        ...prev,
-                        { id: crypto.randomUUID(), name: "" },
-                      ])
-                    }
-                  >
-                    {t("settings.general.custom_staff_roles_add")}
-                  </Button>
                 </div>
 
                 <Separator />

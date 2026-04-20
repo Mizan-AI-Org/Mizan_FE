@@ -1,8 +1,7 @@
 import { useMemo } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   AlertTriangle,
-  ArrowLeft,
   Building2,
   ClipboardCheck,
   Clock,
@@ -42,7 +41,6 @@ import type {
  */
 export default function BranchDetailPage() {
   const { locationId } = useParams<{ locationId: string }>();
-  const navigate = useNavigate();
   const { data, isLoading, isError, refetch, isFetching } =
     useLocationDetail(locationId);
 
@@ -63,18 +61,6 @@ export default function BranchDetailPage() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate("/dashboard/locations-overview")}
-          className="gap-2"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to overview
-        </Button>
-      </div>
-
       {isLoading ? (
         <BranchSkeleton />
       ) : isError || !data ? (
