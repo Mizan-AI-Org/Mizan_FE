@@ -63,14 +63,24 @@ export function useTaskTemplates(opts?: { pollIntervalMs?: number; autoStart?: b
     }
   }, [selectedId]);
 
-  // Start polling
+  // Start polling. We skip the periodic refetch when the tab is hidden so we
+  // don't burn API + DB cycles for a user who is not looking at the page.
+  // The next visibilitychange ("visible") triggers a manual reload.
   useEffect(() => {
     if (opts?.autoStart === false) return;
     void load();
-    intervalRef.current = window.setInterval(() => void load(), pollMs);
+    intervalRef.current = window.setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      void load();
+    }, pollMs);
+    const onVisible = () => {
+      if (typeof document !== "undefined" && !document.hidden) void load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       if (intervalRef.current) window.clearInterval(intervalRef.current);
       intervalRef.current = null;
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [load, pollMs, opts?.autoStart]);
 

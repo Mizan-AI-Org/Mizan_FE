@@ -115,7 +115,8 @@ const ActivityLogPage = React.lazy(() => import("./pages/ActivityLogPage"));
 const OnboardingWizard = React.lazy(() => import("./pages/OnboardingWizard"));
 
 // Global defaults shared by every useQuery in the app.
-// These defaults are tuned for perceived speed on a SaaS dashboard:
+// These defaults are tuned for perceived speed AND server cost on a SaaS
+// dashboard:
 // - staleTime 60s: cached data is treated as fresh when flipping pages/tabs
 //   so switching between Schedule -> Inventory -> Schedule doesn't refetch.
 // - gcTime 10min: keep the cached payload around long after a page unmounts so
@@ -126,6 +127,11 @@ const OnboardingWizard = React.lazy(() => import("./pages/OnboardingWizard"));
 // - refetchOnWindowFocus / refetchOnReconnect off: avoid the usual flurry of
 //   background refetches that re-render the whole dashboard whenever the tab
 //   regains focus (very expensive on mobile and on laptops switching Wi-Fi).
+// - refetchIntervalInBackground: false: pause every poll when the tab is
+//   hidden. Owners and managers leave the dashboard open in background tabs
+//   for hours; without this, every 30/45/60s poll keeps firing, multiplying
+//   our API + DB cost for zero perceived value. Individual queries that
+//   need to keep polling in the background can still opt in explicitly.
 // - retry with short backoff + capped at 1: first real failure surfaces fast
 //   instead of stalling the UI for 30s on a dead endpoint.
 const queryClient = new QueryClient({
@@ -133,6 +139,7 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
+      refetchIntervalInBackground: false,
       retry: 1,
       retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
       staleTime: 60 * 1000,

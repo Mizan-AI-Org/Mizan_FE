@@ -100,6 +100,7 @@ export default function TaskManagementBoard() {
     loadLiveBoardMetrics();
     loadStaffMetrics();
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       loadLiveBoardMetrics();
       loadStaffMetrics();
     }, 90_000);

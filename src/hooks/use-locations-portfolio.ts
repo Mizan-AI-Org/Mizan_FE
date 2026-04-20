@@ -35,9 +35,14 @@ export type LocationPortfolioRow = {
 export type PortfolioSummary = {
   generated_at: string;
   today: string;
-  tenant: { id: number; name: string };
+  tenant: { id: string | number; name: string };
   totals: LocationMetrics;
   locations: LocationPortfolioRow[];
+  /** Set when the backend couldn't compute live metrics but still returned the
+   * branch list. The UI should show the locations with a soft warning banner
+   * instead of treating the whole response as a failure. */
+  degraded?: boolean;
+  error?: string;
 };
 
 function getAuthToken() {
