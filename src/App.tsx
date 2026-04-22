@@ -68,6 +68,9 @@ const WeeklyScheduleView = React.lazy(
 const TaskManagementBoard = React.lazy(
   () => import("./pages/TaskManagementBoard")
 );
+const OperationalIssuesPage = React.lazy(
+  () => import("./pages/OperationalIssuesPage")
+);
 const TaskTemplates = React.lazy(() => import("./pages/TaskTemplates"));
 const ManagerSwapRequests = React.lazy(
   () => import("./pages/ManagerSwapRequests")
@@ -103,9 +106,6 @@ const ManagerReviewDashboard = React.lazy(() => import("./pages/ManagerReviewDas
 const StaffSubmittedChecklists = React.lazy(() => import("./pages/StaffSubmittedChecklists"));
 const ResetPassword = React.lazy(() => import("./pages/ResetPassword"));
 
-const ShiftReviewsAdminPage = React.lazy(
-  () => import("./pages/ShiftReviewsAdminPage")
-);
 const DashboardAttendancePage = React.lazy(
   () => import("./pages/DashboardAttendancePage")
 );
@@ -314,16 +314,6 @@ const App = () => {
                   }
                 />
                 <Route
-                  path="dashboard/shift-reviews"
-                  element={
-                    <RoleBasedRoute
-                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
-                    >
-                      <ShiftReviewsAdminPage />
-                    </RoleBasedRoute>
-                  }
-                />
-                <Route
                   path="dashboard/inventory/adjustments"
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
@@ -441,6 +431,18 @@ const App = () => {
                     <React.Suspense fallback={<PageLoadingSkeleton />}>
                       <TaskManagementBoard />
                     </React.Suspense>
+                  }
+                />
+                <Route
+                  path="dashboard/operational-issues"
+                  element={
+                    <RoleBasedRoute
+                      allowedRoles={["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"]}
+                    >
+                      <React.Suspense fallback={<PageLoadingSkeleton />}>
+                        <OperationalIssuesPage />
+                      </React.Suspense>
+                    </RoleBasedRoute>
                   }
                 />
                 <Route
