@@ -52,6 +52,9 @@ import {
   DASHBOARD_WIDGET_IDS,
   DEFAULT_DASHBOARD_WIDGET_ORDER,
   parseStoredWidgetOrder,
+  mergeNewDefaultWidgets,
+  markDefaultAsDismissed,
+  clearDismissedDefaults,
   SortableDashboardWidget,
   getActionRoute,
   WIDGET_ADD_ICONS,
@@ -144,17 +147,6 @@ const apps: AppItem[] = [
     appId: "scheduling",
   },
   {
-    name: "SHIFT REVIEWS",
-    href: "/dashboard/shift-reviews",
-    icon: FileText,
-    gradient: "bg-rose-500",
-    description: "Browse staff shift reviews and ratings",
-    nameKey: "app.shift_reviews",
-    descKey: "app.shift_reviews.desc",
-    roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
-    appId: "shift_reviews",
-  },
-  {
     name: "SETTINGS",
     href: "/dashboard/settings",
     icon: Settings,
@@ -228,12 +220,25 @@ export default function Dashboard() {
   const noShowsLabelKey = `dashboard.staffing.${noShowsPeriod}_no_shows` as const;
   const noShowsDescKey = `dashboard.staffing.no_shows_${noShowsPeriod}` as const;
 
+  // Premium card surface: soft inner ring + layered elevation
+  // shadow so cards visually float over the page, plus a gentle lift
+  // on hover to invite interaction without feeling "noisy".
+  //
+  //  - `ring-1 ring-slate-900/5` gives a crisp edge that stays
+  //    readable on off-white dashboard backgrounds (stronger than a
+  //    pale 1px border alone).
+  //  - Two-layer shadow (ambient + contact) is the same recipe
+  //    modern design systems (Linear, Stripe, Notion) use for depth
+  //    without a heavy drop shadow.
+  //  - Hover lifts by 1px and intensifies the shadow; `ease-out`
+  //    keeps the motion crisp instead of lazy.
   const cardBase =
-    "border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-all duration-300 rounded-2xl flex h-full min-h-[200px] flex-col";
+    "relative border border-slate-200/60 dark:border-slate-800/80 bg-white dark:bg-slate-900 rounded-2xl ring-1 ring-slate-900/[0.03] dark:ring-white/[0.04] shadow-[0_1px_2px_0_rgb(15_23_42_/_0.04),0_2px_8px_-2px_rgb(15_23_42_/_0.06)] transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-0.5 hover:border-slate-300/70 dark:hover:border-slate-700 hover:shadow-[0_12px_32px_-12px_rgb(15_23_42_/_0.18),0_4px_12px_-4px_rgb(15_23_42_/_0.08)] flex h-full min-h-[200px] flex-col";
   const cardHeaderBase = "flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6";
 
   const insights = (summary?.insights?.items || []) as InsightItem[];
-  const insightsVisible = showAllInsights ? insights.slice(0, 8) : insights.slice(0, 2);
+  // Widget: top 5 always. Full ranked list lives on /dashboard/operational-issues.
+  const insightsVisible = insights.slice(0, 5);
   const criticalCount = Number(summary?.insights?.counts?.CRITICAL || 0);
   const operationalCount = Number(summary?.insights?.counts?.OPERATIONAL || 0);
   const attentionNow = criticalCount + operationalCount;
@@ -293,9 +298,18 @@ export default function Dashboard() {
   useEffect(() => {
     if (!canCustomizeDashboard || !widgetStorageKey) return;
     const parsed = parseStoredWidgetOrder(localStorage.getItem(widgetStorageKey));
-    if (parsed) setWidgetOrder(parsed);
+    // Merge any newly-shipped default widgets into the cached order so
+    // they show up immediately on the next paint (before the server
+    // response arrives). The merge is pure — it won't re-add anything
+    // the user has explicitly dismissed, and it deliberately does NOT
+    // mutate the dismissed-defaults set so the server-side merge below
+    // still gets a fair chance to add missing defaults.
+    if (parsed) {
+      const { order: merged } = mergeNewDefaultWidgets(parsed, user?.id);
+      setWidgetOrder(merged);
+    }
     skipNextPersist.current = false;
-  }, [canCustomizeDashboard, widgetStorageKey]);
+  }, [canCustomizeDashboard, widgetStorageKey, user?.id]);
 
   useEffect(() => {
     if (!canCustomizeDashboard || !accessToken) {
@@ -308,11 +322,15 @@ export default function Dashboard() {
         const data = await api.getDashboardWidgetOrder();
         if (cancelled) return;
         if (data?.order && Array.isArray(data.order) && data.order.length > 0) {
-          ignoreNextServerPatch.current = true;
+          const { order: merged, changed } = mergeNewDefaultWidgets(
+            data.order as DashboardWidgetSlotId[],
+            user?.id,
+          );
+          ignoreNextServerPatch.current = !changed;
           skipNextPersist.current = true;
-          setWidgetOrder(data.order as DashboardWidgetSlotId[]);
+          setWidgetOrder(merged);
           if (widgetStorageKey) {
-            localStorage.setItem(widgetStorageKey, JSON.stringify({ order: data.order }));
+            localStorage.setItem(widgetStorageKey, JSON.stringify({ order: merged }));
           }
           queueMicrotask(() => {
             skipNextPersist.current = false;
@@ -330,7 +348,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [canCustomizeDashboard, accessToken, widgetStorageKey]);
+  }, [canCustomizeDashboard, accessToken, widgetStorageKey, user?.id]);
 
   useEffect(() => {
     if (!canCustomizeDashboard || !widgetStorageKey || skipNextPersist.current) return;
@@ -470,6 +488,12 @@ export default function Dashboard() {
           return t("dashboard.ops_reports.title");
         case "staff_inbox":
           return t("dashboard.staff_inbox.title");
+        case "tasks_demands":
+          return t("dashboard.tasks_demands.title");
+        case "meetings_reminders":
+          return t("dashboard.meetings_reminders.title");
+        case "clock_ins":
+          return t("dashboard.clock_ins.title");
         default:
           return id;
       }
@@ -556,7 +580,10 @@ export default function Dashboard() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => setWidgetOrder([...DEFAULT_DASHBOARD_WIDGET_ORDER])}
+                      onClick={() => {
+                        clearDismissedDefaults(user?.id);
+                        setWidgetOrder([...DEFAULT_DASHBOARD_WIDGET_ORDER]);
+                      }}
                     >
                       {t("dashboard.customize.reset")}
                     </Button>
@@ -780,7 +807,10 @@ export default function Dashboard() {
                             id={wid}
                             editMode={customizeMode}
                             colClassName={cn("relative", colSpan)}
-                            onRemove={() => setWidgetOrder((o) => o.filter((x) => x !== wid))}
+                            onRemove={() => {
+                              markDefaultAsDismissed(user?.id, wid);
+                              setWidgetOrder((o) => o.filter((x) => x !== wid));
+                            }}
                           >
                             {node}
                           </SortableDashboardWidget>

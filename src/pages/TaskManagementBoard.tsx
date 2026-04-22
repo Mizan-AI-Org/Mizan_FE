@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/use-auth';
 import { useLanguage } from '@/hooks/use-language';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { toast } from "sonner";
 import { API_BASE } from "@/lib/api";
 import {
   Clock,
@@ -14,10 +12,40 @@ import {
   CheckCircle,
   AlertCircle,
   AlertTriangle,
-  PlayCircle
+  PlayCircle,
+  CalendarClock,
+  ListChecks,
+  UserCircle,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+interface AssignedStaff {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  role?: string;
+}
+
+interface ScheduledTask {
+  id: string;
+  title: string;
+  description: string | null;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  status: string;
+  due_date: string | null;
+  assigned_to: string[];
+  assigned_to_details?: AssignedStaff[];
+  assigned_shift?: string | null;
+  category?: string | null;
+  category_details?: { id: string; name: string; color?: string } | null;
+  completed_at?: string | null;
+  updated_at?: string;
+}
+
+type TaskScopeFilter = "all" | "shift" | "standalone";
+type TaskStatusFilter = "all" | "open" | "completed";
 
 interface StaffMetric {
   staff_id: string;
@@ -51,6 +79,7 @@ interface StaffMetric {
 export default function TaskManagementBoard() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [activeProcessesCount, setActiveProcessesCount] = useState(0);
   const [tasksToday, setTasksToday] = useState({ total: 0, completed: 0, ongoing: 0 });
   const [onTimeRate, setOnTimeRate] = useState(0);
@@ -58,6 +87,10 @@ export default function TaskManagementBoard() {
   const [attentionNeeded, setAttentionNeeded] = useState(0);
   const [staffMetrics, setStaffMetrics] = useState<StaffMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [allTasks, setAllTasks] = useState<ScheduledTask[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
+  const [scope, setScope] = useState<TaskScopeFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("open");
 
   const loadLiveBoardMetrics = async () => {
     try {
@@ -96,16 +129,114 @@ export default function TaskManagementBoard() {
     setIsLoading(false);
   };
 
+  const loadAllTasks = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/scheduling/tasks/`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const list = Array.isArray(data) ? data : (data.results ?? []);
+        setAllTasks(list as ScheduledTask[]);
+      }
+    } catch (error) {
+      console.error('Failed to load tasks', error);
+    } finally {
+      setTasksLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadLiveBoardMetrics();
     loadStaffMetrics();
+    loadAllTasks();
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
       loadLiveBoardMetrics();
       loadStaffMetrics();
+      loadAllTasks();
     }, 90_000);
     return () => clearInterval(interval);
   }, []);
+
+  // Counts by scope — shown on the filter pills so the manager sees
+  // "12 total / 5 shift / 7 standalone" at a glance.
+  const scopeCounts = useMemo(() => {
+    const shift = allTasks.filter((t) => !!t.assigned_shift).length;
+    const standalone = allTasks.length - shift;
+    return { all: allTasks.length, shift, standalone };
+  }, [allTasks]);
+
+  const visibleTasks = useMemo(() => {
+    return allTasks
+      .filter((t) => {
+        if (scope === "shift") return !!t.assigned_shift;
+        if (scope === "standalone") return !t.assigned_shift;
+        return true;
+      })
+      .filter((t) => {
+        if (statusFilter === "open") return t.status !== "COMPLETED" && t.status !== "CANCELLED";
+        if (statusFilter === "completed") return t.status === "COMPLETED";
+        return true;
+      })
+      .sort((a, b) => {
+        const rank: Record<string, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+        const pa = rank[a.priority] ?? 4;
+        const pb = rank[b.priority] ?? 4;
+        if (pa !== pb) return pa - pb;
+        const da = a.due_date ? a.due_date : "9999-12-31";
+        const db = b.due_date ? b.due_date : "9999-12-31";
+        return da.localeCompare(db);
+      });
+  }, [allTasks, scope, statusFilter]);
+
+  const priorityChip = (p: ScheduledTask["priority"]) => {
+    switch (p) {
+      case "URGENT":
+        return "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300";
+      case "HIGH":
+        return "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300";
+      case "LOW":
+        return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
+      default:
+        return "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300";
+    }
+  };
+
+  const statusChip = (s: string) => {
+    const norm = (s || "").toUpperCase();
+    if (norm === "COMPLETED")
+      return { cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300", label: "Done" };
+    if (norm === "IN_PROGRESS")
+      return { cls: "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300", label: "In progress" };
+    if (norm === "CANCELLED")
+      return { cls: "bg-slate-100 text-slate-500 line-through dark:bg-slate-800 dark:text-slate-400", label: "Cancelled" };
+    return { cls: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300", label: "Not started" };
+  };
+
+  const formatAssignees = (task: ScheduledTask): string => {
+    if (task.assigned_to_details && task.assigned_to_details.length > 0) {
+      const names = task.assigned_to_details
+        .map((s) => `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.email || "")
+        .filter(Boolean);
+      if (names.length === 1) return names[0];
+      if (names.length > 1) return `${names[0]} +${names.length - 1}`;
+    }
+    return "Unassigned";
+  };
+
+  const formatDue = (iso: string | null): string => {
+    if (!iso) return "—";
+    try {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return iso;
+      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    } catch {
+      return iso;
+    }
+  };
 
   const getPaceColor = (status: string) => {
     switch (status) {
@@ -305,6 +436,188 @@ export default function TaskManagementBoard() {
                 </div>
               ))}
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* All Tasks Section — shows both shift-attached and standalone tasks
+          assigned to any staff. This gives managers a single place to audit
+          "who owes me what" across the scheduling board and Miya-created items. */}
+      <Card className="border-none shadow-sm dark:bg-slate-800">
+        <CardHeader className="border-b border-slate-100 dark:border-slate-700 pb-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle className="text-xl font-bold flex items-center gap-2">
+                <ListChecks className="w-5 h-5 text-emerald-500" />
+                {t("live_board.all_tasks") ?? "All Tasks"}
+              </CardTitle>
+              <p className="text-sm text-slate-500 mt-1">
+                {t("live_board.all_tasks_desc") ??
+                  "Every task assigned to staff — both shift-attached and standalone."}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Scope pills */}
+              {([
+                { key: "all" as const, label: t("live_board.scope_all") ?? "All", count: scopeCounts.all, icon: ListChecks },
+                { key: "shift" as const, label: t("live_board.scope_shift") ?? "Shift-attached", count: scopeCounts.shift, icon: CalendarClock },
+                { key: "standalone" as const, label: t("live_board.scope_standalone") ?? "Standalone", count: scopeCounts.standalone, icon: UserCircle },
+              ]).map((opt) => {
+                const Icon = opt.icon;
+                const active = scope === opt.key;
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setScope(opt.key)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                      active
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700/40",
+                    )}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {opt.label}
+                    <span className="ml-1 rounded-full bg-white/80 px-1.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-900/60 dark:text-slate-300">
+                      {opt.count}
+                    </span>
+                  </button>
+                );
+              })}
+              <div className="mx-1 h-5 w-px bg-slate-200 dark:bg-slate-700" />
+              {/* Status pills */}
+              {([
+                { key: "open" as const, label: t("live_board.status_open") ?? "Open" },
+                { key: "completed" as const, label: t("live_board.status_completed") ?? "Completed" },
+                { key: "all" as const, label: t("live_board.status_all") ?? "All statuses" },
+              ]).map((opt) => {
+                const active = statusFilter === opt.key;
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setStatusFilter(opt.key)}
+                    className={cn(
+                      "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                      active
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700/40",
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {tasksLoading ? (
+            <div className="p-8 text-center text-slate-500">
+              {t("live_board.loading_tasks") ?? "Loading tasks…"}
+            </div>
+          ) : visibleTasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-12 text-center">
+              <div className="w-14 h-14 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
+                <ListChecks className="w-7 h-7 text-slate-400" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1">
+                {t("live_board.no_tasks") ?? "No tasks to show"}
+              </h3>
+              <p className="text-sm text-slate-500 max-w-sm">
+                {t("live_board.no_tasks_desc") ??
+                  "Create a task from the Scheduling board or ask Miya to assign one."}
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-100 dark:divide-slate-700">
+              {visibleTasks.map((task) => {
+                const stat = statusChip(task.status);
+                const isShift = !!task.assigned_shift;
+                const assigneeLabel = formatAssignees(task);
+                const first = task.assigned_to_details?.[0];
+                const initials = first
+                  ? `${(first.first_name ?? "").charAt(0)}${(first.last_name ?? "").charAt(0)}`.toUpperCase() || "?"
+                  : "?";
+                return (
+                  <li key={task.id}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate(`/dashboard/scheduling?task=${task.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(`/dashboard/scheduling?task=${task.id}`);
+                        }
+                      }}
+                      className="group flex items-center gap-4 px-4 py-3 hover:bg-slate-50/70 dark:hover:bg-slate-700/40 transition-colors cursor-pointer"
+                    >
+                    <Avatar className="h-9 w-9 border border-white shadow-sm">
+                      <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(assigneeLabel)}`} />
+                      <AvatarFallback>{initials}</AvatarFallback>
+                    </Avatar>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-semibold text-slate-900 dark:text-white" title={task.title}>
+                          {task.title}
+                        </span>
+                        <span
+                          className={cn(
+                            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                            priorityChip(task.priority),
+                          )}
+                        >
+                          {task.priority}
+                        </span>
+                        <span
+                          className={cn(
+                            "shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                            isShift
+                              ? "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
+                              : "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300",
+                          )}
+                        >
+                          {isShift ? (
+                            <>
+                              <CalendarClock className="h-3 w-3" />
+                              {t("live_board.badge_shift") ?? "Shift"}
+                            </>
+                          ) : (
+                            <>
+                              <UserCircle className="h-3 w-3" />
+                              {t("live_board.badge_standalone") ?? "Standalone"}
+                            </>
+                          )}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-3 text-xs text-slate-500">
+                        <span className="truncate" title={assigneeLabel}>{assigneeLabel}</span>
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {formatDue(task.due_date)}
+                        </span>
+                        {task.category_details?.name ? (
+                          <span className="truncate">· {task.category_details.name}</span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold whitespace-nowrap",
+                        stat.cls,
+                      )}
+                    >
+                      {stat.label}
+                    </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </CardContent>
       </Card>

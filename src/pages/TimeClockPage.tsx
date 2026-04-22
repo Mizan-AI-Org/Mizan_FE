@@ -12,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { MapContainer, TileLayer, Circle, CircleMarker, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import CameraCaptureModal from "@/components/CameraCaptureModal";
-import ShiftReviewModal, { ShiftReviewPayload } from "@/components/ShiftReviewModal";
 import { logError, logInfo } from "@/lib/logging";
 import { enqueueClockPayloadSecure, dequeueAllSecure, initDeviceSecret } from "@/lib/offlineQueue";
 import { API_BASE } from "@/lib/api";
@@ -91,11 +90,6 @@ export default function TimeClockPage() {
     const [permissionState, setPermissionState] = useState<"granted" | "denied" | "prompt" | "unsupported">("unsupported");
     const [currentTime, setCurrentTime] = useState<Date>(new Date());
     const [cameraOpen, setCameraOpen] = useState<false | "in" | "out">(false);
-    const [reviewOpen, setReviewOpen] = useState(false);
-    const [reviewSubmitting, setReviewSubmitting] = useState(false);
-    const [lastClockOutEvent, setLastClockOutEvent] = useState<ClockEvent | null>(null);
-    // Reliable session id for submitting shift reviews
-    const [sessionIdForReview, setSessionIdForReview] = useState<string>("");
     const [deviceSecret] = useState<string>(() => initDeviceSecret());
     const [timelineCollapsed, setTimelineCollapsed] = useState<boolean>(false);
 
@@ -273,12 +267,7 @@ export default function TimeClockPage() {
             }
             return api.webClockIn(accessToken!, location.latitude, location.longitude, location.accuracy, undefined, location.photo);
         },
-        onSuccess: (data: any) => {
-            // Capture session id from response shape: prefer event.id, then top-level session_id
-            const sid: string | undefined = data?.event?.id || data?.session_id;
-            if (typeof sid === "string" && sid.length > 0) {
-                setSessionIdForReview(sid);
-            }
+        onSuccess: (_data: any) => {
             queryClient.invalidateQueries({ queryKey: ["currentSession"] });
             queryClient.invalidateQueries({ queryKey: ["attendanceHistory"] });
             toast.success("Clocked in successfully!");
@@ -305,14 +294,6 @@ export default function TimeClockPage() {
             const ts = tsIso ? new Date(tsIso) : new Date();
             toast.success(`Clocked out at ${format(ts, "yyyy-MM-dd HH:mm")}`);
             playSuccessTone();
-            // Open review modal with returned event details
-            if (data?.event) {
-                setLastClockOutEvent(data.event);
-                if (data.event.id) setSessionIdForReview(data.event.id);
-                setReviewOpen(true);
-            } else {
-                setReviewOpen(true);
-            }
         },
         onError: (err: unknown) => {
             const message = err instanceof Error ? err.message : "Failed to clock out";
@@ -1011,89 +992,6 @@ export default function TimeClockPage() {
             </Card>
             {/* Selfie capture only for clock-in */}
             <CameraCaptureModal open={cameraOpen === "in"} onClose={() => setCameraOpen(false)} onCaptured={onPhotoCaptured} />
-            {/* Shift Review modal on clock-out */}
-            {/** Derive sessionId for review: prefer stored sessionIdForReview, then current-session id, then lastClockOutEvent id */}
-            {(() => {
-                const activeSessionId = currentSession?.currentSession?.id;
-                const endedSessionId = lastClockOutEvent?.id;
-                const resolvedSessionId = sessionIdForReview || activeSessionId || endedSessionId || "";
-                return (
-                    <ShiftReviewModal
-                        open={reviewOpen}
-                        onOpenChange={setReviewOpen}
-                        submitting={reviewSubmitting}
-                        sessionId={resolvedSessionId}
-                        completedAtISO={lastClockOutEvent?.clock_out_time || new Date().toISOString()}
-                        hoursDecimal={(() => {
-                            const inTime = lastClockOutEvent?.clock_in_time || currentSession?.currentSession?.clock_in_time;
-                            const outTime = lastClockOutEvent?.clock_out_time || new Date().toISOString();
-                            if (!inTime || !outTime) return undefined;
-                            const start = new Date(inTime).getTime();
-                            const end = new Date(outTime).getTime();
-                            if (isNaN(start) || isNaN(end) || end <= start) return undefined;
-                            return Number(((end - start) / 3600000).toFixed(2));
-                        })()}
-                        shiftTitle={(() => {
-                            const r = user?.restaurant as unknown;
-                            if (typeof r === "string") return r;
-                            if (r && typeof r === "object") {
-                                const name = (r as Record<string, unknown>)["name"];
-                                if (typeof name === "string") return name;
-                            }
-                            return "Shift";
-                        })()}
-                        shiftTimeRange={(() => {
-                            const inT = lastClockOutEvent?.clock_in_time || currentSession?.currentSession?.clock_in_time;
-                            const outT = lastClockOutEvent?.clock_out_time || new Date().toISOString();
-                            const day = inT ? formatSafe(inT, "EEE, MMM d") : formatSafe(new Date().toISOString(), "EEE, MMM d");
-                            const range = `${formatSafe(inT, "p")} – ${formatSafe(outT, "p")}`;
-                            return `${day} | ${range}`;
-                        })()}
-                        onSubmit={async (payload: ShiftReviewPayload) => {
-                            try {
-                                setReviewSubmitting(true);
-                                const submission = {
-                                    session_id: payload.session_id,
-                                    rating: payload.rating,
-                                    tags: payload.tags,
-                                    comments: payload.comments,
-                                    completed_at_iso: payload.completed_at_iso,
-                                    hours_decimal: payload.hours_decimal,
-                                };
-                                const res = await api.submitShiftReview(accessToken!, submission as any);
-                                toast.success("Shift feedback submitted");
-                                logInfo({ feature: "shift-review", action: "submit" }, `id=${res?.id || "unknown"}`);
-                                try {
-                                    queryClient.invalidateQueries({ queryKey: ["shiftReviews"] });
-                                    queryClient.invalidateQueries({ queryKey: ["shiftReviewStats"] });
-                                } catch (err) {
-                                    logInfo({ feature: "shift-review", action: "invalidate-queries" }, "handled");
-                                }
-                                try {
-                                    const today = new Date();
-                                    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-                                    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
-                                    const list = await api.getShiftReviews(accessToken!, { date_from: start, date_to: end, staff_id: String(user?.id || "") } as any);
-                                    const found = Array.isArray(list) && list.some((r: any) => String(r?.session_id || r?.shift_id || "") === String(payload.session_id));
-                                    if (found) {
-                                        toast.success("Feedback synced and visible to admins");
-                                    } else {
-                                        toast.message("Feedback saved; syncing to admin view shortly");
-                                    }
-                                } catch (err) {
-                                    logError({ feature: "shift-review", action: "post-submit-verify" }, err as unknown);
-                                }
-                            } catch (e) {
-                                logError({ feature: "shift-review", action: "submit-error" }, e as unknown);
-                                const msg = (e as any)?.message || "Feedback submission failed";
-                                toast.error(msg);
-                            } finally {
-                                setReviewSubmitting(false);
-                            }
-                        }}
-                    />
-                );
-            })()}
         </div>
     );
 }

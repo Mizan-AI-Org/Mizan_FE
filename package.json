@@ -9,7 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "optimize:images": "bash scripts/optimize-images.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

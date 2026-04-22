@@ -67,7 +67,6 @@ mizan-frontend/
 │   │
 │   ├── pages/                # Route-level screens (Dashboard, Settings, etc.)
 │   │   ├── Dashboard.tsx     # Main owner/manager dashboard (with side pane)
-│   │   ├── ShiftReviewsAdminPage.tsx
 │   │   ├── BranchDetailPage.tsx
 │   │   ├── LocationsOverview.tsx
 │   │   └── …                 # one file per top-level route
@@ -76,7 +75,6 @@ mizan-frontend/
 │   │   ├── ui/               # shadcn/Radix-based primitives (Button, Card, …)
 │   │   ├── layout/           # DashboardLayout, UserAvatarMenu, headers
 │   │   ├── schedule/         # Shift modals, schedule views
-│   │   ├── reviews/          # Shift review widgets
 │   │   └── …
 │   │
 │   ├── hooks/                # Reusable hooks (use-auth, use-permissions,
@@ -270,7 +268,6 @@ Conventions:
 | `src/components/layout/UserAvatarMenu.tsx` | Reusable avatar/account dropdown (icon + row variants) |
 | `src/components/skeletons/` | Loading skeletons used across queries |
 | `src/components/schedule/` | Shift modals, weekly views |
-| `src/components/reviews/ShiftReviewsView.tsx` | Staff-facing reviews widget |
 
 ---
 
@@ -315,8 +312,8 @@ For caching, use TanStack Query keys that include any inputs (token, filters, ID
 
 ```ts
 useQuery({
-  queryKey: ["shiftReviews", accessToken, { from, to }],
-  queryFn: () => api.getShiftReviews(accessToken!, { from, to }),
+  queryKey: ["shifts", accessToken, { from, to }],
+  queryFn: () => api.getShifts(accessToken!, { from, to }),
   enabled: !!accessToken,
   staleTime: 60_000,
 });
