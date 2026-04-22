@@ -29,9 +29,13 @@ import {
   ClockEvent,
   StaffProfileItem,
   CreateAnnouncementResponse,
-  ShiftReviewSubmission,
   DashboardTaskDemandItem,
   DashboardTasksDemandsResponse,
+  DashboardMeetingsRemindersResponse,
+  DashboardClockInsResponse,
+  SubscriptionPlan,
+  CurrentSubscription,
+  BillingEntitlements,
 } from "./types"; // Updated import path
 
 // In dev, use relative /api so Vite proxy (vite.config proxy /api -> localhost:8000) is used.
@@ -466,6 +470,83 @@ export class BackendService {
       `/dashboard/tasks-demands/${taskId}/status/`,
       { method: "PATCH", body: JSON.stringify({ status: nextStatus }) },
     );
+  }
+
+  /**
+   * Meetings & Reminders widget data — upcoming events pulled from the
+   * tenant's Google Calendar (connected during onboarding). If the
+   * calendar isn't connected the endpoint still returns 200 with
+   * `connected: false` so the widget can render a reconnect CTA.
+   */
+  async getDashboardMeetingsReminders(
+    limit = 5,
+  ): Promise<DashboardMeetingsRemindersResponse> {
+    const qs = `?limit=${encodeURIComponent(String(limit))}`;
+    return this.fetchWithError(`/dashboard/meetings-reminders/${qs}`);
+  }
+
+  /**
+   * Latest clock-in events for the Clock-ins widget. Only returns
+   * today's ``event_type='in'`` events — break/out events are noise
+   * for the "who just arrived" card. The full timeline lives on
+   * ``/dashboard/attendance``.
+   */
+  async getDashboardClockIns(
+    limit = 5,
+  ): Promise<DashboardClockInsResponse> {
+    const qs = `?limit=${encodeURIComponent(String(limit))}`;
+    return this.fetchWithError(`/dashboard/clock-ins/${qs}`);
+  }
+
+  /**
+   * Kick off the Google Calendar OAuth flow from anywhere in the app
+   * (onboarding wizard, dashboard widget, settings page). Returns a
+   * Google consent URL the caller should navigate to. The server
+   * embeds the caller-supplied `returnTo` path in a signed state token
+   * so the OAuth callback can send the user back to exactly where
+   * they were, with `?gcal=connected|error` appended.
+   *
+   * Returns `{ configured: false }` when the server has no OAuth
+   * credentials — callers should show a "Unavailable — ask support"
+   * message in that case.
+   */
+  async startGoogleCalendarConnect(
+    returnTo?: string,
+  ): Promise<{
+    configured: boolean;
+    redirect_url?: string;
+    detail?: string;
+  }> {
+    const res = await fetch(`${API_BASE}/integrations/google-calendar/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "connect",
+        ...(returnTo ? { return_to: returnTo } : {}),
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.status === 501) {
+      return {
+        configured: false,
+        detail:
+          (body as { detail?: string }).detail ||
+          "Google Calendar isn't enabled on this server yet.",
+      };
+    }
+    if (!res.ok) {
+      throw new Error(
+        (body as { detail?: string }).detail ||
+          `Could not start Google Calendar connect (${res.status}).`,
+      );
+    }
+    return {
+      configured: Boolean((body as { configured?: boolean }).configured ?? true),
+      redirect_url: (body as { redirect_url?: string }).redirect_url,
+    };
   }
 
   /** Tenant-wide categories for grouping manager/Miya-created dashboard widgets. */
@@ -3778,114 +3859,6 @@ export class BackendService {
     return response.json();
   }
 
-  // --- Shift Reviews ---
-  async submitShiftReview(
-    accessToken: string,
-    payload: ShiftReviewSubmission
-  ): Promise<{ id: string; message?: string }> {
-    try {
-      const response = await fetch(`${API_BASE}/attendance/shift-reviews/`, {
-        method: "POST",
-        headers: this.getHeaders(accessToken),
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        let message = "Failed to submit shift review";
-        try {
-          const err = await response.json();
-          message = err.message || err.detail || message;
-        } catch {
-          // Ignore JSON parse error; retain default message
-        }
-        throw new Error(message);
-      }
-      return await response.json();
-    } catch (error: any) {
-      throw new Error(error.message || "Failed to submit shift review");
-    }
-  }
-
-  async getShiftReviews(
-    accessToken: string,
-    params?: { date_from?: string; date_to?: string; staff_id?: string; rating?: number }
-  ): Promise<any[]> {
-    try {
-      const url = toAbsoluteUrl(`${API_BASE}/attendance/shift-reviews/`);
-      if (params) {
-        Object.entries(params).forEach(([k, v]) => {
-          if (v !== undefined && v !== null && String(v).length > 0) url.searchParams.set(k, String(v));
-        });
-      }
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        headers: this.getHeaders(accessToken),
-      });
-      if (!response.ok) {
-        let message = "Failed to fetch shift reviews";
-        try {
-          const err = await response.json();
-          message = err.message || err.detail || message;
-        } catch {
-          // Ignore JSON parse error; retain default message
-        }
-        throw new Error(message);
-      }
-      const json = await response.json();
-      // Unwrap paginated responses transparently; tolerate both array and {results: []}
-      if (Array.isArray(json)) return json;
-      if (json && Array.isArray(json.results)) return json.results;
-      return [];
-    } catch (error: any) {
-      throw new Error(error.message || "Failed to fetch shift reviews");
-    }
-  }
-
-  async likeShiftReview(accessToken: string, reviewId: string): Promise<{ liked: boolean; likes_count: number }> {
-    const url = `${API_BASE}/attendance/shift-reviews/${reviewId}/like/`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: this.getHeaders(accessToken),
-    });
-    if (!response.ok) {
-      let message = "Failed to like review";
-      try {
-        const err = await response.json();
-        message = err.message || err.detail || message;
-      } catch {
-        // Ignore JSON parse error; retain default message
-      }
-      throw new Error(message);
-    }
-    return await response.json();
-  }
-
-  async getShiftReviewStats(
-    accessToken: string,
-    params?: { date_from?: string; date_to?: string }
-  ): Promise<{ by_rating: Array<{ rating: number; count: number }>; total_reviews: number; total_likes: number; tag_counts: Record<string, number> }> {
-    const url = toAbsoluteUrl(`${API_BASE}/attendance/shift-reviews/stats/`);
-    if (params) {
-      Object.entries(params).forEach(([k, v]) => {
-        if (v !== undefined && v !== null && String(v).length > 0) url.searchParams.set(k, String(v));
-      });
-    }
-    const response = await fetch(url.toString(), {
-      method: "GET",
-      headers: this.getHeaders(accessToken),
-    });
-    if (!response.ok) {
-      let message = "Failed to fetch review stats";
-      try {
-        const err = await response.json();
-        message = err.message || err.detail || message;
-      } catch {
-        // Ignore JSON parse error; retain default message
-      }
-      throw new Error(message);
-    }
-    return await response.json();
-  }
-
   // ----- RBAC -------------------------------------------------------------
 
   async getRBACCatalog(): Promise<{
@@ -3944,10 +3917,149 @@ export class BackendService {
 
   async getEffectivePermissions(): Promise<{
     role: string;
-    source: "privileged" | "tenant" | "defaults";
+    source: "privileged" | "user" | "tenant" | "defaults";
     permissions: { apps: string[]; widgets: string[]; actions: string[] };
   }> {
     return this.fetchWithError("/rbac/me/");
+  }
+
+  // ---------------------------------------------------------------------
+  // RBAC — per-user overrides
+  // ---------------------------------------------------------------------
+
+  async listAssignableUsers(): Promise<{
+    results: {
+      id: string;
+      email: string;
+      full_name: string;
+      first_name: string;
+      last_name: string;
+      role: string;
+      is_active: boolean;
+      has_override: boolean;
+    }[];
+  }> {
+    return this.fetchWithError("/rbac/user-permissions/assignable/");
+  }
+
+  async listUserPermissions(): Promise<{
+    results: {
+      user_id: string;
+      permissions: { apps: string[]; widgets: string[]; actions: string[] };
+      updated_by: string | null;
+      updated_at: string | null;
+      user?: {
+        id: string;
+        email: string;
+        full_name: string;
+        role: string;
+      };
+    }[];
+  }> {
+    return this.fetchWithError("/rbac/user-permissions/");
+  }
+
+  async getUserPermissions(userId: string): Promise<{
+    user: {
+      id: string;
+      email: string;
+      full_name: string;
+      first_name: string;
+      last_name: string;
+      role: string;
+    };
+    permissions: { apps: string[]; widgets: string[]; actions: string[] };
+    source: "user" | "tenant" | "defaults";
+    has_override: boolean;
+    role_permissions: { apps: string[]; widgets: string[]; actions: string[] };
+    role_source: "tenant" | "defaults";
+    updated_by: string | null;
+    updated_at: string | null;
+  }> {
+    return this.fetchWithError(`/rbac/user-permissions/${encodeURIComponent(userId)}/`);
+  }
+
+  async updateUserPermissions(
+    userId: string,
+    permissions: { apps: string[]; widgets: string[]; actions: string[] },
+  ): Promise<{
+    user_id: string;
+    permissions: { apps: string[]; widgets: string[]; actions: string[] };
+    updated_by: string | null;
+    updated_at: string | null;
+  }> {
+    return this.fetchWithError(
+      `/rbac/user-permissions/${encodeURIComponent(userId)}/`,
+      { method: "PUT", body: JSON.stringify({ permissions }) },
+    );
+  }
+
+  async resetUserPermissions(userId: string): Promise<void> {
+    const response = await fetch(
+      `${API_BASE}/rbac/user-permissions/${encodeURIComponent(userId)}/`,
+      { method: "DELETE", headers: this.getHeaders() },
+    );
+    if (!response.ok) {
+      let message = "Request failed";
+      try {
+        const err = await response.json();
+        message = err.detail || err.error || err.message || message;
+      } catch {
+        message = `Request failed (${response.status})`;
+      }
+      throw new Error(message);
+    }
+  }
+
+  async bulkUpdateUserPermissions(
+    userIds: string[],
+    permissions: { apps: string[]; widgets: string[]; actions: string[] },
+  ): Promise<{
+    applied_count: number;
+    missing_user_ids: string[];
+    results: {
+      user_id: string;
+      permissions: { apps: string[]; widgets: string[]; actions: string[] };
+    }[];
+  }> {
+    return this.fetchWithError("/rbac/user-permissions/bulk/", {
+      method: "POST",
+      body: JSON.stringify({ user_ids: userIds, permissions }),
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Billing / subscriptions
+  // ---------------------------------------------------------------------
+  async listSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    const data = await this.fetchWithError("/billing/plans/");
+    return unwrapDrfListResponse<SubscriptionPlan>(data);
+  }
+
+  async getCurrentSubscription(): Promise<CurrentSubscription> {
+    return this.fetchWithError("/billing/subscription/");
+  }
+
+  async getBillingEntitlements(): Promise<BillingEntitlements> {
+    return this.fetchWithError("/billing/subscription/entitlements/");
+  }
+
+  async createCheckoutSession(params: {
+    price_id: string;
+    success_url: string;
+    cancel_url: string;
+  }): Promise<{ url: string }> {
+    return this.fetchWithError("/billing/subscription/checkout/", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+  }
+
+  async createBillingPortalSession(returnUrl: string): Promise<{ url: string }> {
+    return this.fetchWithError("/billing/subscription/portal/", {
+      method: "POST",
+      body: JSON.stringify({ return_url: returnUrl }),
+    });
   }
 }
 

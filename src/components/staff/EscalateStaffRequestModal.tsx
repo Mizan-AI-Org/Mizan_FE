@@ -70,6 +70,9 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   onConfirm: (assigneeId: string) => void;
   isPending?: boolean;
+  // Same picker, different intent. "reassign" rewords the title/button so
+  // managers understand this is a lateral move, not a status escalation.
+  mode?: "escalate" | "reassign";
 };
 
 export const EscalateStaffRequestModal: React.FC<Props> = ({
@@ -77,9 +80,12 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
   onOpenChange,
   onConfirm,
   isPending = false,
+  mode = "escalate",
 }) => {
   const { t } = useLanguage();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const isReassign = mode === "reassign";
 
   const staffQuery = useQuery({
     queryKey: ["staff-list-escalate-modal"],
@@ -107,9 +113,13 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{t("staff.requests.escalate_modal_title")}</DialogTitle>
+          <DialogTitle>
+            {isReassign ? "Reassign request" : t("staff.requests.escalate_modal_title")}
+          </DialogTitle>
           <p className="text-sm text-muted-foreground">
-            {t("staff.requests.escalate_modal_description")}
+            {isReassign
+              ? "Pick the teammate who should own this request. The status won't change — they'll be pinged on WhatsApp."
+              : t("staff.requests.escalate_modal_description")}
           </p>
         </DialogHeader>
 
@@ -182,6 +192,8 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 {t("staff.requests.escalate_modal_submitting")}
               </>
+            ) : isReassign ? (
+              "Reassign"
             ) : (
               t("staff.requests.escalate_modal_confirm")
             )}

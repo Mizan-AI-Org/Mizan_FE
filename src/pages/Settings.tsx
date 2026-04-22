@@ -28,7 +28,6 @@ import {
   Plug,
   Bell,
   Shield,
-  Sparkles,
   CreditCard as CreditCardIcon,
   Loader2,
   Save,
@@ -52,6 +51,9 @@ const ProfileSettings = lazy(() => import("./ProfileSettings"));
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
 const MultiLocationSettings = lazy(() => import("@/components/settings/MultiLocationSettings"));
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - dynamic import types resolved at runtime
+const BillingSettings = lazy(() => import("@/components/settings/BillingSettings"));
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/use-language";
 import { Language } from "@/contexts/LanguageContext.types";
@@ -255,26 +257,50 @@ export default function Settings() {
     []
   );
 
-  // Handle Square OAuth callback result (redirect back to settings)
+  // Handle POS OAuth callback results (redirect back to /dashboard/settings).
+  // We handle both the legacy ?square=connected|error convention and the
+  // unified ?pos_connected=true&provider=<name> convention used by the
+  // pos-app OAuth flows (Clover today; Square via the pos/ route; Toast
+  // never redirects because it uses partner-credentials without browser
+  // navigation).
   useEffect(() => {
     const url = new URL(window.location.href);
     const square = url.searchParams.get("square");
     const message = url.searchParams.get("message");
+    const posConnected = url.searchParams.get("pos_connected");
+    const posError = url.searchParams.get("pos_error");
+    const provider = (url.searchParams.get("provider") || "").toLowerCase();
+
+    const role = (JSON.parse(localStorage.getItem("user") || "{}")?.role || "").toUpperCase();
+    const clean = (...keys: string[]) => {
+      keys.forEach((k) => url.searchParams.delete(k));
+      window.history.replaceState({}, "", url.toString());
+    };
+
     if (square === "connected") {
       toast.success(t("settings.square_connected"));
-      // Refresh settings to show connected status
-      const role = (JSON.parse(localStorage.getItem("user") || "{}")?.role || "").toUpperCase();
-      if (role !== "STAFF") {
-        fetchUnifiedSettings();
-      }
-      url.searchParams.delete("square");
-      url.searchParams.delete("message");
-      window.history.replaceState({}, "", url.toString());
+      if (role !== "STAFF") fetchUnifiedSettings();
+      clean("square", "message");
     } else if (square === "error") {
       toast.error(message ? `Square connect failed: ${message}` : "Square connect failed");
-      url.searchParams.delete("square");
-      url.searchParams.delete("message");
-      window.history.replaceState({}, "", url.toString());
+      clean("square", "message");
+    } else if (posConnected === "true") {
+      const label =
+        provider === "clover"
+          ? t("pos.clover.connected") || "Clover connected."
+          : t("pos.connection.success") || "POS connected.";
+      toast.success(label);
+      if (role !== "STAFF") fetchUnifiedSettings();
+      clean("pos_connected", "provider");
+    } else if (posError) {
+      // The callback view sanitizes these into short, safe tokens
+      // (``no_code``, ``invalid_state``, ``token_exchange_failed`` …).
+      // Mapping them to a generic message keeps the UI readable.
+      toast.error(
+        t("pos.connection.failed") ||
+          `POS connect failed (${posError}). Please try again.`,
+      );
+      clean("pos_error", "provider");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -696,6 +722,10 @@ export default function Settings() {
         await saveCustomApi();
       } else if (posSettings.pos_provider === "LIGHTSPEED") {
         await saveLightSpeed();
+      } else if (posSettings.pos_provider === "TOAST") {
+        await connectToast();
+      } else if (posSettings.pos_provider === "CLOVER") {
+        await connectClover();
       } else {
         toast.error(t("common.coming_soon") || "Coming soon");
       }
@@ -719,6 +749,84 @@ export default function Settings() {
     } catch (error) {
       const axiosErr = error as AxiosError<{ detail?: string; error?: string }>;
       toast.error(translateApiError(axiosErr));
+    }
+  };
+
+  // Toast uses partner-credentials auth — the tenant only needs to
+  // provide their restaurantGuid, which the backend verifies against
+  // Toast before persisting. No browser redirect.
+  const [toastGuidInput, setToastGuidInput] = useState("");
+  const [toastConnecting, setToastConnecting] = useState(false);
+  const connectToast = async () => {
+    const guid = toastGuidInput.trim();
+    if (!guid) {
+      toast.error(t("pos.toast.guid_required") || "Toast restaurant GUID is required.");
+      return;
+    }
+    setToastConnecting(true);
+    try {
+      await apiClient.post("/pos/toast/connect/", { restaurant_guid: guid });
+      toast.success(t("pos.toast.connected") || "Toast connected.");
+      setToastGuidInput("");
+      await fetchUnifiedSettings();
+    } catch (error) {
+      const axiosErr = error as AxiosError<{ detail?: string; error?: string }>;
+      const status = axiosErr.response?.status;
+      if (status === 501) {
+        // Server returns a sanitized `detail` string for this case; prefer
+        // the localized UI copy so translations stay consistent.
+        toast.error(
+          t("pos.toast.not_configured") ||
+            "Toast is not available right now. Contact your administrator.",
+        );
+      } else {
+        toast.error(translateApiError(axiosErr));
+      }
+    } finally {
+      setToastConnecting(false);
+    }
+  };
+
+  // Clover uses standard OAuth 2.0 — we ask the backend for the
+  // authorize URL (signed state bound to this tenant) and navigate.
+  const connectClover = async () => {
+    try {
+      const resp = await apiClient.get("/pos/clover/authorize/");
+      const url = resp.data?.authorization_url as string | undefined;
+      if (!url) {
+        toast.error(
+          t("pos.clover.not_configured") ||
+            "Clover is not available right now. Contact your administrator.",
+        );
+        return;
+      }
+      window.location.href = url;
+    } catch (error) {
+      const axiosErr = error as AxiosError<{ detail?: string; error?: string }>;
+      const status = axiosErr.response?.status;
+      if (status === 501) {
+        toast.error(
+          t("pos.clover.not_configured") ||
+            "Clover is not available right now. Contact your administrator.",
+        );
+      } else {
+        toast.error(translateApiError(axiosErr));
+      }
+    }
+  };
+
+  const disconnectToastOrClover = async (provider: "TOAST" | "CLOVER") => {
+    setPosDisconnecting(true);
+    try {
+      const path = provider === "TOAST" ? "/pos/toast/disconnect/" : "/pos/clover/disconnect/";
+      await apiClient.post(path);
+      toast.success(t("pos.disconnect_success"));
+      await fetchUnifiedSettings();
+      setPosDisconnectOpen(false);
+    } catch (error) {
+      toast.error(translateApiError(error as AxiosError<{ detail?: string; error?: string }>));
+    } finally {
+      setPosDisconnecting(false);
     }
   };
 
@@ -1246,9 +1354,9 @@ export default function Settings() {
                   >
                     <option value="NONE">{t("pos.not_configured")}</option>
                     <option value="SQUARE">Square</option>
-                    <option value="TOAST" disabled={posSettings.pos_provider !== "TOAST"}>Toast (Coming soon…)</option>
+                    <option value="TOAST">Toast</option>
                     <option value="LIGHTSPEED">Lightspeed</option>
-                    <option value="CLOVER" disabled={posSettings.pos_provider !== "CLOVER"}>Clover (Coming soon…)</option>
+                    <option value="CLOVER">Clover</option>
                     <option value="STRIPE" disabled={posSettings.pos_provider !== "STRIPE"}>Stripe (Coming soon…)</option>
                     <option value="CUSTOM">{t("pos.custom_api") || "Custom API"}</option>
                   </select>
@@ -1515,6 +1623,150 @@ export default function Settings() {
                         </Button>
                       )}
                     </div>
+                  ) : posSettings.pos_provider === "TOAST" ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-slate-800 dark:text-slate-200">Toast POS</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            {t("pos.toast.subtitle") ||
+                              "Provide your Toast restaurantGuid. Mizan uses its partner credentials to pull your orders — no API keys stored in your browser."}
+                          </div>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={
+                            posFullyConnected
+                              ? "border-emerald-400 text-emerald-800 dark:border-emerald-700 dark:text-emerald-300"
+                              : "border-amber-500 text-amber-900 dark:border-amber-600 dark:text-amber-200"
+                          }
+                        >
+                          {posFullyConnected
+                            ? t("integrations.status.fully_connected")
+                            : t("integrations.status.setup_incomplete")}
+                        </Badge>
+                      </div>
+
+                      {!posSettings.pos_is_connected ? (
+                        <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                          <div className="space-y-1">
+                            <Label htmlFor="toast-guid" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                              {t("pos.toast.guid_label") || "Toast restaurant GUID *"}
+                            </Label>
+                            <Input
+                              id="toast-guid"
+                              type="text"
+                              placeholder="e.g. 9f8b5a7c-1234-4a56-9bcd-ef0123456789"
+                              value={toastGuidInput}
+                              onChange={(e) => setToastGuidInput(e.target.value)}
+                            />
+                            <p className="text-xs text-slate-400">
+                              {t("pos.toast.guid_hint") ||
+                                "Find this in Toast Web — Restaurant Admin → API access. Format: UUID."}
+                            </p>
+                          </div>
+                          <Button
+                            onClick={connectToast}
+                            disabled={toastConnecting || !toastGuidInput.trim()}
+                            className="w-full"
+                          >
+                            {toastConnecting ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Plug className="mr-2 h-4 w-4" />
+                            )}
+                            {t("pos.toast.connect") || "Connect Toast"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="space-y-1 p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/20">
+                            <div className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+                              {t("pos.toast.connected_title") || "Toast is connected"}
+                            </div>
+                            <div className="text-xs text-emerald-700 dark:text-emerald-400 break-all">
+                              {t("pos.toast.guid_label_short") || "Restaurant GUID"}:{" "}
+                              <code>{posSettings.pos_merchant_id}</code>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2 sm:flex-row">
+                            <Button onClick={testPosConnection} variant="outline" className="flex-1">
+                              <Plug className="mr-2 h-4 w-4" />
+                              {t("pos.test_connection")}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              className="flex-1"
+                              onClick={() => setPosDisconnectOpen(true)}
+                            >
+                              <Unplug className="mr-2 h-4 w-4" />
+                              {t("pos.disconnect")}
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ) : posSettings.pos_provider === "CLOVER" ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-slate-800 dark:text-slate-200">Clover POS</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            {t("pos.clover.subtitle") ||
+                              "Connect via Clover App Market OAuth so tokens stay out of your browser."}
+                          </div>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={
+                            posFullyConnected
+                              ? "border-emerald-400 text-emerald-800 dark:border-emerald-700 dark:text-emerald-300"
+                              : "border-amber-500 text-amber-900 dark:border-amber-600 dark:text-amber-200"
+                          }
+                        >
+                          {posFullyConnected
+                            ? t("integrations.status.fully_connected")
+                            : t("integrations.status.setup_incomplete")}
+                        </Badge>
+                      </div>
+
+                      {!posSettings.pos_is_connected ? (
+                        <Button onClick={connectClover} className="w-full">
+                          <Plug className="mr-2 h-4 w-4" />
+                          {t("pos.clover.connect") || "Connect with Clover"}
+                        </Button>
+                      ) : (
+                        <>
+                          <div className="space-y-1 p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/20">
+                            <div className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+                              {t("pos.clover.connected_title") || "Clover is connected"}
+                            </div>
+                            {posSettings.pos_merchant_id ? (
+                              <div className="text-xs text-emerald-700 dark:text-emerald-400 break-all">
+                                {t("pos.clover.merchant_label") || "Merchant ID"}:{" "}
+                                <code>{posSettings.pos_merchant_id}</code>
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="flex flex-col gap-2 sm:flex-row">
+                            <Button onClick={testPosConnection} variant="outline" className="flex-1">
+                              <Plug className="mr-2 h-4 w-4" />
+                              {t("pos.test_connection")}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              className="flex-1"
+                              onClick={() => setPosDisconnectOpen(true)}
+                            >
+                              <Unplug className="mr-2 h-4 w-4" />
+                              {t("pos.disconnect")}
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   ) : posSettings.pos_provider === "NONE" ? null : (
                     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4">
                       <div className="flex items-center justify-between gap-3">
@@ -1523,7 +1775,7 @@ export default function Settings() {
                             {posSettings.pos_provider} integration
                           </div>
                           <div className="text-xs text-slate-500 dark:text-slate-400">
-                            Coming soon. Square and Custom API are available now.
+                            Coming soon. Square, Toast, Clover, Lightspeed, and Custom API are available now.
                           </div>
                         </div>
                         <Badge variant="outline" className="border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400">
@@ -1575,7 +1827,18 @@ export default function Settings() {
                     type="button"
                     variant="destructive"
                     disabled={posDisconnecting}
-                    onClick={() => void disconnectPosPlatform()}
+                    onClick={() => {
+                      // Toast and Clover need provider-specific disconnect
+                      // endpoints (the unified /settings/unified/ endpoint
+                      // only understands Square/Lightspeed/Custom today).
+                      if (posSettings.pos_provider === "TOAST") {
+                        void disconnectToastOrClover("TOAST");
+                      } else if (posSettings.pos_provider === "CLOVER") {
+                        void disconnectToastOrClover("CLOVER");
+                      } else {
+                        void disconnectPosPlatform();
+                      }
+                    }}
                   >
                     {posDisconnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Unplug className="mr-2 h-4 w-4" />}
                     {t("pos.disconnect")}
@@ -1591,53 +1854,9 @@ export default function Settings() {
 
         {!isStaff && (
           <TabsContent value="billing" className="space-y-6">
-            <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
-              <CardHeader className="pb-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25">
-                    <CreditCardIcon className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("settings.billing_info")}</CardTitle>
-                    <CardDescription className="text-slate-500 dark:text-slate-400">{t("settings.billing_description")}</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Current Plan - Open Access */}
-                <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-100 dark:border-emerald-800">
-                  <div className="flex flex-col items-center text-center gap-4">
-                    <div className="p-4 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
-                      <Sparkles className="w-8 h-8 text-emerald-600" />
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-center gap-2 mb-2">
-                        <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100">Free Access</h4>
-                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Active</Badge>
-                      </div>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md">
-                        You currently have full access to all Mizan AI features. No subscription or payment is required at this time.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Coming Soon Notice */}
-                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 rounded-lg bg-slate-200 dark:bg-slate-700">
-                      <CreditCardIcon className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("settings.subscription_coming_soon")}</h4>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                        We're working on flexible subscription options for teams of all sizes. You'll be notified when billing options become available.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <Suspense fallback={<FormSectionSkeleton />}>
+              <BillingSettings />
+            </Suspense>
 
             <Card className="shadow-soft border-red-100 dark:border-red-900/50 bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20">
               <CardHeader className="pb-4">

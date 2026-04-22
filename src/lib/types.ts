@@ -193,6 +193,76 @@ export interface DashboardTasksDemandsResponse {
     generated_at: string;
 }
 
+/** Row shape served by GET /api/dashboard/meetings-reminders/. Thin by design
+ * so the widget can render without a second call — the full event detail
+ * is one click away in Google Calendar via `html_link`. */
+export interface MeetingReminderItem {
+    id: string;
+    title: string;
+    /** RFC3339 start datetime in UTC (or `YYYY-MM-DDT00:00:00+00:00` for all-day). */
+    start: string;
+    end: string | null;
+    all_day: boolean;
+    /** First-name label for the organizer, or literally "Me" when it's the viewer. */
+    owner_label: string;
+    owner_is_me: boolean;
+    /** Widget pill vocabulary — mapped from event time + color on the backend. */
+    status: 'URGENT' | 'PENDING' | 'DONE';
+    html_link: string | null;
+    hangout_link: string | null;
+    location: string | null;
+    attendee_count: number;
+    calendar_id: string;
+}
+
+export interface DashboardMeetingsRemindersResponse {
+    connected: boolean;
+    /** Google account the tenant connected. Shown as a hint on the empty state. */
+    email: string | null;
+    items: MeetingReminderItem[];
+    counts: { urgent: number; pending: number; done: number };
+    /** Target for the "Open in Calendar" footer link. */
+    calendar_link: string;
+    /** Only set on the not-connected shape; tells the UI whether the server
+     * has OAuth creds at all (so we can hide the connect CTA if it'd just 501). */
+    configured?: boolean;
+    generated_at: string;
+}
+
+/** Row shape served by GET /api/dashboard/clock-ins/. */
+export interface ClockInEventItem {
+    id: string;
+    /** RFC3339 datetime when the staff clocked in. */
+    timestamp: string;
+    status: "ON_TIME" | "LATE";
+    /** Minutes vs. scheduled shift start (negative = early, positive = late).
+     * ``null`` when the staff has no shift assigned for today. */
+    lateness_minutes: number | null;
+    /** True when the staff clocked in at a branch outside their allowed set. */
+    location_mismatch: boolean;
+    method: "self" | "manager_override";
+    location: { id: string; name: string } | null;
+    staff: {
+        id: string;
+        name: string;
+        initials: string;
+        role: string | null;
+        avatar: string | null;
+    };
+}
+
+export interface DashboardClockInsResponse {
+    items: ClockInEventItem[];
+    counts: {
+        on_time: number;
+        late: number;
+        /** Total clock-in events today across the whole tenant — lets the
+         * card show "3 late / 17 today" without a second request. */
+        total: number;
+    };
+    generated_at: string;
+}
+
 export interface InventoryItem {
     id: string;
     restaurant: string;
@@ -434,40 +504,69 @@ export interface CreateAnnouncementResponse {
     announcement_id?: string;
 }
 
-// Extended dataset for transmitting comprehensive shift review and attendance details
-export interface ShiftReviewSubmission {
-    // Core feedback
-    session_id: string;
-    rating: number; // 1-5
-    tags?: string[];
-    comments?: string;
-    completed_at_iso: string;
-    hours_decimal?: number;
+// ---------------------------------------------------------------------------
+// Billing / subscriptions
+// ---------------------------------------------------------------------------
+export type SubscriptionTier = "FREE" | "STARTER" | "GROWTH" | "ENTERPRISE";
 
-    // Raw timestamps and timezone
-    clock_in_time_iso?: string;
-    clock_out_time_iso?: string;
-    timezone?: string; // IANA timezone name
-    timezone_offset_minutes?: number; // minutes offset from UTC
+export type SubscriptionStatus =
+    | "incomplete"
+    | "incomplete_expired"
+    | "trialing"
+    | "active"
+    | "past_due"
+    | "canceled"
+    | "unpaid";
 
-    // Calculated durations
-    duration_hms?: string; // HH:MM:SS
-    duration_seconds?: number;
+export interface SubscriptionPlan {
+    id: number;
+    slug: string;
+    tier: SubscriptionTier;
+    name: string;
+    description: string;
+    price: string; // DRF decimals serialize as strings
+    price_monthly: string | null;
+    price_yearly: string | null;
+    currency: string;
+    interval: "month" | "year";
+    stripe_price_id: string | null;
+    stripe_price_id_monthly: string;
+    stripe_price_id_yearly: string;
+    features: string[];
+    feature_keys: string[];
+    max_locations: number | null;
+    max_staff: number | null;
+    badge: string;
+    highlight: boolean;
+    cta_label: string;
+    contact_sales: boolean;
+    sort_order: number;
+    trial_days: number;
+    is_active: boolean;
+}
 
-    // Employee and restaurant details
-    employee?: { id: string; name?: string; department?: string };
-    restaurant?: { id?: string; name?: string };
+export interface CurrentSubscription {
+    id: number;
+    status: SubscriptionStatus;
+    tier: SubscriptionTier;
+    is_paid: boolean;
+    billing_interval: "" | "month" | "year";
+    current_period_start: string | null;
+    current_period_end: string | null;
+    cancel_at_period_end: boolean;
+    trial_ends_at: string | null;
+    plan: SubscriptionPlan | null;
+}
 
-    // Location details
-    location?: {
-        in_latitude?: number;
-        in_longitude?: number;
-        out_latitude?: number | null;
-        out_longitude?: number | null;
-        verified_location?: boolean;
-    };
-
-    // Shift info and anomaly flags
-    shift_info?: { start_time?: string; end_time?: string; section?: string; notes?: string };
-    flags?: string[]; // e.g., EARLY_CLOCK_IN, LATE_CLOCK_OUT, MISSING_PUNCHES, LOCATION_UNVERIFIED
+export interface BillingEntitlements {
+    tier: SubscriptionTier;
+    status: SubscriptionStatus;
+    is_paid: boolean;
+    billing_interval: "" | "month" | "year";
+    trial_ends_at: string | null;
+    current_period_end: string | null;
+    cancel_at_period_end: boolean;
+    features: string[];
+    limits: { max_locations: number | null; max_staff: number | null };
+    plan: SubscriptionPlan | null;
 }

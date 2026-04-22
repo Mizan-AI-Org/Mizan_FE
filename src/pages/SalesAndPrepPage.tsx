@@ -187,7 +187,7 @@ export default function SalesAndPrepPage() {
   };
 
   const cardBase =
-    "border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 rounded-2xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-slate-200 dark:hover:border-slate-700";
+    "relative border border-slate-200/60 dark:border-slate-800/80 bg-white dark:bg-slate-900 rounded-2xl ring-1 ring-slate-900/[0.03] dark:ring-white/[0.04] overflow-hidden shadow-[0_1px_2px_0_rgb(15_23_42_/_0.04),0_2px_8px_-2px_rgb(15_23_42_/_0.06)] transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-0.5 hover:border-slate-300/70 dark:hover:border-slate-700 hover:shadow-[0_12px_32px_-12px_rgb(15_23_42_/_0.18),0_4px_12px_-4px_rgb(15_23_42_/_0.08)]";
 
   const miyaRec = prepList as { miya_recommendation?: { title?: string; body?: string; action_label?: string } } | undefined;
   const isConnectPosPrompt = miyaRec?.miya_recommendation?.action_label?.toLowerCase().includes("connect pos") ?? false;

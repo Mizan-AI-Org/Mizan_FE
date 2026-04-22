@@ -17,8 +17,32 @@ export type PermissionBuckets = {
 
 export type EffectivePermissions = {
   role: string;
-  source: "privileged" | "tenant" | "defaults";
+  source: "privileged" | "user" | "tenant" | "defaults";
   permissions: PermissionBuckets;
+};
+
+export type AssignableUser = {
+  id: string;
+  email: string;
+  full_name: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  is_active: boolean;
+  has_override: boolean;
+};
+
+export type UserPermissionRow = {
+  user_id: string;
+  permissions: PermissionBuckets;
+  updated_by: string | null;
+  updated_at: string | null;
+  user?: {
+    id: string;
+    email: string;
+    full_name: string;
+    role: string;
+  };
 };
 
 export type RBACCatalog = {
@@ -40,6 +64,8 @@ export type RolePermissionRow = {
 const ME_KEY = ["rbac", "me"] as const;
 const CATALOG_KEY = ["rbac", "catalog"] as const;
 const ROLE_PERMS_KEY = ["rbac", "role-permissions"] as const;
+const ASSIGNABLE_USERS_KEY = ["rbac", "assignable-users"] as const;
+const USER_PERMS_KEY = ["rbac", "user-permissions"] as const;
 
 /**
  * Resolve the current user's effective permissions and expose `can*` helpers.
@@ -130,4 +156,66 @@ export function useRolePermissionMutations() {
   });
 
   return { save, reset };
+}
+
+export function useAssignableUsers(enabled = true) {
+  return useQuery({
+    queryKey: ASSIGNABLE_USERS_KEY,
+    queryFn: async (): Promise<AssignableUser[]> => {
+      const res = await api.listAssignableUsers();
+      return res.results ?? [];
+    },
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+export function useUserPermissions(enabled = true) {
+  return useQuery({
+    queryKey: USER_PERMS_KEY,
+    queryFn: async (): Promise<UserPermissionRow[]> => {
+      const res = await api.listUserPermissions();
+      return res.results ?? [];
+    },
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+export function useUserPermissionMutations() {
+  const qc = useQueryClient();
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: USER_PERMS_KEY });
+    qc.invalidateQueries({ queryKey: ASSIGNABLE_USERS_KEY });
+    qc.invalidateQueries({ queryKey: ME_KEY });
+  };
+
+  const save = useMutation({
+    mutationFn: ({
+      userId,
+      permissions,
+    }: {
+      userId: string;
+      permissions: PermissionBuckets;
+    }) => api.updateUserPermissions(userId, permissions),
+    onSuccess: invalidate,
+  });
+
+  const saveMany = useMutation({
+    mutationFn: ({
+      userIds,
+      permissions,
+    }: {
+      userIds: string[];
+      permissions: PermissionBuckets;
+    }) => api.bulkUpdateUserPermissions(userIds, permissions),
+    onSuccess: invalidate,
+  });
+
+  const reset = useMutation({
+    mutationFn: (userId: string) => api.resetUserPermissions(userId),
+    onSuccess: invalidate,
+  });
+
+  return { save, saveMany, reset };
 }
