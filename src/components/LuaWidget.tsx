@@ -229,7 +229,7 @@ export const LuaWidget: React.FC = () => {
                     position: "bottom-right",
 
                     // Button visuals
-                    buttonIcon: "/miya-avatar.png",
+                    buttonIcon: "/miya-avatar.webp",
                     buttonText: "",
                     buttonColor: "transparent",
 
