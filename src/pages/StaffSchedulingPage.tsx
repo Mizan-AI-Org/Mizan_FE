@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Clock, CheckSquare, BarChart } from "lucide-react";
@@ -11,7 +12,27 @@ import { useLanguage } from "@/hooks/use-language";
 
 const StaffSchedulingPage: React.FC = () => {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<string>("schedule");
+  const location = useLocation();
+  // Default to the Schedule tab, but jump straight to Tasks if the URL carries
+  // a deep-link like ?task=<id> or ?tab=tasks (used by the "All Tasks" row link
+  // on /dashboard/tasks so clicking a task opens its edit modal directly).
+  const initialTab = (() => {
+    const p = new URLSearchParams(location.search);
+    if (p.get("task") || p.get("openModal") === "true" || p.get("tab") === "tasks") {
+      return "tasks";
+    }
+    return "schedule";
+  })();
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  // Re-sync the active tab if the URL query changes after mount (e.g. the user
+  // clicks another task row without unmounting the page).
+  useEffect(() => {
+    const p = new URLSearchParams(location.search);
+    if (p.get("task") || p.get("openModal") === "true" || p.get("tab") === "tasks") {
+      setActiveTab("tasks");
+    }
+  }, [location.search]);
 
   // Fetch restaurant stats (backend: GET /api/analytics/restaurant-stats/)
   const { data: stats, isLoading: statsLoading } = useQuery({

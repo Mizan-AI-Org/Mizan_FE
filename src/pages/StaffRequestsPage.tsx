@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { MessageCircle, FileText, Calendar, Wallet, Settings, Briefcase, Plus, AlertCircle, Clock, CheckCircle2, ChevronRight } from "lucide-react";
+import { MessageCircle, FileText, Calendar, Wallet, Settings, Briefcase, Plus, AlertCircle, Clock, CheckCircle2, ChevronRight, Wrench, BookOpen, Package, Mic, UserCircle2, ArrowRightLeft, Inbox } from "lucide-react";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 
 type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED";
@@ -23,6 +23,13 @@ type StaffRequestComment = {
   body: string;
   created_at: string;
   author_details?: { first_name?: string; last_name?: string; email?: string } | null;
+};
+
+type AssigneeSummary = {
+  id: string;
+  name: string;
+  email: string;
+  role?: string;
 };
 
 type StaffRequest = {
@@ -40,6 +47,12 @@ type StaffRequest = {
   created_at: string;
   updated_at: string;
   comments?: StaffRequestComment[];
+  assignee?: string | null;
+  assignee_summary?: AssigneeSummary | null;
+  assignee_details?: { id: string; first_name?: string; last_name?: string; email?: string; role?: string } | null;
+  voice_audio_url?: string;
+  transcription?: string;
+  transcription_language?: string;
 };
 
 const STATUSES: { key: StaffRequestStatus; label: string }[] = [
@@ -84,7 +97,21 @@ function getCategoryIcon(category?: string) {
   if (c === "PAYROLL") return <Wallet className="w-3.5 h-3.5" />;
   if (c === "OPERATIONS") return <Briefcase className="w-3.5 h-3.5" />;
   if (c === "HR") return <Settings className="w-3.5 h-3.5" />;
+  if (c === "MAINTENANCE") return <Wrench className="w-3.5 h-3.5" />;
+  if (c === "RESERVATIONS") return <BookOpen className="w-3.5 h-3.5" />;
+  if (c === "INVENTORY") return <Package className="w-3.5 h-3.5" />;
   return <Plus className="w-3.5 h-3.5" />;
+}
+
+function getAssigneeName(r: Pick<StaffRequest, "assignee_summary" | "assignee_details">): string {
+  if (r.assignee_summary?.name) return r.assignee_summary.name;
+  const d = r.assignee_details;
+  if (d) {
+    const n = [d.first_name || "", d.last_name || ""].join(" ").trim();
+    if (n) return n;
+    if (d.email) return d.email;
+  }
+  return "";
 }
 
 async function apiGet<T>(path: string): Promise<T> {
@@ -123,6 +150,9 @@ const StaffRequestsPage: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [comment, setComment] = useState("");
   const [escalateModalOpen, setEscalateModalOpen] = useState(false);
+  const [reassignModalOpen, setReassignModalOpen] = useState(false);
+  // "Assigned to me" toggle — scopes the inbox to rows this manager owns.
+  const [assignedToMe, setAssignedToMe] = useState(false);
 
   // Debounce the search term so we don't hit the backend on every keystroke.
   useEffect(() => {
@@ -131,11 +161,12 @@ const StaffRequestsPage: React.FC = () => {
   }, [search]);
 
   const listQuery = useQuery({
-    queryKey: ["staff-requests", activeStatus, debouncedSearch],
+    queryKey: ["staff-requests", activeStatus, debouncedSearch, assignedToMe],
     queryFn: async (): Promise<StaffRequest[]> => {
       const qs = new URLSearchParams();
       qs.set("status", activeStatus);
       if (debouncedSearch) qs.set("search", debouncedSearch);
+      if (assignedToMe) qs.set("assigned_to_me", "1");
       // Inbox list pulls a lean payload from the backend (no comments,
       // no nested staff profile); we can show 50 per page comfortably.
       qs.set("page_size", "50");
@@ -155,13 +186,29 @@ const StaffRequestsPage: React.FC = () => {
   });
 
   const countsQuery = useQuery({
-    queryKey: ["staff-requests-counts"],
-    queryFn: async (): Promise<Record<string, number>> => {
-      const data = await apiGet<any>("/staff/requests/counts/");
-      return data?.counts || {};
+    queryKey: ["staff-requests-counts", assignedToMe],
+    queryFn: async (): Promise<{ counts: Record<string, number>; assigned_to_me_open: number }> => {
+      const data = await apiGet<any>(
+        `/staff/requests/counts/${assignedToMe ? "?assigned_to_me=1" : ""}`,
+      );
+      return { counts: data?.counts || {}, assigned_to_me_open: data?.assigned_to_me_open || 0 };
     },
     refetchInterval: 60_000,
     placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
+  // "Assigned to me (N)" pill count is NOT scoped to the current status tab —
+  // it's the total open rows owned by the manager across any status (except
+  // CLOSED/REJECTED). We need this independent of the main counts query.
+  const myCountsQuery = useQuery({
+    queryKey: ["staff-requests-my-count"],
+    queryFn: async (): Promise<number> => {
+      const data = await apiGet<any>("/staff/requests/counts/?assigned_to_me=1");
+      return data?.assigned_to_me_open || 0;
+    },
+    refetchInterval: 60_000,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
@@ -188,6 +235,8 @@ const StaffRequestsPage: React.FC = () => {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["staff-requests"] });
       await queryClient.invalidateQueries({ queryKey: ["staff-request"] });
+      await queryClient.invalidateQueries({ queryKey: ["staff-requests-counts"] });
+      await queryClient.invalidateQueries({ queryKey: ["staff-requests-my-count"] });
     },
   });
 
@@ -207,9 +256,26 @@ const StaffRequestsPage: React.FC = () => {
         <div>
           <h2 className="text-2xl font-bold">Staff Requests</h2>
           <p className="text-sm text-muted-foreground">
-            Manager inbox for staff questions, documents, and approvals.
+            Intelligent inbox — WhatsApp messages and voice notes are transcribed, classified and routed automatically.
           </p>
         </div>
+        <Button
+          variant={assignedToMe ? "default" : "outline"}
+          onClick={() => setAssignedToMe((v) => !v)}
+          className="rounded-full shrink-0"
+          title="Show only requests assigned to you"
+        >
+          <Inbox className="w-4 h-4 mr-2" />
+          Assigned to me
+          {typeof myCountsQuery.data === "number" && myCountsQuery.data > 0 && (
+            <Badge
+              variant="secondary"
+              className="ml-2 h-5 min-w-5 px-1.5 text-[11px] rounded-full"
+            >
+              {myCountsQuery.data}
+            </Badge>
+          )}
+        </Button>
       </div>
 
       <Tabs value={activeStatus} onValueChange={(v) => setActiveStatus(v as StaffRequestStatus)}>
@@ -218,12 +284,12 @@ const StaffRequestsPage: React.FC = () => {
             {STATUSES.map((s) => (
               <TabsTrigger key={s.key} value={s.key} className="relative">
                 {s.label}
-                {countsQuery.data?.[s.key] !== undefined && (
+                {countsQuery.data?.counts?.[s.key] !== undefined && (
                   <Badge
                     variant="secondary"
                     className="ml-1.5 h-4 w-4 p-0 flex items-center justify-center text-[10px] rounded-full"
                   >
-                    {countsQuery.data[s.key]}
+                    {countsQuery.data.counts[s.key]}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -284,14 +350,37 @@ const StaffRequestsPage: React.FC = () => {
                                   {isNew && (
                                     <Badge className="h-4 px-1 text-[9px] bg-blue-500 hover:bg-blue-600">NEW</Badge>
                                   )}
+                                  {r.voice_audio_url ? (
+                                    <span
+                                      className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 h-4 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300"
+                                      title="Originally a WhatsApp voice note"
+                                    >
+                                      <Mic className="w-2.5 h-2.5" />
+                                      VOICE
+                                    </span>
+                                  ) : null}
                                 </div>
-                                <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
                                   <span className="font-bold text-foreground truncate">{(r.staff_display_name || r.staff_name || "Staff")}</span>
                                   <span>•</span>
                                   <span className="flex items-center gap-1">
                                     {getCategoryIcon(r.category)}
                                     {r.category}
                                   </span>
+                                  {getAssigneeName(r) ? (
+                                    <>
+                                      <span>•</span>
+                                      <span className="inline-flex items-center gap-1 text-foreground/80">
+                                        <UserCircle2 className="w-3 h-3" />
+                                        {getAssigneeName(r)}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span>•</span>
+                                      <span className="italic text-muted-foreground/70">Unassigned</span>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex flex-col items-end gap-1.5">
@@ -360,7 +449,7 @@ const StaffRequestsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="px-6 py-4">
+                    <div className="px-6 py-4 space-y-3">
                       <div className="bg-muted/30 rounded-2xl p-4 border border-border/40">
                         <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1.5">
                           <MessageCircle className="w-3 h-3" />
@@ -369,6 +458,63 @@ const StaffRequestsPage: React.FC = () => {
                         <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap italic">
                           "{selected.description || "No description provided."}"
                         </div>
+                      </div>
+
+                      {selected.voice_audio_url ? (
+                        <div className="bg-purple-500/5 rounded-2xl p-4 border border-purple-500/20">
+                          <div className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                            <Mic className="w-3 h-3" />
+                            Original voice note
+                            {selected.transcription_language ? (
+                              <Badge variant="secondary" className="ml-1 text-[9px] uppercase h-4 px-1">
+                                {selected.transcription_language}
+                              </Badge>
+                            ) : null}
+                          </div>
+                          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                          <audio
+                            controls
+                            src={selected.voice_audio_url}
+                            className="w-full h-9"
+                          />
+                          {selected.transcription ? (
+                            <div className="mt-3 text-xs text-foreground/80 bg-background/70 rounded-lg p-3 border border-border/30 leading-relaxed">
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Transcript</span>
+                              {selected.transcription}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      <div className="rounded-2xl p-4 border border-border/40 bg-background flex items-center gap-3">
+                        <UserCircle2 className="w-9 h-9 text-muted-foreground shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                            Assigned to
+                          </div>
+                          {getAssigneeName(selected) ? (
+                            <>
+                              <div className="text-sm font-semibold truncate">{getAssigneeName(selected)}</div>
+                              {selected.assignee_summary?.email || selected.assignee_details?.email ? (
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {selected.assignee_summary?.email || selected.assignee_details?.email}
+                                </div>
+                              ) : null}
+                            </>
+                          ) : (
+                            <div className="text-sm italic text-muted-foreground">Nobody yet — set a category owner in Settings to auto-route.</div>
+                          )}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full shrink-0"
+                          onClick={() => setReassignModalOpen(true)}
+                          disabled={mutateAction.isPending}
+                        >
+                          <ArrowRightLeft className="w-3.5 h-3.5 mr-1.5" />
+                          Reassign
+                        </Button>
                       </div>
                     </div>
 
@@ -511,6 +657,25 @@ const StaffRequestsPage: React.FC = () => {
             {
               onSuccess: () => {
                 setEscalateModalOpen(false);
+              },
+            }
+          );
+        }}
+      />
+
+      <EscalateStaffRequestModal
+        mode="reassign"
+        open={reassignModalOpen}
+        onOpenChange={setReassignModalOpen}
+        isPending={mutateAction.isPending}
+        onConfirm={(assigneeId) => {
+          const note = comment.trim();
+          mutateAction.mutate(
+            { action: "reassign", payload: { assignee_id: assigneeId, note } },
+            {
+              onSuccess: () => {
+                setReassignModalOpen(false);
+                setComment("");
               },
             }
           );

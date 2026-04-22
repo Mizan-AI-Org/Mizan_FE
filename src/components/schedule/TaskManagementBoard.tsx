@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +25,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { API_BASE } from "@/lib/api";
 import {
   Plus,
@@ -104,6 +104,36 @@ interface TaskManagementBoardProps {
   initialView?: "templates" | "tasks" | "categories";
 }
 
+// Convert whatever the backend sends for `estimated_duration` (could be
+// a timedelta string "HH:MM:SS", a number of minutes, or null) into a
+// minutes integer suitable for the `type="number"` input.
+function normalizeEstimatedDurationToMinutes(raw: unknown): number {
+  if (raw == null || raw === "") return 30;
+  if (typeof raw === "number" && Number.isFinite(raw)) return Math.max(1, Math.round(raw));
+  if (typeof raw === "string") {
+    // "HH:MM:SS" or "D HH:MM:SS" or "P...": we care about the HH:MM part.
+    const hms = raw.match(/(\d+):(\d{1,2}):(\d{1,2})/);
+    if (hms) {
+      const h = Number(hms[1]);
+      const m = Number(hms[2]);
+      const s = Number(hms[3]);
+      return Math.max(1, Math.round(h * 60 + m + s / 60));
+    }
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return Math.round(n);
+  }
+  return 30;
+}
+
+// Pad a backend "YYYY-MM-DD" into the "YYYY-MM-DDTHH:MM" shape the
+// datetime-local input needs; passes existing full datetimes through.
+function normalizeDueDateForInput(raw: string | null | undefined): string {
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(raw)) return raw.slice(0, 16);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return `${raw}T09:00`;
+  return raw;
+}
+
 const priorityColors = {
   LOW: "bg-blue-100 text-blue-800",
   MEDIUM: "bg-green-100 text-green-800",
@@ -149,6 +179,7 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
   const { user } = useAuth();
   const { toast } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"templates" | "tasks" | "categories">(initialView);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
@@ -275,6 +306,36 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
       setIsTaskModalOpen(true);
     }
   }, [location.search]);
+
+  // Deep-link: open a specific task's edit modal when ?task=<id> is in the URL.
+  // Waits for `tasks` to be populated, then looks up the id, prefills the form,
+  // opens the modal, and scrubs the param so a refresh doesn't re-open it.
+  const deepLinkTaskId = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("task");
+  }, [location.search]);
+
+  useEffect(() => {
+    if (!deepLinkTaskId || !tasks || tasks.length === 0) return;
+    const match = tasks.find((t) => String(t.id) === String(deepLinkTaskId));
+    if (!match) return;
+    setSelectedTask(match);
+    setTaskFormData({
+      title: match.title,
+      description: match.description ?? "",
+      category: match.category ?? "",
+      assigned_to: Array.isArray(match.assigned_to) ? match.assigned_to : [],
+      priority: match.priority,
+      due_date: normalizeDueDateForInput(match.due_date),
+      estimated_duration: normalizeEstimatedDurationToMinutes(match.estimated_duration),
+    });
+    setIsTaskModalOpen(true);
+    // Strip ?task=... so the modal doesn't reopen on every render / refresh.
+    const params = new URLSearchParams(location.search);
+    params.delete("task");
+    const qs = params.toString();
+    navigate(`${location.pathname}${qs ? `?${qs}` : ""}${location.hash || ""}`, { replace: true });
+  }, [deepLinkTaskId, tasks, navigate, location.pathname, location.search, location.hash]);
 
   // Create/update task mutation
   const taskMutation = useMutation({
@@ -661,14 +722,27 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
     setSelectedTask(task);
     setTaskFormData({
       title: task.title,
-      description: task.description,
-      category: task.category,
-      assigned_to: task.assigned_to,
+      description: task.description ?? "",
+      category: task.category ?? "",
+      assigned_to: Array.isArray(task.assigned_to) ? task.assigned_to : [],
       priority: task.priority,
-      due_date: task.due_date,
-      estimated_duration: task.estimated_duration,
+      // `type="datetime-local"` requires "YYYY-MM-DDTHH:MM". Backend
+      // returns DateField as "YYYY-MM-DD", so we append a midday time
+      // so the input renders (otherwise it appears empty and submitting
+      // blanks the due_date on the backend).
+      due_date: normalizeDueDateForInput(task.due_date),
+      estimated_duration: normalizeEstimatedDurationToMinutes(task.estimated_duration),
     });
     setIsTaskModalOpen(true);
+  };
+
+  // Shortcut for the card-level delete affordance: opens the confirm
+  // dialog without having to route through the edit modal first.
+  // Explicitly does NOT set `selectedTask` (that's edit-modal state)
+  // to avoid accidentally populating the edit form next time the user
+  // clicks "+ New Task".
+  const handleDeleteTask = (task: Task) => {
+    setTaskToDelete(task.id);
   };
 
   // Generate tasks from template
@@ -794,41 +868,73 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
                   ) : (
                     <div className="space-y-2">
                       {statusTasks.map((task) => (
-                        <Card key={task.id} className="p-3 cursor-pointer hover:bg-gray-50" onClick={() => handleEditTask(task)}>
-                          <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-medium">{task.title}</h4>
+                        <Card key={task.id} className="group p-3 cursor-pointer hover:bg-gray-50" onClick={() => handleEditTask(task)}>
+                          <div className="flex justify-between items-start mb-2 gap-2">
+                            <h4 className="font-medium min-w-0 truncate">{task.title}</h4>
                             <Badge className={priorityColors[task.priority]}>{task.priority}</Badge>
                           </div>
                           <p className="text-sm text-gray-500 line-clamp-2 mb-2">{task.description}</p>
-                          <div className="flex justify-between items-center text-xs text-gray-500">
-                            <div>Due: {format(new Date(task.due_date), "MMM d, h:mm a")}</div>
-                            <div className="flex space-x-1">
+                          <div className="flex justify-between items-center text-xs text-gray-500 gap-2">
+                            <div className="min-w-0 truncate">
+                              Due: {task.due_date ? format(new Date(task.due_date), "MMM d, h:mm a") : "—"}
+                            </div>
+                            <div className="flex items-center gap-0.5 shrink-0">
                               {task.status !== "COMPLETED" && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-6 px-2"
+                                  className="h-6 w-6 p-0"
+                                  title="Mark complete"
+                                  aria-label="Mark complete"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     completeTaskMutation.mutate(task.id);
                                   }}
                                 >
-                                  <CheckCircle className="h-3 w-3" />
+                                  <CheckCircle className="h-3.5 w-3.5" />
                                 </Button>
                               )}
                               {task.status === "NOT_STARTED" && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-6 px-2"
+                                  className="h-6 w-6 p-0"
+                                  title="Start task"
+                                  aria-label="Start task"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     startTaskMutation.mutate(task.id);
                                   }}
                                 >
-                                  <Clock className="h-3 w-3" />
+                                  <Clock className="h-3.5 w-3.5" />
                                 </Button>
                               )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                title="Edit task"
+                                aria-label="Edit task"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditTask(task);
+                                }}
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                title="Delete task"
+                                aria-label="Delete task"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteTask(task);
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
                           </div>
                           {task.assigned_to_details && task.assigned_to_details.length > 0 && (
@@ -1104,8 +1210,21 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
                   type="button"
                   variant="destructive"
                   className="mr-auto"
-                  onClick={() => setTaskToDelete(selectedTask.id)}
-                  disabled={taskMutation.isPending}
+                  onClick={() => {
+                    // Close the edit modal before opening the confirm
+                    // AlertDialog. Stacking two Radix modals causes the
+                    // outer overlay to swallow the inner dialog's button
+                    // clicks — the symptom users see as "Delete does
+                    // nothing". We stash the id locally so the delete
+                    // still fires after the edit modal unmounts.
+                    const id = selectedTask.id;
+                    setIsTaskModalOpen(false);
+                    // Defer a tick so the edit Dialog's exit animation
+                    // releases pointer events before the AlertDialog
+                    // mounts on top.
+                    setTimeout(() => setTaskToDelete(id), 0);
+                  }}
+                  disabled={taskMutation.isPending || deleteTaskMutation.isPending}
                 >
                   <Trash2 className="h-4 w-4 mr-1" /> Delete
                 </Button>
@@ -1114,7 +1233,13 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
                 Cancel
               </Button>
               <Button type="submit" disabled={taskMutation.isPending}>
-                {selectedTask ? "Update Task" : "Create Task"}
+                {taskMutation.isPending
+                  ? selectedTask
+                    ? "Updating…"
+                    : "Creating…"
+                  : selectedTask
+                    ? "Update Task"
+                    : "Create Task"}
               </Button>
             </DialogFooter>
           </form>
