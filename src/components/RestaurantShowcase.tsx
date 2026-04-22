@@ -31,22 +31,22 @@ export const RestaurantShowcase: React.FC = () => {
   const images = useMemo(
     () => [
       {
-        url: "/showcase-retail-hero.png",
+        url: "/showcase-retail-hero.webp",
         labelKey: "auth.showcase.img0.label",
         altKey: "auth.showcase.img0.alt",
       },
       {
-        url: "/image.png",
+        url: "/image.webp",
         labelKey: "auth.showcase.img1.label",
         altKey: "auth.showcase.img1.alt",
       },
       {
-        url: "/showcase-construction-hero.png",
+        url: "/showcase-construction-hero.webp",
         labelKey: "auth.showcase.img2.label",
         altKey: "auth.showcase.img2.alt",
       },
       {
-        url: "/restaurant-waterfront.png",
+        url: "/restaurant-waterfront.webp",
         labelKey: "auth.showcase.img3.label",
         altKey: "auth.showcase.img3.alt",
       },
