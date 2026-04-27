@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
 import { api, API_BASE, toAbsoluteUrl } from "@/lib/api";
@@ -124,6 +125,31 @@ const ManagerReviewDashboard: React.FC = () => {
   // Pagination state for Submitted Checklists
   const [checklistPage, setChecklistPage] = useState(1);
   const checklistPageSize = 10;
+
+  // Top-level tab — deep-linkable via ?tab=submitted|incidents so that the
+  // dashboard's "Reported Incidents" widget can land directly on the right
+  // tab. We keep the URL in sync when the user switches tabs manually so
+  // copy-pasting the address bar reproduces what they're looking at.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = (searchParams.get("tab") || "").toLowerCase();
+  const initialTab = tabFromUrl === "incidents" ? "incidents" : "submitted";
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
+  useEffect(() => {
+    const desired = activeTab === "incidents" ? "incidents" : "submitted";
+    if (tabFromUrl !== desired) {
+      const next = new URLSearchParams(searchParams);
+      if (desired === "submitted") next.delete("tab");
+      else next.set("tab", desired);
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+  useEffect(() => {
+    const t = (searchParams.get("tab") || "").toLowerCase();
+    const desired = t === "incidents" ? "incidents" : "submitted";
+    if (desired !== activeTab) setActiveTab(desired);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Incident management state
   const [incidentFilters, setIncidentFilters] = useState({ status: 'open', severity: '', search: '' });
@@ -646,7 +672,7 @@ const ManagerReviewDashboard: React.FC = () => {
   return (
     <div className="p-4 sm:p-6 space-y-4 max-w-[1400px] mx-auto">
 
-      <Tabs defaultValue="submitted" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="submitted">{t("analytics.submitted_checklist")}</TabsTrigger>
           <TabsTrigger value="incidents">{t("analytics.reported_incidents")}</TabsTrigger>

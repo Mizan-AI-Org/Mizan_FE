@@ -63,6 +63,37 @@ const STATUSES: { key: StaffRequestStatus; label: string }[] = [
   { key: "CLOSED", label: "Closed" },
 ];
 
+// Inbox category lanes. Mirrors ``StaffRequest.CATEGORY_CHOICES`` on the
+// backend (see ``mizan-backend/staff/models.py``) plus a synthetic "ALL"
+// chip so managers can opt out of filtering. We use these as filter
+// chips on the inbox so Miya's auto-categorised requests show up in
+// their own lane instead of one undifferentiated pile — see the intent
+// router at ``staff/intent_router.py``.
+type CategoryKey =
+  | "ALL"
+  | "HR"
+  | "DOCUMENT"
+  | "SCHEDULING"
+  | "PAYROLL"
+  | "OPERATIONS"
+  | "MAINTENANCE"
+  | "RESERVATIONS"
+  | "INVENTORY"
+  | "OTHER";
+
+const CATEGORY_CHIPS: { key: CategoryKey; label: string }[] = [
+  { key: "ALL", label: "All" },
+  { key: "HR", label: "HR" },
+  { key: "DOCUMENT", label: "Documents" },
+  { key: "PAYROLL", label: "Payroll" },
+  { key: "SCHEDULING", label: "Scheduling" },
+  { key: "OPERATIONS", label: "Operations" },
+  { key: "MAINTENANCE", label: "Maintenance" },
+  { key: "RESERVATIONS", label: "Reservations" },
+  { key: "INVENTORY", label: "Inventory" },
+  { key: "OTHER", label: "Uncategorised" },
+];
+
 function getAuthToken() {
   return localStorage.getItem("access_token") || localStorage.getItem("accessToken") || "";
 }
@@ -146,6 +177,7 @@ const StaffRequestsPage: React.FC = () => {
 
   const selectedId = params.id || null;
   const [activeStatus, setActiveStatus] = useState<StaffRequestStatus>("PENDING");
+  const [activeCategory, setActiveCategory] = useState<CategoryKey>("ALL");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [comment, setComment] = useState("");
@@ -161,10 +193,11 @@ const StaffRequestsPage: React.FC = () => {
   }, [search]);
 
   const listQuery = useQuery({
-    queryKey: ["staff-requests", activeStatus, debouncedSearch, assignedToMe],
+    queryKey: ["staff-requests", activeStatus, activeCategory, debouncedSearch, assignedToMe],
     queryFn: async (): Promise<StaffRequest[]> => {
       const qs = new URLSearchParams();
       qs.set("status", activeStatus);
+      if (activeCategory !== "ALL") qs.set("category", activeCategory);
       if (debouncedSearch) qs.set("search", debouncedSearch);
       if (assignedToMe) qs.set("assigned_to_me", "1");
       // Inbox list pulls a lean payload from the backend (no comments,
@@ -196,6 +229,36 @@ const StaffRequestsPage: React.FC = () => {
     refetchInterval: 60_000,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
+  // Per-category open counts for the filter chips. The existing
+  // `/staff/requests/counts/` endpoint already accepts a ``?category=``
+  // param, so we simply call it once per chip in parallel. Counts are
+  // scoped to the active status tab and the "Assigned to me" toggle so
+  // the badges stay consistent with whatever the inbox currently shows.
+  const categoryCountsQuery = useQuery({
+    queryKey: ["staff-requests-category-counts", activeStatus, assignedToMe],
+    queryFn: async (): Promise<Record<CategoryKey, number>> => {
+      const tasks = CATEGORY_CHIPS.filter((c) => c.key !== "ALL").map(async (c) => {
+        const params = new URLSearchParams();
+        params.set("category", c.key);
+        if (assignedToMe) params.set("assigned_to_me", "1");
+        const data = await apiGet<any>(`/staff/requests/counts/?${params.toString()}`);
+        const n: number = data?.counts?.[activeStatus] || 0;
+        return [c.key, n] as const;
+      });
+      const settled = await Promise.all(tasks);
+      const out: Record<string, number> = { ALL: 0 };
+      for (const [k, n] of settled) {
+        out[k] = n;
+        out.ALL += n;
+      }
+      return out as Record<CategoryKey, number>;
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
     refetchOnWindowFocus: false,
   });
 
@@ -237,6 +300,7 @@ const StaffRequestsPage: React.FC = () => {
       await queryClient.invalidateQueries({ queryKey: ["staff-request"] });
       await queryClient.invalidateQueries({ queryKey: ["staff-requests-counts"] });
       await queryClient.invalidateQueries({ queryKey: ["staff-requests-my-count"] });
+      await queryClient.invalidateQueries({ queryKey: ["staff-requests-category-counts"] });
     },
   });
 
@@ -307,11 +371,64 @@ const StaffRequestsPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Category filter chips — every category Miya's intent router
+            can produce gets its own lane. Clicking a chip narrows the
+            inbox via the existing ``?category=`` query param on the
+            list endpoint. */}
+        <div
+          className="mt-4 flex flex-wrap items-center gap-2"
+          role="tablist"
+          aria-label="Filter inbox by category"
+        >
+          {CATEGORY_CHIPS.map((c) => {
+            const count = categoryCountsQuery.data?.[c.key] ?? 0;
+            const isActive = activeCategory === c.key;
+            return (
+              <button
+                key={c.key}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveCategory(c.key)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  isActive
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "bg-background text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground",
+                )}
+              >
+                {c.key !== "ALL" && (
+                  <span className="opacity-80">{getCategoryIcon(c.key)}</span>
+                )}
+                <span>{c.label}</span>
+                {count > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "h-4 min-w-4 px-1 text-[10px] rounded-full",
+                      isActive && "bg-primary-foreground/20 text-primary-foreground",
+                    )}
+                  >
+                    {count}
+                  </Badge>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
         <TabsContent value={activeStatus} className="mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-4 items-start">
             <Card className="h-[72vh]">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Inbox</CardTitle>
+                <CardTitle className="text-base">
+                  Inbox
+                  {activeCategory !== "ALL" && (
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                      · {CATEGORY_CHIPS.find((c) => c.key === activeCategory)?.label}
+                    </span>
+                  )}
+                </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 <ScrollArea className="h-[62vh] pr-3">

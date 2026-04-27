@@ -89,6 +89,7 @@ export const DASHBOARD_WIDGET_IDS = [
   "staff_inbox",
   "meetings_reminders",
   "clock_ins",
+  "incidents",
 ] as const;
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
 
@@ -112,6 +113,7 @@ export const WIDGET_ADD_ICONS: Record<DashboardWidgetId, LucideIcon> = {
   staff_inbox: Inbox,
   meetings_reminders: CalendarDays,
   clock_ins: Clock,
+  incidents: ShieldAlert,
 };
 
 /** i18n keys for one-line descriptions in the Add widget dialog. */
@@ -134,6 +136,7 @@ export const WIDGET_ADD_DESC_KEYS: Record<DashboardWidgetId, string> = {
   staff_inbox: "dashboard.widget_add.staff_inbox",
   meetings_reminders: "dashboard.widget_add.meetings_reminders",
   clock_ins: "dashboard.widget_add.clock_ins",
+  incidents: "dashboard.widget_add.incidents",
 };
 
 /** Grouping for the Add widget dialog—each id appears in exactly one category. */
@@ -166,6 +169,7 @@ const WIDGET_ID_TO_CATEGORY: Record<DashboardWidgetId, DashboardWidgetCategoryId
   staff_inbox: "general",
   meetings_reminders: "general",
   clock_ins: "general",
+  incidents: "general",
   retail_store_ops: "retail",
   take_orders: "retail",
   inventory_delivery: "retail",
@@ -1669,8 +1673,9 @@ function MeetingsRemindersCard({
  *
  * Mirrors the product mock: a compact list of the latest 5 arrivals
  * with a tiny status icon on the right (check = on time, red × = late).
- * Whole card is clickable and routes to ``/dashboard/attendance`` for
- * the full live list and history.
+ * Whole card is clickable and routes to the Staff app's Attendance tab
+ * (``/dashboard/staff-app?tab=attendance``) which renders the full
+ * "Live Attendance List" with per-staff shift / clock-in / status rows.
  */
 function ClockInsCard({
   cardBase,
@@ -1704,7 +1709,10 @@ function ClockInsCard({
   const totalToday = data?.counts.total ?? items.length;
 
   const goToAttendance = React.useCallback(() => {
-    navigate("/dashboard/attendance");
+    // Deep-link straight to the "Live Attendance List" tab inside the
+    // Staff app — that's where the manager can scan the full table of
+    // shifts, clock-ins and statuses for every staff member.
+    navigate("/dashboard/staff-app?tab=attendance");
   }, [navigate]);
 
   return (
@@ -1875,6 +1883,300 @@ function formatClockInTime(iso: string, locale: string): string {
   } catch {
     return "";
   }
+}
+
+/** -------------------------------------------------------------------------
+ * Reported Incidents widget
+ * -------------------------------------------------------------------------
+ * Shows the 5 most recent incidents reported by staff (safety, maintenance,
+ * service, customer, etc.). Tapping the card — or the "View all" link —
+ * sends the manager to the Reported Incidents tab on /dashboard/analytics.
+ *
+ * Data source: /api/staff/safety-concerns/ (the same endpoint the analytics
+ * page uses). We sort by created_at desc client-side and slice to 5 so that
+ * a server with no ordering still works correctly. Refresh every 60 s so a
+ * fresh report shows up promptly without hammering the API.
+ * ----------------------------------------------------------------------- */
+type RecentIncidentItem = {
+  id: string;
+  title: string | null;
+  incident_type: string | null;
+  severity: string | null;
+  status: string | null;
+  location: string | null;
+  created_at: string | null;
+};
+
+function severityClass(sev: string | null): string {
+  const s = String(sev || "").toUpperCase();
+  if (s === "CRITICAL" || s === "URGENT")
+    return "border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300";
+  if (s === "HIGH")
+    return "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/50 dark:bg-orange-950/30 dark:text-orange-300";
+  if (s === "LOW")
+    return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-300";
+  return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300";
+}
+
+function statusClass(st: string | null): string {
+  const s = String(st || "").toUpperCase();
+  if (s === "RESOLVED" || s === "CLOSED")
+    return "text-emerald-600 dark:text-emerald-400";
+  if (s === "INVESTIGATING") return "text-sky-600 dark:text-sky-400";
+  return "text-amber-600 dark:text-amber-400";
+}
+
+function formatIncidentRelative(iso: string | null, t: (k: string) => string): string {
+  if (!iso) return "";
+  const ts = new Date(iso).getTime();
+  if (Number.isNaN(ts)) return "";
+  const diffMin = Math.floor((Date.now() - ts) / 60000);
+  if (diffMin < 1) return t("dashboard.incidents.just_now") || "just now";
+  if (diffMin < 60) return `${diffMin}m`;
+  const hours = Math.floor(diffMin / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  try {
+    return new Date(iso).toLocaleDateString();
+  } catch {
+    return "";
+  }
+}
+
+function RecentIncidentsCard({
+  cardBase,
+  cardHeaderBase,
+  t,
+  navigate,
+}: {
+  cardBase: string;
+  cardHeaderBase: string;
+  t: (key: string) => string;
+  navigate: NavigateFunction;
+}) {
+  const { data, isLoading, isError, refetch, isFetching } = useQuery<unknown>({
+    queryKey: ["dashboard", "recent-incidents", 5],
+    queryFn: async () => {
+      const token =
+        localStorage.getItem("access_token") ||
+        localStorage.getItem("accessToken") ||
+        "";
+      const res = await fetch(`${API_BASE}/staff/safety-concerns/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to fetch incidents");
+      return res.json();
+    },
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
+  });
+
+  const items: RecentIncidentItem[] = useMemo(() => {
+    const isRecord = (v: unknown): v is Record<string, unknown> =>
+      typeof v === "object" && v !== null;
+    const rawList: unknown = Array.isArray(data)
+      ? data
+      : isRecord(data) && Array.isArray((data as { results?: unknown }).results)
+        ? (data as { results: unknown[] }).results
+        : [];
+    const arr = (Array.isArray(rawList) ? rawList : []).map((x) =>
+      isRecord(x) ? x : ({} as Record<string, unknown>),
+    );
+    const mapped: RecentIncidentItem[] = arr.map((x) => ({
+      id: String(x.id ?? ""),
+      title: typeof x.title === "string" ? x.title : null,
+      incident_type:
+        typeof x.incident_type === "string" ? x.incident_type : null,
+      severity: typeof x.severity === "string" ? x.severity : null,
+      status: typeof x.status === "string" ? x.status : null,
+      location: typeof x.location === "string" ? x.location : null,
+      created_at: typeof x.created_at === "string" ? x.created_at : null,
+    }));
+    mapped.sort((a, b) => {
+      const at = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bt = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return bt - at;
+    });
+    return mapped.slice(0, 5);
+  }, [data]);
+
+  const openCount = useMemo(
+    () =>
+      items.filter((i) => {
+        const s = String(i.status || "").toUpperCase();
+        return s === "OPEN" || s === "INVESTIGATING";
+      }).length,
+    [items],
+  );
+
+  const goToIncidents = React.useCallback(() => {
+    navigate("/dashboard/analytics?tab=incidents");
+  }, [navigate]);
+
+  return (
+    <Card
+      className={cn(cardBase, "flex flex-col cursor-pointer")}
+      onClick={goToIncidents}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          goToIncidents();
+        }
+      }}
+    >
+      <CardHeader className={cardHeaderBase}>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-500/12 text-rose-600 dark:text-rose-400">
+            <ShieldAlert className="h-4 w-4" aria-hidden />
+          </div>
+          <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+            {t("dashboard.incidents.title")}
+          </CardTitle>
+        </div>
+        {items.length > 0 ? (
+          <span
+            className={cn(
+              "shrink-0 text-[10px] font-semibold rounded-full border px-2 py-0.5",
+              openCount > 0
+                ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300",
+            )}
+          >
+            {openCount > 0
+              ? (t("dashboard.incidents.open_count") || "{n} open").replace(
+                  "{n}",
+                  String(openCount),
+                )
+              : t("dashboard.incidents.all_clear") || "All clear"}
+          </span>
+        ) : null}
+      </CardHeader>
+
+      <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-4 px-5">
+        <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+          {isLoading ? (
+            <div className="py-6 text-center text-sm text-slate-400">
+              {t("dashboard.incidents.loading") || "Loading…"}
+            </div>
+          ) : isError ? (
+            <div className="py-6 flex flex-col items-center gap-2 text-center">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t("dashboard.incidents.error") || "Couldn't load incidents."}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 px-3 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  refetch();
+                }}
+                disabled={isFetching}
+              >
+                {t("dashboard.incidents.retry") || "Retry"}
+              </Button>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="py-8 text-center">
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/60 text-slate-400">
+                <ShieldAlert className="h-5 w-5" aria-hidden />
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t("dashboard.incidents.empty") ||
+                  "No incidents reported yet."}
+              </p>
+            </div>
+          ) : (
+            <ul className="space-y-1.5">
+              {items.map((inc) => {
+                const ts = formatIncidentRelative(inc.created_at, t);
+                const heading =
+                  inc.title ||
+                  inc.incident_type ||
+                  t("dashboard.incidents.untitled") ||
+                  "Reported incident";
+                return (
+                  <li
+                    key={inc.id}
+                    className="flex items-start gap-2.5 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                  >
+                    <AlertTriangle
+                      className={cn(
+                        "h-3.5 w-3.5 mt-1 shrink-0",
+                        String(inc.severity || "").toUpperCase() === "CRITICAL"
+                          ? "text-red-500"
+                          : String(inc.severity || "").toUpperCase() === "HIGH"
+                            ? "text-orange-500"
+                            : "text-amber-500",
+                      )}
+                      aria-hidden
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div
+                        className="truncate text-[13px] font-medium text-slate-900 dark:text-white"
+                        title={heading}
+                      >
+                        {heading}
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                        {inc.severity ? (
+                          <span
+                            className={cn(
+                              "rounded-full border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide",
+                              severityClass(inc.severity),
+                            )}
+                          >
+                            {inc.severity}
+                          </span>
+                        ) : null}
+                        {inc.status ? (
+                          <span
+                            className={cn(
+                              "font-semibold uppercase tracking-wide text-[10px]",
+                              statusClass(inc.status),
+                            )}
+                          >
+                            {inc.status}
+                          </span>
+                        ) : null}
+                        {inc.location ? (
+                          <span className="inline-flex items-center gap-0.5 truncate max-w-[10rem]">
+                            <MapPin className="h-2.5 w-2.5" aria-hidden />
+                            {inc.location}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
+                      {ts}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            goToIncidents();
+          }}
+          className="mt-2 flex items-center gap-1 text-xs font-medium text-rose-600 dark:text-rose-400 hover:underline self-start"
+        >
+          {t("dashboard.incidents.view_all") || "View all incidents"}
+          <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      </CardContent>
+    </Card>
+  );
 }
 
 export type DashboardWidgetBundleProps = {
@@ -2962,6 +3264,11 @@ export function DashboardWidgetById({
     case "clock_ins":
       return (
         <ClockInsCard cardBase={cardBase} cardHeaderBase={cardHeaderBase} t={t} navigate={navigate} />
+      );
+
+    case "incidents":
+      return (
+        <RecentIncidentsCard cardBase={cardBase} cardHeaderBase={cardHeaderBase} t={t} navigate={navigate} />
       );
 
     default:
