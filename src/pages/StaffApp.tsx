@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -3754,8 +3754,40 @@ const getDocumentUrl = (path: string) => {
 export default function StaffApp() {
     const { user } = useAuth() as AuthContextType;
     const { t } = useLanguage();
-    const [activeTab, setActiveTab] = useState("team");
+    const [searchParams, setSearchParams] = useSearchParams();
     const showRequestsTab = Boolean(user?.role && ["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"].includes(user.role));
+
+    // Tabs available in this view. We keep this list in one place so the
+    // ?tab= query param can only ever resolve to a tab that actually exists
+    // (otherwise we silently fall back to "team"). This is what lets the
+    // dashboard's Clock-in widget deep-link straight to "Live Attendance".
+    const validTabs = useMemo(() => {
+        const base = ["team", "presence", "attendance", "insights"];
+        return showRequestsTab ? [...base, "requests"] : base;
+    }, [showRequestsTab]);
+
+    const tabFromUrl = searchParams.get("tab");
+    const initialTab = tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : "team";
+    const [activeTab, setActiveTab] = useState(initialTab);
+
+    // Keep state in sync if the URL changes (e.g. user navigates here from
+    // another widget after the page is already mounted, or hits Back/Forward).
+    useEffect(() => {
+        if (tabFromUrl && validTabs.includes(tabFromUrl) && tabFromUrl !== activeTab) {
+            setActiveTab(tabFromUrl);
+        }
+    }, [tabFromUrl, validTabs, activeTab]);
+
+    const handleTabChange = (next: string) => {
+        setActiveTab(next);
+        const params = new URLSearchParams(searchParams);
+        if (next === "team") {
+            params.delete("tab");
+        } else {
+            params.set("tab", next);
+        }
+        setSearchParams(params, { replace: true });
+    };
 
     return (
         <div className="min-h-screen p-4 md:p-6 lg:p-8">
@@ -3769,7 +3801,7 @@ export default function StaffApp() {
                 </header>
 
                 {/* Tabbed Interface */}
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
                     <TabsList className={`w-full grid ${showRequestsTab ? "grid-cols-5" : "grid-cols-4"} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl mb-6`}>
                         <TabsTrigger value="team" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all">
                             <Users className="w-4 h-4 mr-2" />
