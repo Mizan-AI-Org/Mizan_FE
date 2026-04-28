@@ -71,6 +71,7 @@ import {
   Briefcase,
   Wallet,
   Layers,
+  ShoppingBag,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -103,6 +104,11 @@ export const DASHBOARD_WIDGET_IDS = [
   "human_resources",
   "finance",
   "maintenance",
+  // Procurement asks ("buy 6 bottles of vodka") — separate from Finance
+  // (paying invoices) and Inventory (stock observations) so the manager
+  // who told Miya "we need to purchase X" sees the request next to
+  // other open POs instead of buried in the generic inbox.
+  "purchase_orders",
   // Catch-all lane for anything Miya couldn't slot into a named lane —
   // general / miscellaneous requests still get a home on the dashboard.
   "miscellaneous",
@@ -134,6 +140,7 @@ export const WIDGET_ADD_ICONS: Record<DashboardWidgetId, LucideIcon> = {
   human_resources: Briefcase,
   finance: Wallet,
   maintenance: Wrench,
+  purchase_orders: ShoppingBag,
   miscellaneous: Layers,
 };
 
@@ -162,6 +169,7 @@ export const WIDGET_ADD_DESC_KEYS: Record<DashboardWidgetId, string> = {
   human_resources: "dashboard.widget_add.human_resources",
   finance: "dashboard.widget_add.finance",
   maintenance: "dashboard.widget_add.maintenance",
+  purchase_orders: "dashboard.widget_add.purchase_orders",
   miscellaneous: "dashboard.widget_add.miscellaneous",
 };
 
@@ -200,6 +208,7 @@ const WIDGET_ID_TO_CATEGORY: Record<DashboardWidgetId, DashboardWidgetCategoryId
   human_resources: "general",
   finance: "general",
   maintenance: "general",
+  purchase_orders: "general",
   miscellaneous: "general",
   retail_store_ops: "retail",
   take_orders: "retail",
@@ -238,6 +247,7 @@ export const DEFAULT_DASHBOARD_WIDGET_ORDER: DashboardWidgetId[] = [
   "meetings_reminders",
   "finance",
   "maintenance",
+  "purchase_orders",
   "miscellaneous",
   "insights",
   "tasks_demands",
@@ -2497,6 +2507,7 @@ type CategoryWidgetTone =
   | "violet"
   | "emerald"
   | "amber"
+  | "sky"
   | "slate";
 
 const CATEGORY_TONE: Record<CategoryWidgetTone, {
@@ -2523,6 +2534,11 @@ const CATEGORY_TONE: Record<CategoryWidgetTone, {
     iconBg: "bg-amber-500/12",
     iconText: "text-amber-600 dark:text-amber-400",
     link: "text-amber-600 dark:text-amber-400",
+  },
+  sky: {
+    iconBg: "bg-sky-500/12",
+    iconText: "text-sky-600 dark:text-sky-400",
+    link: "text-sky-600 dark:text-sky-400",
   },
   slate: {
     iconBg: "bg-slate-500/12",
@@ -3957,6 +3973,21 @@ export function DashboardWidgetById({
           icon={Wrench}
           tone="amber"
           moreHref="/dashboard/staff-requests?category=MAINTENANCE"
+        />
+      );
+
+    case "purchase_orders":
+      return (
+        <CategoryTasksCard
+          cardBase={cardBase}
+          cardHeaderBase={cardHeaderBase}
+          t={t}
+          navigate={navigate}
+          bucket="purchase_orders"
+          titleKey="dashboard.purchase_orders.title"
+          icon={ShoppingBag}
+          tone="sky"
+          moreHref="/dashboard/staff-requests?category=PURCHASE_ORDER"
         />
       );
 
