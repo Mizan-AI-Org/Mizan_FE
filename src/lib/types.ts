@@ -175,6 +175,21 @@ export interface DashboardTaskDemandItem {
     source: 'MANUAL' | 'WHATSAPP' | 'EMAIL' | 'MIYA' | 'SYSTEM';
     source_label: string;
     ai_summary: string;
+    /** Dashboard widget bucket — set by the intent router so HR / Finance /
+     *  Maintenance / Meetings widgets can filter without extra round-trips. */
+    category?:
+        | 'DOCUMENT'
+        | 'HR'
+        | 'SCHEDULING'
+        | 'PAYROLL'
+        | 'FINANCE'
+        | 'OPERATIONS'
+        | 'MAINTENANCE'
+        | 'RESERVATIONS'
+        | 'INVENTORY'
+        | 'MEETING'
+        | 'OTHER'
+        | null;
     assignee: {
         id: string;
         name: string;
@@ -185,12 +200,62 @@ export interface DashboardTaskDemandItem {
     updated_at: string;
 }
 
+/** Bucket id served by GET /api/dashboard/category-tasks/. */
+export type CategoryTaskBucket =
+    | 'urgent'
+    | 'human_resources'
+    | 'finance'
+    | 'maintenance'
+    | 'meetings'
+    | 'miscellaneous';
+
+export interface CategoryTasksResponse {
+    bucket: CategoryTaskBucket;
+    /** Canonical staff/dashboard category slugs that feed this bucket. */
+    categories: string[];
+    items: DashboardTaskDemandItem[];
+    completed: DashboardTaskDemandItem[];
+    counts: { open: number; in_progress: number; completed: number };
+    generated_at: string;
+}
+
 export interface DashboardTasksDemandsResponse {
     counts: { pending: number; in_progress: number; completed: number };
     pending: DashboardTaskDemandItem[];
     in_progress: DashboardTaskDemandItem[];
     completed: DashboardTaskDemandItem[];
     generated_at: string;
+}
+
+/** Invoice row shape mirroring the backend ``InvoiceSerializer``. */
+export interface Invoice {
+    id: string;
+    restaurant: string;
+    location?: string | null;
+    location_name?: string;
+    vendor_name: string;
+    invoice_number?: string;
+    amount: string; // Decimal serialized as string by DRF
+    currency: string;
+    issue_date?: string | null;
+    due_date: string;
+    status: 'DRAFT' | 'OPEN' | 'PAID' | 'VOIDED';
+    category?: string;
+    notes?: string;
+    photo?: string | null;
+    photo_url?: string;
+    paid_at?: string | null;
+    paid_amount?: string | null;
+    payment_method?: string;
+    payment_reference?: string;
+    created_by?: string | null;
+    created_by_name?: string;
+    paid_by?: string | null;
+    paid_by_name?: string;
+    is_overdue: boolean;
+    days_until_due: number | null;
+    created_at: string;
+    updated_at: string;
 }
 
 /** Row shape served by GET /api/dashboard/meetings-reminders/. Thin by design
