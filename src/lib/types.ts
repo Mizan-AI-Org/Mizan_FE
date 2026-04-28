@@ -187,6 +187,7 @@ export interface DashboardTaskDemandItem {
         | 'MAINTENANCE'
         | 'RESERVATIONS'
         | 'INVENTORY'
+        | 'PURCHASE_ORDER'
         | 'MEETING'
         | 'OTHER'
         | null;
@@ -207,6 +208,7 @@ export type CategoryTaskBucket =
     | 'finance'
     | 'maintenance'
     | 'meetings'
+    | 'purchase_orders'
     | 'miscellaneous';
 
 export interface CategoryTasksResponse {
