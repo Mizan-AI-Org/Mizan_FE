@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { API_BASE } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { MessageCircle, FileText, Calendar, Wallet, Settings, Briefcase, Plus, AlertCircle, Clock, CheckCircle2, ChevronRight, Wrench, BookOpen, Package, Mic, UserCircle2, ArrowRightLeft, Inbox } from "lucide-react";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 
-type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED";
+type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED" | "WAITING_ON";
 
 type StaffRequestComment = {
   id: string;
@@ -58,6 +58,12 @@ type StaffRequest = {
 const STATUSES: { key: StaffRequestStatus; label: string }[] = [
   { key: "PENDING", label: "Pending" },
   { key: "APPROVED", label: "Approved" },
+  // "Waiting on" parks an acknowledged request that is blocked by an
+  // external dependency (supplier reply, contractor visit, document
+  // arriving). Pairs with `follow_up_date` so the SLA sweeper re-pings
+  // the manager on/after that date instead of bouncing it back to
+  // "Escalated".
+  { key: "WAITING_ON", label: "Waiting on" },
   { key: "REJECTED", label: "Rejected" },
   { key: "ESCALATED", label: "Escalated" },
   { key: "CLOSED", label: "Closed" },
@@ -75,6 +81,7 @@ type CategoryKey =
   | "DOCUMENT"
   | "SCHEDULING"
   | "PAYROLL"
+  | "FINANCE"
   | "OPERATIONS"
   | "MAINTENANCE"
   | "RESERVATIONS"
@@ -86,13 +93,30 @@ const CATEGORY_CHIPS: { key: CategoryKey; label: string }[] = [
   { key: "HR", label: "HR" },
   { key: "DOCUMENT", label: "Documents" },
   { key: "PAYROLL", label: "Payroll" },
+  { key: "FINANCE", label: "Finance" },
   { key: "SCHEDULING", label: "Scheduling" },
   { key: "OPERATIONS", label: "Operations" },
   { key: "MAINTENANCE", label: "Maintenance" },
   { key: "RESERVATIONS", label: "Reservations" },
   { key: "INVENTORY", label: "Inventory" },
-  { key: "OTHER", label: "Uncategorised" },
+  { key: "OTHER", label: "Miscellaneous" },
 ];
+
+/** Categories surfaced by the dashboard category-tasks endpoint that
+ * land in this inbox's ``?category=`` filter. Kept aligned with the
+ * widget id → category contract used by the dashboard widgets. */
+const VALID_DEEP_LINK_CATEGORIES: ReadonlySet<CategoryKey> = new Set<CategoryKey>([
+  "HR",
+  "DOCUMENT",
+  "SCHEDULING",
+  "PAYROLL",
+  "FINANCE",
+  "OPERATIONS",
+  "MAINTENANCE",
+  "RESERVATIONS",
+  "INVENTORY",
+  "OTHER",
+]);
 
 function getAuthToken() {
   return localStorage.getItem("access_token") || localStorage.getItem("accessToken") || "";
@@ -112,6 +136,7 @@ function statusBadge(status?: string) {
   if (s === "APPROVED") return "bg-emerald-50 text-emerald-700 border-emerald-200 ring-1 ring-emerald-200";
   if (s === "REJECTED") return "bg-rose-50 text-rose-700 border-rose-200 ring-1 ring-rose-200";
   if (s === "ESCALATED") return "bg-violet-50 text-violet-700 border-violet-200 ring-1 ring-violet-200";
+  if (s === "WAITING_ON") return "bg-sky-50 text-sky-700 border-sky-200 ring-1 ring-sky-200";
   return "bg-slate-50 text-slate-700 border-slate-200 ring-1 ring-slate-200";
 }
 
@@ -126,6 +151,7 @@ function getCategoryIcon(category?: string) {
   if (c === "DOCUMENT") return <FileText className="w-3.5 h-3.5" />;
   if (c === "SCHEDULING") return <Calendar className="w-3.5 h-3.5" />;
   if (c === "PAYROLL") return <Wallet className="w-3.5 h-3.5" />;
+  if (c === "FINANCE") return <Wallet className="w-3.5 h-3.5" />;
   if (c === "OPERATIONS") return <Briefcase className="w-3.5 h-3.5" />;
   if (c === "HR") return <Settings className="w-3.5 h-3.5" />;
   if (c === "MAINTENANCE") return <Wrench className="w-3.5 h-3.5" />;
@@ -173,13 +199,44 @@ async function apiPost<T>(path: string, body?: any): Promise<T> {
 const StaffRequestsPage: React.FC = () => {
   const navigate = useNavigate();
   const params = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
   const selectedId = params.id || null;
+
+  // Deep-link support: dashboard widgets navigate here with
+  // ``?category=HR`` or ``?priority=URGENT`` so a click on a widget row
+  // lands the manager in the right inbox lane immediately. We read once
+  // on mount and then strip the params so a refresh / share doesn't
+  // re-apply them after the user has navigated chips manually.
+  const initialCategory = (() => {
+    const raw = (searchParams.get("category") || "ALL").toUpperCase() as CategoryKey;
+    if (raw === "ALL") return "ALL" as CategoryKey;
+    return VALID_DEEP_LINK_CATEGORIES.has(raw) ? raw : "ALL";
+  })();
+  const initialPriorityFilter = (() => {
+    const raw = (searchParams.get("priority") || "").toUpperCase();
+    return raw === "URGENT" ? "URGENT" : "";
+  })();
+
   const [activeStatus, setActiveStatus] = useState<StaffRequestStatus>("PENDING");
-  const [activeCategory, setActiveCategory] = useState<CategoryKey>("ALL");
+  const [activeCategory, setActiveCategory] = useState<CategoryKey>(initialCategory);
+  const [activePriority, setActivePriority] = useState<string>(initialPriorityFilter);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Strip the deep-link params after we've consumed them so subsequent
+  // chip clicks don't fight the URL. We keep the route clean for
+  // refresh / share without losing the manager's current selection.
+  useEffect(() => {
+    if (searchParams.get("category") || searchParams.get("priority")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("category");
+      next.delete("priority");
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [comment, setComment] = useState("");
   const [escalateModalOpen, setEscalateModalOpen] = useState(false);
   const [reassignModalOpen, setReassignModalOpen] = useState(false);
@@ -193,21 +250,41 @@ const StaffRequestsPage: React.FC = () => {
   }, [search]);
 
   const listQuery = useQuery({
-    queryKey: ["staff-requests", activeStatus, activeCategory, debouncedSearch, assignedToMe],
+    queryKey: [
+      "staff-requests",
+      activeStatus,
+      activeCategory,
+      activePriority,
+      debouncedSearch,
+      assignedToMe,
+    ],
     queryFn: async (): Promise<StaffRequest[]> => {
       const qs = new URLSearchParams();
       qs.set("status", activeStatus);
       if (activeCategory !== "ALL") qs.set("category", activeCategory);
+      if (activePriority) qs.set("priority", activePriority);
       if (debouncedSearch) qs.set("search", debouncedSearch);
       if (assignedToMe) qs.set("assigned_to_me", "1");
       // Inbox list pulls a lean payload from the backend (no comments,
       // no nested staff profile); we can show 50 per page comfortably.
       qs.set("page_size", "50");
       const data = await apiGet<any>(`/staff/requests/?${qs.toString()}`);
-      if (Array.isArray(data)) return data as StaffRequest[];
-      if (data && Array.isArray(data.results)) return data.results as StaffRequest[];
-      if (data && Array.isArray(data.requests)) return data.requests as StaffRequest[];
-      return [];
+      const rows: StaffRequest[] = Array.isArray(data)
+        ? (data as StaffRequest[])
+        : data && Array.isArray(data.results)
+        ? (data.results as StaffRequest[])
+        : data && Array.isArray(data.requests)
+        ? (data.requests as StaffRequest[])
+        : [];
+      // The backend doesn't currently filter by priority server-side,
+      // so we re-filter here to honour the deep-link from the dashboard
+      // Urgent widget. Cheap because the inbox page caps at 50 rows.
+      if (activePriority) {
+        return rows.filter(
+          (r) => String(r.priority || "").toUpperCase() === activePriority,
+        );
+      }
+      return rows;
     },
     // Keep the previous results visible while revalidating so switching tabs /
     // typing in search doesn't flash "Loading…".
@@ -415,6 +492,25 @@ const StaffRequestsPage: React.FC = () => {
               </button>
             );
           })}
+          {/* Priority filter chip — only rendered when active (typically
+              from a deep-link off the dashboard "Urgent TOP 5" widget).
+              Clicking it clears the filter and reverts to all priorities. */}
+          {activePriority ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected="true"
+              onClick={() => setActivePriority("")}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                "bg-red-600 text-white border-red-600 shadow-sm hover:bg-red-700",
+              )}
+              title="Clear priority filter"
+            >
+              <span>Priority: {activePriority}</span>
+              <span className="text-[14px] leading-none">×</span>
+            </button>
+          ) : null}
         </div>
 
         <TabsContent value={activeStatus} className="mt-4">

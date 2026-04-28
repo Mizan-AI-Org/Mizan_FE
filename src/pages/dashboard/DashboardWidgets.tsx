@@ -34,6 +34,7 @@ import {
   Clock,
   TrendingUp,
   ChevronRight,
+  ChevronDown,
   DollarSign,
   ArrowRight,
   Users,
@@ -64,6 +65,12 @@ import {
   ExternalLink,
   CheckCircle2,
   XCircle,
+  // Icons used by the new category-bucketed widgets:
+  Flame,
+  Wrench,
+  Briefcase,
+  Wallet,
+  Layers,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -90,6 +97,15 @@ export const DASHBOARD_WIDGET_IDS = [
   "meetings_reminders",
   "clock_ins",
   "incidents",
+  // Category-bucketed widgets backed by /api/dashboard/category-tasks/.
+  // Each one renders the top-N pressing tasks for one Miya-curated lane.
+  "urgent_top",
+  "human_resources",
+  "finance",
+  "maintenance",
+  // Catch-all lane for anything Miya couldn't slot into a named lane —
+  // general / miscellaneous requests still get a home on the dashboard.
+  "miscellaneous",
 ] as const;
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
 
@@ -114,6 +130,11 @@ export const WIDGET_ADD_ICONS: Record<DashboardWidgetId, LucideIcon> = {
   meetings_reminders: CalendarDays,
   clock_ins: Clock,
   incidents: ShieldAlert,
+  urgent_top: Flame,
+  human_resources: Briefcase,
+  finance: Wallet,
+  maintenance: Wrench,
+  miscellaneous: Layers,
 };
 
 /** i18n keys for one-line descriptions in the Add widget dialog. */
@@ -137,6 +158,11 @@ export const WIDGET_ADD_DESC_KEYS: Record<DashboardWidgetId, string> = {
   meetings_reminders: "dashboard.widget_add.meetings_reminders",
   clock_ins: "dashboard.widget_add.clock_ins",
   incidents: "dashboard.widget_add.incidents",
+  urgent_top: "dashboard.widget_add.urgent_top",
+  human_resources: "dashboard.widget_add.human_resources",
+  finance: "dashboard.widget_add.finance",
+  maintenance: "dashboard.widget_add.maintenance",
+  miscellaneous: "dashboard.widget_add.miscellaneous",
 };
 
 /** Grouping for the Add widget dialog—each id appears in exactly one category. */
@@ -170,6 +196,11 @@ const WIDGET_ID_TO_CATEGORY: Record<DashboardWidgetId, DashboardWidgetCategoryId
   meetings_reminders: "general",
   clock_ins: "general",
   incidents: "general",
+  urgent_top: "general",
+  human_resources: "general",
+  finance: "general",
+  maintenance: "general",
+  miscellaneous: "general",
   retail_store_ops: "retail",
   take_orders: "retail",
   inventory_delivery: "retail",
@@ -183,8 +214,31 @@ export function getWidgetCategory(id: DashboardWidgetId): DashboardWidgetCategor
   return WIDGET_ID_TO_CATEGORY[id];
 }
 
-/** System default: six core cards. Optional widgets are added via Customize dashboard. */
+/**
+ * System default widget layout.
+ *
+ * The first row is the manager's "what needs me right now" board:
+ * Clock-in (people stuff), Urgent TOP 5 (everything pressing), and the
+ * three category lanes Miya routes new work into (Human Resources,
+ * Meetings & Reminders, Finance, Maintenance). Below that we keep the
+ * legacy operational cards (Insights / Tasks & demands / Staffing /
+ * Sales / Operations / Wellbeing) so existing customers don't lose
+ * anything they were looking at yesterday.
+ *
+ * Optional / vertical-specific widgets (retail, hospitality, jobsite,
+ * etc.) are still added via "Customize dashboard". The merge logic in
+ * `mergeNewDefaultWidgets` ensures users who already have a saved
+ * layout get the new category cards appended on next load (unless they
+ * explicitly dismissed them via the × control).
+ */
 export const DEFAULT_DASHBOARD_WIDGET_ORDER: DashboardWidgetId[] = [
+  "clock_ins",
+  "urgent_top",
+  "human_resources",
+  "meetings_reminders",
+  "finance",
+  "maintenance",
+  "miscellaneous",
   "insights",
   "tasks_demands",
   "staffing",
@@ -655,6 +709,98 @@ function OpsReportsEnterpriseCard({
   );
 }
 
+/** Lean shape of a single staff request as it lands in the dashboard
+ * widget. The full ``StaffRequest`` object has many more fields (audio,
+ * comments, voice transcription) — we only need what we render. */
+type InboxItem = {
+  id: string;
+  subject?: string | null;
+  description?: string | null;
+  category?: string | null;
+  priority?: string | null;
+  status?: string | null;
+  staff_name?: string | null;
+  staff_display_name?: string | null;
+  created_at?: string | null;
+};
+
+/** Compact pill colours per StaffRequest.category. Matches the inbox
+ * page's chip palette so the dashboard preview and the full inbox use
+ * the same visual vocabulary. */
+function inboxCategoryClass(category: string | null | undefined): {
+  bg: string;
+  text: string;
+  border: string;
+} {
+  const c = String(category || "").toUpperCase();
+  switch (c) {
+    case "HR":
+      return {
+        bg: "bg-violet-50 dark:bg-violet-950/30",
+        text: "text-violet-700 dark:text-violet-300",
+        border: "border-violet-200 dark:border-violet-900/50",
+      };
+    case "FINANCE":
+    case "PAYROLL":
+      return {
+        bg: "bg-emerald-50 dark:bg-emerald-950/30",
+        text: "text-emerald-700 dark:text-emerald-300",
+        border: "border-emerald-200 dark:border-emerald-900/50",
+      };
+    case "MAINTENANCE":
+      return {
+        bg: "bg-amber-50 dark:bg-amber-950/30",
+        text: "text-amber-700 dark:text-amber-300",
+        border: "border-amber-200 dark:border-amber-900/50",
+      };
+    case "DOCUMENT":
+      return {
+        bg: "bg-sky-50 dark:bg-sky-950/30",
+        text: "text-sky-700 dark:text-sky-300",
+        border: "border-sky-200 dark:border-sky-900/50",
+      };
+    case "SCHEDULING":
+      return {
+        bg: "bg-indigo-50 dark:bg-indigo-950/30",
+        text: "text-indigo-700 dark:text-indigo-300",
+        border: "border-indigo-200 dark:border-indigo-900/50",
+      };
+    case "INVENTORY":
+      return {
+        bg: "bg-orange-50 dark:bg-orange-950/30",
+        text: "text-orange-700 dark:text-orange-300",
+        border: "border-orange-200 dark:border-orange-900/50",
+      };
+    case "RESERVATIONS":
+      return {
+        bg: "bg-pink-50 dark:bg-pink-950/30",
+        text: "text-pink-700 dark:text-pink-300",
+        border: "border-pink-200 dark:border-pink-900/50",
+      };
+    case "OPERATIONS":
+      return {
+        bg: "bg-teal-50 dark:bg-teal-950/30",
+        text: "text-teal-700 dark:text-teal-300",
+        border: "border-teal-200 dark:border-teal-900/50",
+      };
+    default:
+      return {
+        bg: "bg-slate-50 dark:bg-slate-800/40",
+        text: "text-slate-600 dark:text-slate-300",
+        border: "border-slate-200 dark:border-slate-700",
+      };
+  }
+}
+
+/** Short label for a category chip — lowercase looks calmer in a dense
+ * list. We keep "HR" uppercase because everyone reads it that way. */
+function inboxCategoryLabel(category: string | null | undefined): string {
+  const c = String(category || "").toUpperCase();
+  if (!c || c === "OTHER") return "Misc";
+  if (c === "HR") return "HR";
+  return c.charAt(0) + c.slice(1).toLowerCase();
+}
+
 function StaffInboxEnterpriseCard({
   cardBase,
   cardHeaderBase,
@@ -667,66 +813,212 @@ function StaffInboxEnterpriseCard({
   navigate: NavigateFunction;
 }) {
   const { accessToken } = useAuth() as AuthContextType;
-  const { data, isLoading } = useQuery({
-    queryKey: ["staff-requests-counts", "dashboard-widget", accessToken],
-    queryFn: async () => {
-      const r = await fetch(`${API_BASE}/staff/requests/counts/`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: "application/json",
-        },
-      });
-      if (!r.ok) throw new Error("counts");
-      return r.json();
-    },
+
+  // Latest 5 actionable inquiries across **all** categories. We pull
+  // PENDING + ESCALATED on the server (where the lean serializer skips
+  // comments / voice / transcription) and trim to 5 client-side. Sort
+  // is created_at DESC so newest land on top — matches what a manager
+  // expects from a "team inbox" preview.
+  const listQuery = useQuery<{ items: InboxItem[]; pending: number; escalated: number }>({
+    queryKey: ["staff-requests-inbox-widget", "all", accessToken],
     enabled: !!accessToken,
-    staleTime: 45_000,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 6000),
+    refetchOnMount: "always",
+    queryFn: async () => {
+      // Pull pending + escalated in two cheap calls. The list endpoint
+      // doesn't accept multiple statuses, but pending is by far the
+      // common case so we cap escalated at ~5 and merge.
+      const fetchPage = async (statusKey: "PENDING" | "ESCALATED") => {
+        const qs = new URLSearchParams();
+        qs.set("status", statusKey);
+        qs.set("page_size", "10");
+        const r = await fetch(`${API_BASE}/staff/requests/?${qs.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+          },
+        });
+        if (!r.ok) throw new Error(`staff-requests:${statusKey}`);
+        const json = await r.json();
+        if (Array.isArray(json)) return json as InboxItem[];
+        if (Array.isArray(json?.results)) return json.results as InboxItem[];
+        if (Array.isArray(json?.requests)) return json.requests as InboxItem[];
+        return [] as InboxItem[];
+      };
+      const [pendingRows, escalatedRows] = await Promise.all([
+        fetchPage("PENDING"),
+        fetchPage("ESCALATED"),
+      ]);
+      const merged = [...escalatedRows, ...pendingRows];
+      // Stable sort by created_at desc; items with no timestamp sink.
+      merged.sort((a, b) => {
+        const ta = a.created_at ? Date.parse(a.created_at) : 0;
+        const tb = b.created_at ? Date.parse(b.created_at) : 0;
+        return tb - ta;
+      });
+      const items = merged.slice(0, 5);
+      return {
+        items,
+        pending: pendingRows.length,
+        escalated: escalatedRows.length,
+      };
+    },
   });
-  const counts = (data?.counts ?? {}) as Record<string, number>;
-  const pending = Number(counts.PENDING ?? 0);
-  const escalated = Number(counts.ESCALATED ?? 0);
+
+  const items = listQuery.data?.items ?? [];
+  const pendingCount = listQuery.data?.pending ?? 0;
+  const escalatedCount = listQuery.data?.escalated ?? 0;
+  const isLoading = listQuery.isLoading;
+  const isError = listQuery.isError;
+
+  const goInbox = React.useCallback(() => {
+    navigate("/dashboard/staff-requests");
+  }, [navigate]);
 
   return (
     <Card
-      className={`${cardBase} cursor-pointer hover:shadow-md transition-shadow flex flex-col`}
-      onClick={() => navigate("/dashboard/staff-requests")}
+      className={cn(cardBase, "flex flex-col cursor-pointer")}
+      role="button"
+      tabIndex={0}
+      onClick={goInbox}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          goInbox();
+        }
+      }}
     >
       <CardHeader className={cardHeaderBase}>
-        <div className="flex items-start gap-3 min-w-0">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/12 text-violet-600 dark:text-violet-400">
-            <Inbox className="w-5 h-5" aria-hidden />
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/12 text-violet-600 dark:text-violet-400">
+            <Inbox className="h-4 w-4" aria-hidden />
           </div>
-          <div className="min-w-0 flex-1">
-            <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-              {t("dashboard.staff_inbox.title")}
-            </CardTitle>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-1">
-              {t("dashboard.staff_inbox.subtitle")}
-            </p>
-          </div>
+          <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+            {t("dashboard.staff_inbox.title")}
+          </CardTitle>
+        </div>
+        {/* Header right: tiny pending / escalated chips. Mirrors the
+            CategoryTasksCard "in progress / done" affordance. */}
+        <div className="flex items-center gap-1 shrink-0">
+          {pendingCount > 0 ? (
+            <span className="inline-flex h-5 items-center gap-1 rounded-full border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
+              <span>{t("dashboard.staff_inbox.pending_label")}</span>
+              <span className="tabular-nums">{pendingCount}</span>
+            </span>
+          ) : null}
+          {escalatedCount > 0 ? (
+            <span className="inline-flex h-5 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 text-[10px] font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+              <span>{t("dashboard.staff_inbox.escalated_label")}</span>
+              <span className="tabular-nums">{escalatedCount}</span>
+            </span>
+          ) : null}
         </div>
       </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col space-y-3 pt-0 pb-6 px-6">
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 px-3 py-2">
-            <div className="text-2xl font-black text-slate-900 dark:text-white">{isLoading ? "…" : pending}</div>
-            <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{t("dashboard.staff_inbox.pending_label")}</div>
-          </div>
-          <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 px-3 py-2">
-            <div className="text-2xl font-black text-amber-600 dark:text-amber-400">{isLoading ? "…" : escalated}</div>
-            <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{t("dashboard.staff_inbox.escalated_label")}</div>
-          </div>
+
+      <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-3 px-5">
+        <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+          {isLoading ? (
+            <div className="py-6 text-center text-sm text-slate-400">
+              {t("dashboard.category_tasks.loading")}
+            </div>
+          ) : isError ? (
+            <div className="py-6 flex flex-col items-center gap-2 text-center">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t("dashboard.category_tasks.error")}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 px-3 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  listQuery.refetch();
+                }}
+              >
+                {t("dashboard.category_tasks.retry")}
+              </Button>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="py-8 text-center">
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/60 text-slate-400">
+                <Inbox className="h-5 w-5" aria-hidden />
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t("dashboard.staff_inbox.empty")}
+              </p>
+            </div>
+          ) : (
+            <ul className="space-y-1">
+              {items.map((it) => {
+                const cat = inboxCategoryClass(it.category);
+                const subject =
+                  (it.subject || it.description || "").trim() ||
+                  t("dashboard.staff_inbox.fallback_title");
+                const who =
+                  (it.staff_display_name || it.staff_name || "").trim();
+                const isUrgent = String(it.priority || "").toUpperCase() === "URGENT";
+                return (
+                  <li
+                    key={it.id}
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div
+                        className="truncate text-[13px] font-medium text-slate-900 dark:text-white"
+                        title={subject}
+                      >
+                        {subject}
+                      </div>
+                      {who ? (
+                        <div className="truncate text-[10.5px] text-slate-500 dark:text-slate-400">
+                          {who}
+                        </div>
+                      ) : null}
+                    </div>
+                    <span
+                      className={cn(
+                        "shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+                        cat.bg,
+                        cat.text,
+                        cat.border,
+                      )}
+                      title={String(it.category || "OTHER")}
+                    >
+                      {inboxCategoryLabel(it.category)}
+                    </span>
+                    {isUrgent ? (
+                      <span
+                        className="shrink-0 inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+                        aria-label={t("dashboard.category_tasks.pill_urgent")}
+                      >
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500" />
+                        {t("dashboard.category_tasks.pill_urgent")}
+                      </span>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
+
+        {/* Footer "More v" — keeps the visual consistency with the new
+            category widgets. Whole card is also clickable. */}
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            navigate("/dashboard/staff-requests");
+            goInbox();
           }}
-          className="mt-auto flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-400 hover:underline"
+          className="mt-1 flex w-full items-center justify-center gap-1 rounded-md py-1 text-[11px] font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+          aria-label={t("dashboard.category_tasks.more")}
         >
-          {t("dashboard.staff_inbox.open")}
-          <ArrowRight className="w-3.5 h-3.5" />
+          {t("dashboard.category_tasks.more")}
+          <ChevronDown className="h-3.5 w-3.5" aria-hidden />
         </button>
       </CardContent>
     </Card>
@@ -2179,6 +2471,343 @@ function RecentIncidentsCard({
   );
 }
 
+/* -----------------------------------------------------------------------
+ * Category-bucketed task cards (Urgent TOP 5 / Human Resources / Finance
+ * / Maintenance).
+ *
+ * One generic component reads from /api/dashboard/category-tasks/?bucket=…
+ * and renders the dashboard mockup: header with a colored icon + title,
+ * an "in progress / done" filter chip pair, a list of rows
+ * (title + assignee + status pill), and a "More v" affordance that
+ * deep-links to the relevant page.
+ *
+ * Miya pre-classifies every incoming task or staff request into a
+ * category (HR, FINANCE, MAINTENANCE, MEETING, …) on ingest, so the
+ * widgets are pure indexed reads — no LLM round-trip on the dashboard
+ * polling path.
+ * ---------------------------------------------------------------------*/
+
+type CategoryWidgetTone =
+  // Each tone gives us coordinated icon-bg / accent / link colors so all
+  // cards share the same shape and only the hue differs. Keeps the
+  // dashboard visually calm even with five list-style cards stacked.
+  // ``slate`` is reserved for the catch-all miscellaneous lane — neutral
+  // so it doesn't compete with the named categories visually.
+  | "rose"
+  | "violet"
+  | "emerald"
+  | "amber"
+  | "slate";
+
+const CATEGORY_TONE: Record<CategoryWidgetTone, {
+  iconBg: string;
+  iconText: string;
+  link: string;
+}> = {
+  rose: {
+    iconBg: "bg-rose-500/12",
+    iconText: "text-rose-600 dark:text-rose-400",
+    link: "text-rose-600 dark:text-rose-400",
+  },
+  violet: {
+    iconBg: "bg-violet-500/12",
+    iconText: "text-violet-600 dark:text-violet-400",
+    link: "text-violet-600 dark:text-violet-400",
+  },
+  emerald: {
+    iconBg: "bg-emerald-500/12",
+    iconText: "text-emerald-600 dark:text-emerald-400",
+    link: "text-emerald-600 dark:text-emerald-400",
+  },
+  amber: {
+    iconBg: "bg-amber-500/12",
+    iconText: "text-amber-600 dark:text-amber-400",
+    link: "text-amber-600 dark:text-amber-400",
+  },
+  slate: {
+    iconBg: "bg-slate-500/12",
+    iconText: "text-slate-600 dark:text-slate-300",
+    link: "text-slate-600 dark:text-slate-300",
+  },
+};
+
+type CategoryTasksFilter = "open" | "in_progress" | "done";
+
+function CategoryTasksCard({
+  cardBase,
+  cardHeaderBase,
+  t,
+  navigate,
+  bucket,
+  titleKey,
+  icon: Icon,
+  tone,
+  /**
+   * URL the "More" footer + whole-card click navigate to. Should be a
+   * deep-link to the page where the manager can see the full list for
+   * this bucket (e.g. /dashboard/staff-requests?category=HR).
+   */
+  moreHref,
+}: {
+  cardBase: string;
+  cardHeaderBase: string;
+  t: (key: string) => string;
+  navigate: NavigateFunction;
+  bucket: import("@/lib/types").CategoryTaskBucket;
+  titleKey: string;
+  icon: LucideIcon;
+  tone: CategoryWidgetTone;
+  moreHref: string;
+}) {
+  const [filter, setFilter] = useState<CategoryTasksFilter>("open");
+  const { data, isLoading, isError, refetch, isFetching } = useQuery<
+    import("@/lib/types").CategoryTasksResponse
+  >({
+    queryKey: ["dashboard", "category-tasks", bucket, 5],
+    queryFn: () => api.getDashboardCategoryTasks(bucket, 5),
+    // Match the existing tasks_demands cadence — dashboards cluster
+    // multiple of these widgets, so we keep them in sync.
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 6000),
+    refetchOnMount: "always",
+  });
+
+  const toneClasses = CATEGORY_TONE[tone];
+  const items: DashboardTaskDemandItem[] = useMemo(() => {
+    if (!data) return [];
+    if (filter === "done") return data.completed ?? [];
+    if (filter === "in_progress") {
+      return (data.items ?? []).filter((it) => it.status === "IN_PROGRESS");
+    }
+    return data.items ?? [];
+  }, [data, filter]);
+
+  const counts = data?.counts ?? { open: 0, in_progress: 0, completed: 0 };
+
+  const goMore = React.useCallback(() => {
+    navigate(moreHref);
+  }, [navigate, moreHref]);
+
+  return (
+    <Card
+      className={cn(cardBase, "flex flex-col cursor-pointer")}
+      role="button"
+      tabIndex={0}
+      onClick={goMore}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          goMore();
+        }
+      }}
+    >
+      <CardHeader className={cardHeaderBase}>
+        <div className="flex items-center gap-2 min-w-0">
+          <div
+            className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+              toneClasses.iconBg,
+              toneClasses.iconText,
+            )}
+          >
+            <Icon className="h-4 w-4" aria-hidden />
+          </div>
+          <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+            {t(titleKey)}
+          </CardTitle>
+        </div>
+        {/* Filter chip pair on the top-right matches the mockup's
+            "+ in progress" / "Done" affordance on the URGENT card.
+            We render it on every card for consistency and so managers
+            can flip lanes on any widget without scrolling. */}
+        <div className="flex items-center gap-1 shrink-0">
+          <CategoryFilterChip
+            active={filter === "in_progress"}
+            count={counts.in_progress}
+            onClick={(e) => {
+              e.stopPropagation();
+              setFilter((cur) => (cur === "in_progress" ? "open" : "in_progress"));
+            }}
+            label={t("dashboard.category_tasks.filter_in_progress")}
+            tone="sky"
+          />
+          <CategoryFilterChip
+            active={filter === "done"}
+            count={counts.completed}
+            onClick={(e) => {
+              e.stopPropagation();
+              setFilter((cur) => (cur === "done" ? "open" : "done"));
+            }}
+            label={t("dashboard.category_tasks.filter_done")}
+            tone="emerald"
+          />
+        </div>
+      </CardHeader>
+
+      <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-3 px-5">
+        <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+          {isLoading ? (
+            <div className="py-6 text-center text-sm text-slate-400">
+              {t("dashboard.category_tasks.loading")}
+            </div>
+          ) : isError ? (
+            <div className="py-6 flex flex-col items-center gap-2 text-center">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t("dashboard.category_tasks.error")}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 px-3 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  refetch();
+                }}
+                disabled={isFetching}
+              >
+                {t("dashboard.category_tasks.retry")}
+              </Button>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="py-8 text-center">
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/60 text-slate-400">
+                <Icon className="h-5 w-5" aria-hidden />
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t(
+                  filter === "done"
+                    ? "dashboard.category_tasks.empty_done"
+                    : "dashboard.category_tasks.empty_open",
+                )}
+              </p>
+            </div>
+          ) : (
+            <ul className="space-y-1">
+              {items.map((it) => (
+                <CategoryTaskRow key={it.id} item={it} t={t} />
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Footer "More v" — centered chevron-down that mirrors the
+            mockup. Clicking it (or anywhere on the card) deep-links to
+            the full list view for this bucket. */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            goMore();
+          }}
+          className={cn(
+            "mt-1 flex w-full items-center justify-center gap-1 rounded-md py-1 text-[11px] font-medium transition-colors",
+            "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+          )}
+          aria-label={t("dashboard.category_tasks.more")}
+        >
+          {t("dashboard.category_tasks.more")}
+          <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Header filter chip ("+ in progress" / "Done"). When inactive we show
+ * the count next to the label as a faint tabular number; when active we
+ * tint the chip in the bucket-appropriate hue. */
+function CategoryFilterChip({
+  active,
+  count,
+  onClick,
+  label,
+  tone,
+}: {
+  active: boolean;
+  count: number;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  label: string;
+  tone: "sky" | "emerald";
+}) {
+  const activeCls =
+    tone === "sky"
+      ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300"
+      : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300";
+  const idleCls =
+    "border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400 dark:hover:bg-slate-800/60";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "h-5 inline-flex items-center gap-1 rounded-full border px-2 text-[10px] font-semibold whitespace-nowrap transition-colors",
+        active ? activeCls : idleCls,
+      )}
+      aria-pressed={active}
+    >
+      <span className="leading-none">{label}</span>
+      {count > 0 ? (
+        <span className="tabular-nums opacity-70">{count}</span>
+      ) : null}
+    </button>
+  );
+}
+
+/** Task row used by every category widget. Title + assignee chip on the
+ * right + colored status/priority pill, mirroring the mockup. */
+function CategoryTaskRow({
+  item,
+  t,
+}: {
+  item: DashboardTaskDemandItem;
+  t: (key: string) => string;
+}) {
+  const pill = statusPillClass(item.status, item.priority);
+  const assigneeLabel = item.assignee?.name?.trim()
+    ? item.assignee.name.split(" ")[0]
+    : t("dashboard.category_tasks.unassigned");
+  const initials = item.assignee?.initials || "—";
+  return (
+    <li className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+      <div className="min-w-0 flex-1">
+        <div
+          className="truncate text-[13px] font-medium text-slate-900 dark:text-white"
+          title={item.title}
+        >
+          {item.title}
+        </div>
+        {item.ai_summary ? (
+          <div className="truncate text-[10.5px] text-emerald-700 dark:text-emerald-300">
+            {item.ai_summary}
+          </div>
+        ) : null}
+      </div>
+      <span
+        className="hidden sm:inline-flex shrink-0 items-center gap-1 text-[10.5px] text-slate-500 dark:text-slate-400"
+        title={item.assignee?.name || ""}
+      >
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700 text-[9px] font-semibold text-slate-600 dark:text-slate-200">
+          {initials.slice(0, 2)}
+        </span>
+        <span className="truncate max-w-[5rem]">{assigneeLabel}</span>
+      </span>
+      <span
+        className={cn(
+          "shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+          pill.bg,
+          pill.text,
+        )}
+      >
+        <span className={cn("inline-block h-1.5 w-1.5 rounded-full", pill.dot)} />
+        {t(`dashboard.category_tasks.pill_${pill.label}`)}
+      </span>
+    </li>
+  );
+}
+
 export type DashboardWidgetBundleProps = {
   t: (key: string) => string;
   navigate: NavigateFunction;
@@ -3269,6 +3898,81 @@ export function DashboardWidgetById({
     case "incidents":
       return (
         <RecentIncidentsCard cardBase={cardBase} cardHeaderBase={cardHeaderBase} t={t} navigate={navigate} />
+      );
+
+    case "urgent_top":
+      return (
+        <CategoryTasksCard
+          cardBase={cardBase}
+          cardHeaderBase={cardHeaderBase}
+          t={t}
+          navigate={navigate}
+          bucket="urgent"
+          titleKey="dashboard.urgent_top.title"
+          icon={Flame}
+          tone="rose"
+          moreHref="/dashboard/staff-requests?priority=URGENT"
+        />
+      );
+
+    case "human_resources":
+      return (
+        <CategoryTasksCard
+          cardBase={cardBase}
+          cardHeaderBase={cardHeaderBase}
+          t={t}
+          navigate={navigate}
+          bucket="human_resources"
+          titleKey="dashboard.human_resources.title"
+          icon={Briefcase}
+          tone="violet"
+          moreHref="/dashboard/staff-requests?category=HR"
+        />
+      );
+
+    case "finance":
+      return (
+        <CategoryTasksCard
+          cardBase={cardBase}
+          cardHeaderBase={cardHeaderBase}
+          t={t}
+          navigate={navigate}
+          bucket="finance"
+          titleKey="dashboard.finance.title"
+          icon={Wallet}
+          tone="emerald"
+          moreHref="/dashboard/staff-requests?category=FINANCE"
+        />
+      );
+
+    case "maintenance":
+      return (
+        <CategoryTasksCard
+          cardBase={cardBase}
+          cardHeaderBase={cardHeaderBase}
+          t={t}
+          navigate={navigate}
+          bucket="maintenance"
+          titleKey="dashboard.maintenance.title"
+          icon={Wrench}
+          tone="amber"
+          moreHref="/dashboard/staff-requests?category=MAINTENANCE"
+        />
+      );
+
+    case "miscellaneous":
+      return (
+        <CategoryTasksCard
+          cardBase={cardBase}
+          cardHeaderBase={cardHeaderBase}
+          t={t}
+          navigate={navigate}
+          bucket="miscellaneous"
+          titleKey="dashboard.miscellaneous.title"
+          icon={Layers}
+          tone="slate"
+          moreHref="/dashboard/staff-requests?category=OTHER"
+        />
       );
 
     default:

@@ -473,6 +473,22 @@ export class BackendService {
   }
 
   /**
+   * Category-bucketed tasks for the Human Resources / Finance / Maintenance /
+   * Meetings & Reminders / Urgent Top-5 dashboard widgets.
+   *
+   * One backend endpoint serves every bucket; Miya pre-classifies each
+   * task / staff request into a category so the widgets are pure indexed
+   * filters rather than client-side scans.
+   */
+  async getDashboardCategoryTasks(
+    bucket: import("./types").CategoryTaskBucket,
+    limit = 5,
+  ): Promise<import("./types").CategoryTasksResponse> {
+    const qs = `?bucket=${encodeURIComponent(bucket)}&limit=${encodeURIComponent(String(limit))}`;
+    return this.fetchWithError(`/dashboard/category-tasks/${qs}`);
+  }
+
+  /**
    * Meetings & Reminders widget data — upcoming events pulled from the
    * tenant's Google Calendar (connected during onboarding). If the
    * calendar isn't connected the endpoint still returns 200 with
@@ -483,6 +499,55 @@ export class BackendService {
   ): Promise<DashboardMeetingsRemindersResponse> {
     const qs = `?limit=${encodeURIComponent(String(limit))}`;
     return this.fetchWithError(`/dashboard/meetings-reminders/${qs}`);
+  }
+
+  /**
+   * Accounts-payable invoices for the Finance widget + the Finance
+   * page. Tenant-scoped; manager role required server-side. Pass
+   * ``status=OPEN`` (default) to see only unpaid; ``overdue=true`` to
+   * see only past-due rows; ``due_within=7`` to see "due this week".
+   */
+  async listInvoices(
+    opts: {
+      status?: "OPEN" | "PAID" | "VOIDED" | "DRAFT" | "ALL";
+      vendor?: string;
+      overdue?: boolean;
+      due_within?: number;
+    } = {},
+  ): Promise<{
+    results: import("./types").Invoice[];
+    summary: {
+      count: number;
+      total_amount: string;
+      open_count: number;
+      overdue_count: number;
+    };
+  }> {
+    const params = new URLSearchParams();
+    if (opts.status) params.set("status", opts.status);
+    if (opts.vendor) params.set("vendor", opts.vendor);
+    if (opts.overdue) params.set("overdue", "true");
+    if (opts.due_within != null) params.set("due_within", String(opts.due_within));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    // Finance app is mounted at /api/finance/, sibling to /api/dashboard/.
+    // ``fetchWithError`` prefixes /api/, so we hop one segment up here.
+    return this.fetchWithError(`/finance/invoices/${qs}`);
+  }
+
+  async markInvoicePaid(
+    invoiceId: string,
+    payload: {
+      paid_on?: string;
+      payment_method?: string;
+      payment_reference?: string;
+      amount?: number;
+    } = {},
+  ): Promise<{ success: boolean; invoice: import("./types").Invoice }> {
+    return this.fetchWithError(`/finance/invoices/${invoiceId}/mark-paid/`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   /**
