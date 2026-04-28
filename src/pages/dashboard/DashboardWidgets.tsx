@@ -1186,48 +1186,124 @@ function sourcePrefix(src: DashboardTaskDemandItem["source"]): string {
   }
 }
 
-function statusPillClass(
-  status: DashboardTaskDemandItem["status"],
-  priority: DashboardTaskDemandItem["priority"],
-): { dot: string; text: string; bg: string; label: string } {
-  if (status === "COMPLETED") {
-    return {
-      dot: "bg-emerald-500",
-      text: "text-emerald-700 dark:text-emerald-300",
-      bg: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50",
-      label: "done",
-    };
-  }
-  if (status === "IN_PROGRESS") {
-    return {
-      dot: "bg-sky-500",
-      text: "text-sky-700 dark:text-sky-300",
-      bg: "bg-sky-50 dark:bg-sky-950/30 border-sky-200 dark:border-sky-900/50",
-      label: "in_progress",
-    };
-  }
-  if (status === "CANCELLED") {
-    return {
-      dot: "bg-slate-400",
-      text: "text-slate-600 dark:text-slate-400",
-      bg: "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700",
-      label: "cancelled",
-    };
-  }
-  if (priority === "URGENT") {
-    return {
-      dot: "bg-red-500",
-      text: "text-red-700 dark:text-red-300",
-      bg: "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50",
-      label: "urgent",
-    };
-  }
-  return {
+/**
+ * Visual definition for one row's status pill — colors + i18n label key.
+ * Centralised here so every widget uses the same vocabulary and no row
+ * is missing a status indicator.
+ */
+type PillVisual = { dot: string; text: string; bg: string; label: string };
+
+/** Granular pill descriptors keyed by ``DashboardTaskPillStatus``. */
+const PILL_VISUALS: Record<NonNullable<DashboardTaskDemandItem["pill_status"]>, PillVisual> = {
+  // Final-state buckets first (cool / muted) so they read as "done".
+  DONE: {
+    dot: "bg-emerald-500",
+    text: "text-emerald-700 dark:text-emerald-300",
+    bg: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50",
+    label: "done",
+  },
+  PAID: {
+    dot: "bg-emerald-500",
+    text: "text-emerald-700 dark:text-emerald-300",
+    bg: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50",
+    label: "paid",
+  },
+  CANCELLED: {
+    dot: "bg-slate-400",
+    text: "text-slate-600 dark:text-slate-400",
+    bg: "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700",
+    label: "cancelled",
+  },
+  VOIDED: {
+    dot: "bg-slate-400",
+    text: "text-slate-600 dark:text-slate-400",
+    bg: "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700",
+    label: "voided",
+  },
+  // Active / progress states.
+  IN_PROGRESS: {
+    dot: "bg-sky-500",
+    text: "text-sky-700 dark:text-sky-300",
+    bg: "bg-sky-50 dark:bg-sky-950/30 border-sky-200 dark:border-sky-900/50",
+    label: "in_progress",
+  },
+  ASSIGNED: {
+    dot: "bg-indigo-500",
+    text: "text-indigo-700 dark:text-indigo-300",
+    bg: "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-900/50",
+    label: "assigned",
+  },
+  // Holding patterns — manager has touched the row but it's not moving on its own.
+  WAITING_ON: {
+    dot: "bg-violet-500",
+    text: "text-violet-700 dark:text-violet-300",
+    bg: "bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-900/50",
+    label: "waiting_on",
+  },
+  ESCALATED: {
+    dot: "bg-orange-500",
+    text: "text-orange-700 dark:text-orange-300",
+    bg: "bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-900/50",
+    label: "escalated",
+  },
+  // Time-pressure / "needs eyes" states (warm hues).
+  OVERDUE: {
+    dot: "bg-red-500",
+    text: "text-red-700 dark:text-red-300",
+    bg: "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50",
+    label: "overdue",
+  },
+  DUE_SOON: {
+    dot: "bg-amber-500",
+    text: "text-amber-700 dark:text-amber-300",
+    bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/50",
+    label: "due_soon",
+  },
+  // Default lanes.
+  NEW: {
+    dot: "bg-cyan-500",
+    text: "text-cyan-700 dark:text-cyan-300",
+    bg: "bg-cyan-50 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-900/50",
+    label: "new",
+  },
+  PENDING: {
     dot: "bg-amber-500",
     text: "text-amber-700 dark:text-amber-300",
     bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/50",
     label: "pending",
-  };
+  },
+  OPEN: {
+    dot: "bg-amber-500",
+    text: "text-amber-700 dark:text-amber-300",
+    bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/50",
+    label: "open",
+  },
+  DRAFT: {
+    dot: "bg-slate-400",
+    text: "text-slate-600 dark:text-slate-400",
+    bg: "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700",
+    label: "draft",
+  },
+};
+
+/**
+ * Resolve the visual pill for a row. Prefers the granular ``pill_status``
+ * the backend now emits, but falls back to the coarse ``status`` field
+ * (and finally a priority-aware default) so older API responses still
+ * render a status — every row should ALWAYS show a status pill, never a
+ * blank space.
+ */
+function statusPillClass(
+  status: DashboardTaskDemandItem["status"],
+  priority: DashboardTaskDemandItem["priority"],
+  pillStatus?: DashboardTaskDemandItem["pill_status"],
+): PillVisual {
+  if (pillStatus && PILL_VISUALS[pillStatus]) return PILL_VISUALS[pillStatus];
+  if (status === "COMPLETED") return PILL_VISUALS.DONE;
+  if (status === "IN_PROGRESS") return PILL_VISUALS.IN_PROGRESS;
+  if (status === "CANCELLED") return PILL_VISUALS.CANCELLED;
+  if (priority === "URGENT") return PILL_VISUALS.OVERDUE;
+  return PILL_VISUALS.PENDING;
 }
 
 function TasksDemandsCard({
@@ -1392,7 +1468,7 @@ function TasksDemandsCard({
           ) : (
             <ul className="space-y-1.5">
               {rows.map((row) => {
-                const pill = statusPillClass(row.status, row.priority);
+                const pill = statusPillClass(row.status, row.priority, row.pill_status);
                 const SrcIcon = sourceIcon(row.source);
                 // Hide the source chip for generic SYSTEM-sourced rows
                 // (e.g. anything coming from the Scheduling kanban). The
@@ -2663,6 +2739,14 @@ function CategoryTasksCard({
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-3 px-5">
+        {/* Status strip — at-a-glance counts so the manager doesn't have
+            to skim every row to spot trouble. Rendered only when there's
+            something to call out (overdue / waiting / escalated / new);
+            otherwise the area collapses and the list gets the full
+            vertical space. */}
+        {!isLoading && !isError ? (
+          <CategoryStatusStrip counts={counts} filter={filter} t={t} />
+        ) : null}
         <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
           {isLoading ? (
             <div className="py-6 text-center text-sm text-slate-400">
@@ -2732,6 +2816,124 @@ function CategoryTasksCard({
   );
 }
 
+/**
+ * Compact status strip rendered just under the card header. Surfaces the
+ * granular sub-counts the API returns (overdue / waiting / escalated /
+ * new) plus the totals for the currently-active filter so the manager
+ * can size up the bucket in one glance — no need to scroll the list to
+ * see "are there bills that already slipped?" or "how many escalations
+ * landed today?". The whole strip collapses to nothing when there are
+ * no rows to call out, keeping the card visually quiet on a calm day.
+ */
+function CategoryStatusStrip({
+  counts,
+  filter,
+  t,
+}: {
+  counts: import("@/lib/types").CategoryTasksResponse["counts"];
+  filter: CategoryTasksFilter;
+  t: (key: string) => string;
+}) {
+  // ``counts`` may come from older deployments without the granular
+  // breakdown — coerce missing fields to 0 so we never render NaN.
+  const overdue = counts.overdue ?? 0;
+  const waitingOn = counts.waiting_on ?? 0;
+  const escalated = counts.escalated ?? 0;
+  const fresh = counts.new ?? 0;
+  const total =
+    filter === "done"
+      ? counts.completed
+      : filter === "in_progress"
+      ? counts.in_progress
+      : counts.open;
+
+  const hasBreakdown = overdue + waitingOn + escalated + fresh > 0;
+
+  // Nothing useful to show — return null so the card's vertical space
+  // collapses cleanly to the list.
+  if (total === 0 && !hasBreakdown) return null;
+
+  const totalLabelKey =
+    filter === "done"
+      ? "dashboard.category_tasks.strip_total_done"
+      : filter === "in_progress"
+      ? "dashboard.category_tasks.strip_total_in_progress"
+      : "dashboard.category_tasks.strip_total_open";
+
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[10.5px]">
+      {/* Total chip — neutral so the colored signal chips (overdue / new)
+          pop against it. */}
+      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 dark:bg-slate-800/70 dark:text-slate-200">
+        <span className="tabular-nums">{total}</span>
+        <span className="text-slate-500 dark:text-slate-400 font-medium">
+          {t(totalLabelKey)}
+        </span>
+      </span>
+      {overdue > 0 ? (
+        <CategoryStatusChip
+          label={t("dashboard.category_tasks.strip_overdue")}
+          count={overdue}
+          tone="red"
+        />
+      ) : null}
+      {escalated > 0 ? (
+        <CategoryStatusChip
+          label={t("dashboard.category_tasks.strip_escalated")}
+          count={escalated}
+          tone="orange"
+        />
+      ) : null}
+      {waitingOn > 0 ? (
+        <CategoryStatusChip
+          label={t("dashboard.category_tasks.strip_waiting")}
+          count={waitingOn}
+          tone="violet"
+        />
+      ) : null}
+      {fresh > 0 ? (
+        <CategoryStatusChip
+          label={t("dashboard.category_tasks.strip_new")}
+          count={fresh}
+          tone="cyan"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function CategoryStatusChip({
+  label,
+  count,
+  tone,
+}: {
+  label: string;
+  count: number;
+  tone: "red" | "orange" | "violet" | "cyan";
+}) {
+  const cls = {
+    red:
+      "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300",
+    orange:
+      "bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300",
+    violet:
+      "bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300",
+    cyan:
+      "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-300",
+  }[tone];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold",
+        cls,
+      )}
+    >
+      <span className="tabular-nums">{count}</span>
+      <span>{label}</span>
+    </span>
+  );
+}
+
 /** Header filter chip ("+ in progress" / "Done"). When inactive we show
  * the count next to the label as a faint tabular number; when active we
  * tint the chip in the bucket-appropriate hue. */
@@ -2772,8 +2974,17 @@ function CategoryFilterChip({
   );
 }
 
-/** Task row used by every category widget. Title + assignee chip on the
- * right + colored status/priority pill, mirroring the mockup. */
+/** Task row used by every category widget. Renders, in order:
+ *
+ *   • Title (truncated, hover-tooltipped with the full string)
+ *   • Optional ``ai_summary`` line (Miya's one-line gist of the request)
+ *   • A meta strip: assignee chip · "•" · age label ("12m ago", "yesterday", …)
+ *   • A small URGENT chip when ``priority === "URGENT"`` AND the row's pill
+ *     isn't already red (so we don't double-stamp OVERDUE rows)
+ *   • The granular status pill on the right — ALWAYS rendered, even when
+ *     the backend's ``pill_status`` field is missing (we fall back to the
+ *     coarse ``status`` so older responses still get a status indicator).
+ */
 function CategoryTaskRow({
   item,
   t,
@@ -2781,41 +2992,72 @@ function CategoryTaskRow({
   item: DashboardTaskDemandItem;
   t: (key: string) => string;
 }) {
-  const pill = statusPillClass(item.status, item.priority);
+  const pill = statusPillClass(item.status, item.priority, item.pill_status);
   const assigneeLabel = item.assignee?.name?.trim()
     ? item.assignee.name.split(" ")[0]
     : t("dashboard.category_tasks.unassigned");
   const initials = item.assignee?.initials || "—";
+  // Don't stack a redundant URGENT chip on top of OVERDUE — they convey
+  // the same "this needs attention now" signal and the pill is already red.
+  const showUrgentBadge =
+    item.priority === "URGENT" &&
+    item.pill_status !== "OVERDUE" &&
+    item.pill_status !== "DUE_SOON" &&
+    item.status !== "COMPLETED" &&
+    item.status !== "CANCELLED";
   return (
     <li className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
       <div className="min-w-0 flex-1">
-        <div
-          className="truncate text-[13px] font-medium text-slate-900 dark:text-white"
-          title={item.title}
-        >
-          {item.title}
+        <div className="flex items-center gap-1.5 min-w-0">
+          <div
+            className="truncate text-[13px] font-medium text-slate-900 dark:text-white"
+            title={item.title}
+          >
+            {item.title}
+          </div>
+          {showUrgentBadge ? (
+            <span
+              className="shrink-0 inline-flex items-center rounded-sm border border-red-200 bg-red-50 px-1 py-px text-[9px] font-bold uppercase tracking-wider text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+              title={t("dashboard.category_tasks.priority_urgent")}
+            >
+              {t("dashboard.category_tasks.priority_urgent_short")}
+            </span>
+          ) : null}
         </div>
         {item.ai_summary ? (
           <div className="truncate text-[10.5px] text-emerald-700 dark:text-emerald-300">
             {item.ai_summary}
           </div>
         ) : null}
+        {/* Meta line: assignee · age. Always present so every row has a
+            consistent visual rhythm and the manager can scan-read the
+            list. The assignee chip moves into here from the right side
+            (which used to fight with the status pill on narrow widths). */}
+        <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-slate-500 dark:text-slate-400">
+          <span
+            className="inline-flex shrink-0 items-center gap-1"
+            title={item.assignee?.name || ""}
+          >
+            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700 text-[9px] font-semibold text-slate-600 dark:text-slate-200">
+              {initials.slice(0, 2)}
+            </span>
+            <span className="truncate max-w-[7rem]">{assigneeLabel}</span>
+          </span>
+          {item.age_label ? (
+            <>
+              <span aria-hidden className="text-slate-300 dark:text-slate-600">·</span>
+              <span className="tabular-nums whitespace-nowrap">{item.age_label}</span>
+            </>
+          ) : null}
+        </div>
       </div>
-      <span
-        className="hidden sm:inline-flex shrink-0 items-center gap-1 text-[10.5px] text-slate-500 dark:text-slate-400"
-        title={item.assignee?.name || ""}
-      >
-        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700 text-[9px] font-semibold text-slate-600 dark:text-slate-200">
-          {initials.slice(0, 2)}
-        </span>
-        <span className="truncate max-w-[5rem]">{assigneeLabel}</span>
-      </span>
       <span
         className={cn(
           "shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
           pill.bg,
           pill.text,
         )}
+        title={t(`dashboard.category_tasks.pill_${pill.label}`)}
       >
         <span className={cn("inline-block h-1.5 w-1.5 rounded-full", pill.dot)} />
         {t(`dashboard.category_tasks.pill_${pill.label}`)}
