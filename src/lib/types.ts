@@ -165,12 +165,55 @@ export interface Task {
 /** Row shape served by GET /api/dashboard/tasks-demands/. Kept
  * deliberately small for the dashboard widget — no restaurant id, no
  * full user object. */
+export type DashboardTaskPillStatus =
+    /** Created in the last few hours and still pending — gives newly captured rows a distinct visual signal so they're easy to spot. */
+    | 'NEW'
+    /** Default "needs action" state for an unassigned, untouched item. */
+    | 'PENDING'
+    /** A staff request that's been APPROVED and has a named assignee. */
+    | 'ASSIGNED'
+    /** Work has started — same as the legacy IN_PROGRESS coarse status. */
+    | 'IN_PROGRESS'
+    /** Manager has parked the request awaiting an external dependency (supplier, contractor, document). */
+    | 'WAITING_ON'
+    /** A request that was bounced up the chain to a senior manager. */
+    | 'ESCALATED'
+    /** A task whose due date has passed (or whose follow-up date has slipped) — top priority for the manager's attention. */
+    | 'OVERDUE'
+    /** Open invoice or task due within the next 3 days — early heads-up before it slips. */
+    | 'DUE_SOON'
+    /** Invoice that hasn't been finalised yet (DRAFT status). */
+    | 'DRAFT'
+    /** Open invoice that hasn't yet hit its due date. */
+    | 'OPEN'
+    /** Invoice has been paid (final). */
+    | 'PAID'
+    /** Invoice has been voided / superseded (final). */
+    | 'VOIDED'
+    /** Task or request reached its terminal "done" state. */
+    | 'DONE'
+    /** Task or request was cancelled / rejected (final, no further action). */
+    | 'CANCELLED';
+
 export interface DashboardTaskDemandItem {
     id: string;
     title: string;
     description: string | null;
     priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+    /** Coarse status used by filter/counter logic (kept for back-compat). */
     status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+    /**
+     * Granular per-row status used by the colored pill on each widget row.
+     * Returned by the backend; older deployments may not include it, in
+     * which case the widget falls back to the coarse ``status`` field.
+     */
+    pill_status?: DashboardTaskPillStatus;
+    /**
+     * Compact relative-time string for when the item was created
+     * (``"just now"`` / ``"12m ago"`` / ``"yesterday"`` / ``"5d ago"``).
+     * Empty string when the backend can't compute one.
+     */
+    age_label?: string;
     due_date: string | null;
     source: 'MANUAL' | 'WHATSAPP' | 'EMAIL' | 'MIYA' | 'SYSTEM';
     source_label: string;
@@ -187,6 +230,7 @@ export interface DashboardTaskDemandItem {
         | 'MAINTENANCE'
         | 'RESERVATIONS'
         | 'INVENTORY'
+        | 'PURCHASE_ORDER'
         | 'MEETING'
         | 'OTHER'
         | null;
@@ -207,6 +251,7 @@ export type CategoryTaskBucket =
     | 'finance'
     | 'maintenance'
     | 'meetings'
+    | 'purchase_orders'
     | 'miscellaneous';
 
 export interface CategoryTasksResponse {
@@ -215,7 +260,22 @@ export interface CategoryTasksResponse {
     categories: string[];
     items: DashboardTaskDemandItem[];
     completed: DashboardTaskDemandItem[];
-    counts: { open: number; in_progress: number; completed: number };
+    /**
+     * Coarse counts (``open / in_progress / completed``) drive the filter
+     * chips. The granular fields (``overdue / waiting_on / escalated /
+     * new``) are best-effort — counted from the trimmed top-N items and
+     * only used to render the warning badges in the card header. They
+     * may be undefined on older backends.
+     */
+    counts: {
+        open: number;
+        in_progress: number;
+        completed: number;
+        overdue?: number;
+        waiting_on?: number;
+        escalated?: number;
+        new?: number;
+    };
     generated_at: string;
 }
 
