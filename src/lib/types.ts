@@ -214,6 +214,15 @@ export interface DashboardTaskDemandItem {
      * Empty string when the backend can't compute one.
      */
     age_label?: string;
+    /**
+     * Source model that owns this row. Drives the row's action menu —
+     * invoices only accept "Mark paid" / "Mark voided" while tasks /
+     * staff requests accept the full PENDING → IN_PROGRESS → DONE flow.
+     * The dashboard task-status PATCH endpoint figures out which model
+     * to update from the row id alone, so this is purely for UI
+     * vocabulary; older API responses may omit it.
+     */
+    kind?: 'dashboard' | 'scheduling' | 'staff_request' | 'invoice';
     due_date: string | null;
     source: 'MANUAL' | 'WHATSAPP' | 'EMAIL' | 'MIYA' | 'SYSTEM';
     source_label: string;
