@@ -79,6 +79,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 
 export const DASHBOARD_WIDGET_IDS = [
   "insights",
@@ -1359,6 +1360,48 @@ function TasksDemandsCard({
     },
   });
 
+  // Reassign target — set when the manager clicks "Reassign" in the
+  // row dropdown. Holds the row's id + display title + (if present)
+  // the request category so the escalate modal can highlight the
+  // right department tag chips. ``null`` means the modal is closed.
+  const [reassignTarget, setReassignTarget] = useState<{
+    id: string;
+    title: string;
+    category?: string;
+  } | null>(null);
+
+  const reassignMutation = useMutation({
+    mutationFn: ({
+      id,
+      assigneeId,
+    }: {
+      id: string;
+      assigneeId: string;
+    }) => api.updateDashboardTaskAssignee(id, assigneeId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
+      // Category-bucketed widgets surface the same rows by category
+      // and need to redraw the assignee chip after a reassign — bust
+      // them all via predicate match on the queryKey shape.
+      qc.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) &&
+          q.queryKey[0] === "dashboard" &&
+          q.queryKey[1] === "category-tasks",
+      });
+      qc.invalidateQueries({ queryKey: ["dashboard", "summary"] });
+      toast.success(
+        t("dashboard.tasks_demands.reassign_success") ||
+          "Task reassigned.",
+      );
+      setReassignTarget(null);
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Failed to reassign";
+      toast.error(msg);
+    },
+  });
+
   const counts = data?.counts ?? { pending: 0, in_progress: 0, completed: 0 };
   const rows: DashboardTaskDemandItem[] = useMemo(() => {
     if (!data) return [];
@@ -1596,6 +1639,25 @@ function TasksDemandsCard({
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
+                          {/* Reassign — opens the same picker the
+                              staff inbox uses so the manager can
+                              hand the row off to anyone in the
+                              tenant. We pass the row's id + title
+                              + category so the modal can pre-rank
+                              the department tags relevant to it
+                              (e.g. PURCHASE_ORDER → PURCHASES). */}
+                          <DropdownMenuItem
+                            onClick={() =>
+                              setReassignTarget({
+                                id: row.id,
+                                title: row.title,
+                                category: (row as { category?: string })
+                                  .category,
+                              })
+                            }
+                          >
+                            {t("dashboard.tasks_demands.reassign")}
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => navigate("/dashboard/tasks")}
                           >
@@ -1620,6 +1682,24 @@ function TasksDemandsCard({
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </CardContent>
+
+      {/* Reassign picker — same modal the staff inbox uses, opened
+          when the manager picks "Reassign" from a row's action
+          menu. Mounted at the card level so it survives the row
+          re-rendering after the mutation invalidates the query. */}
+      <EscalateStaffRequestModal
+        mode="reassign"
+        open={reassignTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setReassignTarget(null);
+        }}
+        isPending={reassignMutation.isPending}
+        category={reassignTarget?.category}
+        onConfirm={(assigneeId) => {
+          if (!reassignTarget) return;
+          reassignMutation.mutate({ id: reassignTarget.id, assigneeId });
+        }}
+      />
     </Card>
   );
 }
