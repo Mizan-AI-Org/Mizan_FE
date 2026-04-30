@@ -2627,6 +2627,23 @@ const CATEGORY_TONE: Record<CategoryWidgetTone, {
 
 type CategoryTasksFilter = "open" | "in_progress" | "done";
 
+// MIME-style drag payload type so we can roundtrip a row's identity
+// across HTML5 ``DataTransfer``. We deliberately use a custom MIME so
+// other native drops (text, URLs, files dragged from the OS) don't
+// accidentally trigger our drop-handler — Chrome / Safari only fire
+// ``dragenter`` / ``drop`` on a target that has a matching MIME or
+// when ``preventDefault`` is called on dragover.
+const ROW_DRAG_MIME = "application/x-mizan-dashboard-row";
+
+interface RowDragPayload {
+  id: string;
+  kind: import("@/lib/types").DashboardTaskDemandItem["kind"];
+  sourceBucket: import("@/lib/types").CategoryTaskBucket;
+  /** Title is included so we can render a meaningful toast on success
+   *  without re-fetching the row. */
+  title: string;
+}
+
 function CategoryTasksCard({
   cardBase,
   cardHeaderBase,
@@ -2654,6 +2671,14 @@ function CategoryTasksCard({
   moreHref: string;
 }) {
   const [filter, setFilter] = useState<CategoryTasksFilter>("open");
+  // Track whether a row from *another* widget is hovering this card
+  // so we can highlight the drop zone. We don't highlight on
+  // self-drops (same source/target bucket) because that would be a
+  // no-op move and the visual change would be misleading. We also
+  // track a per-row "dragging" id so the source widget can fade the
+  // row that's leaving.
+  const [isDropTarget, setIsDropTarget] = useState(false);
+  const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
   const qc = useQueryClient();
   const queryKey = useMemo(
     () => ["dashboard", "category-tasks", bucket, 5] as const,
@@ -2704,6 +2729,102 @@ function CategoryTasksCard({
     },
   });
 
+  // Drag-and-drop "move row to this bucket" mutation. Triggered when
+  // a row from a *different* widget is dropped here. We invalidate
+  // every category bucket query (not just source + target) because
+  // a category move can ripple — e.g. an URGENT bump leaves the row
+  // in its original category widget too, so every card needs to
+  // refresh its "urgent" count.
+  const bucketMutation = useMutation({
+    mutationFn: ({ id }: { id: string; payload: RowDragPayload }) =>
+      api.updateDashboardTaskBucket(id, bucket),
+    onSuccess: (_data, variables) => {
+      // Invalidate all category-tasks queries regardless of bucket so
+      // both the source AND target widgets pick up the move on the
+      // next tick. ``predicate`` lets us match the variable-arity
+      // queryKey shape ["dashboard", "category-tasks", <bucket>, 5].
+      qc.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) &&
+          q.queryKey[0] === "dashboard" &&
+          q.queryKey[1] === "category-tasks",
+      });
+      qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
+      qc.invalidateQueries({ queryKey: ["dashboard", "summary"] });
+      // Confirmation toast — the row's title is in the payload so we
+      // can render something specific ("Moved 'Pay butchers invoice'
+      // to Finance") rather than a generic "Saved".
+      toast.success(
+        t("dashboard.category_tasks.bucket_move_success").replace(
+          "{title}",
+          variables.payload.title || t("dashboard.category_tasks.this_item"),
+        ),
+      );
+    },
+    onError: (err: unknown) => {
+      // The backend returns user-readable messages for the rejection
+      // cases (invoice can't move, custom-category task, etc.) — we
+      // surface those verbatim so the manager understands why.
+      const msg =
+        err instanceof Error
+          ? err.message
+          : t("dashboard.category_tasks.bucket_move_error");
+      toast.error(msg);
+    },
+  });
+
+  // Centralised drop-handler for the card. We pull the payload out of
+  // ``DataTransfer``, validate it's actually one of our rows, and
+  // short-circuit on a same-bucket drop so we don't fire a useless
+  // PATCH when the user just dropped the row back where it came from.
+  const onDropRow = React.useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDropTarget(false);
+      const raw = e.dataTransfer.getData(ROW_DRAG_MIME);
+      if (!raw) return;
+      let payload: RowDragPayload | null = null;
+      try {
+        payload = JSON.parse(raw) as RowDragPayload;
+      } catch {
+        return;
+      }
+      if (!payload?.id) return;
+      if (payload.sourceBucket === bucket) {
+        // No-op: dropped on the same widget the drag started in.
+        return;
+      }
+      bucketMutation.mutate({ id: payload.id, payload });
+    },
+    [bucket, bucketMutation],
+  );
+
+  const onDragOverRow = React.useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      // ``preventDefault`` is required to make this element a valid
+      // drop target — without it, ``drop`` never fires.
+      const types = e.dataTransfer.types;
+      if (!types || !Array.from(types).includes(ROW_DRAG_MIME)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (!isDropTarget) setIsDropTarget(true);
+    },
+    [isDropTarget],
+  );
+
+  const onDragLeaveRow = React.useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      // ``dragleave`` fires for child enter/exit too. Only reset when
+      // the cursor actually leaves the card boundary (relatedTarget
+      // is null or outside the card).
+      const related = e.relatedTarget as Node | null;
+      if (related && e.currentTarget.contains(related)) return;
+      setIsDropTarget(false);
+    },
+    [],
+  );
+
   const toneClasses = CATEGORY_TONE[tone];
   const items: DashboardTaskDemandItem[] = useMemo(() => {
     if (!data) return [];
@@ -2722,7 +2843,17 @@ function CategoryTasksCard({
 
   return (
     <Card
-      className={cn(cardBase, "flex flex-col cursor-pointer")}
+      className={cn(
+        cardBase,
+        "flex flex-col cursor-pointer transition-all",
+        // Drop-target affordance — a soft ring + slightly lifted
+        // shadow so the manager sees exactly which widget the row
+        // will land in. Kept subtle so it doesn't compete with the
+        // card's own tone band.
+        isDropTarget &&
+          "ring-2 ring-primary/60 ring-offset-2 ring-offset-background shadow-lg scale-[1.01]",
+        bucketMutation.isPending && "opacity-90",
+      )}
       role="button"
       tabIndex={0}
       onClick={goMore}
@@ -2732,6 +2863,11 @@ function CategoryTasksCard({
           goMore();
         }
       }}
+      onDrop={onDropRow}
+      onDragOver={onDragOverRow}
+      onDragEnter={onDragOverRow}
+      onDragLeave={onDragLeaveRow}
+      aria-dropeffect={isDropTarget ? "move" : undefined}
     >
       <CardHeader className={cardHeaderBase}>
         <div className="flex items-center gap-2 min-w-0">
@@ -2829,6 +2965,9 @@ function CategoryTasksCard({
                   key={it.id}
                   item={it}
                   t={t}
+                  sourceBucket={bucket}
+                  isDragging={draggingRowId === it.id}
+                  onDragStateChange={setDraggingRowId}
                   onStatusChange={(nextStatus) =>
                     statusMutation.mutate({ id: it.id, nextStatus })
                   }
@@ -3040,6 +3179,9 @@ function CategoryTaskRow({
   t,
   onStatusChange,
   isPendingId,
+  sourceBucket,
+  isDragging,
+  onDragStateChange,
 }: {
   item: DashboardTaskDemandItem;
   t: (key: string) => string;
@@ -3056,6 +3198,20 @@ function CategoryTaskRow({
    * they tap.
    */
   isPendingId?: string | null;
+  /**
+   * Bucket the row currently belongs to. Travels in the drag payload
+   * so the drop target can short-circuit a same-bucket drop without
+   * a server round-trip. Optional so the row stays usable from
+   * read-only contexts that don't participate in DnD.
+   */
+  sourceBucket?: import("@/lib/types").CategoryTaskBucket;
+  /** True while *this specific* row is being dragged — drives the
+   *  fade-out / dashed border so the user can see what's leaving. */
+  isDragging?: boolean;
+  /** Setter the parent uses to track which row is currently in the
+   *  air. Called with the row id on dragstart and ``null`` on
+   *  dragend. Optional for read-only contexts. */
+  onDragStateChange?: (id: string | null) => void;
 }) {
   const pill = statusPillClass(item.status, item.priority, item.pill_status);
   const assigneeLabel = item.assignee?.name?.trim()
@@ -3093,8 +3249,55 @@ function CategoryTaskRow({
   // the manager off the dashboard.
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
 
+  // Drag-and-drop wiring. We disable drag for terminal rows (already
+  // done / cancelled) so a closed ticket can't be silently revived
+  // in another bucket, and for invoices because the BE rejects any
+  // cross-bucket move on those — letting the manager drag them would
+  // just produce an error toast on every drop.
+  const draggable = !isTerminal && !isInvoice && !!sourceBucket;
+  const onRowDragStart = React.useCallback(
+    (e: React.DragEvent<HTMLLIElement>) => {
+      if (!draggable || !sourceBucket) return;
+      const payload = {
+        id: item.id,
+        kind: item.kind,
+        sourceBucket,
+        title: item.title,
+      };
+      e.dataTransfer.setData(ROW_DRAG_MIME, JSON.stringify(payload));
+      e.dataTransfer.effectAllowed = "move";
+      onDragStateChange?.(item.id);
+    },
+    [draggable, sourceBucket, item.id, item.kind, item.title, onDragStateChange],
+  );
+  const onRowDragEnd = React.useCallback(() => {
+    onDragStateChange?.(null);
+  }, [onDragStateChange]);
+
   return (
-    <li className="group/row flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+    <li
+      className={cn(
+        "group/row flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-all",
+        // Subtle "you can drag this" affordance: a grab cursor on
+        // hover so the manager realises the rows are interactive
+        // even before they grab one.
+        draggable && "cursor-grab active:cursor-grabbing",
+        isDragging &&
+          "opacity-40 border border-dashed border-primary/60 bg-primary/5",
+      )}
+      draggable={draggable}
+      onDragStart={onRowDragStart}
+      onDragEnd={onRowDragEnd}
+      aria-grabbed={isDragging || undefined}
+      aria-label={
+        draggable
+          ? t("dashboard.category_tasks.row_draggable_aria").replace(
+              "{title}",
+              item.title,
+            )
+          : undefined
+      }
+    >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 min-w-0">
           <div
