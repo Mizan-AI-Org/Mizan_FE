@@ -10,8 +10,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, UserCircle2 } from "lucide-react";
+import { Loader2, Search, UserCircle2, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type TeamMemberRow = {
@@ -27,6 +28,11 @@ function getAuthToken() {
 }
 
 function normalizeStaffList(data: unknown): TeamMemberRow[] {
+  // The endpoint may return either an array (when pagination is bypassed
+  // from the caller's settings) or a paginated ``{ count, next, previous,
+  // results }`` envelope. Older shapes that nest the user inside a
+  // ``user`` key are also handled so this normaliser stays a drop-in for
+  // anywhere that lists "people on my team".
   const arr: unknown[] = Array.isArray(data)
     ? data
     : data && typeof data === "object" && "results" in (data as object)
@@ -65,6 +71,57 @@ function displayName(m: TeamMemberRow) {
   return n || m.email || m.id;
 }
 
+function initialsFor(m: TeamMemberRow) {
+  const a = (m.first_name || "").trim()[0] || "";
+  const b = (m.last_name || "").trim()[0] || "";
+  const both = `${a}${b}`.toUpperCase();
+  if (both) return both;
+  // Fallback to email's first letter so we never render an empty bubble.
+  const e = (m.email || "").trim();
+  return e ? e.slice(0, 1).toUpperCase() : "?";
+}
+
+/**
+ * Friendly, human-readable label for a CustomUser.role enum value. The
+ * backend speaks UPPER_SNAKE; the modal shows it as Title Case so it
+ * reads naturally next to the email line.
+ */
+function roleLabel(role: string | undefined): string {
+  if (!role) return "";
+  return role
+    .toLowerCase()
+    .split("_")
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(" ");
+}
+
+/**
+ * Tone classes for the role badge — Owner & Admin pop in violet so the
+ * highest-authority recipients are visually distinct from regular staff.
+ * Managers get an amber tint (mid-authority). Everyone else gets a
+ * neutral slate badge so the list stays calm.
+ */
+function roleBadgeTone(role: string | undefined): string {
+  const r = (role || "").toUpperCase();
+  if (r === "OWNER" || r === "ADMIN") {
+    return "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300";
+  }
+  if (r === "MANAGER") {
+    return "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300";
+  }
+  return "bg-slate-100 text-slate-600 dark:bg-slate-800/60 dark:text-slate-300";
+}
+
+/** Sort order: OWNER → ADMIN → MANAGER → everyone else (alphabetical). */
+function roleRank(role: string | undefined): number {
+  const r = (role || "").toUpperCase();
+  if (r === "OWNER") return 0;
+  if (r === "ADMIN") return 1;
+  if (r === "MANAGER") return 2;
+  return 3;
+}
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -84,6 +141,7 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
 }) => {
   const { t } = useLanguage();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const isReassign = mode === "reassign";
 
@@ -91,7 +149,12 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
     queryKey: ["staff-list-escalate-modal"],
     queryFn: async (): Promise<TeamMemberRow[]> => {
       const token = getAuthToken();
-      const res = await fetch(`${API_BASE}/staff/`, {
+      // ``page_size=500`` matches the server's MAX_PAGE_SIZE so the
+      // modal never silently truncates at DRF's default 10. The shape
+      // normaliser below handles both paginated and bare-array
+      // responses, so this stays robust if the backend later turns
+      // pagination off entirely.
+      const res = await fetch(`${API_BASE}/staff/?page_size=500`, {
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         credentials: "include",
       });
@@ -103,10 +166,42 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
     staleTime: 60_000,
   });
 
-  const members = useMemo(() => staffQuery.data ?? [], [staffQuery.data]);
+  // Client-side filter + sort. We fetch every member in one go (the
+  // backend caps at 500 which covers any realistic restaurant chain),
+  // then filter in-memory as the manager types — no debounce needed,
+  // no extra round trips. Sort puts owners / admins / managers first
+  // so escalating "above your head" is a one-click action even with a
+  // long list.
+  const filteredMembers = useMemo(() => {
+    const all = staffQuery.data ?? [];
+    const q = search.trim().toLowerCase();
+    const matches = q
+      ? all.filter((m) => {
+          const name = displayName(m).toLowerCase();
+          const email = (m.email || "").toLowerCase();
+          const role = (m.role || "").toLowerCase();
+          return (
+            name.includes(q) || email.includes(q) || role.includes(q)
+          );
+        })
+      : all;
+    // Stable sort by (role rank → first name → last name) so the list
+    // is predictable across renders.
+    return [...matches].sort((a, b) => {
+      const r = roleRank(a.role) - roleRank(b.role);
+      if (r !== 0) return r;
+      return displayName(a).localeCompare(displayName(b));
+    });
+  }, [staffQuery.data, search]);
+
+  const totalCount = staffQuery.data?.length ?? 0;
+  const filteredCount = filteredMembers.length;
 
   useEffect(() => {
-    if (!open) setSelectedId(null);
+    if (!open) {
+      setSelectedId(null);
+      setSearch("");
+    }
   }, [open]);
 
   return (
@@ -123,7 +218,58 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
           </p>
         </DialogHeader>
 
-        <ScrollArea className="h-[min(320px,50vh)] pr-3 -mr-1">
+        {/* Search + count strip — discoverable, single-key access to any
+            teammate even when the list is long. Total / filtered counts
+            on the right give the manager confidence the list is
+            complete (the previous "only 10 names" complaint was fed by
+            an invisible page cap; surfacing the count makes that
+            impossible to miss). */}
+        <div className="space-y-2">
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              autoFocus
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("staff.requests.escalate_modal_search_placeholder")}
+              aria-label={t("staff.requests.escalate_modal_search_placeholder")}
+              className="pl-8 pr-8"
+            />
+            {search ? (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label={t("staff.requests.escalate_modal_clear_search")}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Users className="h-3.5 w-3.5" aria-hidden />
+            {search ? (
+              <span>
+                {t("staff.requests.escalate_modal_count_filtered", {
+                  filtered: filteredCount,
+                  total: totalCount,
+                })}
+              </span>
+            ) : (
+              <span>
+                {t("staff.requests.escalate_modal_count_total", {
+                  total: totalCount,
+                })}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <ScrollArea className="h-[min(360px,55vh)] pr-3 -mr-1">
           {staffQuery.isLoading ? (
             <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground text-sm">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -133,14 +279,17 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
             <div className="text-sm text-destructive py-6 text-center">
               {t("staff.requests.escalate_modal_error")}
             </div>
-          ) : members.length === 0 ? (
+          ) : filteredMembers.length === 0 ? (
             <div className="text-sm text-muted-foreground py-6 text-center">
-              {t("staff.requests.escalate_modal_empty")}
+              {search
+                ? t("staff.requests.escalate_modal_no_match")
+                : t("staff.requests.escalate_modal_empty")}
             </div>
           ) : (
             <div className="space-y-1">
-              {members.map((m) => {
+              {filteredMembers.map((m) => {
                 const active = selectedId === m.id;
+                const role = roleLabel(m.role);
                 return (
                   <button
                     key={m.id}
@@ -153,15 +302,43 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
                         : "border-border hover:bg-muted/60"
                     )}
                   >
-                    <UserCircle2
-                      className={cn("h-8 w-8 shrink-0", active ? "text-primary" : "text-muted-foreground")}
-                    />
+                    {/* Avatar / initials bubble — gives the list a face
+                        and avoids the "wall of identical UserCircle2"
+                        we used to render for every row. */}
+                    <div
+                      className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
+                        active
+                          ? "bg-primary/20 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                      aria-hidden
+                    >
+                      {initialsFor(m) ? (
+                        initialsFor(m)
+                      ) : (
+                        <UserCircle2 className="h-5 w-5" />
+                      )}
+                    </div>
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate">{displayName(m)}</div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {m.email}
-                        {m.role ? ` · ${m.role}` : ""}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="font-medium truncate">{displayName(m)}</div>
+                        {role ? (
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-full px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide",
+                              roleBadgeTone(m.role)
+                            )}
+                          >
+                            {role}
+                          </span>
+                        ) : null}
                       </div>
+                      {m.email ? (
+                        <div className="text-xs text-muted-foreground truncate">
+                          {m.email}
+                        </div>
+                      ) : null}
                     </div>
                   </button>
                 );

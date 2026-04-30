@@ -1554,5 +1554,10 @@
   "billing.status.unpaid": "غير مدفوع",
   "billing.status.pilot": "تجريبي",
   "dashboard.staff_inbox.empty": "صندوق الوارد فارغ — لا توجد طلبات بانتظارك.",
-  "dashboard.staff_inbox.fallback_title": "طلب موظف"
+  "dashboard.staff_inbox.fallback_title": "طلب موظف",
+  "staff.requests.escalate_modal_search_placeholder": "ابحث بالاسم أو البريد الإلكتروني أو الدور…",
+  "staff.requests.escalate_modal_clear_search": "مسح البحث",
+  "staff.requests.escalate_modal_no_match": "لا يوجد زملاء فريق يطابقون بحثك.",
+  "staff.requests.escalate_modal_count_total": "{{total}} عضو متاح في الفريق",
+  "staff.requests.escalate_modal_count_filtered": "عرض {{filtered}} من {{total}}"
 }
