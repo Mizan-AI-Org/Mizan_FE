@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Phone, Mail, FileText, Loader2 } from 'lucide-react';
+import { AttachmentList } from '@/components/ui/attachment-preview';
 import { useAuth } from '@/hooks/use-auth';
 import CreateSwapRequest from '@/components/CreateSwapRequest';
 import { api } from '@/lib/api';
@@ -586,20 +587,11 @@ const StaffShiftDetailsModal: React.FC<StaffShiftDetailsModalProps> = ({ open, s
 
               <div className="rounded-lg border p-4">
                 <p className="text-sm font-medium mb-2">Attachments</p>
-                {Array.isArray(shift.attachments) && shift.attachments.length > 0 ? (
-                  <ul className="space-y-2">
-                    {shift.attachments.map((a: { id: string; name: string; url: string }) => (
-                      <li key={a.id} className="flex items-center gap-2">
-                        <FileText className="h-4 w-4" aria-hidden="true" />
-                        <a href={a.url} target="_blank" rel="noreferrer" className="text-sm underline">
-                          {a.name}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No attachments</p>
-                )}
+                <AttachmentList
+                  attachments={
+                    Array.isArray(shift.attachments) ? shift.attachments : []
+                  }
+                />
               </div>
 
               <div className="flex items-center justify-between">
