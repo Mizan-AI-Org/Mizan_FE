@@ -1559,5 +1559,21 @@
   "staff.requests.escalate_modal_clear_search": "مسح البحث",
   "staff.requests.escalate_modal_no_match": "لا يوجد زملاء فريق يطابقون بحثك.",
   "staff.requests.escalate_modal_count_total": "{{total}} عضو متاح في الفريق",
-  "staff.requests.escalate_modal_count_filtered": "عرض {{filtered}} من {{total}}"
+  "staff.requests.escalate_modal_count_filtered": "عرض {{filtered}} من {{total}}",
+  "staff.requests.escalate_modal_filter_by_tag": "تصفية حسب القسم",
+  "staff.requests.escalate_modal_clear_tag_filter": "مسح تصفية القسم",
+  "staff.tags.section_title": "الأقسام",
+  "staff.tags.section_help": "حدد المجالات التشغيلية لهذا الموظف. تُمكّن العلامات التوجيه الذكي — مثلاً تُسند طلبات الشراء تلقائياً إلى الموظفين المعلّمين بـ \"المشتريات\".",
+  "staff.tags.empty_placeholder": "لا توجد أقسام معلّمة بعد",
+  "staff.tags.add": "إضافة قسم",
+  "staff.tags.KITCHEN": "المطبخ",
+  "staff.tags.SERVICE": "الخدمة",
+  "staff.tags.FRONT_OFFICE": "الاستقبال",
+  "staff.tags.BACK_OFFICE": "المكتب الخلفي",
+  "staff.tags.PURCHASES": "المشتريات",
+  "staff.tags.CONTROL": "الرقابة",
+  "staff.tags.ADMINISTRATION": "الإدارة",
+  "staff.tags.MANAGEMENT": "القيادة",
+  "staff.tags.HOUSEKEEPING": "النظافة",
+  "staff.tags.MARKETING": "التسويق"
 }

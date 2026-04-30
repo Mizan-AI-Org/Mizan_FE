@@ -863,6 +863,7 @@ const StaffRequestsPage: React.FC = () => {
         open={escalateModalOpen}
         onOpenChange={setEscalateModalOpen}
         isPending={mutateAction.isPending}
+        category={selected?.category}
         onConfirm={(assigneeId) => {
           const note = comment.trim() || "Escalated";
           mutateAction.mutate(
@@ -881,6 +882,7 @@ const StaffRequestsPage: React.FC = () => {
         open={reassignModalOpen}
         onOpenChange={setReassignModalOpen}
         isPending={mutateAction.isPending}
+        category={selected?.category}
         onConfirm={(assigneeId) => {
           const note = comment.trim();
           mutateAction.mutate(

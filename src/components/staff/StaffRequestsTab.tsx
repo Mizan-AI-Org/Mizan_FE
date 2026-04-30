@@ -375,6 +375,7 @@ const StaffRequestsTab: React.FC = () => {
         open={escalateModalOpen}
         onOpenChange={setEscalateModalOpen}
         isPending={mutateAction.isPending}
+        category={selected?.category}
         onConfirm={(assigneeId) => {
           const note = comment.trim() || "Escalated";
           mutateAction.mutate(
