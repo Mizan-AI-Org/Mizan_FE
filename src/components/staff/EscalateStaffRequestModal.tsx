@@ -14,6 +14,15 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Search, UserCircle2, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { StaffTagChips } from "@/components/staff/StaffTagChips";
+import {
+  CATEGORY_TO_TAGS,
+  STAFF_TAGS,
+  STAFF_TAG_TONE,
+  type StaffTag,
+  normalizeStaffTags,
+  staffTagI18nKey,
+} from "@/lib/staff-tags";
 
 export type TeamMemberRow = {
   id: string;
@@ -21,6 +30,7 @@ export type TeamMemberRow = {
   last_name: string;
   email: string;
   role?: string;
+  tags?: string[];
 };
 
 function getAuthToken() {
@@ -38,28 +48,47 @@ function normalizeStaffList(data: unknown): TeamMemberRow[] {
     : data && typeof data === "object" && "results" in (data as object)
       ? ((data as { results?: unknown[] }).results ?? [])
       : [];
+  // Tags can show up flat at row level OR nested under ``profile.tags``
+  // depending on which serializer the backend used. ``readTags`` folds
+  // both shapes so the picker doesn't care about transport.
+  const readTags = (
+    flat: unknown,
+    profile: Record<string, unknown> | undefined,
+  ): string[] => {
+    if (Array.isArray(flat)) return flat.map((v) => String(v));
+    const nested = profile?.tags;
+    if (Array.isArray(nested)) return nested.map((v) => String(v));
+    return [];
+  };
+
   const out: TeamMemberRow[] = [];
   for (const row of arr) {
     if (!row || typeof row !== "object") continue;
     const r = row as Record<string, unknown>;
     const nested = r.user as Record<string, unknown> | undefined;
     if (nested && typeof nested.id === "string") {
+      const profile = (nested.profile ?? r.profile) as
+        | Record<string, unknown>
+        | undefined;
       out.push({
         id: nested.id,
         email: String(nested.email ?? ""),
         first_name: String(nested.first_name ?? ""),
         last_name: String(nested.last_name ?? ""),
         role: String(nested.role ?? ""),
+        tags: readTags(nested.tags ?? r.tags, profile),
       });
       continue;
     }
     if (typeof r.id === "string") {
+      const profile = r.profile as Record<string, unknown> | undefined;
       out.push({
         id: r.id,
         email: String(r.email ?? ""),
         first_name: String(r.first_name ?? ""),
         last_name: String(r.last_name ?? ""),
         role: String(r.role ?? ""),
+        tags: readTags(r.tags, profile),
       });
     }
   }
@@ -130,6 +159,14 @@ type Props = {
   // Same picker, different intent. "reassign" rewords the title/button so
   // managers understand this is a lateral move, not a status escalation.
   mode?: "escalate" | "reassign";
+  /**
+   * Optional ``StaffRequest.category`` of the row being escalated.
+   * When set, the picker pre-suggests the canonical department tags
+   * for that bucket (see ``CATEGORY_TO_TAGS``) so the manager can
+   * one-click filter to the right team. Doesn't restrict — the
+   * manager can clear the suggestion or pick someone outside it.
+   */
+  category?: string | null;
 };
 
 export const EscalateStaffRequestModal: React.FC<Props> = ({
@@ -138,12 +175,24 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
   onConfirm,
   isPending = false,
   mode = "escalate",
+  category,
 }) => {
   const { t } = useLanguage();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [tagFilter, setTagFilter] = useState<StaffTag | null>(null);
 
   const isReassign = mode === "reassign";
+
+  // When the caller passes a ``category``, surface the tags the
+  // backend's tag-routing fallback would consider. The first tag in
+  // the list is the "primary" department for that bucket — e.g.
+  // PURCHASE_ORDER → PURCHASES — so we put the strongest filter first.
+  const suggestedTags: readonly StaffTag[] = useMemo(() => {
+    if (!category) return [];
+    const key = String(category).toUpperCase();
+    return (CATEGORY_TO_TAGS[key] ?? []) as readonly StaffTag[];
+  }, [category]);
 
   const staffQuery = useQuery({
     queryKey: ["staff-list-escalate-modal"],
@@ -175,24 +224,36 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
   const filteredMembers = useMemo(() => {
     const all = staffQuery.data ?? [];
     const q = search.trim().toLowerCase();
-    const matches = q
+    const textFiltered = q
       ? all.filter((m) => {
           const name = displayName(m).toLowerCase();
           const email = (m.email || "").toLowerCase();
           const role = (m.role || "").toLowerCase();
+          // Tag IDs are searchable too — typing "kitchen" should
+          // surface anyone tagged KITCHEN even if their name doesn't
+          // include the word.
+          const tagBlob = (m.tags || []).join(" ").toLowerCase();
           return (
-            name.includes(q) || email.includes(q) || role.includes(q)
+            name.includes(q) ||
+            email.includes(q) ||
+            role.includes(q) ||
+            tagBlob.includes(q)
           );
         })
       : all;
+    const tagFiltered = tagFilter
+      ? textFiltered.filter((m) =>
+          normalizeStaffTags(m.tags ?? []).includes(tagFilter),
+        )
+      : textFiltered;
     // Stable sort by (role rank → first name → last name) so the list
     // is predictable across renders.
-    return [...matches].sort((a, b) => {
+    return [...tagFiltered].sort((a, b) => {
       const r = roleRank(a.role) - roleRank(b.role);
       if (r !== 0) return r;
       return displayName(a).localeCompare(displayName(b));
     });
-  }, [staffQuery.data, search]);
+  }, [staffQuery.data, search, tagFilter]);
 
   const totalCount = staffQuery.data?.length ?? 0;
   const filteredCount = filteredMembers.length;
@@ -201,6 +262,7 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
     if (!open) {
       setSelectedId(null);
       setSearch("");
+      setTagFilter(null);
     }
   }, [open]);
 
@@ -252,7 +314,7 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Users className="h-3.5 w-3.5" aria-hidden />
-            {search ? (
+            {search || tagFilter ? (
               <span>
                 {t("staff.requests.escalate_modal_count_filtered", {
                   filtered: filteredCount,
@@ -266,6 +328,75 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
                 })}
               </span>
             )}
+          </div>
+
+          {/* Tag filter strip. We render one chip per canonical tag,
+              with the suggested-for-this-category ones moved to the
+              front so they're the obvious first stop for a manager
+              triaging a PURCHASE_ORDER (PURCHASES first), a FINANCE
+              row (CONTROL first), etc. Clicking a chip toggles a
+              single-select filter — multi-select would let the
+              manager paint themselves into a 0-row corner, so we
+              keep it boolean. */}
+          <div className="flex flex-wrap items-center gap-1 pt-0.5">
+            <span className="text-[11px] font-medium text-muted-foreground mr-1">
+              {t("staff.requests.escalate_modal_filter_by_tag")}:
+            </span>
+            {(() => {
+              // Put suggested tags first, deduped, with the rest
+              // appended in canonical order so the strip always
+              // contains every tag exactly once.
+              const ordered: StaffTag[] = [];
+              const seen = new Set<string>();
+              for (const tag of suggestedTags) {
+                if (!seen.has(tag)) {
+                  ordered.push(tag);
+                  seen.add(tag);
+                }
+              }
+              for (const tag of STAFF_TAGS) {
+                if (!seen.has(tag)) {
+                  ordered.push(tag);
+                  seen.add(tag);
+                }
+              }
+              return ordered.map((tag) => {
+                const active = tagFilter === tag;
+                const suggested = suggestedTags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setTagFilter(active ? null : tag)}
+                    aria-pressed={active}
+                    className={cn(
+                      "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-colors focus:outline-none focus:ring-2 focus:ring-ring",
+                      active
+                        ? cn(
+                            STAFF_TAG_TONE[tag],
+                            "border-transparent ring-1 ring-current/30",
+                          )
+                        : suggested
+                          ? "border-primary/40 bg-primary/5 text-foreground hover:bg-primary/10"
+                          : "border-border bg-background text-muted-foreground hover:bg-muted/60",
+                    )}
+                    title={t(staffTagI18nKey(tag))}
+                  >
+                    {t(staffTagI18nKey(tag))}
+                  </button>
+                );
+              });
+            })()}
+            {tagFilter ? (
+              <button
+                type="button"
+                onClick={() => setTagFilter(null)}
+                aria-label={t("staff.requests.escalate_modal_clear_tag_filter")}
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-3 w-3" aria-hidden />
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -338,6 +469,14 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
                         <div className="text-xs text-muted-foreground truncate">
                           {m.email}
                         </div>
+                      ) : null}
+                      {m.tags && m.tags.length ? (
+                        <StaffTagChips
+                          tags={m.tags}
+                          size="xs"
+                          max={4}
+                          className="mt-1"
+                        />
                       ) : null}
                     </div>
                   </button>
