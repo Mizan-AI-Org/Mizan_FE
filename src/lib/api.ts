@@ -473,6 +473,26 @@ export class BackendService {
   }
 
   /**
+   * Drag-and-drop endpoint — moves a dashboard row from its current
+   * category widget to a different one. ``bucket`` matches the FE's
+   * ``CategoryTaskBucket`` slug (``human_resources``, ``finance``,
+   * ``maintenance``, ``purchase_orders``, ``miscellaneous``,
+   * ``urgent``). The backend translates that into a category change
+   * for StaffRequest rows (or a priority bump for ``urgent``);
+   * Invoice / Task rows that can't move return a 400 with a
+   * user-friendly hint that the FE surfaces as a toast.
+   */
+  async updateDashboardTaskBucket(
+    taskId: string,
+    bucket: import("./types").CategoryTaskBucket,
+  ): Promise<DashboardTaskDemandItem> {
+    return this.fetchWithError(
+      `/dashboard/tasks-demands/${taskId}/bucket/`,
+      { method: "PATCH", body: JSON.stringify({ bucket }) },
+    );
+  }
+
+  /**
    * Category-bucketed tasks for the Human Resources / Finance / Maintenance /
    * Meetings & Reminders / Urgent Top-5 dashboard widgets.
    *
