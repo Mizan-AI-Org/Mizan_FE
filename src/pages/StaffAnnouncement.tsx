@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { AttachmentList } from '@/components/ui/attachment-preview';
 
 const StaffAnnouncementsList: React.FC = () => {
   const { notifications, markAsRead } = useNotifications();
@@ -123,17 +124,9 @@ const StaffAnnouncementsList: React.FC = () => {
               )}
               <p className="text-xs text-muted-foreground">{new Date(selected.timestamp).toLocaleString()}</p>
               {Array.isArray(selected.attachments) && selected.attachments.length > 0 && (
-                <div>
+                <div className="space-y-2">
                   <p className="text-sm font-medium">Attachments</p>
-                  <ul className="list-disc list-inside space-y-1">
-                    {selected.attachments.map((file: any, idx: number) => (
-                      <li key={idx}>
-                        <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                          {file.original_name || `Attachment ${idx + 1}`}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
+                  <AttachmentList attachments={selected.attachments} />
                 </div>
               )}
             </div>
