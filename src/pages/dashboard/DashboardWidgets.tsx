@@ -65,6 +65,8 @@ import {
   ExternalLink,
   CheckCircle2,
   XCircle,
+  Check,
+  Loader2,
   // Icons used by the new category-bucketed widgets:
   Flame,
   Wrench,
@@ -2652,10 +2654,15 @@ function CategoryTasksCard({
   moreHref: string;
 }) {
   const [filter, setFilter] = useState<CategoryTasksFilter>("open");
+  const qc = useQueryClient();
+  const queryKey = useMemo(
+    () => ["dashboard", "category-tasks", bucket, 5] as const,
+    [bucket],
+  );
   const { data, isLoading, isError, refetch, isFetching } = useQuery<
     import("@/lib/types").CategoryTasksResponse
   >({
-    queryKey: ["dashboard", "category-tasks", bucket, 5],
+    queryKey,
     queryFn: () => api.getDashboardCategoryTasks(bucket, 5),
     // Match the existing tasks_demands cadence — dashboards cluster
     // multiple of these widgets, so we keep them in sync.
@@ -2664,6 +2671,37 @@ function CategoryTasksCard({
     retry: 2,
     retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 6000),
     refetchOnMount: "always",
+  });
+
+  // Inline status flip — every row in the widget can be marked
+  // pending / in progress / done / cancelled (or paid / voided for an
+  // invoice) directly from the card so the manager doesn't have to
+  // open the inbox detail page just to close a ticket. The unified
+  // backend endpoint figures out which model owns the row id and
+  // applies the correct transition.
+  const statusMutation = useMutation({
+    mutationFn: ({
+      id,
+      nextStatus,
+    }: {
+      id: string;
+      nextStatus: DashboardTaskDemandItem["status"];
+    }) => api.updateDashboardTaskStatus(id, nextStatus),
+    onSuccess: () => {
+      // Bust the bucket query and the global tasks-demands feed so
+      // every widget that surfaces this row picks up the new status
+      // on the next render — no stale "Pending" pill.
+      qc.invalidateQueries({ queryKey });
+      qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
+      qc.invalidateQueries({ queryKey: ["dashboard", "summary"] });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Couldn't update status. Try again.";
+      toast.error(msg);
+    },
   });
 
   const toneClasses = CATEGORY_TONE[tone];
@@ -2787,7 +2825,19 @@ function CategoryTasksCard({
           ) : (
             <ul className="space-y-1">
               {items.map((it) => (
-                <CategoryTaskRow key={it.id} item={it} t={t} />
+                <CategoryTaskRow
+                  key={it.id}
+                  item={it}
+                  t={t}
+                  onStatusChange={(nextStatus) =>
+                    statusMutation.mutate({ id: it.id, nextStatus })
+                  }
+                  isPendingId={
+                    statusMutation.isPending && statusMutation.variables?.id === it.id
+                      ? statusMutation.variables.id
+                      : null
+                  }
+                />
               ))}
             </ul>
           )}
@@ -2988,9 +3038,24 @@ function CategoryFilterChip({
 function CategoryTaskRow({
   item,
   t,
+  onStatusChange,
+  isPendingId,
 }: {
   item: DashboardTaskDemandItem;
   t: (key: string) => string;
+  /**
+   * Apply a status flip to this row. The parent ``CategoryTasksCard``
+   * owns the mutation so it can invalidate the bucket query on success.
+   * Optional so the row can also be used in read-only contexts (e.g.
+   * future preview surfaces) without a backing mutation.
+   */
+  onStatusChange?: (nextStatus: DashboardTaskDemandItem["status"]) => void;
+  /**
+   * Row id currently being mutated (or ``null``). Drives the spinner
+   * on the quick-complete button so the manager sees feedback the moment
+   * they tap.
+   */
+  isPendingId?: string | null;
 }) {
   const pill = statusPillClass(item.status, item.priority, item.pill_status);
   const assigneeLabel = item.assignee?.name?.trim()
@@ -3005,8 +3070,31 @@ function CategoryTaskRow({
     item.pill_status !== "DUE_SOON" &&
     item.status !== "COMPLETED" &&
     item.status !== "CANCELLED";
+
+  // Terminal rows (already done / cancelled) drop the action affordances
+  // — flipping a closed ticket back to PENDING from a glance widget is a
+  // footgun. Managers can still re-open from the inbox detail page.
+  const isTerminal =
+    item.status === "COMPLETED" || item.status === "CANCELLED";
+  const isInvoice = item.kind === "invoice";
+  const canEdit = !isTerminal && !!onStatusChange;
+  const isPending = !!isPendingId && isPendingId === item.id;
+
+  // The quick-complete primary verb depends on the source kind so the
+  // button reads truthfully — invoices get "Mark paid", everything
+  // else gets "Mark done".
+  const quickCompleteLabel = isInvoice
+    ? t("dashboard.category_tasks.action_mark_paid")
+    : t("dashboard.category_tasks.action_mark_done");
+
+  // Stop card-level navigation when the row's controls are tapped —
+  // the parent card is itself a button that deep-links to the bucket
+  // page on click. Without this, every status flip would also yank
+  // the manager off the dashboard.
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+
   return (
-    <li className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+    <li className="group/row flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 min-w-0">
           <div
@@ -3051,17 +3139,129 @@ function CategoryTaskRow({
           ) : null}
         </div>
       </div>
-      <span
-        className={cn(
-          "shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
-          pill.bg,
-          pill.text,
-        )}
-        title={t(`dashboard.category_tasks.pill_${pill.label}`)}
-      >
-        <span className={cn("inline-block h-1.5 w-1.5 rounded-full", pill.dot)} />
-        {t(`dashboard.category_tasks.pill_${pill.label}`)}
-      </span>
+
+      {/* Quick-complete button — ALWAYS visible for non-terminal rows
+          (not hover-only) so the affordance is discoverable. This was
+          the user's primary complaint: "no clear action or button to
+          update the status". One tap → COMPLETED, with a spinner while
+          the mutation flies. Disabled state when another row in this
+          card is currently mutating to avoid race conditions. */}
+      {canEdit ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            stop(e);
+            onStatusChange?.("COMPLETED");
+          }}
+          disabled={isPending}
+          aria-label={quickCompleteLabel}
+          title={quickCompleteLabel}
+          className={cn(
+            "shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-md border transition-all",
+            "border-slate-200 bg-white text-slate-500 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700",
+            "dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400 dark:hover:border-emerald-700/60 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-300",
+            "disabled:opacity-50 disabled:cursor-wait",
+          )}
+        >
+          {isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          ) : (
+            <Check className="h-3.5 w-3.5" aria-hidden />
+          )}
+        </button>
+      ) : null}
+
+      {/* Status pill — clickable when editable so the manager has a
+          second discoverable entry point ("the colored chip is the
+          status; tap it to change") on top of the explicit menu. */}
+      {canEdit ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              onClick={stop}
+              aria-label={t("dashboard.category_tasks.row_actions")}
+              className={cn(
+                "shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-colors hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-600",
+                pill.bg,
+                pill.text,
+              )}
+              title={t("dashboard.category_tasks.click_pill_to_change")}
+            >
+              <span className={cn("inline-block h-1.5 w-1.5 rounded-full", pill.dot)} />
+              {t(`dashboard.category_tasks.pill_${pill.label}`)}
+              <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={stop} className="w-48">
+            {isInvoice ? (
+              <>
+                {/* Invoices have their own state machine — only mark
+                    paid / mark voided are meaningful. PENDING /
+                    IN_PROGRESS would be misleading verbs for a bill. */}
+                <DropdownMenuItem
+                  onClick={() => onStatusChange?.("COMPLETED")}
+                  disabled={isPending}
+                >
+                  {t("dashboard.category_tasks.action_mark_paid")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onStatusChange?.("CANCELLED")}
+                  disabled={isPending}
+                >
+                  {t("dashboard.category_tasks.action_mark_voided")}
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <>
+                {item.status !== "PENDING" ? (
+                  <DropdownMenuItem
+                    onClick={() => onStatusChange?.("PENDING")}
+                    disabled={isPending}
+                  >
+                    {t("dashboard.category_tasks.action_mark_pending")}
+                  </DropdownMenuItem>
+                ) : null}
+                {item.status !== "IN_PROGRESS" ? (
+                  <DropdownMenuItem
+                    onClick={() => onStatusChange?.("IN_PROGRESS")}
+                    disabled={isPending}
+                  >
+                    {t("dashboard.category_tasks.action_mark_in_progress")}
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem
+                  onClick={() => onStatusChange?.("COMPLETED")}
+                  disabled={isPending}
+                >
+                  {t("dashboard.category_tasks.action_mark_done")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => onStatusChange?.("CANCELLED")}
+                  disabled={isPending}
+                  className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
+                >
+                  {t("dashboard.category_tasks.action_mark_cancelled")}
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        // Read-only pill for terminal rows — same shape, no chevron.
+        <span
+          className={cn(
+            "shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+            pill.bg,
+            pill.text,
+          )}
+          title={t(`dashboard.category_tasks.pill_${pill.label}`)}
+        >
+          <span className={cn("inline-block h-1.5 w-1.5 rounded-full", pill.dot)} />
+          {t(`dashboard.category_tasks.pill_${pill.label}`)}
+        </span>
+      )}
     </li>
   );
 }
