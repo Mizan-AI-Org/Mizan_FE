@@ -288,6 +288,62 @@ export interface CategoryTasksResponse {
     generated_at: string;
 }
 
+/**
+ * Outbound WhatsApp message status as tracked by the dashboard
+ * "Staff Messages" widget. Mirrors the backend NotificationLog status
+ * machine, with READ being the terminal happy path (✓✓ blue).
+ */
+export type StaffMessageStatus =
+    | 'PENDING'
+    | 'SENT'
+    | 'DELIVERED'
+    | 'READ'
+    | 'FAILED';
+
+/** Single row in the staff-messages feed. */
+export interface StaffMessageRow {
+    id: string;
+    notification_id: string | null;
+    external_id: string;
+    status: StaffMessageStatus;
+    channel: 'whatsapp' | string;
+    recipient: {
+        id: string | null;
+        name: string;
+        phone: string;
+        role: string;
+    };
+    sender: { id: string; name: string } | null;
+    preview: string;
+    priority: 'LOW' | 'NORMAL' | 'MEDIUM' | 'HIGH' | 'URGENT';
+    sent_at: string | null;
+    delivered_at: string | null;
+    error_message: string;
+}
+
+/** Quick-pick template the composer surfaces as a chip. */
+export interface StaffMessageTemplate {
+    id: string;
+    label: string;
+    body: string;
+    priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+}
+
+export interface StaffMessagesRecentResponse {
+    items: StaffMessageRow[];
+    counts: Record<StaffMessageStatus, number>;
+    templates: StaffMessageTemplate[];
+    generated_at: string;
+}
+
+export interface StaffMessageSendResponse {
+    success: boolean;
+    whatsapp_sent: number;
+    whatsapp_failed: boolean;
+    log: StaffMessageRow | null;
+    template_id: string | null;
+}
+
 export interface DashboardTasksDemandsResponse {
     counts: { pending: number; in_progress: number; completed: number };
     pending: DashboardTaskDemandItem[];

@@ -74,6 +74,9 @@ import {
   Wallet,
   Layers,
   ShoppingBag,
+  // Staff messages widget
+  Send,
+  CheckCheck,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -115,6 +118,11 @@ export const DASHBOARD_WIDGET_IDS = [
   // Catch-all lane for anything Miya couldn't slot into a named lane —
   // general / miscellaneous requests still get a home on the dashboard.
   "miscellaneous",
+  // Admin → Staff WhatsApp messaging surface. Composer + delivery /
+  // read receipts feed; routes through the same NotificationService
+  // as Miya's `inform_staff` tool so a structured-form send and a
+  // free-text Miya chat send share one log.
+  "staff_messages",
 ] as const;
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
 
@@ -145,6 +153,7 @@ export const WIDGET_ADD_ICONS: Record<DashboardWidgetId, LucideIcon> = {
   maintenance: Wrench,
   purchase_orders: ShoppingBag,
   miscellaneous: Layers,
+  staff_messages: Send,
 };
 
 /** i18n keys for one-line descriptions in the Add widget dialog. */
@@ -174,6 +183,7 @@ export const WIDGET_ADD_DESC_KEYS: Record<DashboardWidgetId, string> = {
   maintenance: "dashboard.widget_add.maintenance",
   purchase_orders: "dashboard.widget_add.purchase_orders",
   miscellaneous: "dashboard.widget_add.miscellaneous",
+  staff_messages: "dashboard.widget_add.staff_messages",
 };
 
 /** Grouping for the Add widget dialog—each id appears in exactly one category. */
@@ -213,6 +223,7 @@ const WIDGET_ID_TO_CATEGORY: Record<DashboardWidgetId, DashboardWidgetCategoryId
   maintenance: "general",
   purchase_orders: "general",
   miscellaneous: "general",
+  staff_messages: "general",
   retail_store_ops: "retail",
   take_orders: "retail",
   inventory_delivery: "retail",
@@ -252,6 +263,11 @@ export const DEFAULT_DASHBOARD_WIDGET_ORDER: DashboardWidgetId[] = [
   "maintenance",
   "purchase_orders",
   "miscellaneous",
+  // Admin → Staff WhatsApp composer + delivery / read receipts feed.
+  // Goes high in the default order because it's a verb-y "I want to
+  // do something now" widget, sitting next to the inbox lanes that
+  // surface the work to communicate about.
+  "staff_messages",
   "insights",
   "tasks_demands",
   "staffing",
@@ -3735,6 +3751,455 @@ function MiyaCustomDashboardWidgetCard({
   );
 }
 
+// --------------------------------------------------------------------------
+// Staff Messages — admin-to-staff WhatsApp messaging from the dashboard.
+//
+// Two surfaces in one card:
+//
+// 1. A compact composer at the top: recipient combobox, message body,
+//    optional priority bump, and a row of one-tap templates Miya
+//    surfaces ("Urgent call-in", "Shift reminder", …). Goes through
+//    POST /api/dashboard/staff-messages/send/, which dispatches
+//    via the same NotificationService Miya's ``inform_staff`` tool
+//    uses, so a structured form send and a free-text Miya chat send
+//    land in the same NotificationLog feed.
+//
+// 2. A scrollable feed of recent outbound WhatsApp messages with
+//    SENT / DELIVERED / READ / FAILED pills. The pills are kept in
+//    sync by the WhatsApp webhook (statuses events) so the manager
+//    sees ✓ → ✓✓ → ✓✓-blue evolve in near real time on a 30s poll.
+// --------------------------------------------------------------------------
+
+const STAFF_MESSAGE_STATUS_PILL: Record<
+  import("@/lib/types").StaffMessageStatus,
+  { bg: string; text: string; dot: string; labelKey: string }
+> = {
+  PENDING: {
+    bg: "bg-slate-100 dark:bg-slate-800/60",
+    text: "text-slate-600 dark:text-slate-300",
+    dot: "bg-slate-400",
+    labelKey: "dashboard.staff_messages.status_pending",
+  },
+  SENT: {
+    bg: "bg-slate-100 dark:bg-slate-800/60",
+    text: "text-slate-600 dark:text-slate-300",
+    dot: "bg-slate-500",
+    labelKey: "dashboard.staff_messages.status_sent",
+  },
+  DELIVERED: {
+    bg: "bg-emerald-50 dark:bg-emerald-950/30",
+    text: "text-emerald-700 dark:text-emerald-300",
+    dot: "bg-emerald-500",
+    labelKey: "dashboard.staff_messages.status_delivered",
+  },
+  READ: {
+    bg: "bg-sky-50 dark:bg-sky-950/30",
+    text: "text-sky-700 dark:text-sky-300",
+    dot: "bg-sky-500",
+    labelKey: "dashboard.staff_messages.status_read",
+  },
+  FAILED: {
+    bg: "bg-rose-50 dark:bg-rose-950/30",
+    text: "text-rose-700 dark:text-rose-300",
+    dot: "bg-rose-500",
+    labelKey: "dashboard.staff_messages.status_failed",
+  },
+};
+
+function StaffMessagesCard({
+  cardBase,
+  cardHeaderBase,
+  t,
+}: {
+  cardBase: string;
+  cardHeaderBase: string;
+  t: (key: string) => string;
+  navigate: NavigateFunction;
+}) {
+  const qc = useQueryClient();
+
+  const recentQuery = useQuery({
+    queryKey: ["dashboard", "staff-messages", "recent", 10] as const,
+    queryFn: () => api.getStaffMessagesRecent(10),
+    // 30 s poll mirrors the other operational widgets — also gives
+    // the WhatsApp webhook a quick window to flip ✓ → ✓✓ → blue.
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+    refetchOnMount: "always",
+  });
+
+  // Staff list for the recipient combobox. We hit the same endpoint
+  // the escalate modal uses (with all_branches=1) so a manager at HQ
+  // can ping anyone in the tenant, not just their managed_locations
+  // subset.
+  const staffQuery = useQuery({
+    queryKey: ["dashboard", "staff-messages", "staff-list"] as const,
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_BASE}/staff/?page_size=500&all_branches=1`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
+          },
+          credentials: "include",
+        },
+      );
+      if (!res.ok) throw new Error("Failed to load team");
+      const data = await res.json();
+      const rows = Array.isArray(data) ? data : data?.results || [];
+      return rows as Array<{
+        id: string;
+        first_name?: string;
+        last_name?: string;
+        email?: string;
+        phone?: string;
+        role?: string;
+      }>;
+    },
+    staleTime: 60_000,
+  });
+
+  const [recipientId, setRecipientId] = useState<string>("");
+  const [body, setBody] = useState<string>("");
+  const [priority, setPriority] = useState<"NORMAL" | "URGENT">("NORMAL");
+  const [recipientOpen, setRecipientOpen] = useState<boolean>(false);
+  const [recipientSearch, setRecipientSearch] = useState<string>("");
+
+  const filteredStaff = useMemo(() => {
+    const q = recipientSearch.trim().toLowerCase();
+    const all = staffQuery.data ?? [];
+    if (!q) return all.slice(0, 100);
+    return all
+      .filter((s) => {
+        const name = `${s.first_name || ""} ${s.last_name || ""}`.toLowerCase();
+        const email = (s.email || "").toLowerCase();
+        const phone = (s.phone || "").toLowerCase();
+        const role = (s.role || "").toLowerCase();
+        return (
+          name.includes(q) ||
+          email.includes(q) ||
+          phone.includes(q) ||
+          role.includes(q)
+        );
+      })
+      .slice(0, 100);
+  }, [staffQuery.data, recipientSearch]);
+
+  const selectedStaff = useMemo(
+    () => (staffQuery.data ?? []).find((s) => s.id === recipientId) || null,
+    [staffQuery.data, recipientId],
+  );
+
+  const sendMutation = useMutation({
+    mutationFn: () =>
+      api.sendStaffMessage({
+        recipient_user_id: recipientId,
+        body: body.trim(),
+        priority,
+      }),
+    onSuccess: (resp) => {
+      if (resp.success && resp.whatsapp_sent > 0) {
+        toast.success(
+          t("dashboard.staff_messages.send_success") ||
+            "Message sent on WhatsApp.",
+        );
+      } else if (resp.whatsapp_failed) {
+        toast.warning(
+          t("dashboard.staff_messages.send_no_whatsapp") ||
+            "Saved, but WhatsApp delivery failed. Check the number.",
+        );
+      } else {
+        toast.success(
+          t("dashboard.staff_messages.send_queued") || "Message queued.",
+        );
+      }
+      setBody("");
+      setPriority("NORMAL");
+      qc.invalidateQueries({
+        queryKey: ["dashboard", "staff-messages", "recent", 10],
+      });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : t("dashboard.staff_messages.send_error") ||
+            "Couldn't send the message.";
+      toast.error(msg);
+    },
+  });
+
+  const templates = recentQuery.data?.templates ?? [];
+  const items = recentQuery.data?.items ?? [];
+
+  const canSend =
+    !!recipientId && body.trim().length > 0 && !sendMutation.isPending;
+
+  const onPickTemplate = (tpl: import("@/lib/types").StaffMessageTemplate) => {
+    setBody(tpl.body);
+    if (tpl.priority === "URGENT") setPriority("URGENT");
+  };
+
+  return (
+    <Card className={cn(cardBase, "flex flex-col")}>
+      <CardHeader className={cardHeaderBase}>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/12 text-emerald-600 dark:text-emerald-400">
+            <Send className="h-4 w-4" aria-hidden />
+          </div>
+          <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+            {t("dashboard.staff_messages.title")}
+          </CardTitle>
+        </div>
+        <Badge
+          variant="outline"
+          className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/60 text-[10px] font-semibold px-2 h-5"
+        >
+          {t("dashboard.staff_messages.via_whatsapp")}
+        </Badge>
+      </CardHeader>
+
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-3 px-5 pb-4 pt-1">
+        {/* Composer ----------------------------------------------------- */}
+        <div className="space-y-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30 p-3">
+          {/* Recipient combobox + priority pill on one line */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+              <button
+                type="button"
+                onClick={() => setRecipientOpen((o) => !o)}
+                className={cn(
+                  "w-full inline-flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-colors",
+                  "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900",
+                  "hover:border-emerald-300 dark:hover:border-emerald-700",
+                )}
+              >
+                <span className="truncate">
+                  {selectedStaff
+                    ? `${selectedStaff.first_name || ""} ${selectedStaff.last_name || ""}`.trim() ||
+                      selectedStaff.email ||
+                      selectedStaff.phone
+                    : t("dashboard.staff_messages.recipient_placeholder")}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-3.5 w-3.5 text-slate-400 transition-transform",
+                    recipientOpen && "rotate-180",
+                  )}
+                  aria-hidden
+                />
+              </button>
+              {recipientOpen ? (
+                <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg">
+                  <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+                    <input
+                      type="text"
+                      value={recipientSearch}
+                      onChange={(e) => setRecipientSearch(e.target.value)}
+                      placeholder={
+                        t(
+                          "dashboard.staff_messages.recipient_search_placeholder",
+                        ) || "Search staff…"
+                      }
+                      className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-56 overflow-y-auto py-1">
+                    {staffQuery.isLoading ? (
+                      <div className="py-3 text-center text-[11px] text-slate-400">
+                        {t("dashboard.staff_messages.loading_staff")}
+                      </div>
+                    ) : filteredStaff.length === 0 ? (
+                      <div className="py-3 text-center text-[11px] text-slate-400">
+                        {t("dashboard.staff_messages.no_staff_match")}
+                      </div>
+                    ) : (
+                      filteredStaff.map((s) => {
+                        const fullName =
+                          `${s.first_name || ""} ${s.last_name || ""}`.trim() ||
+                          s.email ||
+                          s.phone ||
+                          s.id;
+                        const hasPhone = !!(s.phone && s.phone.length > 4);
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              setRecipientId(s.id);
+                              setRecipientOpen(false);
+                              setRecipientSearch("");
+                            }}
+                            className={cn(
+                              "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-left text-[12px] transition-colors",
+                              "hover:bg-slate-100 dark:hover:bg-slate-800",
+                              recipientId === s.id &&
+                                "bg-emerald-50 dark:bg-emerald-950/30",
+                            )}
+                          >
+                            <span className="min-w-0 flex flex-col">
+                              <span className="truncate font-medium text-slate-900 dark:text-white">
+                                {fullName}
+                              </span>
+                              <span className="truncate text-[10px] text-slate-500 dark:text-slate-400">
+                                {s.role || ""}
+                                {hasPhone ? ` · ${s.phone}` : ""}
+                              </span>
+                            </span>
+                            {!hasPhone ? (
+                              <span
+                                className="shrink-0 text-[9px] font-bold text-amber-600 dark:text-amber-400"
+                                title={t(
+                                  "dashboard.staff_messages.no_phone_warning",
+                                )}
+                              >
+                                {t(
+                                  "dashboard.staff_messages.no_phone_short",
+                                )}
+                              </span>
+                            ) : null}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setPriority((p) => (p === "URGENT" ? "NORMAL" : "URGENT"))
+              }
+              className={cn(
+                "shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors",
+                priority === "URGENT"
+                  ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300"
+                  : "border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400",
+              )}
+              title={t("dashboard.staff_messages.priority_toggle_hint")}
+            >
+              <Flame className="h-3 w-3" aria-hidden />
+              {priority === "URGENT"
+                ? t("dashboard.staff_messages.priority_urgent")
+                : t("dashboard.staff_messages.priority_normal")}
+            </button>
+          </div>
+
+          {/* Body textarea */}
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder={t("dashboard.staff_messages.body_placeholder")}
+            rows={2}
+            maxLength={2000}
+            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-[12px] resize-none focus:outline-none focus:ring-1 focus:ring-emerald-400"
+          />
+
+          {/* Templates + Send */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {templates.slice(0, 3).map((tpl) => (
+              <button
+                key={tpl.id}
+                type="button"
+                onClick={() => onPickTemplate(tpl)}
+                className="inline-flex items-center rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-300 transition-colors"
+                title={tpl.body}
+              >
+                {tpl.label}
+              </button>
+            ))}
+            <Button
+              type="button"
+              size="sm"
+              disabled={!canSend}
+              onClick={() => sendMutation.mutate()}
+              className="ml-auto h-7 gap-1 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-3 text-[11px]"
+            >
+              {sendMutation.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+              ) : (
+                <Send className="h-3 w-3" aria-hidden />
+              )}
+              {t("dashboard.staff_messages.send")}
+            </Button>
+          </div>
+        </div>
+
+        {/* Recent feed -------------------------------------------------- */}
+        <div className="flex-1 min-h-0 -mx-1 overflow-y-auto px-1">
+          {recentQuery.isLoading ? (
+            <div className="py-6 text-center text-[12px] text-slate-400">
+              {t("dashboard.staff_messages.loading")}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="py-6 text-center">
+              <div className="mx-auto mb-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/60 text-slate-400">
+                <MessageSquare className="h-4 w-4" aria-hidden />
+              </div>
+              <p className="text-[12px] text-slate-500 dark:text-slate-400">
+                {t("dashboard.staff_messages.empty")}
+              </p>
+            </div>
+          ) : (
+            <ul className="space-y-1">
+              {items.map((it) => {
+                const pill =
+                  STAFF_MESSAGE_STATUS_PILL[it.status] ||
+                  STAFF_MESSAGE_STATUS_PILL.SENT;
+                // Pick the right tick icon: failed → x; read → ✓✓; delivered → ✓✓; sent → ✓.
+                const TickIcon =
+                  it.status === "FAILED"
+                    ? XCircle
+                    : it.status === "READ"
+                      ? CheckCheck
+                      : it.status === "DELIVERED"
+                        ? CheckCheck
+                        : Check;
+                return (
+                  <li
+                    key={it.id}
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                    title={it.error_message || it.preview}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="truncate text-[12.5px] font-medium text-slate-900 dark:text-white">
+                          {it.recipient.name}
+                        </span>
+                        {it.priority === "URGENT" ? (
+                          <span className="shrink-0 inline-flex items-center rounded-sm border border-rose-200 bg-rose-50 px-1 py-px text-[9px] font-bold uppercase tracking-wider text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+                            {t("dashboard.staff_messages.priority_urgent_short")}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="truncate text-[10.5px] text-slate-500 dark:text-slate-400">
+                        {it.preview}
+                      </div>
+                    </div>
+                    <span
+                      className={cn(
+                        "shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                        pill.bg,
+                        pill.text,
+                      )}
+                    >
+                      <TickIcon className="h-3 w-3" aria-hidden />
+                      {t(pill.labelKey)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 export function DashboardWidgetById({
   id,
   props,
@@ -3791,6 +4256,18 @@ export function DashboardWidgetById({
   const wellbeing = summary?.wellbeing as Record<string, unknown> | undefined;
 
   const builtinId = id as DashboardWidgetId;
+
+  if (builtinId === "staff_messages") {
+    return (
+      <StaffMessagesCard
+        cardBase={cardBase}
+        cardHeaderBase={cardHeaderBase}
+        t={t}
+        navigate={navigate}
+      />
+    );
+  }
+
   switch (builtinId) {
     case "insights": {
       // The "brain" widget. Shows the top 5 most important operational
