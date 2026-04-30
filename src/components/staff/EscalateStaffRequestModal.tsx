@@ -199,14 +199,23 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
     queryFn: async (): Promise<TeamMemberRow[]> => {
       const token = getAuthToken();
       // ``page_size=500`` matches the server's MAX_PAGE_SIZE so the
-      // modal never silently truncates at DRF's default 10. The shape
-      // normaliser below handles both paginated and bare-array
-      // responses, so this stays robust if the backend later turns
-      // pagination off entirely.
-      const res = await fetch(`${API_BASE}/staff/?page_size=500`, {
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        credentials: "include",
-      });
+      // modal never silently truncates at DRF's default 10.
+      //
+      // ``all_branches=1`` opts out of the MANAGER branch-scope
+      // filter on the staff list endpoint. Escalation is a "hand
+      // this off to anyone in the company" action — the branch
+      // scope is the right default for schedule pickers, but for
+      // escalate we want every active teammate visible regardless
+      // of which branch they sit in. The shape normaliser below
+      // handles both paginated and bare-array responses, so this
+      // stays robust if the backend later turns pagination off.
+      const res = await fetch(
+        `${API_BASE}/staff/?page_size=500&all_branches=1`,
+        {
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          credentials: "include",
+        },
+      );
       if (!res.ok) throw new Error("Failed to load team");
       const data = await res.json();
       return normalizeStaffList(data);
