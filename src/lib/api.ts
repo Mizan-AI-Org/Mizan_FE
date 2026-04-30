@@ -518,6 +518,37 @@ export class BackendService {
   }
 
   /**
+   * Recent outbound WhatsApp messages from this manager's tenant,
+   * with delivery / read receipts (sourced from the WhatsApp
+   * webhook's status events). Powers the dashboard's "Staff
+   * Messages" widget.
+   */
+  async getStaffMessagesRecent(
+    limit = 10,
+  ): Promise<import("./types").StaffMessagesRecentResponse> {
+    const qs = `?limit=${encodeURIComponent(String(limit))}`;
+    return this.fetchWithError(`/dashboard/staff-messages/recent/${qs}`);
+  }
+
+  /**
+   * Structured "send to staff" composer. Goes through the same
+   * audience pipeline Miya's ``inform_staff`` tool uses, so the
+   * resulting row lands in the recent feed and inherits delivery /
+   * read receipt tracking from the same WhatsApp webhook.
+   */
+  async sendStaffMessage(input: {
+    recipient_user_id: string;
+    body: string;
+    priority?: "LOW" | "NORMAL" | "HIGH" | "URGENT";
+    template_id?: string;
+  }): Promise<import("./types").StaffMessageSendResponse> {
+    return this.fetchWithError(`/dashboard/staff-messages/send/`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  /**
    * Category-bucketed tasks for the Human Resources / Finance / Maintenance /
    * Meetings & Reminders / Urgent Top-5 dashboard widgets.
    *
