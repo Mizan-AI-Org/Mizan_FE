@@ -493,6 +493,31 @@ export class BackendService {
   }
 
   /**
+   * Reassign a dashboard widget row to another team member. Backed by
+   * the unified ``/dashboard/tasks-demands/<id>/assignee/`` endpoint
+   * that dispatches across StaffRequest / dashboard.Task /
+   * scheduling.Task. Pass ``null`` to unassign. The optional
+   * ``note`` is stored on the StaffRequest timeline as audit
+   * context — ignored for Task rows.
+   */
+  async updateDashboardTaskAssignee(
+    taskId: string,
+    assigneeId: string | null,
+    note?: string,
+  ): Promise<DashboardTaskDemandItem> {
+    return this.fetchWithError(
+      `/dashboard/tasks-demands/${taskId}/assignee/`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          assignee_id: assigneeId,
+          ...(note ? { note } : {}),
+        }),
+      },
+    );
+  }
+
+  /**
    * Category-bucketed tasks for the Human Resources / Finance / Maintenance /
    * Meetings & Reminders / Urgent Top-5 dashboard widgets.
    *

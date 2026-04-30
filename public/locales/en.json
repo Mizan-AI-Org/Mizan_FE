@@ -150,6 +150,8 @@
   "dashboard.tasks_demands.mark_pending": "Mark as pending",
   "dashboard.tasks_demands.mark_in_progress": "Mark in progress",
   "dashboard.tasks_demands.mark_completed": "Mark done",
+  "dashboard.tasks_demands.reassign": "Reassign",
+  "dashboard.tasks_demands.reassign_success": "Task reassigned.",
   "dashboard.tasks_demands.open_board": "Open task board",
   "dashboard.tasks_demands.open_all": "See all tasks",
   "dashboard.operations.title": "Operations",

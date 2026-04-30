@@ -149,6 +149,8 @@
   "dashboard.tasks_demands.mark_pending": "Marquer en attente",
   "dashboard.tasks_demands.mark_in_progress": "Marquer en cours",
   "dashboard.tasks_demands.mark_completed": "Marquer terminée",
+  "dashboard.tasks_demands.reassign": "Réattribuer",
+  "dashboard.tasks_demands.reassign_success": "Tâche réattribuée.",
   "dashboard.tasks_demands.open_board": "Ouvrir le tableau des tâches",
   "dashboard.tasks_demands.open_all": "Voir toutes les tâches",
   "dashboard.operations.title": "Opérations",

@@ -147,6 +147,8 @@
   "dashboard.tasks_demands.mark_pending": "تعيين قيد الانتظار",
   "dashboard.tasks_demands.mark_in_progress": "تعيين قيد التنفيذ",
   "dashboard.tasks_demands.mark_completed": "تعيين كمنجزة",
+  "dashboard.tasks_demands.reassign": "إعادة الإسناد",
+  "dashboard.tasks_demands.reassign_success": "تمت إعادة إسناد المهمة.",
   "dashboard.tasks_demands.open_board": "فتح لوحة المهام",
   "dashboard.tasks_demands.open_all": "عرض كل المهام",
   "dashboard.operations.title": "العمليات",
