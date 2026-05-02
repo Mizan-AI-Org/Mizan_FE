@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useNotifications } from "@/hooks/useNotifications";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AttachmentList } from "@/components/ui/attachment-preview";
 import { useLanguage } from "@/hooks/use-language";
 
 type NotificationAttachment = {
@@ -275,17 +276,9 @@ const StaffLayout: React.FC = () => {
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">{new Date(selectedNotification.timestamp).toLocaleString()}</p>
                   {Array.isArray(selectedNotification.attachments) && selectedNotification.attachments.length > 0 && (
-                    <div className="mt-2">
+                    <div className="mt-2 space-y-2">
                       <p className="text-sm font-medium">Attachments</p>
-                      <ul className="list-disc list-inside space-y-1">
-                        {selectedNotification.attachments.map((file: NotificationAttachment, idx: number) => (
-                          <li key={idx}>
-                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                              {file.original_name || `Attachment ${idx + 1}`}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
+                      <AttachmentList attachments={selectedNotification.attachments} />
                     </div>
                   )}
                 </div>

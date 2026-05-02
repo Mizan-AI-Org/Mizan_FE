@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, CheckCircle2, Clock, AlertCircle, User } from 'lucide-react';
+import { AttachmentList } from '@/components/ui/attachment-preview';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { API_BASE } from "@/lib/api";
@@ -527,18 +528,9 @@ const ScheduleTaskManager: React.FC = () => {
               ) : null}
               {/* Attachments (if present) */}
               {selectedTaskDetails.attachments && Array.isArray(selectedTaskDetails.attachments) && (
-                <div>
+                <div className="space-y-2">
                   <div className="text-sm text-muted-foreground">Attachments</div>
-                  <ul className="list-disc pl-5 text-sm">
-                    {selectedTaskDetails.attachments.map((a: Attachment, idx: number) => (
-                      <li key={idx}>
-                        {a.name || a.filename || 'Attachment'}
-                        {a.url && (
-                          <a href={a.url} target="_blank" rel="noreferrer" className="ml-2 text-blue-600 underline">View</a>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+                  <AttachmentList attachments={selectedTaskDetails.attachments} />
                 </div>
               )}
               {/* Comments (if present) */}

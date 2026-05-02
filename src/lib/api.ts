@@ -473,6 +473,82 @@ export class BackendService {
   }
 
   /**
+   * Drag-and-drop endpoint — moves a dashboard row from its current
+   * category widget to a different one. ``bucket`` matches the FE's
+   * ``CategoryTaskBucket`` slug (``human_resources``, ``finance``,
+   * ``maintenance``, ``purchase_orders``, ``miscellaneous``,
+   * ``urgent``). The backend translates that into a category change
+   * for StaffRequest rows (or a priority bump for ``urgent``);
+   * Invoice / Task rows that can't move return a 400 with a
+   * user-friendly hint that the FE surfaces as a toast.
+   */
+  async updateDashboardTaskBucket(
+    taskId: string,
+    bucket: import("./types").CategoryTaskBucket,
+  ): Promise<DashboardTaskDemandItem> {
+    return this.fetchWithError(
+      `/dashboard/tasks-demands/${taskId}/bucket/`,
+      { method: "PATCH", body: JSON.stringify({ bucket }) },
+    );
+  }
+
+  /**
+   * Reassign a dashboard widget row to another team member. Backed by
+   * the unified ``/dashboard/tasks-demands/<id>/assignee/`` endpoint
+   * that dispatches across StaffRequest / dashboard.Task /
+   * scheduling.Task. Pass ``null`` to unassign. The optional
+   * ``note`` is stored on the StaffRequest timeline as audit
+   * context — ignored for Task rows.
+   */
+  async updateDashboardTaskAssignee(
+    taskId: string,
+    assigneeId: string | null,
+    note?: string,
+  ): Promise<DashboardTaskDemandItem> {
+    return this.fetchWithError(
+      `/dashboard/tasks-demands/${taskId}/assignee/`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          assignee_id: assigneeId,
+          ...(note ? { note } : {}),
+        }),
+      },
+    );
+  }
+
+  /**
+   * Recent outbound WhatsApp messages from this manager's tenant,
+   * with delivery / read receipts (sourced from the WhatsApp
+   * webhook's status events). Powers the dashboard's "Staff
+   * Messages" widget.
+   */
+  async getStaffMessagesRecent(
+    limit = 10,
+  ): Promise<import("./types").StaffMessagesRecentResponse> {
+    const qs = `?limit=${encodeURIComponent(String(limit))}`;
+    return this.fetchWithError(`/dashboard/staff-messages/recent/${qs}`);
+  }
+
+  /**
+   * Structured "send to staff" composer. Goes through the same
+   * audience pipeline Miya's ``inform_staff`` tool uses, so the
+   * resulting row lands in the recent feed and inherits delivery /
+   * read receipt tracking from the same WhatsApp webhook.
+   */
+  async sendStaffMessage(input: {
+    recipient_user_id: string;
+    body: string;
+    priority?: "LOW" | "NORMAL" | "HIGH" | "URGENT";
+    template_id?: string;
+  }): Promise<import("./types").StaffMessageSendResponse> {
+    return this.fetchWithError(`/dashboard/staff-messages/send/`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  /**
    * Category-bucketed tasks for the Human Resources / Finance / Maintenance /
    * Meetings & Reminders / Urgent Top-5 dashboard widgets.
    *

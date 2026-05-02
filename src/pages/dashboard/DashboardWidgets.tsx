@@ -65,6 +65,8 @@ import {
   ExternalLink,
   CheckCircle2,
   XCircle,
+  Check,
+  Loader2,
   // Icons used by the new category-bucketed widgets:
   Flame,
   Wrench,
@@ -72,11 +74,15 @@ import {
   Wallet,
   Layers,
   ShoppingBag,
+  // Staff messages widget
+  Send,
+  CheckCheck,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 
 export const DASHBOARD_WIDGET_IDS = [
   "insights",
@@ -112,6 +118,11 @@ export const DASHBOARD_WIDGET_IDS = [
   // Catch-all lane for anything Miya couldn't slot into a named lane —
   // general / miscellaneous requests still get a home on the dashboard.
   "miscellaneous",
+  // Admin → Staff WhatsApp messaging surface. Composer + delivery /
+  // read receipts feed; routes through the same NotificationService
+  // as Miya's `inform_staff` tool so a structured-form send and a
+  // free-text Miya chat send share one log.
+  "staff_messages",
 ] as const;
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
 
@@ -142,6 +153,7 @@ export const WIDGET_ADD_ICONS: Record<DashboardWidgetId, LucideIcon> = {
   maintenance: Wrench,
   purchase_orders: ShoppingBag,
   miscellaneous: Layers,
+  staff_messages: Send,
 };
 
 /** i18n keys for one-line descriptions in the Add widget dialog. */
@@ -171,6 +183,7 @@ export const WIDGET_ADD_DESC_KEYS: Record<DashboardWidgetId, string> = {
   maintenance: "dashboard.widget_add.maintenance",
   purchase_orders: "dashboard.widget_add.purchase_orders",
   miscellaneous: "dashboard.widget_add.miscellaneous",
+  staff_messages: "dashboard.widget_add.staff_messages",
 };
 
 /** Grouping for the Add widget dialog—each id appears in exactly one category. */
@@ -210,6 +223,7 @@ const WIDGET_ID_TO_CATEGORY: Record<DashboardWidgetId, DashboardWidgetCategoryId
   maintenance: "general",
   purchase_orders: "general",
   miscellaneous: "general",
+  staff_messages: "general",
   retail_store_ops: "retail",
   take_orders: "retail",
   inventory_delivery: "retail",
@@ -249,6 +263,11 @@ export const DEFAULT_DASHBOARD_WIDGET_ORDER: DashboardWidgetId[] = [
   "maintenance",
   "purchase_orders",
   "miscellaneous",
+  // Admin → Staff WhatsApp composer + delivery / read receipts feed.
+  // Goes high in the default order because it's a verb-y "I want to
+  // do something now" widget, sitting next to the inbox lanes that
+  // surface the work to communicate about.
+  "staff_messages",
   "insights",
   "tasks_demands",
   "staffing",
@@ -1357,6 +1376,48 @@ function TasksDemandsCard({
     },
   });
 
+  // Reassign target — set when the manager clicks "Reassign" in the
+  // row dropdown. Holds the row's id + display title + (if present)
+  // the request category so the escalate modal can highlight the
+  // right department tag chips. ``null`` means the modal is closed.
+  const [reassignTarget, setReassignTarget] = useState<{
+    id: string;
+    title: string;
+    category?: string;
+  } | null>(null);
+
+  const reassignMutation = useMutation({
+    mutationFn: ({
+      id,
+      assigneeId,
+    }: {
+      id: string;
+      assigneeId: string;
+    }) => api.updateDashboardTaskAssignee(id, assigneeId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
+      // Category-bucketed widgets surface the same rows by category
+      // and need to redraw the assignee chip after a reassign — bust
+      // them all via predicate match on the queryKey shape.
+      qc.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) &&
+          q.queryKey[0] === "dashboard" &&
+          q.queryKey[1] === "category-tasks",
+      });
+      qc.invalidateQueries({ queryKey: ["dashboard", "summary"] });
+      toast.success(
+        t("dashboard.tasks_demands.reassign_success") ||
+          "Task reassigned.",
+      );
+      setReassignTarget(null);
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Failed to reassign";
+      toast.error(msg);
+    },
+  });
+
   const counts = data?.counts ?? { pending: 0, in_progress: 0, completed: 0 };
   const rows: DashboardTaskDemandItem[] = useMemo(() => {
     if (!data) return [];
@@ -1594,6 +1655,25 @@ function TasksDemandsCard({
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
+                          {/* Reassign — opens the same picker the
+                              staff inbox uses so the manager can
+                              hand the row off to anyone in the
+                              tenant. We pass the row's id + title
+                              + category so the modal can pre-rank
+                              the department tags relevant to it
+                              (e.g. PURCHASE_ORDER → PURCHASES). */}
+                          <DropdownMenuItem
+                            onClick={() =>
+                              setReassignTarget({
+                                id: row.id,
+                                title: row.title,
+                                category: (row as { category?: string })
+                                  .category,
+                              })
+                            }
+                          >
+                            {t("dashboard.tasks_demands.reassign")}
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => navigate("/dashboard/tasks")}
                           >
@@ -1618,6 +1698,24 @@ function TasksDemandsCard({
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </CardContent>
+
+      {/* Reassign picker — same modal the staff inbox uses, opened
+          when the manager picks "Reassign" from a row's action
+          menu. Mounted at the card level so it survives the row
+          re-rendering after the mutation invalidates the query. */}
+      <EscalateStaffRequestModal
+        mode="reassign"
+        open={reassignTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setReassignTarget(null);
+        }}
+        isPending={reassignMutation.isPending}
+        category={reassignTarget?.category}
+        onConfirm={(assigneeId) => {
+          if (!reassignTarget) return;
+          reassignMutation.mutate({ id: reassignTarget.id, assigneeId });
+        }}
+      />
     </Card>
   );
 }
@@ -2625,6 +2723,23 @@ const CATEGORY_TONE: Record<CategoryWidgetTone, {
 
 type CategoryTasksFilter = "open" | "in_progress" | "done";
 
+// MIME-style drag payload type so we can roundtrip a row's identity
+// across HTML5 ``DataTransfer``. We deliberately use a custom MIME so
+// other native drops (text, URLs, files dragged from the OS) don't
+// accidentally trigger our drop-handler — Chrome / Safari only fire
+// ``dragenter`` / ``drop`` on a target that has a matching MIME or
+// when ``preventDefault`` is called on dragover.
+const ROW_DRAG_MIME = "application/x-mizan-dashboard-row";
+
+interface RowDragPayload {
+  id: string;
+  kind: import("@/lib/types").DashboardTaskDemandItem["kind"];
+  sourceBucket: import("@/lib/types").CategoryTaskBucket;
+  /** Title is included so we can render a meaningful toast on success
+   *  without re-fetching the row. */
+  title: string;
+}
+
 function CategoryTasksCard({
   cardBase,
   cardHeaderBase,
@@ -2652,10 +2767,23 @@ function CategoryTasksCard({
   moreHref: string;
 }) {
   const [filter, setFilter] = useState<CategoryTasksFilter>("open");
+  // Track whether a row from *another* widget is hovering this card
+  // so we can highlight the drop zone. We don't highlight on
+  // self-drops (same source/target bucket) because that would be a
+  // no-op move and the visual change would be misleading. We also
+  // track a per-row "dragging" id so the source widget can fade the
+  // row that's leaving.
+  const [isDropTarget, setIsDropTarget] = useState(false);
+  const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
+  const qc = useQueryClient();
+  const queryKey = useMemo(
+    () => ["dashboard", "category-tasks", bucket, 5] as const,
+    [bucket],
+  );
   const { data, isLoading, isError, refetch, isFetching } = useQuery<
     import("@/lib/types").CategoryTasksResponse
   >({
-    queryKey: ["dashboard", "category-tasks", bucket, 5],
+    queryKey,
     queryFn: () => api.getDashboardCategoryTasks(bucket, 5),
     // Match the existing tasks_demands cadence — dashboards cluster
     // multiple of these widgets, so we keep them in sync.
@@ -2665,6 +2793,133 @@ function CategoryTasksCard({
     retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 6000),
     refetchOnMount: "always",
   });
+
+  // Inline status flip — every row in the widget can be marked
+  // pending / in progress / done / cancelled (or paid / voided for an
+  // invoice) directly from the card so the manager doesn't have to
+  // open the inbox detail page just to close a ticket. The unified
+  // backend endpoint figures out which model owns the row id and
+  // applies the correct transition.
+  const statusMutation = useMutation({
+    mutationFn: ({
+      id,
+      nextStatus,
+    }: {
+      id: string;
+      nextStatus: DashboardTaskDemandItem["status"];
+    }) => api.updateDashboardTaskStatus(id, nextStatus),
+    onSuccess: () => {
+      // Bust the bucket query and the global tasks-demands feed so
+      // every widget that surfaces this row picks up the new status
+      // on the next render — no stale "Pending" pill.
+      qc.invalidateQueries({ queryKey });
+      qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
+      qc.invalidateQueries({ queryKey: ["dashboard", "summary"] });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Couldn't update status. Try again.";
+      toast.error(msg);
+    },
+  });
+
+  // Drag-and-drop "move row to this bucket" mutation. Triggered when
+  // a row from a *different* widget is dropped here. We invalidate
+  // every category bucket query (not just source + target) because
+  // a category move can ripple — e.g. an URGENT bump leaves the row
+  // in its original category widget too, so every card needs to
+  // refresh its "urgent" count.
+  const bucketMutation = useMutation({
+    mutationFn: ({ id }: { id: string; payload: RowDragPayload }) =>
+      api.updateDashboardTaskBucket(id, bucket),
+    onSuccess: (_data, variables) => {
+      // Invalidate all category-tasks queries regardless of bucket so
+      // both the source AND target widgets pick up the move on the
+      // next tick. ``predicate`` lets us match the variable-arity
+      // queryKey shape ["dashboard", "category-tasks", <bucket>, 5].
+      qc.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) &&
+          q.queryKey[0] === "dashboard" &&
+          q.queryKey[1] === "category-tasks",
+      });
+      qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
+      qc.invalidateQueries({ queryKey: ["dashboard", "summary"] });
+      // Confirmation toast — the row's title is in the payload so we
+      // can render something specific ("Moved 'Pay butchers invoice'
+      // to Finance") rather than a generic "Saved".
+      toast.success(
+        t("dashboard.category_tasks.bucket_move_success").replace(
+          "{title}",
+          variables.payload.title || t("dashboard.category_tasks.this_item"),
+        ),
+      );
+    },
+    onError: (err: unknown) => {
+      // The backend returns user-readable messages for the rejection
+      // cases (invoice can't move, custom-category task, etc.) — we
+      // surface those verbatim so the manager understands why.
+      const msg =
+        err instanceof Error
+          ? err.message
+          : t("dashboard.category_tasks.bucket_move_error");
+      toast.error(msg);
+    },
+  });
+
+  // Centralised drop-handler for the card. We pull the payload out of
+  // ``DataTransfer``, validate it's actually one of our rows, and
+  // short-circuit on a same-bucket drop so we don't fire a useless
+  // PATCH when the user just dropped the row back where it came from.
+  const onDropRow = React.useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDropTarget(false);
+      const raw = e.dataTransfer.getData(ROW_DRAG_MIME);
+      if (!raw) return;
+      let payload: RowDragPayload | null = null;
+      try {
+        payload = JSON.parse(raw) as RowDragPayload;
+      } catch {
+        return;
+      }
+      if (!payload?.id) return;
+      if (payload.sourceBucket === bucket) {
+        // No-op: dropped on the same widget the drag started in.
+        return;
+      }
+      bucketMutation.mutate({ id: payload.id, payload });
+    },
+    [bucket, bucketMutation],
+  );
+
+  const onDragOverRow = React.useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      // ``preventDefault`` is required to make this element a valid
+      // drop target — without it, ``drop`` never fires.
+      const types = e.dataTransfer.types;
+      if (!types || !Array.from(types).includes(ROW_DRAG_MIME)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (!isDropTarget) setIsDropTarget(true);
+    },
+    [isDropTarget],
+  );
+
+  const onDragLeaveRow = React.useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      // ``dragleave`` fires for child enter/exit too. Only reset when
+      // the cursor actually leaves the card boundary (relatedTarget
+      // is null or outside the card).
+      const related = e.relatedTarget as Node | null;
+      if (related && e.currentTarget.contains(related)) return;
+      setIsDropTarget(false);
+    },
+    [],
+  );
 
   const toneClasses = CATEGORY_TONE[tone];
   const items: DashboardTaskDemandItem[] = useMemo(() => {
@@ -2684,7 +2939,17 @@ function CategoryTasksCard({
 
   return (
     <Card
-      className={cn(cardBase, "flex flex-col cursor-pointer")}
+      className={cn(
+        cardBase,
+        "flex flex-col cursor-pointer transition-all",
+        // Drop-target affordance — a soft ring + slightly lifted
+        // shadow so the manager sees exactly which widget the row
+        // will land in. Kept subtle so it doesn't compete with the
+        // card's own tone band.
+        isDropTarget &&
+          "ring-2 ring-primary/60 ring-offset-2 ring-offset-background shadow-lg scale-[1.01]",
+        bucketMutation.isPending && "opacity-90",
+      )}
       role="button"
       tabIndex={0}
       onClick={goMore}
@@ -2694,6 +2959,11 @@ function CategoryTasksCard({
           goMore();
         }
       }}
+      onDrop={onDropRow}
+      onDragOver={onDragOverRow}
+      onDragEnter={onDragOverRow}
+      onDragLeave={onDragLeaveRow}
+      aria-dropeffect={isDropTarget ? "move" : undefined}
     >
       <CardHeader className={cardHeaderBase}>
         <div className="flex items-center gap-2 min-w-0">
@@ -2787,7 +3057,22 @@ function CategoryTasksCard({
           ) : (
             <ul className="space-y-1">
               {items.map((it) => (
-                <CategoryTaskRow key={it.id} item={it} t={t} />
+                <CategoryTaskRow
+                  key={it.id}
+                  item={it}
+                  t={t}
+                  sourceBucket={bucket}
+                  isDragging={draggingRowId === it.id}
+                  onDragStateChange={setDraggingRowId}
+                  onStatusChange={(nextStatus) =>
+                    statusMutation.mutate({ id: it.id, nextStatus })
+                  }
+                  isPendingId={
+                    statusMutation.isPending && statusMutation.variables?.id === it.id
+                      ? statusMutation.variables.id
+                      : null
+                  }
+                />
               ))}
             </ul>
           )}
@@ -2988,9 +3273,41 @@ function CategoryFilterChip({
 function CategoryTaskRow({
   item,
   t,
+  onStatusChange,
+  isPendingId,
+  sourceBucket,
+  isDragging,
+  onDragStateChange,
 }: {
   item: DashboardTaskDemandItem;
   t: (key: string) => string;
+  /**
+   * Apply a status flip to this row. The parent ``CategoryTasksCard``
+   * owns the mutation so it can invalidate the bucket query on success.
+   * Optional so the row can also be used in read-only contexts (e.g.
+   * future preview surfaces) without a backing mutation.
+   */
+  onStatusChange?: (nextStatus: DashboardTaskDemandItem["status"]) => void;
+  /**
+   * Row id currently being mutated (or ``null``). Drives the spinner
+   * on the quick-complete button so the manager sees feedback the moment
+   * they tap.
+   */
+  isPendingId?: string | null;
+  /**
+   * Bucket the row currently belongs to. Travels in the drag payload
+   * so the drop target can short-circuit a same-bucket drop without
+   * a server round-trip. Optional so the row stays usable from
+   * read-only contexts that don't participate in DnD.
+   */
+  sourceBucket?: import("@/lib/types").CategoryTaskBucket;
+  /** True while *this specific* row is being dragged — drives the
+   *  fade-out / dashed border so the user can see what's leaving. */
+  isDragging?: boolean;
+  /** Setter the parent uses to track which row is currently in the
+   *  air. Called with the row id on dragstart and ``null`` on
+   *  dragend. Optional for read-only contexts. */
+  onDragStateChange?: (id: string | null) => void;
 }) {
   const pill = statusPillClass(item.status, item.priority, item.pill_status);
   const assigneeLabel = item.assignee?.name?.trim()
@@ -3005,8 +3322,78 @@ function CategoryTaskRow({
     item.pill_status !== "DUE_SOON" &&
     item.status !== "COMPLETED" &&
     item.status !== "CANCELLED";
+
+  // Terminal rows (already done / cancelled) drop the action affordances
+  // — flipping a closed ticket back to PENDING from a glance widget is a
+  // footgun. Managers can still re-open from the inbox detail page.
+  const isTerminal =
+    item.status === "COMPLETED" || item.status === "CANCELLED";
+  const isInvoice = item.kind === "invoice";
+  const canEdit = !isTerminal && !!onStatusChange;
+  const isPending = !!isPendingId && isPendingId === item.id;
+
+  // The quick-complete primary verb depends on the source kind so the
+  // button reads truthfully — invoices get "Mark paid", everything
+  // else gets "Mark done".
+  const quickCompleteLabel = isInvoice
+    ? t("dashboard.category_tasks.action_mark_paid")
+    : t("dashboard.category_tasks.action_mark_done");
+
+  // Stop card-level navigation when the row's controls are tapped —
+  // the parent card is itself a button that deep-links to the bucket
+  // page on click. Without this, every status flip would also yank
+  // the manager off the dashboard.
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+
+  // Drag-and-drop wiring. We disable drag for terminal rows (already
+  // done / cancelled) so a closed ticket can't be silently revived
+  // in another bucket, and for invoices because the BE rejects any
+  // cross-bucket move on those — letting the manager drag them would
+  // just produce an error toast on every drop.
+  const draggable = !isTerminal && !isInvoice && !!sourceBucket;
+  const onRowDragStart = React.useCallback(
+    (e: React.DragEvent<HTMLLIElement>) => {
+      if (!draggable || !sourceBucket) return;
+      const payload = {
+        id: item.id,
+        kind: item.kind,
+        sourceBucket,
+        title: item.title,
+      };
+      e.dataTransfer.setData(ROW_DRAG_MIME, JSON.stringify(payload));
+      e.dataTransfer.effectAllowed = "move";
+      onDragStateChange?.(item.id);
+    },
+    [draggable, sourceBucket, item.id, item.kind, item.title, onDragStateChange],
+  );
+  const onRowDragEnd = React.useCallback(() => {
+    onDragStateChange?.(null);
+  }, [onDragStateChange]);
+
   return (
-    <li className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+    <li
+      className={cn(
+        "group/row flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-all",
+        // Subtle "you can drag this" affordance: a grab cursor on
+        // hover so the manager realises the rows are interactive
+        // even before they grab one.
+        draggable && "cursor-grab active:cursor-grabbing",
+        isDragging &&
+          "opacity-40 border border-dashed border-primary/60 bg-primary/5",
+      )}
+      draggable={draggable}
+      onDragStart={onRowDragStart}
+      onDragEnd={onRowDragEnd}
+      aria-grabbed={isDragging || undefined}
+      aria-label={
+        draggable
+          ? t("dashboard.category_tasks.row_draggable_aria").replace(
+              "{title}",
+              item.title,
+            )
+          : undefined
+      }
+    >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 min-w-0">
           <div
@@ -3051,17 +3438,129 @@ function CategoryTaskRow({
           ) : null}
         </div>
       </div>
-      <span
-        className={cn(
-          "shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
-          pill.bg,
-          pill.text,
-        )}
-        title={t(`dashboard.category_tasks.pill_${pill.label}`)}
-      >
-        <span className={cn("inline-block h-1.5 w-1.5 rounded-full", pill.dot)} />
-        {t(`dashboard.category_tasks.pill_${pill.label}`)}
-      </span>
+
+      {/* Quick-complete button — ALWAYS visible for non-terminal rows
+          (not hover-only) so the affordance is discoverable. This was
+          the user's primary complaint: "no clear action or button to
+          update the status". One tap → COMPLETED, with a spinner while
+          the mutation flies. Disabled state when another row in this
+          card is currently mutating to avoid race conditions. */}
+      {canEdit ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            stop(e);
+            onStatusChange?.("COMPLETED");
+          }}
+          disabled={isPending}
+          aria-label={quickCompleteLabel}
+          title={quickCompleteLabel}
+          className={cn(
+            "shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-md border transition-all",
+            "border-slate-200 bg-white text-slate-500 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700",
+            "dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400 dark:hover:border-emerald-700/60 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-300",
+            "disabled:opacity-50 disabled:cursor-wait",
+          )}
+        >
+          {isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          ) : (
+            <Check className="h-3.5 w-3.5" aria-hidden />
+          )}
+        </button>
+      ) : null}
+
+      {/* Status pill — clickable when editable so the manager has a
+          second discoverable entry point ("the colored chip is the
+          status; tap it to change") on top of the explicit menu. */}
+      {canEdit ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              onClick={stop}
+              aria-label={t("dashboard.category_tasks.row_actions")}
+              className={cn(
+                "shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-colors hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-600",
+                pill.bg,
+                pill.text,
+              )}
+              title={t("dashboard.category_tasks.click_pill_to_change")}
+            >
+              <span className={cn("inline-block h-1.5 w-1.5 rounded-full", pill.dot)} />
+              {t(`dashboard.category_tasks.pill_${pill.label}`)}
+              <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={stop} className="w-48">
+            {isInvoice ? (
+              <>
+                {/* Invoices have their own state machine — only mark
+                    paid / mark voided are meaningful. PENDING /
+                    IN_PROGRESS would be misleading verbs for a bill. */}
+                <DropdownMenuItem
+                  onClick={() => onStatusChange?.("COMPLETED")}
+                  disabled={isPending}
+                >
+                  {t("dashboard.category_tasks.action_mark_paid")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onStatusChange?.("CANCELLED")}
+                  disabled={isPending}
+                >
+                  {t("dashboard.category_tasks.action_mark_voided")}
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <>
+                {item.status !== "PENDING" ? (
+                  <DropdownMenuItem
+                    onClick={() => onStatusChange?.("PENDING")}
+                    disabled={isPending}
+                  >
+                    {t("dashboard.category_tasks.action_mark_pending")}
+                  </DropdownMenuItem>
+                ) : null}
+                {item.status !== "IN_PROGRESS" ? (
+                  <DropdownMenuItem
+                    onClick={() => onStatusChange?.("IN_PROGRESS")}
+                    disabled={isPending}
+                  >
+                    {t("dashboard.category_tasks.action_mark_in_progress")}
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem
+                  onClick={() => onStatusChange?.("COMPLETED")}
+                  disabled={isPending}
+                >
+                  {t("dashboard.category_tasks.action_mark_done")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => onStatusChange?.("CANCELLED")}
+                  disabled={isPending}
+                  className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
+                >
+                  {t("dashboard.category_tasks.action_mark_cancelled")}
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        // Read-only pill for terminal rows — same shape, no chevron.
+        <span
+          className={cn(
+            "shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+            pill.bg,
+            pill.text,
+          )}
+          title={t(`dashboard.category_tasks.pill_${pill.label}`)}
+        >
+          <span className={cn("inline-block h-1.5 w-1.5 rounded-full", pill.dot)} />
+          {t(`dashboard.category_tasks.pill_${pill.label}`)}
+        </span>
+      )}
     </li>
   );
 }
@@ -3252,6 +3751,455 @@ function MiyaCustomDashboardWidgetCard({
   );
 }
 
+// --------------------------------------------------------------------------
+// Staff Messages — admin-to-staff WhatsApp messaging from the dashboard.
+//
+// Two surfaces in one card:
+//
+// 1. A compact composer at the top: recipient combobox, message body,
+//    optional priority bump, and a row of one-tap templates Miya
+//    surfaces ("Urgent call-in", "Shift reminder", …). Goes through
+//    POST /api/dashboard/staff-messages/send/, which dispatches
+//    via the same NotificationService Miya's ``inform_staff`` tool
+//    uses, so a structured form send and a free-text Miya chat send
+//    land in the same NotificationLog feed.
+//
+// 2. A scrollable feed of recent outbound WhatsApp messages with
+//    SENT / DELIVERED / READ / FAILED pills. The pills are kept in
+//    sync by the WhatsApp webhook (statuses events) so the manager
+//    sees ✓ → ✓✓ → ✓✓-blue evolve in near real time on a 30s poll.
+// --------------------------------------------------------------------------
+
+const STAFF_MESSAGE_STATUS_PILL: Record<
+  import("@/lib/types").StaffMessageStatus,
+  { bg: string; text: string; dot: string; labelKey: string }
+> = {
+  PENDING: {
+    bg: "bg-slate-100 dark:bg-slate-800/60",
+    text: "text-slate-600 dark:text-slate-300",
+    dot: "bg-slate-400",
+    labelKey: "dashboard.staff_messages.status_pending",
+  },
+  SENT: {
+    bg: "bg-slate-100 dark:bg-slate-800/60",
+    text: "text-slate-600 dark:text-slate-300",
+    dot: "bg-slate-500",
+    labelKey: "dashboard.staff_messages.status_sent",
+  },
+  DELIVERED: {
+    bg: "bg-emerald-50 dark:bg-emerald-950/30",
+    text: "text-emerald-700 dark:text-emerald-300",
+    dot: "bg-emerald-500",
+    labelKey: "dashboard.staff_messages.status_delivered",
+  },
+  READ: {
+    bg: "bg-sky-50 dark:bg-sky-950/30",
+    text: "text-sky-700 dark:text-sky-300",
+    dot: "bg-sky-500",
+    labelKey: "dashboard.staff_messages.status_read",
+  },
+  FAILED: {
+    bg: "bg-rose-50 dark:bg-rose-950/30",
+    text: "text-rose-700 dark:text-rose-300",
+    dot: "bg-rose-500",
+    labelKey: "dashboard.staff_messages.status_failed",
+  },
+};
+
+function StaffMessagesCard({
+  cardBase,
+  cardHeaderBase,
+  t,
+}: {
+  cardBase: string;
+  cardHeaderBase: string;
+  t: (key: string) => string;
+  navigate: NavigateFunction;
+}) {
+  const qc = useQueryClient();
+
+  const recentQuery = useQuery({
+    queryKey: ["dashboard", "staff-messages", "recent", 10] as const,
+    queryFn: () => api.getStaffMessagesRecent(10),
+    // 30 s poll mirrors the other operational widgets — also gives
+    // the WhatsApp webhook a quick window to flip ✓ → ✓✓ → blue.
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+    refetchOnMount: "always",
+  });
+
+  // Staff list for the recipient combobox. We hit the same endpoint
+  // the escalate modal uses (with all_branches=1) so a manager at HQ
+  // can ping anyone in the tenant, not just their managed_locations
+  // subset.
+  const staffQuery = useQuery({
+    queryKey: ["dashboard", "staff-messages", "staff-list"] as const,
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_BASE}/staff/?page_size=500&all_branches=1`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
+          },
+          credentials: "include",
+        },
+      );
+      if (!res.ok) throw new Error("Failed to load team");
+      const data = await res.json();
+      const rows = Array.isArray(data) ? data : data?.results || [];
+      return rows as Array<{
+        id: string;
+        first_name?: string;
+        last_name?: string;
+        email?: string;
+        phone?: string;
+        role?: string;
+      }>;
+    },
+    staleTime: 60_000,
+  });
+
+  const [recipientId, setRecipientId] = useState<string>("");
+  const [body, setBody] = useState<string>("");
+  const [priority, setPriority] = useState<"NORMAL" | "URGENT">("NORMAL");
+  const [recipientOpen, setRecipientOpen] = useState<boolean>(false);
+  const [recipientSearch, setRecipientSearch] = useState<string>("");
+
+  const filteredStaff = useMemo(() => {
+    const q = recipientSearch.trim().toLowerCase();
+    const all = staffQuery.data ?? [];
+    if (!q) return all.slice(0, 100);
+    return all
+      .filter((s) => {
+        const name = `${s.first_name || ""} ${s.last_name || ""}`.toLowerCase();
+        const email = (s.email || "").toLowerCase();
+        const phone = (s.phone || "").toLowerCase();
+        const role = (s.role || "").toLowerCase();
+        return (
+          name.includes(q) ||
+          email.includes(q) ||
+          phone.includes(q) ||
+          role.includes(q)
+        );
+      })
+      .slice(0, 100);
+  }, [staffQuery.data, recipientSearch]);
+
+  const selectedStaff = useMemo(
+    () => (staffQuery.data ?? []).find((s) => s.id === recipientId) || null,
+    [staffQuery.data, recipientId],
+  );
+
+  const sendMutation = useMutation({
+    mutationFn: () =>
+      api.sendStaffMessage({
+        recipient_user_id: recipientId,
+        body: body.trim(),
+        priority,
+      }),
+    onSuccess: (resp) => {
+      if (resp.success && resp.whatsapp_sent > 0) {
+        toast.success(
+          t("dashboard.staff_messages.send_success") ||
+            "Message sent on WhatsApp.",
+        );
+      } else if (resp.whatsapp_failed) {
+        toast.warning(
+          t("dashboard.staff_messages.send_no_whatsapp") ||
+            "Saved, but WhatsApp delivery failed. Check the number.",
+        );
+      } else {
+        toast.success(
+          t("dashboard.staff_messages.send_queued") || "Message queued.",
+        );
+      }
+      setBody("");
+      setPriority("NORMAL");
+      qc.invalidateQueries({
+        queryKey: ["dashboard", "staff-messages", "recent", 10],
+      });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : t("dashboard.staff_messages.send_error") ||
+            "Couldn't send the message.";
+      toast.error(msg);
+    },
+  });
+
+  const templates = recentQuery.data?.templates ?? [];
+  const items = recentQuery.data?.items ?? [];
+
+  const canSend =
+    !!recipientId && body.trim().length > 0 && !sendMutation.isPending;
+
+  const onPickTemplate = (tpl: import("@/lib/types").StaffMessageTemplate) => {
+    setBody(tpl.body);
+    if (tpl.priority === "URGENT") setPriority("URGENT");
+  };
+
+  return (
+    <Card className={cn(cardBase, "flex flex-col")}>
+      <CardHeader className={cardHeaderBase}>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/12 text-emerald-600 dark:text-emerald-400">
+            <Send className="h-4 w-4" aria-hidden />
+          </div>
+          <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+            {t("dashboard.staff_messages.title")}
+          </CardTitle>
+        </div>
+        <Badge
+          variant="outline"
+          className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/60 text-[10px] font-semibold px-2 h-5"
+        >
+          {t("dashboard.staff_messages.via_whatsapp")}
+        </Badge>
+      </CardHeader>
+
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-3 px-5 pb-4 pt-1">
+        {/* Composer ----------------------------------------------------- */}
+        <div className="space-y-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30 p-3">
+          {/* Recipient combobox + priority pill on one line */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+              <button
+                type="button"
+                onClick={() => setRecipientOpen((o) => !o)}
+                className={cn(
+                  "w-full inline-flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-colors",
+                  "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900",
+                  "hover:border-emerald-300 dark:hover:border-emerald-700",
+                )}
+              >
+                <span className="truncate">
+                  {selectedStaff
+                    ? `${selectedStaff.first_name || ""} ${selectedStaff.last_name || ""}`.trim() ||
+                      selectedStaff.email ||
+                      selectedStaff.phone
+                    : t("dashboard.staff_messages.recipient_placeholder")}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-3.5 w-3.5 text-slate-400 transition-transform",
+                    recipientOpen && "rotate-180",
+                  )}
+                  aria-hidden
+                />
+              </button>
+              {recipientOpen ? (
+                <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg">
+                  <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+                    <input
+                      type="text"
+                      value={recipientSearch}
+                      onChange={(e) => setRecipientSearch(e.target.value)}
+                      placeholder={
+                        t(
+                          "dashboard.staff_messages.recipient_search_placeholder",
+                        ) || "Search staff…"
+                      }
+                      className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-56 overflow-y-auto py-1">
+                    {staffQuery.isLoading ? (
+                      <div className="py-3 text-center text-[11px] text-slate-400">
+                        {t("dashboard.staff_messages.loading_staff")}
+                      </div>
+                    ) : filteredStaff.length === 0 ? (
+                      <div className="py-3 text-center text-[11px] text-slate-400">
+                        {t("dashboard.staff_messages.no_staff_match")}
+                      </div>
+                    ) : (
+                      filteredStaff.map((s) => {
+                        const fullName =
+                          `${s.first_name || ""} ${s.last_name || ""}`.trim() ||
+                          s.email ||
+                          s.phone ||
+                          s.id;
+                        const hasPhone = !!(s.phone && s.phone.length > 4);
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              setRecipientId(s.id);
+                              setRecipientOpen(false);
+                              setRecipientSearch("");
+                            }}
+                            className={cn(
+                              "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-left text-[12px] transition-colors",
+                              "hover:bg-slate-100 dark:hover:bg-slate-800",
+                              recipientId === s.id &&
+                                "bg-emerald-50 dark:bg-emerald-950/30",
+                            )}
+                          >
+                            <span className="min-w-0 flex flex-col">
+                              <span className="truncate font-medium text-slate-900 dark:text-white">
+                                {fullName}
+                              </span>
+                              <span className="truncate text-[10px] text-slate-500 dark:text-slate-400">
+                                {s.role || ""}
+                                {hasPhone ? ` · ${s.phone}` : ""}
+                              </span>
+                            </span>
+                            {!hasPhone ? (
+                              <span
+                                className="shrink-0 text-[9px] font-bold text-amber-600 dark:text-amber-400"
+                                title={t(
+                                  "dashboard.staff_messages.no_phone_warning",
+                                )}
+                              >
+                                {t(
+                                  "dashboard.staff_messages.no_phone_short",
+                                )}
+                              </span>
+                            ) : null}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setPriority((p) => (p === "URGENT" ? "NORMAL" : "URGENT"))
+              }
+              className={cn(
+                "shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors",
+                priority === "URGENT"
+                  ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300"
+                  : "border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400",
+              )}
+              title={t("dashboard.staff_messages.priority_toggle_hint")}
+            >
+              <Flame className="h-3 w-3" aria-hidden />
+              {priority === "URGENT"
+                ? t("dashboard.staff_messages.priority_urgent")
+                : t("dashboard.staff_messages.priority_normal")}
+            </button>
+          </div>
+
+          {/* Body textarea */}
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder={t("dashboard.staff_messages.body_placeholder")}
+            rows={2}
+            maxLength={2000}
+            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-[12px] resize-none focus:outline-none focus:ring-1 focus:ring-emerald-400"
+          />
+
+          {/* Templates + Send */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {templates.slice(0, 3).map((tpl) => (
+              <button
+                key={tpl.id}
+                type="button"
+                onClick={() => onPickTemplate(tpl)}
+                className="inline-flex items-center rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-300 transition-colors"
+                title={tpl.body}
+              >
+                {tpl.label}
+              </button>
+            ))}
+            <Button
+              type="button"
+              size="sm"
+              disabled={!canSend}
+              onClick={() => sendMutation.mutate()}
+              className="ml-auto h-7 gap-1 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-3 text-[11px]"
+            >
+              {sendMutation.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+              ) : (
+                <Send className="h-3 w-3" aria-hidden />
+              )}
+              {t("dashboard.staff_messages.send")}
+            </Button>
+          </div>
+        </div>
+
+        {/* Recent feed -------------------------------------------------- */}
+        <div className="flex-1 min-h-0 -mx-1 overflow-y-auto px-1">
+          {recentQuery.isLoading ? (
+            <div className="py-6 text-center text-[12px] text-slate-400">
+              {t("dashboard.staff_messages.loading")}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="py-6 text-center">
+              <div className="mx-auto mb-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/60 text-slate-400">
+                <MessageSquare className="h-4 w-4" aria-hidden />
+              </div>
+              <p className="text-[12px] text-slate-500 dark:text-slate-400">
+                {t("dashboard.staff_messages.empty")}
+              </p>
+            </div>
+          ) : (
+            <ul className="space-y-1">
+              {items.map((it) => {
+                const pill =
+                  STAFF_MESSAGE_STATUS_PILL[it.status] ||
+                  STAFF_MESSAGE_STATUS_PILL.SENT;
+                // Pick the right tick icon: failed → x; read → ✓✓; delivered → ✓✓; sent → ✓.
+                const TickIcon =
+                  it.status === "FAILED"
+                    ? XCircle
+                    : it.status === "READ"
+                      ? CheckCheck
+                      : it.status === "DELIVERED"
+                        ? CheckCheck
+                        : Check;
+                return (
+                  <li
+                    key={it.id}
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                    title={it.error_message || it.preview}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="truncate text-[12.5px] font-medium text-slate-900 dark:text-white">
+                          {it.recipient.name}
+                        </span>
+                        {it.priority === "URGENT" ? (
+                          <span className="shrink-0 inline-flex items-center rounded-sm border border-rose-200 bg-rose-50 px-1 py-px text-[9px] font-bold uppercase tracking-wider text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+                            {t("dashboard.staff_messages.priority_urgent_short")}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="truncate text-[10.5px] text-slate-500 dark:text-slate-400">
+                        {it.preview}
+                      </div>
+                    </div>
+                    <span
+                      className={cn(
+                        "shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                        pill.bg,
+                        pill.text,
+                      )}
+                    >
+                      <TickIcon className="h-3 w-3" aria-hidden />
+                      {t(pill.labelKey)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 export function DashboardWidgetById({
   id,
   props,
@@ -3308,6 +4256,18 @@ export function DashboardWidgetById({
   const wellbeing = summary?.wellbeing as Record<string, unknown> | undefined;
 
   const builtinId = id as DashboardWidgetId;
+
+  if (builtinId === "staff_messages") {
+    return (
+      <StaffMessagesCard
+        cardBase={cardBase}
+        cardHeaderBase={cardHeaderBase}
+        t={t}
+        navigate={navigate}
+      />
+    );
+  }
+
   switch (builtinId) {
     case "insights": {
       // The "brain" widget. Shows the top 5 most important operational

@@ -313,20 +313,11 @@ const StaffRequestsTab: React.FC = () => {
 
                     <Separator className="my-3" />
 
+                    {/* Approve / Decline removed — the manager inbox
+                        only needs Escalate (hand it off) and Close
+                        (mark resolved). See StaffRequestsPage.tsx for
+                        the full rationale. */}
                     <div className="flex flex-wrap gap-2">
-                      <Button
-                        onClick={() => mutateAction.mutate({ action: "approve" })}
-                        disabled={mutateAction.isPending}
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        onClick={() => mutateAction.mutate({ action: "reject", payload: { reason: "Rejected" } })}
-                        disabled={mutateAction.isPending}
-                      >
-                        Decline
-                      </Button>
                       <Button
                         variant="outline"
                         onClick={() => setEscalateModalOpen(true)}
@@ -375,6 +366,7 @@ const StaffRequestsTab: React.FC = () => {
         open={escalateModalOpen}
         onOpenChange={setEscalateModalOpen}
         isPending={mutateAction.isPending}
+        category={selected?.category}
         onConfirm={(assigneeId) => {
           const note = comment.trim() || "Escalated";
           mutateAction.mutate(
