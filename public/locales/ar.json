@@ -309,6 +309,7 @@
   "dashboard.category_tasks.bucket_move_success": "تم نقل «{title}» إلى الأداة الجديدة.",
   "dashboard.category_tasks.bucket_move_error": "تعذّر نقل هذا العنصر. حاول مجدداً.",
   "dashboard.category_tasks.this_item": "هذا العنصر",
+  "dashboard.category_tasks.drop_here_hint": "أفلته للنقل إلى {bucket}",
   "dashboard.incidents.just_now": "الآن",
   "dashboard.widget_add.staffing": "التغطية والغياب ومخاطر العمل الإضافي.",
   "dashboard.widget_add.sales_or_tasks": "المبيعات والعمليات اليومية للمدراء، أو مهام اليوم لفرق التماس.",

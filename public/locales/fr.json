@@ -340,6 +340,7 @@
   "dashboard.category_tasks.bucket_move_success": "« {title} » a été déplacé vers son nouveau widget.",
   "dashboard.category_tasks.bucket_move_error": "Impossible de déplacer cet élément. Réessayez.",
   "dashboard.category_tasks.this_item": "cet élément",
+  "dashboard.category_tasks.drop_here_hint": "Déposer pour déplacer vers {bucket}",
   "dashboard.incidents.just_now": "à l'instant",
   "dashboard.widget_add.staffing": "Couverture, absences et risque d’heures sup.",
   "dashboard.widget_add.sales_or_tasks": "Ventes et activité du jour pour les managers, ou tâches du jour pour les équipes terrain.",
