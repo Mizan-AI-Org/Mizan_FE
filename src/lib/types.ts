@@ -340,6 +340,9 @@ export interface StaffMessageSendResponse {
     success: boolean;
     whatsapp_sent: number;
     whatsapp_failed: boolean;
+    // Human-readable failure reason surfaced from Meta / the normalizer.
+    // Populated when whatsapp_failed is true; null on success.
+    failure_reason?: string | null;
     log: StaffMessageRow | null;
     template_id: string | null;
 }

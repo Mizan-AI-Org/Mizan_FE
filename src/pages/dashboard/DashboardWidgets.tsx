@@ -3904,10 +3904,16 @@ function StaffMessagesCard({
             "Message sent on WhatsApp.",
         );
       } else if (resp.whatsapp_failed) {
-        toast.warning(
+        // Prefer the concrete reason from Meta / the phone normalizer
+        // over the generic "Check the number" line. The backend parses
+        // WhatsApp Cloud API error envelopes into `failure_reason` so
+        // the manager sees something actionable (e.g. "Recipient phone
+        // number is not a WhatsApp user", "Invalid parameter", etc.).
+        const reason = (resp.failure_reason || "").trim();
+        const base =
           t("dashboard.staff_messages.send_no_whatsapp") ||
-            "Saved, but WhatsApp delivery failed. Check the number.",
-        );
+          "Saved, but WhatsApp delivery failed.";
+        toast.warning(reason ? `${base} ${reason}` : base);
       } else {
         toast.success(
           t("dashboard.staff_messages.send_queued") || "Message queued.",
