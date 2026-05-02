@@ -219,7 +219,15 @@ export const LuaWidget: React.FC = () => {
                     // Session context – date suffix gives fresh conversation each day; metadata preserves user+restaurant context
                     sessionId,
                     runtimeContext: [
-                        `Workspace: ${restaurantName || user.restaurant_data?.name || user.restaurant_name || "Unknown"} | business_vertical: ${businessVertical} | tenant_id (API field restaurant_id): ${restaurantId} | User: ${userFullName} (ID: ${user.id}) | Role: ${user.role} | Token: ${accessToken} | Current time: ${now.toLocaleDateString()} ${now.toLocaleTimeString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
+                        // Canonical `Restaurant: NAME (ID: XXX)` form is what the TenantContextPreprocessor
+                        // regex is written against — put it FIRST so the preprocessor reliably injects
+                        // [SYSTEM: PERSISTENT CONTEXT] on every turn. Without this prefix, the preprocessor
+                        // never sees a restaurant and Miya falls back to "I don't have the restaurant context".
+                        `Restaurant: ${restaurantName || user.restaurant_data?.name || user.restaurant_name || "Unknown"} (ID: ${restaurantId})`,
+                        `User: ${userFullName} (ID: ${user.id})`,
+                        `Role: ${user.role}`,
+                        `Token: ${accessToken}`,
+                        `business_vertical: ${businessVertical} | tenant_id (API field restaurant_id): ${restaurantId} | Current time: ${now.toLocaleDateString()} ${now.toLocaleTimeString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
                         "Operational directives: You are Miya, the AI Operations Manager for this Mizan workspace only. Mizan is multi-vertical (restaurant, retail, manufacturing, construction, healthcare operations, hospitality, professional services, other). Use business_vertical to choose appropriate language; restaurant_id is always the tenant/workspace id. Never hallucinate: verify every answer from the database using that tenant id, date, and staff. Execute actions only when permitted and after validating permissions, staff, and shift exist. Respect role: managers get full team visibility and recommendations; staff see only their own data. Resolve relative dates (e.g. Tuesday 17th) to the current calendar week. When giving insights, label as Verified Data (state confidently), Recommendation (predictive), or Missing Data (state limitation). Precision over creativity; verification over assumption.",
                         takeOrdersMode
                             ? "Order-taking mode: For every guest order, capture and confirm: customer name; phone for takeout/delivery; order type (dine-in, takeout, delivery); table or pickup location; each menu item with quantity and modifiers; allergens and dietary restrictions; special instructions; repeat the full order back for confirmation before closing. Help staff log details accurately."
