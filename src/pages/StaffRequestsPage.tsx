@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { MessageCircle, FileText, Calendar, Wallet, Settings, Briefcase, Plus, AlertCircle, Clock, CheckCircle2, ChevronRight, Wrench, BookOpen, Package, Mic, UserCircle2, ArrowRightLeft, Inbox } from "lucide-react";
+import { MessageCircle, FileText, Calendar, Wallet, Settings, Briefcase, Plus, AlertCircle, Clock, ChevronRight, Wrench, BookOpen, Package, Mic, UserCircle2, ArrowRightLeft, Inbox } from "lucide-react";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 
 type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED" | "WAITING_ON";
@@ -794,23 +794,15 @@ const StaffRequestsPage: React.FC = () => {
                     </ScrollArea>
 
                     <div className="p-6 bg-muted/40 border-t border-border/40 backdrop-blur-sm rounded-b-xl">
+                      {/* Approve / Decline were removed because the only
+                          terminal verbs that matter on a manager-side
+                          inbox row are Escalate (hand it off) and
+                          Close (mark resolved). The legacy approve /
+                          reject pair confused triage — managers were
+                          flipping APPROVED on operational asks that
+                          had no decision to approve in the first
+                          place. */}
                       <div className="flex flex-wrap gap-2 mb-4">
-                        <Button
-                          className="px-6 rounded-full bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-all active:scale-95"
-                          onClick={() => mutateAction.mutate({ action: "approve" })}
-                          disabled={mutateAction.isPending}
-                        >
-                          <CheckCircle2 className="w-4 h-4 mr-2" />
-                          Approve
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          className="px-6 rounded-full shadow-sm transition-all active:scale-95"
-                          onClick={() => mutateAction.mutate({ action: "reject", payload: { reason: "Rejected" } })}
-                          disabled={mutateAction.isPending}
-                        >
-                          Decline
-                        </Button>
                         <Button
                           variant="outline"
                           className="px-6 rounded-full border-2 transition-all active:scale-95"
@@ -863,6 +855,7 @@ const StaffRequestsPage: React.FC = () => {
         open={escalateModalOpen}
         onOpenChange={setEscalateModalOpen}
         isPending={mutateAction.isPending}
+        category={selected?.category}
         onConfirm={(assigneeId) => {
           const note = comment.trim() || "Escalated";
           mutateAction.mutate(
@@ -881,6 +874,7 @@ const StaffRequestsPage: React.FC = () => {
         open={reassignModalOpen}
         onOpenChange={setReassignModalOpen}
         isPending={mutateAction.isPending}
+        category={selected?.category}
         onConfirm={(assigneeId) => {
           const note = comment.trim();
           mutateAction.mutate(

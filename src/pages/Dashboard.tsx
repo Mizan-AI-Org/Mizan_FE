@@ -494,6 +494,8 @@ export default function Dashboard() {
           return t("dashboard.meetings_reminders.title");
         case "clock_ins":
           return t("dashboard.clock_ins.title");
+        case "staff_messages":
+          return t("dashboard.staff_messages.title");
         default:
           return id;
       }

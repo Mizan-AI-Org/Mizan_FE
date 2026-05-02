@@ -13,6 +13,9 @@ import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '../../contexts/AuthContext.types';
 import { API_BASE } from "@/lib/api";
 import { useBusinessLocations } from "@/hooks/use-business-locations";
+import { StaffTagSelector } from "@/components/staff/StaffTagChips";
+import type { StaffTag } from "@/lib/staff-tags";
+import { normalizeStaffTags } from "@/lib/staff-tags";
 
 interface StaffMember {
     id: string;
@@ -32,6 +35,18 @@ interface StaffMember {
     date_joined: string;
     is_active: boolean;
     department: string | null;
+    /**
+     * Operational department tags. Source of truth lives on
+     * ``StaffProfile.tags`` (JSON array of UPPER_SNAKE strings). The
+     * backend exposes them at the top level on the staff list payload
+     * AND nested under ``profile.tags`` depending on which serializer
+     * generated the row, so we accept both shapes here and let the
+     * normaliser fold them into a clean set.
+     */
+    tags?: string[] | null;
+    profile?: {
+        tags?: string[] | null;
+    } | null;
 }
 
 interface EditStaffModalProps {
@@ -57,6 +72,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
     const [primaryLocation, setPrimaryLocation] = useState<string>('');
     const [allowedLocations, setAllowedLocations] = useState<string[]>([]);
     const [managedLocations, setManagedLocations] = useState<string[]>([]);
+    const [tags, setTags] = useState<StaffTag[]>([]);
 
     const { data: locations = [] } = useBusinessLocations();
     const multiLocation = locations.length >= 2;
@@ -76,6 +92,12 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
             setPrimaryLocation(staffMember.user.primary_location || '');
             setAllowedLocations(staffMember.user.allowed_locations || []);
             setManagedLocations(staffMember.user.managed_locations || []);
+            // Source ``tags`` from whichever shape the API sent — the
+            // staff-list endpoint nests them under ``profile.tags``,
+            // while some legacy rows carry them flat. Normalising
+            // handles both.
+            const rawTags = staffMember.tags ?? staffMember.profile?.tags ?? [];
+            setTags(normalizeStaffTags(rawTags));
         }
     }, [staffMember]);
 
@@ -132,14 +154,21 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
     const updateLocationsMutation = useMutation({
         mutationFn: async () => {
             if (!staffMember) return null;
-            // Location assignments go through the dedicated profile-update
-            // endpoint that uses CustomUserSerializer (the PUT endpoint
-            // above uses a different shape). We PATCH only location fields
-            // so this request is safe to run alongside the main update.
+            // ``StaffProfileUpdateView`` (PUT /api/staff/profile/<id>/update/)
+            // uses ``CustomUserSerializer`` which knows how to deal with
+            // both flat fields (location FKs / M2Ms) and the nested
+            // ``profile`` blob in a single request. We bundle locations
+            // AND department tags into one body so the manager sees a
+            // single "Saved" toast instead of two.
             const body: Record<string, unknown> = {};
-            if (primaryLocation) body.primary_location = primaryLocation;
-            body.allowed_locations = allowedLocations;
-            body.managed_locations = isManagerRole ? managedLocations : [];
+            if (multiLocation) {
+                if (primaryLocation) body.primary_location = primaryLocation;
+                body.allowed_locations = allowedLocations;
+                body.managed_locations = isManagerRole ? managedLocations : [];
+            }
+            // Tags always go in the body so an edit-only-tags flow on
+            // a single-location tenant still saves correctly.
+            body.profile = { tags };
 
             const response = await fetch(
                 `${API_BASE}/staff/profile/${staffMember.user.id}/update/`,
@@ -155,13 +184,14 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(
-                    errorData.detail || errorData.message || 'Failed to update locations'
+                    errorData.detail || errorData.message || 'Failed to update locations / tags'
                 );
             }
             return response.json();
         },
         onSuccess: () => {
             queryClient.invalidateQueries(['staff-list']);
+            queryClient.invalidateQueries(['staff-list-escalate-modal']);
         },
     });
 
@@ -183,9 +213,11 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
             employee_id: employeeId,
         };
         updateStaffMutation.mutate(updatedStaffData);
-        if (multiLocation) {
-            updateLocationsMutation.mutate();
-        }
+        // Always run the profile-update mutation so department tags
+        // are persisted even on single-branch tenants. The endpoint
+        // is a no-op for unchanged fields, so this is safe to fire
+        // alongside the main staff update.
+        updateLocationsMutation.mutate();
     };
 
     return (
@@ -292,6 +324,16 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                             maxLength={4}
                             placeholder="Leave blank to keep current PIN"
                         />
+                    </div>
+
+                    {/* Department tags — operational context (KITCHEN /
+                        SERVICE / PURCHASES / …). Drives smart task
+                        routing on Miya's side and the tag filter in
+                        the escalate modal. Sits above the multi-branch
+                        block because every tenant uses tags but only a
+                        subset uses multi-location. */}
+                    <div className="col-span-full border-t pt-4 mt-2">
+                        <StaffTagSelector value={tags} onChange={setTags} />
                     </div>
 
                     {multiLocation && (

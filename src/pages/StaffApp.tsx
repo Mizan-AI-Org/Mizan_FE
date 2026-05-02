@@ -114,6 +114,8 @@ interface StaffMember {
         salary_type?: 'HOURLY' | 'MONTHLY';
         promotion_history?: { role: string; date: string; note?: string }[];
         department?: string;
+        /** Operational department tags (KITCHEN, SERVICE, …). */
+        tags?: string[];
     };
     stats?: {
         hours_weekly: number;
