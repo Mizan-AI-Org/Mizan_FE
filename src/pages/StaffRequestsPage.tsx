@@ -118,6 +118,18 @@ const VALID_DEEP_LINK_CATEGORIES: ReadonlySet<CategoryKey> = new Set<CategoryKey
   "OTHER",
 ]);
 
+/** Bucket deep-links: a widget on the dashboard can aggregate multiple
+ * inbox categories under one card (e.g. the Finance widget counts both
+ * FINANCE and PAYROLL rows). When that happens we receive
+ * ``?category=FINANCE,PAYROLL`` and need a friendly label for the pill
+ * we render so the manager understands why "All" is active but the
+ * list is still narrowed. The key is the sorted ``.join(",")`` of the
+ * categories so either order matches. */
+const BUCKET_LABELS: Record<string, string> = {
+  "DOCUMENT,HR": "Human Resources",
+  "FINANCE,PAYROLL": "Finance",
+};
+
 function getAuthToken() {
   return localStorage.getItem("access_token") || localStorage.getItem("accessToken") || "";
 }
@@ -209,10 +221,22 @@ const StaffRequestsPage: React.FC = () => {
   // lands the manager in the right inbox lane immediately. We read once
   // on mount and then strip the params so a refresh / share doesn't
   // re-apply them after the user has navigated chips manually.
-  const initialCategory = (() => {
-    const raw = (searchParams.get("category") || "ALL").toUpperCase() as CategoryKey;
-    if (raw === "ALL") return "ALL" as CategoryKey;
-    return VALID_DEEP_LINK_CATEGORIES.has(raw) ? raw : "ALL";
+  //
+  // ``?category=`` may be a single value ("HR") or a comma-separated
+  // list ("FINANCE,PAYROLL") when the source is a "bucket" widget that
+  // aggregates multiple inbox categories. For the list case we keep the
+  // chip UI on "All" (no single chip matches the bucket) and render a
+  // removable pill explaining what's filtered.
+  const initialDeepLink = (() => {
+    const raw = (searchParams.get("category") || "").trim();
+    if (!raw) return { category: "ALL" as CategoryKey, bucket: [] as string[] };
+    const parts = raw
+      .split(",")
+      .map((p) => p.trim().toUpperCase())
+      .filter((p): p is CategoryKey => VALID_DEEP_LINK_CATEGORIES.has(p as CategoryKey));
+    if (parts.length === 0) return { category: "ALL" as CategoryKey, bucket: [] as string[] };
+    if (parts.length === 1) return { category: parts[0] as CategoryKey, bucket: [] as string[] };
+    return { category: "ALL" as CategoryKey, bucket: parts };
   })();
   const initialPriorityFilter = (() => {
     const raw = (searchParams.get("priority") || "").toUpperCase();
@@ -220,7 +244,11 @@ const StaffRequestsPage: React.FC = () => {
   })();
 
   const [activeStatus, setActiveStatus] = useState<StaffRequestStatus>("PENDING");
-  const [activeCategory, setActiveCategory] = useState<CategoryKey>(initialCategory);
+  const [activeCategory, setActiveCategory] = useState<CategoryKey>(initialDeepLink.category);
+  // Multi-category bucket filter from a dashboard widget deep-link.
+  // When non-empty this takes precedence over ``activeCategory`` and is
+  // cleared the moment the user clicks any single category chip.
+  const [bucketCategories, setBucketCategories] = useState<string[]>(initialDeepLink.bucket);
   const [activePriority, setActivePriority] = useState<string>(initialPriorityFilter);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -254,6 +282,7 @@ const StaffRequestsPage: React.FC = () => {
       "staff-requests",
       activeStatus,
       activeCategory,
+      bucketCategories.join(","),
       activePriority,
       debouncedSearch,
       assignedToMe,
@@ -261,7 +290,14 @@ const StaffRequestsPage: React.FC = () => {
     queryFn: async (): Promise<StaffRequest[]> => {
       const qs = new URLSearchParams();
       qs.set("status", activeStatus);
-      if (activeCategory !== "ALL") qs.set("category", activeCategory);
+      // Bucket deep-link takes precedence — the backend accepts a
+      // comma-separated category list and ORs them together so all
+      // rows counted by the source widget are visible here.
+      if (bucketCategories.length > 0) {
+        qs.set("category", bucketCategories.join(","));
+      } else if (activeCategory !== "ALL") {
+        qs.set("category", activeCategory);
+      }
       if (activePriority) qs.set("priority", activePriority);
       if (debouncedSearch) qs.set("search", debouncedSearch);
       if (assignedToMe) qs.set("assigned_to_me", "1");
@@ -459,14 +495,23 @@ const StaffRequestsPage: React.FC = () => {
         >
           {CATEGORY_CHIPS.map((c) => {
             const count = categoryCountsQuery.data?.[c.key] ?? 0;
-            const isActive = activeCategory === c.key;
+            // A bucket deep-link (e.g. "Finance" widget → FINANCE+PAYROLL)
+            // keeps ``activeCategory`` on ALL; don't light up any chip
+            // while the bucket pill is present so the filter source
+            // stays unambiguous.
+            const isActive = bucketCategories.length === 0 && activeCategory === c.key;
             return (
               <button
                 key={c.key}
                 type="button"
                 role="tab"
                 aria-selected={isActive}
-                onClick={() => setActiveCategory(c.key)}
+                onClick={() => {
+                  // Any chip click exits the bucket filter — the user
+                  // has made an explicit single-category choice.
+                  setBucketCategories([]);
+                  setActiveCategory(c.key);
+                }}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                   isActive
@@ -492,6 +537,42 @@ const StaffRequestsPage: React.FC = () => {
               </button>
             );
           })}
+          {/* Bucket filter pill — rendered when a dashboard "bucket"
+              widget deep-linked us here with multiple categories
+              (e.g. Finance = FINANCE + PAYROLL). We keep ``All`` highlighted
+              because no single chip matches the bucket; this pill tells
+              the manager which categories are being combined and lets
+              them clear it in one click. */}
+          {bucketCategories.length > 0 ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected="true"
+              onClick={() => setBucketCategories([])}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                "bg-emerald-600 text-white border-emerald-600 shadow-sm hover:bg-emerald-700",
+              )}
+              title="Clear bucket filter"
+            >
+              <span>
+                {(() => {
+                  const label =
+                    BUCKET_LABELS[[...bucketCategories].sort().join(",")] ||
+                    "Bucket";
+                  const pretty = bucketCategories
+                    .map(
+                      (k) =>
+                        CATEGORY_CHIPS.find((c) => c.key === (k as CategoryKey))
+                          ?.label || k,
+                    )
+                    .join(" + ");
+                  return `${label} (${pretty})`;
+                })()}
+              </span>
+              <span className="text-[14px] leading-none">×</span>
+            </button>
+          ) : null}
           {/* Priority filter chip — only rendered when active (typically
               from a deep-link off the dashboard "Urgent TOP 5" widget).
               Clicking it clears the filter and reverts to all priorities. */}
@@ -519,11 +600,24 @@ const StaffRequestsPage: React.FC = () => {
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">
                   Inbox
-                  {activeCategory !== "ALL" && (
+                  {bucketCategories.length > 0 ? (
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                      ·{" "}
+                      {BUCKET_LABELS[[...bucketCategories].sort().join(",")] ||
+                        bucketCategories
+                          .map(
+                            (k) =>
+                              CATEGORY_CHIPS.find(
+                                (c) => c.key === (k as CategoryKey),
+                              )?.label || k,
+                          )
+                          .join(" + ")}
+                    </span>
+                  ) : activeCategory !== "ALL" ? (
                     <span className="ml-2 text-sm font-normal text-muted-foreground">
                       · {CATEGORY_CHIPS.find((c) => c.key === activeCategory)?.label}
                     </span>
-                  )}
+                  ) : null}
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">

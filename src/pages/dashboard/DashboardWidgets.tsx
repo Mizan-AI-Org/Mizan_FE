@@ -5339,7 +5339,11 @@ export function DashboardWidgetById({
           titleKey="dashboard.human_resources.title"
           icon={Briefcase}
           tone="violet"
-          moreHref="/dashboard/staff-requests?category=HR"
+          // HR widget aggregates HR + DOCUMENT (see BUCKET_TO_CATEGORIES
+          // on the backend); pass both so the inbox shows every row the
+          // widget counted instead of hiding DOCUMENT rows behind an
+          // HR-only chip.
+          moreHref="/dashboard/staff-requests?category=HR,DOCUMENT"
         />
       );
 
@@ -5354,7 +5358,10 @@ export function DashboardWidgetById({
           titleKey="dashboard.finance.title"
           icon={Wallet}
           tone="emerald"
-          moreHref="/dashboard/staff-requests?category=FINANCE"
+          // Finance widget aggregates FINANCE + PAYROLL (see
+          // BUCKET_TO_CATEGORIES on the backend). Deep-linking to a single
+          // category hid payslip rows here, so we pass both.
+          moreHref="/dashboard/staff-requests?category=FINANCE,PAYROLL"
         />
       );
 
