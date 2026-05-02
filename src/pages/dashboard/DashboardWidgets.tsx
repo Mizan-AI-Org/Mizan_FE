@@ -2740,6 +2740,100 @@ interface RowDragPayload {
   title: string;
 }
 
+// ---------------------------------------------------------------------------
+// Global drag session store
+// ---------------------------------------------------------------------------
+// HTML5 DataTransfer won't let us *read* the payload during ``dragover``
+// (only the list of types), so sibling widgets have no way to know which
+// bucket a drag came from until the user drops. That led to a confusing
+// UX where the source card also lit up as a drop target the moment the
+// cursor re-entered it, and sibling cards stayed inert until hovered.
+//
+// We fix that with a tiny module-level pub/sub that every CategoryTasksCard
+// subscribes to via ``useSyncExternalStore``. When a row drag starts we
+// publish ``{ active: true, sourceBucket, title }``; every card re-renders
+// and can now tell if it's a valid drop target (different bucket) and
+// surface a clear "drop here" affordance *before* the user hovers.
+//
+// This is a render-time concern (styling), never a source of truth for the
+// drop operation itself — the actual payload still rides on DataTransfer
+// so OS-level cross-window drags remain possible.
+interface DragSessionState {
+  active: boolean;
+  sourceBucket: import("@/lib/types").CategoryTaskBucket | null;
+  title: string;
+  itemId: string;
+}
+
+const _emptyDragSession: DragSessionState = {
+  active: false,
+  sourceBucket: null,
+  title: "",
+  itemId: "",
+};
+
+let _dragSession: DragSessionState = _emptyDragSession;
+const _dragListeners = new Set<() => void>();
+
+function _publishDragSession(next: DragSessionState) {
+  _dragSession = next;
+  _dragListeners.forEach((fn) => {
+    try { fn(); } catch { /* listener errors don't abort others */ }
+  });
+}
+
+function _subscribeDragSession(cb: () => void) {
+  _dragListeners.add(cb);
+  return () => { _dragListeners.delete(cb); };
+}
+
+function _getDragSession() {
+  return _dragSession;
+}
+
+function useDragSession(): DragSessionState {
+  return React.useSyncExternalStore(
+    _subscribeDragSession,
+    _getDragSession,
+    _getDragSession,
+  );
+}
+
+// Build a floating "chip" element as the drag image so the cursor carries
+// a branded preview of the row instead of a full-width opaque clone of the
+// <li>. The element is appended to the body, handed to ``setDragImage``,
+// then removed on the next tick (the browser has already snapshotted it
+// at that point — GIF-like, the snapshot doesn't track DOM changes).
+function buildDragImage(title: string): HTMLElement {
+  const chip = document.createElement("div");
+  chip.textContent = title;
+  // Inline styles (not a class) so we don't depend on Tailwind being
+  // computed for a transient, detached element. These deliberately mirror
+  // the primary/emerald palette used throughout the dashboard.
+  Object.assign(chip.style, {
+    position: "fixed",
+    top: "-9999px",
+    left: "-9999px",
+    padding: "6px 12px",
+    borderRadius: "8px",
+    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+    color: "white",
+    fontSize: "13px",
+    fontWeight: "600",
+    fontFamily:
+      "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    boxShadow:
+      "0 10px 25px -5px rgba(16, 185, 129, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+    whiteSpace: "nowrap",
+    maxWidth: "260px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    pointerEvents: "none",
+  } as CSSStyleDeclaration);
+  document.body.appendChild(chip);
+  return chip;
+}
+
 function CategoryTasksCard({
   cardBase,
   cardHeaderBase,
@@ -2775,6 +2869,17 @@ function CategoryTasksCard({
   // row that's leaving.
   const [isDropTarget, setIsDropTarget] = useState(false);
   const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
+  // Brief success pulse after a successful incoming drop so the manager
+  // sees the landing confirmed visually on top of the toast.
+  const [justReceivedDrop, setJustReceivedDrop] = useState(false);
+  // Global drag session (sibling-aware): tells this card whether *any*
+  // drag is in progress and which bucket it came from. Used to light up
+  // every valid drop target at once — not just the one under the cursor.
+  const dragSession = useDragSession();
+  const isValidDropTarget =
+    dragSession.active && dragSession.sourceBucket !== bucket;
+  const isSourceBucket =
+    dragSession.active && dragSession.sourceBucket === bucket;
   const qc = useQueryClient();
   const queryKey = useMemo(
     () => ["dashboard", "category-tasks", bucket, 5] as const,
@@ -2856,6 +2961,10 @@ function CategoryTasksCard({
           variables.payload.title || t("dashboard.category_tasks.this_item"),
         ),
       );
+      // Flash a soft emerald pulse on the receiving card so the manager
+      // sees the row land even if the toast stack is out of view.
+      setJustReceivedDrop(true);
+      window.setTimeout(() => setJustReceivedDrop(false), 900);
     },
     onError: (err: unknown) => {
       // The backend returns user-readable messages for the rejection
@@ -2902,11 +3011,23 @@ function CategoryTasksCard({
       // drop target — without it, ``drop`` never fires.
       const types = e.dataTransfer.types;
       if (!types || !Array.from(types).includes(ROW_DRAG_MIME)) return;
+      // Self-drop guard: if the drag originated in THIS bucket, do NOT
+      // render the "drop here" affordance — releasing here would be a
+      // no-op and the ring would lie about the outcome. We still call
+      // preventDefault so the drop event fires and the handler can
+      // silently no-op (vs the browser bouncing back to origin), but
+      // we keep the visual state unchanged.
+      const sourceBucket = _getDragSession().sourceBucket;
+      if (sourceBucket === bucket) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "none";
+        return;
+      }
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       if (!isDropTarget) setIsDropTarget(true);
     },
-    [isDropTarget],
+    [isDropTarget, bucket],
   );
 
   const onDragLeaveRow = React.useCallback(
@@ -2941,13 +3062,28 @@ function CategoryTasksCard({
     <Card
       className={cn(
         cardBase,
-        "flex flex-col cursor-pointer transition-all",
-        // Drop-target affordance — a soft ring + slightly lifted
-        // shadow so the manager sees exactly which widget the row
-        // will land in. Kept subtle so it doesn't compete with the
-        // card's own tone band.
+        "flex flex-col cursor-pointer transition-all relative",
+        // Tier 1 — global "a drag is in progress and you can drop me
+        // here" affordance. Shows as soon as any row starts dragging
+        // from a different bucket, before the user hovers this card.
+        // A soft dashed emerald border signals receptivity without
+        // yelling. We don't apply this to the source bucket (that
+        // would be misleading — dropping back yourself is a no-op).
+        isValidDropTarget &&
+          !isDropTarget &&
+          "ring-2 ring-dashed ring-emerald-300/70 dark:ring-emerald-500/50 ring-offset-1 ring-offset-background",
+        // Tier 2 — cursor is currently over this card, so it's the
+        // row's live destination. Solid ring + lift so the manager
+        // knows releasing here commits the move.
         isDropTarget &&
-          "ring-2 ring-primary/60 ring-offset-2 ring-offset-background shadow-lg scale-[1.01]",
+          "ring-2 ring-primary/70 ring-offset-2 ring-offset-background shadow-xl scale-[1.015] bg-emerald-50/40 dark:bg-emerald-950/20",
+        // Source-bucket affordance — a gentle dim so the manager sees
+        // "this is where the row is leaving from". Deliberately not a
+        // drop-target ring.
+        isSourceBucket && "opacity-70",
+        // Success pulse after a successful incoming drop.
+        justReceivedDrop &&
+          "ring-2 ring-emerald-500/80 ring-offset-2 ring-offset-background shadow-lg",
         bucketMutation.isPending && "opacity-90",
       )}
       role="button"
@@ -2965,6 +3101,24 @@ function CategoryTasksCard({
       onDragLeave={onDragLeaveRow}
       aria-dropeffect={isDropTarget ? "move" : undefined}
     >
+      {/* "Drop to move to <Category>" pill — shown only on the live
+          drop-target card. Gives the manager a direct-manipulation
+          confirmation of what will happen on release so they don't
+          have to guess based on which card has the stronger ring. */}
+      {isDropTarget ? (
+        <div
+          className="pointer-events-none absolute left-1/2 -top-3 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-white shadow-lg animate-in fade-in slide-in-from-top-1 duration-150"
+          aria-hidden
+        >
+          <span>↓</span>
+          <span>
+            {(
+              t("dashboard.category_tasks.drop_here_hint") ||
+              "Drop to move to {bucket}"
+            ).replace("{bucket}", t(titleKey))}
+          </span>
+        </div>
+      ) : null}
       <CardHeader className={cardHeaderBase}>
         <div className="flex items-center gap-2 min-w-0">
           <div
@@ -3362,11 +3516,41 @@ function CategoryTaskRow({
       };
       e.dataTransfer.setData(ROW_DRAG_MIME, JSON.stringify(payload));
       e.dataTransfer.effectAllowed = "move";
+      // Replace the browser's default full-row drag image (an opaque
+      // clone of the <li>) with a compact branded chip that follows
+      // the cursor. Makes the drag feel like a proper UI gesture
+      // instead of "I'm yanking a whole row across the screen".
+      try {
+        const ghost = buildDragImage(item.title || "Moving…");
+        // Offset (14, 14) puts the chip just below-right of the
+        // cursor so it doesn't cover the cursor hotspot.
+        e.dataTransfer.setDragImage(ghost, 14, 14);
+        // setDragImage snapshots the element at this instant —
+        // remove the DOM node on the next tick to keep the page
+        // clean.
+        window.setTimeout(() => ghost.remove(), 0);
+      } catch {
+        // Safari/older-browser fallback: silently keep the default
+        // drag image. Functionality is unchanged.
+      }
+      // Publish the drag session so *every* CategoryTasksCard can
+      // light up as a valid drop target at once, not just the one
+      // the user eventually hovers over.
+      _publishDragSession({
+        active: true,
+        sourceBucket,
+        title: item.title || "",
+        itemId: item.id,
+      });
       onDragStateChange?.(item.id);
     },
     [draggable, sourceBucket, item.id, item.kind, item.title, onDragStateChange],
   );
   const onRowDragEnd = React.useCallback(() => {
+    // Always clear the global session on drag end — even on a failed
+    // drop (user released outside any card) so sibling affordances
+    // collapse back to idle state.
+    _publishDragSession(_emptyDragSession);
     onDragStateChange?.(null);
   }, [onDragStateChange]);
 
@@ -3378,8 +3562,13 @@ function CategoryTaskRow({
         // hover so the manager realises the rows are interactive
         // even before they grab one.
         draggable && "cursor-grab active:cursor-grabbing",
+        // Source-row ghost while dragging — a stronger fade plus a
+        // dashed emerald outline and a "Moving…" watermark via
+        // ``italic``. Makes it unambiguous that this row is the one
+        // being carried, so the manager isn't confused by the chip
+        // that also floats with the cursor.
         isDragging &&
-          "opacity-40 border border-dashed border-primary/60 bg-primary/5",
+          "opacity-35 border border-dashed border-emerald-400/70 bg-emerald-50/40 dark:bg-emerald-950/20 italic",
       )}
       draggable={draggable}
       onDragStart={onRowDragStart}
@@ -3904,10 +4093,16 @@ function StaffMessagesCard({
             "Message sent on WhatsApp.",
         );
       } else if (resp.whatsapp_failed) {
-        toast.warning(
+        // Prefer the concrete reason from Meta / the phone normalizer
+        // over the generic "Check the number" line. The backend parses
+        // WhatsApp Cloud API error envelopes into `failure_reason` so
+        // the manager sees something actionable (e.g. "Recipient phone
+        // number is not a WhatsApp user", "Invalid parameter", etc.).
+        const reason = (resp.failure_reason || "").trim();
+        const base =
           t("dashboard.staff_messages.send_no_whatsapp") ||
-            "Saved, but WhatsApp delivery failed. Check the number.",
-        );
+          "Saved, but WhatsApp delivery failed.";
+        toast.warning(reason ? `${base} ${reason}` : base);
       } else {
         toast.success(
           t("dashboard.staff_messages.send_queued") || "Message queued.",
@@ -5144,7 +5339,11 @@ export function DashboardWidgetById({
           titleKey="dashboard.human_resources.title"
           icon={Briefcase}
           tone="violet"
-          moreHref="/dashboard/staff-requests?category=HR"
+          // HR widget aggregates HR + DOCUMENT (see BUCKET_TO_CATEGORIES
+          // on the backend); pass both so the inbox shows every row the
+          // widget counted instead of hiding DOCUMENT rows behind an
+          // HR-only chip.
+          moreHref="/dashboard/staff-requests?category=HR,DOCUMENT"
         />
       );
 
@@ -5159,7 +5358,10 @@ export function DashboardWidgetById({
           titleKey="dashboard.finance.title"
           icon={Wallet}
           tone="emerald"
-          moreHref="/dashboard/staff-requests?category=FINANCE"
+          // Finance widget aggregates FINANCE + PAYROLL (see
+          // BUCKET_TO_CATEGORIES on the backend). Deep-linking to a single
+          // category hid payslip rows here, so we pass both.
+          moreHref="/dashboard/staff-requests?category=FINANCE,PAYROLL"
         />
       );
 
