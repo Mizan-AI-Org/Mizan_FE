@@ -98,12 +98,15 @@ export function StaffTagSelector({
     disabled = false,
     className,
     showHelp = true,
+    compact = false,
 }: {
     value: readonly string[] | null | undefined;
     onChange: (tags: StaffTag[]) => void;
     disabled?: boolean;
     className?: string;
     showHelp?: boolean;
+    /** When true, only the chip row is rendered (e.g. dashboard composer). */
+    compact?: boolean;
 }) {
     const { t } = useLanguage();
     const selected = new Set(normalizeStaffTags(value ?? []));
@@ -122,15 +125,17 @@ export function StaffTagSelector({
     };
 
     return (
-        <div className={cn("space-y-2", className)}>
-            <div>
-                <p className="text-sm font-medium">{t("staff.tags.section_title")}</p>
-                {showHelp ? (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                        {t("staff.tags.section_help")}
-                    </p>
-                ) : null}
-            </div>
+        <div className={cn(compact ? className : cn("space-y-2", className))}>
+            {!compact ? (
+                <div>
+                    <p className="text-sm font-medium">{t("staff.tags.section_title")}</p>
+                    {showHelp ? (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            {t("staff.tags.section_help")}
+                        </p>
+                    ) : null}
+                </div>
+            ) : null}
             <div className="flex flex-wrap gap-1.5">
                 {STAFF_TAGS.map((tag) => {
                     const active = selected.has(tag);
