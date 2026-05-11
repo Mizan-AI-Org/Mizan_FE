@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useLanguage } from '@/hooks/use-language';
 import { CardGridSkeleton } from '@/components/skeletons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -19,7 +19,8 @@ import {
   AlertCircle,
   FileText,
   Settings,
-  Zap
+  Zap,
+  Upload,
 } from 'lucide-react';
 import {
   Dialog,
@@ -28,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -50,6 +52,12 @@ import {
 import { toast } from 'sonner';
 import TaskTemplateForm from './TaskTemplateForm';
 import { API_BASE } from "@/lib/api";
+import {
+  parseProcessTemplatesFile,
+  SAMPLE_JSON_EXPORT,
+  SAMPLE_CSV_EXPORT,
+  type ImportTemplatePayload,
+} from '@/lib/processTemplateImport';
 
 
 interface TemplateTask {
@@ -112,6 +120,11 @@ export default function TaskTemplateManagement() {
   const [filterFrequency, setFilterFrequency] = useState<string>('all');
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
   const [editingProcess, setEditingProcess] = useState<TaskTemplate | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportTemplatePayload[]>([]);
+  const [importParseErrors, setImportParseErrors] = useState<string[]>([]);
+  const [importFileName, setImportFileName] = useState('');
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const queryClient = useQueryClient();
 
@@ -380,6 +393,119 @@ export default function TaskTemplateManagement() {
     queryClient.invalidateQueries({ queryKey: ['task-templates'] });
   };
 
+  const resetImportState = () => {
+    setImportPreview([]);
+    setImportParseErrors([]);
+    setImportFileName('');
+  };
+
+  const downloadImportSample = (kind: 'json' | 'csv') => {
+    const body = kind === 'json' ? SAMPLE_JSON_EXPORT : SAMPLE_CSV_EXPORT;
+    const mime = kind === 'json' ? 'application/json' : 'text/csv;charset=utf-8';
+    const blob = new Blob([body], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = kind === 'json' ? 'mizan-processes-sample.json' : 'mizan-processes-sample.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const applyImportFile = async (file: File) => {
+    setImportFileName(file.name);
+    try {
+      const text = await file.text();
+      const { templates, errors } = parseProcessTemplatesFile(text, file.name);
+      setImportPreview(templates);
+      setImportParseErrors(errors);
+    } catch {
+      setImportPreview([]);
+      setImportParseErrors([t('processes.import_failed_read')]);
+    }
+  };
+
+  const importProcessesMutation = useMutation({
+    mutationFn: async (payloads: ImportTemplatePayload[]) => {
+      const token = localStorage.getItem('access_token') || '';
+      const listRes = await fetch(`${API_BASE}/scheduling/task-templates/?page_size=500`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!listRes.ok) throw new Error('Failed to fetch existing templates');
+      const listData = await listRes.json();
+      const existing = (listData.results || listData || []) as TaskTemplate[];
+      const existingNames = new Set(existing.map((x) => x.name.trim().toLowerCase()));
+
+      let created = 0;
+      let skipped = 0;
+      let failed = 0;
+      let lastError = '';
+
+      for (const tpl of payloads) {
+        const key = tpl.name.trim().toLowerCase();
+        if (existingNames.has(key)) {
+          skipped += 1;
+          continue;
+        }
+        const body: Record<string, unknown> = {
+          name: tpl.name.trim(),
+          description: tpl.description ?? '',
+          template_type: tpl.template_type,
+          frequency: tpl.frequency,
+          tasks: tpl.tasks,
+          is_active: tpl.is_active !== false,
+        };
+        if (tpl.priority_level) body.priority_level = tpl.priority_level;
+        if (typeof tpl.is_critical === 'boolean') body.is_critical = tpl.is_critical;
+
+        const response = await fetch(`${API_BASE}/scheduling/task-templates/`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+          failed += 1;
+          const err = await response.json().catch(() => ({}));
+          const msg =
+            (typeof err === 'object' && err && ('detail' in err || 'message' in err)
+              ? String((err as { detail?: unknown }).detail ?? (err as { message?: unknown }).message)
+              : '') || response.statusText;
+          if (msg) lastError = msg;
+          continue;
+        }
+        existingNames.add(key);
+        created += 1;
+      }
+      return { created, skipped, failed, lastError };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['task-templates'] });
+      const { created, skipped, failed, lastError } = result;
+      if (created > 0 && failed === 0) {
+        toast.success(t('processes.import_success', { created, skipped }));
+        setImportDialogOpen(false);
+        resetImportState();
+      } else if (created > 0 && failed > 0) {
+        toast.warning(t('processes.import_partial', { created, failed }));
+        setImportDialogOpen(false);
+        resetImportState();
+      } else if (failed > 0) {
+        toast.error(lastError || t('processes.import_partial', { created: 0, failed }));
+      } else {
+        toast.info(t('processes.import_none_created'));
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Import failed');
+    },
+  });
+
+  const canRunImport =
+    importPreview.length > 0 &&
+    importProcessesMutation.isPending === false;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -409,6 +535,117 @@ export default function TaskTemplateManagement() {
               />
             </DialogContent>
           </Dialog>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setImportDialogOpen(true)}
+            className="gap-2"
+          >
+            <Upload className="h-4 w-4" />
+            {t('processes.import_processes')}
+          </Button>
+
+          <Dialog
+            open={importDialogOpen}
+            onOpenChange={(open) => {
+              setImportDialogOpen(open);
+              if (!open) resetImportState();
+            }}
+          >
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{t('processes.import_processes_title')}</DialogTitle>
+                <DialogDescription>{t('processes.import_processes_desc')}</DialogDescription>
+              </DialogHeader>
+
+              <input
+                ref={importFileInputRef}
+                type="file"
+                accept=".json,.csv,application/json,text/csv,text/plain"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (f) void applyImportFile(f);
+                }}
+              />
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => importFileInputRef.current?.click()}
+                >
+                  {t('processes.import_choose_file')}
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => downloadImportSample('json')}>
+                  {t('processes.import_download_json_sample')}
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => downloadImportSample('csv')}>
+                  {t('processes.import_download_csv_sample')}
+                </Button>
+              </div>
+
+              <div
+                className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const f = e.dataTransfer.files?.[0];
+                  if (f) void applyImportFile(f);
+                }}
+              >
+                {importFileName
+                  ? `${importFileName}`
+                  : t('processes.import_no_preview')}
+              </div>
+
+              {importParseErrors.length > 0 && (
+                <ul className="text-xs text-amber-700 dark:text-amber-400 list-disc pl-4 space-y-1 max-h-24 overflow-y-auto">
+                  {importParseErrors.map((msg, i) => (
+                    <li key={i}>{msg}</li>
+                  ))}
+                </ul>
+              )}
+
+              {importPreview.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">{t('processes.import_preview')}</p>
+                  <ul className="max-h-48 overflow-y-auto rounded-md border divide-y text-sm">
+                    {importPreview.map((p, idx) => (
+                      <li key={`${p.name}-${idx}`} className="px-3 py-2 flex justify-between gap-2">
+                        <span className="font-medium truncate">{p.name}</span>
+                        <span className="text-muted-foreground shrink-0">
+                          {t('processes.import_tasks_count', { count: p.tasks.length })}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={() => setImportDialogOpen(false)}>
+                  {t('schedule.cancel')}
+                </Button>
+                <Button
+                  type="button"
+                  className="premium-button"
+                  disabled={!canRunImport}
+                  onClick={() => importProcessesMutation.mutate(importPreview)}
+                >
+                  {t('processes.import_run')}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           <Button
             variant="outline"
             onClick={() => seedTemplatesMutation.mutate()}
