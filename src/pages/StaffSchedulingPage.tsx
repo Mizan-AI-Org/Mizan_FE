@@ -57,46 +57,46 @@ const StaffSchedulingPage: React.FC = () => {
         <h1 className="text-2xl font-bold">{t("schedule.page_title")}</h1>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Stats Cards — compact row */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 sm:gap-3">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("schedule.card_total_staff")}</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
+            <CardTitle className="text-xs font-medium leading-tight">{t("schedule.card_total_staff")}</CardTitle>
+            <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{statsLoading ? "..." : stats?.total_staff || 0}</div>
-            <p className="text-xs text-muted-foreground">{t("schedule.active_team_members")}</p>
+          <CardContent className="p-3 pt-0">
+            <div className="text-lg font-bold leading-none tabular-nums">{statsLoading ? "…" : stats?.total_staff || 0}</div>
+            <p className="text-[11px] text-muted-foreground leading-snug mt-1">{t("schedule.active_team_members")}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("schedule.card_scheduled_shifts")}</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
+            <CardTitle className="text-xs font-medium leading-tight">{t("schedule.card_scheduled_shifts")}</CardTitle>
+            <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{statsLoading ? "..." : stats?.scheduled_shifts || 0}</div>
-            <p className="text-xs text-muted-foreground">{t("common.this_week")}</p>
+          <CardContent className="p-3 pt-0">
+            <div className="text-lg font-bold leading-none tabular-nums">{statsLoading ? "…" : stats?.scheduled_shifts || 0}</div>
+            <p className="text-[11px] text-muted-foreground leading-snug mt-1">{t("common.this_week")}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("schedule.card_open_tasks")}</CardTitle>
-            <CheckSquare className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
+            <CardTitle className="text-xs font-medium leading-tight">{t("schedule.card_open_tasks")}</CardTitle>
+            <CheckSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{statsLoading ? "..." : stats?.open_tasks || 0}</div>
-            <p className="text-xs text-muted-foreground">{t("schedule.tasks_to_complete")}</p>
+          <CardContent className="p-3 pt-0">
+            <div className="text-lg font-bold leading-none tabular-nums">{statsLoading ? "…" : stats?.open_tasks || 0}</div>
+            <p className="text-[11px] text-muted-foreground leading-snug mt-1">{t("schedule.tasks_to_complete")}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("schedule.card_completed_tasks")}</CardTitle>
-            <BarChart className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
+            <CardTitle className="text-xs font-medium leading-tight">{t("schedule.card_completed_tasks")}</CardTitle>
+            <BarChart className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{statsLoading ? "..." : stats?.completed_tasks || 0}</div>
-            <p className="text-xs text-muted-foreground">{t("schedule.last_7_days")}</p>
+          <CardContent className="p-3 pt-0">
+            <div className="text-lg font-bold leading-none tabular-nums">{statsLoading ? "…" : stats?.completed_tasks || 0}</div>
+            <p className="text-[11px] text-muted-foreground leading-snug mt-1">{t("schedule.last_7_days")}</p>
           </CardContent>
         </Card>
       </div>
