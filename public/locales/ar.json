@@ -390,6 +390,7 @@
   "dashboard.manage.auto_link_resolved": "تم الربط تلقائيًا بـ",
   "dashboard.miya_widget.badge": "ميا",
   "dashboard.miya_widget.open": "فتح",
+  "dashboard.miya_widget.open_chat": "فتح المحادثة",
   "dashboard.miya_widget.loading": "جاري تحميل البطاقة…",
   "dashboard.miya_widget.no_link": "لا يوجد رابط — اطلب من ميا إضافة وجهة.",
   "dashboard.miya_widget.ask_miya": "اسأل ميا",
