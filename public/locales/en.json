@@ -422,6 +422,7 @@
   "dashboard.manage.auto_link_resolved": "Auto-linked to",
   "dashboard.miya_widget.badge": "Miya",
   "dashboard.miya_widget.open": "Open",
+  "dashboard.miya_widget.open_chat": "Open chat",
   "dashboard.miya_widget.loading": "Loading this card…",
   "dashboard.miya_widget.no_link": "No link set — ask Miya to add a destination.",
   "dashboard.miya_widget.ask_miya": "Ask Miya",
