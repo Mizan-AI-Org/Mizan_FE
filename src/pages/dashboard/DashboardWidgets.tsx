@@ -483,6 +483,12 @@ const CUSTOM_WIDGET_TITLE_ALIASES: Record<string, DashboardWidgetId> = {
   // staff_messages
   "staff messages": "staff_messages",
   "whatsapp": "staff_messages",
+  // live_attendance (multi-word / "widget" phrasing — matches backend alias)
+  "live attendance": "live_attendance",
+  "attendance widget": "live_attendance",
+  "widget attendance": "live_attendance",
+  "who is here": "live_attendance",
+  "presence board": "live_attendance",
   // clock_ins
   "clock in": "clock_ins",
   "clock ins": "clock_ins",
