@@ -112,6 +112,7 @@ export const DASHBOARD_WIDGET_IDS = [
   "human_resources",
   "finance",
   "maintenance",
+  "operations_tasks",
   // Procurement asks ("buy 6 bottles of vodka") — separate from Finance
   // (paying invoices) and Inventory (stock observations) so the manager
   // who told Miya "we need to purchase X" sees the request next to
@@ -153,6 +154,7 @@ export const WIDGET_ADD_ICONS: Record<DashboardWidgetId, LucideIcon> = {
   human_resources: Briefcase,
   finance: Wallet,
   maintenance: Wrench,
+  operations_tasks: ListTodo,
   purchase_orders: ShoppingBag,
   miscellaneous: Layers,
   staff_messages: Send,
@@ -183,6 +185,7 @@ export const WIDGET_ADD_DESC_KEYS: Record<DashboardWidgetId, string> = {
   human_resources: "dashboard.widget_add.human_resources",
   finance: "dashboard.widget_add.finance",
   maintenance: "dashboard.widget_add.maintenance",
+  operations_tasks: "dashboard.widget_add.operations_tasks",
   purchase_orders: "dashboard.widget_add.purchase_orders",
   miscellaneous: "dashboard.widget_add.miscellaneous",
   staff_messages: "dashboard.widget_add.staff_messages",
@@ -223,6 +226,7 @@ const WIDGET_ID_TO_CATEGORY: Record<DashboardWidgetId, DashboardWidgetCategoryId
   human_resources: "general",
   finance: "general",
   maintenance: "general",
+  operations_tasks: "general",
   purchase_orders: "general",
   miscellaneous: "general",
   staff_messages: "general",
@@ -263,6 +267,7 @@ export const DEFAULT_DASHBOARD_WIDGET_ORDER: DashboardWidgetId[] = [
   "meetings_reminders",
   "finance",
   "maintenance",
+  "operations_tasks",
   "purchase_orders",
   "miscellaneous",
   // Admin → Staff WhatsApp composer + delivery / read receipts feed.
@@ -6074,6 +6079,21 @@ export function DashboardWidgetById({
           icon={Wrench}
           tone="amber"
           moreHref="/dashboard/staff-requests?category=MAINTENANCE"
+        />
+      );
+
+    case "operations_tasks":
+      return (
+        <CategoryTasksCard
+          cardBase={cardBase}
+          cardHeaderBase={cardHeaderBase}
+          t={t}
+          navigate={navigate}
+          bucket="operations"
+          titleKey="dashboard.operations_tasks.title"
+          icon={ListTodo}
+          tone="emerald"
+          moreHref="/dashboard/staff-requests?category=OPERATIONS"
         />
       );
 

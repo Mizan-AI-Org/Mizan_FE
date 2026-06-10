@@ -260,6 +260,7 @@ export type CategoryTaskBucket =
     | 'finance'
     | 'maintenance'
     | 'meetings'
+    | 'operations'
     | 'purchase_orders'
     | 'miscellaneous';
 
