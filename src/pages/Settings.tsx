@@ -39,6 +39,8 @@ import {
   ShieldAlert,
   ShieldCheck,
   ArrowRight,
+  Calendar,
+  ExternalLink,
 } from "lucide-react";
 import { FormSectionSkeleton } from "@/components/skeletons";
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";
@@ -65,7 +67,7 @@ import { StaffInvitation } from "@/lib/types";
 import { User } from "@/contexts/AuthContext.types";
 import { translateApiError } from "@/i18n/messages";
 
-import { API_BASE } from "@/lib/api";
+import { API_BASE, api } from "@/lib/api";
 import {
   ALL_BUSINESS_VERTICALS,
   parseBusinessVertical,
@@ -243,6 +245,11 @@ export default function Settings() {
     },
   });
   const [savingAi, setSavingAi] = useState(false);
+  const [gcalConnected, setGcalConnected] = useState(false);
+  const [gcalEmail, setGcalEmail] = useState("");
+  const [gcalConnecting, setGcalConnecting] = useState(false);
+  const [gcalDisconnecting, setGcalDisconnecting] = useState(false);
+  const [gcalDisconnectOpen, setGcalDisconnectOpen] = useState(false);
   // Controlled tabs for better state management on mobile
   const [activeTab, setActiveTab] = useState<string>("profile");
 
@@ -293,14 +300,28 @@ export default function Settings() {
       if (role !== "STAFF") fetchUnifiedSettings();
       clean("pos_connected", "provider");
     } else if (posError) {
-      // The callback view sanitizes these into short, safe tokens
-      // (``no_code``, ``invalid_state``, ``token_exchange_failed`` …).
-      // Mapping them to a generic message keeps the UI readable.
       toast.error(
         t("pos.connection.failed") ||
           `POS connect failed (${posError}). Please try again.`,
       );
       clean("pos_error", "provider");
+    }
+
+    const gcal = url.searchParams.get("gcal");
+    if (gcal === "connected") {
+      toast.success(t("dashboard.meetings_reminders.connected_toast") || "Google Calendar connected!");
+      if (role !== "STAFF") fetchUnifiedSettings();
+      clean("gcal", "gcal_detail");
+      setActiveTab("integrations");
+    } else if (gcal === "error") {
+      const detail = url.searchParams.get("gcal_detail") || "";
+      toast.error(
+        detail
+          ? `${t("dashboard.meetings_reminders.connect_failed") || "Google Calendar connect failed"} (${detail})`
+          : t("dashboard.meetings_reminders.connect_failed") || "Google Calendar connect failed",
+      );
+      clean("gcal", "gcal_detail");
+      setActiveTab("integrations");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -436,6 +457,9 @@ export default function Settings() {
       } else {
         setIncidentCategoryAssignees({});
       }
+
+      setGcalConnected(data.google_calendar_connected || false);
+      setGcalEmail(data.google_calendar_email || "");
 
       setBusinessVertical(parseBusinessVertical(data.business_vertical));
       const csr = data.custom_staff_roles;
@@ -1848,6 +1872,157 @@ export default function Settings() {
             </AlertDialog>
 
             <ReservationIntegration onIntegrationChange={() => void fetchUnifiedSettings()} />
+
+            <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
+              <CardHeader className="pb-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-sky-600 shadow-lg shadow-blue-500/25">
+                      <Calendar className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                        {t("settings.gcal.title") || "Google Calendar"}
+                      </CardTitle>
+                      <CardDescription className="text-slate-500 dark:text-slate-400">
+                        {t("settings.gcal.description") || "Connect Google Calendar to let Miya create meetings, reminders, and see upcoming events."}
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={
+                      gcalConnected
+                        ? "shrink-0 border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                        : "shrink-0 border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400"
+                    }
+                  >
+                    {gcalConnected
+                      ? t("settings.gcal.connected") || "Connected"
+                      : t("settings.gcal.not_connected") || "Not connected"}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {gcalConnected ? (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/20">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+                          {t("settings.gcal.connected_title") || "Google Calendar is connected"}
+                        </span>
+                      </div>
+                      {gcalEmail && (
+                        <div className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
+                          {gcalEmail}
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="w-full border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
+                      onClick={() => setGcalDisconnectOpen(true)}
+                    >
+                      <Unplug className="mr-2 h-4 w-4" />
+                      {t("settings.gcal.disconnect") || "Disconnect Google Calendar"}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/50">
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        {t("settings.gcal.connect_hint") || "Connecting Google Calendar enables Miya to schedule meetings, set reminders, and show upcoming events on your Meetings & Reminders widget."}
+                      </p>
+                    </div>
+                    <Button
+                      className="w-full"
+                      disabled={gcalConnecting}
+                      onClick={async () => {
+                        setGcalConnecting(true);
+                        try {
+                          const returnTo = typeof window !== "undefined"
+                            ? window.location.pathname + window.location.search
+                            : "/dashboard/settings";
+                          const res = await api.startGoogleCalendarConnect(returnTo);
+                          if (!res.configured) {
+                            toast.error(
+                              t("settings.gcal.not_available") ||
+                              "Google Calendar isn't available on this server yet. Please contact your administrator.",
+                            );
+                            return;
+                          }
+                          if (res.redirect_url) {
+                            window.location.href = res.redirect_url;
+                          }
+                        } catch (err) {
+                          toast.error(
+                            (err instanceof Error ? err.message : null) ||
+                            t("settings.gcal.connect_error") ||
+                            "Failed to start Google Calendar connection.",
+                          );
+                        } finally {
+                          setGcalConnecting(false);
+                        }
+                      }}
+                    >
+                      {gcalConnecting ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                      )}
+                      {t("settings.gcal.connect") || "Connect Google Calendar"}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <AlertDialog open={gcalDisconnectOpen} onOpenChange={setGcalDisconnectOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {t("settings.gcal.disconnect_title") || "Disconnect Google Calendar?"}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="text-left">
+                    {t("settings.gcal.disconnect_desc") || "Miya will no longer be able to create meetings or reminders, and the Meetings & Reminders widget will show a reconnect prompt. You can reconnect at any time."}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={gcalDisconnecting}>
+                    {t("settings.reservation.disconnect_cancel") || "Cancel"}
+                  </AlertDialogCancel>
+                  <Button
+                    variant="destructive"
+                    disabled={gcalDisconnecting}
+                    onClick={async () => {
+                      setGcalDisconnecting(true);
+                      try {
+                        await api.disconnectGoogleCalendar();
+                        toast.success(
+                          t("settings.gcal.disconnected") || "Google Calendar disconnected.",
+                        );
+                        setGcalConnected(false);
+                        setGcalEmail("");
+                        setGcalDisconnectOpen(false);
+                        queryClient.invalidateQueries({ queryKey: ["dashboard", "meetings-reminders", 5] });
+                        await fetchUnifiedSettings();
+                      } catch (err) {
+                        toast.error(
+                          (err instanceof Error ? err.message : null) ||
+                          t("settings.gcal.disconnect_error") || "Failed to disconnect.",
+                        );
+                      } finally {
+                        setGcalDisconnecting(false);
+                      }
+                    }}
+                  >
+                    {gcalDisconnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Unplug className="mr-2 h-4 w-4" />}
+                    {t("settings.gcal.disconnect") || "Disconnect"}
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
           </TabsContent>
         )}
