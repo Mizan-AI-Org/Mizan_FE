@@ -343,6 +343,18 @@ export interface StaffMessageSendResponse {
     // Human-readable failure reason surfaced from Meta / the normalizer.
     // Populated when whatsapp_failed is true; null on success.
     failure_reason?: string | null;
+    /** In-app notifications delivered (same as announcement fan-out count). */
+    notified_count?: number;
+    /** Echo of targeting mode + filters for analytics / toasts. */
+    audience?: {
+        mode: string;
+        recipient_user_id?: string;
+        recipient_user_ids?: string[];
+        recipient_count?: number;
+        tags?: string[];
+        departments?: string[];
+        roles?: string[];
+    };
     log: StaffMessageRow | null;
     template_id: string | null;
 }

@@ -539,10 +539,15 @@ export class BackendService {
    * read receipt tracking from the same WhatsApp webhook.
    */
   async sendStaffMessage(input: {
-    recipient_user_id: string;
     body: string;
     priority?: "LOW" | "NORMAL" | "HIGH" | "URGENT";
     template_id?: string;
+    /** Pick exactly one audience shape (validated server-side). */
+    recipient_user_id?: string;
+    recipient_user_ids?: string[];
+    tags?: string[];
+    departments?: string[];
+    roles?: string[];
   }): Promise<import("./types").StaffMessageSendResponse> {
     return this.fetchWithError(`/dashboard/staff-messages/send/`, {
       method: "POST",

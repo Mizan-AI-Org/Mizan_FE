@@ -17,10 +17,12 @@
  *   5. google_calendar   — (optional) connect Google Calendar
  *   6. Done              — confetti + "Enjoy Mizan" → /dashboard
  *
- * Persistence: each step POSTs to the backend; on success the server marks
- * the step complete and, when all REQUIRED steps are done, sets
- * ``Restaurant.onboarding_completed_at``. The wizard then lets the user
- * click through to the dashboard.
+ * Persistence: substantive steps persist via their Save/Continue handlers.
+ * Skipping a step records progress where needed (e.g. ``staff_csv`` marked
+ * complete when skipped). ``POST { complete_onboarding: true }`` dismisses
+ * the wizard for ``Restaurant.onboarding_completed_at`` so owners can open
+ * the dashboard without finishing every screen. Afterward, ``/auth/me/`` is
+ * refreshed so the client session matches the gate.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -63,6 +65,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 
 import { API_BASE, api } from "@/lib/api";
+import type { User as AuthUser } from "@/contexts/AuthContext.types";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import {
@@ -370,7 +373,7 @@ function downloadStaffCsvTemplate(): void {
 
 const OnboardingWizard: React.FC = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, updateUser } = useAuth();
     const queryClient = useQueryClient();
     const { t } = useTranslation();
 
@@ -615,7 +618,22 @@ const OnboardingWizard: React.FC = () => {
                             userName={user.first_name || user.email || ""}
                             restaurantName={user.restaurant_name || ""}
                             completedAlready={status.completed}
-                            onEnterDashboard={() => navigate("/dashboard")}
+                            onGoToDashboard={async () => {
+                                try {
+                                    await completeOnboardingDismiss();
+                                    await syncSessionFromBackend();
+                                    navigate("/dashboard");
+                                } catch (e) {
+                                    toast.error(
+                                        e instanceof Error
+                                            ? e.message
+                                            : t(
+                                                  "onboarding.err.dismiss",
+                                                  "Could not continue to the dashboard. Try again.",
+                                              ),
+                                    );
+                                }
+                            }}
                         />
                     )}
 
@@ -642,6 +660,19 @@ const OnboardingWizard: React.FC = () => {
                                 await saveWidgetSelection(selectedIds);
                                 await refreshStatus();
                                 goNext();
+                            }}
+                            onSkip={async () => {
+                                try {
+                                    await saveWidgetSelection(DEFAULT_DASHBOARD_WIDGET_ORDER);
+                                    await refreshStatus();
+                                    goNext();
+                                } catch (e) {
+                                    toast.error(
+                                        e instanceof Error
+                                            ? e.message
+                                            : t("onboarding.err.step", "Could not save progress."),
+                                    );
+                                }
                             }}
                         />
                     )}
@@ -686,7 +717,14 @@ const OnboardingWizard: React.FC = () => {
                     {step === "done" && (
                         <DoneStep
                             restaurantName={user.restaurant_name || ""}
-                            onEnter={() => navigate("/dashboard")}
+                            onEnter={async () => {
+                                try {
+                                    await syncSessionFromBackend();
+                                } catch {
+                                    /* still allow navigation */
+                                }
+                                navigate("/dashboard");
+                            }}
                         />
                     )}
                 </div>
@@ -794,6 +832,32 @@ const OnboardingWizard: React.FC = () => {
         });
         if (!res.ok) throw new Error(t("onboarding.err.gcal"));
     }
+
+    async function completeOnboardingDismiss() {
+        const res = await fetch(`${API_BASE}/onboarding/`, {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ complete_onboarding: true }),
+        });
+        if (!res.ok) {
+            const body = (await res.json().catch(() => ({}))) as { detail?: string };
+            throw new Error(
+                body.detail ||
+                    t(
+                        "onboarding.err.dismiss",
+                        "Could not continue to the dashboard. Try again.",
+                    ),
+            );
+        }
+        await queryClient.invalidateQueries({ queryKey: ["onboarding-status"] });
+    }
+
+    async function syncSessionFromBackend() {
+        const token = localStorage.getItem("access_token") || "";
+        if (!token) return;
+        const profile = await api.getUserProfile(token);
+        updateUser(profile as AuthUser);
+    }
 };
 
 function stepChipFallback(s: string): string {
@@ -822,8 +886,8 @@ const WelcomeStep: React.FC<{
     userName: string;
     restaurantName: string;
     completedAlready: boolean;
-    onEnterDashboard: () => void;
-}> = ({ onStart, userName, restaurantName, completedAlready, onEnterDashboard }) => {
+    onGoToDashboard: () => void | Promise<void>;
+}> = ({ onStart, userName, restaurantName, completedAlready, onGoToDashboard }) => {
     const { t } = useTranslation();
     return (
         <div className="text-center space-y-8 py-6">
@@ -1179,7 +1243,8 @@ const StaffCsvStep: React.FC<{
 const WidgetsStep: React.FC<{
     status: OnboardingStatus;
     onSaved: (ids: DashboardWidgetId[]) => Promise<void> | void;
-}> = ({ status, onSaved }) => {
+    onSkip: () => Promise<void> | void;
+}> = ({ status, onSaved, onSkip }) => {
     const { t } = useTranslation();
     const [selected, setSelected] = useState<Set<DashboardWidgetId>>(() => {
         // Pre-seed with system defaults; if user visited before, we can't
@@ -1265,24 +1330,36 @@ const WidgetsStep: React.FC<{
             </div>
 
             <StepActions>
-                <div className="text-xs text-muted-foreground">
-                    {t("onboarding.widgets.selected_count", {
-                        defaultValue: "{{count}} selected",
-                        count: selected.size,
-                    })}
-                </div>
                 <Button
-                    onClick={save}
+                    variant="ghost"
+                    type="button"
+                    onClick={() => {
+                        void onSkip();
+                    }}
                     disabled={saving}
-                    className="gap-2 bg-emerald-500 hover:bg-emerald-600"
                 >
-                    {saving ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                        <ArrowRight className="h-4 w-4" />
-                    )}
-                    {t("onboarding.continue", "Continue")}
+                    {t("onboarding.skip_step", "Skip for now")}
                 </Button>
+                <div className="flex items-center gap-3 ml-auto">
+                    <div className="text-xs text-muted-foreground">
+                        {t("onboarding.widgets.selected_count", {
+                            defaultValue: "{{count}} selected",
+                            count: selected.size,
+                        })}
+                    </div>
+                    <Button
+                        onClick={save}
+                        disabled={saving}
+                        className="gap-2 bg-emerald-500 hover:bg-emerald-600"
+                    >
+                        {saving ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <ArrowRight className="h-4 w-4" />
+                        )}
+                        {t("onboarding.continue", "Continue")}
+                    </Button>
+                </div>
             </StepActions>
         </StepShell>
     );
@@ -1365,6 +1442,17 @@ const PermissionsStep: React.FC<{
         }
     };
 
+    const skipWithCurrentVisibility = async () => {
+        setSaving(true);
+        try {
+            await onSaved(visibility);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Save failed.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     return (
         <StepShell
             icon={<ShieldCheck className="h-6 w-6" />}
@@ -1425,18 +1513,23 @@ const PermissionsStep: React.FC<{
             </div>
 
             <StepActions>
-                <Button
-                    variant="ghost"
-                    onClick={() => {
-                        const everyone: Record<string, string[]> = {};
-                        DASHBOARD_WIDGET_IDS.forEach((id) => {
-                            everyone[id] = ROLE_CHOICES.map((r) => r.id);
-                        });
-                        setVisibility(everyone);
-                    }}
-                >
-                    {t("onboarding.perms.all_everyone", "Let everyone see everything")}
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        onClick={() => {
+                            const everyone: Record<string, string[]> = {};
+                            DASHBOARD_WIDGET_IDS.forEach((id) => {
+                                everyone[id] = ROLE_CHOICES.map((r) => r.id);
+                            });
+                            setVisibility(everyone);
+                        }}
+                    >
+                        {t("onboarding.perms.all_everyone", "Let everyone see everything")}
+                    </Button>
+                    <Button variant="ghost" onClick={skipWithCurrentVisibility} disabled={saving}>
+                        {t("onboarding.skip_step", "Skip for now")}
+                    </Button>
+                </div>
                 <Button
                     onClick={save}
                     disabled={saving}
@@ -1805,7 +1898,7 @@ const GoogleCalendarStep: React.FC<{
 
 const DoneStep: React.FC<{
     restaurantName: string;
-    onEnter: () => void;
+    onEnter: () => void | Promise<void>;
 }> = ({ restaurantName, onEnter }) => {
     const { t } = useTranslation();
 
