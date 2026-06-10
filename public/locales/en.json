@@ -309,6 +309,8 @@
   "dashboard.human_resources.title": "Human Resources",
   "dashboard.finance.title": "Finance",
   "dashboard.maintenance.title": "Maintenance",
+  "dashboard.operations_tasks.title": "Operations tasks",
+  "dashboard.widget_add.operations_tasks": "Operations tasks",
   "dashboard.purchase_orders.title": "Purchase Orders",
   "dashboard.miscellaneous.title": "Miscellaneous",
   "dashboard.category_tasks.loading": "Loading…",
