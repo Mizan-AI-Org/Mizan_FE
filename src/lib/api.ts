@@ -47,11 +47,13 @@ export const BACKEND_URL = explicitBackend ?? "";
 // If BACKEND_URL is empty, API_BASE becomes "/api" which works with proxy/rewrites
 export const API_BASE = BACKEND_URL ? `${BACKEND_URL}/api` : "/api";
 
-// Derive WS_BASE from API_BASE or VITE_BACKEND_URL
-// If API_BASE starts with http, replace with ws. If https, replace with wss.
 const getWsBase = () => {
   if (import.meta.env.VITE_BACKEND_URL) {
     return import.meta.env.VITE_BACKEND_URL.replace(/^http/, 'ws');
+  }
+  if (typeof window !== "undefined" && window.location) {
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${proto}//${window.location.host}`;
   }
   return "ws://localhost:8000";
 };
@@ -688,6 +690,29 @@ export class BackendService {
       configured: Boolean((body as { configured?: boolean }).configured ?? true),
       redirect_url: (body as { redirect_url?: string }).redirect_url,
     };
+  }
+
+  /**
+   * Disconnect Google Calendar for the current tenant. Posts
+   * `{ action: "disconnect" }` to the onboarding endpoint, which
+   * clears tokens on the Restaurant model.
+   */
+  async disconnectGoogleCalendar(): Promise<{ saved: boolean }> {
+    const res = await fetch(`${API_BASE}/integrations/google-calendar/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action: "disconnect" }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        (body as { detail?: string }).detail || `Disconnect failed (${res.status}).`,
+      );
+    }
+    return { saved: Boolean((body as { saved?: boolean }).saved) };
   }
 
   /** Tenant-wide categories for grouping manager/Miya-created dashboard widgets. */
