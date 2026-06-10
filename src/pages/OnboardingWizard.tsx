@@ -34,7 +34,9 @@ import {
     ArrowLeft,
     ArrowRight,
     CalendarPlus,
+    Check,
     CheckCircle2,
+    ChevronDown,
     ChevronRight,
     Circle,
     Download,
@@ -56,12 +58,10 @@ import { Badge } from "@/components/ui/badge";
 import BrandLogo from "@/components/BrandLogo";
 import { Label } from "@/components/ui/label";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 
 import { API_BASE, api } from "@/lib/api";
@@ -109,7 +109,7 @@ interface OnboardingStatus {
     next_step: BackendStep | null;
     config: {
         widget_role_visibility: Record<string, string[]>;
-        category_owners: Record<string, string>;
+        category_owners: Record<string, string | string[]>;
         google_calendar: {
             connected?: boolean;
             email?: string | null;
@@ -511,8 +511,9 @@ const OnboardingWizard: React.FC = () => {
 
     if (isLoading || !status) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-emerald-50/60 dark:from-slate-950 dark:via-slate-950 dark:to-emerald-950/20">
-                <Loader2 className="h-7 w-7 animate-spin text-emerald-500" />
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-emerald-50/60 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950/20 gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+                <p className="text-sm text-slate-400 dark:text-slate-500 animate-pulse">Loading your setup...</p>
             </div>
         );
     }
@@ -541,48 +542,34 @@ const OnboardingWizard: React.FC = () => {
     /* -------------------------- Render active step ----------------------- */
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/70 dark:from-slate-950 dark:via-slate-950 dark:to-emerald-950/20">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/60 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950/20">
             {/* Top bar */}
-            <div className="sticky top-0 z-10 backdrop-blur-md bg-white/70 dark:bg-slate-900/70 border-b border-slate-200/60 dark:border-slate-800/60">
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                        <BrandLogo size="sm" className="!w-6 !h-6 shadow-none" />
+            <div className="sticky top-0 z-10 backdrop-blur-xl bg-white/80 dark:bg-slate-950/80 border-b border-slate-200/60 dark:border-slate-800/60 shadow-sm">
+                <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3.5 flex items-center gap-4">
+                    <div className="flex items-center gap-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                        <div className="flex items-center justify-center h-7 w-7 rounded-full border-[3px] border-emerald-500 bg-white dark:bg-slate-900">
+                            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        </div>
                         {t("onboarding.brand", "Mizan setup")}
                     </div>
                     <div className="flex-1">
                         <Progress value={progress} className="h-1.5" />
                     </div>
-                    <div className="text-xs text-muted-foreground whitespace-nowrap">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap tabular-nums">
                         {t("onboarding.progress_label", { defaultValue: "{{done}} of {{total}}", done: requiredDone, total: requiredTotal })}
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground"
-                        onClick={async () => {
-                            try {
-                                await completeOnboardingDismiss();
-                                await syncSessionFromBackend();
-                                navigate("/dashboard");
-                            } catch (e) {
-                                toast.error(
-                                    e instanceof Error
-                                        ? e.message
-                                        : t(
-                                              "onboarding.err.dismiss",
-                                              "Could not continue to the dashboard. Try again.",
-                                          ),
-                                );
-                            }
-                        }}
+                    <button
+                        type="button"
+                        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                        onClick={skipEntireOnboarding}
                     >
-                        <X className="h-4 w-4 mr-1" />
+                        <X className="h-3.5 w-3.5" />
                         {t("onboarding.skip_to_dashboard", "Skip for now")}
-                    </Button>
+                    </button>
                 </div>
                 {/* Step chips */}
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-3 overflow-x-auto">
-                    <div className="flex items-center gap-2 text-xs">
+                <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-3 overflow-x-auto scrollbar-none">
+                    <div className="flex items-center gap-1.5 text-xs">
                         {WIZARD_ORDER.filter((s) => s !== "welcome" && s !== "done").map(
                             (s, i) => {
                                 const done = status.steps[s as BackendStep];
@@ -590,24 +577,24 @@ const OnboardingWizard: React.FC = () => {
                                 return (
                                     <React.Fragment key={s}>
                                         {i > 0 && (
-                                            <ChevronRight className="h-3 w-3 text-slate-300 shrink-0" />
+                                            <ChevronRight className="h-3 w-3 text-slate-300 dark:text-slate-600 shrink-0" />
                                         )}
                                         <button
                                             type="button"
                                             onClick={() => goTo(s)}
                                             className={cn(
-                                                "flex items-center gap-1.5 px-2.5 py-1 rounded-full whitespace-nowrap transition",
+                                                "flex items-center gap-1.5 px-3 py-1.5 rounded-full whitespace-nowrap transition-all font-medium",
                                                 active
-                                                    ? "bg-emerald-500 text-white shadow-sm"
+                                                    ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/25"
                                                     : done
-                                                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
-                                                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200",
+                                                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                                      : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700",
                                             )}
                                         >
                                             {done ? (
                                                 <CheckCircle2 className="h-3 w-3" />
                                             ) : (
-                                                <Circle className="h-3 w-3" />
+                                                <Circle className="h-3 w-3 opacity-50" />
                                             )}
                                             {t(`onboarding.steps.${s}.chip`, stepChipFallback(s))}
                                         </button>
@@ -659,17 +646,9 @@ const OnboardingWizard: React.FC = () => {
                                 goNext();
                             }}
                             onSkip={async () => {
-                                try {
-                                    await markStepComplete("staff_csv");
-                                    await refreshStatus();
-                                    goNext();
-                                } catch (e) {
-                                    toast.error(
-                                        e instanceof Error
-                                            ? e.message
-                                            : t("onboarding.err.step", "Could not save progress."),
-                                    );
-                                }
+                                await markStepComplete("staff_csv");
+                                await refreshStatus();
+                                goNext();
                             }}
                         />
                     )}
@@ -712,7 +691,7 @@ const OnboardingWizard: React.FC = () => {
                     {step === "category_owners" && (
                         <OwnersStep
                             status={status}
-                            onSaved={async (owners) => {
+                            onSaved={async (owners: Record<string, string[]>) => {
                                 await saveCategoryOwners(owners);
                                 await refreshStatus();
                                 goNext();
@@ -758,12 +737,12 @@ const OnboardingWizard: React.FC = () => {
                             size="sm"
                             onClick={goBack}
                             disabled={currentIdx <= 1}
-                            className="gap-2"
+                            className="gap-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                         >
                             <ArrowLeft className="h-4 w-4" />
                             {t("onboarding.back", "Back")}
                         </Button>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs font-medium text-slate-400 dark:text-slate-500 tabular-nums">
                             {t("onboarding.step_of", {
                                 defaultValue: "Step {{cur}} of {{total}}",
                                 cur: currentIdx,
@@ -777,6 +756,25 @@ const OnboardingWizard: React.FC = () => {
     );
 
     /* ---------------------- Backend persistence helpers ---------------- */
+
+    async function skipEntireOnboarding() {
+        try {
+            const res = await fetch(`${API_BASE}/onboarding/skip-all/`, {
+                method: "POST",
+                headers: authHeaders(),
+            });
+            if (res.ok) {
+                localStorage.setItem("onboarding_skipped", "true");
+                await queryClient.invalidateQueries({ queryKey: ["onboarding-status"] });
+                navigate("/dashboard");
+            } else {
+                toast.error(t("onboarding.skip_failed", "Couldn't skip setup. Please try again."));
+            }
+        } catch {
+            localStorage.setItem("onboarding_skipped", "true");
+            navigate("/dashboard");
+        }
+    }
 
     async function refreshStatus() {
         await queryClient.invalidateQueries({ queryKey: ["onboarding-status"] });
@@ -814,7 +812,7 @@ const OnboardingWizard: React.FC = () => {
         }
     }
 
-    async function saveCategoryOwners(owners: Record<string, string>) {
+    async function saveCategoryOwners(owners: Record<string, string | string[]>) {
         const res = await fetch(`${API_BASE}/onboarding/category-owners/`, {
             method: "PUT",
             headers: authHeaders(),
@@ -899,8 +897,9 @@ const WelcomeStep: React.FC<{
                     Mizan AI
                 </span>
             </div>
-            <div className="space-y-3">
-                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">
+
+            <div className="space-y-4">
+                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
                     {t("onboarding.welcome.title", {
                         defaultValue: "Hello {{name}}, welcome to Mizan AI",
                         name: userName || "there",
@@ -915,7 +914,7 @@ const WelcomeStep: React.FC<{
                 </p>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-3 max-w-2xl mx-auto text-left">
+            <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto text-left">
                 <WelcomeBullet
                     icon={FileSpreadsheet}
                     title={t("onboarding.welcome.b1_title", "Upload your team")}
@@ -938,27 +937,22 @@ const WelcomeStep: React.FC<{
                 />
             </div>
 
-            <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
+            <div className="pt-6 flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
                     size="lg"
-                    className="gap-2 min-w-[200px] bg-emerald-500 hover:bg-emerald-600"
+                    className="gap-2 min-w-[220px] bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all text-base py-6"
                     onClick={onStart}
                 >
                     {completedAlready
                         ? t("onboarding.welcome.cta_resume", "Review my setup")
                         : t("onboarding.welcome.cta", "Let's get started")}
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-5 w-5" />
                 </Button>
-                <Button
-                    size="lg"
-                    variant="outline"
-                    className="min-w-[200px]"
-                    onClick={() => {
-                        void onGoToDashboard();
-                    }}
-                >
-                    {t("onboarding.welcome.cta_skip", "Go to dashboard")}
-                </Button>
+                {completedAlready && (
+                    <Button size="lg" variant="outline" onClick={onEnterDashboard} className="py-6 text-base">
+                        {t("onboarding.welcome.cta_skip", "Go to dashboard")}
+                    </Button>
+                )}
             </div>
         </div>
     );
@@ -969,13 +963,13 @@ const WelcomeBullet: React.FC<{
     title: string;
     desc: string;
 }> = ({ icon: Icon, title, desc }) => (
-    <div className="flex gap-3 p-4 rounded-lg bg-white/80 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-800/70">
-        <div className="mt-0.5 h-8 w-8 shrink-0 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-            <Icon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+    <div className="group flex gap-4 p-5 rounded-xl bg-white/90 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/70 shadow-sm hover:shadow-md hover:border-emerald-200 dark:hover:border-emerald-800/50 transition-all duration-200">
+        <div className="mt-0.5 h-10 w-10 shrink-0 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/50 transition-colors">
+            <Icon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
         </div>
-        <div className="space-y-0.5">
-            <div className="font-medium text-sm">{title}</div>
-            <div className="text-xs text-muted-foreground">{desc}</div>
+        <div className="space-y-1">
+            <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">{title}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{desc}</div>
         </div>
     </div>
 );
@@ -1389,6 +1383,16 @@ function widgetFallback(id: DashboardWidgetId): string {
         jobsite_crew: "Jobsite",
         ops_reports: "Ops reports",
         staff_inbox: "Staff inbox",
+        meetings_reminders: "",
+        clock_ins: "",
+        incidents: "",
+        urgent_top: "",
+        human_resources: "",
+        finance: "",
+        maintenance: "",
+        purchase_orders: "",
+        miscellaneous: "",
+        staff_messages: ""
     };
     return map[id] || id;
 }
@@ -1557,11 +1561,21 @@ interface StaffItem {
 
 const OwnersStep: React.FC<{
     status: OnboardingStatus;
-    onSaved: (owners: Record<string, string>) => Promise<void> | void;
+    onSaved: (owners: Record<string, string[]>) => Promise<void> | void;
 }> = ({ status, onSaved }) => {
     const { t } = useTranslation();
-    const [owners, setOwners] = useState<Record<string, string>>(
-        () => ({ ...(status.config.category_owners || {}) }),
+
+    const normalise = (raw: Record<string, string | string[]> | undefined): Record<string, string[]> => {
+        const out: Record<string, string[]> = {};
+        if (!raw) return out;
+        for (const [k, v] of Object.entries(raw)) {
+            out[k] = Array.isArray(v) ? v : v ? [v] : [];
+        }
+        return out;
+    };
+
+    const [owners, setOwners] = useState<Record<string, string[]>>(
+        () => normalise(status.config.category_owners),
     );
     const [saving, setSaving] = useState(false);
 
@@ -1581,15 +1595,23 @@ const OwnersStep: React.FC<{
 
     const staff = staffQuery.data || [];
 
-    const setOwner = (cat: string, uid: string) => {
+    const toggleOwner = (cat: string, uid: string) => {
         setOwners((prev) => {
-            if (!uid) {
+            const current = prev[cat] || [];
+            const next = current.includes(uid)
+                ? current.filter((id) => id !== uid)
+                : [...current, uid];
+            if (next.length === 0) {
                 const { [cat]: _, ...rest } = prev;
                 return rest;
             }
-            return { ...prev, [cat]: uid };
+            return { ...prev, [cat]: next };
         });
     };
+
+    const staffName = (s: StaffItem) =>
+        (s.first_name || s.email || "unnamed") +
+        (s.last_name ? ` ${s.last_name}` : "");
 
     const save = async () => {
         setSaving(true);
@@ -1602,13 +1624,15 @@ const OwnersStep: React.FC<{
         }
     };
 
+    const totalAssigned = Object.values(owners).filter((v) => v.length > 0).length;
+
     return (
         <StepShell
             icon={<UserCog className="h-6 w-6" />}
             title={t("onboarding.owners.title", "Who owns what?")}
             subtitle={t(
                 "onboarding.owners.subtitle",
-                "Pick a default person for each category — Miya routes incidents, requests, and tasks to them automatically.",
+                "Pick one or more people for each category — Miya routes incidents, requests, and tasks to them automatically.",
             )}
             alreadyDoneBadge={status.steps.category_owners}
         >
@@ -1631,40 +1655,75 @@ const OwnersStep: React.FC<{
                                 {t(group.groupKey, group.groupKey.split(".").pop() || "")}
                             </div>
                             <div className="space-y-1.5">
-                                {group.items.map((cat) => (
-                                    <div
-                                        key={cat.key}
-                                        className="flex items-center gap-3 p-2.5 rounded-lg bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800"
-                                    >
-                                        <Label className="flex-1 text-sm font-medium">
-                                            {t(cat.labelKey, cat.key)}
-                                        </Label>
-                                        <div className="w-[220px]">
-                                            <Select
-                                                value={owners[cat.key] || ""}
-                                                onValueChange={(v) => setOwner(cat.key, v)}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue
-                                                        placeholder={t(
-                                                            "onboarding.owners.pick_placeholder",
-                                                            "Pick a person",
-                                                        )}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {staff.map((s) => (
-                                                        <SelectItem key={s.id} value={s.id}>
-                                                            {(s.first_name || s.email || "unnamed") +
-                                                                (s.last_name ? ` ${s.last_name}` : "")}
-                                                            {s.role ? ` · ${s.role}` : ""}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                {group.items.map((cat) => {
+                                    const selected = owners[cat.key] || [];
+                                    const selectedNames = selected
+                                        .map((uid) => staff.find((s) => s.id === uid))
+                                        .filter(Boolean)
+                                        .map((s) => staffName(s!));
+
+                                    return (
+                                        <div
+                                            key={cat.key}
+                                            className="flex items-center gap-3 p-2.5 rounded-lg bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800"
+                                        >
+                                            <Label className="flex-1 text-sm font-medium">
+                                                {t(cat.labelKey, cat.key)}
+                                            </Label>
+                                            <div className="w-[260px]">
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <Button
+                                                            variant="outline"
+                                                            role="combobox"
+                                                            className="w-full justify-between font-normal h-auto min-h-[36px] py-1.5"
+                                                        >
+                                                            <span className="truncate text-left flex-1 text-sm">
+                                                                {selectedNames.length === 0
+                                                                    ? t("onboarding.owners.pick_placeholder", "Pick people")
+                                                                    : selectedNames.length <= 2
+                                                                      ? selectedNames.join(", ")
+                                                                      : `${selectedNames.length} people`}
+                                                            </span>
+                                                            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-[260px] p-0" align="end">
+                                                        <div className="max-h-[200px] overflow-y-auto p-1">
+                                                            {staff.map((s) => {
+                                                                const isSelected = selected.includes(s.id);
+                                                                return (
+                                                                    <button
+                                                                        key={s.id}
+                                                                        type="button"
+                                                                        className={cn(
+                                                                            "flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left",
+                                                                            isSelected && "bg-emerald-50 dark:bg-emerald-900/20",
+                                                                        )}
+                                                                        onClick={() => toggleOwner(cat.key, s.id)}
+                                                                    >
+                                                                        <div className={cn(
+                                                                            "flex items-center justify-center h-4 w-4 rounded border shrink-0",
+                                                                            isSelected
+                                                                                ? "bg-emerald-500 border-emerald-500 text-white"
+                                                                                : "border-slate-300 dark:border-slate-600",
+                                                                        )}>
+                                                                            {isSelected && <Check className="h-3 w-3" />}
+                                                                        </div>
+                                                                        <span className="truncate">
+                                                                            {staffName(s)}
+                                                                            {s.role ? ` · ${s.role}` : ""}
+                                                                        </span>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </PopoverContent>
+                                                </Popover>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     ))}
@@ -1675,7 +1734,7 @@ const OwnersStep: React.FC<{
                 <div className="text-xs text-muted-foreground">
                     {t("onboarding.owners.chosen_count", {
                         defaultValue: "{{count}} categories assigned",
-                        count: Object.keys(owners).length,
+                        count: totalAssigned,
                     })}
                 </div>
                 <div className="flex items-center gap-2">
@@ -1684,9 +1743,6 @@ const OwnersStep: React.FC<{
                         onClick={async () => {
                             setSaving(true);
                             try {
-                                // Saving {} still marks the step done on the
-                                // backend so the wizard can complete. Owners
-                                // can be configured later from Settings.
                                 await onSaved({});
                             } catch (err) {
                                 toast.error(
@@ -1846,20 +1902,19 @@ const DoneStep: React.FC<{
 }> = ({ restaurantName, onEnter }) => {
     const { t } = useTranslation();
 
-    // Pure-CSS/emoji confetti burst — no library dep.
     return (
-        <div className="text-center space-y-8 py-8 relative overflow-hidden">
+        <div className="text-center space-y-10 py-10 relative overflow-hidden">
             <ConfettiBurst />
 
-            <div className="inline-flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-xl shadow-emerald-500/40 animate-in zoom-in-75 duration-500">
-                <PartyPopper className="h-12 w-12 text-white" />
+            <div className="inline-flex h-28 w-28 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-2xl shadow-emerald-500/40 animate-in zoom-in-75 duration-500">
+                <PartyPopper className="h-14 w-14 text-white" />
             </div>
 
-            <div className="space-y-3">
-                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
+            <div className="space-y-4">
+                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">
                     {t("onboarding.done.title", "Enjoy Mizan!")}
                 </h1>
-                <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+                <p className="text-lg text-slate-500 dark:text-slate-400 max-w-xl mx-auto leading-relaxed">
                     {t(
                         "onboarding.done.subtitle",
                         "{{restaurant}} is ready. Miya is listening on WhatsApp and your dashboard is live.",
@@ -1870,13 +1925,11 @@ const DoneStep: React.FC<{
 
             <Button
                 size="lg"
-                onClick={() => {
-                    void onEnter();
-                }}
-                className="gap-2 min-w-[240px] bg-emerald-500 hover:bg-emerald-600"
+                onClick={onEnter}
+                className="gap-2 min-w-[260px] bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all text-base py-6"
             >
                 {t("onboarding.done.cta", "Enter my dashboard")}
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-5 w-5" />
             </Button>
         </div>
     );
@@ -1937,30 +1990,30 @@ const StepShell: React.FC<{
 }> = ({ icon, title, subtitle, children, alreadyDoneBadge, optional }) => {
     const { t } = useTranslation();
     return (
-        <Card className="shadow-lg border-slate-200/80 dark:border-slate-800/80">
+        <Card className="shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 border-slate-200/80 dark:border-slate-800/60 overflow-hidden">
             <CardContent className="p-6 sm:p-8 space-y-6">
                 <div className="flex items-start gap-4">
-                    <div className="h-12 w-12 shrink-0 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                    <div className="h-12 w-12 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-900/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-sm">
                         {icon}
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                                 {title}
                             </h2>
                             {optional && (
-                                <Badge variant="secondary" className="text-[10px]">
+                                <Badge variant="secondary" className="text-[10px] font-medium">
                                     {t("onboarding.optional", "optional")}
                                 </Badge>
                             )}
                             {alreadyDoneBadge && (
-                                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100 text-[10px]">
+                                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 text-[10px] font-medium">
                                     <CheckCircle2 className="h-3 w-3 mr-1" />
                                     {t("onboarding.done_badge", "done")}
                                 </Badge>
                             )}
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">{subtitle}</p>
                     </div>
                 </div>
                 {children}
@@ -1970,7 +2023,7 @@ const StepShell: React.FC<{
 };
 
 const StepActions: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 flex-wrap">
+    <div className="pt-4 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-3 flex-wrap">
         {children}
     </div>
 );

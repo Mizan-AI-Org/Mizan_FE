@@ -21,7 +21,8 @@ const OnboardingGate: React.FC<{ children: React.ReactNode }> = ({
     if (!isOwnerLike) return <>{children}</>;
 
     const completedAt = user.restaurant_data?.onboarding_completed_at;
-    if (completedAt) return <>{children}</>;
+    const skippedLocally = localStorage.getItem('onboarding_skipped') === 'true';
+    if (completedAt || skippedLocally) return <>{children}</>;
 
     return <Navigate to="/onboarding" replace />;
 };
