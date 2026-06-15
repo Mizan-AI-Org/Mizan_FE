@@ -508,6 +508,10 @@ const CUSTOM_WIDGET_TITLE_ALIASES: Record<string, DashboardWidgetId> = {
   "travelling": "team_travel",
   "traveling": "team_travel",
   "travel": "team_travel",
+  "team retreat": "team_travel",
+  "team retreats": "team_travel",
+  "retreat": "team_travel",
+  "retreats": "team_travel",
   // staff_messages
   "staff messages": "staff_messages",
   "whatsapp": "staff_messages",
@@ -556,34 +560,50 @@ function _normaliseAliasKey(s: string | null | undefined): string {
 
 const _SHORT_ALIAS_OK = new Set(["hr", "rh", "po"]);
 
+function _stripWidgetBoilerplate(s: string): string {
+  let key = _normaliseAliasKey(s);
+  key = key
+    .replace(
+      /^(create|add|make|put|show|display|cree|creer|ajoute|ajouter|zid|agrega)\s+(a|an|the|un|une|my|le|la|to|for|pour)?\s*/i,
+      "",
+    )
+    .replace(/\s+widget\s*$/i, "")
+    .trim();
+  return key;
+}
+
 /** Phrase-aware alias lookup — mirrors backend ``resolve_widget_alias``. */
 function resolveWidgetAliasFromText(
   ...candidates: (string | null | undefined)[]
 ): DashboardWidgetId | undefined {
   for (const raw of candidates) {
     if (!raw) continue;
-    const key = _normaliseAliasKey(raw);
-    if (!key) continue;
-    const exact = CUSTOM_WIDGET_TITLE_ALIASES[key];
-    if (exact) return exact;
-    if (key.endsWith("s")) {
-      const singular = CUSTOM_WIDGET_TITLE_ALIASES[key.slice(0, -1)];
-      if (singular) return singular;
-    }
-    const relaxed = key.replace(/[^\w\s]+/gu, " ").replace(/\s+/g, " ");
-    const paddedVariants = [` ${key} `, ` ${relaxed} `];
-    let bestLen = 0;
-    let bestWid: DashboardWidgetId | undefined;
-    for (const pad of paddedVariants) {
-      for (const [aliasKey, wid] of Object.entries(CUSTOM_WIDGET_TITLE_ALIASES)) {
-        if (aliasKey.length < 3 && !_SHORT_ALIAS_OK.has(aliasKey)) continue;
-        if (pad.includes(` ${aliasKey} `) && aliasKey.length > bestLen) {
-          bestLen = aliasKey.length;
-          bestWid = wid;
+    const keysToTry = [
+      _normaliseAliasKey(raw),
+      _stripWidgetBoilerplate(raw),
+    ].filter((k, i, arr) => k && arr.indexOf(k) === i);
+    for (const key of keysToTry) {
+      const exact = CUSTOM_WIDGET_TITLE_ALIASES[key];
+      if (exact) return exact;
+      if (key.endsWith("s")) {
+        const singular = CUSTOM_WIDGET_TITLE_ALIASES[key.slice(0, -1)];
+        if (singular) return singular;
+      }
+      const relaxed = key.replace(/[^\w\s]+/gu, " ").replace(/\s+/g, " ");
+      const paddedVariants = [` ${key} `, ` ${relaxed} `];
+      let bestLen = 0;
+      let bestWid: DashboardWidgetId | undefined;
+      for (const pad of paddedVariants) {
+        for (const [aliasKey, wid] of Object.entries(CUSTOM_WIDGET_TITLE_ALIASES)) {
+          if (aliasKey.length < 3 && !_SHORT_ALIAS_OK.has(aliasKey)) continue;
+          if (pad.includes(` ${aliasKey} `) && aliasKey.length > bestLen) {
+            bestLen = aliasKey.length;
+            bestWid = wid;
+          }
         }
       }
+      if (bestWid) return bestWid;
     }
-    if (bestWid) return bestWid;
   }
   return undefined;
 }
@@ -592,14 +612,12 @@ function resolveWidgetAliasFromText(
  * Resolve a custom widget's title (and optional subtitle) to a known
  * data-bound built-in widget id, or undefined if the title is a real
  * shortcut label with no operational equivalent.
- *
- * Only considers placeholder tiles (no link_url) — a tile with a real
- * link_url is a deliberate shortcut and must be rendered as-is.
  */
 export function resolveCustomWidgetAlias(
   def: DashboardCustomWidgetDef,
 ): DashboardWidgetId | undefined {
-  if (def.link_url && def.link_url.trim().length > 0) return undefined;
+  // Always swap Miya placeholder tiles when the title maps to a data-bound
+  // lane — even if ensure_link auto-assigned a generic /dashboard/* shortcut.
   return resolveWidgetAliasFromText(def.title, def.subtitle);
 }
 
