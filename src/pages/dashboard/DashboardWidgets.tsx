@@ -105,6 +105,7 @@ export const DASHBOARD_WIDGET_IDS = [
   "ops_reports",
   "staff_inbox",
   "team_travel",
+  "team_medical_service",
   "meetings_reminders",
   "clock_ins",
   "incidents",
@@ -150,6 +151,7 @@ export const WIDGET_ADD_ICONS: Record<DashboardWidgetId, LucideIcon> = {
   ops_reports: FileBarChart2,
   staff_inbox: Inbox,
   team_travel: Plane,
+  team_medical_service: Heart,
   meetings_reminders: CalendarDays,
   clock_ins: Clock,
   incidents: ShieldAlert,
@@ -182,6 +184,7 @@ export const WIDGET_ADD_DESC_KEYS: Record<DashboardWidgetId, string> = {
   ops_reports: "dashboard.widget_add.ops_reports",
   staff_inbox: "dashboard.widget_add.staff_inbox",
   team_travel: "dashboard.widget_add.team_travel",
+  team_medical_service: "dashboard.widget_add.team_medical_service",
   meetings_reminders: "dashboard.widget_add.meetings_reminders",
   clock_ins: "dashboard.widget_add.clock_ins",
   incidents: "dashboard.widget_add.incidents",
@@ -224,6 +227,7 @@ const WIDGET_ID_TO_CATEGORY: Record<DashboardWidgetId, DashboardWidgetCategoryId
   ops_reports: "general",
   staff_inbox: "general",
   team_travel: "general",
+  team_medical_service: "general",
   meetings_reminders: "general",
   clock_ins: "general",
   incidents: "general",
@@ -512,6 +516,15 @@ const CUSTOM_WIDGET_TITLE_ALIASES: Record<string, DashboardWidgetId> = {
   "team retreats": "team_travel",
   "retreat": "team_travel",
   "retreats": "team_travel",
+  // team_medical_service — occupational health lane
+  "team medical service": "team_medical_service",
+  "team medical services": "team_medical_service",
+  "medical service": "team_medical_service",
+  "medical services": "team_medical_service",
+  "team medical": "team_medical_service",
+  "team health service": "team_medical_service",
+  "health service": "team_medical_service",
+  "occupational health": "team_medical_service",
   // staff_messages
   "staff messages": "staff_messages",
   "whatsapp": "staff_messages",
@@ -1087,6 +1100,8 @@ function _inboxCategoryToBucket(
       return "purchase_orders";
     case "SCHEDULING":
       return "team_travel";
+    case "MEDICAL":
+      return "team_medical_service";
     default:
       // OTHER, INVENTORY, OPERATIONS, RESERVATIONS, null, and anything
       // else fall here. We use ``miscellaneous`` as the synthetic source;
@@ -6103,6 +6118,26 @@ export function DashboardWidgetById({
             item.kind === "staff_request"
               ? `/dashboard/staff-requests/${item.id}?category=SCHEDULING`
               : `/dashboard/staff-requests?category=SCHEDULING`
+          }
+        />
+      );
+
+    case "team_medical_service":
+      return (
+        <CategoryTasksCard
+          cardBase={cardBase}
+          cardHeaderBase={cardHeaderBase}
+          t={t}
+          navigate={navigate}
+          bucket="team_medical_service"
+          titleKey="dashboard.team_medical_service.title"
+          icon={Heart}
+          tone="rose"
+          moreHref="/dashboard/staff-requests?category=MEDICAL"
+          rowDetailHref={(item) =>
+            item.kind === "staff_request"
+              ? `/dashboard/staff-requests/${item.id}?category=MEDICAL`
+              : `/dashboard/staff-requests?category=MEDICAL`
           }
         />
       );

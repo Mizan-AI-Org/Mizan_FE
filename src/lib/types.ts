@@ -263,7 +263,8 @@ export type CategoryTaskBucket =
     | 'operations'
     | 'purchase_orders'
     | 'miscellaneous'
-    | 'team_travel';
+    | 'team_travel'
+    | 'team_medical_service';
 
 export interface CategoryTasksResponse {
     bucket: CategoryTaskBucket;

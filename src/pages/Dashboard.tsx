@@ -490,6 +490,8 @@ export default function Dashboard() {
           return t("dashboard.staff_inbox.title");
         case "team_travel":
           return t("dashboard.team_travel.title");
+        case "team_medical_service":
+          return t("dashboard.team_medical_service.title");
         case "tasks_demands":
           return t("dashboard.tasks_demands.title");
         case "meetings_reminders":
