@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { API_BASE } from "@/lib/api";
@@ -12,7 +12,29 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { MessageCircle, FileText, Calendar, Wallet, Settings, Briefcase, Plus, AlertCircle, Clock, ChevronRight, Wrench, BookOpen, Package, Mic, UserCircle2, ArrowRightLeft, Inbox } from "lucide-react";
+import {
+  MessageCircle,
+  FileText,
+  Calendar,
+  Wallet,
+  Settings,
+  Briefcase,
+  Plus,
+  AlertCircle,
+  Clock,
+  ChevronRight,
+  Wrench,
+  BookOpen,
+  Package,
+  Mic,
+  UserCircle2,
+  ArrowRightLeft,
+  Inbox,
+  Heart,
+  ShoppingBag,
+  Layers,
+} from "lucide-react";
+import { useStaffInboxLanes, resolveStaffInboxLaneId, type StaffInboxLane } from "@/hooks/use-staff-inbox-lanes";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 
 type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED" | "WAITING_ON";
@@ -69,66 +91,29 @@ const STATUSES: { key: StaffRequestStatus; label: string }[] = [
   { key: "CLOSED", label: "Closed" },
 ];
 
-// Inbox category lanes. Mirrors ``StaffRequest.CATEGORY_CHOICES`` on the
-// backend (see ``mizan-backend/staff/models.py``) plus a synthetic "ALL"
-// chip so managers can opt out of filtering. We use these as filter
-// chips on the inbox so Miya's auto-categorised requests show up in
-// their own lane instead of one undifferentiated pile — see the intent
-// router at ``staff/intent_router.py``.
-type CategoryKey =
-  | "ALL"
-  | "HR"
-  | "DOCUMENT"
-  | "SCHEDULING"
-  | "PAYROLL"
-  | "FINANCE"
-  | "OPERATIONS"
-  | "MAINTENANCE"
-  | "RESERVATIONS"
-  | "INVENTORY"
-  | "OTHER";
-
-const CATEGORY_CHIPS: { key: CategoryKey; label: string }[] = [
-  { key: "ALL", label: "All" },
-  { key: "HR", label: "HR" },
-  { key: "DOCUMENT", label: "Documents" },
-  { key: "PAYROLL", label: "Payroll" },
-  { key: "FINANCE", label: "Finance" },
-  { key: "SCHEDULING", label: "Scheduling" },
-  { key: "OPERATIONS", label: "Operations" },
-  { key: "MAINTENANCE", label: "Maintenance" },
-  { key: "RESERVATIONS", label: "Reservations" },
-  { key: "INVENTORY", label: "Inventory" },
-  { key: "OTHER", label: "Miscellaneous" },
-];
-
-/** Categories surfaced by the dashboard category-tasks endpoint that
- * land in this inbox's ``?category=`` filter. Kept aligned with the
- * widget id → category contract used by the dashboard widgets. */
-const VALID_DEEP_LINK_CATEGORIES: ReadonlySet<CategoryKey> = new Set<CategoryKey>([
-  "HR",
-  "DOCUMENT",
-  "SCHEDULING",
-  "PAYROLL",
-  "FINANCE",
-  "OPERATIONS",
-  "MAINTENANCE",
-  "RESERVATIONS",
-  "INVENTORY",
-  "OTHER",
-]);
-
-/** Bucket deep-links: a widget on the dashboard can aggregate multiple
- * inbox categories under one card (e.g. the Finance widget counts both
- * FINANCE and PAYROLL rows). When that happens we receive
- * ``?category=FINANCE,PAYROLL`` and need a friendly label for the pill
- * we render so the manager understands why "All" is active but the
- * list is still narrowed. The key is the sorted ``.join(",")`` of the
- * categories so either order matches. */
-const BUCKET_LABELS: Record<string, string> = {
-  "DOCUMENT,HR": "Human Resources",
-  "FINANCE,PAYROLL": "Finance",
-};
+function getLaneIcon(lane: Pick<StaffInboxLane, "icon" | "categories">) {
+  switch (lane.icon) {
+    case "calendar":
+      return <Calendar className="w-3.5 h-3.5" />;
+    case "heart":
+      return <Heart className="w-3.5 h-3.5" />;
+    case "wallet":
+      return <Wallet className="w-3.5 h-3.5" />;
+    case "wrench":
+      return <Wrench className="w-3.5 h-3.5" />;
+    case "book-open":
+      return <BookOpen className="w-3.5 h-3.5" />;
+    case "package":
+      return <Package className="w-3.5 h-3.5" />;
+    case "shopping-bag":
+      return <ShoppingBag className="w-3.5 h-3.5" />;
+    case "layers":
+      return <Layers className="w-3.5 h-3.5" />;
+    case "briefcase":
+    default:
+      return <Briefcase className="w-3.5 h-3.5" />;
+  }
+}
 
 function getAuthToken() {
   return localStorage.getItem("access_token") || localStorage.getItem("accessToken") || "";
@@ -162,6 +147,7 @@ function getCategoryIcon(category?: string) {
   const c = String(category || "").toUpperCase();
   if (c === "DOCUMENT") return <FileText className="w-3.5 h-3.5" />;
   if (c === "SCHEDULING") return <Calendar className="w-3.5 h-3.5" />;
+  if (c === "MEDICAL") return <Heart className="w-3.5 h-3.5" />;
   if (c === "PAYROLL") return <Wallet className="w-3.5 h-3.5" />;
   if (c === "FINANCE") return <Wallet className="w-3.5 h-3.5" />;
   if (c === "OPERATIONS") return <Briefcase className="w-3.5 h-3.5" />;
@@ -215,51 +201,48 @@ const StaffRequestsPage: React.FC = () => {
   const queryClient = useQueryClient();
 
   const selectedId = params.id || null;
+  const inboxLanesQuery = useStaffInboxLanes();
+  const inboxLanes = useMemo(() => inboxLanesQuery.data ?? [], [inboxLanesQuery.data]);
 
-  // Deep-link support: dashboard widgets navigate here with
-  // ``?category=HR`` or ``?priority=URGENT`` so a click on a widget row
-  // lands the manager in the right inbox lane immediately. We read once
-  // on mount and then strip the params so a refresh / share doesn't
-  // re-apply them after the user has navigated chips manually.
-  //
-  // ``?category=`` may be a single value ("HR") or a comma-separated
-  // list ("FINANCE,PAYROLL") when the source is a "bucket" widget that
-  // aggregates multiple inbox categories. For the list case we keep the
-  // chip UI on "All" (no single chip matches the bucket) and render a
-  // removable pill explaining what's filtered.
-  const initialDeepLink = (() => {
-    const raw = (searchParams.get("category") || "").trim();
-    if (!raw) return { category: "ALL" as CategoryKey, bucket: [] as string[] };
-    const parts = raw
-      .split(",")
-      .map((p) => p.trim().toUpperCase())
-      .filter((p): p is CategoryKey => VALID_DEEP_LINK_CATEGORIES.has(p as CategoryKey));
-    if (parts.length === 0) return { category: "ALL" as CategoryKey, bucket: [] as string[] };
-    if (parts.length === 1) return { category: parts[0] as CategoryKey, bucket: [] as string[] };
-    return { category: "ALL" as CategoryKey, bucket: parts };
-  })();
   const initialPriorityFilter = (() => {
     const raw = (searchParams.get("priority") || "").toUpperCase();
     return raw === "URGENT" ? "URGENT" : "";
   })();
 
   const [activeStatus, setActiveStatus] = useState<StaffRequestStatus>("PENDING");
-  const [activeCategory, setActiveCategory] = useState<CategoryKey>(initialDeepLink.category);
-  // Multi-category bucket filter from a dashboard widget deep-link.
-  // When non-empty this takes precedence over ``activeCategory`` and is
-  // cleared the moment the user clicks any single category chip.
-  const [bucketCategories, setBucketCategories] = useState<string[]>(initialDeepLink.bucket);
+  /** null = All Requests; otherwise a dashboard widget lane id (e.g. team_medical_service). */
+  const [activeLaneId, setActiveLaneId] = useState<string | null>(null);
   const [activePriority, setActivePriority] = useState<string>(initialPriorityFilter);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const deepLinkAppliedRef = useRef(false);
 
-  // Strip the deep-link params after we've consumed them so subsequent
-  // chip clicks don't fight the URL. We keep the route clean for
-  // refresh / share without losing the manager's current selection.
+  const activeLane = useMemo(
+    () => inboxLanes.find((lane) => lane.lane_id === activeLaneId) ?? null,
+    [inboxLanes, activeLaneId],
+  );
+
+  const filterCategories = activeLane?.categories ?? [];
+
+  // Apply widget deep-links once lanes are loaded (?lane= or legacy ?category=).
   useEffect(() => {
-    if (searchParams.get("category") || searchParams.get("priority")) {
+    if (deepLinkAppliedRef.current || inboxLanesQuery.isLoading) return;
+    const laneFromUrl = resolveStaffInboxLaneId(inboxLanes, {
+      lane: searchParams.get("lane"),
+      category: searchParams.get("category"),
+    });
+    if (laneFromUrl) {
+      setActiveLaneId(laneFromUrl);
+    }
+    deepLinkAppliedRef.current = true;
+  }, [inboxLanes, inboxLanesQuery.isLoading, searchParams]);
+
+  // Strip deep-link params after consumption.
+  useEffect(() => {
+    if (searchParams.get("category") || searchParams.get("lane") || searchParams.get("priority")) {
       const next = new URLSearchParams(searchParams);
       next.delete("category");
+      next.delete("lane");
       next.delete("priority");
       setSearchParams(next, { replace: true });
     }
@@ -281,8 +264,8 @@ const StaffRequestsPage: React.FC = () => {
     queryKey: [
       "staff-requests",
       activeStatus,
-      activeCategory,
-      bucketCategories.join(","),
+      activeLaneId,
+      filterCategories.join(","),
       activePriority,
       debouncedSearch,
       assignedToMe,
@@ -290,13 +273,8 @@ const StaffRequestsPage: React.FC = () => {
     queryFn: async (): Promise<StaffRequest[]> => {
       const qs = new URLSearchParams();
       qs.set("status", activeStatus);
-      // Bucket deep-link takes precedence — the backend accepts a
-      // comma-separated category list and ORs them together so all
-      // rows counted by the source widget are visible here.
-      if (bucketCategories.length > 0) {
-        qs.set("category", bucketCategories.join(","));
-      } else if (activeCategory !== "ALL") {
-        qs.set("category", activeCategory);
+      if (filterCategories.length > 0) {
+        qs.set("category", filterCategories.join(","));
       }
       if (activePriority) qs.set("priority", activePriority);
       if (debouncedSearch) qs.set("search", debouncedSearch);
@@ -308,10 +286,10 @@ const StaffRequestsPage: React.FC = () => {
       const rows: StaffRequest[] = Array.isArray(data)
         ? (data as StaffRequest[])
         : data && Array.isArray(data.results)
-        ? (data.results as StaffRequest[])
-        : data && Array.isArray(data.requests)
-        ? (data.requests as StaffRequest[])
-        : [];
+          ? (data.results as StaffRequest[])
+          : data && Array.isArray(data.requests)
+            ? (data.requests as StaffRequest[])
+            : [];
       // The backend doesn't currently filter by priority server-side,
       // so we re-filter here to honour the deep-link from the dashboard
       // Urgent widget. Cheap because the inbox page caps at 50 rows.
@@ -345,29 +323,25 @@ const StaffRequestsPage: React.FC = () => {
     refetchOnWindowFocus: false,
   });
 
-  // Per-category open counts for the filter chips. The existing
-  // `/staff/requests/counts/` endpoint already accepts a ``?category=``
-  // param, so we simply call it once per chip in parallel. Counts are
-  // scoped to the active status tab and the "Assigned to me" toggle so
-  // the badges stay consistent with whatever the inbox currently shows.
+  // Per-lane open counts for widget-driven filter chips.
   const categoryCountsQuery = useQuery({
-    queryKey: ["staff-requests-category-counts", activeStatus, assignedToMe],
-    queryFn: async (): Promise<Record<CategoryKey, number>> => {
-      const tasks = CATEGORY_CHIPS.filter((c) => c.key !== "ALL").map(async (c) => {
+    queryKey: ["staff-requests-category-counts", activeStatus, assignedToMe, inboxLanes.map((l) => l.lane_id).join(",")],
+    enabled: inboxLanes.length > 0,
+    queryFn: async (): Promise<Record<string, number>> => {
+      const tasks = inboxLanes.map(async (lane) => {
         const params = new URLSearchParams();
-        params.set("category", c.key);
+        params.set("category", lane.categories.join(","));
         if (assignedToMe) params.set("assigned_to_me", "1");
         const data = await apiGet<any>(`/staff/requests/counts/?${params.toString()}`);
         const n: number = data?.counts?.[activeStatus] || 0;
-        return [c.key, n] as const;
+        return [lane.lane_id, n] as const;
       });
       const settled = await Promise.all(tasks);
-      const out: Record<string, number> = { ALL: 0 };
-      for (const [k, n] of settled) {
-        out[k] = n;
-        out.ALL += n;
+      const out: Record<string, number> = {};
+      for (const [laneId, n] of settled) {
+        out[laneId] = n;
       }
-      return out as Record<CategoryKey, number>;
+      return out;
     },
     placeholderData: keepPreviousData,
     staleTime: 30_000,
@@ -427,20 +401,16 @@ const StaffRequestsPage: React.FC = () => {
     </div>
   );
 
-  const pageTitle =
-    bucketCategories.length === 0 && activeCategory === "SCHEDULING"
-      ? "Team Travel"
-      : "All Requests";
+  const pageTitle = activeLane?.page_title ?? "All Requests";
+  const pageSubtitle = activeLane?.page_subtitle ?? null;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex items-start justify-between gap-4 mb-4">
         <div>
           <h2 className="text-2xl font-bold">{pageTitle}</h2>
-          {bucketCategories.length === 0 && activeCategory === "SCHEDULING" ? (
-            <p className="text-sm text-muted-foreground mt-1">
-              Leave, travel, and scheduling requests — review, assign, approve, and close from here.
-            </p>
+          {pageSubtitle ? (
+            <p className="text-sm text-muted-foreground mt-1">{pageSubtitle}</p>
           ) : null}
         </div>
         <Button
@@ -491,34 +461,36 @@ const StaffRequestsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Category filter chips — every category Miya's intent router
-            can produce gets its own lane. Clicking a chip narrows the
-            inbox via the existing ``?category=`` query param on the
-            list endpoint. */}
+        {/* Widget-driven inbox lanes — tabs appear only when Miya added the matching dashboard widget. */}
         <div
           className="mt-4 flex flex-wrap items-center gap-2"
           role="tablist"
-          aria-label="Filter inbox by category"
+          aria-label="Filter inbox by command centre lane"
         >
-          {CATEGORY_CHIPS.map((c) => {
-            const count = categoryCountsQuery.data?.[c.key] ?? 0;
-            // A bucket deep-link (e.g. "Finance" widget → FINANCE+PAYROLL)
-            // keeps ``activeCategory`` on ALL; don't light up any chip
-            // while the bucket pill is present so the filter source
-            // stays unambiguous.
-            const isActive = bucketCategories.length === 0 && activeCategory === c.key;
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeLaneId === null}
+            onClick={() => setActiveLaneId(null)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              activeLaneId === null
+                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                : "bg-background text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground",
+            )}
+          >
+            <span>All</span>
+          </button>
+          {inboxLanes.map((lane) => {
+            const count = categoryCountsQuery.data?.[lane.lane_id] ?? 0;
+            const isActive = activeLaneId === lane.lane_id;
             return (
               <button
-                key={c.key}
+                key={lane.lane_id}
                 type="button"
                 role="tab"
                 aria-selected={isActive}
-                onClick={() => {
-                  // Any chip click exits the bucket filter — the user
-                  // has made an explicit single-category choice.
-                  setBucketCategories([]);
-                  setActiveCategory(c.key);
-                }}
+                onClick={() => setActiveLaneId(lane.lane_id)}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                   isActive
@@ -526,10 +498,8 @@ const StaffRequestsPage: React.FC = () => {
                     : "bg-background text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground",
                 )}
               >
-                {c.key !== "ALL" && (
-                  <span className="opacity-80">{getCategoryIcon(c.key)}</span>
-                )}
-                <span>{c.label}</span>
+                <span className="opacity-80">{getLaneIcon(lane)}</span>
+                <span>{lane.label}</span>
                 {count > 0 && (
                   <Badge
                     variant="secondary"
@@ -544,42 +514,6 @@ const StaffRequestsPage: React.FC = () => {
               </button>
             );
           })}
-          {/* Bucket filter pill — rendered when a dashboard "bucket"
-              widget deep-linked us here with multiple categories
-              (e.g. Finance = FINANCE + PAYROLL). We keep ``All`` highlighted
-              because no single chip matches the bucket; this pill tells
-              the manager which categories are being combined and lets
-              them clear it in one click. */}
-          {bucketCategories.length > 0 ? (
-            <button
-              type="button"
-              role="tab"
-              aria-selected="true"
-              onClick={() => setBucketCategories([])}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                "bg-emerald-600 text-white border-emerald-600 shadow-sm hover:bg-emerald-700",
-              )}
-              title="Clear bucket filter"
-            >
-              <span>
-                {(() => {
-                  const label =
-                    BUCKET_LABELS[[...bucketCategories].sort().join(",")] ||
-                    "Bucket";
-                  const pretty = bucketCategories
-                    .map(
-                      (k) =>
-                        CATEGORY_CHIPS.find((c) => c.key === (k as CategoryKey))
-                          ?.label || k,
-                    )
-                    .join(" + ");
-                  return `${label} (${pretty})`;
-                })()}
-              </span>
-              <span className="text-[14px] leading-none">×</span>
-            </button>
-          ) : null}
           {/* Priority filter chip — only rendered when active (typically
               from a deep-link off the dashboard "Urgent TOP 5" widget).
               Clicking it clears the filter and reverts to all priorities. */}
@@ -607,22 +541,9 @@ const StaffRequestsPage: React.FC = () => {
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">
                   Inbox
-                  {bucketCategories.length > 0 ? (
+                  {activeLane ? (
                     <span className="ml-2 text-sm font-normal text-muted-foreground">
-                      ·{" "}
-                      {BUCKET_LABELS[[...bucketCategories].sort().join(",")] ||
-                        bucketCategories
-                          .map(
-                            (k) =>
-                              CATEGORY_CHIPS.find(
-                                (c) => c.key === (k as CategoryKey),
-                              )?.label || k,
-                          )
-                          .join(" + ")}
-                    </span>
-                  ) : activeCategory !== "ALL" ? (
-                    <span className="ml-2 text-sm font-normal text-muted-foreground">
-                      · {CATEGORY_CHIPS.find((c) => c.key === activeCategory)?.label}
+                      · {activeLane.label}
                     </span>
                   ) : null}
                 </CardTitle>

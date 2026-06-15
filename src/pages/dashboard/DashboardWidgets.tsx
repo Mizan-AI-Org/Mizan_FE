@@ -105,6 +105,7 @@ export const DASHBOARD_WIDGET_IDS = [
   "ops_reports",
   "staff_inbox",
   "team_travel",
+  "team_medical_service",
   "meetings_reminders",
   "clock_ins",
   "incidents",
@@ -150,6 +151,7 @@ export const WIDGET_ADD_ICONS: Record<DashboardWidgetId, LucideIcon> = {
   ops_reports: FileBarChart2,
   staff_inbox: Inbox,
   team_travel: Plane,
+  team_medical_service: Heart,
   meetings_reminders: CalendarDays,
   clock_ins: Clock,
   incidents: ShieldAlert,
@@ -182,6 +184,7 @@ export const WIDGET_ADD_DESC_KEYS: Record<DashboardWidgetId, string> = {
   ops_reports: "dashboard.widget_add.ops_reports",
   staff_inbox: "dashboard.widget_add.staff_inbox",
   team_travel: "dashboard.widget_add.team_travel",
+  team_medical_service: "dashboard.widget_add.team_medical_service",
   meetings_reminders: "dashboard.widget_add.meetings_reminders",
   clock_ins: "dashboard.widget_add.clock_ins",
   incidents: "dashboard.widget_add.incidents",
@@ -224,6 +227,7 @@ const WIDGET_ID_TO_CATEGORY: Record<DashboardWidgetId, DashboardWidgetCategoryId
   ops_reports: "general",
   staff_inbox: "general",
   team_travel: "general",
+  team_medical_service: "general",
   meetings_reminders: "general",
   clock_ins: "general",
   incidents: "general",
@@ -512,6 +516,15 @@ const CUSTOM_WIDGET_TITLE_ALIASES: Record<string, DashboardWidgetId> = {
   "team retreats": "team_travel",
   "retreat": "team_travel",
   "retreats": "team_travel",
+  // team_medical_service — occupational health lane
+  "team medical service": "team_medical_service",
+  "team medical services": "team_medical_service",
+  "medical service": "team_medical_service",
+  "medical services": "team_medical_service",
+  "team medical": "team_medical_service",
+  "team health service": "team_medical_service",
+  "health service": "team_medical_service",
+  "occupational health": "team_medical_service",
   // staff_messages
   "staff messages": "staff_messages",
   "whatsapp": "staff_messages",
@@ -1087,6 +1100,8 @@ function _inboxCategoryToBucket(
       return "purchase_orders";
     case "SCHEDULING":
       return "team_travel";
+    case "MEDICAL":
+      return "team_medical_service";
     default:
       // OTHER, INVENTORY, OPERATIONS, RESERVATIONS, null, and anything
       // else fall here. We use ``miscellaneous`` as the synthetic source;
@@ -6098,11 +6113,31 @@ export function DashboardWidgetById({
           titleKey="dashboard.team_travel.title"
           icon={Plane}
           tone="sky"
-          moreHref="/dashboard/staff-requests?category=SCHEDULING"
+          moreHref="/dashboard/staff-requests?lane=team_travel"
           rowDetailHref={(item) =>
             item.kind === "staff_request"
-              ? `/dashboard/staff-requests/${item.id}?category=SCHEDULING`
-              : `/dashboard/staff-requests?category=SCHEDULING`
+              ? `/dashboard/staff-requests/${item.id}?lane=team_travel`
+              : `/dashboard/staff-requests?lane=team_travel`
+          }
+        />
+      );
+
+    case "team_medical_service":
+      return (
+        <CategoryTasksCard
+          cardBase={cardBase}
+          cardHeaderBase={cardHeaderBase}
+          t={t}
+          navigate={navigate}
+          bucket="team_medical_service"
+          titleKey="dashboard.team_medical_service.title"
+          icon={Heart}
+          tone="rose"
+          moreHref="/dashboard/staff-requests?lane=team_medical_service"
+          rowDetailHref={(item) =>
+            item.kind === "staff_request"
+              ? `/dashboard/staff-requests/${item.id}?lane=team_medical_service`
+              : `/dashboard/staff-requests?lane=team_medical_service`
           }
         />
       );
@@ -6157,7 +6192,7 @@ export function DashboardWidgetById({
           // on the backend); pass both so the inbox shows every row the
           // widget counted instead of hiding DOCUMENT rows behind an
           // HR-only chip.
-          moreHref="/dashboard/staff-requests?category=HR,DOCUMENT"
+          moreHref="/dashboard/staff-requests?lane=human_resources"
         />
       );
 
@@ -6175,7 +6210,7 @@ export function DashboardWidgetById({
           // Finance widget aggregates FINANCE + PAYROLL (see
           // BUCKET_TO_CATEGORIES on the backend). Deep-linking to a single
           // category hid payslip rows here, so we pass both.
-          moreHref="/dashboard/staff-requests?category=FINANCE,PAYROLL"
+          moreHref="/dashboard/staff-requests?lane=finance"
         />
       );
 
@@ -6190,7 +6225,7 @@ export function DashboardWidgetById({
           titleKey="dashboard.maintenance.title"
           icon={Wrench}
           tone="amber"
-          moreHref="/dashboard/staff-requests?category=MAINTENANCE"
+          moreHref="/dashboard/staff-requests?lane=maintenance"
         />
       );
 
@@ -6205,7 +6240,7 @@ export function DashboardWidgetById({
           titleKey="dashboard.operations_tasks.title"
           icon={ListTodo}
           tone="emerald"
-          moreHref="/dashboard/staff-requests?category=OPERATIONS"
+          moreHref="/dashboard/staff-requests?lane=operations_tasks"
         />
       );
 
@@ -6220,7 +6255,7 @@ export function DashboardWidgetById({
           titleKey="dashboard.purchase_orders.title"
           icon={ShoppingBag}
           tone="sky"
-          moreHref="/dashboard/staff-requests?category=PURCHASE_ORDER"
+          moreHref="/dashboard/staff-requests?lane=purchase_orders"
         />
       );
 
@@ -6235,7 +6270,7 @@ export function DashboardWidgetById({
           titleKey="dashboard.miscellaneous.title"
           icon={Layers}
           tone="slate"
-          moreHref="/dashboard/staff-requests?category=OTHER"
+          moreHref="/dashboard/staff-requests?lane=miscellaneous"
         />
       );
 

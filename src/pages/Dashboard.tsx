@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
   DragEndEvent,
@@ -161,6 +161,7 @@ const apps: AppItem[] = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { pathname } = useLocation();
   const { user, hasRole, accessToken } = useAuth() as AuthContextType;
   const { t } = useLanguage();
@@ -359,10 +360,15 @@ export default function Dashboard() {
     if (!canCustomizeDashboard || !accessToken || !serverLayoutReady) return;
     if (ignoreNextServerPatch.current) return;
     const t = setTimeout(() => {
-      api.patchDashboardWidgetOrder({ order: widgetOrder }).catch(() => {});
+      api
+        .patchDashboardWidgetOrder({ order: widgetOrder })
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["staff-inbox-lanes"] });
+        })
+        .catch(() => {});
     }, 900);
     return () => clearTimeout(t);
-  }, [widgetOrder, canCustomizeDashboard, accessToken, serverLayoutReady]);
+  }, [widgetOrder, canCustomizeDashboard, accessToken, serverLayoutReady, queryClient]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -490,6 +496,8 @@ export default function Dashboard() {
           return t("dashboard.staff_inbox.title");
         case "team_travel":
           return t("dashboard.team_travel.title");
+        case "team_medical_service":
+          return t("dashboard.team_medical_service.title");
         case "tasks_demands":
           return t("dashboard.tasks_demands.title");
         case "meetings_reminders":
