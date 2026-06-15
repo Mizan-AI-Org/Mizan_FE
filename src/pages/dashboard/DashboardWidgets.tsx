@@ -6113,11 +6113,11 @@ export function DashboardWidgetById({
           titleKey="dashboard.team_travel.title"
           icon={Plane}
           tone="sky"
-          moreHref="/dashboard/staff-requests?category=SCHEDULING"
+          moreHref="/dashboard/staff-requests?lane=team_travel"
           rowDetailHref={(item) =>
             item.kind === "staff_request"
-              ? `/dashboard/staff-requests/${item.id}?category=SCHEDULING`
-              : `/dashboard/staff-requests?category=SCHEDULING`
+              ? `/dashboard/staff-requests/${item.id}?lane=team_travel`
+              : `/dashboard/staff-requests?lane=team_travel`
           }
         />
       );
@@ -6133,11 +6133,11 @@ export function DashboardWidgetById({
           titleKey="dashboard.team_medical_service.title"
           icon={Heart}
           tone="rose"
-          moreHref="/dashboard/staff-requests?category=MEDICAL"
+          moreHref="/dashboard/staff-requests?lane=team_medical_service"
           rowDetailHref={(item) =>
             item.kind === "staff_request"
-              ? `/dashboard/staff-requests/${item.id}?category=MEDICAL`
-              : `/dashboard/staff-requests?category=MEDICAL`
+              ? `/dashboard/staff-requests/${item.id}?lane=team_medical_service`
+              : `/dashboard/staff-requests?lane=team_medical_service`
           }
         />
       );
@@ -6192,7 +6192,7 @@ export function DashboardWidgetById({
           // on the backend); pass both so the inbox shows every row the
           // widget counted instead of hiding DOCUMENT rows behind an
           // HR-only chip.
-          moreHref="/dashboard/staff-requests?category=HR,DOCUMENT"
+          moreHref="/dashboard/staff-requests?lane=human_resources"
         />
       );
 
@@ -6210,7 +6210,7 @@ export function DashboardWidgetById({
           // Finance widget aggregates FINANCE + PAYROLL (see
           // BUCKET_TO_CATEGORIES on the backend). Deep-linking to a single
           // category hid payslip rows here, so we pass both.
-          moreHref="/dashboard/staff-requests?category=FINANCE,PAYROLL"
+          moreHref="/dashboard/staff-requests?lane=finance"
         />
       );
 
@@ -6225,7 +6225,7 @@ export function DashboardWidgetById({
           titleKey="dashboard.maintenance.title"
           icon={Wrench}
           tone="amber"
-          moreHref="/dashboard/staff-requests?category=MAINTENANCE"
+          moreHref="/dashboard/staff-requests?lane=maintenance"
         />
       );
 
@@ -6240,7 +6240,7 @@ export function DashboardWidgetById({
           titleKey="dashboard.operations_tasks.title"
           icon={ListTodo}
           tone="emerald"
-          moreHref="/dashboard/staff-requests?category=OPERATIONS"
+          moreHref="/dashboard/staff-requests?lane=operations_tasks"
         />
       );
 
@@ -6255,7 +6255,7 @@ export function DashboardWidgetById({
           titleKey="dashboard.purchase_orders.title"
           icon={ShoppingBag}
           tone="sky"
-          moreHref="/dashboard/staff-requests?category=PURCHASE_ORDER"
+          moreHref="/dashboard/staff-requests?lane=purchase_orders"
         />
       );
 
@@ -6270,7 +6270,7 @@ export function DashboardWidgetById({
           titleKey="dashboard.miscellaneous.title"
           icon={Layers}
           tone="slate"
-          moreHref="/dashboard/staff-requests?category=OTHER"
+          moreHref="/dashboard/staff-requests?lane=miscellaneous"
         />
       );
 
