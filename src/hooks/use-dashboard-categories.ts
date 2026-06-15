@@ -95,6 +95,7 @@ export function useDashboardCategoryMutations() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: CUSTOM_WIDGETS_KEY });
       qc.invalidateQueries({ queryKey: ["dashboard-widget-order"] });
+      qc.invalidateQueries({ queryKey: ["staff-inbox-lanes"] });
     },
   });
 
@@ -122,6 +123,7 @@ export function useDashboardCategoryMutations() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: CUSTOM_WIDGETS_KEY });
       qc.invalidateQueries({ queryKey: ["dashboard-widget-order"] });
+      qc.invalidateQueries({ queryKey: ["staff-inbox-lanes"] });
     },
   });
 
