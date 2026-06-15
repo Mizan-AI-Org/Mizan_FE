@@ -370,6 +370,8 @@
   "dashboard.widget_add.jobsite_crew": "Équipes et trous de planning pour le chantier et le terrain.",
   "dashboard.widget_add.ops_reports": "Exports travail, présence, stocks et ventes au même endroit.",
   "dashboard.widget_add.staff_inbox": "Demandes, documents et validations entre équipes.",
+  "dashboard.widget_add.team_travel": "Congés, déplacements et demandes de planning — aperçu en direct et centre de commande.",
+  "dashboard.team_travel.title": "Voyages équipe",
   "dashboard.widget_categories.general": "Cœur de métier & tous secteurs",
   "dashboard.widget_categories.retail": "Commerce & magasin",
   "dashboard.widget_categories.hospitality": "Restauration & hôtellerie",

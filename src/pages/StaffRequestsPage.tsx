@@ -427,14 +427,21 @@ const StaffRequestsPage: React.FC = () => {
     </div>
   );
 
+  const pageTitle =
+    bucketCategories.length === 0 && activeCategory === "SCHEDULING"
+      ? "Team Travel"
+      : "All Requests";
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex items-start justify-between gap-4 mb-4">
         <div>
-          <h2 className="text-2xl font-bold">Staff Requests</h2>
-          <p className="text-sm text-muted-foreground">
-            Intelligent inbox — WhatsApp messages and voice notes are transcribed, classified and routed automatically.
-          </p>
+          <h2 className="text-2xl font-bold">{pageTitle}</h2>
+          {bucketCategories.length === 0 && activeCategory === "SCHEDULING" ? (
+            <p className="text-sm text-muted-foreground mt-1">
+              Leave, travel, and scheduling requests — review, assign, approve, and close from here.
+            </p>
+          ) : null}
         </div>
         <Button
           variant={assignedToMe ? "default" : "outline"}

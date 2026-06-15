@@ -74,6 +74,7 @@ import {
   Wallet,
   Layers,
   ShoppingBag,
+  Plane,
   // Staff messages widget
   Send,
   CheckCheck,
@@ -103,6 +104,7 @@ export const DASHBOARD_WIDGET_IDS = [
   "jobsite_crew",
   "ops_reports",
   "staff_inbox",
+  "team_travel",
   "meetings_reminders",
   "clock_ins",
   "incidents",
@@ -147,6 +149,7 @@ export const WIDGET_ADD_ICONS: Record<DashboardWidgetId, LucideIcon> = {
   jobsite_crew: HardHat,
   ops_reports: FileBarChart2,
   staff_inbox: Inbox,
+  team_travel: Plane,
   meetings_reminders: CalendarDays,
   clock_ins: Clock,
   incidents: ShieldAlert,
@@ -178,6 +181,7 @@ export const WIDGET_ADD_DESC_KEYS: Record<DashboardWidgetId, string> = {
   jobsite_crew: "dashboard.widget_add.jobsite_crew",
   ops_reports: "dashboard.widget_add.ops_reports",
   staff_inbox: "dashboard.widget_add.staff_inbox",
+  team_travel: "dashboard.widget_add.team_travel",
   meetings_reminders: "dashboard.widget_add.meetings_reminders",
   clock_ins: "dashboard.widget_add.clock_ins",
   incidents: "dashboard.widget_add.incidents",
@@ -219,6 +223,7 @@ const WIDGET_ID_TO_CATEGORY: Record<DashboardWidgetId, DashboardWidgetCategoryId
   live_attendance: "general",
   ops_reports: "general",
   staff_inbox: "general",
+  team_travel: "general",
   meetings_reminders: "general",
   clock_ins: "general",
   incidents: "general",
@@ -480,11 +485,29 @@ const CUSTOM_WIDGET_TITLE_ALIASES: Record<string, DashboardWidgetId> = {
   "reunions": "meetings_reminders",
   "calendrier": "meetings_reminders",
   "rappels": "meetings_reminders",
-  // staff_inbox
+  // staff_inbox — general inbox (sync with widget_alias_resolver.py)
   "inbox": "staff_inbox",
   "staff inbox": "staff_inbox",
   "staff requests": "staff_inbox",
   "demandes du personnel": "staff_inbox",
+  // team_travel — leave / travel / scheduling lane
+  "leave request": "team_travel",
+  "leave requests": "team_travel",
+  "team leave": "team_travel",
+  "team leave request": "team_travel",
+  "time off": "team_travel",
+  "time off request": "team_travel",
+  "time off requests": "team_travel",
+  "holiday request": "team_travel",
+  "holiday requests": "team_travel",
+  "team travel": "team_travel",
+  "team travelling": "team_travel",
+  "team traveling": "team_travel",
+  "travel request": "team_travel",
+  "travel requests": "team_travel",
+  "travelling": "team_travel",
+  "traveling": "team_travel",
+  "travel": "team_travel",
   // staff_messages
   "staff messages": "staff_messages",
   "whatsapp": "staff_messages",
@@ -531,6 +554,40 @@ function _normaliseAliasKey(s: string | null | undefined): string {
   return folded.startsWith("the ") ? folded.slice(4) : folded;
 }
 
+const _SHORT_ALIAS_OK = new Set(["hr", "rh", "po"]);
+
+/** Phrase-aware alias lookup — mirrors backend ``resolve_widget_alias``. */
+function resolveWidgetAliasFromText(
+  ...candidates: (string | null | undefined)[]
+): DashboardWidgetId | undefined {
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const key = _normaliseAliasKey(raw);
+    if (!key) continue;
+    const exact = CUSTOM_WIDGET_TITLE_ALIASES[key];
+    if (exact) return exact;
+    if (key.endsWith("s")) {
+      const singular = CUSTOM_WIDGET_TITLE_ALIASES[key.slice(0, -1)];
+      if (singular) return singular;
+    }
+    const relaxed = key.replace(/[^\w\s]+/gu, " ").replace(/\s+/g, " ");
+    const paddedVariants = [` ${key} `, ` ${relaxed} `];
+    let bestLen = 0;
+    let bestWid: DashboardWidgetId | undefined;
+    for (const pad of paddedVariants) {
+      for (const [aliasKey, wid] of Object.entries(CUSTOM_WIDGET_TITLE_ALIASES)) {
+        if (aliasKey.length < 3 && !_SHORT_ALIAS_OK.has(aliasKey)) continue;
+        if (pad.includes(` ${aliasKey} `) && aliasKey.length > bestLen) {
+          bestLen = aliasKey.length;
+          bestWid = wid;
+        }
+      }
+    }
+    if (bestWid) return bestWid;
+  }
+  return undefined;
+}
+
 /**
  * Resolve a custom widget's title (and optional subtitle) to a known
  * data-bound built-in widget id, or undefined if the title is a real
@@ -543,11 +600,7 @@ export function resolveCustomWidgetAlias(
   def: DashboardCustomWidgetDef,
 ): DashboardWidgetId | undefined {
   if (def.link_url && def.link_url.trim().length > 0) return undefined;
-  const titleHit = CUSTOM_WIDGET_TITLE_ALIASES[_normaliseAliasKey(def.title)];
-  if (titleHit) return titleHit;
-  const subtitleHit = CUSTOM_WIDGET_TITLE_ALIASES[_normaliseAliasKey(def.subtitle)];
-  if (subtitleHit) return subtitleHit;
-  return undefined;
+  return resolveWidgetAliasFromText(def.title, def.subtitle);
 }
 
 export type DashboardCustomWidgetDef = {
@@ -1014,11 +1067,13 @@ function _inboxCategoryToBucket(
       return "maintenance";
     case "PURCHASE_ORDER":
       return "purchase_orders";
+    case "SCHEDULING":
+      return "team_travel";
     default:
-      // OTHER, INVENTORY, OPERATIONS, RESERVATIONS, SCHEDULING, null,
-      // and anything else fall here. We use ``miscellaneous`` as the
-      // synthetic source; same-bucket drop guard short-circuits drops
-      // back onto Misc, every other lane is a real reclassification.
+      // OTHER, INVENTORY, OPERATIONS, RESERVATIONS, null, and anything
+      // else fall here. We use ``miscellaneous`` as the synthetic source;
+      // same-bucket drop guard short-circuits drops back onto Misc, every
+      // other lane is a real reclassification.
       return "miscellaneous";
   }
 }
@@ -1253,7 +1308,7 @@ function StaffInboxEnterpriseCard({
                   <li
                     key={it.id}
                     className={cn(
-                      "flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-all",
+                      "flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-all cursor-pointer",
                       // Subtle "you can grab me" affordance — matches the
                       // CategoryTasksCard row treatment so DnD feels the
                       // same wherever items live.
@@ -1265,6 +1320,10 @@ function StaffInboxEnterpriseCard({
                         "opacity-35 border border-dashed border-emerald-400/70 bg-emerald-50/40 dark:bg-emerald-950/20 italic",
                     )}
                     draggable={draggable}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/dashboard/staff-requests/${it.id}`);
+                    }}
                     onDragStart={onRowDragStart}
                     onDragEnd={onRowDragEnd}
                     aria-grabbed={isDragging || undefined}
@@ -2646,14 +2705,13 @@ function formatClockInTime(iso: string, locale: string): string {
 /** -------------------------------------------------------------------------
  * Reported Incidents widget
  * -------------------------------------------------------------------------
- * Shows the 5 most recent incidents reported by staff (safety, maintenance,
- * service, customer, etc.). Tapping the card — or the "View all" link —
- * sends the manager to the Reported Incidents tab on /dashboard/analytics.
+ * Shows the 5 most recent **open** incidents reported by staff (safety,
+ * maintenance, service, customer, etc.). Resolved / dismissed items are
+ * excluded — they stay on the analytics page, not the live dashboard lane.
+ * Tapping the card opens the Reported Incidents tab on /dashboard/analytics.
  *
- * Data source: /api/staff/safety-concerns/ (the same endpoint the analytics
- * page uses). We sort by created_at desc client-side and slice to 5 so that
- * a server with no ordering still works correctly. Refresh every 60 s so a
- * fresh report shows up promptly without hammering the API.
+ * Data source: GET /api/staff/safety-concerns/?status=OPEN (same records as
+ * analytics). Refresh every 60 s so a fresh report shows up promptly.
  * ----------------------------------------------------------------------- */
 type RecentIncidentItem = {
   id: string;
@@ -2702,6 +2760,12 @@ function formatIncidentRelative(iso: string | null, t: (k: string) => string): s
   }
 }
 
+/** Terminal incident states — resolved/dismissed items belong on analytics, not live widgets. */
+function isOpenIncidentStatus(status: string | null | undefined): boolean {
+  const s = String(status || "").toUpperCase();
+  return s !== "RESOLVED" && s !== "DISMISSED" && s !== "ADDRESSED" && s !== "CLOSED";
+}
+
 function RecentIncidentsCard({
   cardBase,
   cardHeaderBase,
@@ -2714,13 +2778,14 @@ function RecentIncidentsCard({
   navigate: NavigateFunction;
 }) {
   const { data, isLoading, isError, refetch, isFetching } = useQuery<unknown>({
-    queryKey: ["dashboard", "recent-incidents", 5],
+    queryKey: ["dashboard", "recent-incidents", "open", 5],
     queryFn: async () => {
       const token =
         localStorage.getItem("access_token") ||
         localStorage.getItem("accessToken") ||
         "";
-      const res = await fetch(`${API_BASE}/staff/safety-concerns/`, {
+      const qs = new URLSearchParams({ status: "OPEN", ordering: "-created_at" });
+      const res = await fetch(`${API_BASE}/staff/safety-concerns/?${qs.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to fetch incidents");
@@ -2758,17 +2823,10 @@ function RecentIncidentsCard({
       const bt = b.created_at ? new Date(b.created_at).getTime() : 0;
       return bt - at;
     });
-    return mapped.slice(0, 5);
+    return mapped.filter((i) => isOpenIncidentStatus(i.status)).slice(0, 5);
   }, [data]);
 
-  const openCount = useMemo(
-    () =>
-      items.filter((i) => {
-        const s = String(i.status || "").toUpperCase();
-        return s === "OPEN" || s === "INVESTIGATING";
-      }).length,
-    [items],
-  );
+  const openCount = items.length;
 
   const goToIncidents = React.useCallback(() => {
     navigate("/dashboard/analytics?tab=incidents");
@@ -2796,21 +2854,17 @@ function RecentIncidentsCard({
             {t("dashboard.incidents.title")}
           </CardTitle>
         </div>
-        {items.length > 0 ? (
+        {openCount > 0 ? (
           <span
             className={cn(
               "shrink-0 text-[10px] font-semibold rounded-full border px-2 py-0.5",
-              openCount > 0
-                ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300"
-                : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300",
+              "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300",
             )}
           >
-            {openCount > 0
-              ? (t("dashboard.incidents.open_count") || "{n} open").replace(
-                  "{n}",
-                  String(openCount),
-                )
-              : t("dashboard.incidents.all_clear") || "All clear"}
+            {(t("dashboard.incidents.open_count") || "{n} open").replace(
+              "{n}",
+              String(openCount),
+            )}
           </span>
         ) : null}
       </CardHeader>
@@ -2846,8 +2900,8 @@ function RecentIncidentsCard({
                 <ShieldAlert className="h-5 w-5" aria-hidden />
               </div>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                {t("dashboard.incidents.empty") ||
-                  "No incidents reported yet."}
+                {t("dashboard.incidents.all_clear") ||
+                  "No open incidents — all clear."}
               </p>
             </div>
           ) : (
@@ -3131,6 +3185,8 @@ function CategoryTasksCard({
    * this bucket (e.g. /dashboard/staff-requests?category=HR).
    */
   moreHref,
+  /** When set, clicking a row opens this URL instead of only the list page. */
+  rowDetailHref,
 }: {
   cardBase: string;
   cardHeaderBase: string;
@@ -3141,6 +3197,7 @@ function CategoryTasksCard({
   icon: LucideIcon;
   tone: CategoryWidgetTone;
   moreHref: string;
+  rowDetailHref?: (item: DashboardTaskDemandItem) => string;
 }) {
   const [filter, setFilter] = useState<CategoryTasksFilter>("open");
   // Track whether a row from *another* widget is hovering this card
@@ -3517,6 +3574,11 @@ function CategoryTasksCard({
                       ? statusMutation.variables.id
                       : null
                   }
+                  onRowNavigate={
+                    rowDetailHref
+                      ? () => navigate(rowDetailHref(it))
+                      : undefined
+                  }
                 />
               ))}
             </ul>
@@ -3723,6 +3785,7 @@ function CategoryTaskRow({
   sourceBucket,
   isDragging,
   onDragStateChange,
+  onRowNavigate,
 }: {
   item: DashboardTaskDemandItem;
   t: (key: string) => string;
@@ -3753,6 +3816,8 @@ function CategoryTaskRow({
    *  air. Called with the row id on dragstart and ``null`` on
    *  dragend. Optional for read-only contexts. */
   onDragStateChange?: (id: string | null) => void;
+  /** Open the full detail / command-centre view for this row. */
+  onRowNavigate?: () => void;
 }) {
   const pill = statusPillClass(item.status, item.priority, item.pill_status);
   const assigneeLabel = item.assignee?.name?.trim()
@@ -3849,6 +3914,7 @@ function CategoryTaskRow({
     <li
       className={cn(
         "group/row flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-all",
+        onRowNavigate && "cursor-pointer",
         // Subtle "you can drag this" affordance: a grab cursor on
         // hover so the manager realises the rows are interactive
         // even before they grab one.
@@ -3862,6 +3928,14 @@ function CategoryTaskRow({
           "opacity-35 border border-dashed border-emerald-400/70 bg-emerald-50/40 dark:bg-emerald-950/20 italic",
       )}
       draggable={draggable}
+      onClick={
+        onRowNavigate
+          ? (e) => {
+              e.stopPropagation();
+              onRowNavigate();
+            }
+          : undefined
+      }
       onDragStart={onRowDragStart}
       onDragEnd={onRowDragEnd}
       aria-grabbed={isDragging || undefined}
@@ -5993,6 +6067,26 @@ export function DashboardWidgetById({
     case "staff_inbox":
       return (
         <StaffInboxEnterpriseCard cardBase={cardBase} cardHeaderBase={cardHeaderBase} t={t} navigate={navigate} />
+      );
+
+    case "team_travel":
+      return (
+        <CategoryTasksCard
+          cardBase={cardBase}
+          cardHeaderBase={cardHeaderBase}
+          t={t}
+          navigate={navigate}
+          bucket="team_travel"
+          titleKey="dashboard.team_travel.title"
+          icon={Plane}
+          tone="sky"
+          moreHref="/dashboard/staff-requests?category=SCHEDULING"
+          rowDetailHref={(item) =>
+            item.kind === "staff_request"
+              ? `/dashboard/staff-requests/${item.id}?category=SCHEDULING`
+              : `/dashboard/staff-requests?category=SCHEDULING`
+          }
+        />
       );
 
     case "tasks_demands":

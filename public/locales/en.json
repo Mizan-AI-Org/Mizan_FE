@@ -373,6 +373,8 @@
   "dashboard.widget_add.jobsite_crew": "Shifts and coverage gaps for construction and field crews.",
   "dashboard.widget_add.ops_reports": "Labor, attendance, inventory, and sales exports in one place.",
   "dashboard.widget_add.staff_inbox": "Requests, documents, and approvals across teams.",
+  "dashboard.widget_add.team_travel": "Leave, travel, and scheduling requests — live snippets with one-click access to the command centre.",
+  "dashboard.team_travel.title": "Team Travel",
   "dashboard.widget_categories.general": "Core & all industries",
   "dashboard.widget_categories.retail": "Retail & storefront",
   "dashboard.widget_categories.hospitality": "Restaurants & hospitality",
