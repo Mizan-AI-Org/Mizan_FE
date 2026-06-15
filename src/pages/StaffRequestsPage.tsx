@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { MessageCircle, FileText, Calendar, Wallet, Settings, Briefcase, Plus, AlertCircle, Clock, ChevronRight, Wrench, BookOpen, Package, Mic, UserCircle2, ArrowRightLeft, Inbox } from "lucide-react";
+import { MessageCircle, FileText, Calendar, Wallet, Settings, Briefcase, Plus, AlertCircle, Clock, ChevronRight, Wrench, BookOpen, Package, Mic, UserCircle2, ArrowRightLeft, Inbox, Heart } from "lucide-react";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 
 type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED" | "WAITING_ON";
@@ -80,6 +80,7 @@ type CategoryKey =
   | "HR"
   | "DOCUMENT"
   | "SCHEDULING"
+  | "MEDICAL"
   | "PAYROLL"
   | "FINANCE"
   | "OPERATIONS"
@@ -95,6 +96,7 @@ const CATEGORY_CHIPS: { key: CategoryKey; label: string }[] = [
   { key: "PAYROLL", label: "Payroll" },
   { key: "FINANCE", label: "Finance" },
   { key: "SCHEDULING", label: "Scheduling" },
+  { key: "MEDICAL", label: "Team Medical Service" },
   { key: "OPERATIONS", label: "Operations" },
   { key: "MAINTENANCE", label: "Maintenance" },
   { key: "RESERVATIONS", label: "Reservations" },
@@ -109,6 +111,7 @@ const VALID_DEEP_LINK_CATEGORIES: ReadonlySet<CategoryKey> = new Set<CategoryKey
   "HR",
   "DOCUMENT",
   "SCHEDULING",
+  "MEDICAL",
   "PAYROLL",
   "FINANCE",
   "OPERATIONS",
@@ -128,6 +131,8 @@ const VALID_DEEP_LINK_CATEGORIES: ReadonlySet<CategoryKey> = new Set<CategoryKey
 const BUCKET_LABELS: Record<string, string> = {
   "DOCUMENT,HR": "Human Resources",
   "FINANCE,PAYROLL": "Finance",
+  MEDICAL: "Team Medical Service",
+  SCHEDULING: "Team Travel",
 };
 
 function getAuthToken() {
@@ -162,6 +167,7 @@ function getCategoryIcon(category?: string) {
   const c = String(category || "").toUpperCase();
   if (c === "DOCUMENT") return <FileText className="w-3.5 h-3.5" />;
   if (c === "SCHEDULING") return <Calendar className="w-3.5 h-3.5" />;
+  if (c === "MEDICAL") return <Heart className="w-3.5 h-3.5" />;
   if (c === "PAYROLL") return <Wallet className="w-3.5 h-3.5" />;
   if (c === "FINANCE") return <Wallet className="w-3.5 h-3.5" />;
   if (c === "OPERATIONS") return <Briefcase className="w-3.5 h-3.5" />;
@@ -308,10 +314,10 @@ const StaffRequestsPage: React.FC = () => {
       const rows: StaffRequest[] = Array.isArray(data)
         ? (data as StaffRequest[])
         : data && Array.isArray(data.results)
-        ? (data.results as StaffRequest[])
-        : data && Array.isArray(data.requests)
-        ? (data.requests as StaffRequest[])
-        : [];
+          ? (data.results as StaffRequest[])
+          : data && Array.isArray(data.requests)
+            ? (data.requests as StaffRequest[])
+            : [];
       // The backend doesn't currently filter by priority server-side,
       // so we re-filter here to honour the deep-link from the dashboard
       // Urgent widget. Cheap because the inbox page caps at 50 rows.
@@ -430,17 +436,24 @@ const StaffRequestsPage: React.FC = () => {
   const pageTitle =
     bucketCategories.length === 0 && activeCategory === "SCHEDULING"
       ? "Team Travel"
-      : "All Requests";
+      : bucketCategories.length === 0 && activeCategory === "MEDICAL"
+        ? "Team Medical Service"
+        : "All Requests";
+
+  const pageSubtitle =
+    bucketCategories.length === 0 && activeCategory === "SCHEDULING"
+      ? "Leave, travel, and scheduling requests — review, assign, approve, and close from here."
+      : bucketCategories.length === 0 && activeCategory === "MEDICAL"
+        ? "Medical and occupational-health requests — review, assign, approve, and close from here."
+        : null;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex items-start justify-between gap-4 mb-4">
         <div>
           <h2 className="text-2xl font-bold">{pageTitle}</h2>
-          {bucketCategories.length === 0 && activeCategory === "SCHEDULING" ? (
-            <p className="text-sm text-muted-foreground mt-1">
-              Leave, travel, and scheduling requests — review, assign, approve, and close from here.
-            </p>
+          {pageSubtitle ? (
+            <p className="text-sm text-muted-foreground mt-1">{pageSubtitle}</p>
           ) : null}
         </div>
         <Button
