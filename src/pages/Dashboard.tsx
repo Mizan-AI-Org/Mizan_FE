@@ -664,7 +664,7 @@ export default function Dashboard() {
                                 key={wid}
                                 type="button"
                                 onClick={() => {
-                                  setWidgetOrder((o) => (o.includes(wid) ? o : [...o, wid]));
+                                  setWidgetOrder((o) => (o.includes(wid) ? o : [wid, ...o]));
                                   setAddWidgetOpen(false);
                                 }}
                                 className={cn(
@@ -704,7 +704,9 @@ export default function Dashboard() {
                               key={w.slot_id}
                               type="button"
                               onClick={() => {
-                                setWidgetOrder((o) => (o.includes(w.slot_id) ? o : [...o, w.slot_id]));
+                                setWidgetOrder((o) =>
+                                  o.includes(w.slot_id) ? o : [w.slot_id, ...o],
+                                );
                                 setAddWidgetOpen(false);
                               }}
                               className={cn(
