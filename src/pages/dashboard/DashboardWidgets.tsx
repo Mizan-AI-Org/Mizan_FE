@@ -4462,12 +4462,14 @@ function StaffMessagesCard({
   }, [staffRows]);
 
   const uniqueRoles = useMemo(() => {
-    const set = new Set<string>();
+    const byUpper = new Map<string, string>();
     for (const s of staffRows) {
       const r = (s.role || "").trim();
-      if (r) set.add(r);
+      if (!r) continue;
+      const key = r.toUpperCase();
+      if (!byUpper.has(key)) byUpper.set(key, key);
     }
-    return [...set].sort((a, b) => a.localeCompare(b));
+    return [...byUpper.values()].sort((a, b) => a.localeCompare(b));
   }, [staffRows]);
 
   type AudienceMode = "one" | "many" | "tags" | "department" | "role";
@@ -4601,12 +4603,13 @@ function StaffMessagesCard({
       return api.sendStaffMessage({ ...base, roles: [...rolePick] });
     },
     onSuccess: (resp) => {
-      const n = resp.notified_count ?? 0;
-      if (resp.success && resp.whatsapp_sent > 0) {
-        if (n > 1) {
+      const wa = resp.whatsapp_sent ?? 0;
+      const n = resp.notified_count ?? wa;
+      if (resp.success && wa > 0) {
+        if (wa > 1 || n > 1) {
           toast.success(
-            t("dashboard.staff_messages.send_success_group", { count: n }) ||
-              `WhatsApp delivered to ${n} teammates.`,
+            t("dashboard.staff_messages.send_success_group", { count: wa }) ||
+              `WhatsApp delivered to ${wa} teammates.`,
           );
         } else {
           toast.success(
