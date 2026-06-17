@@ -62,6 +62,7 @@ import {
   DASHBOARD_WIDGET_CATEGORY_ORDER,
   DASHBOARD_WIDGET_CATEGORY_KEYS,
   getWidgetCategory,
+  isCustomWidgetSlotId,
 } from "@/pages/dashboard/DashboardWidgets";
 import { ManageDashboardCategoriesDialog } from "@/pages/dashboard/ManageDashboardCategoriesDialog";
 import { useDashboardCategories } from "@/hooks/use-dashboard-categories";
@@ -515,9 +516,9 @@ export default function Dashboard() {
 
   const rawDisplayOrder = canCustomizeDashboard ? widgetOrder : DEFAULT_DASHBOARD_WIDGET_ORDER;
   // Hide built-in widgets the current user no longer has permission for.
-  // Custom widgets (slot_id starts with "custom-") are not gated here.
+  // Custom widgets (slot_id starts with "custom:") are not gated here.
   const displayOrder = rawDisplayOrder.filter((id) => {
-    if (typeof id === "string" && id.startsWith("custom-")) return true;
+    if (isCustomWidgetSlotId(id)) return true;
     return canWidget(id as string);
   });
 
