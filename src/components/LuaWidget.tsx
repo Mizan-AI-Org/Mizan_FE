@@ -15,6 +15,37 @@ declare global {
     }
 }
 
+const SYSTEM_CONTEXT_MARKERS = [
+    '[SYSTEM: PERSISTENT CONTEXT]',
+    '[SYSTEM: PARTIAL CONTEXT]',
+] as const;
+
+function messageContainsSystemContext(text: string | null | undefined): boolean {
+    if (!text) return false;
+    return SYSTEM_CONTEXT_MARKERS.some((marker) => text.includes(marker));
+}
+
+/** Hide LuaPop bubbles that leak preprocessor system context into the manager UI. */
+function hideSystemContextMessages(root: ParentNode) {
+    const selectors = [
+        '.lua-pop-message',
+        '[class*="lua-pop-message"]',
+        '[class*="message-bubble"]',
+        '[class*="MessageBubble"]',
+    ];
+    for (const selector of selectors) {
+        root.querySelectorAll(selector).forEach((node) => {
+            const el = node as HTMLElement;
+            if (el.dataset.miyaSystemHidden === 'true') return;
+            if (messageContainsSystemContext(el.textContent)) {
+                el.style.display = 'none';
+                el.setAttribute('aria-hidden', 'true');
+                el.dataset.miyaSystemHidden = 'true';
+            }
+        });
+    }
+}
+
 export const LuaWidget: React.FC = () => {
     const { user, accessToken } = useAuth() as AuthContextType;
     const { t, language, isRTL } = useLanguage();
@@ -116,12 +147,44 @@ export const LuaWidget: React.FC = () => {
                         text-align: right !important;
                     }
                     ` : ''}
+
+                    /* Never show injected agent system context in the manager chat */
+                    .lua-pop-message[data-miya-system-hidden="true"] {
+                        display: none !important;
+                    }
                 `;
                 shadowHost.shadowRoot.appendChild(style);
+                hideSystemContextMessages(shadowHost.shadowRoot);
             }
         }, 1000); // 1s interval is fine
         return () => clearInterval(intervalId);
     }, [user, language, isRTL, t]);
+
+    // Watch LuaPop shadow DOM for system-context bubbles (current + historical turns).
+    useEffect(() => {
+        if (!user) return;
+
+        const observer = new MutationObserver(() => {
+            const shadowHost = document.querySelector('#lua-shadow-root');
+            if (shadowHost?.shadowRoot) {
+                hideSystemContextMessages(shadowHost.shadowRoot);
+            }
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        const pollId = window.setInterval(() => {
+            const shadowHost = document.querySelector('#lua-shadow-root');
+            if (shadowHost?.shadowRoot) {
+                hideSystemContextMessages(shadowHost.shadowRoot);
+            }
+        }, 500);
+
+        return () => {
+            observer.disconnect();
+            window.clearInterval(pollId);
+        };
+    }, [user]);
 
     useEffect(() => {
         if (!user) return;
