@@ -8,6 +8,7 @@ import type { AuthContextType } from "@/contexts/AuthContext.types";
 import type {
   DashboardTaskDemandItem,
   DashboardTasksDemandsResponse,
+  CustomWidgetTasksResponse,
   DashboardMeetingsRemindersResponse,
   MeetingReminderItem,
   DashboardClockInsResponse,
@@ -23,6 +24,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Sparkles,
   Calendar,
@@ -63,6 +73,9 @@ import {
   Video,
   MapPin,
   ExternalLink,
+  Unplug,
+  RefreshCw,
+  Link2,
   CheckCircle2,
   XCircle,
   Check,
@@ -1916,7 +1929,8 @@ function TasksDemandsCard({
                 return (
                   <li
                     key={row.id}
-                    className="group rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700/80 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 px-2 py-1.5 transition-colors"
+                    onClick={() => navigate(tasksDemandsDetailHref(row))}
+                    className="group rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700/80 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 px-2 py-1.5 transition-colors cursor-pointer"
                   >
                     <div className="flex items-start gap-2.5">
                       {/* Avatar */}
@@ -2049,7 +2063,7 @@ function TasksDemandsCard({
                             {t("dashboard.tasks_demands.reassign")}
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => navigate("/dashboard/tasks")}
+                            onClick={() => navigate(tasksDemandsDetailHref(row))}
                           >
                             {t("dashboard.tasks_demands.open_board")}
                           </DropdownMenuItem>
@@ -2065,7 +2079,7 @@ function TasksDemandsCard({
 
         <button
           type="button"
-          onClick={() => navigate("/dashboard/tasks")}
+          onClick={() => navigate("/dashboard/staff-requests?kind=dashboard&list=dashboard")}
           className="mt-3 flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline self-start"
         >
           {t("dashboard.tasks_demands.open_all")}
@@ -2129,6 +2143,175 @@ function pillClassForMeetingStatus(status: MeetingReminderItem["status"]) {
   }
 }
 
+/**
+ * Compact "sync orbit" strip — shows who Google Calendar is linked to and
+ * gives one-tap connect / switch / disconnect without leaving the dashboard.
+ */
+function GoogleCalendarSyncHub({
+  connected,
+  email,
+  configured,
+  connecting,
+  disconnecting,
+  onConnect,
+  onDisconnect,
+  calendarLink,
+  t,
+}: {
+  connected: boolean;
+  email: string | null;
+  configured?: boolean;
+  connecting: boolean;
+  disconnecting: boolean;
+  onConnect: () => void;
+  onDisconnect: () => void;
+  calendarLink: string;
+  t: (key: string) => string;
+}) {
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+  const initials = (email || "?").trim().charAt(0).toUpperCase() || "?";
+
+  return (
+    <>
+      <div
+        className={cn(
+          "mb-3 rounded-xl border p-2.5 transition-all",
+          connected
+            ? "border-emerald-200/80 bg-gradient-to-r from-emerald-50/90 via-white to-teal-50/40 dark:border-emerald-900/40 dark:from-emerald-950/25 dark:via-slate-900 dark:to-teal-950/15"
+            : "border-dashed border-slate-200 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/30",
+        )}
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="relative h-9 w-9 shrink-0">
+            {connected ? (
+              <span
+                className="absolute inset-0 rounded-full border border-emerald-400/50 animate-ping opacity-40"
+                aria-hidden
+              />
+            ) : null}
+            <div
+              className={cn(
+                "relative flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold shadow-sm",
+                connected
+                  ? "bg-white text-emerald-700 ring-2 ring-emerald-500/25 dark:bg-slate-900 dark:text-emerald-300"
+                  : "bg-slate-100 text-slate-400 dark:bg-slate-800",
+              )}
+            >
+              {connected ? initials : <CalendarDays className="h-4 w-4" aria-hidden />}
+            </div>
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-100 truncate">
+              {connected
+                ? email || t("dashboard.meetings_reminders.sync_connected")
+                : t("dashboard.meetings_reminders.not_connected_title")}
+            </p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+              {connected
+                ? t("dashboard.meetings_reminders.sync_active")
+                : t("dashboard.meetings_reminders.not_connected_desc")}
+            </p>
+          </div>
+
+          {connected ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 shrink-0 px-2 text-[10px] font-semibold"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {t("dashboard.meetings_reminders.manage")}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem asChild>
+                  <a href={calendarLink} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                    {t("dashboard.meetings_reminders.open_in_calendar")}
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={connecting || !configured}
+                  onClick={onConnect}
+                >
+                  <RefreshCw className={cn("h-3.5 w-3.5 mr-2", connecting && "animate-spin")} />
+                  {t("dashboard.meetings_reminders.switch_account")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-red-600 focus:text-red-600 dark:text-red-400"
+                  disabled={disconnecting}
+                  onClick={() => setDisconnectOpen(true)}
+                >
+                  <Unplug className="h-3.5 w-3.5 mr-2" />
+                  {t("dashboard.meetings_reminders.disconnect")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              className="h-7 shrink-0 px-2.5 text-[10px] font-semibold gap-1"
+              disabled={connecting || configured === false}
+              onClick={(e) => {
+                e.stopPropagation();
+                onConnect();
+              }}
+            >
+              {connecting ? (
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+              ) : (
+                <Link2 className="h-3 w-3" aria-hidden />
+              )}
+              {connecting
+                ? t("dashboard.meetings_reminders.connecting")
+                : t("dashboard.meetings_reminders.connect_cta")}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <AlertDialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("dashboard.meetings_reminders.disconnect_title")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("dashboard.meetings_reminders.disconnect_desc")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={disconnecting}>
+              {t("dashboard.meetings_reminders.disconnect_cancel")}
+            </AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={disconnecting}
+              onClick={async () => {
+                await onDisconnect();
+                setDisconnectOpen(false);
+              }}
+            >
+              {disconnecting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" aria-hidden />
+              ) : (
+                <Unplug className="h-4 w-4 mr-2" aria-hidden />
+              )}
+              {t("dashboard.meetings_reminders.disconnect_confirm")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
 function formatMeetingTime(
   item: MeetingReminderItem,
   locale: string,
@@ -2186,6 +2369,7 @@ function MeetingsRemindersCard({
 }) {
   const qc = useQueryClient();
   const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const { data, isLoading, isError, refetch, isFetching } =
     useQuery<DashboardMeetingsRemindersResponse>({
       queryKey: ["dashboard", "meetings-reminders", 5],
@@ -2252,6 +2436,25 @@ function MeetingsRemindersCard({
     }
   }, [qc, t]);
 
+  const handleDisconnect = React.useCallback(async () => {
+    setDisconnecting(true);
+    try {
+      await api.disconnectGoogleCalendar();
+      toast.success(t("dashboard.meetings_reminders.disconnected_toast"));
+      await qc.invalidateQueries({
+        queryKey: ["dashboard", "meetings-reminders", 5],
+      });
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : t("dashboard.meetings_reminders.disconnect_failed");
+      toast.error(msg);
+    } finally {
+      setDisconnecting(false);
+    }
+  }, [qc, t]);
+
   // Handle the return from Google's OAuth consent. The backend redirects
   // back to the current page with ``?gcal=connected`` (or ``error``). We:
   //  1. Surface a toast so the user sees the outcome.
@@ -2312,6 +2515,18 @@ function MeetingsRemindersCard({
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-4 px-5">
+        <GoogleCalendarSyncHub
+          connected={Boolean(data?.connected)}
+          email={data?.email ?? null}
+          configured={data?.configured ?? true}
+          connecting={connecting}
+          disconnecting={disconnecting}
+          onConnect={handleConnect}
+          onDisconnect={handleDisconnect}
+          calendarLink={calendarLink}
+          t={t}
+        />
+
         <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
           {isLoading ? (
             <div className="py-6 text-center text-sm text-slate-400">
@@ -2334,37 +2549,40 @@ function MeetingsRemindersCard({
               </Button>
             </div>
           ) : !data?.connected ? (
-            // Minimal empty-state CTA. One button. Clicking starts the
-            // OAuth flow (`handleConnect` posts return_to = this URL
-            // and redirects to Google). If the backend has no OAuth
-            // creds configured, `startGoogleCalendarConnect` will toast
-            // a clear message — we don't expose env vars or "ask
-            // support" hints in the widget itself.
-            <div className="py-8 flex flex-col items-center gap-3 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400">
-                <CalendarDays className="h-6 w-6" aria-hidden />
+            data?.configured === false ? (
+              <div className="py-4 text-center text-xs text-slate-500 dark:text-slate-400">
+                {t("dashboard.meetings_reminders.not_configured")}
               </div>
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                {t("dashboard.meetings_reminders.not_connected_title")}
+            ) : (
+              <div className="py-4 flex flex-col items-center gap-2 text-center">
+                <Sparkle className="h-5 w-5 text-emerald-500/70" aria-hidden />
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[240px]">
+                  {t("dashboard.meetings_reminders.not_connected_desc")}
+                </p>
+              </div>
+            )
+          ) : items.length === 0 ? (
+            <div className="py-5 flex flex-col items-center gap-2 text-center">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/30">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden />
+              </div>
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                {t("dashboard.meetings_reminders.empty_connected")}
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-[260px] leading-relaxed">
+                {t("dashboard.meetings_reminders.empty_connected_hint")}
               </p>
               <Button
                 type="button"
                 size="sm"
-                className="h-8 px-4 text-xs gap-1.5"
-                disabled={connecting}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleConnect();
-                }}
+                variant="outline"
+                className="mt-1 h-7 text-[11px]"
+                asChild
               >
-                {connecting
-                  ? t("dashboard.meetings_reminders.connecting")
-                  : t("dashboard.meetings_reminders.connect_cta")}
+                <a href={calendarLink} target="_blank" rel="noopener noreferrer">
+                  {t("dashboard.meetings_reminders.add_in_gcal")}
+                </a>
               </Button>
-            </div>
-          ) : items.length === 0 ? (
-            <div className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">
-              {t("dashboard.meetings_reminders.empty")}
             </div>
           ) : (
             <ul className="space-y-1.5">
@@ -3203,6 +3421,55 @@ function buildDragImage(title: string): HTMLElement {
   return chip;
 }
 
+/** Deep-link from a category widget row into the staff-requests command centre. */
+function staffStatusFromWidgetItem(item: DashboardTaskDemandItem): string | null {
+  if (item.raw_status) return item.raw_status;
+  switch (item.pill_status) {
+    case "ESCALATED":
+      return "ESCALATED";
+    case "WAITING_ON":
+      return "WAITING_ON";
+    case "ASSIGNED":
+    case "IN_PROGRESS":
+      return "APPROVED";
+    default:
+      return null;
+  }
+}
+
+function buildInboxRowDetailHref(opts: { lane?: string; priority?: string }) {
+  return (item: DashboardTaskDemandItem) => {
+    const kind = item.kind || "dashboard";
+
+    // Miya / dashboard.Task rows (Operations, Tasks & Demands, custom tiles)
+    // live outside the staff-request inbox — open the task detail pane directly.
+    if (kind === "dashboard" || kind === "scheduling") {
+      return tasksDemandsDetailHref({ ...item, kind });
+    }
+
+    const params = new URLSearchParams();
+    if (opts.lane) params.set("lane", opts.lane);
+    if (opts.priority) params.set("priority", opts.priority);
+
+    if (kind === "staff_request") {
+      const status = staffStatusFromWidgetItem(item);
+      if (status && status !== "PENDING") {
+        params.set("status", status);
+      }
+      const qs = params.toString();
+      return `/dashboard/staff-requests/${item.id}${qs ? `?${qs}` : ""}`;
+    }
+
+    // Legacy payloads without ``kind`` — still try the dashboard detail route.
+    return tasksDemandsDetailHref({ ...item, kind: "dashboard" });
+  };
+}
+
+function tasksDemandsDetailHref(row: DashboardTaskDemandItem): string {
+  const kind = row.kind === "scheduling" ? "scheduling" : "dashboard";
+  return `/dashboard/staff-requests/${row.id}?kind=${kind}`;
+}
+
 function CategoryTasksCard({
   cardBase,
   cardHeaderBase,
@@ -3443,7 +3710,7 @@ function CategoryTasksCard({
     <Card
       className={cn(
         cardBase,
-        "flex flex-col cursor-pointer transition-all relative",
+        "flex flex-col transition-all relative",
         // Tier 1 — global "a drag is in progress and you can drop me
         // here" affordance. Shows as soon as any row starts dragging
         // from a different bucket, before the user hovers this card.
@@ -3467,15 +3734,6 @@ function CategoryTasksCard({
           "ring-2 ring-emerald-500/80 ring-offset-2 ring-offset-background shadow-lg",
         bucketMutation.isPending && "opacity-90",
       )}
-      role="button"
-      tabIndex={0}
-      onClick={goMore}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          goMore();
-        }
-      }}
       onDrop={onDropRow}
       onDragOver={onDragOverRow}
       onDragEnter={onDragOverRow}
@@ -3543,7 +3801,10 @@ function CategoryTasksCard({
         </div>
       </CardHeader>
 
-      <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-3 px-5">
+      <CardContent
+        className="flex min-h-0 flex-1 flex-col pt-1 pb-3 px-5"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Status strip — at-a-glance counts so the manager doesn't have
             to skim every row to spot trouble. Rendered only when there's
             something to call out (overdue / waiting / escalated / new);
@@ -4330,6 +4591,366 @@ function MiyaCustomDashboardWidgetCard({
   );
 }
 
+function CustomWidgetTasksCard({
+  def,
+  cardBase,
+  cardHeaderBase,
+  t,
+  navigate,
+}: {
+  def: DashboardCustomWidgetDef;
+  cardBase: string;
+  cardHeaderBase: string;
+  t: (key: string) => string;
+  navigate: NavigateFunction;
+}) {
+  const qc = useQueryClient();
+  const [tab, setTab] = useState<TasksDemandsTab>("pending");
+  const widgetId = def.id;
+  const queryKey = useMemo(
+    () => ["dashboard", "custom-widget-tasks", widgetId, 5] as const,
+    [widgetId],
+  );
+
+  const Icon = CUSTOM_WIDGET_ICONS[def.icon] || ClipboardCheck;
+  const link = (def.link_url || "").trim();
+  const isMiyaDeepLink = link.startsWith("miya:");
+  const hasNavigableLink = !!link && !isMiyaDeepLink;
+
+  const askMiya = () => {
+    try {
+      const host = document.querySelector("#lua-shadow-root");
+      const btn = host?.shadowRoot?.querySelector?.(
+        "button.lua-pop-button, button",
+      ) as HTMLButtonElement | null | undefined;
+      btn?.click();
+    } catch {
+      /* Miya widget not mounted — silently no-op */
+    }
+  };
+
+  const openLink = () => {
+    if (isMiyaDeepLink) {
+      askMiya();
+      return;
+    }
+    if (!hasNavigableLink) return;
+    if (/^https?:\/\//i.test(link)) {
+      window.open(link, "_blank", "noopener,noreferrer");
+      return;
+    }
+    const path = link.startsWith("/") ? link : `/${link}`;
+    navigate(path);
+  };
+
+  const { data, isLoading, isError, error, refetch, isFetching } =
+    useQuery<CustomWidgetTasksResponse>({
+      queryKey,
+      queryFn: () => api.getCustomWidgetTasks(widgetId, 5),
+      refetchInterval: 60_000,
+      staleTime: 30_000,
+      retry: 3,
+      retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 8000),
+      refetchOnMount: "always",
+    });
+
+  const mutation = useMutation({
+    mutationFn: ({
+      id,
+      nextStatus,
+    }: {
+      id: string;
+      nextStatus: DashboardTaskDemandItem["status"];
+    }) => api.updateDashboardTaskStatus(id, nextStatus),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey });
+      qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Failed to update task";
+      toast.error(msg);
+    },
+  });
+
+  const counts = data?.counts ?? {
+    pending: 0,
+    in_progress: 0,
+    completed: 0,
+  };
+  const tabCounts = {
+    pending: counts.pending ?? 0,
+    in_progress: counts.in_progress ?? 0,
+    completed: counts.completed ?? 0,
+  };
+  const rows: DashboardTaskDemandItem[] = useMemo(() => {
+    if (!data) return [];
+    if (tab === "pending") return data.pending;
+    if (tab === "in_progress") return data.in_progress;
+    return data.completed;
+  }, [data, tab]);
+
+  const tabs: { id: TasksDemandsTab; labelKey: string; count: number }[] = [
+    {
+      id: "pending",
+      labelKey: "dashboard.tasks_demands.tab_pending",
+      count: tabCounts.pending,
+    },
+    {
+      id: "in_progress",
+      labelKey: "dashboard.tasks_demands.tab_in_progress",
+      count: tabCounts.in_progress,
+    },
+    {
+      id: "completed",
+      labelKey: "dashboard.tasks_demands.tab_completed",
+      count: tabCounts.completed,
+    },
+  ];
+
+  const showActionButton = hasNavigableLink || isMiyaDeepLink;
+  const hasAnyTasks =
+    tabCounts.pending + tabCounts.in_progress + tabCounts.completed > 0;
+
+  return (
+    <Card className={`${cardBase} flex flex-col`}>
+      <CardHeader className={`${cardHeaderBase} pb-2 pt-5`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800/90 dark:text-slate-300">
+              <Icon className="h-6 w-6" aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+                {def.title}
+              </CardTitle>
+              {def.subtitle ? (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                  {def.subtitle}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="flex min-h-0 flex-1 flex-col px-5 pb-4 pt-0">
+        <div className="flex items-center gap-1 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30 p-0.5 mb-3">
+          {tabs.map((tb) => {
+            const active = tab === tb.id;
+            return (
+              <button
+                key={tb.id}
+                type="button"
+                onClick={() => setTab(tb.id)}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-colors",
+                  active
+                    ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
+                )}
+              >
+                <span className="truncate">{t(tb.labelKey)}</span>
+                <span
+                  className={cn(
+                    "inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[9px] font-bold tabular-nums",
+                    active
+                      ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300"
+                      : "bg-slate-200/70 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300",
+                  )}
+                >
+                  {tb.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+          {isLoading ? (
+            <div className="py-6 text-center text-sm text-slate-400">
+              {t("dashboard.tasks_demands.loading")}
+            </div>
+          ) : isError ? (
+            <div className="py-6 flex flex-col items-center gap-2 text-center">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t("dashboard.tasks_demands.error")}
+              </p>
+              {error instanceof Error && error.message ? (
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 font-mono truncate max-w-full px-2">
+                  {error.message}
+                </p>
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 px-3 text-xs"
+                onClick={() => refetch()}
+                disabled={isFetching}
+              >
+                {t("dashboard.tasks_demands.retry")}
+              </Button>
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">
+              {t(`dashboard.tasks_demands.empty_${tab}`)}
+            </div>
+          ) : (
+            <ul className="space-y-1.5">
+              {rows.map((row) => {
+                const pill = statusPillClass(row.status, row.priority, row.pill_status);
+                const SrcIcon = sourceIcon(row.source);
+                const showSource =
+                  row.source !== "SYSTEM" &&
+                  Boolean(row.source_label?.trim() || sourcePrefix(row.source));
+                const srcLabel = row.source_label?.trim() || sourcePrefix(row.source);
+                return (
+                  <li
+                    key={row.id}
+                    onClick={() => navigate(tasksDemandsDetailHref(row))}
+                    className="group rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700/80 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 px-2 py-1.5 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div className="shrink-0 mt-0.5">
+                        {row.assignee ? (
+                          <div
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-[10px] font-bold text-white"
+                            aria-label={row.assignee.name}
+                            title={row.assignee.name}
+                          >
+                            {row.assignee.initials}
+                          </div>
+                        ) : (
+                          <div
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold text-slate-400"
+                            title={t("dashboard.tasks_demands.unassigned")}
+                          >
+                            ?
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        {showSource ? (
+                          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                            <SrcIcon className="h-3 w-3 shrink-0" aria-hidden />
+                            <span className="truncate">{srcLabel}</span>
+                          </div>
+                        ) : null}
+                        <div className="text-[13px] font-semibold text-slate-900 dark:text-white leading-snug truncate">
+                          {row.title}
+                        </div>
+                        {row.ai_summary || row.description ? (
+                          <div className="mt-0.5 text-[11px] text-emerald-600 dark:text-emerald-400 leading-snug line-clamp-1">
+                            {t("dashboard.tasks_demands.ai_prefix")}{" "}
+                            {row.ai_summary || row.description}
+                          </div>
+                        ) : null}
+                        {row.assignee ? (
+                          <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                            {row.assignee.name}
+                          </div>
+                        ) : null}
+                      </div>
+                      <span
+                        className={cn(
+                          "shrink-0 mt-0.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap",
+                          pill.bg,
+                          pill.text,
+                        )}
+                      >
+                        <span
+                          className={cn("h-1.5 w-1.5 rounded-full", pill.dot)}
+                          aria-hidden
+                        />
+                        {t(`dashboard.tasks_demands.status_${pill.label}`)}
+                      </span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            aria-label={t("dashboard.tasks_demands.row_actions")}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="h-4 w-4" aria-hidden />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          {row.status !== "PENDING" && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                mutation.mutate({
+                                  id: row.id,
+                                  nextStatus: "PENDING",
+                                })
+                              }
+                            >
+                              {t("dashboard.tasks_demands.mark_pending")}
+                            </DropdownMenuItem>
+                          )}
+                          {row.status !== "IN_PROGRESS" && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                mutation.mutate({
+                                  id: row.id,
+                                  nextStatus: "IN_PROGRESS",
+                                })
+                              }
+                            >
+                              {t("dashboard.tasks_demands.mark_in_progress")}
+                            </DropdownMenuItem>
+                          )}
+                          {row.status !== "COMPLETED" && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                mutation.mutate({
+                                  id: row.id,
+                                  nextStatus: "COMPLETED",
+                                })
+                              }
+                            >
+                              {t("dashboard.tasks_demands.mark_completed")}
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => navigate(tasksDemandsDetailHref(row))}
+                          >
+                            {t("dashboard.tasks_demands.open_board")}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        {showActionButton ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-3 w-fit gap-1.5 self-start"
+            onClick={openLink}
+          >
+            {isMiyaDeepLink
+              ? t("dashboard.miya_widget.open_chat")
+              : t("dashboard.miya_widget.open")}
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        ) : !hasAnyTasks && !isLoading ? (
+          <p className="mt-3 text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+            {t("dashboard.miya_widget.no_link")}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 // --------------------------------------------------------------------------
 // Staff Messages — admin-to-staff WhatsApp messaging from the dashboard.
 //
@@ -4618,16 +5239,17 @@ function StaffMessagesCard({
           );
         }
       } else if (resp.whatsapp_failed) {
-        // Prefer the concrete reason from Meta / the phone normalizer
-        // over the generic "Check the number" line. The backend parses
-        // WhatsApp Cloud API error envelopes into `failure_reason` so
-        // the manager sees something actionable (e.g. "Recipient phone
-        // number is not a WhatsApp user", "Invalid parameter", etc.).
         const reason = (resp.failure_reason || "").trim();
-        const base =
-          t("dashboard.staff_messages.send_no_whatsapp") ||
-          "Saved, but WhatsApp delivery failed.";
-        toast.warning(reason ? `${base} ${reason}` : base);
+        if (resp.whatsapp_platform_issue && reason) {
+          toast.warning(
+            t("dashboard.staff_messages.send_whatsapp_platform_issue") || reason,
+          );
+        } else {
+          const base =
+            t("dashboard.staff_messages.send_no_whatsapp") ||
+            "Saved, but WhatsApp delivery failed.";
+          toast.warning(reason ? `${base} ${reason}` : base);
+        }
       } else {
         toast.success(
           t("dashboard.staff_messages.send_queued") || "Message queued.",
@@ -5248,7 +5870,7 @@ export function DashboardWidgetById({
       return <DashboardWidgetById id={aliasedBuiltin} props={props} />;
     }
     return (
-      <MiyaCustomDashboardWidgetCard
+      <CustomWidgetTasksCard
         def={def}
         cardBase={cardBase}
         cardHeaderBase={cardHeaderBase}
@@ -6117,11 +6739,7 @@ export function DashboardWidgetById({
           icon={Plane}
           tone="sky"
           moreHref="/dashboard/staff-requests?lane=team_travel"
-          rowDetailHref={(item) =>
-            item.kind === "staff_request"
-              ? `/dashboard/staff-requests/${item.id}?lane=team_travel`
-              : `/dashboard/staff-requests?lane=team_travel`
-          }
+          rowDetailHref={buildInboxRowDetailHref({ lane: "team_travel" })}
         />
       );
 
@@ -6137,11 +6755,7 @@ export function DashboardWidgetById({
           icon={Heart}
           tone="rose"
           moreHref="/dashboard/staff-requests?lane=team_medical_service"
-          rowDetailHref={(item) =>
-            item.kind === "staff_request"
-              ? `/dashboard/staff-requests/${item.id}?lane=team_medical_service`
-              : `/dashboard/staff-requests?lane=team_medical_service`
-          }
+          rowDetailHref={buildInboxRowDetailHref({ lane: "team_medical_service" })}
         />
       );
 
@@ -6177,6 +6791,7 @@ export function DashboardWidgetById({
           icon={Flame}
           tone="rose"
           moreHref="/dashboard/staff-requests?priority=URGENT"
+          rowDetailHref={buildInboxRowDetailHref({ priority: "URGENT" })}
         />
       );
 
@@ -6196,6 +6811,7 @@ export function DashboardWidgetById({
           // widget counted instead of hiding DOCUMENT rows behind an
           // HR-only chip.
           moreHref="/dashboard/staff-requests?lane=human_resources"
+          rowDetailHref={buildInboxRowDetailHref({ lane: "human_resources" })}
         />
       );
 
@@ -6214,6 +6830,7 @@ export function DashboardWidgetById({
           // BUCKET_TO_CATEGORIES on the backend). Deep-linking to a single
           // category hid payslip rows here, so we pass both.
           moreHref="/dashboard/staff-requests?lane=finance"
+          rowDetailHref={buildInboxRowDetailHref({ lane: "finance" })}
         />
       );
 
@@ -6229,6 +6846,7 @@ export function DashboardWidgetById({
           icon={Wrench}
           tone="amber"
           moreHref="/dashboard/staff-requests?lane=maintenance"
+          rowDetailHref={buildInboxRowDetailHref({ lane: "maintenance" })}
         />
       );
 
@@ -6244,6 +6862,7 @@ export function DashboardWidgetById({
           icon={ListTodo}
           tone="emerald"
           moreHref="/dashboard/staff-requests?lane=operations_tasks"
+          rowDetailHref={buildInboxRowDetailHref({ lane: "operations_tasks" })}
         />
       );
 
@@ -6259,6 +6878,7 @@ export function DashboardWidgetById({
           icon={ShoppingBag}
           tone="sky"
           moreHref="/dashboard/staff-requests?lane=purchase_orders"
+          rowDetailHref={buildInboxRowDetailHref({ lane: "purchase_orders" })}
         />
       );
 
@@ -6274,6 +6894,7 @@ export function DashboardWidgetById({
           icon={Layers}
           tone="slate"
           moreHref="/dashboard/staff-requests?lane=miscellaneous"
+          rowDetailHref={buildInboxRowDetailHref({ lane: "miscellaneous" })}
         />
       );
 

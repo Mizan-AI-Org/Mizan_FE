@@ -31,6 +31,7 @@ import {
   CreateAnnouncementResponse,
   DashboardTaskDemandItem,
   DashboardTasksDemandsResponse,
+  CustomWidgetTasksResponse,
   DashboardMeetingsRemindersResponse,
   DashboardClockInsResponse,
   SubscriptionPlan,
@@ -462,6 +463,19 @@ export class BackendService {
   async getDashboardTasksDemands(limit = 5): Promise<DashboardTasksDemandsResponse> {
     const qs = `?limit=${encodeURIComponent(String(limit))}`;
     return this.fetchWithError(`/dashboard/tasks-demands/${qs}`);
+  }
+
+  async getDashboardTaskDemand(taskId: string): Promise<DashboardTaskDemandItem> {
+    return this.fetchWithError(`/dashboard/tasks-demands/${taskId}/`);
+  }
+
+  /** Tasks scoped to one Miya-created custom dashboard tile. */
+  async getCustomWidgetTasks(
+    widgetId: string,
+    limit = 5,
+  ): Promise<CustomWidgetTasksResponse> {
+    const qs = `?limit=${encodeURIComponent(String(limit))}`;
+    return this.fetchWithError(`/dashboard/custom-widgets/${widgetId}/tasks/${qs}`);
   }
 
   async updateDashboardTaskStatus(
