@@ -268,6 +268,11 @@ export type CategoryTaskBucket =
     | 'team_travel'
     | 'team_medical_service';
 
+export type WidgetDropTarget =
+    | CategoryTaskBucket
+    | "tasks_demands"
+    | `custom:${string}`;
+
 export interface CategoryTasksResponse {
     bucket: CategoryTaskBucket;
     /** Canonical staff/dashboard category slugs that feed this bucket. */

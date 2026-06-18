@@ -500,7 +500,7 @@ export class BackendService {
    */
   async updateDashboardTaskBucket(
     taskId: string,
-    bucket: import("./types").CategoryTaskBucket,
+    bucket: import("./types").WidgetDropTarget | string,
   ): Promise<DashboardTaskDemandItem> {
     return this.fetchWithError(
       `/dashboard/tasks-demands/${taskId}/bucket/`,
