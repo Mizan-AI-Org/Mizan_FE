@@ -105,7 +105,7 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
 
   const handleSave = async () => {
     if (!accessToken || schemaVersion === null) {
-      toast.error("Settings not loaded yet");
+      toast.error(t("settings.reservation.settings_not_loaded"));
       return;
     }
     setSaving(true);
@@ -174,12 +174,12 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
         const rest = rb[0].restaurants?.[0];
         if (g?.id) setEatnowGroupId(g.id);
         if (rest?.id) setEatnowRestaurantId(rest.id);
-        toast.success("Filled Group and Restaurant ID from your account.");
+        toast.success(t("settings.reservation.discover_filled"));
       } else {
-        toast.info("Copy Restaurant ID from the JSON below if needed.");
+        toast.info(t("settings.reservation.discover_copy_hint"));
       }
     } catch (e) {
-      toast.error((e as Error).message || "Discover failed");
+      toast.error((e as Error).message || t("settings.reservation.discover_failed"));
     } finally {
       setDiscovering(false);
     }
@@ -196,7 +196,7 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
       });
       toast.success(out.message || `Connected (${out.sample_count ?? 0} today)`);
     } catch (e) {
-      toast.error((e as Error).message || "Test failed");
+      toast.error((e as Error).message || t("settings.reservation.test_failed"));
     } finally {
       setTesting(false);
     }
@@ -353,20 +353,20 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
           <div className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="reservation-display-name" className="text-sm font-medium">
-                Display name
+                {t("settings.reservation.display_name")}
               </Label>
               <Input
                 id="reservation-display-name"
-                placeholder="e.g. Book a table"
+                placeholder={t("settings.reservation.display_name_placeholder")}
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">Shown on buttons or links where you promote reservations.</p>
+              <p className="text-xs text-muted-foreground">{t("settings.reservation.display_name_help")}</p>
             </div>
 
             <div className="space-y-1">
               <Label htmlFor="reservation-widget-url" className="text-sm font-medium">
-                Booking widget URL
+                {t("settings.reservation.widget_url_label")}
               </Label>
               <Input
                 id="reservation-widget-url"
@@ -382,7 +382,7 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
                   <div className="flex items-center gap-2 min-w-0">
                     <Plug className="h-4 w-4 text-emerald-600 shrink-0" aria-hidden />
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-white tracking-tight">
-                      Eat Now webhooks
+                      {t("settings.reservation.eatapp_webhooks")}
                     </h3>
                   </div>
                   <a
@@ -391,31 +391,31 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
                     rel="noopener noreferrer"
                     className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline shrink-0"
                   >
-                    Docs ↗
+                    {t("settings.reservation.eatapp_docs")} ↗
                   </a>
                 </div>
 
                 <p className="text-xs text-muted-foreground leading-snug">
-                  In Eat Now: <strong className="font-medium text-slate-700 dark:text-slate-300">Integrations → Webhooks</strong>
-                  . Paste the URL below as destination, enable reservation events, and enter the same signing secret here.
+                  {t("settings.reservation.eatapp_setup_hint")}
                 </p>
 
                 <div className="space-y-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="eatnow-restaurant" className="text-xs font-medium">
-                      Restaurant ID <span className="text-red-600 dark:text-red-400">*</span>
+                      {t("settings.reservation.eatapp_restaurant_id")}{" "}
+                      <span className="text-red-600 dark:text-red-400">*</span>
                     </Label>
                     <Input
                       id="eatnow-restaurant"
                       value={eatnowRestaurantId}
                       onChange={(e) => setEatnowRestaurantId(e.target.value)}
                       className="h-9"
-                      placeholder="Usually the slug from Eat Now → Settings → Restaurant"
+                      placeholder={t("settings.reservation.eatapp_restaurant_placeholder")}
                     />
                     <details className="group text-xs text-muted-foreground">
                       <summary className="cursor-pointer list-none flex items-center gap-1.5 text-emerald-700/90 dark:text-emerald-400/95 hover:underline [&::-webkit-details-marker]:hidden">
                         <span className="inline-block w-1 h-1 rounded-full bg-current opacity-70" aria-hidden />
-                        Where to find the restaurant ID
+                        {t("settings.reservation.eatapp_restaurant_id_help_title")}
                       </summary>
                       <ul className="mt-2 ml-1.5 space-y-1.5 pl-3 border-l border-slate-200 dark:border-slate-700 text-[11px] leading-relaxed">
                         <li>
@@ -435,7 +435,7 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Webhook URL</Label>
+                    <Label className="text-xs font-medium">{t("settings.reservation.eatapp_webhook_url")}</Label>
                     <div className="flex gap-2">
                       <Input readOnly value={eatnowWebhookUrl} className="font-mono text-[11px] h-9 bg-slate-50/80 dark:bg-slate-900/50" />
                       <Button
@@ -445,9 +445,9 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
                         className="shrink-0 h-9 w-9"
                         onClick={() => {
                           void navigator.clipboard.writeText(eatnowWebhookUrl);
-                          toast.success("Copied");
+                          toast.success(t("settings.reservation.copied"));
                         }}
-                        aria-label="Copy webhook URL"
+                        aria-label={t("settings.reservation.copied")}
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
@@ -456,16 +456,23 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
 
                   <div className="space-y-1.5">
                     <Label htmlFor="eatnow-webhook-secret" className="text-xs font-medium">
-                      Signing secret
+                      {t("settings.reservation.eatapp_signing_secret")}
                       {webhookSecretSet ? (
-                        <span className="font-normal text-muted-foreground"> — leave blank to keep saved</span>
+                        <span className="font-normal text-muted-foreground">
+                          {" "}
+                          {t("settings.reservation.eatapp_signing_secret_keep")}
+                        </span>
                       ) : null}
                     </Label>
                     <Input
                       id="eatnow-webhook-secret"
                       type="password"
                       autoComplete="off"
-                      placeholder={webhookSecretSet ? "••••••••" : "Same secret as in Eat Now webhook settings"}
+                      placeholder={
+                        webhookSecretSet
+                          ? "••••••••"
+                          : t("settings.reservation.eatapp_signing_secret_placeholder")
+                      }
                       value={eatnowWebhookSecret}
                       onChange={(e) => setEatnowWebhookSecret(e.target.value)}
                       className="h-9"
@@ -475,15 +482,14 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
 
                 <details className="rounded-lg border border-slate-200/80 dark:border-slate-700/80 px-3 py-2.5 text-xs">
                   <summary className="cursor-pointer font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200">
-                    Optional: Concierge API (legacy)
+                    {t("settings.reservation.eatapp_optional_api")}
                   </summary>
                   <div className="pt-3 space-y-3 border-t border-slate-100 dark:border-slate-800 mt-2">
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Partner API at <code className="text-[10px]">api.eatapp.co</code> — discover / test only; Mizan
-                      listing uses webhooks.
+                      {t("settings.reservation.eatapp_optional_api_hint")}
                     </p>
                     <div className="space-y-1">
-                      <Label htmlFor="eatnow-api-base">API base URL (optional)</Label>
+                      <Label htmlFor="eatnow-api-base">{t("settings.reservation.eatapp_api_base")}</Label>
                       <Input
                         id="eatnow-api-base"
                         placeholder="https://api.eatapp.co"
@@ -492,7 +498,10 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="eatnow-api-key">API key {apiKeySet ? "(leave blank to keep saved)" : ""}</Label>
+                      <Label htmlFor="eatnow-api-key">
+                        {t("settings.reservation.eatapp_api_key")}{" "}
+                        {apiKeySet ? t("settings.reservation.eatapp_api_key_keep") : ""}
+                      </Label>
                       <Input
                         id="eatnow-api-key"
                         type="password"
@@ -503,7 +512,7 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="eatnow-group">Group ID (optional)</Label>
+                      <Label htmlFor="eatnow-group">{t("settings.reservation.eatapp_group_id")}</Label>
                       <Input
                         id="eatnow-group"
                         value={eatnowGroupId}
@@ -514,11 +523,11 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" variant="secondary" size="sm" onClick={handleDiscover} disabled={discovering}>
                         {discovering ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                        Load groups & restaurants
+                        {t("settings.reservation.eatapp_discover")}
                       </Button>
                       <Button type="button" variant="outline" size="sm" onClick={handleTest} disabled={testing}>
                         {testing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                        Test Concierge API
+                        {t("settings.reservation.eatapp_test_api")}
                       </Button>
                     </div>
                     {discoverJson && (
@@ -537,7 +546,7 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
                   disabled={!canViewReservations}
                 >
                   <ListOrdered className="h-4 w-4 mr-2" />
-                  View all reservations
+                  {t("settings.reservation.view_reservations")}
                 </Button>
               </div>
             )}
@@ -547,7 +556,7 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Plug className="w-4 h-4 text-emerald-500" />
-                <span className="text-sm font-medium">Connection status</span>
+                <span className="text-sm font-medium">{t("settings.reservation.connection_status")}</span>
               </div>
               <Badge
                 variant="outline"
