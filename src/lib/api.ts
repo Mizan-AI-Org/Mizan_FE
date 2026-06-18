@@ -547,7 +547,7 @@ export class BackendService {
    * Messages" widget.
    */
   async getStaffMessagesRecent(
-    limit = 10,
+    limit = 3,
   ): Promise<import("./types").StaffMessagesRecentResponse> {
     const qs = `?limit=${encodeURIComponent(String(limit))}`;
     return this.fetchWithError(`/dashboard/staff-messages/recent/${qs}`);

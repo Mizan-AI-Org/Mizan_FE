@@ -25,6 +25,9 @@ i18n
     // Locale JSON uses flat keys with dots (e.g. "take_orders.page_hint"); default
     // keySeparator "." would treat those as nested paths and miss translations.
     keySeparator: false,
+    // When a key is absent in the active locale, fall back to English
+    // instead of rendering the raw key (e.g. settings.gcal.title).
+    returnNull: false,
     returnEmptyString: false,
     saveMissing: false,
     // Load resources from public folder for smaller bundle

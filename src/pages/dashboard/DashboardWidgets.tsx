@@ -5393,6 +5393,9 @@ function CustomWidgetTasksCard({
 //    sees ✓ → ✓✓ → ✓✓-blue evolve in near real time on a 30s poll.
 // --------------------------------------------------------------------------
 
+/** Recent feed always shows the three most recent outbound sends. */
+const STAFF_MESSAGES_RECENT_LIMIT = 3;
+
 const STAFF_MESSAGE_STATUS_PILL: Record<
   import("@/lib/types").StaffMessageStatus,
   { bg: string; text: string; dot: string; labelKey: string }
@@ -5453,8 +5456,8 @@ function StaffMessagesCard({
   };
 
   const recentQuery = useQuery({
-    queryKey: ["dashboard", "staff-messages", "recent", 10] as const,
-    queryFn: () => api.getStaffMessagesRecent(10),
+    queryKey: ["dashboard", "staff-messages", "recent", STAFF_MESSAGES_RECENT_LIMIT] as const,
+    queryFn: () => api.getStaffMessagesRecent(STAFF_MESSAGES_RECENT_LIMIT),
     // 30 s poll mirrors the other operational widgets — also gives
     // the WhatsApp webhook a quick window to flip ✓ → ✓✓ → blue.
     refetchInterval: 30_000,
@@ -5682,7 +5685,7 @@ function StaffMessagesCard({
       setPriority("NORMAL");
       switchAudienceMode("one");
       qc.invalidateQueries({
-        queryKey: ["dashboard", "staff-messages", "recent", 10],
+        queryKey: ["dashboard", "staff-messages", "recent", STAFF_MESSAGES_RECENT_LIMIT],
       });
     },
     onError: (err: unknown) => {
@@ -5696,7 +5699,7 @@ function StaffMessagesCard({
   });
 
   const templates = recentQuery.data?.templates ?? [];
-  const items = recentQuery.data?.items ?? [];
+  const items = (recentQuery.data?.items ?? []).slice(0, STAFF_MESSAGES_RECENT_LIMIT);
 
   const canSend =
     body.trim().length > 0 &&
