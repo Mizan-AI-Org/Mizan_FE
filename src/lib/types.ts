@@ -273,6 +273,14 @@ export type WidgetDropTarget =
     | "tasks_demands"
     | `custom:${string}`;
 
+/** Active tab on the destination widget when a row is dropped. */
+export type WidgetDropColumn =
+    | "pending"
+    | "in_progress"
+    | "completed"
+    | "open"
+    | "done";
+
 export interface CategoryTasksResponse {
     bucket: CategoryTaskBucket;
     /** Canonical staff/dashboard category slugs that feed this bucket. */

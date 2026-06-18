@@ -1768,11 +1768,13 @@ function TasksDemandsCard({
     mutationFn: ({
       id,
       target,
+      column,
     }: {
       id: string;
       target: import("@/lib/types").WidgetDropTarget | string;
+      column: TasksDemandsTab;
       title?: string;
-    }) => api.updateDashboardTaskBucket(id, target),
+    }) => api.updateDashboardTaskBucket(id, target, column),
     onSuccess: (_data, variables) => {
       invalidateWidgetTaskQueries(qc);
       toast.success(
@@ -1797,6 +1799,7 @@ function TasksDemandsCard({
       bucketMutation.mutate({
         id: payload.id,
         target: "tasks_demands",
+        column: tab,
         title: payload.title,
       });
     },
@@ -3796,8 +3799,15 @@ function CategoryTasksCard({
   // in its original category widget too, so every card needs to
   // refresh its "urgent" count.
   const bucketMutation = useMutation({
-    mutationFn: ({ id }: { id: string; payload: RowDragPayload }) =>
-      api.updateDashboardTaskBucket(id, bucket),
+    mutationFn: ({
+      id,
+      payload,
+      column,
+    }: {
+      id: string;
+      payload: RowDragPayload;
+      column: CategoryTasksFilter;
+    }) => api.updateDashboardTaskBucket(id, bucket, column),
     onSuccess: (_data, variables) => {
       invalidateWidgetTaskQueries(qc);
       // Staff Inbox lists *all* categories — a bucket move from any
@@ -3857,9 +3867,9 @@ function CategoryTasksCard({
         // No-op: dropped on the same widget the drag started in.
         return;
       }
-      bucketMutation.mutate({ id: payload.id, payload });
+      bucketMutation.mutate({ id: payload.id, payload, column: filter });
     },
-    [bucket, bucketMutation],
+    [bucket, bucketMutation, filter],
   );
 
   const onDragOverRow = React.useCallback(
@@ -4887,12 +4897,14 @@ function CustomWidgetTasksCard({
     mutationFn: ({
       id,
       target,
+      column,
       title,
     }: {
       id: string;
       target: import("@/lib/types").WidgetDropTarget | string;
+      column: TasksDemandsTab;
       title?: string;
-    }) => api.updateDashboardTaskBucket(id, target),
+    }) => api.updateDashboardTaskBucket(id, target, column),
     onSuccess: (_data, variables) => {
       invalidateWidgetTaskQueries(qc);
       toast.success(
@@ -4917,6 +4929,7 @@ function CustomWidgetTasksCard({
       bucketMutation.mutate({
         id: payload.id,
         target: customDropTarget,
+        column: tab,
         title: payload.title,
       });
     },
