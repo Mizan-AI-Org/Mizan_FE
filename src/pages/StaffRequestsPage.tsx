@@ -36,6 +36,8 @@ import {
 } from "lucide-react";
 import { useStaffInboxLanes, resolveStaffInboxLaneId, type StaffInboxLane } from "@/hooks/use-staff-inbox-lanes";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
+import { api } from "@/lib/api";
+import type { DashboardTaskDemandItem } from "@/lib/types";
 
 type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED" | "WAITING_ON";
 
@@ -194,6 +196,102 @@ async function apiPost<T>(path: string, body?: any): Promise<T> {
   return res.json();
 }
 
+type DetailKind = "staff_request" | "dashboard" | "scheduling";
+type TasksDemandsTab = "pending" | "in_progress" | "completed";
+
+function tasksDemandsDetailKind(row: Pick<DashboardTaskDemandItem, "kind">): DetailKind {
+  return row.kind === "scheduling" ? "scheduling" : "dashboard";
+}
+
+function tasksDemandsDetailHref(row: DashboardTaskDemandItem): string {
+  const kind = tasksDemandsDetailKind(row);
+  return `/dashboard/staff-requests/${row.id}?kind=${kind}`;
+}
+
+function dashboardTaskStatusLabel(status?: string) {
+  const s = String(status || "").toUpperCase();
+  if (s === "IN_PROGRESS") return "In progress";
+  if (s === "COMPLETED") return "Completed";
+  if (s === "CANCELLED") return "Cancelled";
+  return "Pending";
+}
+
+function dashboardTaskStatusBadge(status?: string) {
+  const s = String(status || "").toUpperCase();
+  if (s === "IN_PROGRESS") return "bg-sky-50 text-sky-700 border-sky-200 ring-1 ring-sky-200";
+  if (s === "COMPLETED") return "bg-emerald-50 text-emerald-700 border-emerald-200 ring-1 ring-emerald-200";
+  if (s === "CANCELLED") return "bg-rose-50 text-rose-700 border-rose-200 ring-1 ring-rose-200";
+  return "bg-yellow-50 text-yellow-700 border-yellow-200 ring-1 ring-yellow-200";
+}
+
+function DashboardTaskDetailPanel({
+  task,
+  onStatusChange,
+  isUpdating,
+}: {
+  task: DashboardTaskDemandItem;
+  onStatusChange: (status: DashboardTaskDemandItem["status"]) => void;
+  isUpdating: boolean;
+}) {
+  return (
+    <div className="flex flex-col h-[72vh]">
+      <div className="flex items-start justify-between p-6 pb-0">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider mb-1">
+            {getCategoryIcon(task.category || undefined)}
+            {task.category || "Task"}
+          </div>
+          <h3 className="text-2xl font-bold text-foreground tracking-tight leading-tight">{task.title}</h3>
+          <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+            <span>{task.source_label || task.source}</span>
+            <span>•</span>
+            <span>{task.assignee?.name || "Unassigned"}</span>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <Badge
+            variant="outline"
+            className={cn("text-xs font-bold px-3 py-1 uppercase rounded-full", dashboardTaskStatusBadge(task.status))}
+          >
+            {dashboardTaskStatusLabel(task.status)}
+          </Badge>
+          <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", priorityBadge(task.priority))}>
+            {String(task.priority || "MEDIUM").toUpperCase()}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="px-6 py-4 space-y-3">
+        {task.ai_summary ? (
+          <div className="text-sm text-muted-foreground leading-relaxed">{task.ai_summary}</div>
+        ) : null}
+        <div className="bg-muted/30 rounded-2xl p-4 border border-border/40">
+          <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2">
+            Details
+          </div>
+          <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
+            {task.description || "No description provided."}
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 pb-6 flex flex-wrap gap-2 mt-auto">
+        {(["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"] as const).map((nextStatus) => (
+          <Button
+            key={nextStatus}
+            size="sm"
+            variant={task.status === nextStatus ? "default" : "outline"}
+            disabled={isUpdating || task.status === nextStatus}
+            onClick={() => onStatusChange(nextStatus)}
+          >
+            {dashboardTaskStatusLabel(nextStatus)}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const StaffRequestsPage: React.FC = () => {
   const navigate = useNavigate();
   const params = useParams();
@@ -209,9 +307,27 @@ const StaffRequestsPage: React.FC = () => {
     return raw === "URGENT" ? "URGENT" : "";
   })();
 
-  const [activeStatus, setActiveStatus] = useState<StaffRequestStatus>("PENDING");
+  const initialStatusFromUrl = (() => {
+    const raw = (searchParams.get("status") || "").toUpperCase();
+    if (STATUSES.some((s) => s.key === raw)) return raw as StaffRequestStatus;
+    return "PENDING";
+  })();
+
+  const initialDetailKind = ((): DetailKind => {
+    const kind = searchParams.get("kind");
+    return kind === "dashboard" || kind === "scheduling" ? kind : "staff_request";
+  })();
+
+  const initialDashboardListMode = (() => {
+    return searchParams.get("list") === "dashboard";
+  })();
+
+  const [activeStatus, setActiveStatus] = useState<StaffRequestStatus>(initialStatusFromUrl);
   /** null = All Requests; otherwise a dashboard widget lane id (e.g. team_medical_service). */
   const [activeLaneId, setActiveLaneId] = useState<string | null>(null);
+  const [detailKind, setDetailKind] = useState<DetailKind>(initialDetailKind);
+  const [dashboardListMode, setDashboardListMode] = useState(initialDashboardListMode);
+  const [demandsTab, setDemandsTab] = useState<TasksDemandsTab>("pending");
   const [activePriority, setActivePriority] = useState<string>(initialPriorityFilter);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -223,6 +339,7 @@ const StaffRequestsPage: React.FC = () => {
   );
 
   const filterCategories = activeLane?.categories ?? [];
+  const isDashboardDetail = detailKind === "dashboard" || detailKind === "scheduling";
 
   // Apply widget deep-links once lanes are loaded (?lane= or legacy ?category=).
   useEffect(() => {
@@ -234,16 +351,37 @@ const StaffRequestsPage: React.FC = () => {
     if (laneFromUrl) {
       setActiveLaneId(laneFromUrl);
     }
+    const statusFromUrl = (searchParams.get("status") || "").toUpperCase();
+    if (STATUSES.some((s) => s.key === statusFromUrl)) {
+      setActiveStatus(statusFromUrl as StaffRequestStatus);
+    }
+    const kindFromUrl = searchParams.get("kind");
+    if (kindFromUrl === "dashboard" || kindFromUrl === "scheduling") {
+      setDetailKind(kindFromUrl);
+    }
+    if (searchParams.get("list") === "dashboard") {
+      setDashboardListMode(true);
+    }
     deepLinkAppliedRef.current = true;
   }, [inboxLanes, inboxLanesQuery.isLoading, searchParams]);
 
   // Strip deep-link params after consumption.
   useEffect(() => {
-    if (searchParams.get("category") || searchParams.get("lane") || searchParams.get("priority")) {
+    if (
+      searchParams.get("category") ||
+      searchParams.get("lane") ||
+      searchParams.get("priority") ||
+      searchParams.get("status") ||
+      searchParams.get("kind") ||
+      searchParams.get("list")
+    ) {
       const next = new URLSearchParams(searchParams);
       next.delete("category");
       next.delete("lane");
       next.delete("priority");
+      next.delete("status");
+      next.delete("kind");
+      next.delete("list");
       setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -369,13 +507,99 @@ const StaffRequestsPage: React.FC = () => {
       if (!selectedId) return null;
       return apiGet<StaffRequest>(`/staff/requests/${selectedId}/`);
     },
-    enabled: !!selectedId,
+    enabled: !!selectedId && !isDashboardDetail,
     staleTime: 15_000,
     refetchOnWindowFocus: false,
+    retry: false,
+  });
+
+  const dashboardTaskQuery = useQuery({
+    queryKey: ["dashboard-task-demand", selectedId],
+    queryFn: async (): Promise<DashboardTaskDemandItem | null> => {
+      if (!selectedId) return null;
+      return api.getDashboardTaskDemand(selectedId);
+    },
+    enabled:
+      !!selectedId &&
+      (isDashboardDetail ||
+        (selectedQuery.isFetched && selectedQuery.isError && !selectedQuery.isFetching)),
+    staleTime: 15_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!selectedId || isDashboardDetail) return;
+    if (selectedQuery.isError && dashboardTaskQuery.data) {
+      setDetailKind(tasksDemandsDetailKind(dashboardTaskQuery.data));
+    }
+  }, [
+    selectedId,
+    isDashboardDetail,
+    selectedQuery.isError,
+    dashboardTaskQuery.data,
+  ]);
+
+  const dashboardStatusMutation = useMutation({
+    mutationFn: (nextStatus: DashboardTaskDemandItem["status"]) => {
+      if (!selectedId) throw new Error("No task selected");
+      return api.updateDashboardTaskStatus(selectedId, nextStatus);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["dashboard-task-demand", selectedId] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard", "category-tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 25] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
+    },
   });
 
   const requests = useMemo(() => (Array.isArray(listQuery.data) ? listQuery.data : []), [listQuery.data]);
   const selected = selectedQuery.data || null;
+  const dashboardTask = dashboardTaskQuery.data || null;
+  const showPinnedDashboardTask =
+    isDashboardDetail &&
+    !!dashboardTask &&
+    selectedId === dashboardTask.id &&
+    !requests.some((r) => r.id === dashboardTask.id);
+
+  const tasksDemandsQuery = useQuery({
+    queryKey: ["dashboard", "tasks-demands", 25],
+    queryFn: () => api.getDashboardTasksDemands(25),
+    enabled: dashboardListMode,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const demandCounts = tasksDemandsQuery.data?.counts ?? {
+    pending: 0,
+    in_progress: 0,
+    completed: 0,
+  };
+
+  const demandRows = useMemo(() => {
+    const data = tasksDemandsQuery.data;
+    if (!data) return [];
+    if (demandsTab === "pending") return data.pending;
+    if (demandsTab === "in_progress") return data.in_progress;
+    return data.completed;
+  }, [tasksDemandsQuery.data, demandsTab]);
+
+  const filteredDemandRows = useMemo(() => {
+    if (!debouncedSearch) return demandRows;
+    const q = debouncedSearch.toLowerCase();
+    return demandRows.filter(
+      (row) =>
+        row.title.toLowerCase().includes(q) ||
+        (row.description || "").toLowerCase().includes(q) ||
+        (row.assignee?.name || "").toLowerCase().includes(q),
+    );
+  }, [demandRows, debouncedSearch]);
+
+  const onSelectDashboardTask = (row: DashboardTaskDemandItem) => {
+    const kind = tasksDemandsDetailKind(row);
+    setDetailKind(kind);
+    navigate(tasksDemandsDetailHref(row));
+  };
 
   const mutateAction = useMutation({
     mutationFn: async ({ action, payload }: { action: string; payload?: any }) => {
@@ -392,7 +616,13 @@ const StaffRequestsPage: React.FC = () => {
   });
 
   const onSelect = (id: string) => {
-    navigate(`/dashboard/staff-requests/${id}`);
+    setDetailKind("staff_request");
+    setDashboardListMode(false);
+    const params = new URLSearchParams();
+    if (activeLaneId) params.set("lane", activeLaneId);
+    if (activeStatus !== "PENDING") params.set("status", activeStatus);
+    const qs = params.toString();
+    navigate(`/dashboard/staff-requests/${id}${qs ? `?${qs}` : ""}`);
   };
 
   const emptyState = (
@@ -401,8 +631,153 @@ const StaffRequestsPage: React.FC = () => {
     </div>
   );
 
-  const pageTitle = activeLane?.page_title ?? "All Requests";
-  const pageSubtitle = activeLane?.page_subtitle ?? null;
+  const pageTitle = dashboardListMode
+    ? "Tasks & Demands"
+    : activeLane?.page_title ?? "All Requests";
+  const pageSubtitle = dashboardListMode
+    ? "Miya-created and ingested tasks — review, reassign, and close from here."
+    : activeLane?.page_subtitle ?? null;
+
+  if (dashboardListMode) {
+    const demandTabs: { id: TasksDemandsTab; label: string; count: number }[] = [
+      { id: "pending", label: "Pending", count: demandCounts.pending },
+      { id: "in_progress", label: "In progress", count: demandCounts.in_progress },
+      { id: "completed", label: "Completed", count: demandCounts.completed },
+    ];
+
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-2xl font-bold">{pageTitle}</h2>
+            {pageSubtitle ? (
+              <p className="text-sm text-muted-foreground mt-1">{pageSubtitle}</p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/50 p-0.5">
+            {demandTabs.map((tb) => {
+              const active = demandsTab === tb.id;
+              return (
+                <button
+                  key={tb.id}
+                  type="button"
+                  onClick={() => setDemandsTab(tb.id)}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+                    active
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <span>{tb.label}</span>
+                  <Badge variant="secondary" className="h-4 min-w-4 px-1 text-[10px] rounded-full">
+                    {tb.count}
+                  </Badge>
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex gap-2 w-full md:w-[360px]">
+            <Input
+              placeholder="Search tasks..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Button variant="outline" onClick={() => setSearch("")}>
+              Clear
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-4 items-start">
+          <Card className="h-[72vh]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Inbox · Tasks & Demands</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <ScrollArea className="h-[62vh] pr-3">
+                {tasksDemandsQuery.isLoading ? (
+                  <div className="text-sm text-muted-foreground py-6">Loading…</div>
+                ) : tasksDemandsQuery.isError ? (
+                  <div className="text-sm text-red-600 py-6">Failed to load tasks.</div>
+                ) : filteredDemandRows.length === 0 ? (
+                  <div className="text-sm text-muted-foreground py-10 text-center">No tasks found.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredDemandRows.map((row) => (
+                      <button
+                        key={row.id}
+                        type="button"
+                        onClick={() => onSelectDashboardTask(row)}
+                        className={cn(
+                          "w-full text-left rounded-xl border p-4 transition-all duration-200 group relative overflow-hidden",
+                          selectedId === row.id
+                            ? "border-primary/50 bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                            : "border-border hover:border-border-hover hover:bg-muted/50",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                              {row.source_label || row.source}
+                            </div>
+                            <div className="font-semibold text-sm truncate">{row.title}</div>
+                            {row.ai_summary || row.description ? (
+                              <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 line-clamp-1">
+                                {row.ai_summary || row.description}
+                              </div>
+                            ) : null}
+                            <div className="text-xs text-muted-foreground mt-1 truncate">
+                              {row.assignee?.name || "Unassigned"}
+                            </div>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[9px] font-bold px-1.5 py-0 shrink-0",
+                              dashboardTaskStatusBadge(row.status),
+                            )}
+                          >
+                            {dashboardTaskStatusLabel(row.status)}
+                          </Badge>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+
+          <Card className="h-[72vh]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Task details</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {!selectedId ? (
+                <div className="text-sm text-muted-foreground py-10 text-center">
+                  Select a task on the left.
+                </div>
+              ) : dashboardTaskQuery.isLoading ? (
+                <div className="text-sm text-muted-foreground py-6">Loading…</div>
+              ) : dashboardTaskQuery.isError || !dashboardTask ? (
+                <div className="text-sm text-red-600 py-6">Failed to load task.</div>
+              ) : (
+                <DashboardTaskDetailPanel
+                  task={dashboardTask}
+                  onStatusChange={(nextStatus) => dashboardStatusMutation.mutate(nextStatus)}
+                  isUpdating={dashboardStatusMutation.isPending}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -554,10 +929,37 @@ const StaffRequestsPage: React.FC = () => {
                     <div className="text-sm text-muted-foreground py-6">Loading…</div>
                   ) : listQuery.isError ? (
                     <div className="text-sm text-red-600 py-6">Failed to load requests.</div>
-                  ) : requests.length === 0 ? (
+                  ) : requests.length === 0 && !showPinnedDashboardTask ? (
                     emptyState
                   ) : (
                     <div className="space-y-2">
+                      {showPinnedDashboardTask && dashboardTask ? (
+                        <button
+                          type="button"
+                          className="w-full text-left rounded-xl border p-4 transition-all duration-200 border-primary/50 bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                                {dashboardTask.source_label || "Dashboard task"}
+                              </div>
+                              <div className="font-semibold text-sm truncate">{dashboardTask.title}</div>
+                              <div className="text-xs text-muted-foreground mt-1 truncate">
+                                {dashboardTask.assignee?.name || "Unassigned"}
+                              </div>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[9px] font-bold px-1.5 py-0 shrink-0",
+                                dashboardTaskStatusBadge(dashboardTask.status),
+                              )}
+                            >
+                              {dashboardTaskStatusLabel(dashboardTask.status)}
+                            </Badge>
+                          </div>
+                        </button>
+                      ) : null}
                       {requests.map((r) => {
                         const isNew = new Date().getTime() - new Date(r.created_at).getTime() < 86400000;
                         const isUrgent = r.priority === "URGENT" || r.priority === "HIGH";
@@ -655,6 +1057,18 @@ const StaffRequestsPage: React.FC = () => {
                   <div className="text-sm text-muted-foreground py-10 text-center">
                     Select a request on the left.
                   </div>
+                ) : isDashboardDetail ? (
+                  dashboardTaskQuery.isLoading ? (
+                    <div className="text-sm text-muted-foreground py-6">Loading…</div>
+                  ) : dashboardTaskQuery.isError || !dashboardTask ? (
+                    <div className="text-sm text-red-600 py-6">Failed to load task.</div>
+                  ) : (
+                    <DashboardTaskDetailPanel
+                      task={dashboardTask}
+                      onStatusChange={(nextStatus) => dashboardStatusMutation.mutate(nextStatus)}
+                      isUpdating={dashboardStatusMutation.isPending}
+                    />
+                  )
                 ) : selectedQuery.isLoading ? (
                   <div className="text-sm text-muted-foreground py-6">Loading…</div>
                 ) : selectedQuery.isError || !selected ? (

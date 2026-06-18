@@ -223,6 +223,8 @@ export interface DashboardTaskDemandItem {
      * vocabulary; older API responses may omit it.
      */
     kind?: 'dashboard' | 'scheduling' | 'staff_request' | 'invoice';
+    /** Raw staff-request status before widget vocabulary mapping. */
+    raw_status?: string;
     due_date: string | null;
     source: 'MANUAL' | 'WHATSAPP' | 'EMAIL' | 'MIYA' | 'SYSTEM';
     source_label: string;
@@ -346,6 +348,8 @@ export interface StaffMessageSendResponse {
     // Human-readable failure reason surfaced from Meta / the normalizer.
     // Populated when whatsapp_failed is true; null on success.
     failure_reason?: string | null;
+    /** True when Meta rejected our platform token (ops must rotate WHATSAPP_ACCESS_TOKEN). */
+    whatsapp_platform_issue?: boolean;
     /** In-app notifications delivered (same as announcement fan-out count). */
     notified_count?: number;
     /** Echo of targeting mode + filters for analytics / toasts. */
@@ -367,6 +371,23 @@ export interface DashboardTasksDemandsResponse {
     pending: DashboardTaskDemandItem[];
     in_progress: DashboardTaskDemandItem[];
     completed: DashboardTaskDemandItem[];
+    generated_at: string;
+}
+
+/** Tasks bound to a Miya-created custom dashboard tile. */
+export interface CustomWidgetTasksResponse {
+    widget_id: string;
+    title: string;
+    items: DashboardTaskDemandItem[];
+    pending: DashboardTaskDemandItem[];
+    in_progress: DashboardTaskDemandItem[];
+    completed: DashboardTaskDemandItem[];
+    counts: {
+        open: number;
+        in_progress: number;
+        completed: number;
+        pending: number;
+    };
     generated_at: string;
 }
 
