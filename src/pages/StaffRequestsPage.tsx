@@ -36,8 +36,10 @@ import {
 } from "lucide-react";
 import { useStaffInboxLanes, resolveStaffInboxLaneId, type StaffInboxLane } from "@/hooks/use-staff-inbox-lanes";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
-import { api } from "@/lib/api";
-import type { DashboardTaskDemandItem } from "@/lib/types";
+import { AttachmentList } from "@/components/ui/attachment-preview";
+import { api, BACKEND_URL } from "@/lib/api";
+import type { DashboardTaskDemandItem, Invoice } from "@/lib/types";
+import { toast } from "sonner";
 
 type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED" | "CLOSED" | "WAITING_ON";
 
@@ -209,7 +211,7 @@ async function apiPost<T>(path: string, body?: any): Promise<T> {
   return res.json();
 }
 
-type DetailKind = "staff_request" | "dashboard" | "scheduling";
+type DetailKind = "staff_request" | "dashboard" | "scheduling" | "invoice";
 type TasksDemandsTab = "pending" | "in_progress" | "completed";
 
 type StaffRequestsDeepLink = {
@@ -270,6 +272,123 @@ function dashboardTaskStatusBadge(status?: string) {
   if (s === "COMPLETED") return "bg-emerald-50 text-emerald-700 border-emerald-200 ring-1 ring-emerald-200";
   if (s === "CANCELLED") return "bg-rose-50 text-rose-700 border-rose-200 ring-1 ring-rose-200";
   return "bg-yellow-50 text-yellow-700 border-yellow-200 ring-1 ring-yellow-200";
+}
+
+function resolveStoredMediaUrl(path: string | null | undefined): string {
+  const raw = (path || "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `${BACKEND_URL}${raw.startsWith("/") ? raw : `/${raw}`}`;
+}
+
+function invoiceAttachmentItems(invoice: Invoice) {
+  const url =
+    invoice.attachment_url?.trim() ||
+    resolveStoredMediaUrl(invoice.attachment) ||
+    resolveStoredMediaUrl(invoice.photo) ||
+    invoice.photo_url?.trim() ||
+    "";
+  if (!url) return [];
+  const name =
+    invoice.attachment_filename?.trim() ||
+    `${invoice.vendor_name || "Invoice"}${invoice.invoice_number ? `-${invoice.invoice_number}` : ""}`;
+  return [
+    {
+      url,
+      name,
+      content_type: invoice.attachment_content_type || undefined,
+    },
+  ];
+}
+
+function invoiceStatusLabel(status?: string) {
+  const s = String(status || "").toUpperCase();
+  if (s === "PAID") return "Paid";
+  if (s === "VOIDED") return "Voided";
+  if (s === "DRAFT") return "Draft";
+  return "Open";
+}
+
+function invoiceStatusBadge(status?: string) {
+  const s = String(status || "").toUpperCase();
+  if (s === "PAID") return "bg-emerald-50 text-emerald-700 border-emerald-200 ring-1 ring-emerald-200";
+  if (s === "VOIDED") return "bg-slate-50 text-slate-600 border-slate-200 ring-1 ring-slate-200";
+  if (s === "DRAFT") return "bg-slate-50 text-slate-700 border-slate-200 ring-1 ring-slate-200";
+  return "bg-yellow-50 text-yellow-700 border-yellow-200 ring-1 ring-yellow-200";
+}
+
+function InvoiceDetailPanel({
+  invoice,
+  onMarkPaid,
+  isUpdating,
+}: {
+  invoice: Invoice;
+  onMarkPaid: () => void;
+  isUpdating: boolean;
+}) {
+  const attachments = invoiceAttachmentItems(invoice);
+  const isOpen = String(invoice.status || "").toUpperCase() === "OPEN";
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">
+            Finance · Invoice
+          </div>
+          <h3 className="text-2xl font-bold tracking-tight truncate">{invoice.vendor_name}</h3>
+          {invoice.invoice_number ? (
+            <p className="text-sm text-muted-foreground mt-1">#{invoice.invoice_number}</p>
+          ) : null}
+        </div>
+        <Badge variant="outline" className={cn("text-xs font-bold px-3 py-1 uppercase rounded-full", invoiceStatusBadge(invoice.status))}>
+          {invoiceStatusLabel(invoice.status)}
+        </Badge>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Amount</div>
+          <div className="text-lg font-bold tabular-nums mt-1">
+            {invoice.amount} {invoice.currency}
+          </div>
+        </div>
+        <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Due date</div>
+          <div className="text-lg font-semibold mt-1">
+            {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : "—"}
+          </div>
+        </div>
+      </div>
+
+      {invoice.notes ? (
+        <div className="rounded-2xl border border-border/40 bg-muted/20 p-4">
+          <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Notes</div>
+          <p className="text-sm whitespace-pre-wrap leading-relaxed">{invoice.notes}</p>
+        </div>
+      ) : null}
+
+      <div className="rounded-2xl border border-border/40 bg-background p-4">
+        <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
+          <FileText className="w-3.5 h-3.5" />
+          Invoice document
+        </div>
+        {attachments.length > 0 ? (
+          <AttachmentList attachments={attachments} />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No document was attached to this invoice. Ask the sender to resend the photo or PDF on WhatsApp.
+          </p>
+        )}
+      </div>
+
+      {isOpen ? (
+        <Button onClick={onMarkPaid} disabled={isUpdating} className="w-full sm:w-auto">
+          {isUpdating ? "Updating…" : "Mark as paid"}
+        </Button>
+      ) : null}
+    </div>
+  );
 }
 
 function DashboardTaskDetailPanel({
@@ -363,7 +482,9 @@ const StaffRequestsPage: React.FC = () => {
 
   const initialDetailKind = ((): DetailKind => {
     const kind = searchParams.get("kind");
-    return kind === "dashboard" || kind === "scheduling" ? kind : "staff_request";
+    if (kind === "dashboard" || kind === "scheduling") return kind;
+    if (kind === "invoice") return "invoice";
+    return "staff_request";
   })();
 
   const initialDashboardListMode = (() => {
@@ -390,6 +511,7 @@ const StaffRequestsPage: React.FC = () => {
   );
 
   const filterCategories = activeLane?.categories ?? [];
+  const isInvoiceDetail = detailKind === "invoice";
   const isDashboardDetail = detailKind === "dashboard" || detailKind === "scheduling";
 
   // Apply widget deep-links once lanes are loaded (?lane= or legacy ?category=).
@@ -414,6 +536,9 @@ const StaffRequestsPage: React.FC = () => {
 
     if (dl.kind === "dashboard" || dl.kind === "scheduling") {
       setDetailKind(dl.kind);
+    }
+    if (dl.kind === "invoice") {
+      setDetailKind("invoice");
     }
     if (dl.list === "dashboard") {
       setDashboardListMode(true);
@@ -553,7 +678,19 @@ const StaffRequestsPage: React.FC = () => {
       if (!selectedId) return null;
       return apiGet<StaffRequest>(`/staff/requests/${selectedId}/`);
     },
-    enabled: !!selectedId && !isDashboardDetail,
+    enabled: !!selectedId && !isDashboardDetail && !isInvoiceDetail,
+    staleTime: 15_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+
+  const invoiceQuery = useQuery({
+    queryKey: ["finance-invoice", selectedId],
+    queryFn: async (): Promise<Invoice | null> => {
+      if (!selectedId) return null;
+      return api.getInvoice(selectedId);
+    },
+    enabled: !!selectedId && isInvoiceDetail,
     staleTime: 15_000,
     refetchOnWindowFocus: false,
     retry: false,
@@ -567,6 +704,7 @@ const StaffRequestsPage: React.FC = () => {
     },
     enabled:
       !!selectedId &&
+      !isInvoiceDetail &&
       (isDashboardDetail ||
         (selectedQuery.isFetched && selectedQuery.isError && !selectedQuery.isFetching)),
     staleTime: 15_000,
@@ -575,16 +713,32 @@ const StaffRequestsPage: React.FC = () => {
   });
 
   useEffect(() => {
-    if (!selectedId || isDashboardDetail) return;
+    if (!selectedId || isDashboardDetail || isInvoiceDetail) return;
     if (selectedQuery.isError && dashboardTaskQuery.data) {
       setDetailKind(tasksDemandsDetailKind(dashboardTaskQuery.data));
     }
   }, [
     selectedId,
     isDashboardDetail,
+    isInvoiceDetail,
     selectedQuery.isError,
     dashboardTaskQuery.data,
   ]);
+
+  const invoiceMarkPaidMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedId) throw new Error("No invoice selected");
+      return api.markInvoicePaid(selectedId);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["finance-invoice", selectedId] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard", "category-tasks"] });
+      toast.success("Invoice marked as paid.");
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : "Could not mark invoice as paid.");
+    },
+  });
 
   const dashboardStatusMutation = useMutation({
     mutationFn: (nextStatus: DashboardTaskDemandItem["status"]) => {
@@ -683,6 +837,37 @@ const StaffRequestsPage: React.FC = () => {
   const pageSubtitle = dashboardListMode
     ? "Miya-created and ingested tasks — review, reassign, and close from here."
     : activeLane?.page_subtitle ?? null;
+
+  if (isInvoiceDetail && selectedId) {
+    const invoice = invoiceQuery.data;
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>
+            Back to dashboard
+          </Button>
+        </div>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Invoice details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {invoiceQuery.isLoading ? (
+              <div className="text-sm text-muted-foreground py-6">Loading…</div>
+            ) : invoiceQuery.isError || !invoice ? (
+              <div className="text-sm text-red-600 py-6">Failed to load invoice.</div>
+            ) : (
+              <InvoiceDetailPanel
+                invoice={invoice}
+                onMarkPaid={() => invoiceMarkPaidMutation.mutate()}
+                isUpdating={invoiceMarkPaidMutation.isPending}
+              />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (dashboardListMode) {
     const demandTabs: { id: TasksDemandsTab; label: string; count: number }[] = [

@@ -420,6 +420,11 @@ export interface Invoice {
     category?: string;
     notes?: string;
     photo?: string | null;
+    attachment?: string | null;
+    attachment_url?: string;
+    attachment_content_type?: string;
+    attachment_filename?: string;
+    has_attachment?: boolean;
     photo_url?: string;
     paid_at?: string | null;
     paid_amount?: string | null;
