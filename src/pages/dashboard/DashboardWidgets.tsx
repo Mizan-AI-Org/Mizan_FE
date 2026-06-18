@@ -3439,7 +3439,10 @@ function staffStatusFromWidgetItem(item: DashboardTaskDemandItem): string | null
 
 function buildInboxRowDetailHref(opts: { lane?: string; priority?: string }) {
   return (item: DashboardTaskDemandItem) => {
-    const kind = item.kind || "dashboard";
+    const kind =
+      item.kind ||
+      (item.raw_status ? "staff_request" : undefined) ||
+      "dashboard";
 
     // Miya / dashboard.Task rows (Operations, Tasks & Demands, custom tiles)
     // live outside the staff-request inbox — open the task detail pane directly.
