@@ -501,10 +501,17 @@ export class BackendService {
   async updateDashboardTaskBucket(
     taskId: string,
     bucket: import("./types").WidgetDropTarget | string,
+    column?: import("./types").WidgetDropColumn,
   ): Promise<DashboardTaskDemandItem> {
     return this.fetchWithError(
       `/dashboard/tasks-demands/${taskId}/bucket/`,
-      { method: "PATCH", body: JSON.stringify({ bucket }) },
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          bucket,
+          ...(column ? { column } : {}),
+        }),
+      },
     );
   }
 
