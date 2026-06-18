@@ -81,7 +81,9 @@ type StaffRequest = {
 
 const STATUSES: { key: StaffRequestStatus; label: string }[] = [
   { key: "PENDING", label: "Pending" },
-  { key: "APPROVED", label: "Approved" },
+  // APPROVED in the inbox means "manager acknowledged — being worked on",
+  // which the dashboard widgets surface as "In progress".
+  { key: "APPROVED", label: "In progress" },
   // "Waiting on" parks an acknowledged request that is blocked by an
   // external dependency (supplier reply, contractor visit, document
   // arriving). Pairs with `follow_up_date` so the SLA sweeper re-pings
@@ -132,11 +134,22 @@ function priorityBadge(priority?: string) {
 function statusBadge(status?: string) {
   const s = String(status || "").toUpperCase();
   if (s === "PENDING") return "bg-yellow-50 text-yellow-700 border-yellow-200 ring-1 ring-yellow-200";
-  if (s === "APPROVED") return "bg-emerald-50 text-emerald-700 border-emerald-200 ring-1 ring-emerald-200";
+  if (s === "APPROVED") return "bg-sky-50 text-sky-700 border-sky-200 ring-1 ring-sky-200";
   if (s === "REJECTED") return "bg-rose-50 text-rose-700 border-rose-200 ring-1 ring-rose-200";
   if (s === "ESCALATED") return "bg-violet-50 text-violet-700 border-violet-200 ring-1 ring-violet-200";
   if (s === "WAITING_ON") return "bg-sky-50 text-sky-700 border-sky-200 ring-1 ring-sky-200";
   return "bg-slate-50 text-slate-700 border-slate-200 ring-1 ring-slate-200";
+}
+
+/** Human label aligned with dashboard widget pill vocabulary. */
+function staffRequestStatusLabel(status?: string) {
+  const s = String(status || "").toUpperCase();
+  if (s === "APPROVED") return "In progress";
+  if (s === "WAITING_ON") return "Waiting on";
+  if (s === "ESCALATED") return "Escalated";
+  if (s === "REJECTED") return "Rejected";
+  if (s === "CLOSED") return "Closed";
+  return "Pending";
 }
 
 function getSourceIcon(source?: string) {
@@ -198,6 +211,41 @@ async function apiPost<T>(path: string, body?: any): Promise<T> {
 
 type DetailKind = "staff_request" | "dashboard" | "scheduling";
 type TasksDemandsTab = "pending" | "in_progress" | "completed";
+
+type StaffRequestsDeepLink = {
+  lane: string | null;
+  category: string | null;
+  status: string | null;
+  kind: string | null;
+  list: string | null;
+  priority: string | null;
+};
+
+function captureStaffRequestsDeepLink(
+  searchParams: URLSearchParams,
+): StaffRequestsDeepLink {
+  return {
+    lane: searchParams.get("lane"),
+    category: searchParams.get("category"),
+    status: searchParams.get("status"),
+    kind: searchParams.get("kind"),
+    list: searchParams.get("list"),
+    priority: searchParams.get("priority"),
+  };
+}
+
+function stripStaffRequestsDeepLink(
+  searchParams: URLSearchParams,
+): URLSearchParams {
+  const next = new URLSearchParams(searchParams);
+  next.delete("category");
+  next.delete("lane");
+  next.delete("priority");
+  next.delete("status");
+  next.delete("kind");
+  next.delete("list");
+  return next;
+}
 
 function tasksDemandsDetailKind(row: Pick<DashboardTaskDemandItem, "kind">): DetailKind {
   return row.kind === "scheduling" ? "scheduling" : "dashboard";
@@ -332,6 +380,9 @@ const StaffRequestsPage: React.FC = () => {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const deepLinkAppliedRef = useRef(false);
+  const initialDeepLinkRef = useRef<StaffRequestsDeepLink>(
+    captureStaffRequestsDeepLink(searchParams),
+  );
 
   const activeLane = useMemo(
     () => inboxLanes.find((lane) => lane.lane_id === activeLaneId) ?? null,
@@ -342,50 +393,45 @@ const StaffRequestsPage: React.FC = () => {
   const isDashboardDetail = detailKind === "dashboard" || detailKind === "scheduling";
 
   // Apply widget deep-links once lanes are loaded (?lane= or legacy ?category=).
+  // Params are captured on first mount — a separate strip-on-mount effect used
+  // to delete them before lanes finished loading, which dropped the Team Travel tab.
   useEffect(() => {
     if (deepLinkAppliedRef.current || inboxLanesQuery.isLoading) return;
+
+    const dl = initialDeepLinkRef.current;
     const laneFromUrl = resolveStaffInboxLaneId(inboxLanes, {
-      lane: searchParams.get("lane"),
-      category: searchParams.get("category"),
+      lane: dl.lane,
+      category: dl.category,
     });
     if (laneFromUrl) {
       setActiveLaneId(laneFromUrl);
     }
-    const statusFromUrl = (searchParams.get("status") || "").toUpperCase();
+
+    const statusFromUrl = (dl.status || "").toUpperCase();
     if (STATUSES.some((s) => s.key === statusFromUrl)) {
       setActiveStatus(statusFromUrl as StaffRequestStatus);
     }
-    const kindFromUrl = searchParams.get("kind");
-    if (kindFromUrl === "dashboard" || kindFromUrl === "scheduling") {
-      setDetailKind(kindFromUrl);
+
+    if (dl.kind === "dashboard" || dl.kind === "scheduling") {
+      setDetailKind(dl.kind);
     }
-    if (searchParams.get("list") === "dashboard") {
+    if (dl.list === "dashboard") {
       setDashboardListMode(true);
     }
-    deepLinkAppliedRef.current = true;
-  }, [inboxLanes, inboxLanesQuery.isLoading, searchParams]);
 
-  // Strip deep-link params after consumption.
-  useEffect(() => {
+    deepLinkAppliedRef.current = true;
+
     if (
-      searchParams.get("category") ||
-      searchParams.get("lane") ||
-      searchParams.get("priority") ||
-      searchParams.get("status") ||
-      searchParams.get("kind") ||
-      searchParams.get("list")
+      dl.category ||
+      dl.lane ||
+      dl.priority ||
+      dl.status ||
+      dl.kind ||
+      dl.list
     ) {
-      const next = new URLSearchParams(searchParams);
-      next.delete("category");
-      next.delete("lane");
-      next.delete("priority");
-      next.delete("status");
-      next.delete("kind");
-      next.delete("list");
-      setSearchParams(next, { replace: true });
+      setSearchParams(stripStaffRequestsDeepLink(searchParams), { replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [inboxLanes, inboxLanesQuery.isLoading, searchParams, setSearchParams]);
   const [comment, setComment] = useState("");
   const [escalateModalOpen, setEscalateModalOpen] = useState(false);
   const [reassignModalOpen, setReassignModalOpen] = useState(false);
@@ -1022,7 +1068,7 @@ const StaffRequestsPage: React.FC = () => {
                               </div>
                               <div className="flex flex-col items-end gap-1.5">
                                 <Badge variant="outline" className={cn("text-[9px] font-bold px-1.5 py-0", statusBadge(r.status))}>
-                                  {r.status}
+                                  {staffRequestStatusLabel(r.status)}
                                 </Badge>
                                 <div className="text-[10px] text-muted-foreground flex items-center gap-1">
                                   <Clock className="w-3 h-3" />
@@ -1090,7 +1136,7 @@ const StaffRequestsPage: React.FC = () => {
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <Badge variant="outline" className={cn("text-xs font-bold px-3 py-1 uppercase rounded-full", statusBadge(selected.status))}>
-                          {selected.status}
+                          {staffRequestStatusLabel(selected.status)}
                         </Badge>
                         <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", priorityBadge(selected.priority))}>
                           {String(selected.priority || "MEDIUM").toUpperCase()}
