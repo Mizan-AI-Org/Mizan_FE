@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { NavigateFunction } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
 import { api, API_BASE } from "@/lib/api";
@@ -1087,7 +1087,7 @@ function inboxCategoryLabel(category: string | null | undefined): string {
 /**
  * Map a StaffRequest.category to the dashboard widget bucket that
  * "owns" it. Used by the Staff Inbox row's drag source to populate
- * ``RowDragPayload.sourceBucket`` so the destination CategoryTasksCard
+ * ``RowDragPayload.sourceTarget`` so the destination CategoryTasksCard
  * can short-circuit same-bucket drops correctly. Categories that don't
  * have a dedicated widget bucket (INVENTORY, OPERATIONS, RESERVATIONS,
  * SCHEDULING) fall through to ``miscellaneous`` — dropping them on
@@ -1318,7 +1318,7 @@ function StaffInboxEnterpriseCard({
                 // self-drop guard correctly disables the Misc target only.
                 const status = String(it.status || "").toUpperCase();
                 const isTerminal = status === "CLOSED" || status === "REJECTED";
-                const sourceBucket = _inboxCategoryToBucket(it.category);
+                const sourceTarget = _inboxCategoryToBucket(it.category);
                 const draggable = !isTerminal;
                 const isDragging = draggingRowId === it.id;
                 const onRowDragStart = (e: React.DragEvent<HTMLLIElement>) => {
@@ -1326,7 +1326,7 @@ function StaffInboxEnterpriseCard({
                   const payload = {
                     id: it.id,
                     kind: "staff_request" as const,
-                    sourceBucket,
+                    sourceTarget,
                     title: subject,
                   };
                   try {
@@ -1340,7 +1340,7 @@ function StaffInboxEnterpriseCard({
                   }
                   _publishDragSession({
                     active: true,
-                    sourceBucket,
+                    sourceTarget,
                     title: subject,
                     itemId: it.id,
                   });
@@ -1725,6 +1725,7 @@ function TasksDemandsCard({
 }) {
   const qc = useQueryClient();
   const [tab, setTab] = useState<TasksDemandsTab>("pending");
+  const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
 
   const { data, isLoading, isError, error, refetch, isFetching } =
     useQuery<DashboardTasksDemandsResponse>({
@@ -1762,6 +1763,45 @@ function TasksDemandsCard({
       toast.error(msg);
     },
   });
+
+  const bucketMutation = useMutation({
+    mutationFn: ({
+      id,
+      target,
+    }: {
+      id: string;
+      target: import("@/lib/types").WidgetDropTarget | string;
+      title?: string;
+    }) => api.updateDashboardTaskBucket(id, target),
+    onSuccess: (_data, variables) => {
+      invalidateWidgetTaskQueries(qc);
+      toast.success(
+        (t("dashboard.category_tasks.bucket_move_success") || 'Moved "{title}" to its new widget.').replace(
+          "{title}",
+          variables.title || "Task",
+        ),
+      );
+    },
+    onError: (err: unknown) => {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : t("dashboard.category_tasks.bucket_move_error");
+      toast.error(msg);
+    },
+  });
+
+  const dropZone = useWidgetDropZone(
+    "tasks_demands",
+    (payload) => {
+      bucketMutation.mutate({
+        id: payload.id,
+        target: "tasks_demands",
+        title: payload.title,
+      });
+    },
+    { isPending: bucketMutation.isPending },
+  );
 
   // Reassign target — set when the manager clicks "Reassign" in the
   // row dropdown. Holds the row's id + display title + (if present)
@@ -1828,7 +1868,25 @@ function TasksDemandsCard({
   ];
 
   return (
-    <Card className={`${cardBase} flex flex-col`}>
+    <Card
+      className={cn(`${cardBase} flex flex-col transition-all relative`, dropZone.cardClassName)}
+      {...dropZone.dropHandlers}
+      aria-dropeffect={dropZone.isDropTarget ? "move" : undefined}
+    >
+      {dropZone.isDropTarget ? (
+        <div
+          className="pointer-events-none absolute left-1/2 -top-3 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-white shadow-lg animate-in fade-in slide-in-from-top-1 duration-150"
+          aria-hidden
+        >
+          <span>↓</span>
+          <span>
+            {(t("dashboard.category_tasks.drop_here_hint") || "Drop to move to {bucket}").replace(
+              "{bucket}",
+              t("dashboard.tasks_demands.title"),
+            )}
+          </span>
+        </div>
+      ) : null}
       <CardHeader className={cardHeaderBase}>
         <div className="flex items-center gap-2 min-w-0">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/12 text-indigo-600 dark:text-indigo-400">
@@ -1926,11 +1984,24 @@ function TasksDemandsCard({
                 const showSource =
                   row.source !== "SYSTEM" && Boolean(row.source_label?.trim() || sourcePrefix(row.source));
                 const srcLabel = row.source_label?.trim() || sourcePrefix(row.source);
+                const rowDraggable = isDashboardTaskDraggable(row);
+                const dragHandlers = bindTaskRowDragHandlers({
+                  item: row,
+                  sourceTarget: "tasks_demands",
+                  draggable: rowDraggable,
+                  onDragStateChange: setDraggingRowId,
+                });
+                const isDragging = draggingRowId === row.id;
                 return (
                   <li
                     key={row.id}
                     onClick={() => navigate(tasksDemandsDetailHref(row))}
-                    className="group rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700/80 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 px-2 py-1.5 transition-colors cursor-pointer"
+                    className={cn(
+                      "group rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700/80 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 px-2 py-1.5 transition-colors cursor-pointer",
+                      rowDraggable && "cursor-grab active:cursor-grabbing",
+                      isDragging && "opacity-35 border border-dashed border-emerald-400/70",
+                    )}
+                    {...dragHandlers}
                   >
                     <div className="flex items-start gap-2.5">
                       {/* Avatar */}
@@ -3321,7 +3392,7 @@ const ROW_DRAG_MIME = "application/x-mizan-dashboard-row";
 interface RowDragPayload {
   id: string;
   kind: import("@/lib/types").DashboardTaskDemandItem["kind"];
-  sourceBucket: import("@/lib/types").CategoryTaskBucket;
+  sourceTarget: import("@/lib/types").WidgetDropTarget | string;
   /** Title is included so we can render a meaningful toast on success
    *  without re-fetching the row. */
   title: string;
@@ -3338,7 +3409,7 @@ interface RowDragPayload {
 //
 // We fix that with a tiny module-level pub/sub that every CategoryTasksCard
 // subscribes to via ``useSyncExternalStore``. When a row drag starts we
-// publish ``{ active: true, sourceBucket, title }``; every card re-renders
+// publish ``{ active: true, sourceTarget, title }``; every card re-renders
 // and can now tell if it's a valid drop target (different bucket) and
 // surface a clear "drop here" affordance *before* the user hovers.
 //
@@ -3347,14 +3418,14 @@ interface RowDragPayload {
 // so OS-level cross-window drags remain possible.
 interface DragSessionState {
   active: boolean;
-  sourceBucket: import("@/lib/types").CategoryTaskBucket | null;
+  sourceTarget: string | null;
   title: string;
   itemId: string;
 }
 
 const _emptyDragSession: DragSessionState = {
   active: false,
-  sourceBucket: null,
+  sourceTarget: null,
   title: "",
   itemId: "",
 };
@@ -3384,6 +3455,152 @@ function useDragSession(): DragSessionState {
     _getDragSession,
     _getDragSession,
   );
+}
+
+function isDashboardTaskDraggable(item: DashboardTaskDemandItem): boolean {
+  const kind = item.kind || (item.raw_status ? "staff_request" : "dashboard");
+  if (kind !== "dashboard") return false;
+  return item.status !== "COMPLETED" && item.status !== "CANCELLED";
+}
+
+function invalidateWidgetTaskQueries(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
+  qc.invalidateQueries({
+    predicate: (q) =>
+      Array.isArray(q.queryKey) &&
+      q.queryKey[0] === "dashboard" &&
+      (q.queryKey[1] === "category-tasks" ||
+        q.queryKey[1] === "custom-widget-tasks"),
+  });
+  qc.invalidateQueries({ queryKey: ["dashboard", "summary"] });
+}
+
+function useWidgetDropZone(
+  target: string,
+  onDrop: (payload: RowDragPayload) => void,
+  options?: { isPending?: boolean },
+) {
+  const [isDropTarget, setIsDropTarget] = React.useState(false);
+  const [justReceivedDrop, setJustReceivedDrop] = React.useState(false);
+  const dragSession = useDragSession();
+  const isValidDropTarget =
+    dragSession.active && dragSession.sourceTarget !== target;
+  const isSourceTarget =
+    dragSession.active && dragSession.sourceTarget === target;
+
+  const onDropRow = React.useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDropTarget(false);
+      const raw = e.dataTransfer.getData(ROW_DRAG_MIME);
+      if (!raw) return;
+      let payload: RowDragPayload | null = null;
+      try {
+        payload = JSON.parse(raw) as RowDragPayload;
+      } catch {
+        return;
+      }
+      if (!payload?.id || payload.sourceTarget === target) return;
+      onDrop(payload);
+      setJustReceivedDrop(true);
+      window.setTimeout(() => setJustReceivedDrop(false), 900);
+    },
+    [onDrop, target],
+  );
+
+  const onDragOverRow = React.useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      const types = e.dataTransfer.types;
+      if (!types || !Array.from(types).includes(ROW_DRAG_MIME)) return;
+      const sourceTarget = _getDragSession().sourceTarget;
+      if (sourceTarget === target) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "none";
+        return;
+      }
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (!isDropTarget) setIsDropTarget(true);
+    },
+    [isDropTarget, target],
+  );
+
+  const onDragLeaveRow = React.useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      const related = e.relatedTarget as Node | null;
+      if (related && e.currentTarget.contains(related)) return;
+      setIsDropTarget(false);
+    },
+    [],
+  );
+
+  const cardClassName = cn(
+    isValidDropTarget &&
+      !isDropTarget &&
+      "ring-2 ring-dashed ring-emerald-300/70 dark:ring-emerald-500/50 ring-offset-1 ring-offset-background",
+    isDropTarget &&
+      "ring-2 ring-primary/70 ring-offset-2 ring-offset-background shadow-xl scale-[1.015] bg-emerald-50/40 dark:bg-emerald-950/20",
+    isSourceTarget && "opacity-70",
+    justReceivedDrop &&
+      "ring-2 ring-emerald-500/80 ring-offset-2 ring-offset-background shadow-lg",
+    options?.isPending && "opacity-90",
+  );
+
+  return {
+    cardClassName,
+    isDropTarget,
+    isValidDropTarget,
+    isSourceTarget,
+    dropLabel: target,
+    dropHandlers: {
+      onDrop: onDropRow,
+      onDragOver: onDragOverRow,
+      onDragEnter: onDragOverRow,
+      onDragLeave: onDragLeaveRow,
+    },
+  };
+}
+
+function bindTaskRowDragHandlers(opts: {
+  item: DashboardTaskDemandItem;
+  sourceTarget: string;
+  draggable: boolean;
+  onDragStateChange?: (id: string | null) => void;
+}) {
+  const { item, sourceTarget, draggable, onDragStateChange } = opts;
+  return {
+    draggable,
+    onDragStart: (e: React.DragEvent<HTMLLIElement>) => {
+      if (!draggable) return;
+      const payload: RowDragPayload = {
+        id: item.id,
+        kind: item.kind,
+        sourceTarget,
+        title: item.title,
+      };
+      e.dataTransfer.setData(ROW_DRAG_MIME, JSON.stringify(payload));
+      e.dataTransfer.effectAllowed = "move";
+      try {
+        const ghost = buildDragImage(item.title || "Moving…");
+        e.dataTransfer.setDragImage(ghost, 14, 14);
+        window.setTimeout(() => ghost.remove(), 0);
+      } catch {
+        /* keep default drag image */
+      }
+      _publishDragSession({
+        active: true,
+        sourceTarget,
+        title: item.title || "",
+        itemId: item.id,
+      });
+      onDragStateChange?.(item.id);
+    },
+    onDragEnd: () => {
+      _publishDragSession(_emptyDragSession);
+      onDragStateChange?.(null);
+    },
+  };
 }
 
 // Build a floating "chip" element as the drag image so the cursor carries
@@ -3519,9 +3736,9 @@ function CategoryTasksCard({
   // every valid drop target at once — not just the one under the cursor.
   const dragSession = useDragSession();
   const isValidDropTarget =
-    dragSession.active && dragSession.sourceBucket !== bucket;
+    dragSession.active && dragSession.sourceTarget !== bucket;
   const isSourceBucket =
-    dragSession.active && dragSession.sourceBucket === bucket;
+    dragSession.active && dragSession.sourceTarget === bucket;
   const qc = useQueryClient();
   const queryKey = useMemo(
     () => ["dashboard", "category-tasks", bucket, 5] as const,
@@ -3582,18 +3799,7 @@ function CategoryTasksCard({
     mutationFn: ({ id }: { id: string; payload: RowDragPayload }) =>
       api.updateDashboardTaskBucket(id, bucket),
     onSuccess: (_data, variables) => {
-      // Invalidate all category-tasks queries regardless of bucket so
-      // both the source AND target widgets pick up the move on the
-      // next tick. ``predicate`` lets us match the variable-arity
-      // queryKey shape ["dashboard", "category-tasks", <bucket>, 5].
-      qc.invalidateQueries({
-        predicate: (q) =>
-          Array.isArray(q.queryKey) &&
-          q.queryKey[0] === "dashboard" &&
-          q.queryKey[1] === "category-tasks",
-      });
-      qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
-      qc.invalidateQueries({ queryKey: ["dashboard", "summary"] });
+      invalidateWidgetTaskQueries(qc);
       // Staff Inbox lists *all* categories — a bucket move from any
       // widget (including from the inbox itself) should refresh the
       // inbox preview so the row's category pill updates and a row
@@ -3647,7 +3853,7 @@ function CategoryTasksCard({
         return;
       }
       if (!payload?.id) return;
-      if (payload.sourceBucket === bucket) {
+      if (payload.sourceTarget === bucket) {
         // No-op: dropped on the same widget the drag started in.
         return;
       }
@@ -3668,8 +3874,8 @@ function CategoryTasksCard({
       // preventDefault so the drop event fires and the handler can
       // silently no-op (vs the browser bouncing back to origin), but
       // we keep the visual state unchanged.
-      const sourceBucket = _getDragSession().sourceBucket;
-      if (sourceBucket === bucket) {
+      const sourceTarget = _getDragSession().sourceTarget;
+      if (sourceTarget === bucket) {
         e.preventDefault();
         e.dataTransfer.dropEffect = "none";
         return;
@@ -3860,7 +4066,7 @@ function CategoryTasksCard({
                   key={it.id}
                   item={it}
                   t={t}
-                  sourceBucket={bucket}
+                  sourceTarget={bucket}
                   isDragging={draggingRowId === it.id}
                   onDragStateChange={setDraggingRowId}
                   onStatusChange={(nextStatus) =>
@@ -4079,7 +4285,7 @@ function CategoryTaskRow({
   t,
   onStatusChange,
   isPendingId,
-  sourceBucket,
+  sourceTarget,
   isDragging,
   onDragStateChange,
   onRowNavigate,
@@ -4105,7 +4311,7 @@ function CategoryTaskRow({
    * a server round-trip. Optional so the row stays usable from
    * read-only contexts that don't participate in DnD.
    */
-  sourceBucket?: import("@/lib/types").CategoryTaskBucket;
+  sourceTarget?: import("@/lib/types").WidgetDropTarget | string;
   /** True while *this specific* row is being dragged — drives the
    *  fade-out / dashed border so the user can see what's leaving. */
   isDragging?: boolean;
@@ -4157,14 +4363,14 @@ function CategoryTaskRow({
   // in another bucket, and for invoices because the BE rejects any
   // cross-bucket move on those — letting the manager drag them would
   // just produce an error toast on every drop.
-  const draggable = !isTerminal && !isInvoice && !!sourceBucket;
+  const draggable = !isTerminal && !isInvoice && !!sourceTarget;
   const onRowDragStart = React.useCallback(
     (e: React.DragEvent<HTMLLIElement>) => {
-      if (!draggable || !sourceBucket) return;
+      if (!draggable || !sourceTarget) return;
       const payload = {
         id: item.id,
         kind: item.kind,
-        sourceBucket,
+        sourceTarget,
         title: item.title,
       };
       e.dataTransfer.setData(ROW_DRAG_MIME, JSON.stringify(payload));
@@ -4191,13 +4397,13 @@ function CategoryTaskRow({
       // the user eventually hovers over.
       _publishDragSession({
         active: true,
-        sourceBucket,
+        sourceTarget,
         title: item.title || "",
         itemId: item.id,
       });
       onDragStateChange?.(item.id);
     },
-    [draggable, sourceBucket, item.id, item.kind, item.title, onDragStateChange],
+    [draggable, sourceTarget, item.id, item.kind, item.title, onDragStateChange],
   );
   const onRowDragEnd = React.useCallback(() => {
     // Always clear the global session on drag end — even on a failed
@@ -4609,7 +4815,9 @@ function CustomWidgetTasksCard({
 }) {
   const qc = useQueryClient();
   const [tab, setTab] = useState<TasksDemandsTab>("pending");
+  const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
   const widgetId = def.id;
+  const customDropTarget = `custom:${widgetId}` as const;
   const queryKey = useMemo(
     () => ["dashboard", "custom-widget-tasks", widgetId, 5] as const,
     [widgetId],
@@ -4675,6 +4883,46 @@ function CustomWidgetTasksCard({
     },
   });
 
+  const bucketMutation = useMutation({
+    mutationFn: ({
+      id,
+      target,
+      title,
+    }: {
+      id: string;
+      target: import("@/lib/types").WidgetDropTarget | string;
+      title?: string;
+    }) => api.updateDashboardTaskBucket(id, target),
+    onSuccess: (_data, variables) => {
+      invalidateWidgetTaskQueries(qc);
+      toast.success(
+        (t("dashboard.category_tasks.bucket_move_success") || 'Moved "{title}" to its new widget.').replace(
+          "{title}",
+          variables.title || def.title,
+        ),
+      );
+    },
+    onError: (err: unknown) => {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : t("dashboard.category_tasks.bucket_move_error");
+      toast.error(msg);
+    },
+  });
+
+  const dropZone = useWidgetDropZone(
+    customDropTarget,
+    (payload) => {
+      bucketMutation.mutate({
+        id: payload.id,
+        target: customDropTarget,
+        title: payload.title,
+      });
+    },
+    { isPending: bucketMutation.isPending },
+  );
+
   const counts = data?.counts ?? {
     pending: 0,
     in_progress: 0,
@@ -4715,7 +4963,25 @@ function CustomWidgetTasksCard({
     tabCounts.pending + tabCounts.in_progress + tabCounts.completed > 0;
 
   return (
-    <Card className={`${cardBase} flex flex-col`}>
+    <Card
+      className={cn(`${cardBase} flex flex-col transition-all relative`, dropZone.cardClassName)}
+      {...dropZone.dropHandlers}
+      aria-dropeffect={dropZone.isDropTarget ? "move" : undefined}
+    >
+      {dropZone.isDropTarget ? (
+        <div
+          className="pointer-events-none absolute left-1/2 -top-3 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-white shadow-lg animate-in fade-in slide-in-from-top-1 duration-150"
+          aria-hidden
+        >
+          <span>↓</span>
+          <span>
+            {(t("dashboard.category_tasks.drop_here_hint") || "Drop to move to {bucket}").replace(
+              "{bucket}",
+              def.title,
+            )}
+          </span>
+        </div>
+      ) : null}
       <CardHeader className={`${cardHeaderBase} pb-2 pt-5`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -4807,11 +5073,24 @@ function CustomWidgetTasksCard({
                   row.source !== "SYSTEM" &&
                   Boolean(row.source_label?.trim() || sourcePrefix(row.source));
                 const srcLabel = row.source_label?.trim() || sourcePrefix(row.source);
+                const rowDraggable = isDashboardTaskDraggable(row);
+                const dragHandlers = bindTaskRowDragHandlers({
+                  item: row,
+                  sourceTarget: customDropTarget,
+                  draggable: rowDraggable,
+                  onDragStateChange: setDraggingRowId,
+                });
+                const isDragging = draggingRowId === row.id;
                 return (
                   <li
                     key={row.id}
                     onClick={() => navigate(tasksDemandsDetailHref(row))}
-                    className="group rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700/80 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 px-2 py-1.5 transition-colors cursor-pointer"
+                    className={cn(
+                      "group rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700/80 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 px-2 py-1.5 transition-colors cursor-pointer",
+                      rowDraggable && "cursor-grab active:cursor-grabbing",
+                      isDragging && "opacity-35 border border-dashed border-emerald-400/70",
+                    )}
+                    {...dragHandlers}
                   >
                     <div className="flex items-start gap-2.5">
                       <div className="shrink-0 mt-0.5">
