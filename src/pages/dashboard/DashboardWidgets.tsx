@@ -1115,6 +1115,8 @@ function _inboxCategoryToBucket(
       return "team_travel";
     case "MEDICAL":
       return "team_medical_service";
+    case "OPERATIONS":
+      return "operations";
     default:
       // OTHER, INVENTORY, OPERATIONS, RESERVATIONS, null, and anything
       // else fall here. We use ``miscellaneous`` as the synthetic source;
@@ -1796,6 +1798,11 @@ function TasksDemandsCard({
   const dropZone = useWidgetDropZone(
     "tasks_demands",
     (payload) => {
+      const check = canAcceptBucketDrop(payload, "tasks_demands", t);
+      if (!check.ok) {
+        toast.error(check.message);
+        return;
+      }
       bucketMutation.mutate({
         id: payload.id,
         target: "tasks_demands",
@@ -1876,6 +1883,10 @@ function TasksDemandsCard({
       {...dropZone.dropHandlers}
       aria-dropeffect={dropZone.isDropTarget ? "move" : undefined}
     >
+      <WidgetDropCaptureOverlay
+        active={dropZone.isValidDropTarget || dropZone.isDropTarget}
+        dropHandlers={dropZone.dropHandlers}
+      />
       {dropZone.isDropTarget ? (
         <div
           className="pointer-events-none absolute left-1/2 -top-3 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-white shadow-lg animate-in fade-in slide-in-from-top-1 duration-150"
@@ -3466,6 +3477,97 @@ function isDashboardTaskDraggable(item: DashboardTaskDemandItem): boolean {
   return item.status !== "COMPLETED" && item.status !== "CANCELLED";
 }
 
+function isCustomDropTarget(target: string): boolean {
+  return target.startsWith(CUSTOM_WIDGET_PREFIX);
+}
+
+function resolveRowKind(
+  payload: RowDragPayload,
+): NonNullable<DashboardTaskDemandItem["kind"]> {
+  return payload.kind || "dashboard";
+}
+
+function canAcceptBucketDrop(
+  payload: RowDragPayload,
+  target: string,
+  t: (key: string) => string,
+): { ok: true } | { ok: false; message: string } {
+  const kind = resolveRowKind(payload);
+
+  if (isCustomDropTarget(target) || target === "tasks_demands") {
+    if (kind === "invoice") {
+      return {
+        ok: false,
+        message:
+          t("dashboard.category_tasks.bucket_move_invoice_hint") ||
+          "Invoices stay in Finance. Use Mark paid or Mark voided instead.",
+      };
+    }
+    if (kind === "staff_request") {
+      return {
+        ok: false,
+        message:
+          t("dashboard.category_tasks.bucket_move_staff_to_custom_hint") ||
+          "Staff requests move between category widgets only — not custom tiles.",
+      };
+    }
+    if (kind === "scheduling") {
+      return {
+        ok: false,
+        message:
+          t("dashboard.category_tasks.bucket_move_scheduling_hint") ||
+          "Scheduled tasks can't be moved from the dashboard.",
+      };
+    }
+    return { ok: true };
+  }
+
+  if (kind === "invoice") {
+    if (target !== "finance") {
+      return {
+        ok: false,
+        message:
+          t("dashboard.category_tasks.bucket_move_invoice_hint") ||
+          "Invoices stay in Finance. Use Mark paid or Mark voided instead.",
+      };
+    }
+    return { ok: true };
+  }
+
+  if (kind === "scheduling") {
+    return {
+      ok: false,
+      message:
+        t("dashboard.category_tasks.bucket_move_scheduling_hint") ||
+        "Scheduled tasks can't be moved from the dashboard.",
+    };
+  }
+
+  return { ok: true };
+}
+
+function WidgetDropCaptureOverlay({
+  active,
+  dropHandlers,
+}: {
+  active: boolean;
+  dropHandlers: {
+    onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+    onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
+    onDragEnter: (e: React.DragEvent<HTMLDivElement>) => void;
+    onDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
+  };
+}) {
+  if (!active) return null;
+  return (
+    <div
+      className="absolute inset-0 z-30 rounded-[inherit]"
+      {...dropHandlers}
+      aria-hidden
+    />
+  );
+}
+
 function invalidateWidgetTaskQueries(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
   qc.invalidateQueries({
@@ -3683,6 +3785,10 @@ function buildInboxRowDetailHref(opts: { lane?: string; priority?: string }) {
       return `/dashboard/staff-requests/${item.id}${qs ? `?${qs}` : ""}`;
     }
 
+    if (kind === "invoice") {
+      return `/dashboard/staff-requests/${item.id}?kind=invoice`;
+    }
+
     // Legacy payloads without ``kind`` — still try the dashboard detail route.
     return tasksDemandsDetailHref({ ...item, kind: "dashboard" });
   };
@@ -3867,6 +3973,11 @@ function CategoryTasksCard({
         // No-op: dropped on the same widget the drag started in.
         return;
       }
+      const check = canAcceptBucketDrop(payload, bucket, t);
+      if (!check.ok) {
+        toast.error(check.message);
+        return;
+      }
       bucketMutation.mutate({ id: payload.id, payload, column: filter });
     },
     [bucket, bucketMutation, filter],
@@ -3959,6 +4070,15 @@ function CategoryTasksCard({
       onDragLeave={onDragLeaveRow}
       aria-dropeffect={isDropTarget ? "move" : undefined}
     >
+      <WidgetDropCaptureOverlay
+        active={isValidDropTarget || isDropTarget}
+        dropHandlers={{
+          onDrop: onDropRow,
+          onDragOver: onDragOverRow,
+          onDragEnter: onDragOverRow,
+          onDragLeave: onDragLeaveRow,
+        }}
+      />
       {/* "Drop to move to <Category>" pill — shown only on the live
           drop-target card. Gives the manager a direct-manipulation
           confirmation of what will happen on release so they don't
@@ -4826,11 +4946,10 @@ function CustomWidgetTasksCard({
   const qc = useQueryClient();
   const [tab, setTab] = useState<TasksDemandsTab>("pending");
   const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
-  const widgetId = def.id;
-  const customDropTarget = `custom:${widgetId}` as const;
+  const customDropTarget = def.slot_id || `${CUSTOM_WIDGET_PREFIX}${def.id}`;
   const queryKey = useMemo(
-    () => ["dashboard", "custom-widget-tasks", widgetId, 5] as const,
-    [widgetId],
+    () => ["dashboard", "custom-widget-tasks", def.id, 5] as const,
+    [def.id],
   );
 
   const Icon = CUSTOM_WIDGET_ICONS[def.icon] || ClipboardCheck;
@@ -4867,7 +4986,7 @@ function CustomWidgetTasksCard({
   const { data, isLoading, isError, error, refetch, isFetching } =
     useQuery<CustomWidgetTasksResponse>({
       queryKey,
-      queryFn: () => api.getCustomWidgetTasks(widgetId, 5),
+      queryFn: () => api.getCustomWidgetTasks(def.id, 5),
       refetchInterval: 60_000,
       staleTime: 30_000,
       retry: 3,
@@ -4926,6 +5045,11 @@ function CustomWidgetTasksCard({
   const dropZone = useWidgetDropZone(
     customDropTarget,
     (payload) => {
+      const check = canAcceptBucketDrop(payload, customDropTarget, t);
+      if (!check.ok) {
+        toast.error(check.message);
+        return;
+      }
       bucketMutation.mutate({
         id: payload.id,
         target: customDropTarget,
@@ -4981,6 +5105,10 @@ function CustomWidgetTasksCard({
       {...dropZone.dropHandlers}
       aria-dropeffect={dropZone.isDropTarget ? "move" : undefined}
     >
+      <WidgetDropCaptureOverlay
+        active={dropZone.isValidDropTarget || dropZone.isDropTarget}
+        dropHandlers={dropZone.dropHandlers}
+      />
       {dropZone.isDropTarget ? (
         <div
           className="pointer-events-none absolute left-1/2 -top-3 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-white shadow-lg animate-in fade-in slide-in-from-top-1 duration-150"

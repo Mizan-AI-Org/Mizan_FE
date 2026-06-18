@@ -654,6 +654,10 @@ export class BackendService {
     });
   }
 
+  async getInvoice(invoiceId: string): Promise<import("./types").Invoice> {
+    return this.fetchWithError(`/finance/invoices/${invoiceId}/`);
+  }
+
   /**
    * Latest clock-in events for the Clock-ins widget. Only returns
    * today's ``event_type='in'`` events — break/out events are noise
