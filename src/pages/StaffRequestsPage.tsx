@@ -841,17 +841,9 @@ const StaffRequestsPage: React.FC = () => {
   if (isInvoiceDetail && selectedId) {
     const invoice = invoiceQuery.data;
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex items-center gap-3 mb-4">
-          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>
-            Back to dashboard
-          </Button>
-        </div>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Invoice details</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+        <Card className="w-full">
+          <CardContent className="pt-6">
             {invoiceQuery.isLoading ? (
               <div className="text-sm text-muted-foreground py-6">Loading…</div>
             ) : invoiceQuery.isError || !invoice ? (
