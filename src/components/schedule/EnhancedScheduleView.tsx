@@ -79,19 +79,26 @@ const EnhancedScheduleView: React.FC = () => {
     },
   });
 
-  // Fetch shifts for the current week
+  // Fetch shifts for the current week (filter by week_start — list is paginated
+  // and older/current weeks fall off page 1 when many future schedules exist).
   const weekStartStr = toYMD(getWeekStart(currentDate));
   const { data: scheduleData, isLoading: isLoadingShifts, refetch: refetchShifts } = useQuery<WeeklyScheduleData>({
     queryKey: ["weekly-schedule", weekStartStr],
     queryFn: async () => {
       const token = localStorage.getItem("access_token");
-      const response = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error("Failed to fetch schedules");
-      const listJson = await response.json();
-      const listData = (listJson?.results ?? listJson) as WeeklyScheduleData[];
-      let existing = Array.isArray(listData) ? listData.find((s) => s.week_start === weekStartStr) : undefined;
+      const headers = { Authorization: `Bearer ${token}` };
+      const fetchByWeek = async () => {
+        const response = await fetch(
+          `${API_BASE}/scheduling/weekly-schedules/?week_start=${encodeURIComponent(weekStartStr)}`,
+          { headers },
+        );
+        if (!response.ok) throw new Error("Failed to fetch schedules");
+        const listJson = await response.json();
+        const listData = (listJson?.results ?? listJson) as WeeklyScheduleData[];
+        return Array.isArray(listData) ? listData.find((s) => s.week_start === weekStartStr) : undefined;
+      };
+
+      let existing = await fetchByWeek();
 
       if (!existing && canEditShifts) {
         // Create if missing (only for admins)
@@ -107,7 +114,12 @@ const EnhancedScheduleView: React.FC = () => {
             is_published: false,
           }),
         });
-        if (createRes.ok) existing = await createRes.json();
+        if (createRes.ok) {
+          existing = await createRes.json();
+        } else {
+          // Race / already exists: re-fetch the week that was just created elsewhere
+          existing = await fetchByWeek();
+        }
       }
 
       if (!existing) return { id: "", week_start: "", week_end: "", is_published: false, assigned_shifts: [] };
@@ -249,12 +261,15 @@ const EnhancedScheduleView: React.FC = () => {
       let targetedScheduleId = scheduleData?.id;
       const currentWeekStart = toYMD(getWeekStart(parseISO(shift.date)));
       if (currentWeekStart !== weekStartStr) {
-        const findRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const findRes = await fetch(
+          `${API_BASE}/scheduling/weekly-schedules/?week_start=${encodeURIComponent(currentWeekStart)}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
         const listJson = await findRes.json();
         const listData = (listJson?.results ?? listJson) as WeeklyScheduleData[];
-        let existing = listData.find((s) => s.week_start === currentWeekStart);
+        let existing = Array.isArray(listData)
+          ? listData.find((s) => s.week_start === currentWeekStart)
+          : undefined;
         if (!existing) {
           const createRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
             method: "POST",
@@ -265,7 +280,19 @@ const EnhancedScheduleView: React.FC = () => {
               is_published: false,
             }),
           });
-          if (createRes.ok) existing = await createRes.json();
+          if (createRes.ok) {
+            existing = await createRes.json();
+          } else {
+            const retry = await fetch(
+              `${API_BASE}/scheduling/weekly-schedules/?week_start=${encodeURIComponent(currentWeekStart)}`,
+              { headers: { Authorization: `Bearer ${token}` } },
+            );
+            const retryJson = await retry.json();
+            const retryList = (retryJson?.results ?? retryJson) as WeeklyScheduleData[];
+            existing = Array.isArray(retryList)
+              ? retryList.find((s) => s.week_start === currentWeekStart)
+              : undefined;
+          }
         }
         targetedScheduleId = existing?.id;
       }

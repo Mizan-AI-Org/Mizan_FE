@@ -1,6 +1,6 @@
 // components/tasks/TaskTemplateForm.tsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   DndContext,
   DragEndEvent,
@@ -26,32 +26,92 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Plus,
   Trash2,
   GripVertical,
-  Clock,
   AlertTriangle,
   CheckCircle,
-  Zap,
   Search as SearchIcon,
   FolderPlus,
-  FolderMinus
+  FolderMinus,
+  GitBranch,
+  ArrowRight,
+  Users,
+  Check as CheckIcon,
+  X as XIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_BASE, api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
-// Prefer the common frontend API base env var, fall back to legacy, then localhost
+/** What happens after Yes / No on a checklist task. */
+type BranchActionType = "next" | "goto" | "end" | "alert";
 
-// Prefer the common frontend API base env var, fall back to legacy, then localhost
+interface BranchAction {
+  type: BranchActionType;
+  /** Required when type === "goto" */
+  task_id?: string;
+  /** Optional note when type === "alert" */
+  message?: string;
+  /** Staff user ids to notify when type === "alert" (empty/omitted = managers) */
+  assignees?: string[];
+}
+
+interface StaffOption {
+  id: string;
+  name: string;
+  role?: string;
+}
 
 interface TemplateTask {
+  id: string;
   title: string;
   description?: string;
+  /** Kept for backward compatibility with existing templates / imports */
   priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   estimated_duration?: number;
+  response_type?: "yes_no" | "check";
+  branches?: {
+    yes?: BranchAction;
+    no?: BranchAction;
+  };
 }
+
+const BRANCH_ACTION_OPTIONS: DropdownOption[] = [
+  { value: "next", label: "Continue to next task" },
+  { value: "goto", label: "Jump to another task" },
+  { value: "end", label: "End this process" },
+  { value: "alert", label: "Flag for manager, then continue" },
+];
+
+const newTaskId = () =>
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `task_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+const defaultBranches = (): NonNullable<TemplateTask["branches"]> => ({
+  yes: { type: "next" },
+  no: { type: "alert", message: "Needs attention" },
+});
+
+const normalizeTask = (t: Partial<TemplateTask> & { title?: string }): TemplateTask => ({
+  id: t.id || newTaskId(),
+  title: t.title || "",
+  description: t.description || "",
+  priority: t.priority || "MEDIUM",
+  estimated_duration: t.estimated_duration,
+  response_type: t.response_type || "yes_no",
+  branches: {
+    yes: t.branches?.yes || { type: "next" },
+    no: t.branches?.no || { type: "alert", message: "Needs attention" },
+  },
+});
 
 interface ProcessGroup {
   id: string;
@@ -160,10 +220,43 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     // If editing an existing template that previously had flat tasks,
     // initialize with a single default process to preserve compatibility.
     if (template?.tasks && template.tasks.length > 0) {
-      return [{ id: 'default', name: 'General', color: '#0ea5e9', tasks: template.tasks }];
+      return [{
+        id: 'default',
+        name: 'General',
+        color: '#0ea5e9',
+        tasks: template.tasks.map((t) => normalizeTask(t)),
+      }];
     }
     return [];
   });
+
+  // Staff list for "flag for manager" assignee picker
+  const { data: staffOptions = [] } = useQuery<StaffOption[]>({
+    queryKey: ["task-template-staff"],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE}/staff/?page_size=500`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch staff");
+      const json = await response.json();
+      const arr = (json?.results ?? json) as Record<string, unknown>[];
+      return (Array.isArray(arr) ? arr : []).map((s) => {
+        const nested = (s.user as Record<string, unknown>) || {};
+        const id = String(s.id ?? nested.id ?? "");
+        const first = String(s.first_name ?? nested.first_name ?? "");
+        const last = String(s.last_name ?? nested.last_name ?? "");
+        const email = String(s.email ?? nested.email ?? "");
+        const name = `${first} ${last}`.trim() || email || "Staff member";
+        return { id, name, role: (s.role as string) || undefined } satisfies StaffOption;
+      }).filter((s) => s.id);
+    },
+  });
+
+  const staffNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    staffOptions.forEach((s) => m.set(s.id, s.name));
+    return m;
+  }, [staffOptions]);
 
   // Search/filter term for tasks within processes
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -183,18 +276,42 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       .filter(p => p.tasks.length > 0);
   }, [processes, searchTerm]);
 
+  /** All tasks flattened into one ordered list (with their owning section id + index). */
+  const flatTasks = useMemo(
+    () =>
+      filteredProcesses.flatMap((p) =>
+        p.tasks.map((task, index) => ({ task, processId: p.id, index })),
+      ),
+    [filteredProcesses],
+  );
+
+  /** All tasks (for jump-to pickers), excluding optional self id */
+  const allTaskOptions = useMemo(() => {
+    return processes.flatMap((p) =>
+      p.tasks.map((t) => ({
+        id: t.id,
+        label: t.title.trim() || "Untitled task",
+        processName: p.name,
+      })),
+    );
+  }, [processes]);
+
   // Selection map for bulk operations
   const [selectedTasks, setSelectedTasks] = useState<Record<string, Set<number>>>({});
 
   // Which task-group accordions are open (controlled so "Add Tasks" can open the new one)
   const [openAccordionIds, setOpenAccordionIds] = useState<string[]>([]);
 
-  const [newTask, setNewTask] = useState<TemplateTask>({
-    title: '',
-    description: '',
-    priority: 'MEDIUM',
-    estimated_duration: 30,
-  });
+  const [newTask, setNewTask] = useState<TemplateTask>(() =>
+    normalizeTask({ title: "", description: "" }),
+  );
+
+  // Add-task modes: single ("one at a time") vs bulk ("add several")
+  const [addMode, setAddMode] = useState<"single" | "bulk">("single");
+  const [bulkText, setBulkText] = useState("");
+  // Which section new tasks go into (only surfaced when >1 section exists)
+  const [targetProcessId, setTargetProcessId] = useState<string>("");
+  const quickAddTitleRef = React.useRef<HTMLInputElement>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -296,15 +413,23 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     },
     onSuccess: async (resp: TaskTemplate | undefined) => {
       toast.success(template?.id ? 'Process updated successfully' : 'Process created successfully');
+      // In-app only — do NOT WhatsApp-blast the whole team. That polluted the
+      // dashboard "Messages to staff" feed with failed "A process has been
+      // created…" rows and burned Meta's messaging window.
       try {
         const token = localStorage.getItem('access_token') || '';
         const tplName = (resp?.name ?? formData.name ?? 'Process');
-        await api.createAnnouncement(token, {
-          title: `Process updated: ${tplName}`,
-          message: `A process has been ${template?.id ? 'updated' : 'created'} and is available to use.`,
-          priority: 'MEDIUM',
-          tags: ['template_update']
-        });
+        await api.createAnnouncement(
+          token,
+          {
+            title: `Process updated: ${tplName}`,
+            message: `A process has been ${template?.id ? 'updated' : 'created'} and is available to use.`,
+            priority: 'MEDIUM',
+            tags: ['template_update'],
+          },
+          undefined,
+          ['app'],
+        );
       } catch {
         // ignore announcement errors
       }
@@ -358,17 +483,24 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       return;
     }
 
-    // Flatten hierarchical tasks to match backend payload
-    const flattenedTasks: TemplateTask[] = processes.flatMap(p => p.tasks);
+    // Flatten hierarchical tasks to match backend payload (preserve branch tree)
+    const flattenedTasks: TemplateTask[] = processes.flatMap((p) =>
+      p.tasks.map((t) => normalizeTask(t)),
+    );
     saveTemplateMutation.mutate({ ...formData, tasks: flattenedTasks });
   };
 
   // Process/task operations for hierarchical structure
+  const genProcessId = () =>
+    `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
   const addProcess = (name?: string) => {
-    const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const id = genProcessId();
     const color = ['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'][processes.length % 5];
-    setProcesses(prev => [...prev, { id, name: name || 'New task', color, tasks: [] }]);
+    setProcesses(prev => [...prev, { id, name: name || 'New section', color, tasks: [] }]);
     setOpenAccordionIds(prev => [...prev, id]);
+    setTargetProcessId(id);
+    return id;
   };
 
   const updateProcessName = (id: string, name: string) => {
@@ -377,25 +509,120 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
 
   const removeProcess = (id: string) => {
     setProcesses(prev => prev.filter(p => p.id !== id));
+    setTargetProcessId(prev => (prev === id ? "" : prev));
   };
 
-  const addTaskToProcess = (processId: string) => {
-    if (!newTask.title.trim()) {
-      toast.error('Task title is required');
+  /**
+   * Core add: append tasks to the chosen section, auto-creating a default
+   * "General" section when none exists so users never have to think about
+   * grouping for the simple case.
+   */
+  const addTasksToTarget = (
+    items: { title: string; description?: string }[],
+  ) => {
+    const clean = items
+      .map((i) => ({ title: i.title.trim(), description: (i.description || "").trim() }))
+      .filter((i) => i.title);
+    if (clean.length === 0) {
+      toast.error("Task title is required");
+      return 0;
+    }
+    const newTasks = clean.map((c) =>
+      normalizeTask({ id: newTaskId(), title: c.title, description: c.description }),
+    );
+
+    // Resolve target synchronously from current render state
+    const existingTarget =
+      targetProcessId && processes.some((p) => p.id === targetProcessId)
+        ? targetProcessId
+        : processes[0]?.id || "";
+    const resolvedId = existingTarget || "general";
+
+    setProcesses((prev) => {
+      const base =
+        prev.length > 0
+          ? prev
+          : [{ id: "general", name: "General", color: "#0ea5e9", tasks: [] as TemplateTask[] }];
+      const targetId =
+        targetProcessId && base.some((p) => p.id === targetProcessId)
+          ? targetProcessId
+          : base[0].id;
+      return base.map((p) =>
+        p.id === targetId ? { ...p, tasks: [...p.tasks, ...newTasks] } : p,
+      );
+    });
+    setOpenAccordionIds((o) => (o.includes(resolvedId) ? o : [...o, resolvedId]));
+    return newTasks.length;
+  };
+
+  const handleQuickAddSingle = () => {
+    const added = addTasksToTarget([{ title: newTask.title, description: newTask.description }]);
+    if (added > 0) {
+      setNewTask(normalizeTask({ title: "", description: "" }));
+      quickAddTitleRef.current?.focus();
+    }
+  };
+
+  const handleBulkAdd = () => {
+    // One task per line. Optional "Title | description".
+    const items = bulkText
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [title, ...rest] = line.split("|");
+        return { title: title.trim(), description: rest.join("|").trim() };
+      });
+    if (items.length === 0) {
+      toast.error("Type at least one task (one per line)");
       return;
     }
-    setProcesses(prev => prev.map(p => (
-      p.id === processId ? { ...p, tasks: [...p.tasks, { ...newTask }] } : p
-    )));
-    setNewTask({ title: '', description: '', priority: 'MEDIUM', estimated_duration: 30 });
+    const added = addTasksToTarget(items);
+    if (added > 0) {
+      toast.success(`Added ${added} task${added === 1 ? "" : "s"}`);
+      setBulkText("");
+    }
   };
 
-  const updateTaskInProcess = (processId: string, index: number, field: keyof TemplateTask, value: string | number) => {
+  const updateTaskInProcess = (
+    processId: string,
+    index: number,
+    field: keyof TemplateTask,
+    value: TemplateTask[keyof TemplateTask],
+  ) => {
     setProcesses(prev => prev.map(p => (
       p.id === processId
         ? { ...p, tasks: p.tasks.map((t, i) => (i === index ? { ...t, [field]: value } : t)) }
         : p
     )));
+  };
+
+  const setBranchAction = (
+    processId: string,
+    index: number,
+    answer: "yes" | "no",
+    action: BranchAction,
+  ) => {
+    setProcesses((prev) =>
+      prev.map((p) => {
+        if (p.id !== processId) return p;
+        return {
+          ...p,
+          tasks: p.tasks.map((t, i) => {
+            if (i !== index) return t;
+            return {
+              ...t,
+              response_type: "yes_no",
+              branches: {
+                ...defaultBranches(),
+                ...t.branches,
+                [answer]: action,
+              },
+            };
+          }),
+        };
+      }),
+    );
   };
 
   const removeTaskFromProcess = (processId: string, index: number) => {
@@ -459,9 +686,191 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Handler for task priority dropdown changes
-  const handleTaskPriorityChange = (processId: string, index: number) => (value: string) => {
-    updateTaskInProcess(processId, index, 'priority', value as TemplateTask['priority']);
+  const toggleAssignee = (
+    processId: string,
+    taskIndex: number,
+    answer: "yes" | "no",
+    action: BranchAction,
+    staffId: string,
+  ) => {
+    const current = action.assignees || [];
+    const next = current.includes(staffId)
+      ? current.filter((id) => id !== staffId)
+      : [...current, staffId];
+    setBranchAction(processId, taskIndex, answer, { ...action, type: "alert", assignees: next });
+  };
+
+  const renderAssigneePicker = (
+    processId: string,
+    taskIndex: number,
+    answer: "yes" | "no",
+    action: BranchAction,
+  ) => {
+    const selected = action.assignees || [];
+    return (
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 border-dashed"
+            >
+              <Users className="h-3.5 w-3.5" />
+              {selected.length > 0
+                ? `Assigned to ${selected.length}`
+                : "Assign to people"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 p-0 z-[3100]" align="start">
+            <div className="px-3 py-2 border-b text-xs text-muted-foreground">
+              Notify specific people (leave empty for managers)
+            </div>
+            <div className="max-h-60 overflow-y-auto py-1">
+              {staffOptions.length === 0 ? (
+                <p className="px-3 py-3 text-sm text-muted-foreground">No staff found.</p>
+              ) : (
+                staffOptions.map((s) => {
+                  const isSel = selected.includes(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => toggleAssignee(processId, taskIndex, answer, action, s.id)}
+                      className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors"
+                    >
+                      <span className="min-w-0 truncate">
+                        {s.name}
+                        {s.role ? (
+                          <span className="text-muted-foreground"> · {s.role}</span>
+                        ) : null}
+                      </span>
+                      {isSel && <CheckIcon className="h-4 w-4 text-emerald-600 shrink-0" />}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+        {selected.map((id) => (
+          <Badge
+            key={id}
+            variant="secondary"
+            className="gap-1 pl-2 pr-1 py-0.5 text-xs font-medium"
+          >
+            {staffNameById.get(id) || "Unknown"}
+            <button
+              type="button"
+              onClick={() => toggleAssignee(processId, taskIndex, answer, action, id)}
+              className="rounded-full hover:bg-black/10 dark:hover:bg-white/10 p-0.5"
+              aria-label={`Remove ${staffNameById.get(id) || "assignee"}`}
+            >
+              <XIcon className="h-3 w-3" />
+            </button>
+          </Badge>
+        ))}
+      </div>
+    );
+  };
+
+  const renderBranchRow = (
+    processId: string,
+    taskIndex: number,
+    task: TemplateTask,
+    answer: "yes" | "no",
+  ) => {
+    const action = task.branches?.[answer] || { type: "next" as BranchActionType };
+    const label = answer === "yes" ? "Yes" : "No";
+    const tone =
+      answer === "yes"
+        ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/50 dark:bg-emerald-950/30"
+        : "border-rose-200 bg-rose-50/70 dark:border-rose-900/50 dark:bg-rose-950/30";
+    const badgeTone =
+      answer === "yes"
+        ? "bg-emerald-600 text-white"
+        : "bg-rose-600 text-white";
+    const gotoOptions: DropdownOption[] = allTaskOptions
+      .filter((o) => o.id !== task.id)
+      .map((o) => ({
+        value: o.id,
+        label: o.processName ? `${o.label} (${o.processName})` : o.label,
+      }));
+
+    return (
+      <div
+        className={cn(
+          "flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border px-3 py-2.5",
+          tone,
+        )}
+      >
+        <div className="flex items-center gap-2 shrink-0 min-w-[4.5rem]">
+          <span className={cn("inline-flex h-6 min-w-[2.25rem] items-center justify-center rounded-md px-2 text-xs font-bold", badgeTone)}>
+            {label}
+          </span>
+          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
+        </div>
+        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
+          <AccessibleDropdown
+            id={`branch_${processId}_${taskIndex}_${answer}_type`}
+            ariaLabel={`${label} action`}
+            value={action.type}
+            onChange={(value) => {
+              const type = value as BranchActionType;
+              const next: BranchAction = { type };
+              if (type === "goto") {
+                next.task_id = action.task_id || gotoOptions[0]?.value;
+              }
+              if (type === "alert") {
+                next.message = action.message || "Needs attention";
+              }
+              setBranchAction(processId, taskIndex, answer, next);
+            }}
+            options={BRANCH_ACTION_OPTIONS}
+            placeholder="What happens next?"
+          />
+          {action.type === "goto" ? (
+            <AccessibleDropdown
+              id={`branch_${processId}_${taskIndex}_${answer}_goto`}
+              ariaLabel={`${label} jump target`}
+              value={action.task_id || ""}
+              onChange={(value) =>
+                setBranchAction(processId, taskIndex, answer, { type: "goto", task_id: value })
+              }
+              options={
+                gotoOptions.length > 0
+                  ? gotoOptions
+                  : [{ value: "", label: "Add another task first" }]
+              }
+              placeholder="Choose task…"
+            />
+          ) : action.type === "alert" ? (
+            <div className="flex flex-col gap-2">
+              <Input
+                value={action.message || ""}
+                onChange={(e) =>
+                  setBranchAction(processId, taskIndex, answer, {
+                    ...action,
+                    type: "alert",
+                    message: e.target.value,
+                  })
+                }
+                placeholder="Manager note (optional)"
+                aria-label={`${label} alert message`}
+              />
+              {renderAssigneePicker(processId, taskIndex, answer, action)}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground self-center px-1">
+              {action.type === "next"
+                ? "Staff moves to the next task in order."
+                : "Checklist stops after this answer."}
+            </p>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -581,13 +990,122 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       {/* Tasks */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2 text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+            <GitBranch className="h-5 w-5 text-teal-600" />
             Tasks ({processes.reduce((sum, p) => sum + p.tasks.length, 0)})
           </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            For each task, set what happens when staff answers <span className="font-semibold text-emerald-700 dark:text-emerald-400">Yes</span> or{" "}
+            <span className="font-semibold text-rose-700 dark:text-rose-400">No</span>.
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Toolbar: search + add process */}
+          {/* Add tasks panel — one at a time or several at once */}
+          <div className="rounded-xl border border-teal-200 dark:border-teal-900/50 bg-teal-50/50 dark:bg-teal-950/20 p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="inline-flex rounded-lg border border-teal-200 dark:border-teal-800 bg-white dark:bg-slate-900 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setAddMode("single")}
+                  className={cn(
+                    "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                    addMode === "single"
+                      ? "bg-teal-600 text-white"
+                      : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800",
+                  )}
+                >
+                  One at a time
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAddMode("bulk")}
+                  className={cn(
+                    "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                    addMode === "bulk"
+                      ? "bg-teal-600 text-white"
+                      : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800",
+                  )}
+                >
+                  Add several
+                </button>
+              </div>
+            </div>
+
+            {addMode === "single" ? (
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                <div className="md:col-span-5">
+                  <Label htmlFor="quick_task_title">Task Title *</Label>
+                  <Input
+                    id="quick_task_title"
+                    ref={quickAddTitleRef}
+                    value={newTask.title}
+                    onChange={(e) => setNewTask((prev) => ({ ...prev, title: e.target.value }))}
+                    placeholder="e.g., Sweep floors"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleQuickAddSingle();
+                      }
+                    }}
+                  />
+                </div>
+                <div className="md:col-span-5">
+                  <Label htmlFor="quick_task_desc">Description</Label>
+                  <Input
+                    id="quick_task_desc"
+                    value={newTask.description}
+                    onChange={(e) => setNewTask((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder="Optional details..."
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleQuickAddSingle();
+                      }
+                    }}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Button type="button" onClick={handleQuickAddSingle} className="w-full">
+                    <Plus className="h-4 w-4 mr-1" /> Add task
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="bulk_tasks">Add several tasks (one per line)</Label>
+                <Textarea
+                  id="bulk_tasks"
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  placeholder={"Sweep floors\nWipe down counters\nCheck fridge temperature | Should read below 5°C"}
+                  rows={4}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault();
+                      handleBulkAdd();
+                    }
+                  }}
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    Tip: use <code className="px-1 rounded bg-slate-200 dark:bg-slate-800">Title | description</code> to add details. Press ⌘/Ctrl+Enter to add.
+                  </p>
+                  <Button type="button" onClick={handleBulkAdd}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add {bulkText.split("\n").map((l) => l.trim()).filter(Boolean).length || ""} tasks
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              Default flow per task: <span className="font-medium text-emerald-700 dark:text-emerald-400">Yes → next</span>
+              {" · "}
+              <span className="font-medium text-rose-700 dark:text-rose-400">No → flag manager</span>. Adjust on each task below.
+            </p>
+          </div>
+
+          {/* Search + bulk delete toolbar */}
           <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
             <div className="relative w-full md:w-1/2">
               <Input
@@ -599,208 +1117,125 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
               />
               <SearchIcon className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             </div>
-            <div className="flex gap-2">
-              <Button type="button" variant="secondary" onClick={() => addProcess('New task')}>
-                <FolderPlus className="h-4 w-4 mr-1" /> Add Tasks
+            {flatTasks.some((f) => selectedTasks[f.processId]?.has(f.index)) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => processes.forEach((p) => bulkDeleteSelected(p.id))}
+              >
+                <Trash2 className="h-4 w-4 mr-1" /> Delete selected
               </Button>
-            </div>
+            )}
           </div>
 
-          {/* Hierarchical processes and nested tasks */}
-          {processes.length === 0 ? (
+          {/* Single flat, ordered list of all tasks */}
+          {flatTasks.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <FolderMinus className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No tasks yet. Add tasks to get started.</p>
+              <p>No tasks yet. Type a task above and press Add to get started.</p>
             </div>
           ) : (
-            <Accordion type="multiple" className="space-y-3" value={openAccordionIds} onValueChange={setOpenAccordionIds}>
-              {filteredProcesses.map((process) => (
-                <AccordionItem key={process.id} value={process.id}>
-                  <AccordionTrigger className="bg-muted px-4 py-3 rounded-md">
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center gap-3">
-                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: process.color }} aria-hidden />
-                        <span className="text-sm font-medium">{process.name}</span>
-                        <Badge variant="outline">{process.tasks.length} tasks</Badge>
-                      </div>
-                    </div>
-                  </AccordionTrigger>
+            <DndContext
+              sensors={dndSensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleTaskDragEnd}
+            >
+              <SortableContext
+                items={flatTasks.map((f) => `${f.processId}-${f.index}`)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-3">
+                  {flatTasks.map((f, ordinal) => {
+                    const { task, processId, index } = f;
+                    return (
+                      <SortableTaskCard key={task.id || `${processId}-${index}`} id={`${processId}-${index}`}>
+                        {({ setNodeRef, style, attributes, listeners }) => (
+                          <div ref={setNodeRef} style={style}>
+                            <Card className="border-l-4" style={{ borderLeftColor: "#0ea5e9" }}>
+                              <CardContent className="pt-4 space-y-4">
+                                <div className="flex gap-3 items-start">
+                                  <div className="flex flex-col items-center gap-2 pt-1 shrink-0">
+                                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-teal-600 text-white text-xs font-bold">
+                                      {ordinal + 1}
+                                    </span>
+                                    <Checkbox
+                                      checked={!!selectedTasks[processId]?.has(index)}
+                                      onCheckedChange={() => toggleTaskSelection(processId, index)}
+                                      aria-label="Select task"
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0 cursor-grab active:cursor-grabbing"
+                                      {...attributes}
+                                      {...listeners}
+                                    >
+                                      <GripVertical className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3 min-w-0">
+                                    <div className="md:col-span-5">
+                                      <Label htmlFor={`task_${processId}_${index}_title`}>Title *</Label>
+                                      <Input
+                                        id={`task_${processId}_${index}_title`}
+                                        value={task.title}
+                                        onChange={(e) => updateTaskInProcess(processId, index, 'title', e.target.value)}
+                                        className={errors[`process_${processId}_task_${index}_title`] ? 'border-red-500' : ''}
+                                      />
+                                      {errors[`process_${processId}_task_${index}_title`] && (
+                                        <p className="text-sm text-red-500">{errors[`process_${processId}_task_${index}_title`]}</p>
+                                      )}
+                                    </div>
+                                    <div className="md:col-span-6">
+                                      <Label htmlFor={`task_${processId}_${index}_description`}>Description</Label>
+                                      <Input
+                                        id={`task_${processId}_${index}_description`}
+                                        value={task.description || ''}
+                                        onChange={(e) => updateTaskInProcess(processId, index, 'description', e.target.value)}
+                                      />
+                                    </div>
+                                    <div className="md:col-span-1 flex md:justify-end md:items-end">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => removeTaskFromProcess(processId, index)}
+                                        className="w-full md:w-auto text-destructive hover:text-destructive"
+                                        aria-label="Delete task"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
 
-                  <AccordionContent className="px-2 md:px-4 pb-4">
-                    {/* Add task within this process */}
-                    <Card className="border-dashed">
-                      <CardContent className="pt-6">
-                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                          <div className="md:col-span-4">
-                            <Label htmlFor={`new_task_title_${process.id}`}>Task Title *</Label>
-                            <Input
-                              id={`new_task_title_${process.id}`}
-                              value={newTask.title}
-                              onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
-                              placeholder="e.g., Sweep floors"
-                            />
-                          </div>
-                          <div className="md:col-span-3">
-                            <Label htmlFor={`new_task_desc_${process.id}`}>Description</Label>
-                            <Input
-                              id={`new_task_desc_${process.id}`}
-                              value={newTask.description}
-                              onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
-                              placeholder="Optional details..."
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <Label htmlFor={`new_task_priority_${process.id}`}>Priority</Label>
-                            <AccessibleDropdown
-                              id={`new_task_priority_${process.id}`}
-                              ariaLabel="Task Priority"
-                              value={newTask.priority || 'MEDIUM'}
-                              onChange={(value) => setNewTask(prev => ({ ...prev, priority: value as TemplateTask['priority'] }))}
-                              options={priorities}
-                              placeholder="Select priority"
-                            />
-                          </div>
-                          <div className="md:col-span-2 min-w-0">
-                            <Label htmlFor={`new_task_duration_${process.id}`}>Duration (min)</Label>
-                            <Input
-                              id={`new_task_duration_${process.id}`}
-                              type="number"
-                              value={newTask.estimated_duration ?? 30}
-                              onChange={(e) => setNewTask(prev => ({ ...prev, estimated_duration: parseInt(e.target.value, 10) || 30 }))}
-                              min="1"
-                              max="480"
-                              className="min-w-[4.5rem]"
-                            />
-                          </div>
-                          <div className="md:col-span-1">
-                            <Button type="button" onClick={() => addTaskToProcess(process.id)} size="sm" className="w-full">
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Task list */}
-                    {process.tasks.length === 0 ? (
-                      <div className="text-muted-foreground py-4">No tasks in this process.</div>
-                    ) : (
-                      <DndContext
-                        sensors={dndSensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={handleTaskDragEnd}
-                      >
-                        <SortableContext
-                          items={process.tasks.map((_, i) => `${process.id}-${i}`)}
-                          strategy={verticalListSortingStrategy}
-                        >
-                          <div className="space-y-3 mt-3">
-                            {/* Bulk actions */}
-                            <div className="flex items-center gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => bulkDeleteSelected(process.id)}
-                                disabled={!selectedTasks[process.id] || selectedTasks[process.id].size === 0}
-                              >
-                                Delete Selected
-                              </Button>
-                            </div>
-                            {process.tasks.map((task, index) => (
-                              <SortableTaskCard key={`${process.id}-${index}`} id={`${process.id}-${index}`}>
-                                {({ setNodeRef, style, attributes, listeners }) => (
-                                  <div ref={setNodeRef} style={style}>
-                                    <Card className="border-l-4" style={{ borderLeftColor: process.color || '#0ea5e9' }}>
-                                      <CardContent className="pt-4">
-                                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-                                          <div className="md:col-span-1 flex flex-col items-center gap-2">
-                                            <Checkbox
-                                              checked={!!selectedTasks[process.id]?.has(index)}
-                                              onCheckedChange={() => toggleTaskSelection(process.id, index)}
-                                              aria-label="Select task"
-                                            />
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="sm"
-                                              className="h-8 w-8 p-0 cursor-grab active:cursor-grabbing"
-                                              {...attributes}
-                                              {...listeners}
-                                            >
-                                              <GripVertical className="h-4 w-4" />
-                                            </Button>
-                                          </div>
-                                <div className="md:col-span-3">
-                                  <Label htmlFor={`task_${process.id}_${index}_title`}>Title *</Label>
-                                  <Input
-                                    id={`task_${process.id}_${index}_title`}
-                                    value={task.title}
-                                    onChange={(e) => updateTaskInProcess(process.id, index, 'title', e.target.value)}
-                                    className={errors[`process_${process.id}_task_${index}_title`] ? 'border-red-500' : ''}
-                                  />
-                                  {errors[`process_${process.id}_task_${index}_title`] && (
-                                    <p className="text-sm text-red-500">{errors[`process_${process.id}_task_${index}_title`]}</p>
-                                  )}
+                                {/* Yes / No condition flow */}
+                                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 p-3 space-y-2">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <GitBranch className="h-4 w-4 text-teal-600" />
+                                    <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                                      Condition flow
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      What happens after Yes or No
+                                    </span>
+                                  </div>
+                                  {renderBranchRow(processId, index, task, "yes")}
+                                  {renderBranchRow(processId, index, task, "no")}
                                 </div>
-                                <div className="md:col-span-3">
-                                  <Label htmlFor={`task_${process.id}_${index}_description`}>Description</Label>
-                                  <Input
-                                    id={`task_${process.id}_${index}_description`}
-                                    value={task.description || ''}
-                                    onChange={(e) => updateTaskInProcess(process.id, index, 'description', e.target.value)}
-                                  />
-                                </div>
-                                <div className="md:col-span-2">
-                                  <Label htmlFor={`task_${process.id}_${index}_priority`}>Priority</Label>
-                                  <AccessibleDropdown
-                                    id={`task_${process.id}_${index}_priority`}
-                                    ariaLabel="Task Priority"
-                                    value={task.priority || 'MEDIUM'}
-                                    onChange={handleTaskPriorityChange(process.id, index)}
-                                    options={priorities}
-                                    placeholder="Select priority"
-                                  />
-                                </div>
-                                <div className="md:col-span-2 min-w-0">
-                                  <Label htmlFor={`task_${process.id}_${index}_duration`}>Duration (min)</Label>
-                                  <Input
-                                    id={`task_${process.id}_${index}_duration`}
-                                    type="number"
-                                    value={Number(task.estimated_duration) || 30}
-                                    onChange={(e) => updateTaskInProcess(process.id, index, 'estimated_duration', parseInt(e.target.value, 10) || 30)}
-                                    min="1"
-                                    max="480"
-                                    className="w-full min-w-[4.5rem]"
-                                  />
-                                </div>
-                                <div className="md:col-span-1">
-                                  <Label>&nbsp;</Label>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => removeTaskFromProcess(process.id, index)}
-                                    className="w-full text-destructive hover:text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                                </div>
-                              )}
-                            </SortableTaskCard>
-                        ))}
+                              </CardContent>
+                            </Card>
                           </div>
-                        </SortableContext>
-                      </DndContext>
-                    )}
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
+                        )}
+                      </SortableTaskCard>
+                    );
+                  })}
+                </div>
+              </SortableContext>
+            </DndContext>
           )}
 
           {errors.tasks && <p className="text-sm text-red-500">{errors.tasks}</p>}

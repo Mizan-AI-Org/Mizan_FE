@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { FormSectionSkeleton } from "@/components/skeletons";
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";
+import { SectionErrorBoundary } from "@/components/ErrorBoundary";
 import { useQueryClient } from "@tanstack/react-query";
 import ReservationIntegration from "@/components/ReservationIntegration";
 // Lazy-load heavy settings sections for better mobile performance
@@ -1072,19 +1073,21 @@ export default function Settings() {
 
         {!isStaff && (
           <TabsContent value="location" className="space-y-6">
-            <Suspense
-              fallback={<FormSectionSkeleton fields={4} />}
-            >
-              <MultiLocationSettings
-                apiClient={apiClient}
-                onMutated={() => {
-                  // Restaurant.* fields are kept in sync on the server; refresh
-                  // the cached legacy state so the rest of the UI (sidebar
-                  // badges, agent header) reflects coordinate changes.
-                  fetchUnifiedSettings();
-                }}
-              />
-            </Suspense>
+            <SectionErrorBoundary label="Business Locations">
+              <Suspense
+                fallback={<FormSectionSkeleton fields={4} />}
+              >
+                <MultiLocationSettings
+                  apiClient={apiClient}
+                  onMutated={() => {
+                    // Restaurant.* fields are kept in sync on the server; refresh
+                    // the cached legacy state so the rest of the UI (sidebar
+                    // badges, agent header) reflects coordinate changes.
+                    fetchUnifiedSettings();
+                  }}
+                />
+              </Suspense>
+            </SectionErrorBoundary>
           </TabsContent>
         )}
 
