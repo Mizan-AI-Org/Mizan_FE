@@ -6215,7 +6215,9 @@ function StaffMessagesCard({
                         ) : null}
                       </div>
                       <div className="truncate text-[10.5px] text-slate-500 dark:text-slate-400">
-                        {it.preview}
+                        {it.status === "FAILED" && it.error_message
+                          ? it.error_message
+                          : it.preview}
                       </div>
                     </div>
                     <span

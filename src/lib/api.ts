@@ -3926,7 +3926,9 @@ export class BackendService {
       recipients_shift_ids?: string[];
       tags?: string[];
     },
-    attachments?: File[]
+    attachments?: File[],
+    /** Delivery channels. Default app+whatsapp. Pass ['app'] to skip WhatsApp. */
+    channels?: string[],
   ): Promise<CreateAnnouncementResponse> {
     try {
       const formData = new FormData();
@@ -3960,6 +3962,8 @@ export class BackendService {
       if (announcementData.tags?.length) {
         announcementData.tags.forEach((tag) => formData.append("tags", tag));
       }
+      const channelList = channels?.length ? channels : ["app", "whatsapp"];
+      channelList.forEach((ch) => formData.append("channels", ch));
       (attachments || []).forEach((file) =>
         formData.append("attachments", file, file.name)
       );
