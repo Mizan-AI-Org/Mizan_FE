@@ -998,10 +998,10 @@ export default function Dashboard() {
                     <div className="min-w-0 text-left leading-tight">
                       <div
                         className={cn(
-                          "text-[13px] font-semibold tracking-tight truncate transition-colors",
+                          "text-[14px] font-bold tracking-tight truncate transition-colors",
                           isActive
                             ? "text-slate-900 dark:text-white"
-                            : "text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white",
+                            : "text-slate-800 dark:text-slate-100 group-hover:text-slate-900 dark:group-hover:text-white",
                         )}
                       >
                         {label}

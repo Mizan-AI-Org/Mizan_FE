@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { NavigateFunction } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
@@ -4838,7 +4839,8 @@ export function SortableDashboardWidget({
       <div
         className={cn(
           "flex min-h-0 flex-1 flex-col",
-          editMode && "pointer-events-none [&_button]:pointer-events-auto [&_a]:pointer-events-auto",
+          editMode &&
+            "pointer-events-none [&_button]:pointer-events-auto [&_a]:pointer-events-auto [&_input]:pointer-events-auto [&_textarea]:pointer-events-auto [&_select]:pointer-events-auto",
         )}
       >
         {children}
@@ -5535,11 +5537,71 @@ function StaffMessagesCard({
   const [recipientSearch, setRecipientSearch] = useState<string>("");
   const [manyOpen, setManyOpen] = useState<boolean>(false);
   const [manySearch, setManySearch] = useState<string>("");
+  const recipientAnchorRef = useRef<HTMLButtonElement | null>(null);
+  const manyAnchorRef = useRef<HTMLButtonElement | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  const closePickers = () => {
+    setRecipientOpen(false);
+    setManyOpen(false);
+    setDropdownPos(null);
+  };
+
+  useEffect(() => {
+    if (!recipientOpen && !manyOpen) {
+      setDropdownPos(null);
+      return;
+    }
+    const anchor = recipientOpen
+      ? recipientAnchorRef.current
+      : manyAnchorRef.current;
+    if (!anchor) return;
+    const update = () => {
+      const r = anchor.getBoundingClientRect();
+      setDropdownPos({
+        top: r.bottom + 4,
+        left: r.left,
+        width: r.width,
+      });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [recipientOpen, manyOpen]);
+
+  useEffect(() => {
+    if (!recipientOpen && !manyOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closePickers();
+    };
+    const onPointer = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (recipientAnchorRef.current?.contains(t)) return;
+      if (manyAnchorRef.current?.contains(t)) return;
+      const portal = document.getElementById("staff-messages-picker-portal");
+      if (portal?.contains(t)) return;
+      closePickers();
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onPointer);
+    };
+  }, [recipientOpen, manyOpen]);
 
   const switchAudienceMode = (mode: AudienceMode) => {
     setAudienceMode(mode);
-    setRecipientOpen(false);
-    setManyOpen(false);
+    closePickers();
     setRecipientSearch("");
     setManySearch("");
     if (mode !== "one") setRecipientId("");
@@ -5650,6 +5712,7 @@ function StaffMessagesCard({
       return api.sendStaffMessage({ ...base, roles: [...rolePick] });
     },
     onSuccess: (resp) => {
+      closePickers();
       const wa = resp.whatsapp_sent ?? 0;
       const n = resp.notified_count ?? wa;
       if (resp.success && wa > 0) {
@@ -5778,8 +5841,12 @@ function StaffMessagesCard({
               {audienceMode === "one" ? (
                 <>
                   <button
+                    ref={recipientAnchorRef}
                     type="button"
-                    onClick={() => setRecipientOpen((o) => !o)}
+                    onClick={() => {
+                      setManyOpen(false);
+                      setRecipientOpen((o) => !o);
+                    }}
                     className={cn(
                       "w-full inline-flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-colors",
                       "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900",
@@ -5801,89 +5868,18 @@ function StaffMessagesCard({
                       aria-hidden
                     />
                   </button>
-                  {recipientOpen ? (
-                    <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg">
-                      <div className="p-2 border-b border-slate-100 dark:border-slate-800">
-                        <input
-                          type="text"
-                          value={recipientSearch}
-                          onChange={(e) => setRecipientSearch(e.target.value)}
-                          placeholder={
-                            t(
-                              "dashboard.staff_messages.recipient_search_placeholder",
-                            ) || "Search staff…"
-                          }
-                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                          autoFocus
-                        />
-                      </div>
-                      <div className="max-h-56 overflow-y-auto py-1">
-                        {staffQuery.isLoading ? (
-                          <div className="py-3 text-center text-[11px] text-slate-400">
-                            {t("dashboard.staff_messages.loading_staff")}
-                          </div>
-                        ) : filteredStaff.length === 0 ? (
-                          <div className="py-3 text-center text-[11px] text-slate-400">
-                            {t("dashboard.staff_messages.no_staff_match")}
-                          </div>
-                        ) : (
-                          filteredStaff.map((s) => {
-                            const fullName =
-                              `${s.first_name || ""} ${s.last_name || ""}`.trim() ||
-                              s.email ||
-                              s.phone ||
-                              s.id;
-                            const hasPhone = !!(s.phone && s.phone.length > 4);
-                            return (
-                              <button
-                                key={s.id}
-                                type="button"
-                                onClick={() => {
-                                  setRecipientId(s.id);
-                                  setRecipientOpen(false);
-                                  setRecipientSearch("");
-                                }}
-                                className={cn(
-                                  "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-left text-[12px] transition-colors",
-                                  "hover:bg-slate-100 dark:hover:bg-slate-800",
-                                  recipientId === s.id &&
-                                    "bg-emerald-50 dark:bg-emerald-950/30",
-                                )}
-                              >
-                                <span className="min-w-0 flex flex-col">
-                                  <span className="truncate font-medium text-slate-900 dark:text-white">
-                                    {fullName}
-                                  </span>
-                                  <span className="truncate text-[10px] text-slate-500 dark:text-slate-400">
-                                    {s.role || ""}
-                                    {hasPhone ? ` · ${s.phone}` : ""}
-                                  </span>
-                                </span>
-                                {!hasPhone ? (
-                                  <span
-                                    className="shrink-0 text-[9px] font-bold text-amber-600 dark:text-amber-400"
-                                    title={t(
-                                      "dashboard.staff_messages.no_phone_warning",
-                                    )}
-                                  >
-                                    {t("dashboard.staff_messages.no_phone_short")}
-                                  </span>
-                                ) : null}
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
                 </>
               ) : null}
 
               {audienceMode === "many" ? (
                 <>
                   <button
+                    ref={manyAnchorRef}
                     type="button"
-                    onClick={() => setManyOpen((o) => !o)}
+                    onClick={() => {
+                      setRecipientOpen(false);
+                      setManyOpen((o) => !o);
+                    }}
                     className={cn(
                       "w-full inline-flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-colors",
                       "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900",
@@ -5905,91 +5901,6 @@ function StaffMessagesCard({
                       aria-hidden
                     />
                   </button>
-                  {manyOpen ? (
-                    <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg">
-                      <div className="p-2 border-b border-slate-100 dark:border-slate-800">
-                        <input
-                          type="text"
-                          value={manySearch}
-                          onChange={(e) => setManySearch(e.target.value)}
-                          placeholder={
-                            t(
-                              "dashboard.staff_messages.recipient_search_placeholder",
-                            ) || "Search staff…"
-                          }
-                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                          autoFocus
-                        />
-                      </div>
-                      <div className="max-h-56 overflow-y-auto py-1">
-                        {staffQuery.isLoading ? (
-                          <div className="py-3 text-center text-[11px] text-slate-400">
-                            {t("dashboard.staff_messages.loading_staff")}
-                          </div>
-                        ) : filteredStaffMany.length === 0 ? (
-                          <div className="py-3 text-center text-[11px] text-slate-400">
-                            {t("dashboard.staff_messages.no_staff_match")}
-                          </div>
-                        ) : (
-                          filteredStaffMany.map((s) => {
-                            const fullName =
-                              `${s.first_name || ""} ${s.last_name || ""}`.trim() ||
-                              s.email ||
-                              s.phone ||
-                              s.id;
-                            const hasPhone = !!(s.phone && s.phone.length > 4);
-                            const checked = recipientIdsMany.includes(s.id);
-                            return (
-                              <button
-                                key={s.id}
-                                type="button"
-                                onClick={() => toggleManyRecipient(s.id)}
-                                className={cn(
-                                  "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-left text-[12px] transition-colors",
-                                  "hover:bg-slate-100 dark:hover:bg-slate-800",
-                                  checked && "bg-emerald-50 dark:bg-emerald-950/30",
-                                )}
-                              >
-                                <span className="flex items-center gap-2 min-w-0">
-                                  <span
-                                    className={cn(
-                                      "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border",
-                                      checked
-                                        ? "border-emerald-600 bg-emerald-600 text-white"
-                                        : "border-slate-300 dark:border-slate-600",
-                                    )}
-                                  >
-                                    {checked ? (
-                                      <Check className="h-2.5 w-2.5" aria-hidden />
-                                    ) : null}
-                                  </span>
-                                  <span className="min-w-0 flex flex-col">
-                                    <span className="truncate font-medium text-slate-900 dark:text-white">
-                                      {fullName}
-                                    </span>
-                                    <span className="truncate text-[10px] text-slate-500 dark:text-slate-400">
-                                      {s.role || ""}
-                                      {hasPhone ? ` · ${s.phone}` : ""}
-                                    </span>
-                                  </span>
-                                </span>
-                                {!hasPhone ? (
-                                  <span
-                                    className="shrink-0 text-[9px] font-bold text-amber-600 dark:text-amber-400"
-                                    title={t(
-                                      "dashboard.staff_messages.no_phone_warning",
-                                    )}
-                                  >
-                                    {t("dashboard.staff_messages.no_phone_short")}
-                                  </span>
-                                ) : null}
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
                 </>
               ) : null}
 
@@ -6237,6 +6148,118 @@ function StaffMessagesCard({
           )}
         </div>
       </CardContent>
+
+      {dropdownPos &&
+        (recipientOpen || manyOpen) &&
+        createPortal(
+          <div
+            id="staff-messages-picker-portal"
+            className="fixed z-[80] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg"
+            style={{
+              top: dropdownPos.top,
+              left: dropdownPos.left,
+              width: dropdownPos.width,
+            }}
+          >
+            <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+              <input
+                type="text"
+                value={recipientOpen ? recipientSearch : manySearch}
+                onChange={(e) =>
+                  recipientOpen
+                    ? setRecipientSearch(e.target.value)
+                    : setManySearch(e.target.value)
+                }
+                placeholder={
+                  t("dashboard.staff_messages.recipient_search_placeholder") ||
+                  "Search staff…"
+                }
+                className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                autoFocus
+              />
+            </div>
+            <div className="max-h-56 overflow-y-auto py-1">
+              {staffQuery.isLoading ? (
+                <div className="py-3 text-center text-[11px] text-slate-400">
+                  {t("dashboard.staff_messages.loading_staff")}
+                </div>
+              ) : (recipientOpen ? filteredStaff : filteredStaffMany).length ===
+                0 ? (
+                <div className="py-3 text-center text-[11px] text-slate-400">
+                  {t("dashboard.staff_messages.no_staff_match")}
+                </div>
+              ) : (
+                (recipientOpen ? filteredStaff : filteredStaffMany).map((s) => {
+                  const fullName =
+                    `${s.first_name || ""} ${s.last_name || ""}`.trim() ||
+                    s.email ||
+                    s.phone ||
+                    s.id;
+                  const hasPhone = !!(s.phone && s.phone.length > 4);
+                  const checked = recipientIdsMany.includes(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        if (recipientOpen) {
+                          setRecipientId(s.id);
+                          closePickers();
+                          setRecipientSearch("");
+                        } else {
+                          toggleManyRecipient(s.id);
+                        }
+                      }}
+                      className={cn(
+                        "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-left text-[12px] transition-colors",
+                        "hover:bg-slate-100 dark:hover:bg-slate-800",
+                        (recipientOpen
+                          ? recipientId === s.id
+                          : checked) &&
+                          "bg-emerald-50 dark:bg-emerald-950/30",
+                      )}
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        {!recipientOpen ? (
+                          <span
+                            className={cn(
+                              "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border",
+                              checked
+                                ? "border-emerald-600 bg-emerald-600 text-white"
+                                : "border-slate-300 dark:border-slate-600",
+                            )}
+                          >
+                            {checked ? (
+                              <Check className="h-2.5 w-2.5" aria-hidden />
+                            ) : null}
+                          </span>
+                        ) : null}
+                        <span className="min-w-0 flex flex-col">
+                          <span className="truncate font-medium text-slate-900 dark:text-white">
+                            {fullName}
+                          </span>
+                          <span className="truncate text-[10px] text-slate-500 dark:text-slate-400">
+                            {s.role || ""}
+                            {hasPhone ? ` · ${s.phone}` : ""}
+                          </span>
+                        </span>
+                      </span>
+                      {!hasPhone ? (
+                        <span
+                          className="shrink-0 text-[9px] font-bold text-amber-600 dark:text-amber-400"
+                          title={t("dashboard.staff_messages.no_phone_warning")}
+                        >
+                          {t("dashboard.staff_messages.no_phone_short")}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </Card>
   );
 }
@@ -7234,10 +7257,9 @@ export function DashboardWidgetById({
           titleKey="dashboard.human_resources.title"
           icon={Briefcase}
           tone="violet"
-          // HR widget aggregates HR + DOCUMENT (see BUCKET_TO_CATEGORIES
-          // on the backend); pass both so the inbox shows every row the
-          // widget counted instead of hiding DOCUMENT rows behind an
-          // HR-only chip.
+          // HR widget aggregates HR + DOCUMENT + PAYROLL (see
+          // BUCKET_TO_CATEGORIES on the backend) so unpaid wages show here
+          // as well as under Finance.
           moreHref="/dashboard/staff-requests?lane=human_resources"
           rowDetailHref={buildInboxRowDetailHref({ lane: "human_resources" })}
         />
