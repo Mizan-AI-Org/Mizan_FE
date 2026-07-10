@@ -467,9 +467,10 @@ const PresenceTab: React.FC = () => {
         queryKey: ["weekly-schedule", weekStartStr],
         queryFn: async () => {
             const token = localStorage.getItem("access_token");
-            const response = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const response = await fetch(
+                `${API_BASE}/scheduling/weekly-schedules/?week_start=${encodeURIComponent(weekStartStr)}`,
+                { headers: { Authorization: `Bearer ${token}` } },
+            );
             if (!response.ok) throw new Error("Failed to fetch schedules");
             const listJson = await response.json();
             const raw = (listJson?.results ?? listJson) as unknown;

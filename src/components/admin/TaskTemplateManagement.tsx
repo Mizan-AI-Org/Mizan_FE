@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useLanguage } from '@/hooks/use-language';
 import { CardGridSkeleton } from '@/components/skeletons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -58,8 +59,7 @@ import {
   SAMPLE_CSV_EXPORT,
   type ImportTemplatePayload,
 } from '@/lib/processTemplateImport';
-
-
+import { PROCESSES_TASKS_HEADER_ACTIONS_ID } from '@/pages/ProcessesTasksApp';
 interface TemplateTask {
   title: string;
   description?: string;
@@ -506,155 +506,178 @@ export default function TaskTemplateManagement() {
     importPreview.length > 0 &&
     importProcessesMutation.isPending === false;
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">{t("processes.manage_processes")}</h1>
-        </div>
+  const [headerActionsEl, setHeaderActionsEl] = useState<HTMLElement | null>(() =>
+    typeof document !== "undefined"
+      ? document.getElementById(PROCESSES_TASKS_HEADER_ACTIONS_ID)
+      : null,
+  );
+  useLayoutEffect(() => {
+    const el = document.getElementById(PROCESSES_TASKS_HEADER_ACTIONS_ID);
+    setHeaderActionsEl(el);
+    if (el) return;
+    // Portal target may mount a tick later (parent header); retry once.
+    const id = window.setTimeout(() => {
+      setHeaderActionsEl(document.getElementById(PROCESSES_TASKS_HEADER_ACTIONS_ID));
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, []);
 
-        <div className="flex items-center gap-2">
-          <Dialog open={isProcessModalOpen} onOpenChange={setIsProcessModalOpen}>
-            <DialogTrigger asChild>
-              <Button className="premium-button">
-                <Plus className="h-4 w-4 mr-2" />
-                {t("processes.new_process")}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{t("processes.create_new_process")}</DialogTitle>
-                <DialogDescription>
-                  {t("processes.create_new_process_desc")}
-                </DialogDescription>
-              </DialogHeader>
-              <TaskTemplateForm
-                onSuccess={handleFormSuccess}
-                onCancel={() => setIsProcessModalOpen(false)}
-              />
-            </DialogContent>
-          </Dialog>
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setImportDialogOpen(true)}
-            className="gap-2"
-          >
-            <Upload className="h-4 w-4" />
-            {t('processes.import_processes')}
+  const actionButtons = (
+    <div className="flex flex-wrap items-center gap-2">
+      <Dialog open={isProcessModalOpen} onOpenChange={setIsProcessModalOpen}>
+        <DialogTrigger asChild>
+          <Button className="premium-button">
+            <Plus className="h-4 w-4 mr-2" />
+            {t("processes.new_process")}
           </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t("processes.create_new_process")}</DialogTitle>
+            <DialogDescription>
+              {t("processes.create_new_process_desc")}
+            </DialogDescription>
+          </DialogHeader>
+          <TaskTemplateForm
+            onSuccess={handleFormSuccess}
+            onCancel={() => setIsProcessModalOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
 
-          <Dialog
-            open={importDialogOpen}
-            onOpenChange={(open) => {
-              setImportDialogOpen(open);
-              if (!open) resetImportState();
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setImportDialogOpen(true)}
+        className="gap-2"
+      >
+        <Upload className="h-4 w-4" />
+        {t('processes.import_processes')}
+      </Button>
+
+      <Dialog
+        open={importDialogOpen}
+        onOpenChange={(open) => {
+          setImportDialogOpen(open);
+          if (!open) resetImportState();
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('processes.import_processes_title')}</DialogTitle>
+            <DialogDescription>{t('processes.import_processes_desc')}</DialogDescription>
+          </DialogHeader>
+
+          <input
+            ref={importFileInputRef}
+            type="file"
+            accept=".json,.csv,application/json,text/csv,text/plain"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void applyImportFile(f);
+            }}
+          />
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => importFileInputRef.current?.click()}
+            >
+              {t('processes.import_choose_file')}
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => downloadImportSample('json')}>
+              {t('processes.import_download_json_sample')}
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => downloadImportSample('csv')}>
+              {t('processes.import_download_csv_sample')}
+            </Button>
+          </div>
+
+          <div
+            className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground"
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const f = e.dataTransfer.files?.[0];
+              if (f) void applyImportFile(f);
             }}
           >
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{t('processes.import_processes_title')}</DialogTitle>
-                <DialogDescription>{t('processes.import_processes_desc')}</DialogDescription>
-              </DialogHeader>
+            {importFileName
+              ? `${importFileName}`
+              : t('processes.import_no_preview')}
+          </div>
 
-              <input
-                ref={importFileInputRef}
-                type="file"
-                accept=".json,.csv,application/json,text/csv,text/plain"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  e.target.value = '';
-                  if (f) void applyImportFile(f);
-                }}
-              />
+          {importParseErrors.length > 0 && (
+            <ul className="text-xs text-amber-700 dark:text-amber-400 list-disc pl-4 space-y-1 max-h-24 overflow-y-auto">
+              {importParseErrors.map((msg, i) => (
+                <li key={i}>{msg}</li>
+              ))}
+            </ul>
+          )}
 
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => importFileInputRef.current?.click()}
-                >
-                  {t('processes.import_choose_file')}
-                </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => downloadImportSample('json')}>
-                  {t('processes.import_download_json_sample')}
-                </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => downloadImportSample('csv')}>
-                  {t('processes.import_download_csv_sample')}
-                </Button>
-              </div>
+          {importPreview.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">{t('processes.import_preview')}</p>
+              <ul className="max-h-48 overflow-y-auto rounded-md border divide-y text-sm">
+                {importPreview.map((p, idx) => (
+                  <li key={`${p.name}-${idx}`} className="px-3 py-2 flex justify-between gap-2">
+                    <span className="font-medium truncate">{p.name}</span>
+                    <span className="text-muted-foreground shrink-0">
+                      {t('processes.import_tasks_count', { count: p.tasks.length })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
-              <div
-                className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground"
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const f = e.dataTransfer.files?.[0];
-                  if (f) void applyImportFile(f);
-                }}
-              >
-                {importFileName
-                  ? `${importFileName}`
-                  : t('processes.import_no_preview')}
-              </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setImportDialogOpen(false)}>
+              {t('schedule.cancel')}
+            </Button>
+            <Button
+              type="button"
+              className="premium-button"
+              disabled={!canRunImport}
+              onClick={() => importProcessesMutation.mutate(importPreview)}
+            >
+              {t('processes.import_run')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-              {importParseErrors.length > 0 && (
-                <ul className="text-xs text-amber-700 dark:text-amber-400 list-disc pl-4 space-y-1 max-h-24 overflow-y-auto">
-                  {importParseErrors.map((msg, i) => (
-                    <li key={i}>{msg}</li>
-                  ))}
-                </ul>
-              )}
+      <Button
+        variant="outline"
+        onClick={() => seedTemplatesMutation.mutate()}
+        disabled={seedTemplatesMutation.isPending}
+      >
+        {t("processes.load_prebuilt_processes")}
+      </Button>
+    </div>
+  );
 
-              {importPreview.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">{t('processes.import_preview')}</p>
-                  <ul className="max-h-48 overflow-y-auto rounded-md border divide-y text-sm">
-                    {importPreview.map((p, idx) => (
-                      <li key={`${p.name}-${idx}`} className="px-3 py-2 flex justify-between gap-2">
-                        <span className="font-medium truncate">{p.name}</span>
-                        <span className="text-muted-foreground shrink-0">
-                          {t('processes.import_tasks_count', { count: p.tasks.length })}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <DialogFooter className="gap-2 sm:gap-0">
-                <Button type="button" variant="outline" onClick={() => setImportDialogOpen(false)}>
-                  {t('schedule.cancel')}
-                </Button>
-                <Button
-                  type="button"
-                  className="premium-button"
-                  disabled={!canRunImport}
-                  onClick={() => importProcessesMutation.mutate(importPreview)}
-                >
-                  {t('processes.import_run')}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          <Button
-            variant="outline"
-            onClick={() => seedTemplatesMutation.mutate()}
-            disabled={seedTemplatesMutation.isPending}
-          >
-            {t("processes.load_prebuilt_processes")}
-          </Button>
-        </div>
-      </div>
+  return (
+    <div className="space-y-6">
+      {/* Actions sit opposite "Processes & Tasks" via portal when embedded in that page */}
+      {headerActionsEl
+        ? createPortal(actionButtons, headerActionsEl)
+        : (
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold">{t("processes.manage_processes")}</h1>
+            </div>
+            {actionButtons}
+          </div>
+        )}
 
       {/* Filters and Search */}
       <Card className="premium-card">

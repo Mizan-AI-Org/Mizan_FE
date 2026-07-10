@@ -72,16 +72,47 @@ interface MultiLocationSettingsProps {
   onMutated?: () => void;
 }
 
-type ApiError = AxiosError<{ detail?: string; message?: string }>;
+type ApiError = AxiosError<{
+  detail?: string | string[] | Record<string, unknown>;
+  message?: string;
+  error?: string;
+  code?: string;
+}>;
 
 function describeError(error: unknown, fallback: string): string {
   const err = error as ApiError;
-  return (
-    err?.response?.data?.detail ||
-    err?.response?.data?.message ||
-    err?.message ||
-    fallback
-  );
+  const status = err?.response?.status;
+  if (!err?.response && err?.message) {
+    // Proxy/backend restart mid-request (ECONNREFUSED) often surfaces here.
+    if (/network error/i.test(err.message) || err.code === "ERR_NETWORK") {
+      return "Server is restarting — wait a second and try again.";
+    }
+    return err.message;
+  }
+  if (status === 502 || status === 503 || status === 504) {
+    const detail503 =
+      typeof err.response?.data?.detail === "string"
+        ? err.response.data.detail
+        : null;
+    return detail503 || "Server is busy — please try again in a moment.";
+  }
+  const data = err?.response?.data;
+  if (data) {
+    if (typeof data.detail === "string" && data.detail.trim()) return data.detail;
+    if (Array.isArray(data.detail) && data.detail[0]) return String(data.detail[0]);
+    if (typeof data.message === "string" && data.message.trim()) return data.message;
+    if (typeof data.error === "string" && data.error.trim()) return data.error;
+    // DRF field errors: { name: ["..."], radius: ["..."] }
+    for (const [key, val] of Object.entries(data)) {
+      if (key === "detail" || key === "message" || key === "error" || key === "code") {
+        continue;
+      }
+      if (Array.isArray(val) && val[0]) return `${key}: ${val[0]}`;
+      if (typeof val === "string" && val.trim()) return `${key}: ${val}`;
+    }
+  }
+  if (status) return `${fallback} (HTTP ${status})`;
+  return err?.message || fallback;
 }
 
 export default function MultiLocationSettings({
@@ -299,19 +330,33 @@ export default function MultiLocationSettings({
       return;
     }
     setCreating(true);
+    const payload = {
+      name,
+      address: newAddress.trim(),
+      latitude: null,
+      longitude: null,
+      radius: 100,
+      geofence_enabled: true,
+      geofence_polygon: [] as unknown[],
+      is_active: true,
+    };
     try {
-      // New branches start with sensible defaults — 100m radius, geofence
-      // on, no coords yet. The manager then centers the map and saves.
-      const resp = await apiClient.post<BusinessLocation>("/locations/", {
-        name,
-        address: newAddress.trim(),
-        latitude: null,
-        longitude: null,
-        radius: 100,
-        geofence_enabled: true,
-        geofence_polygon: [],
-        is_active: true,
-      });
+      // One automatic retry — covers brief backend reloads (StatReloader /
+      // deploys) that otherwise surface as a cryptic HTTP 500 toast.
+      let resp;
+      try {
+        resp = await apiClient.post<BusinessLocation>("/locations/", payload);
+      } catch (firstErr) {
+        const status = (firstErr as ApiError)?.response?.status;
+        const network =
+          !(firstErr as ApiError)?.response ||
+          status === 502 ||
+          status === 503 ||
+          status === 504;
+        if (!network) throw firstErr;
+        await new Promise((r) => setTimeout(r, 800));
+        resp = await apiClient.post<BusinessLocation>("/locations/", payload);
+      }
       setLocations((prev) => {
         const next = [...prev, resp.data];
         next.sort((a, b) => {

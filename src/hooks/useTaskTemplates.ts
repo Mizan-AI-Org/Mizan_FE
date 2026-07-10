@@ -2,9 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE } from "@/lib/api";
 
 export interface TemplateTaskMeta {
+  id?: string;
   title?: string;
+  description?: string;
   priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   estimated_duration?: number;
+  response_type?: "yes_no" | "check";
+  branches?: {
+    yes?: { type: string; task_id?: string; message?: string; assignees?: string[] };
+    no?: { type: string; task_id?: string; message?: string; assignees?: string[] };
+  };
 }
 
 export interface TaskTemplateItem {

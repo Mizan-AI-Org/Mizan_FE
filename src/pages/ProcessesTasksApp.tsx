@@ -7,9 +7,12 @@ import {
     ListChecks
 } from "lucide-react";
 import TaskManagementBoard from "./TaskManagementBoard";
-import Processes from "./Processes";
 import TaskTemplates from "./TaskTemplates";
 import { useLanguage } from "@/hooks/use-language";
+import { cn } from "@/lib/utils";
+
+/** Portal target for process actions (New / Import / Pre-Built) — shown on Live Board and Templates. */
+export const PROCESSES_TASKS_HEADER_ACTIONS_ID = "processes-tasks-header-actions";
 
 export default function ProcessesTasksApp() {
     const [activeTab, setActiveTab] = useState("board");
@@ -18,14 +21,20 @@ export default function ProcessesTasksApp() {
     return (
         <div className="min-h-screen p-4 md:p-6 lg:p-8">
             <div className="max-w-7xl mx-auto space-y-6">
-                {/* Header */}
-                <header className="mb-6">
-                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
-                        {t("processes_tasks.title")}
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                        {t("processes_tasks.subtitle")}
-                    </p>
+                {/* Header — title left, process actions right on both tabs */}
+                <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
+                            {t("processes_tasks.title")}
+                        </h1>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+                            {t("processes_tasks.subtitle")}
+                        </p>
+                    </div>
+                    <div
+                        id={PROCESSES_TASKS_HEADER_ACTIONS_ID}
+                        className="flex flex-wrap items-center justify-start sm:justify-end gap-2 shrink-0"
+                    />
                 </header>
 
                 {/* Tabbed Interface */}
@@ -51,7 +60,12 @@ export default function ProcessesTasksApp() {
                         <TaskManagementBoard />
                     </TabsContent>
 
-                    <TabsContent value="templates" className="mt-0">
+                    {/* forceMount keeps New/Import/Pre-Built actions available on Live Board */}
+                    <TabsContent
+                        value="templates"
+                        forceMount
+                        className={cn("mt-0", activeTab !== "templates" && "hidden")}
+                    >
                         <TaskTemplates />
                     </TabsContent>
                 </Tabs>
