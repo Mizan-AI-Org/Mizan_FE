@@ -296,15 +296,23 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     },
     onSuccess: async (resp: TaskTemplate | undefined) => {
       toast.success(template?.id ? 'Process updated successfully' : 'Process created successfully');
+      // In-app only — do NOT WhatsApp-blast the whole team. That polluted the
+      // dashboard "Messages to staff" feed with failed "A process has been
+      // created…" rows and burned Meta's messaging window.
       try {
         const token = localStorage.getItem('access_token') || '';
         const tplName = (resp?.name ?? formData.name ?? 'Process');
-        await api.createAnnouncement(token, {
-          title: `Process updated: ${tplName}`,
-          message: `A process has been ${template?.id ? 'updated' : 'created'} and is available to use.`,
-          priority: 'MEDIUM',
-          tags: ['template_update']
-        });
+        await api.createAnnouncement(
+          token,
+          {
+            title: `Process updated: ${tplName}`,
+            message: `A process has been ${template?.id ? 'updated' : 'created'} and is available to use.`,
+            priority: 'MEDIUM',
+            tags: ['template_update'],
+          },
+          undefined,
+          ['app'],
+        );
       } catch {
         // ignore announcement errors
       }
