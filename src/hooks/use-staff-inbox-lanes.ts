@@ -56,6 +56,10 @@ export function resolveStaffInboxLaneId(
     const laneSorted = [...lane.categories].map((c) => c.toUpperCase()).sort().join(",");
     if (laneSorted === sorted) return lane.lane_id;
   }
+  if (parts.length === 1 && parts[0] === "PAYROLL") {
+    const hr = lanes.find((l) => l.lane_id === "human_resources");
+    if (hr) return hr.lane_id;
+  }
   if (parts.length === 1) {
     const hit = lanes.find((l) => l.categories.map((c) => c.toUpperCase()).includes(parts[0]));
     return hit?.lane_id ?? null;
