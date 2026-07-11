@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  SettingsSection,
+} from "@/components/settings/SettingsSection";
 import {
   Dialog,
   DialogContent,
@@ -380,26 +382,15 @@ export default function MultiLocationSettings({
   }, [apiClient, newName, newAddress, t, onMutated, invalidateTenantLocationCaches]);
 
   return (
-    <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
-      <CardHeader className="pb-6">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-lg shadow-rose-500/25">
-              <Building2 className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                {t("settings.locations.title")}
-              </CardTitle>
-              <CardDescription className="text-slate-500 dark:text-slate-400">
-                {t("settings.locations.description")}
-              </CardDescription>
-            </div>
-          </div>
-
+    <SettingsSection
+      icon={<Building2 className="h-5 w-5" />}
+      iconClassName="bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+      title={t("settings.locations.title")}
+      description={t("settings.locations.description")}
+      actions={
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger asChild>
-              <Button className="h-10 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-md">
+              <Button className="h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
                 <Plus className="w-4 h-4 mr-2" />
                 {t("settings.locations.add_button")}
               </Button>
@@ -458,10 +449,8 @@ export default function MultiLocationSettings({
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
-      </CardHeader>
-
-      <CardContent>
+      }
+    >
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
@@ -518,8 +507,7 @@ export default function MultiLocationSettings({
             </Accordion>
           </>
         )}
-      </CardContent>
-    </Card>
+    </SettingsSection>
   );
 }
 

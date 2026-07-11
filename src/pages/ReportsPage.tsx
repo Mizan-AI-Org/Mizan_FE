@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { useLanguage } from '@/hooks/use-language';
 import { API_BASE } from "@/lib/api";
+import { PAGE_SHELL } from "@/lib/page-shell";
 
 
 interface Report {
@@ -173,7 +174,7 @@ const ReportsPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-50/90 dark:bg-[#0f1419]">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+            <div className={`${PAGE_SHELL} py-8 space-y-8`}>
                 <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 dark:border-slate-800 p-6 sm:p-8 shadow-sm">
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                         <div className="flex items-start gap-4">

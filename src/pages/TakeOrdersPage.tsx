@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { PAGE_SHELL } from "@/lib/page-shell";
 import {
   Select,
   SelectContent,
@@ -51,6 +52,10 @@ import {
 
 const MANAGER_ROLES = ["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"] as const;
 
+const ORDER_STATIONS = ["Bar", "Floor", "Kitchen", "Other"] as const;
+type OrderStation = (typeof ORDER_STATIONS)[number];
+type StationFilter = "All" | OrderStation;
+
 const FULFILLMENT_SEQUENCE: StaffCapturedOrderFulfillmentStatus[] = [
   "NEW",
   "IN_PROGRESS",
@@ -66,6 +71,35 @@ const STATUS_SORT_ORDER: Record<StaffCapturedOrderFulfillmentStatus, number> = {
 };
 
 type SortKey = "newest" | "oldest" | "status";
+
+function normalizeStation(raw?: string | null): OrderStation {
+  const v = (raw || "").trim().toLowerCase();
+  if (v === "bar") return "Bar";
+  if (v === "floor") return "Floor";
+  if (v === "kitchen") return "Kitchen";
+  return "Other";
+}
+
+function stationLabelKey(station: OrderStation | "All"): string {
+  if (station === "All") return "take_orders.station.all";
+  if (station === "Bar") return "take_orders.station.bar";
+  if (station === "Floor") return "take_orders.station.floor";
+  if (station === "Kitchen") return "take_orders.station.kitchen";
+  return "take_orders.station.other";
+}
+
+function stationBadgeClass(station: OrderStation): string {
+  switch (station) {
+    case "Bar":
+      return "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100";
+    case "Floor":
+      return "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100";
+    case "Kitchen":
+      return "border-orange-200 bg-orange-50 text-orange-900 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-100";
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200";
+  }
+}
 
 function fulfillmentBadgeClass(s: StaffCapturedOrderFulfillmentStatus): string {
   switch (s) {
@@ -137,6 +171,8 @@ function CapturedOrderRow({
   canManage,
   onEdit,
   onDelete,
+  onValidate,
+  validatingId,
 }: {
   row: StaffCapturedOrderRow;
   t: (key: string) => string;
@@ -145,9 +181,15 @@ function CapturedOrderRow({
   canManage: boolean;
   onEdit: (row: StaffCapturedOrderRow) => void;
   onDelete: (row: StaffCapturedOrderRow) => void;
+  onValidate: (id: string) => void;
+  validatingId: string | null;
 }) {
   const status = (row.fulfillment_status ?? "NEW") as StaffCapturedOrderFulfillmentStatus;
   const busy = pendingId === row.id;
+  const station = normalizeStation(row.detected_station);
+  const needsValidation =
+    !!row.requires_manager_validation && row.manager_validated !== true;
+  const validating = validatingId === row.id;
 
   return (
     <li
@@ -238,7 +280,33 @@ function CapturedOrderRow({
             >
               {t(channelLabelKey(row.channel))}
             </Badge>
+            <Badge
+              variant="outline"
+              className={cn("text-[10px] font-semibold", stationBadgeClass(station))}
+            >
+              {t(stationLabelKey(station))}
+            </Badge>
           </div>
+          {needsValidation ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                {row.validation_label || t("take_orders.validation.not_validated")}
+              </span>
+              {canManage ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1.5 text-xs border-amber-200 text-amber-800 hover:bg-amber-50 dark:border-amber-900 dark:text-amber-200 dark:hover:bg-amber-950/40"
+                  disabled={validating}
+                  onClick={() => onValidate(row.id)}
+                >
+                  {validating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  {t("take_orders.validation.validate")}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
           {canManage ? (
             <div className="flex flex-wrap gap-2 pt-1">
               <Button
@@ -279,8 +347,10 @@ export default function TakeOrdersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<StaffCapturedOrderRow | null>(null);
   const [search, setSearch] = useState("");
+  const [stationFilter, setStationFilter] = useState<StationFilter>("All");
   const [sortBy, setSortBy] = useState<SortKey>("newest");
   const [pendingStatusId, setPendingStatusId] = useState<string | null>(null);
+  const [validatingId, setValidatingId] = useState<string | null>(null);
   const [exportDateFrom, setExportDateFrom] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [exportDateTo, setExportDateTo] = useState(() => format(new Date(), "yyyy-MM-dd"));
   /** List view: default today→today uses active queue (today + open from earlier days); any other range uses date_from/date_to only. */
@@ -295,6 +365,7 @@ export default function TakeOrdersPage() {
   const [dietaryNotes, setDietaryNotes] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [editingChannel, setEditingChannel] = useState<StaffCapturedOrderRow["channel"]>("MANUAL");
+  const [detectedStation, setDetectedStation] = useState<OrderStation>("Other");
 
   const resetForm = useCallback(() => {
     setEditingId(null);
@@ -306,6 +377,7 @@ export default function TakeOrdersPage() {
     setItemsSummary("");
     setDietaryNotes("");
     setSpecialInstructions("");
+    setDetectedStation("Other");
   }, []);
 
   const todayYmd = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
@@ -332,6 +404,9 @@ export default function TakeOrdersPage() {
 
   const filteredSorted = useMemo(() => {
     let rows = [...list];
+    if (stationFilter !== "All") {
+      rows = rows.filter((r) => normalizeStation(r.detected_station) === stationFilter);
+    }
     const q = search.trim().toLowerCase();
     if (q) {
       rows = rows.filter((r) => {
@@ -355,10 +430,13 @@ export default function TakeOrdersPage() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
     return rows;
-  }, [list, search, sortBy]);
+  }, [list, search, sortBy, stationFilter]);
 
   const hasActiveFilters =
-    search.trim().length > 0 || listDateFrom !== todayYmd || listDateTo !== todayYmd;
+    search.trim().length > 0 ||
+    stationFilter !== "All" ||
+    listDateFrom !== todayYmd ||
+    listDateTo !== todayYmd;
 
   const openCreate = useCallback(() => {
     resetForm();
@@ -375,6 +453,7 @@ export default function TakeOrdersPage() {
     setItemsSummary(row.items_summary || "");
     setDietaryNotes(row.dietary_notes || "");
     setSpecialInstructions(row.special_instructions || "");
+    setDetectedStation(normalizeStation(row.detected_station));
     setManualOpen(true);
   }, []);
 
@@ -493,6 +572,17 @@ export default function TakeOrdersPage() {
     [statusMutation],
   );
 
+  const validateMutation = useMutation({
+    mutationFn: (id: string) => api.validateStaffCapturedOrder(id),
+    onMutate: (id) => setValidatingId(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["staff-captured-orders"] });
+      toast.success(t("take_orders.validation.success"));
+    },
+    onError: (e: Error) => toast.error(e.message || t("take_orders.validation.error")),
+    onSettled: () => setValidatingId(null),
+  });
+
   const mutation = useMutation({
     mutationFn: () =>
       api.createStaffCapturedOrder({
@@ -552,6 +642,7 @@ export default function TakeOrdersPage() {
           dietary_notes: dietaryNotes.trim(),
           special_instructions: specialInstructions.trim(),
           channel: editingChannel,
+          detected_station: detectedStation,
         };
         updateMutation.mutate({ id: editingId, body });
         return;
@@ -568,6 +659,7 @@ export default function TakeOrdersPage() {
       dietaryNotes,
       specialInstructions,
       editingChannel,
+      detectedStation,
       mutation,
       updateMutation,
       t,
@@ -576,7 +668,7 @@ export default function TakeOrdersPage() {
 
   return (
     <div className="min-h-[60vh] bg-gradient-to-b from-slate-100/80 via-slate-50 to-white dark:from-[#0a0d12] dark:via-[#0f1419] dark:to-slate-950 pb-16">
-      <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
+      <div className={`${PAGE_SHELL} py-6 sm:py-8`}>
         <header className="mb-6 lg:mb-8">
           <div className="grid grid-cols-1 gap-3 sm:gap-2 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-4">
             <div className="min-w-0">
@@ -681,6 +773,24 @@ export default function TakeOrdersPage() {
           </div>
         </header>
 
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          {(["All", ...ORDER_STATIONS] as StationFilter[]).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStationFilter(s)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
+                stationFilter === s
+                  ? "border-emerald-500 bg-emerald-50 text-emerald-800 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-200"
+                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
+              )}
+            >
+              {t(stationLabelKey(s))}
+            </button>
+          ))}
+        </div>
+
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-8">
           <div className="min-w-0 xl:col-span-9">
             <Card className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-md dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
@@ -711,6 +821,7 @@ export default function TakeOrdersPage() {
                       onClick={() => {
                         const d = format(new Date(), "yyyy-MM-dd");
                         setSearch("");
+                        setStationFilter("All");
                         setListDateFrom(d);
                         setListDateTo(d);
                       }}
@@ -730,6 +841,8 @@ export default function TakeOrdersPage() {
                         canManage={canAddManual}
                         onEdit={openEdit}
                         onDelete={setDeleteTarget}
+                        onValidate={(id) => validateMutation.mutate(id)}
+                        validatingId={validatingId}
                       />
                     ))}
                   </ul>
@@ -887,6 +1000,23 @@ export default function TakeOrdersPage() {
                     />
                   </div>
                 </div>
+                {editingId ? (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-slate-700 dark:text-slate-300">{t("take_orders.station.label")}</Label>
+                    <Select value={detectedStation} onValueChange={(v) => setDetectedStation(v as OrderStation)}>
+                      <SelectTrigger className="h-10 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-900/50">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ORDER_STATIONS.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {t(stationLabelKey(s))}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
               </div>
 
               <Separator className="bg-slate-200/80 dark:bg-slate-800" />

@@ -29,10 +29,13 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  Search,
+  Loader2,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { DashboardSkeleton } from "@/components/skeletons";
@@ -292,6 +295,40 @@ export default function Dashboard() {
   const [customizeMode, setCustomizeMode] = useState(false);
   const [addWidgetOpen, setAddWidgetOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [opsSearch, setOpsSearch] = useState("");
+  const [debouncedOpsSearch, setDebouncedOpsSearch] = useState("");
+  const [opsSearchOpen, setOpsSearchOpen] = useState(false);
+  const opsSearchRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedOpsSearch(opsSearch.trim()), 300);
+    return () => window.clearTimeout(id);
+  }, [opsSearch]);
+
+  useEffect(() => {
+    if (!opsSearchOpen) return;
+    const onPointer = (e: MouseEvent) => {
+      if (!opsSearchRef.current?.contains(e.target as Node)) {
+        setOpsSearchOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpsSearchOpen(false);
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [opsSearchOpen]);
+
+  const opsSearchQuery = useQuery({
+    queryKey: ["dashboard", "ops-search", debouncedOpsSearch],
+    queryFn: () => api.searchDashboardOps(debouncedOpsSearch),
+    enabled: debouncedOpsSearch.length >= 2,
+    staleTime: 15_000,
+  });
   const [widgetOrder, setWidgetOrder] = useState<DashboardWidgetSlotId[]>(() => [...DEFAULT_DASHBOARD_WIDGET_ORDER]);
   const [serverLayoutReady, setServerLayoutReady] = useState(false);
   const skipNextPersist = useRef(true);
@@ -505,6 +542,8 @@ export default function Dashboard() {
           return t("dashboard.meetings_reminders.title");
         case "clock_ins":
           return t("dashboard.clock_ins.title");
+        case "staff_daily_progress":
+          return t("dashboard.staff_daily_progress.title");
         case "staff_messages":
           return t("dashboard.staff_messages.title");
         default:
@@ -561,6 +600,141 @@ export default function Dashboard() {
             <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
               {greeting}, {user?.first_name || ""}
             </h1>
+            <div className="relative w-full sm:w-auto sm:min-w-[240px] sm:max-w-md sm:flex-1" ref={opsSearchRef}>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+                <Input
+                  value={opsSearch}
+                  onChange={(e) => {
+                    setOpsSearch(e.target.value);
+                    setOpsSearchOpen(true);
+                  }}
+                  onFocus={() => setOpsSearchOpen(true)}
+                  placeholder={t("dashboard.ops_search.placeholder")}
+                  className="h-9 rounded-xl border-slate-200 bg-white pl-9 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900/70"
+                  aria-label={t("dashboard.ops_search.aria")}
+                />
+                {opsSearchQuery.isFetching ? (
+                  <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-slate-400" aria-hidden />
+                ) : null}
+              </div>
+              {opsSearchOpen && debouncedOpsSearch.length >= 2 ? (
+                <div className="absolute left-0 right-0 z-40 mt-1.5 max-h-[min(70vh,420px)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                  {opsSearchQuery.isLoading ? (
+                    <p className="px-3 py-4 text-sm text-slate-500">{t("dashboard.ops_search.searching")}</p>
+                  ) : opsSearchQuery.isError ? (
+                    <p className="px-3 py-4 text-sm text-slate-500">{t("dashboard.ops_search.failed")}</p>
+                  ) : (
+                    (() => {
+                      const staffHits = opsSearchQuery.data?.staff ?? [];
+                      const taskHits = opsSearchQuery.data?.tasks ?? [];
+                      const requestHits = opsSearchQuery.data?.staff_requests ?? [];
+                      const empty =
+                        staffHits.length === 0 && taskHits.length === 0 && requestHits.length === 0;
+                      if (empty) {
+                        return <p className="px-3 py-4 text-sm text-slate-500">{t("dashboard.ops_search.empty")}</p>;
+                      }
+                      const go = (href: string) => {
+                        setOpsSearchOpen(false);
+                        navigate(href);
+                      };
+                      return (
+                        <div className="py-1.5">
+                          {staffHits.length > 0 ? (
+                            <div className="px-1.5 pb-1">
+                              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                {t("dashboard.ops_search.section_staff")}
+                              </div>
+                              <ul>
+                                {staffHits.map((s) => (
+                                  <li key={s.id}>
+                                    <button
+                                      type="button"
+                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                                      onClick={() => go("/dashboard/staff-app")}
+                                    >
+                                      <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
+                                        {s.name}
+                                      </span>
+                                      {s.is_absent ? (
+                                        <Badge
+                                          variant="outline"
+                                          className="shrink-0 text-[10px] border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+                                        >
+                                          {t("dashboard.ops_search.absent")}
+                                        </Badge>
+                                      ) : null}
+                                      <span className="shrink-0 text-[11px] tabular-nums text-slate-500">
+                                        {t("dashboard.ops_search.open_tasks", { count: s.open_tasks?.length ?? 0 })}
+                                      </span>
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                          {taskHits.length > 0 ? (
+                            <div className="px-1.5 pb-1">
+                              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                {t("dashboard.ops_search.section_tasks")}
+                              </div>
+                              <ul>
+                                {taskHits.map((task) => (
+                                  <li key={task.id}>
+                                    <button
+                                      type="button"
+                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                                      onClick={() =>
+                                        go(
+                                          task.href ||
+                                            `/dashboard/staff-requests?list=dashboard&kind=dashboard&id=${task.id}`,
+                                        )
+                                      }
+                                    >
+                                      <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
+                                        {task.title}
+                                      </span>
+                                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                                        {task.status}
+                                      </Badge>
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                          {requestHits.length > 0 ? (
+                            <div className="px-1.5 pb-1">
+                              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                {t("dashboard.ops_search.section_staff_requests")}
+                              </div>
+                              <ul>
+                                {requestHits.map((req) => (
+                                  <li key={req.id}>
+                                    <button
+                                      type="button"
+                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                                      onClick={() => go(req.href || `/dashboard/staff-requests/${req.id}`)}
+                                    >
+                                      <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
+                                        {req.subject}
+                                      </span>
+                                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                                        {req.status}
+                                      </Badge>
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })()
+                  )}
+                </div>
+              ) : null}
+            </div>
             <div className="flex items-center gap-2">
               {canCustomizeDashboard && (
                 <>

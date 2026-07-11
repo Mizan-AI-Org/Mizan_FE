@@ -27,7 +27,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const applyLanguageForUser = useCallback((u: User | null) => {
     if (!u) return;
-    const lng = (u.preferred_language || u.restaurant_data?.language || "").toString().toLowerCase();
+    // System UI language comes from business Settings → Language only.
+    // Per-user preferred_language (if any) is for backend notifications, not the dashboard.
+    const lng = (u.restaurant_data?.language || "").toString().toLowerCase();
     const normalized = lng === "ma" ? "ar" : lng; // legacy mapping
     if (!normalized || !["en", "fr", "ar"].includes(normalized)) return;
     try {

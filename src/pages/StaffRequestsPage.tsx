@@ -41,6 +41,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { useStaffInboxLanes, resolveStaffInboxLaneId, type StaffInboxLane } from "@/hooks/use-staff-inbox-lanes";
+import { useLanguage } from "@/hooks/use-language";
+import { PAGE_SHELL, PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 import { AttachmentList } from "@/components/ui/attachment-preview";
 import { api, BACKEND_URL } from "@/lib/api";
@@ -69,6 +71,7 @@ type StaffRequest = {
   staff_name?: string;
   staff_display_name?: string;
   staff_phone?: string;
+  staff_phone_display?: string;
   category: string;
   priority: string;
   status: StaffRequestStatus;
@@ -87,20 +90,20 @@ type StaffRequest = {
   transcription_language?: string;
 };
 
-const STATUSES: { key: StaffRequestStatus; label: string }[] = [
-  { key: "PENDING", label: "Pending" },
+const STATUSES: { key: StaffRequestStatus; labelKey: string }[] = [
+  { key: "PENDING", labelKey: "staff.requests.status_pending" },
   // APPROVED in the inbox means "manager acknowledged — being worked on",
   // which the dashboard widgets surface as "In progress".
-  { key: "APPROVED", label: "In progress" },
+  { key: "APPROVED", labelKey: "staff.requests.status_in_progress" },
   // "Waiting on" parks an acknowledged request that is blocked by an
   // external dependency (supplier reply, contractor visit, document
   // arriving). Pairs with `follow_up_date` so the SLA sweeper re-pings
   // the manager on/after that date instead of bouncing it back to
   // "Escalated".
-  { key: "WAITING_ON", label: "Waiting on" },
-  { key: "REJECTED", label: "Rejected" },
-  { key: "ESCALATED", label: "Escalated" },
-  { key: "CLOSED", label: "Closed" },
+  { key: "WAITING_ON", labelKey: "staff.requests.status_waiting_on" },
+  { key: "REJECTED", labelKey: "staff.requests.status_rejected" },
+  { key: "ESCALATED", labelKey: "staff.requests.status_escalated" },
+  { key: "CLOSED", labelKey: "staff.requests.status_closed" },
 ];
 
 function getLaneIcon(lane: Pick<StaffInboxLane, "icon" | "categories">) {
@@ -149,15 +152,15 @@ function statusBadge(status?: string) {
   return "bg-slate-50 text-slate-700 border-slate-200 ring-1 ring-slate-200";
 }
 
-/** Human label aligned with dashboard widget pill vocabulary. */
-function staffRequestStatusLabel(status?: string) {
+/** i18n key aligned with dashboard widget pill vocabulary. */
+function staffRequestStatusLabelKey(status?: string): string {
   const s = String(status || "").toUpperCase();
-  if (s === "APPROVED") return "In progress";
-  if (s === "WAITING_ON") return "Waiting on";
-  if (s === "ESCALATED") return "Escalated";
-  if (s === "REJECTED") return "Rejected";
-  if (s === "CLOSED") return "Closed";
-  return "Pending";
+  if (s === "APPROVED") return "staff.requests.status_in_progress";
+  if (s === "WAITING_ON") return "staff.requests.status_waiting_on";
+  if (s === "ESCALATED") return "staff.requests.status_escalated";
+  if (s === "REJECTED") return "staff.requests.status_rejected";
+  if (s === "CLOSED") return "staff.requests.status_closed";
+  return "staff.requests.status_pending";
 }
 
 function getSourceIcon(source?: string) {
@@ -181,19 +184,22 @@ function getCategoryIcon(category?: string) {
   return <Plus className="w-3.5 h-3.5" />;
 }
 
-function formatRelativeTime(iso: string): string {
+function formatRelativeTime(
+  iso: string,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
   try {
     const then = new Date(iso).getTime();
     const diff = Date.now() - then;
-    if (diff < 0) return "just now";
+    if (diff < 0) return t("staff.requests.rel_just_now");
     const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
+    if (mins < 1) return t("staff.requests.rel_just_now");
+    if (mins < 60) return t("staff.requests.rel_minutes", { count: mins });
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) return t("staff.requests.rel_hours", { count: hours });
     const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    if (days < 45) return `${Math.floor(days / 7)}w ago`;
+    if (days < 7) return t("staff.requests.rel_days", { count: days });
+    if (days < 45) return t("staff.requests.rel_weeks", { count: Math.floor(days / 7) });
     return new Date(iso).toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
@@ -227,6 +233,29 @@ function getAssigneeName(r: Pick<StaffRequest, "assignee_summary" | "assignee_de
     if (d.email) return d.email;
   }
   return "";
+}
+
+/** Who sent the request — never bury this behind a generic "Staff" label.
+ *  Returns "" when unknown; translate at call site with `t("staff.requests.unknown_sender")`. */
+function getRequesterName(r: Pick<StaffRequest, "staff_display_name" | "staff_name" | "staff_phone" | "staff_phone_display">): string {
+  const name = (r.staff_display_name || r.staff_name || "").trim();
+  if (name && name.toLowerCase() !== "staff") return name;
+  const phone = (r.staff_phone_display || r.staff_phone || "").trim();
+  if (phone) return phone;
+  return "";
+}
+
+function getRequesterPhone(r: Pick<StaffRequest, "staff_phone_display" | "staff_phone">): string {
+  return (r.staff_phone_display || r.staff_phone || "").trim();
+}
+
+function requesterInitials(name: string): string {
+  const cleaned = name.replace(/^\+/, "").trim();
+  if (!cleaned) return "?";
+  if (/^\+?\d[\d\s-]+$/.test(cleaned)) return "#";
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return cleaned.slice(0, 2).toUpperCase();
 }
 
 async function apiGet<T>(path: string): Promise<T> {
@@ -301,12 +330,15 @@ function tasksDemandsDetailHref(row: DashboardTaskDemandItem): string {
   return `/dashboard/staff-requests/${row.id}?kind=${kind}`;
 }
 
-function dashboardTaskStatusLabel(status?: string) {
+function dashboardTaskStatusLabel(
+  status: string | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
   const s = String(status || "").toUpperCase();
-  if (s === "IN_PROGRESS") return "In progress";
-  if (s === "COMPLETED") return "Completed";
-  if (s === "CANCELLED") return "Cancelled";
-  return "Pending";
+  if (s === "IN_PROGRESS") return t("staff.requests.status_in_progress");
+  if (s === "COMPLETED") return t("staff.requests.status_completed");
+  if (s === "CANCELLED") return t("staff.requests.status_cancelled");
+  return t("staff.requests.status_pending");
 }
 
 function dashboardTaskStatusBadge(status?: string) {
@@ -344,12 +376,15 @@ function invoiceAttachmentItems(invoice: Invoice) {
   ];
 }
 
-function invoiceStatusLabel(status?: string) {
+function invoiceStatusLabel(
+  status: string | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string,
+) {
   const s = String(status || "").toUpperCase();
-  if (s === "PAID") return "Paid";
-  if (s === "VOIDED") return "Voided";
-  if (s === "DRAFT") return "Draft";
-  return "Open";
+  if (s === "PAID") return t("staff.requests.invoice_status_paid");
+  if (s === "VOIDED") return t("staff.requests.invoice_status_voided");
+  if (s === "DRAFT") return t("staff.requests.invoice_status_draft");
+  return t("staff.requests.invoice_status_open");
 }
 
 function invoiceStatusBadge(status?: string) {
@@ -364,10 +399,12 @@ function InvoiceDetailPanel({
   invoice,
   onMarkPaid,
   isUpdating,
+  t,
 }: {
   invoice: Invoice;
   onMarkPaid: () => void;
   isUpdating: boolean;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   const attachments = invoiceAttachmentItems(invoice);
   const isOpen = String(invoice.status || "").toUpperCase() === "OPEN";
@@ -377,7 +414,7 @@ function InvoiceDetailPanel({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">
-            Finance · Invoice
+            {t("staff.requests.invoice_eyebrow")}
           </div>
           <h3 className="text-2xl font-bold tracking-tight truncate">{invoice.vendor_name}</h3>
           {invoice.invoice_number ? (
@@ -385,19 +422,19 @@ function InvoiceDetailPanel({
           ) : null}
         </div>
         <Badge variant="outline" className={cn("text-xs font-bold px-3 py-1 uppercase rounded-full", invoiceStatusBadge(invoice.status))}>
-          {invoiceStatusLabel(invoice.status)}
+          {invoiceStatusLabel(invoice.status, t)}
         </Badge>
       </div>
 
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Amount</div>
+          <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("staff.requests.invoice_amount")}</div>
           <div className="text-lg font-bold tabular-nums mt-1">
             {invoice.amount} {invoice.currency}
           </div>
         </div>
         <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Due date</div>
+          <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("staff.requests.invoice_due_date")}</div>
           <div className="text-lg font-semibold mt-1">
             {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : "—"}
           </div>
@@ -406,7 +443,7 @@ function InvoiceDetailPanel({
 
       {invoice.notes ? (
         <div className="rounded-2xl border border-border/40 bg-muted/20 p-4">
-          <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Notes</div>
+          <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">{t("staff.requests.invoice_notes")}</div>
           <p className="text-sm whitespace-pre-wrap leading-relaxed">{invoice.notes}</p>
         </div>
       ) : null}
@@ -414,20 +451,20 @@ function InvoiceDetailPanel({
       <div className="rounded-2xl border border-border/40 bg-background p-4">
         <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
           <FileText className="w-3.5 h-3.5" />
-          Invoice document
+          {t("staff.requests.invoice_document")}
         </div>
         {attachments.length > 0 ? (
           <AttachmentList attachments={attachments} />
         ) : (
           <p className="text-sm text-muted-foreground">
-            No document was attached to this invoice. Ask the sender to resend the photo or PDF on WhatsApp.
+            {t("staff.requests.invoice_no_document")}
           </p>
         )}
       </div>
 
       {isOpen ? (
         <Button onClick={onMarkPaid} disabled={isUpdating} className="w-full sm:w-auto">
-          {isUpdating ? "Updating…" : "Mark as paid"}
+          {isUpdating ? t("staff.requests.updating") : t("staff.requests.mark_paid")}
         </Button>
       ) : null}
     </div>
@@ -438,10 +475,12 @@ function DashboardTaskDetailPanel({
   task,
   onStatusChange,
   isUpdating,
+  t,
 }: {
   task: DashboardTaskDemandItem;
   onStatusChange: (status: DashboardTaskDemandItem["status"]) => void;
   isUpdating: boolean;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   return (
     <div className="flex flex-col h-[72vh]">
@@ -449,13 +488,13 @@ function DashboardTaskDetailPanel({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider mb-1">
             {getCategoryIcon(task.category || undefined)}
-            {task.category || "Task"}
+            {task.category || t("staff.requests.task_fallback")}
           </div>
           <h3 className="text-2xl font-bold text-foreground tracking-tight leading-tight">{task.title}</h3>
           <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
             <span>{task.source_label || task.source}</span>
             <span>•</span>
-            <span>{task.assignee?.name || "Unassigned"}</span>
+            <span>{task.assignee?.name || t("staff.requests.unassigned")}</span>
           </div>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -463,7 +502,7 @@ function DashboardTaskDetailPanel({
             variant="outline"
             className={cn("text-xs font-bold px-3 py-1 uppercase rounded-full", dashboardTaskStatusBadge(task.status))}
           >
-            {dashboardTaskStatusLabel(task.status)}
+            {dashboardTaskStatusLabel(task.status, t)}
           </Badge>
           <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", priorityBadge(task.priority))}>
             {String(task.priority || "MEDIUM").toUpperCase()}
@@ -477,10 +516,10 @@ function DashboardTaskDetailPanel({
         ) : null}
         <div className="bg-muted/30 rounded-2xl p-4 border border-border/40">
           <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2">
-            Details
+            {t("staff.requests.details")}
           </div>
           <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
-            {task.description || "No description provided."}
+            {task.description || t("staff.requests.no_description")}
           </div>
         </div>
       </div>
@@ -494,7 +533,7 @@ function DashboardTaskDetailPanel({
             disabled={isUpdating || task.status === nextStatus}
             onClick={() => onStatusChange(nextStatus)}
           >
-            {dashboardTaskStatusLabel(nextStatus)}
+            {dashboardTaskStatusLabel(nextStatus, t)}
           </Button>
         ))}
       </div>
@@ -503,6 +542,7 @@ function DashboardTaskDetailPanel({
 }
 
 const StaffRequestsPage: React.FC = () => {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const params = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -776,10 +816,10 @@ const StaffRequestsPage: React.FC = () => {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["finance-invoice", selectedId] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard", "category-tasks"] });
-      toast.success("Invoice marked as paid.");
+      toast.success(t("staff.requests.invoice_paid_toast"));
     },
     onError: (err: unknown) => {
-      toast.error(err instanceof Error ? err.message : "Could not mark invoice as paid.");
+      toast.error(err instanceof Error ? err.message : t("staff.requests.invoice_paid_error"));
     },
   });
 
@@ -892,41 +932,47 @@ const StaffRequestsPage: React.FC = () => {
   };
 
   const emptyState = (
-    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+    <div className="flex h-full min-h-[280px] flex-col items-center justify-center px-6 py-10 text-center">
       <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/80 text-muted-foreground">
         <Inbox className="h-5 w-5" />
       </div>
-      <div className="text-sm font-medium text-foreground">No requests here</div>
+      <div className="text-sm font-medium text-foreground">{t("staff.requests.empty_title")}</div>
       <div className="mt-1 max-w-[220px] text-xs text-muted-foreground leading-relaxed">
         {activeLane
-          ? `Nothing in ${activeLane.label} for ${staffRequestStatusLabel(activeStatus).toLowerCase()}.`
-          : `Nothing marked ${staffRequestStatusLabel(activeStatus).toLowerCase()} right now.`}
+          ? t("staff.requests.empty_lane", {
+              lane: activeLane.label,
+              status: t(staffRequestStatusLabelKey(activeStatus)).toLowerCase(),
+            })
+          : t("staff.requests.empty_status", {
+              status: t(staffRequestStatusLabelKey(activeStatus)).toLowerCase(),
+            })}
       </div>
     </div>
   );
 
   const pageTitle = dashboardListMode
-    ? "Tasks & Demands"
-    : activeLane?.page_title ?? "All Requests";
+    ? t("staff.requests.tasks_demands_title")
+    : activeLane?.page_title ?? t("staff.requests.all_requests");
   const pageSubtitle = dashboardListMode
-    ? "Miya-created and ingested tasks — review, reassign, and close from here."
+    ? t("staff.requests.tasks_demands_subtitle")
     : activeLane?.page_subtitle ?? null;
 
   if (isInvoiceDetail && selectedId) {
     const invoice = invoiceQuery.data;
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+      <div className={`${PAGE_SHELL} py-6 w-full`}>
         <Card className="w-full">
           <CardContent className="pt-6">
             {invoiceQuery.isLoading ? (
-              <div className="text-sm text-muted-foreground py-6">Loading…</div>
+              <div className="text-sm text-muted-foreground py-6">{t("staff.requests.loading")}</div>
             ) : invoiceQuery.isError || !invoice ? (
-              <div className="text-sm text-red-600 py-6">Failed to load invoice.</div>
+              <div className="text-sm text-red-600 py-6">{t("staff.requests.invoice_load_failed")}</div>
             ) : (
               <InvoiceDetailPanel
                 invoice={invoice}
                 onMarkPaid={() => invoiceMarkPaidMutation.mutate()}
                 isUpdating={invoiceMarkPaidMutation.isPending}
+                t={t}
               />
             )}
           </CardContent>
@@ -937,13 +983,13 @@ const StaffRequestsPage: React.FC = () => {
 
   if (dashboardListMode) {
     const demandTabs: { id: TasksDemandsTab; label: string; count: number }[] = [
-      { id: "pending", label: "Pending", count: demandCounts.pending },
-      { id: "in_progress", label: "In progress", count: demandCounts.in_progress },
-      { id: "completed", label: "Completed", count: demandCounts.completed },
+      { id: "pending", label: t("dashboard.tasks_demands.tab_pending"), count: demandCounts.pending },
+      { id: "in_progress", label: t("dashboard.tasks_demands.tab_in_progress"), count: demandCounts.in_progress },
+      { id: "completed", label: t("dashboard.tasks_demands.tab_completed"), count: demandCounts.completed },
     ];
 
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className={`${PAGE_SHELL} py-6`}>
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <h2 className="text-2xl font-bold">{pageTitle}</h2>
@@ -979,12 +1025,12 @@ const StaffRequestsPage: React.FC = () => {
           </div>
           <div className="flex gap-2 w-full md:w-[360px]">
             <Input
-              placeholder="Search tasks..."
+              placeholder={t("staff.requests.search_tasks")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             <Button variant="outline" onClick={() => setSearch("")}>
-              Clear
+              {t("staff.requests.clear")}
             </Button>
           </div>
         </div>
@@ -992,16 +1038,16 @@ const StaffRequestsPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-4 items-start">
           <Card className="h-[72vh]">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Inbox · Tasks & Demands</CardTitle>
+              <CardTitle className="text-base">{t("staff.requests.inbox_tasks_demands")}</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <ScrollArea className="h-[62vh] pr-3">
                 {tasksDemandsQuery.isLoading ? (
-                  <div className="text-sm text-muted-foreground py-6">Loading…</div>
+                  <div className="text-sm text-muted-foreground py-6">{t("staff.requests.loading")}</div>
                 ) : tasksDemandsQuery.isError ? (
-                  <div className="text-sm text-red-600 py-6">Failed to load tasks.</div>
+                  <div className="text-sm text-red-600 py-6">{t("staff.requests.load_tasks_failed")}</div>
                 ) : filteredDemandRows.length === 0 ? (
-                  <div className="text-sm text-muted-foreground py-10 text-center">No tasks found.</div>
+                  <div className="text-sm text-muted-foreground py-10 text-center">{t("staff.requests.no_tasks")}</div>
                 ) : (
                   <div className="space-y-2">
                     {filteredDemandRows.map((row) => (
@@ -1028,7 +1074,7 @@ const StaffRequestsPage: React.FC = () => {
                               </div>
                             ) : null}
                             <div className="text-xs text-muted-foreground mt-1 truncate">
-                              {row.assignee?.name || "Unassigned"}
+                              {row.assignee?.name || t("staff.requests.unassigned")}
                             </div>
                           </div>
                           <Badge
@@ -1038,7 +1084,7 @@ const StaffRequestsPage: React.FC = () => {
                               dashboardTaskStatusBadge(row.status),
                             )}
                           >
-                            {dashboardTaskStatusLabel(row.status)}
+                            {dashboardTaskStatusLabel(row.status, t)}
                           </Badge>
                         </div>
                       </button>
@@ -1051,22 +1097,23 @@ const StaffRequestsPage: React.FC = () => {
 
           <Card className="h-[72vh]">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Task details</CardTitle>
+              <CardTitle className="text-base">{t("staff.requests.task_details")}</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               {!selectedId ? (
                 <div className="text-sm text-muted-foreground py-10 text-center">
-                  Select a task on the left.
+                  {t("staff.requests.select_task")}
                 </div>
               ) : dashboardTaskQuery.isLoading ? (
-                <div className="text-sm text-muted-foreground py-6">Loading…</div>
+                <div className="text-sm text-muted-foreground py-6">{t("staff.requests.loading")}</div>
               ) : dashboardTaskQuery.isError || !dashboardTask ? (
-                <div className="text-sm text-red-600 py-6">Failed to load task.</div>
+                <div className="text-sm text-red-600 py-6">{t("staff.requests.task_load_failed")}</div>
               ) : (
                 <DashboardTaskDetailPanel
                   task={dashboardTask}
                   onStatusChange={(nextStatus) => dashboardStatusMutation.mutate(nextStatus)}
                   isUpdating={dashboardStatusMutation.isPending}
+                  t={t}
                 />
               )}
             </CardContent>
@@ -1077,44 +1124,46 @@ const StaffRequestsPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-5">
-        <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-1">
-            Staff inbox
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{pageTitle}</h2>
-          {pageSubtitle ? (
-            <p className="text-sm text-muted-foreground mt-1.5 max-w-2xl leading-relaxed">{pageSubtitle}</p>
-          ) : (
-            <p className="text-sm text-muted-foreground mt-1.5 max-w-2xl leading-relaxed">
-              Triage WhatsApp and portal requests — assign, reply, escalate, or close.
-            </p>
-          )}
+    <div className={PAGE_SHELL_PADDED}>
+      <div className="mb-5 space-y-3">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          {t("staff.requests.eyebrow")}
         </div>
-        <Button
-          variant={assignedToMe ? "default" : "outline"}
-          onClick={() => setAssignedToMe((v) => !v)}
-          className="rounded-full shrink-0 h-10"
-          title="Show only requests assigned to you"
-        >
-          <Inbox className="w-4 h-4 mr-2" />
-          Assigned to me
-          {typeof myCountsQuery.data === "number" && myCountsQuery.data > 0 && (
-            <Badge
-              variant="secondary"
-              className="ml-2 h-5 min-w-5 px-1.5 text-[11px] rounded-full"
-            >
-              {myCountsQuery.data}
-            </Badge>
-          )}
-        </Button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground min-w-0">
+            {pageTitle}
+          </h2>
+          <Button
+            variant={assignedToMe ? "default" : "outline"}
+            onClick={() => setAssignedToMe((v) => !v)}
+            className="rounded-full shrink-0 h-10 self-start sm:self-center"
+            title={t("staff.requests.assigned_to_me_title")}
+          >
+            <Inbox className="w-4 h-4 mr-2" />
+            {t("staff.requests.assigned_to_me")}
+            {typeof myCountsQuery.data === "number" && myCountsQuery.data > 0 && (
+              <Badge
+                variant="secondary"
+                className="ml-2 h-5 min-w-5 px-1.5 text-[11px] rounded-full"
+              >
+                {myCountsQuery.data}
+              </Badge>
+            )}
+          </Button>
+        </div>
+        {pageSubtitle ? (
+          <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">{pageSubtitle}</p>
+        ) : (
+          <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
+            {t("staff.requests.default_subtitle")}
+          </p>
+        )}
       </div>
 
       <Tabs value={activeStatus} onValueChange={(v) => onStatusTabChange(v as StaffRequestStatus)}>
         <div className="rounded-2xl border border-border/60 bg-muted/30 p-3 sm:p-4 space-y-3">
-          <div className="flex flex-col xl:flex-row xl:items-center gap-3">
-            <TabsList className="w-full xl:w-auto h-auto flex flex-wrap justify-start gap-1 bg-background/80 p-1.5 rounded-xl border border-border/50 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <TabsList className="h-auto w-full lg:flex-1 flex flex-wrap justify-start gap-1 bg-background/80 p-1.5 rounded-xl border border-border/50 shadow-sm">
               {STATUSES.map((s) => {
                 const count = countsQuery.data?.counts?.[s.key];
                 return (
@@ -1123,7 +1172,7 @@ const StaffRequestsPage: React.FC = () => {
                     value={s.key}
                     className="relative rounded-lg px-3 py-2 text-xs sm:text-sm data-[state=active]:shadow-sm"
                   >
-                    {s.label}
+                    {t(s.labelKey)}
                     {count !== undefined && (
                       <Badge
                         variant="secondary"
@@ -1139,111 +1188,113 @@ const StaffRequestsPage: React.FC = () => {
                 );
               })}
             </TabsList>
-            <div className="flex gap-2 w-full xl:max-w-md xl:ml-auto">
+            <div className="flex gap-2 w-full lg:w-72 lg:shrink-0">
               <Input
-                placeholder="Search subject, staff, message…"
+                placeholder={t("staff.requests.search_placeholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="h-10 rounded-xl bg-background"
               />
               {search ? (
                 <Button variant="outline" className="h-10 rounded-xl shrink-0" onClick={() => setSearch("")}>
-                  Clear
+                  {t("staff.requests.clear")}
                 </Button>
               ) : null}
             </div>
           </div>
 
-          <div
-            className="flex flex-wrap items-center gap-2"
-            role="tablist"
-            aria-label="Filter inbox by command centre lane"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeLaneId === null}
-              onClick={() => setActiveLaneId(null)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                activeLaneId === null
-                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                  : "bg-background text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground",
-              )}
+          <div className="border-t border-border/50 pt-3">
+            <div
+              className="flex flex-wrap items-center gap-2"
+              role="tablist"
+              aria-label={t("staff.requests.filter_lanes_aria")}
             >
-              <span>All lanes</span>
-            </button>
-            {inboxLanes.map((lane) => {
-              const count = categoryCountsQuery.data?.[lane.lane_id] ?? 0;
-              const isActive = activeLaneId === lane.lane_id;
-              return (
-                <button
-                  key={lane.lane_id}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => setActiveLaneId(lane.lane_id)}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                    isActive
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                      : "bg-background text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground",
-                  )}
-                >
-                  <span className="opacity-80">{getLaneIcon(lane)}</span>
-                  <span>{lane.label}</span>
-                  {count > 0 && (
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        "h-4 min-w-4 px-1 text-[10px] rounded-full",
-                        isActive && "bg-primary-foreground/20 text-primary-foreground",
-                      )}
-                    >
-                      {count}
-                    </Badge>
-                  )}
-                </button>
-              );
-            })}
-            {activePriority ? (
               <button
                 type="button"
                 role="tab"
-                aria-selected="true"
-                onClick={() => setActivePriority("")}
+                aria-selected={activeLaneId === null}
+                onClick={() => setActiveLaneId(null)}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                  "bg-red-600 text-white border-red-600 shadow-sm hover:bg-red-700",
+                  activeLaneId === null
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "bg-background text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground",
                 )}
-                title="Clear priority filter"
               >
-                <span>Priority: {activePriority}</span>
-                <span className="text-[14px] leading-none">×</span>
+                <span>{t("staff.requests.all_lanes")}</span>
               </button>
-            ) : null}
+              {inboxLanes.map((lane) => {
+                const count = categoryCountsQuery.data?.[lane.lane_id] ?? 0;
+                const isActive = activeLaneId === lane.lane_id;
+                return (
+                  <button
+                    key={lane.lane_id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setActiveLaneId(lane.lane_id)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      isActive
+                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                        : "bg-background text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground",
+                    )}
+                  >
+                    <span className="opacity-80">{getLaneIcon(lane)}</span>
+                    <span>{lane.label}</span>
+                    {count > 0 && (
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "h-4 min-w-4 px-1 text-[10px] rounded-full",
+                          isActive && "bg-primary-foreground/20 text-primary-foreground",
+                        )}
+                      >
+                        {count}
+                      </Badge>
+                    )}
+                  </button>
+                );
+              })}
+              {activePriority ? (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected="true"
+                  onClick={() => setActivePriority("")}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                    "bg-red-600 text-white border-red-600 shadow-sm hover:bg-red-700",
+                  )}
+                  title={t("staff.requests.clear_priority")}
+                >
+                  <span>{t("staff.requests.priority_filter", { priority: activePriority })}</span>
+                  <span className="text-[14px] leading-none">×</span>
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
 
-        <TabsContent value={activeStatus} className="mt-4 focus-visible:outline-none">
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(340px,400px)_1fr] gap-4 items-stretch">
+        <TabsContent value={activeStatus} className="mt-5 focus-visible:outline-none">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(320px,380px)_1fr] gap-4 items-stretch">
             <Card className="h-[min(78vh,860px)] flex flex-col overflow-hidden border-border/70 shadow-sm">
-              <CardHeader className="pb-3 pt-4 px-4 border-b border-border/50 shrink-0">
+              <CardHeader className="pb-3 pt-4 px-4 sm:px-5 border-b border-border/50 shrink-0">
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle className="text-sm font-semibold tracking-tight">
-                    Inbox
+                    {t("staff.requests.inbox")}
                     <span className="ml-2 font-normal text-muted-foreground">
                       {listQuery.isLoading ? "…" : `${requests.length + (showPinnedDashboardTask ? 1 : 0)}`}
                       {activeLane ? ` · ${activeLane.label}` : ""}
                     </span>
                   </CardTitle>
                   <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wide">
-                    {staffRequestStatusLabel(activeStatus)}
+                    {t(staffRequestStatusLabelKey(activeStatus))}
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="pt-0 px-0 flex-1 min-h-0">
-                <ScrollArea className="h-full px-3 py-3">
+              <CardContent className="pt-0 px-0 flex-1 min-h-0 flex flex-col">
+                <ScrollArea className="h-full flex-1 px-3 py-3">
                   {listQuery.isLoading ? (
                     <div className="space-y-2 py-2">
                       {[0, 1, 2, 3].map((i) => (
@@ -1251,7 +1302,7 @@ const StaffRequestsPage: React.FC = () => {
                       ))}
                     </div>
                   ) : listQuery.isError ? (
-                    <div className="text-sm text-red-600 py-10 text-center px-4">Failed to load requests.</div>
+                    <div className="text-sm text-red-600 py-10 text-center px-4">{t("staff.requests.load_failed")}</div>
                   ) : requests.length === 0 && !showPinnedDashboardTask ? (
                     emptyState
                   ) : (
@@ -1264,11 +1315,11 @@ const StaffRequestsPage: React.FC = () => {
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
                               <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                                {dashboardTask.source_label || "Dashboard task"}
+                                {dashboardTask.source_label || t("staff.requests.dashboard_task")}
                               </div>
                               <div className="font-semibold text-sm truncate">{dashboardTask.title}</div>
                               <div className="text-xs text-muted-foreground mt-1 truncate">
-                                {dashboardTask.assignee?.name || "Unassigned"}
+                                {dashboardTask.assignee?.name || t("staff.requests.unassigned")}
                               </div>
                             </div>
                             <Badge
@@ -1278,7 +1329,7 @@ const StaffRequestsPage: React.FC = () => {
                                 dashboardTaskStatusBadge(dashboardTask.status),
                               )}
                             >
-                              {dashboardTaskStatusLabel(dashboardTask.status)}
+                              {dashboardTaskStatusLabel(dashboardTask.status, t)}
                             </Badge>
                           </div>
                         </button>
@@ -1287,6 +1338,12 @@ const StaffRequestsPage: React.FC = () => {
                         const isNew = Date.now() - new Date(r.created_at).getTime() < 86400000;
                         const isUrgent = r.priority === "URGENT" || r.priority === "HIGH";
                         const isSelected = selectedId === r.id;
+                        const requester = getRequesterName(r) || t("staff.requests.unknown_sender");
+                        const requesterPhone = getRequesterPhone(r);
+                        const showPhoneUnderName =
+                          !!requesterPhone &&
+                          requesterPhone !== requester &&
+                          !requester.includes(requesterPhone.replace(/^\+/, ""));
 
                         return (
                           <button
@@ -1304,19 +1361,63 @@ const StaffRequestsPage: React.FC = () => {
                               <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
                             )}
 
-                            <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start gap-3">
+                              <div
+                                className={cn(
+                                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold tracking-wide",
+                                  isSelected
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-emerald-700/90 text-white dark:bg-emerald-600",
+                                )}
+                                aria-hidden
+                              >
+                                {requesterInitials(requester)}
+                              </div>
+
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5 mb-1">
-                                  {getSourceIcon(r.source)}
-                                  <div className="font-semibold text-sm leading-snug line-clamp-2">
-                                    {r.subject || "Staff request"}
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <div className="text-[15px] font-bold leading-tight text-foreground truncate">
+                                      {requester}
+                                    </div>
+                                    {showPhoneUnderName ? (
+                                      <div className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-muted-foreground tabular-nums">
+                                        <Phone className="h-3 w-3 shrink-0" />
+                                        {requesterPhone}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                  <div className="flex flex-col items-end gap-1 shrink-0">
+                                    {isNew && (
+                                      <Badge className="h-4 px-1.5 text-[9px] bg-blue-500 hover:bg-blue-600">{t("staff.requests.new_badge")}</Badge>
+                                    )}
+                                    <div
+                                      className="text-[10px] text-muted-foreground flex items-center gap-1"
+                                      title={formatAbsoluteDateTime(r.created_at)}
+                                    >
+                                      <Clock className="w-3 h-3" />
+                                      {formatRelativeTime(r.created_at, t)}
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground">
-                                  <span className="font-semibold text-foreground/80 truncate max-w-[120px]">
-                                    {r.staff_display_name || r.staff_name || "Staff"}
-                                  </span>
-                                  <span className="text-border">·</span>
+
+                                <div className="mt-1.5 flex items-center gap-1.5 min-w-0">
+                                  {getSourceIcon(r.source)}
+                                  <div className="font-medium text-sm leading-snug line-clamp-2 text-foreground/90">
+                                    {r.subject || t("staff.requests.default_subject")}
+                                  </div>
+                                  {r.voice_audio_url ? (
+                                    <span
+                                      className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 h-4 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300 shrink-0"
+                                      title={t("staff.requests.voice_title")}
+                                    >
+                                      <Mic className="w-2.5 h-2.5" />
+                                      {t("staff.requests.voice_badge")}
+                                    </span>
+                                  ) : null}
+                                </div>
+
+                                <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground">
                                   <span className="inline-flex items-center gap-1 uppercase tracking-wide">
                                     {getCategoryIcon(r.category)}
                                     {r.category}
@@ -1328,52 +1429,31 @@ const StaffRequestsPage: React.FC = () => {
                                       {getAssigneeName(r)}
                                     </span>
                                   ) : (
-                                    <span className="italic text-muted-foreground/70">Unassigned</span>
+                                    <span className="italic text-muted-foreground/70">{t("staff.requests.unassigned")}</span>
                                   )}
                                 </div>
-                              </div>
-                              <div className="flex flex-col items-end gap-1 shrink-0">
-                                {isNew && (
-                                  <Badge className="h-4 px-1.5 text-[9px] bg-blue-500 hover:bg-blue-600">NEW</Badge>
-                                )}
-                                {r.voice_audio_url ? (
-                                  <span
-                                    className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 h-4 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300"
-                                    title="Originally a WhatsApp voice note"
-                                  >
-                                    <Mic className="w-2.5 h-2.5" />
-                                    VOICE
-                                  </span>
+
+                                {r.description ? (
+                                  <div className="text-xs text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
+                                    {r.description}
+                                  </div>
                                 ) : null}
-                                <div
-                                  className="text-[10px] text-muted-foreground flex items-center gap-1"
-                                  title={formatAbsoluteDateTime(r.created_at)}
-                                >
-                                  <Clock className="w-3 h-3" />
-                                  {formatRelativeTime(r.created_at)}
+
+                                <div className="flex items-center justify-between mt-2">
+                                  <Badge
+                                    variant="outline"
+                                    className={cn("text-[9px] font-bold px-1.5 py-0", priorityBadge(r.priority))}
+                                  >
+                                    {String(r.priority || "MEDIUM").toUpperCase()}
+                                  </Badge>
+                                  <ChevronRight
+                                    className={cn(
+                                      "w-3.5 h-3.5 text-muted-foreground/60 transition-transform",
+                                      isSelected ? "translate-x-0.5 text-primary" : "group-hover:translate-x-0.5",
+                                    )}
+                                  />
                                 </div>
                               </div>
-                            </div>
-
-                            {r.description ? (
-                              <div className="text-xs text-muted-foreground mt-2 line-clamp-2 leading-relaxed">
-                                {r.description}
-                              </div>
-                            ) : null}
-
-                            <div className="flex items-center justify-between mt-2.5">
-                              <Badge
-                                variant="outline"
-                                className={cn("text-[9px] font-bold px-1.5 py-0", priorityBadge(r.priority))}
-                              >
-                                {String(r.priority || "MEDIUM").toUpperCase()}
-                              </Badge>
-                              <ChevronRight
-                                className={cn(
-                                  "w-3.5 h-3.5 text-muted-foreground/60 transition-transform",
-                                  isSelected ? "translate-x-0.5 text-primary" : "group-hover:translate-x-0.5",
-                                )}
-                              />
                             </div>
                           </button>
                         );
@@ -1386,26 +1466,27 @@ const StaffRequestsPage: React.FC = () => {
 
             <Card className="h-[min(78vh,860px)] flex flex-col overflow-hidden border-border/70 shadow-sm">
               {!selectedId ? (
-                <CardContent className="flex-1 flex flex-col items-center justify-center text-center px-8 py-16">
+                <CardContent className="flex-1 flex flex-col items-center justify-center text-center px-5 sm:px-8 py-12">
                   <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
                     <FileText className="h-6 w-6" />
                   </div>
-                  <div className="text-base font-semibold text-foreground">Select a request</div>
+                  <div className="text-base font-semibold text-foreground">{t("staff.requests.select_title")}</div>
                   <p className="mt-2 max-w-sm text-sm text-muted-foreground leading-relaxed">
-                    Pick an item from the inbox to see the full message, assignment, activity, and actions.
+                    {t("staff.requests.select_hint")}
                   </p>
                 </CardContent>
               ) : isDashboardDetail ? (
                 <CardContent className="pt-6 flex-1 overflow-auto">
                   {dashboardTaskQuery.isLoading ? (
-                    <div className="text-sm text-muted-foreground py-6">Loading…</div>
+                    <div className="text-sm text-muted-foreground py-6">{t("staff.requests.loading")}</div>
                   ) : dashboardTaskQuery.isError || !dashboardTask ? (
-                    <div className="text-sm text-red-600 py-6">Failed to load task.</div>
+                    <div className="text-sm text-red-600 py-6">{t("staff.requests.task_load_failed")}</div>
                   ) : (
                     <DashboardTaskDetailPanel
                       task={dashboardTask}
                       onStatusChange={(nextStatus) => dashboardStatusMutation.mutate(nextStatus)}
                       isUpdating={dashboardStatusMutation.isPending}
+                      t={t}
                     />
                   )}
                 </CardContent>
@@ -1417,7 +1498,7 @@ const StaffRequestsPage: React.FC = () => {
                 </CardContent>
               ) : selectedQuery.isError || !selected ? (
                 <CardContent className="pt-6">
-                  <div className="text-sm text-red-600 py-6">Failed to load request.</div>
+                  <div className="text-sm text-red-600 py-6">{t("staff.requests.detail_load_failed")}</div>
                 </CardContent>
               ) : (
                 <div className="flex flex-col h-full min-h-0">
@@ -1433,7 +1514,7 @@ const StaffRequestsPage: React.FC = () => {
                             variant="outline"
                             className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", statusBadge(selected.status))}
                           >
-                            {staffRequestStatusLabel(selected.status)}
+                            {t(staffRequestStatusLabelKey(selected.status))}
                           </Badge>
                           <Badge
                             variant="outline"
@@ -1442,51 +1523,70 @@ const StaffRequestsPage: React.FC = () => {
                             {String(selected.priority || "MEDIUM").toUpperCase()}
                           </Badge>
                         </div>
-                        <h3 className="text-xl sm:text-2xl font-bold tracking-tight leading-snug text-foreground">
-                          {selected.subject || "Staff request"}
-                        </h3>
-                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                          <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
-                            <UserCircle2 className="w-4 h-4 text-muted-foreground" />
-                            {selected.staff_display_name || selected.staff_name || "Staff"}
-                          </span>
-                          <span className="inline-flex items-center gap-1.5">
-                            <Phone className="w-3.5 h-3.5" />
-                            {selected.staff_phone || "No phone"}
-                          </span>
-                          <span
-                            className="inline-flex items-center gap-1.5"
-                            title={formatAbsoluteDateTime(selected.created_at)}
-                          >
-                            <Clock className="w-3.5 h-3.5" />
-                            {formatRelativeTime(selected.created_at)}
-                          </span>
+
+                        {/* Sender first — managers triage by who asked */}
+                        <div className="mb-3 flex items-center gap-3 rounded-2xl border border-emerald-200/70 bg-emerald-50/60 px-3.5 py-3 dark:border-emerald-900/50 dark:bg-emerald-950/30">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-sm font-bold text-white dark:bg-emerald-600">
+                            {requesterInitials(getRequesterName(selected) || t("staff.requests.unknown_sender"))}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-800/70 dark:text-emerald-300/70">
+                              {t("staff.requests.from")}
+                            </div>
+                            <div className="text-lg font-bold leading-tight text-foreground truncate">
+                              {getRequesterName(selected) || t("staff.requests.unknown_sender")}
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                              {getRequesterPhone(selected) ? (
+                                <span className="inline-flex items-center gap-1 font-medium tabular-nums text-foreground/80">
+                                  <Phone className="w-3.5 h-3.5" />
+                                  {getRequesterPhone(selected)}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-muted-foreground/80">
+                                  <Phone className="w-3.5 h-3.5" />
+                                  {t("staff.requests.no_phone")}
+                                </span>
+                              )}
+                              <span
+                                className="inline-flex items-center gap-1"
+                                title={formatAbsoluteDateTime(selected.created_at)}
+                              >
+                                <Clock className="w-3.5 h-3.5" />
+                                {formatRelativeTime(selected.created_at, t)}
+                              </span>
+                            </div>
+                          </div>
                         </div>
+
+                        <h3 className="text-xl sm:text-2xl font-bold tracking-tight leading-snug text-foreground">
+                          {selected.subject || t("staff.requests.default_subject")}
+                        </h3>
                       </div>
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Source</div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("staff.requests.meta_source")}</div>
                         <div className="mt-1 text-xs font-semibold flex items-center gap-1.5 capitalize">
                           {getSourceIcon(selected.source)}
                           {selected.source || "web"}
                         </div>
                       </div>
                       <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Received</div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("staff.requests.meta_received")}</div>
                         <div className="mt-1 text-xs font-semibold">
                           {formatAbsoluteDateTime(selected.created_at)}
                         </div>
                       </div>
                       <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Updated</div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("staff.requests.meta_updated")}</div>
                         <div className="mt-1 text-xs font-semibold">
-                          {formatRelativeTime(selected.updated_at)}
+                          {formatRelativeTime(selected.updated_at, t)}
                         </div>
                       </div>
                       <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Reference</div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("staff.requests.meta_reference")}</div>
                         <div className="mt-1 text-xs font-mono flex items-center gap-1 text-foreground/80">
                           <Hash className="w-3 h-3 text-muted-foreground" />
                           {selected.id.substring(0, 8)}
@@ -1500,10 +1600,12 @@ const StaffRequestsPage: React.FC = () => {
                       <div className="rounded-2xl border border-border/50 bg-muted/20 p-4">
                         <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-2 flex items-center gap-1.5">
                           <MessageCircle className="w-3.5 h-3.5" />
-                          Message from staff
+                          {t("staff.requests.message_from", {
+                            name: getRequesterName(selected) || t("staff.requests.unknown_sender"),
+                          })}
                         </div>
                         <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
-                          {selected.description || "No description provided."}
+                          {selected.description || t("staff.requests.no_description")}
                         </div>
                       </div>
 
@@ -1511,7 +1613,7 @@ const StaffRequestsPage: React.FC = () => {
                         <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-4">
                           <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-purple-700 dark:text-purple-300 mb-2 flex items-center gap-1.5">
                             <Mic className="w-3.5 h-3.5" />
-                            Original voice note
+                            {t("staff.requests.voice_note")}
                             {selected.transcription_language ? (
                               <Badge variant="secondary" className="ml-1 text-[9px] uppercase h-4 px-1">
                                 {selected.transcription_language}
@@ -1523,7 +1625,7 @@ const StaffRequestsPage: React.FC = () => {
                           {selected.transcription ? (
                             <div className="mt-3 text-xs text-foreground/80 bg-background/70 rounded-lg p-3 border border-border/30 leading-relaxed">
                               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">
-                                Transcript
+                                {t("staff.requests.transcript")}
                               </span>
                               {selected.transcription}
                             </div>
@@ -1537,7 +1639,7 @@ const StaffRequestsPage: React.FC = () => {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                            Assigned to
+                            {t("staff.requests.assigned_to")}
                           </div>
                           {getAssigneeName(selected) ? (
                             <>
@@ -1550,7 +1652,7 @@ const StaffRequestsPage: React.FC = () => {
                             </>
                           ) : (
                             <div className="text-sm text-muted-foreground">
-                              Unassigned — reassign or set a category owner in Settings.
+                              {t("staff.requests.unassigned_hint")}
                             </div>
                           )}
                         </div>
@@ -1562,7 +1664,7 @@ const StaffRequestsPage: React.FC = () => {
                           disabled={mutateAction.isPending}
                         >
                           <ArrowRightLeft className="w-3.5 h-3.5 mr-1.5" />
-                          Reassign
+                          {t("staff.requests.reassign")}
                         </Button>
                       </div>
 
@@ -1570,7 +1672,7 @@ const StaffRequestsPage: React.FC = () => {
                         <div className="flex items-center gap-3 mb-3">
                           <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground flex items-center gap-1.5">
                             <Clock className="w-3.5 h-3.5" />
-                            Activity
+                            {t("staff.requests.activity")}
                           </div>
                           <Separator className="flex-1" />
                           <span className="text-[10px] text-muted-foreground tabular-nums">
@@ -1580,7 +1682,7 @@ const StaffRequestsPage: React.FC = () => {
 
                         {(selected.comments || []).length === 0 ? (
                           <div className="rounded-xl border border-dashed border-border/60 px-4 py-6 text-center text-sm text-muted-foreground">
-                            No activity yet — replies and status changes appear here.
+                            {t("staff.requests.activity_empty")}
                           </div>
                         ) : (
                           <div className="relative space-y-0 before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-px before:bg-border/60">
@@ -1595,8 +1697,8 @@ const StaffRequestsPage: React.FC = () => {
                                   c.author_details?.first_name || c.author_details?.last_name
                                     ? `${c.author_details?.first_name || ""} ${c.author_details?.last_name || ""}`.trim()
                                     : c.kind === "system"
-                                      ? "Miya AI"
-                                      : "Manager";
+                                      ? t("staff.requests.author_miya")
+                                      : t("staff.requests.author_manager");
                                 return (
                                   <div key={c.id} className="relative pl-7 pb-4 last:pb-0">
                                     <div
@@ -1613,7 +1715,7 @@ const StaffRequestsPage: React.FC = () => {
                                       <span className="font-semibold text-foreground/80">{author}</span>
                                       <span>·</span>
                                       <span title={formatAbsoluteDateTime(c.created_at)}>
-                                        {formatRelativeTime(c.created_at)}
+                                        {formatRelativeTime(c.created_at, t)}
                                       </span>
                                       <Badge
                                         variant="secondary"
@@ -1643,7 +1745,7 @@ const StaffRequestsPage: React.FC = () => {
                           disabled={mutateAction.isPending}
                         >
                           <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                          Start working
+                          {t("staff.requests.start_working")}
                         </Button>
                       ) : null}
                       {selected.status === "APPROVED" || selected.status === "ESCALATED" ? (
@@ -1653,13 +1755,13 @@ const StaffRequestsPage: React.FC = () => {
                           onClick={() =>
                             mutateAction.mutate({
                               action: "wait-on",
-                              payload: { reason: "Waiting on external dependency" },
+                              payload: { reason: t("staff.requests.waiting_reason_default") },
                             })
                           }
                           disabled={mutateAction.isPending}
                         >
                           <PauseCircle className="w-4 h-4 mr-1.5" />
-                          Waiting on…
+                          {t("staff.requests.waiting_on_action")}
                         </Button>
                       ) : null}
                       {selected.status === "WAITING_ON" ? (
@@ -1669,7 +1771,7 @@ const StaffRequestsPage: React.FC = () => {
                           disabled={mutateAction.isPending}
                         >
                           <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                          Resume
+                          {t("staff.requests.resume")}
                         </Button>
                       ) : null}
                       {selected.status !== "CLOSED" && selected.status !== "REJECTED" ? (
@@ -1681,7 +1783,7 @@ const StaffRequestsPage: React.FC = () => {
                             disabled={mutateAction.isPending}
                           >
                             <AlertCircle className="w-4 h-4 mr-1.5" />
-                            Escalate
+                            {t("staff.requests.escalate")}
                           </Button>
                           <Button
                             variant="ghost"
@@ -1690,7 +1792,7 @@ const StaffRequestsPage: React.FC = () => {
                             disabled={mutateAction.isPending}
                           >
                             <XCircle className="w-4 h-4 mr-1.5" />
-                            Close
+                            {t("staff.requests.close")}
                           </Button>
                         </>
                       ) : null}
@@ -1698,7 +1800,7 @@ const StaffRequestsPage: React.FC = () => {
 
                     <div className="relative">
                       <Textarea
-                        placeholder="Reply to staff or leave an internal note…"
+                        placeholder={t("staff.requests.reply_placeholder")}
                         value={comment}
                         onChange={(e) => setComment(e.target.value)}
                         className="min-h-[76px] rounded-2xl border-border/70 bg-background pr-24 resize-none"
@@ -1724,11 +1826,11 @@ const StaffRequestsPage: React.FC = () => {
                         disabled={mutateAction.isPending || !comment.trim()}
                       >
                         <Send className="w-3.5 h-3.5 mr-1.5" />
-                        Send
+                        {t("staff.requests.send")}
                       </Button>
                     </div>
                     <div className="text-[10px] text-muted-foreground">
-                      ⌘/Ctrl + Enter to send · Replies notify staff on WhatsApp when linked
+                      {t("staff.requests.send_hint")}
                     </div>
                   </div>
                 </div>
@@ -1744,7 +1846,7 @@ const StaffRequestsPage: React.FC = () => {
         isPending={mutateAction.isPending}
         category={selected?.category}
         onConfirm={(assigneeId) => {
-          const note = comment.trim() || "Escalated";
+          const note = comment.trim() || t("staff.requests.escalated_default");
           mutateAction.mutate(
             { action: "escalate", payload: { note, assignee_id: assigneeId } },
             {

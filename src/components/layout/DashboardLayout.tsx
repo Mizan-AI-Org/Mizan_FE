@@ -18,6 +18,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { LuaWidget } from "@/components/LuaWidget";
 import { LiveDateTime } from "@/components/LiveDateTime";
 import { cn } from "@/lib/utils";
+import { PAGE_SHELL } from "@/lib/page-shell";
 
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -143,17 +144,30 @@ const DashboardLayout: React.FC = () => {
       </header>
 
       <main className="flex-1">
-        {location.pathname !== '/dashboard' && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-3">
-            <button
-              type="button"
-              onClick={() => navigate("/dashboard")}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-colors shadow-sm"
-              aria-label={t("common.back_to_dashboard")}
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {t("common.back_to_dashboard")}
-            </button>
+        {location.pathname !== "/dashboard" && (
+          <div className={`${PAGE_SHELL} pt-4 pb-3`}>
+            {location.pathname.startsWith("/dashboard/settings/") &&
+            location.pathname !== "/dashboard/settings" ? (
+              <button
+                type="button"
+                onClick={() => navigate("/dashboard/settings")}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-colors shadow-sm"
+                aria-label={t("settings.back_to_settings")}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {t("settings.back_to_settings")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => navigate("/dashboard")}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-colors shadow-sm"
+                aria-label={t("common.back_to_dashboard")}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {t("common.back_to_dashboard")}
+              </button>
+            )}
           </div>
         )}
         <Outlet />
