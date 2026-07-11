@@ -33,6 +33,12 @@ import {
   Heart,
   ShoppingBag,
   Layers,
+  Phone,
+  Hash,
+  Send,
+  CheckCircle2,
+  PauseCircle,
+  XCircle,
 } from "lucide-react";
 import { useStaffInboxLanes, resolveStaffInboxLaneId, type StaffInboxLane } from "@/hooks/use-staff-inbox-lanes";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
@@ -173,6 +179,43 @@ function getCategoryIcon(category?: string) {
   if (c === "RESERVATIONS") return <BookOpen className="w-3.5 h-3.5" />;
   if (c === "INVENTORY") return <Package className="w-3.5 h-3.5" />;
   return <Plus className="w-3.5 h-3.5" />;
+}
+
+function formatRelativeTime(iso: string): string {
+  try {
+    const then = new Date(iso).getTime();
+    const diff = Date.now() - then;
+    if (diff < 0) return "just now";
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d ago`;
+    if (days < 45) return `${Math.floor(days / 7)}w ago`;
+    return new Date(iso).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function formatAbsoluteDateTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 function getAssigneeName(r: Pick<StaffRequest, "assignee_summary" | "assignee_details">): string {
@@ -755,6 +798,16 @@ const StaffRequestsPage: React.FC = () => {
 
   const requests = useMemo(() => (Array.isArray(listQuery.data) ? listQuery.data : []), [listQuery.data]);
   const selected = selectedQuery.data || null;
+
+  // Align the status tab with the open request when it loads or its status
+  // changes (mutations / deep-links). Intentionally omit activeStatus from
+  // deps so a manual tab click can clear the detail without fighting back.
+  useEffect(() => {
+    if (!selectedId || !selected || selected.id !== selectedId) return;
+    if (!STATUSES.some((s) => s.key === selected.status)) return;
+    setActiveStatus((prev) => (prev === selected.status ? prev : selected.status));
+  }, [selectedId, selected]);
+
   const dashboardTask = dashboardTaskQuery.data || null;
   const showPinnedDashboardTask =
     isDashboardDetail &&
@@ -820,14 +873,35 @@ const StaffRequestsPage: React.FC = () => {
     setDashboardListMode(false);
     const params = new URLSearchParams();
     if (activeLaneId) params.set("lane", activeLaneId);
-    if (activeStatus !== "PENDING") params.set("status", activeStatus);
+    params.set("status", activeStatus);
     const qs = params.toString();
-    navigate(`/dashboard/staff-requests/${id}${qs ? `?${qs}` : ""}`);
+    navigate(`/dashboard/staff-requests/${id}?${qs}`);
+  };
+
+  const onStatusTabChange = (next: StaffRequestStatus) => {
+    setActiveStatus(next);
+    // Leaving a status bucket clears the open detail so the list and
+    // detail never show mismatched filters (e.g. Pending list + In progress pane).
+    if (selected && selected.status !== next) {
+      const params = new URLSearchParams();
+      if (activeLaneId) params.set("lane", activeLaneId);
+      params.set("status", next);
+      const qs = params.toString();
+      navigate(`/dashboard/staff-requests?${qs}`);
+    }
   };
 
   const emptyState = (
-    <div className="text-sm text-muted-foreground py-10 text-center">
-      No requests found.
+    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/80 text-muted-foreground">
+        <Inbox className="h-5 w-5" />
+      </div>
+      <div className="text-sm font-medium text-foreground">No requests here</div>
+      <div className="mt-1 max-w-[220px] text-xs text-muted-foreground leading-relaxed">
+        {activeLane
+          ? `Nothing in ${activeLane.label} for ${staffRequestStatusLabel(activeStatus).toLowerCase()}.`
+          : `Nothing marked ${staffRequestStatusLabel(activeStatus).toLowerCase()} right now.`}
+      </div>
     </div>
   );
 
@@ -1003,18 +1077,25 @@ const StaffRequestsPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div className="flex items-start justify-between gap-4 mb-4">
-        <div>
-          <h2 className="text-2xl font-bold">{pageTitle}</h2>
+    <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-5">
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-1">
+            Staff inbox
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{pageTitle}</h2>
           {pageSubtitle ? (
-            <p className="text-sm text-muted-foreground mt-1">{pageSubtitle}</p>
-          ) : null}
+            <p className="text-sm text-muted-foreground mt-1.5 max-w-2xl leading-relaxed">{pageSubtitle}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-1.5 max-w-2xl leading-relaxed">
+              Triage WhatsApp and portal requests — assign, reply, escalate, or close.
+            </p>
+          )}
         </div>
         <Button
           variant={assignedToMe ? "default" : "outline"}
           onClick={() => setAssignedToMe((v) => !v)}
-          className="rounded-full shrink-0"
+          className="rounded-full shrink-0 h-10"
           title="Show only requests assigned to you"
         >
           <Inbox className="w-4 h-4 mr-2" />
@@ -1030,128 +1111,147 @@ const StaffRequestsPage: React.FC = () => {
         </Button>
       </div>
 
-      <Tabs value={activeStatus} onValueChange={(v) => setActiveStatus(v as StaffRequestStatus)}>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <TabsList className="w-full md:w-auto bg-muted/50 p-1">
-            {STATUSES.map((s) => (
-              <TabsTrigger key={s.key} value={s.key} className="relative">
-                {s.label}
-                {countsQuery.data?.counts?.[s.key] !== undefined && (
-                  <Badge
-                    variant="secondary"
-                    className="ml-1.5 h-4 w-4 p-0 flex items-center justify-center text-[10px] rounded-full"
+      <Tabs value={activeStatus} onValueChange={(v) => onStatusTabChange(v as StaffRequestStatus)}>
+        <div className="rounded-2xl border border-border/60 bg-muted/30 p-3 sm:p-4 space-y-3">
+          <div className="flex flex-col xl:flex-row xl:items-center gap-3">
+            <TabsList className="w-full xl:w-auto h-auto flex flex-wrap justify-start gap-1 bg-background/80 p-1.5 rounded-xl border border-border/50 shadow-sm">
+              {STATUSES.map((s) => {
+                const count = countsQuery.data?.counts?.[s.key];
+                return (
+                  <TabsTrigger
+                    key={s.key}
+                    value={s.key}
+                    className="relative rounded-lg px-3 py-2 text-xs sm:text-sm data-[state=active]:shadow-sm"
                   >
-                    {countsQuery.data.counts[s.key]}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          <div className="flex gap-2 w-full md:w-[360px]">
-            <Input
-              placeholder="Search requests..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <Button variant="outline" onClick={() => setSearch("")}>
-              Clear
-            </Button>
-          </div>
-        </div>
-
-        {/* Widget-driven inbox lanes — tabs appear only when Miya added the matching dashboard widget. */}
-        <div
-          className="mt-4 flex flex-wrap items-center gap-2"
-          role="tablist"
-          aria-label="Filter inbox by command centre lane"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeLaneId === null}
-            onClick={() => setActiveLaneId(null)}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-              activeLaneId === null
-                ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                : "bg-background text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground",
-            )}
-          >
-            <span>All</span>
-          </button>
-          {inboxLanes.map((lane) => {
-            const count = categoryCountsQuery.data?.[lane.lane_id] ?? 0;
-            const isActive = activeLaneId === lane.lane_id;
-            return (
-              <button
-                key={lane.lane_id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => setActiveLaneId(lane.lane_id)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                  isActive
-                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                    : "bg-background text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground",
-                )}
-              >
-                <span className="opacity-80">{getLaneIcon(lane)}</span>
-                <span>{lane.label}</span>
-                {count > 0 && (
-                  <Badge
-                    variant="secondary"
-                    className={cn(
-                      "h-4 min-w-4 px-1 text-[10px] rounded-full",
-                      isActive && "bg-primary-foreground/20 text-primary-foreground",
+                    {s.label}
+                    {count !== undefined && (
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "ml-1.5 h-5 min-w-5 px-1.5 text-[10px] rounded-full font-semibold",
+                          activeStatus === s.key && "bg-primary/15 text-primary",
+                        )}
+                      >
+                        {count}
+                      </Badge>
                     )}
-                  >
-                    {count}
-                  </Badge>
-                )}
-              </button>
-            );
-          })}
-          {/* Priority filter chip — only rendered when active (typically
-              from a deep-link off the dashboard "Urgent TOP 5" widget).
-              Clicking it clears the filter and reverts to all priorities. */}
-          {activePriority ? (
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+            <div className="flex gap-2 w-full xl:max-w-md xl:ml-auto">
+              <Input
+                placeholder="Search subject, staff, message…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-10 rounded-xl bg-background"
+              />
+              {search ? (
+                <Button variant="outline" className="h-10 rounded-xl shrink-0" onClick={() => setSearch("")}>
+                  Clear
+                </Button>
+              ) : null}
+            </div>
+          </div>
+
+          <div
+            className="flex flex-wrap items-center gap-2"
+            role="tablist"
+            aria-label="Filter inbox by command centre lane"
+          >
             <button
               type="button"
               role="tab"
-              aria-selected="true"
-              onClick={() => setActivePriority("")}
+              aria-selected={activeLaneId === null}
+              onClick={() => setActiveLaneId(null)}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                "bg-red-600 text-white border-red-600 shadow-sm hover:bg-red-700",
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                activeLaneId === null
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-background text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground",
               )}
-              title="Clear priority filter"
             >
-              <span>Priority: {activePriority}</span>
-              <span className="text-[14px] leading-none">×</span>
+              <span>All lanes</span>
             </button>
-          ) : null}
+            {inboxLanes.map((lane) => {
+              const count = categoryCountsQuery.data?.[lane.lane_id] ?? 0;
+              const isActive = activeLaneId === lane.lane_id;
+              return (
+                <button
+                  key={lane.lane_id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setActiveLaneId(lane.lane_id)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                    isActive
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-background text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground",
+                  )}
+                >
+                  <span className="opacity-80">{getLaneIcon(lane)}</span>
+                  <span>{lane.label}</span>
+                  {count > 0 && (
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "h-4 min-w-4 px-1 text-[10px] rounded-full",
+                        isActive && "bg-primary-foreground/20 text-primary-foreground",
+                      )}
+                    >
+                      {count}
+                    </Badge>
+                  )}
+                </button>
+              );
+            })}
+            {activePriority ? (
+              <button
+                type="button"
+                role="tab"
+                aria-selected="true"
+                onClick={() => setActivePriority("")}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                  "bg-red-600 text-white border-red-600 shadow-sm hover:bg-red-700",
+                )}
+                title="Clear priority filter"
+              >
+                <span>Priority: {activePriority}</span>
+                <span className="text-[14px] leading-none">×</span>
+              </button>
+            ) : null}
+          </div>
         </div>
 
-        <TabsContent value={activeStatus} className="mt-4">
-          <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-4 items-start">
-            <Card className="h-[72vh]">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">
-                  Inbox
-                  {activeLane ? (
-                    <span className="ml-2 text-sm font-normal text-muted-foreground">
-                      · {activeLane.label}
+        <TabsContent value={activeStatus} className="mt-4 focus-visible:outline-none">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(340px,400px)_1fr] gap-4 items-stretch">
+            <Card className="h-[min(78vh,860px)] flex flex-col overflow-hidden border-border/70 shadow-sm">
+              <CardHeader className="pb-3 pt-4 px-4 border-b border-border/50 shrink-0">
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-sm font-semibold tracking-tight">
+                    Inbox
+                    <span className="ml-2 font-normal text-muted-foreground">
+                      {listQuery.isLoading ? "…" : `${requests.length + (showPinnedDashboardTask ? 1 : 0)}`}
+                      {activeLane ? ` · ${activeLane.label}` : ""}
                     </span>
-                  ) : null}
-                </CardTitle>
+                  </CardTitle>
+                  <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wide">
+                    {staffRequestStatusLabel(activeStatus)}
+                  </Badge>
+                </div>
               </CardHeader>
-              <CardContent className="pt-0">
-                <ScrollArea className="h-[62vh] pr-3">
+              <CardContent className="pt-0 px-0 flex-1 min-h-0">
+                <ScrollArea className="h-full px-3 py-3">
                   {listQuery.isLoading ? (
-                    <div className="text-sm text-muted-foreground py-6">Loading…</div>
+                    <div className="space-y-2 py-2">
+                      {[0, 1, 2, 3].map((i) => (
+                        <div key={i} className="h-[88px] rounded-xl bg-muted/50 animate-pulse" />
+                      ))}
+                    </div>
                   ) : listQuery.isError ? (
-                    <div className="text-sm text-red-600 py-6">Failed to load requests.</div>
+                    <div className="text-sm text-red-600 py-10 text-center px-4">Failed to load requests.</div>
                   ) : requests.length === 0 && !showPinnedDashboardTask ? (
                     emptyState
                   ) : (
@@ -1159,7 +1259,7 @@ const StaffRequestsPage: React.FC = () => {
                       {showPinnedDashboardTask && dashboardTask ? (
                         <button
                           type="button"
-                          className="w-full text-left rounded-xl border p-4 transition-all duration-200 border-primary/50 bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                          className="w-full text-left rounded-xl border p-3.5 transition-all duration-200 border-primary/50 bg-primary/5 shadow-sm ring-1 ring-primary/20"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
@@ -1184,83 +1284,96 @@ const StaffRequestsPage: React.FC = () => {
                         </button>
                       ) : null}
                       {requests.map((r) => {
-                        const isNew = new Date().getTime() - new Date(r.created_at).getTime() < 86400000;
+                        const isNew = Date.now() - new Date(r.created_at).getTime() < 86400000;
                         const isUrgent = r.priority === "URGENT" || r.priority === "HIGH";
+                        const isSelected = selectedId === r.id;
 
                         return (
                           <button
                             key={r.id}
+                            type="button"
                             onClick={() => onSelect(r.id)}
                             className={cn(
-                              "w-full text-left rounded-xl border p-4 transition-all duration-200 group relative overflow-hidden",
-                              selectedId === r.id
+                              "w-full text-left rounded-xl border p-3.5 transition-all duration-200 group relative overflow-hidden",
+                              isSelected
                                 ? "border-primary/50 bg-primary/5 shadow-sm ring-1 ring-primary/20"
-                                : "border-border hover:border-border-hover hover:bg-muted/50"
+                                : "border-border/80 bg-background hover:border-border hover:bg-muted/40",
                             )}
                           >
-                            {isUrgent && selectedId !== r.id && (
+                            {isUrgent && !isSelected && (
                               <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
                             )}
 
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 mb-1">
+                                <div className="flex items-center gap-1.5 mb-1">
                                   {getSourceIcon(r.source)}
-                                  <div className="font-semibold text-sm truncate">{r.subject || "Staff request"}</div>
-                                  {isNew && (
-                                    <Badge className="h-4 px-1 text-[9px] bg-blue-500 hover:bg-blue-600">NEW</Badge>
-                                  )}
-                                  {r.voice_audio_url ? (
-                                    <span
-                                      className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 h-4 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300"
-                                      title="Originally a WhatsApp voice note"
-                                    >
-                                      <Mic className="w-2.5 h-2.5" />
-                                      VOICE
-                                    </span>
-                                  ) : null}
+                                  <div className="font-semibold text-sm leading-snug line-clamp-2">
+                                    {r.subject || "Staff request"}
+                                  </div>
                                 </div>
-                                <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
-                                  <span className="font-bold text-foreground truncate">{(r.staff_display_name || r.staff_name || "Staff")}</span>
-                                  <span>•</span>
-                                  <span className="flex items-center gap-1">
+                                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground">
+                                  <span className="font-semibold text-foreground/80 truncate max-w-[120px]">
+                                    {r.staff_display_name || r.staff_name || "Staff"}
+                                  </span>
+                                  <span className="text-border">·</span>
+                                  <span className="inline-flex items-center gap-1 uppercase tracking-wide">
                                     {getCategoryIcon(r.category)}
                                     {r.category}
                                   </span>
+                                  <span className="text-border">·</span>
                                   {getAssigneeName(r) ? (
-                                    <>
-                                      <span>•</span>
-                                      <span className="inline-flex items-center gap-1 text-foreground/80">
-                                        <UserCircle2 className="w-3 h-3" />
-                                        {getAssigneeName(r)}
-                                      </span>
-                                    </>
+                                    <span className="inline-flex items-center gap-1 truncate max-w-[100px]">
+                                      <UserCircle2 className="w-3 h-3 shrink-0" />
+                                      {getAssigneeName(r)}
+                                    </span>
                                   ) : (
-                                    <>
-                                      <span>•</span>
-                                      <span className="italic text-muted-foreground/70">Unassigned</span>
-                                    </>
+                                    <span className="italic text-muted-foreground/70">Unassigned</span>
                                   )}
                                 </div>
                               </div>
-                              <div className="flex flex-col items-end gap-1.5">
-                                <Badge variant="outline" className={cn("text-[9px] font-bold px-1.5 py-0", statusBadge(r.status))}>
-                                  {staffRequestStatusLabel(r.status)}
-                                </Badge>
-                                <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              <div className="flex flex-col items-end gap-1 shrink-0">
+                                {isNew && (
+                                  <Badge className="h-4 px-1.5 text-[9px] bg-blue-500 hover:bg-blue-600">NEW</Badge>
+                                )}
+                                {r.voice_audio_url ? (
+                                  <span
+                                    className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 h-4 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300"
+                                    title="Originally a WhatsApp voice note"
+                                  >
+                                    <Mic className="w-2.5 h-2.5" />
+                                    VOICE
+                                  </span>
+                                ) : null}
+                                <div
+                                  className="text-[10px] text-muted-foreground flex items-center gap-1"
+                                  title={formatAbsoluteDateTime(r.created_at)}
+                                >
                                   <Clock className="w-3 h-3" />
-                                  {new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  {formatRelativeTime(r.created_at)}
                                 </div>
                               </div>
                             </div>
 
-                            <div className="text-xs text-muted-foreground mt-2.5 line-clamp-1 leading-relaxed">
-                              {r.description || ""}
-                            </div>
+                            {r.description ? (
+                              <div className="text-xs text-muted-foreground mt-2 line-clamp-2 leading-relaxed">
+                                {r.description}
+                              </div>
+                            ) : null}
 
-                            <div className="flex items-center justify-between mt-3 text-[10px] text-muted-foreground/70">
-                              <span>{new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                              <ChevronRight className={cn("w-3 h-3 transition-transform", selectedId === r.id ? "rotate-90 text-primary" : "group-hover:translate-x-0.5")} />
+                            <div className="flex items-center justify-between mt-2.5">
+                              <Badge
+                                variant="outline"
+                                className={cn("text-[9px] font-bold px-1.5 py-0", priorityBadge(r.priority))}
+                              >
+                                {String(r.priority || "MEDIUM").toUpperCase()}
+                              </Badge>
+                              <ChevronRight
+                                className={cn(
+                                  "w-3.5 h-3.5 text-muted-foreground/60 transition-transform",
+                                  isSelected ? "translate-x-0.5 text-primary" : "group-hover:translate-x-0.5",
+                                )}
+                              />
                             </div>
                           </button>
                         );
@@ -1271,17 +1384,20 @@ const StaffRequestsPage: React.FC = () => {
               </CardContent>
             </Card>
 
-            <Card className="h-[72vh]">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Request details</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {!selectedId ? (
-                  <div className="text-sm text-muted-foreground py-10 text-center">
-                    Select a request on the left.
+            <Card className="h-[min(78vh,860px)] flex flex-col overflow-hidden border-border/70 shadow-sm">
+              {!selectedId ? (
+                <CardContent className="flex-1 flex flex-col items-center justify-center text-center px-8 py-16">
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                    <FileText className="h-6 w-6" />
                   </div>
-                ) : isDashboardDetail ? (
-                  dashboardTaskQuery.isLoading ? (
+                  <div className="text-base font-semibold text-foreground">Select a request</div>
+                  <p className="mt-2 max-w-sm text-sm text-muted-foreground leading-relaxed">
+                    Pick an item from the inbox to see the full message, assignment, activity, and actions.
+                  </p>
+                </CardContent>
+              ) : isDashboardDetail ? (
+                <CardContent className="pt-6 flex-1 overflow-auto">
+                  {dashboardTaskQuery.isLoading ? (
                     <div className="text-sm text-muted-foreground py-6">Loading…</div>
                   ) : dashboardTaskQuery.isError || !dashboardTask ? (
                     <div className="text-sm text-red-600 py-6">Failed to load task.</div>
@@ -1291,51 +1407,110 @@ const StaffRequestsPage: React.FC = () => {
                       onStatusChange={(nextStatus) => dashboardStatusMutation.mutate(nextStatus)}
                       isUpdating={dashboardStatusMutation.isPending}
                     />
-                  )
-                ) : selectedQuery.isLoading ? (
-                  <div className="text-sm text-muted-foreground py-6">Loading…</div>
-                ) : selectedQuery.isError || !selected ? (
+                  )}
+                </CardContent>
+              ) : selectedQuery.isLoading ? (
+                <CardContent className="pt-6 space-y-4">
+                  <div className="h-8 w-2/3 rounded-lg bg-muted animate-pulse" />
+                  <div className="h-24 rounded-xl bg-muted/70 animate-pulse" />
+                  <div className="h-40 rounded-xl bg-muted/50 animate-pulse" />
+                </CardContent>
+              ) : selectedQuery.isError || !selected ? (
+                <CardContent className="pt-6">
                   <div className="text-sm text-red-600 py-6">Failed to load request.</div>
-                ) : (
-                  <div className="flex flex-col h-[72vh]">
-                    <div className="flex items-start justify-between p-6 pb-0">
+                </CardContent>
+              ) : (
+                <div className="flex flex-col h-full min-h-0">
+                  <div className="shrink-0 border-b border-border/60 bg-background/95 px-5 pt-5 pb-4">
+                    <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider mb-1">
-                          {getCategoryIcon(selected.category)}
-                          {selected.category}
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+                            {getCategoryIcon(selected.category)}
+                            {selected.category}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", statusBadge(selected.status))}
+                          >
+                            {staffRequestStatusLabel(selected.status)}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", priorityBadge(selected.priority))}
+                          >
+                            {String(selected.priority || "MEDIUM").toUpperCase()}
+                          </Badge>
                         </div>
-                        <h3 className="text-2xl font-bold text-foreground tracking-tight leading-tight">{selected.subject || "Staff request"}</h3>
-                        <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                          <span className="font-bold text-foreground">{(selected.staff_display_name || selected.staff_name || "Staff")}</span>
-                          <span>•</span>
-                          <span>{selected.staff_phone || "No phone"}</span>
+                        <h3 className="text-xl sm:text-2xl font-bold tracking-tight leading-snug text-foreground">
+                          {selected.subject || "Staff request"}
+                        </h3>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                          <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
+                            <UserCircle2 className="w-4 h-4 text-muted-foreground" />
+                            {selected.staff_display_name || selected.staff_name || "Staff"}
+                          </span>
+                          <span className="inline-flex items-center gap-1.5">
+                            <Phone className="w-3.5 h-3.5" />
+                            {selected.staff_phone || "No phone"}
+                          </span>
+                          <span
+                            className="inline-flex items-center gap-1.5"
+                            title={formatAbsoluteDateTime(selected.created_at)}
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                            {formatRelativeTime(selected.created_at)}
+                          </span>
                         </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <Badge variant="outline" className={cn("text-xs font-bold px-3 py-1 uppercase rounded-full", statusBadge(selected.status))}>
-                          {staffRequestStatusLabel(selected.status)}
-                        </Badge>
-                        <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", priorityBadge(selected.priority))}>
-                          {String(selected.priority || "MEDIUM").toUpperCase()}
-                        </Badge>
                       </div>
                     </div>
 
-                    <div className="px-6 py-4 space-y-3">
-                      <div className="bg-muted/30 rounded-2xl p-4 border border-border/40">
-                        <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                          <MessageCircle className="w-3 h-3" />
-                          Message from Staff
+                    <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Source</div>
+                        <div className="mt-1 text-xs font-semibold flex items-center gap-1.5 capitalize">
+                          {getSourceIcon(selected.source)}
+                          {selected.source || "web"}
                         </div>
-                        <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap italic">
-                          "{selected.description || "No description provided."}"
+                      </div>
+                      <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Received</div>
+                        <div className="mt-1 text-xs font-semibold">
+                          {formatAbsoluteDateTime(selected.created_at)}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Updated</div>
+                        <div className="mt-1 text-xs font-semibold">
+                          {formatRelativeTime(selected.updated_at)}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Reference</div>
+                        <div className="mt-1 text-xs font-mono flex items-center gap-1 text-foreground/80">
+                          <Hash className="w-3 h-3 text-muted-foreground" />
+                          {selected.id.substring(0, 8)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <ScrollArea className="flex-1 min-h-0">
+                    <div className="px-5 py-4 space-y-4">
+                      <div className="rounded-2xl border border-border/50 bg-muted/20 p-4">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-2 flex items-center gap-1.5">
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          Message from staff
+                        </div>
+                        <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                          {selected.description || "No description provided."}
                         </div>
                       </div>
 
                       {selected.voice_audio_url ? (
-                        <div className="bg-purple-500/5 rounded-2xl p-4 border border-purple-500/20">
-                          <div className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                            <Mic className="w-3 h-3" />
+                        <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-4">
+                          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-purple-700 dark:text-purple-300 mb-2 flex items-center gap-1.5">
+                            <Mic className="w-3.5 h-3.5" />
                             Original voice note
                             {selected.transcription_language ? (
                               <Badge variant="secondary" className="ml-1 text-[9px] uppercase h-4 px-1">
@@ -1344,24 +1519,24 @@ const StaffRequestsPage: React.FC = () => {
                             ) : null}
                           </div>
                           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                          <audio
-                            controls
-                            src={selected.voice_audio_url}
-                            className="w-full h-9"
-                          />
+                          <audio controls src={selected.voice_audio_url} className="w-full h-9" />
                           {selected.transcription ? (
                             <div className="mt-3 text-xs text-foreground/80 bg-background/70 rounded-lg p-3 border border-border/30 leading-relaxed">
-                              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Transcript</span>
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">
+                                Transcript
+                              </span>
                               {selected.transcription}
                             </div>
                           ) : null}
                         </div>
                       ) : null}
 
-                      <div className="rounded-2xl p-4 border border-border/40 bg-background flex items-center gap-3">
-                        <UserCircle2 className="w-9 h-9 text-muted-foreground shrink-0" />
+                      <div className="rounded-2xl border border-border/50 bg-background p-4 flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted shrink-0">
+                          <UserCircle2 className="w-6 h-6 text-muted-foreground" />
+                        </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
                             Assigned to
                           </div>
                           {getAssigneeName(selected) ? (
@@ -1374,7 +1549,9 @@ const StaffRequestsPage: React.FC = () => {
                               ) : null}
                             </>
                           ) : (
-                            <div className="text-sm italic text-muted-foreground">Nobody yet — set a category owner in Settings to auto-route.</div>
+                            <div className="text-sm text-muted-foreground">
+                              Unassigned — reassign or set a category owner in Settings.
+                            </div>
                           )}
                         </div>
                         <Button
@@ -1388,123 +1565,174 @@ const StaffRequestsPage: React.FC = () => {
                           Reassign
                         </Button>
                       </div>
-                    </div>
 
-                    <ScrollArea className="flex-1 px-6">
-                      <div className="space-y-6 pb-6 mt-2">
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 dark:bg-slate-900/50 dark:border-slate-800">
-                          <div className="space-y-1">
-                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Source</div>
-                            <div className="text-xs font-semibold flex items-center gap-1.5 capitalize">
-                              {getSourceIcon(selected.source)}
-                              {selected.source || "web"}
-                            </div>
+                      <div>
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5" />
+                            Activity
                           </div>
-                          <div className="space-y-1">
-                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Received</div>
-                            <div className="text-xs font-semibold flex items-center gap-1.5">
-                              <Calendar className="w-3 h-3 text-muted-foreground" />
-                              {new Date(selected.created_at).toLocaleDateString()}
-                            </div>
-                          </div>
-                          <div className="space-y-1">
-                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Reference ID</div>
-                            <div className="text-xs font-mono text-muted-foreground/80">{selected.id.substring(0, 8)}</div>
-                          </div>
+                          <Separator className="flex-1" />
+                          <span className="text-[10px] text-muted-foreground tabular-nums">
+                            {(selected.comments || []).length}
+                          </span>
                         </div>
 
-                        <div>
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-                              <Clock className="w-3 h-3" />
-                              Activity log
-                            </div>
-                            <Separator className="flex-1 ml-4 h-[1px] bg-border/40" />
+                        {(selected.comments || []).length === 0 ? (
+                          <div className="rounded-xl border border-dashed border-border/60 px-4 py-6 text-center text-sm text-muted-foreground">
+                            No activity yet — replies and status changes appear here.
                           </div>
-
-                          <div className="space-y-4">
-                            {(selected.comments || []).length === 0 ? (
-                              <div className="text-sm text-muted-foreground italic pl-4 border-l-2 border-border/30 py-1">No activity logged yet.</div>
-                            ) : (
-                              (selected.comments || []).map((c) => (
-                                <div key={c.id} className="relative pl-6 pb-2">
-                                  <div className="absolute left-0 top-1.5 w-2 h-2 rounded-full bg-border ring-4 ring-background" />
-                                  <div className="text-xs text-muted-foreground mb-1 flex items-center gap-2">
-                                    <span className="font-bold text-foreground/70">
-                                      {(c.author_details?.first_name || c.author_details?.last_name)
-                                        ? `${c.author_details?.first_name || ""} ${c.author_details?.last_name || ""}`.trim()
-                                        : (c.kind === "system" ? "Miya AI" : "Manager")}
-                                    </span>
-                                    <span>•</span>
-                                    <span>{new Date(c.created_at).toLocaleString()}</span>
-                                    <Badge variant="secondary" className="text-[9px] px-1 h-3.5 uppercase font-bold tracking-tighter">
-                                      {c.kind}
-                                    </Badge>
+                        ) : (
+                          <div className="relative space-y-0 before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-px before:bg-border/60">
+                            {[...(selected.comments || [])]
+                              .slice()
+                              .sort(
+                                (a, b) =>
+                                  new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+                              )
+                              .map((c) => {
+                                const author =
+                                  c.author_details?.first_name || c.author_details?.last_name
+                                    ? `${c.author_details?.first_name || ""} ${c.author_details?.last_name || ""}`.trim()
+                                    : c.kind === "system"
+                                      ? "Miya AI"
+                                      : "Manager";
+                                return (
+                                  <div key={c.id} className="relative pl-7 pb-4 last:pb-0">
+                                    <div
+                                      className={cn(
+                                        "absolute left-0 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-background ring-1",
+                                        c.kind === "status_change"
+                                          ? "bg-sky-500 ring-sky-200"
+                                          : c.kind === "system"
+                                            ? "bg-violet-500 ring-violet-200"
+                                            : "bg-primary ring-primary/20",
+                                      )}
+                                    />
+                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground mb-1.5">
+                                      <span className="font-semibold text-foreground/80">{author}</span>
+                                      <span>·</span>
+                                      <span title={formatAbsoluteDateTime(c.created_at)}>
+                                        {formatRelativeTime(c.created_at)}
+                                      </span>
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-[9px] px-1.5 h-4 uppercase font-bold tracking-tighter"
+                                      >
+                                        {c.kind}
+                                      </Badge>
+                                    </div>
+                                    <div className="text-sm text-foreground/85 bg-muted/25 rounded-xl px-3.5 py-2.5 border border-border/40 leading-relaxed whitespace-pre-wrap">
+                                      {c.body}
+                                    </div>
                                   </div>
-                                  <div className="text-sm text-foreground/80 bg-muted/20 rounded-xl p-3 border border-border/30">
-                                    {c.body}
-                                  </div>
-                                </div>
-                              )).reverse()
-                            )}
+                                );
+                              })}
                           </div>
-                        </div>
+                        )}
                       </div>
-                    </ScrollArea>
+                    </div>
+                  </ScrollArea>
 
-                    <div className="p-6 bg-muted/40 border-t border-border/40 backdrop-blur-sm rounded-b-xl">
-                      {/* Approve / Decline were removed because the only
-                          terminal verbs that matter on a manager-side
-                          inbox row are Escalate (hand it off) and
-                          Close (mark resolved). The legacy approve /
-                          reject pair confused triage — managers were
-                          flipping APPROVED on operational asks that
-                          had no decision to approve in the first
-                          place. */}
-                      <div className="flex flex-wrap gap-2 mb-4">
+                  <div className="shrink-0 border-t border-border/60 bg-muted/40 backdrop-blur-sm px-5 pt-4 pb-5 space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {selected.status === "PENDING" ? (
+                        <Button
+                          className="rounded-full"
+                          onClick={() => mutateAction.mutate({ action: "approve" })}
+                          disabled={mutateAction.isPending}
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                          Start working
+                        </Button>
+                      ) : null}
+                      {selected.status === "APPROVED" || selected.status === "ESCALATED" ? (
                         <Button
                           variant="outline"
-                          className="px-6 rounded-full border-2 transition-all active:scale-95"
-                          onClick={() => setEscalateModalOpen(true)}
+                          className="rounded-full"
+                          onClick={() =>
+                            mutateAction.mutate({
+                              action: "wait-on",
+                              payload: { reason: "Waiting on external dependency" },
+                            })
+                          }
                           disabled={mutateAction.isPending}
                         >
-                          Escalate
+                          <PauseCircle className="w-4 h-4 mr-1.5" />
+                          Waiting on…
                         </Button>
+                      ) : null}
+                      {selected.status === "WAITING_ON" ? (
                         <Button
-                          variant="ghost"
-                          className="px-6 rounded-full transition-all"
-                          onClick={() => mutateAction.mutate({ action: "close" })}
+                          className="rounded-full"
+                          onClick={() => mutateAction.mutate({ action: "approve" })}
                           disabled={mutateAction.isPending}
                         >
-                          Close
+                          <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                          Resume
                         </Button>
-                      </div>
+                      ) : null}
+                      {selected.status !== "CLOSED" && selected.status !== "REJECTED" ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            className="rounded-full"
+                            onClick={() => setEscalateModalOpen(true)}
+                            disabled={mutateAction.isPending}
+                          >
+                            <AlertCircle className="w-4 h-4 mr-1.5" />
+                            Escalate
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            className="rounded-full text-muted-foreground"
+                            onClick={() => mutateAction.mutate({ action: "close" })}
+                            disabled={mutateAction.isPending}
+                          >
+                            <XCircle className="w-4 h-4 mr-1.5" />
+                            Close
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
 
-                      <div className="relative group">
-                        <Textarea
-                          placeholder="Type your response or internal note here..."
-                          value={comment}
-                          onChange={(e) => setComment(e.target.value)}
-                          className="min-h-[80px] rounded-2xl transition-all border-2 focus:ring-primary/20 bg-background pr-24"
-                        />
-                        <Button
-                          className="absolute bottom-2.5 right-2.5 rounded-xl shadow-md transition-all active:scale-95"
-                          size="sm"
-                          onClick={() => {
+                    <div className="relative">
+                      <Textarea
+                        placeholder="Reply to staff or leave an internal note…"
+                        value={comment}
+                        onChange={(e) => setComment(e.target.value)}
+                        className="min-h-[76px] rounded-2xl border-border/70 bg-background pr-24 resize-none"
+                        onKeyDown={(e) => {
+                          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                            e.preventDefault();
                             const body = comment.trim();
-                            if (!body) return;
+                            if (!body || mutateAction.isPending) return;
                             mutateAction.mutate({ action: "comment", payload: { body } });
                             setComment("");
-                          }}
-                          disabled={mutateAction.isPending}
-                        >
-                          Send
-                        </Button>
-                      </div>
+                          }
+                        }}
+                      />
+                      <Button
+                        className="absolute bottom-2.5 right-2.5 rounded-xl shadow-sm"
+                        size="sm"
+                        onClick={() => {
+                          const body = comment.trim();
+                          if (!body) return;
+                          mutateAction.mutate({ action: "comment", payload: { body } });
+                          setComment("");
+                        }}
+                        disabled={mutateAction.isPending || !comment.trim()}
+                      >
+                        <Send className="w-3.5 h-3.5 mr-1.5" />
+                        Send
+                      </Button>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      ⌘/Ctrl + Enter to send · Replies notify staff on WhatsApp when linked
                     </div>
                   </div>
-                )}
-              </CardContent>
+                </div>
+              )}
             </Card>
           </div>
         </TabsContent>
