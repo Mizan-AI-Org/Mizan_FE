@@ -27,8 +27,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { MessageCircle, RefreshCw, TrendingUp, Users, ClipboardCheck, AlertTriangle } from "lucide-react";
-import { TableSkeleton, CardGridSkeleton } from "@/components/skeletons";
+import { RefreshCw, TrendingUp, Users, ClipboardCheck, AlertTriangle, MapPin, User, Calendar, ShieldAlert } from "lucide-react";
+import { TableSkeleton } from "@/components/skeletons";
+import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type SubmittedChecklist = {
   id: string;
@@ -323,7 +325,6 @@ const ManagerReviewDashboard: React.FC = () => {
     return `${y}-${m}-${dd}`;
   };
 
-  const [tab, setTab] = useState<'cards' | 'table'>('table');
   const [sortBy, setSortBy] = useState<'date' | 'staff' | 'checklist'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [dateFrom, setDateFrom] = useState('');
@@ -439,7 +440,7 @@ const ManagerReviewDashboard: React.FC = () => {
   });
 
   // Fetch selected incident details
-  const { data: incidentDetail } = useQuery({
+  const { data: incidentDetail, isLoading: incidentDetailLoading } = useQuery({
     queryKey: ['safety-incident-detail', selectedIncident],
     enabled: !!selectedIncident,
     queryFn: async () => {
@@ -463,6 +464,7 @@ const ManagerReviewDashboard: React.FC = () => {
     created_at?: string | null;
     resolution_notes?: string | null;
     incident_type?: string | null;
+    description?: string | null;
   };
 
   const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
@@ -481,6 +483,8 @@ const ManagerReviewDashboard: React.FC = () => {
         severity: typeof x.severity === "string" ? x.severity : null,
         status: typeof x.status === "string" ? x.status : null,
         is_anonymous: typeof x.is_anonymous === "boolean" ? x.is_anonymous : null,
+        incident_type: typeof x.incident_type === "string" ? x.incident_type : null,
+        description: typeof x.description === "string" ? x.description : null,
         reporter_details: isRecord(x.reporter_details) ? {
           first_name: typeof x.reporter_details.first_name === "string" ? x.reporter_details.first_name : null,
           last_name: typeof x.reporter_details.last_name === "string" ? x.reporter_details.last_name : null,
@@ -492,6 +496,25 @@ const ManagerReviewDashboard: React.FC = () => {
         created_at: typeof x.created_at === "string" ? x.created_at : null,
       }));
   }, [incidents]);
+
+  const incidentKpis = useMemo(() => {
+    const open = incidentList.filter((i) => String(i.status || "").toLowerCase() === "open");
+    const critical = open.filter((i) => ["critical", "high"].includes(String(i.severity || "").toLowerCase()));
+    const unassigned = open.filter((i) => !i.assigned_to_details);
+    const resolved7 = incidentList.filter((i) => {
+      if (String(i.status || "").toLowerCase() !== "resolved") return false;
+      if (!i.created_at) return false;
+      const age = Date.now() - new Date(i.created_at).getTime();
+      return age <= 7 * 86400000;
+    });
+    return {
+      open: open.length,
+      critical: critical.length,
+      unassigned: unassigned.length,
+      resolved7: resolved7.length,
+      total: incidentList.length,
+    };
+  }, [incidentList]);
 
   const filteredIncidents = useMemo(() => {
     const OPEN_STATUSES = ['open'];
@@ -670,12 +693,60 @@ const ManagerReviewDashboard: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-4 max-w-[1400px] mx-auto">
+    <div className="p-4 sm:p-6 space-y-5 max-w-[1400px] mx-auto">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Ops review</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Checklist submissions and safety incidents — review, assign, resolve.
+          </p>
+        </div>
+        <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 p-1 gap-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab("submitted")}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition",
+              activeTab === "submitted"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800",
+            )}
+          >
+            <ClipboardCheck className="h-4 w-4" />
+            Checklists
+            <span className={cn(
+              "rounded-full px-1.5 py-0.5 text-[10px] tabular-nums",
+              activeTab === "submitted" ? "bg-white/20" : "bg-slate-200 dark:bg-slate-700",
+            )}>
+              {trendKpis.totalInRange}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("incidents")}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition",
+              activeTab === "incidents"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800",
+            )}
+          >
+            <ShieldAlert className="h-4 w-4" />
+            Incidents
+            <span className={cn(
+              "rounded-full px-1.5 py-0.5 text-[10px] tabular-nums",
+              activeTab === "incidents" ? "bg-white/20" : incidentKpis.open > 0 ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200" : "bg-slate-200 dark:bg-slate-700",
+            )}>
+              {incidentKpis.open}
+            </span>
+          </button>
+        </div>
+      </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-4">
-          <TabsTrigger value="submitted">{t("analytics.submitted_checklist")}</TabsTrigger>
-          <TabsTrigger value="incidents">{t("analytics.reported_incidents")}</TabsTrigger>
+        <TabsList className="hidden">
+          <TabsTrigger value="submitted">submitted</TabsTrigger>
+          <TabsTrigger value="incidents">incidents</TabsTrigger>
         </TabsList>
 
         <TabsContent value="submitted" className="mt-0 space-y-4">
@@ -819,101 +890,179 @@ const ManagerReviewDashboard: React.FC = () => {
               ) : null}
             </CardContent>
           </Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">{t("analytics.submitted_checklists")}</h2>
-            </div>
-            <div className="flex items-center gap-2">
-              <Input placeholder={t("analytics.search_name_submitter")} value={search} onChange={(e) => setSearch(e.target.value)} className="w-60" />
-              <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-44" />
-              <Tabs value={tab} onValueChange={(v) => setTab(v as 'cards' | 'table')}>
-                <TabsList>
-                  <TabsTrigger value="table">{t("analytics.view_table")}</TabsTrigger>
-                  <TabsTrigger value="cards">{t("analytics.view_cards")}</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-          </div>
-
-          {tab === 'table' ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-44" />
-                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-44" />
-                <Input placeholder={t("analytics.filter_by_staff")} value={staffFilter} onChange={(e) => setStaffFilter(e.target.value)} className="w-56" />
-                <Button size="sm" variant="outline" onClick={exportCsv}>{t("analytics.export_csv")}</Button>
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle className="text-base">Submitted checklists</CardTitle>
+                  <CardDescription>
+                    {totalChecklistItems} matching · review completions and issues
+                  </CardDescription>
+                </div>
+                <Button size="sm" variant="outline" onClick={exportCsv}>
+                  Export CSV
+                </Button>
               </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  placeholder="Search name or checklist…"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setChecklistPage(1); }}
+                  className="w-56"
+                />
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => { setDateFrom(e.target.value); setChecklistPage(1); }}
+                  className="w-40"
+                  aria-label="From date"
+                />
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => { setDateTo(e.target.value); setChecklistPage(1); }}
+                  className="w-40"
+                  aria-label="To date"
+                />
+                <Input
+                  placeholder="Filter by staff"
+                  value={staffFilter}
+                  onChange={(e) => { setStaffFilter(e.target.value); setChecklistPage(1); }}
+                  className="w-44"
+                />
+              </div>
+
               {isLoading ? (
-                <TableSkeleton rowCount={8} colCount={8} />
+                <TableSkeleton rowCount={8} colCount={6} />
               ) : sortedTable.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  {t("analytics.no_submissions")}
+                <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 px-4 py-12 text-center">
+                  <ClipboardCheck className="mx-auto h-10 w-10 text-muted-foreground/40 mb-3" />
+                  <div className="font-medium text-sm">{t("analytics.no_submissions")}</div>
+                  <div className="text-xs text-muted-foreground mt-1">Try widening the date range or clearing filters.</div>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead><button className="text-left w-full" onClick={() => { setSortBy('staff'); setSortDir(sortBy === 'staff' && sortDir === 'asc' ? 'desc' : 'asc'); }}>Staff</button></TableHead>
-                        <TableHead><button className="text-left w-full" onClick={() => { setSortBy('date'); setSortDir(sortBy === 'date' && sortDir === 'asc' ? 'desc' : 'asc'); }}>Submitted At</button></TableHead>
-                        <TableHead><button className="text-left w-full" onClick={() => { setSortBy('checklist'); setSortDir(sortBy === 'checklist' && sortDir === 'asc' ? 'desc' : 'asc'); }}>Checklist</button></TableHead>
+                        <TableHead>
+                          <button className="text-left w-full font-medium" onClick={() => { setSortBy('checklist'); setSortDir(sortBy === 'checklist' && sortDir === 'asc' ? 'desc' : 'asc'); }}>
+                            Checklist
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button className="text-left w-full font-medium" onClick={() => { setSortBy('staff'); setSortDir(sortBy === 'staff' && sortDir === 'asc' ? 'desc' : 'asc'); }}>
+                            Staff
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button className="text-left w-full font-medium" onClick={() => { setSortBy('date'); setSortDir(sortBy === 'date' && sortDir === 'asc' ? 'desc' : 'asc'); }}>
+                            Submitted
+                          </button>
+                        </TableHead>
+                        <TableHead>Health</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Notes</TableHead>
-                        <TableHead>Completion</TableHead>
-                        <TableHead>Issues</TableHead>
-                        <TableHead>Actions</TableHead>
+                        <TableHead className="w-[90px]" />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginatedChecklists.map((s) => (
-                        <TableRow key={s.id} className={isCompletedLike(s.status) ? '' : 'bg-yellow-50 dark:bg-yellow-900/20'}>
-                          <TableCell>{s.submitted_by?.name || '—'}</TableCell>
-                          <TableCell>{s.submitted_at ? new Date(s.submitted_at).toLocaleString() : '—'}</TableCell>
-                          <TableCell>
-                            <span>{s.template?.name || '—'}</span>
-                            {(s as SubmittedChecklist).source_type === 'shift_progress' ? (
-                              <Badge variant="outline" className="ml-1 text-[10px]">WhatsApp</Badge>
-                            ) : null}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={isCompletedLike(s.status) ? 'secondary' : 'outline'} className="text-xs">{s.status || '—'}</Badge>
-                          </TableCell>
-                          <TableCell className="max-w-xs truncate" title={s.notes || undefined}>{s.notes || '—'}</TableCell>
-                          <TableCell>
-                            <div className="text-xs">
-                              {s.compiled_summary?.completed_steps ?? '—'}/{s.compiled_summary?.total_steps ?? '—'}
-                              {typeof s.compiled_summary?.completion_rate === 'number' ? ` (${s.compiled_summary?.completion_rate}%)` : ''}
-                            </div>
-                            {typeof s.compiled_summary?.duration_minutes === 'number' ? (
-                              <div className="text-[11px] text-muted-foreground">⏱ {s.compiled_summary.duration_minutes}m</div>
-                            ) : null}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1 text-[11px]">
-                              {(s.compiled_summary?.failed_steps || 0) > 0 ? (<Badge variant="destructive" className="text-[10px]">Failed: {s.compiled_summary?.failed_steps}</Badge>) : null}
-                              {(s.compiled_summary?.required_missing || 0) > 0 ? (<Badge variant="outline" className="text-[10px]">Missing: {s.compiled_summary?.required_missing}</Badge>) : null}
-                              {(s.compiled_summary?.out_of_range_measurements || 0) > 0 ? (<Badge variant="outline" className="text-[10px]">Out-of-range: {s.compiled_summary?.out_of_range_measurements}</Badge>) : null}
-                              {(s.compiled_summary?.actions_open || 0) > 0 ? (<Badge variant="outline" className="text-[10px]">Open actions: {s.compiled_summary?.actions_open}</Badge>) : null}
-                              {(!s.compiled_summary || ((s.compiled_summary.failed_steps || 0) === 0 && (s.compiled_summary.required_missing || 0) === 0 && (s.compiled_summary.out_of_range_measurements || 0) === 0 && (s.compiled_summary.actions_open || 0) === 0)) ? (
-                                <span className="text-muted-foreground">—</span>
+                      {paginatedChecklists.map((s) => {
+                        const issues =
+                          (s.compiled_summary?.failed_steps || 0) +
+                          (s.compiled_summary?.required_missing || 0) +
+                          (s.compiled_summary?.out_of_range_measurements || 0) +
+                          (s.compiled_summary?.actions_open || 0);
+                        const rate = s.compiled_summary?.completion_rate;
+                        return (
+                          <TableRow
+                            key={s.id}
+                            className={cn(!isCompletedLike(s.status) && "bg-amber-50/60 dark:bg-amber-950/20")}
+                          >
+                            <TableCell>
+                              <div className="font-medium text-sm">{s.template?.name || "—"}</div>
+                              {s.source_type === "shift_progress" ? (
+                                <Badge variant="outline" className="mt-0.5 text-[10px]">WhatsApp</Badge>
                               ) : null}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Button size="sm" variant="outline" onClick={async () => { setDetailId(s.id); setDetailSourceType((s as SubmittedChecklist).source_type || 'execution'); setReviewComment(s.notes || ''); try { await api.logAdminAction(String(s.id), { action: 'VIEW_SUBMISSION', message: 'Opened submission details' }); } catch { /* ignore */ } }}>View</Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                              {s.notes ? (
+                                <div className="text-[11px] text-muted-foreground truncate max-w-[220px] mt-0.5" title={s.notes}>
+                                  {s.notes}
+                                </div>
+                              ) : null}
+                            </TableCell>
+                            <TableCell className="text-sm">{s.submitted_by?.name || "—"}</TableCell>
+                            <TableCell className="text-sm whitespace-nowrap">
+                              {s.submitted_at
+                                ? new Date(s.submitted_at).toLocaleString(undefined, {
+                                    month: "short",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "—"}
+                            </TableCell>
+                            <TableCell>
+                              <div className="min-w-[120px] space-y-1">
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="tabular-nums">
+                                    {s.compiled_summary?.completed_steps ?? "—"}/{s.compiled_summary?.total_steps ?? "—"}
+                                    {typeof rate === "number" ? ` · ${rate}%` : ""}
+                                  </span>
+                                  {typeof s.compiled_summary?.duration_minutes === "number" ? (
+                                    <span className="text-muted-foreground">{s.compiled_summary.duration_minutes}m</span>
+                                  ) : null}
+                                </div>
+                                <Progress value={typeof rate === "number" ? rate : 0} className="h-1.5" />
+                                {issues > 0 ? (
+                                  <div className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {issues} issue{issues === 1 ? "" : "s"}
+                                  </div>
+                                ) : (
+                                  <div className="text-[11px] text-muted-foreground">No issues</div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={isCompletedLike(s.status) ? "secondary" : "outline"}
+                                className="text-[10px]"
+                              >
+                                {s.status || "—"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  setDetailId(s.id);
+                                  setDetailSourceType(s.source_type || "execution");
+                                  setReviewComment(s.notes || "");
+                                  try {
+                                    await api.logAdminAction(String(s.id), {
+                                      action: "VIEW_SUBMISSION",
+                                      message: "Opened submission details",
+                                    });
+                                  } catch { /* ignore */ }
+                                }}
+                              >
+                                Review
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
               )}
 
-              {/* Pagination Controls for Checklists */}
               {sortedTable.length > 0 && (
-                <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                <div className="flex items-center justify-between pt-2">
                   <div className="text-sm text-muted-foreground">
-                    Showing {checklistStartIndex + 1}-{Math.min(checklistEndIndex, totalChecklistItems)} of {totalChecklistItems} checklists
+                    Showing {checklistStartIndex + 1}–{Math.min(checklistEndIndex, totalChecklistItems)} of {totalChecklistItems}
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
@@ -924,23 +1073,9 @@ const ManagerReviewDashboard: React.FC = () => {
                     >
                       Previous
                     </Button>
-                    {Array.from({ length: Math.min(totalChecklistPages, 5) }, (_, i) => {
-                      // Show first 2, last 2, and current page
-                      const pageNum = i < 2 ? i + 1 : totalChecklistPages - (4 - i);
-                      if (totalChecklistPages <= 5 || Math.abs(pageNum - checklistPage) <= 2 || pageNum === 1 || pageNum === totalChecklistPages) {
-                        return (
-                          <Button
-                            key={pageNum}
-                            variant={pageNum === checklistPage ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setChecklistPage(pageNum)}
-                          >
-                            {pageNum}
-                          </Button>
-                        );
-                      }
-                      return null;
-                    }).filter(Boolean)}
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {checklistPage} / {totalChecklistPages}
+                    </span>
                     <Button
                       variant="outline"
                       size="sm"
@@ -952,406 +1087,559 @@ const ManagerReviewDashboard: React.FC = () => {
                   </div>
                 </div>
               )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {isLoading ? (
-                <CardGridSkeleton count={6} columns="grid-cols-1 md:grid-cols-2" />
-              ) : filtered.length === 0 ? (
-                <div className="text-sm text-muted-foreground">{t("analytics.no_submissions")}</div>
-              ) : filtered.map((s) => (
-                <Card key={s.id} className="transition hover:shadow-md">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-base">{s.template?.name || t("analytics.checklist_fallback")}</CardTitle>
-                        <CardDescription className="text-sm">Submitted {s.submitted_at ? new Date(s.submitted_at).toLocaleString() : "—"}</CardDescription>
-                      </div>
-                      <Badge variant={isCompletedLike(s.status) ? 'secondary' : 'outline'} className="text-xs">{s.status || '—'}</Badge>
-                    </div>
+            </CardContent>
+          </Card>
+
+          {(liveItems.length > 0 || recentActivity.length > 0) && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {liveItems.length > 0 ? (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <RefreshCw className={cn("h-4 w-4 text-emerald-600", liveProgressLoading && "animate-spin")} />
+                      Live checklist progress
+                    </CardTitle>
+                    <CardDescription>In-progress WhatsApp checklists</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="text-xs">Submitter: {s.submitted_by?.name || '—'}</div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <Badge variant="outline">Completion</Badge>
-                      <Badge variant="outline">Performance</Badge>
-                      <Badge variant="outline">Quality</Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" onClick={() => { setDetailId(s.id); setDetailSourceType(s.source_type || 'execution'); setReviewComment(s.notes || ''); }}>View</Button>
-                      <Button size="sm" onClick={() => approveMutation.mutate({ id: s.id, source_type: s.source_type })}>Approve</Button>
-                      <Button size="sm" variant="outline" onClick={() => rejectMutation.mutate({ id: s.id, source_type: s.source_type })}>Reject</Button>
-                    </div>
+                  <CardContent className="space-y-2">
+                    {liveItems.slice(0, 8).map((item) => (
+                      <div key={item.id} className="rounded-lg border border-slate-100 dark:border-slate-800 px-3 py-2 text-sm">
+                        <div className="flex justify-between gap-2">
+                          <span className="font-medium truncate">{item.staff_name || "Staff"}</span>
+                          <span className="text-xs tabular-nums text-muted-foreground">{item.progress_percentage ?? 0}%</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {item.completed_tasks}/{item.total_tasks} steps
+                          {item.channel ? ` · ${item.channel}` : ""}
+                        </div>
+                        <Progress value={item.progress_percentage ?? 0} className="h-1 mt-1.5" />
+                      </div>
+                    ))}
                   </CardContent>
                 </Card>
-              ))}
+              ) : null}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">{t("analytics.live_activity")}</CardTitle>
+                  <CardDescription>{t("analytics.live_activity_desc")}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {recentActivity.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">{t("analytics.no_recent_activity")}</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {recentActivity.slice(0, 8).map((n) => (
+                        <div key={n.id} className="flex items-start justify-between gap-3 text-xs border-b border-slate-100 dark:border-slate-800 pb-2 last:border-0">
+                          <div className="min-w-0">
+                            <div className="font-medium truncate">{n.title || n.verb}</div>
+                            <div className="text-muted-foreground line-clamp-2">{n.description}</div>
+                          </div>
+                          <div className="shrink-0 text-muted-foreground whitespace-nowrap">
+                            {new Date(n.timestamp).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="incidents" className="mt-0 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Open</div>
+                <div className={cn("mt-1 text-2xl font-semibold tabular-nums", incidentKpis.open > 0 && "text-amber-600")}>
+                  {incidentKpis.open}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">Needs attention</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Critical / high</div>
+                <div className={cn("mt-1 text-2xl font-semibold tabular-nums", incidentKpis.critical > 0 && "text-red-600")}>
+                  {incidentKpis.critical}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">Among open</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Unassigned</div>
+                <div className="mt-1 text-2xl font-semibold tabular-nums">{incidentKpis.unassigned}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Open with no owner</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Resolved (7d)</div>
+                <div className="mt-1 text-2xl font-semibold tabular-nums text-emerald-600">{incidentKpis.resolved7}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{incidentKpis.total} total filed</div>
+              </CardContent>
+            </Card>
+          </div>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{t("analytics.live_activity")}</CardTitle>
-              <CardDescription className="text-sm">{t("analytics.live_activity_desc")}</CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Reported incidents</CardTitle>
+              <CardDescription>
+                Safety and service reports from staff — assign and close them here.
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              {recentActivity.length === 0 ? (
-                <div className="text-sm text-muted-foreground">{t("analytics.no_recent_activity")}</div>
-              ) : (
-                <div className="space-y-2">
-                  {recentActivity.map((n) => (
-                    <div key={n.id} className="text-xs flex items-center justify-between">
-                      <div>
-                        <div className="font-medium">{n.title || n.verb}</div>
-                        <div className="text-muted-foreground">{n.description}</div>
-                      </div>
-                      <div className="text-muted-foreground">{new Date(n.timestamp).toLocaleString()}</div>
-                    </div>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  placeholder="Search title or location…"
+                  value={incidentFilters.search}
+                  onChange={(e) => {
+                    setIncidentFilters({ ...incidentFilters, search: e.target.value });
+                    setIncidentPage(1);
+                  }}
+                  className="w-56"
+                />
+                <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 gap-0.5">
+                  {[
+                    { value: "open", label: "Open" },
+                    { value: "", label: "All" },
+                    { value: "resolved", label: "Resolved" },
+                    { value: "dismissed", label: "Dismissed" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value || "all"}
+                      type="button"
+                      onClick={() => {
+                        setIncidentFilters({ ...incidentFilters, status: opt.value });
+                        setIncidentPage(1);
+                      }}
+                      className={cn(
+                        "rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+                        incidentFilters.status === opt.value
+                          ? "bg-emerald-600 text-white"
+                          : "text-muted-foreground hover:bg-slate-100 dark:hover:bg-slate-800",
+                      )}
+                    >
+                      {opt.label}
+                    </button>
                   ))}
+                </div>
+                <select
+                  value={incidentFilters.severity}
+                  onChange={(e) => {
+                    setIncidentFilters({ ...incidentFilters, severity: e.target.value });
+                    setIncidentPage(1);
+                  }}
+                  className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="">All severities</option>
+                  <option value="critical">Critical</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+
+              {incidentsLoading ? (
+                <TableSkeleton rowCount={6} colCount={6} />
+              ) : filteredIncidents.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 px-4 py-12 text-center">
+                  <AlertTriangle className="mx-auto h-10 w-10 text-muted-foreground/40 mb-3" />
+                  <div className="font-medium text-sm">{t("analytics.no_incidents_found")}</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {incidentFilters.search || incidentFilters.severity || incidentFilters.status
+                      ? t("analytics.try_adjusting_filters_incidents")
+                      : t("analytics.all_incidents_here")}
+                  </div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Incident</TableHead>
+                        <TableHead>Severity</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Owner</TableHead>
+                        <TableHead>Reported</TableHead>
+                        <TableHead className="w-[90px]" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedIncidents.map((incident: SafetyIncident) => (
+                        <TableRow
+                          key={incident.id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => setSelectedIncident(incident.id)}
+                        >
+                          <TableCell>
+                            <div className="font-medium text-sm">{incident.title || "Untitled"}</div>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground mt-0.5">
+                              {incident.incident_type ? <span className="capitalize">{incident.incident_type}</span> : null}
+                              {incident.location ? (
+                                <span className="inline-flex items-center gap-0.5">
+                                  <MapPin className="h-3 w-3" />
+                                  {incident.location}
+                                </span>
+                              ) : null}
+                            </div>
+                            {incident.description ? (
+                              <div className="text-[11px] text-muted-foreground line-clamp-1 max-w-md mt-0.5">
+                                {incident.description}
+                              </div>
+                            ) : null}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={getSeverityColor(String(incident.severity || ""))}>
+                              {formatStatus(String(incident.severity || "—"))}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={getStatusColor(String(incident.status || ""))}>
+                              {formatStatus(String(incident.status || "—"))}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {incident.assigned_to_details
+                              ? `${incident.assigned_to_details.first_name ?? ""} ${incident.assigned_to_details.last_name ?? ""}`.trim()
+                              : (
+                                <span className="text-amber-700 dark:text-amber-400 text-xs font-medium">
+                                  Unassigned
+                                </span>
+                              )}
+                            <div className="text-[11px] text-muted-foreground">
+                              {incident.is_anonymous
+                                ? "Anonymous reporter"
+                                : incident.reporter_details
+                                  ? `by ${incident.reporter_details.first_name} ${incident.reporter_details.last_name}`
+                                  : ""}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm whitespace-nowrap">
+                            {incident.created_at
+                              ? new Date(incident.created_at).toLocaleString(undefined, {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : "—"}
+                          </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <Button size="sm" variant="outline" onClick={() => setSelectedIncident(incident.id)}>
+                              Open
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {filteredIncidents.length > 0 && (
+                <div className="flex items-center justify-between pt-1">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {incidentStartIndex + 1}–{Math.min(incidentEndIndex, totalIncidentItems)} of {totalIncidentItems}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={incidentPage <= 1}
+                      onClick={() => setIncidentPage((p) => Math.max(1, p - 1))}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {incidentPage} / {totalIncidentPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={incidentPage >= totalIncidentPages}
+                      onClick={() => setIncidentPage((p) => Math.min(totalIncidentPages, p + 1))}
+                    >
+                      Next
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="incidents" className="mt-0 space-y-4">
-          {(() => {
-            return (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t("analytics.reported_incidents")}</CardTitle>
-                    <CardDescription>{t("analytics.incidents_subtitle")}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Filters */}
-                    <div className="flex gap-2 flex-wrap">
-                      <Input
-                        placeholder={t("analytics.search_title_location")}
-                        value={incidentFilters.search}
-                        onChange={(e) => setIncidentFilters({ ...incidentFilters, search: e.target.value })}
-                        className="w-60"
-                      />
-                      <select
-                        value={incidentFilters.severity}
-                        onChange={(e) => setIncidentFilters({ ...incidentFilters, severity: e.target.value })}
-                        className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 text-sm"
-                      >
-                        <option value="">{t("analytics.all_severities")}</option>
-                        <option value="critical">Critical</option>
-                        <option value="high">High</option>
-                        <option value="medium">Medium</option>
-                        <option value="low">Low</option>
-                      </select>
-                      <select
-                        value={incidentFilters.status}
-                        onChange={(e) => setIncidentFilters({ ...incidentFilters, status: e.target.value })}
-                        className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 text-sm"
-                      >
-                        <option value="open">{t("analytics.open_only") ?? "Open only"}</option>
-                        <option value="">{t("analytics.all_statuses")}</option>
-                        <option value="resolved">Resolved</option>
-                        <option value="dismissed">Dismissed</option>
-                      </select>
+          <Dialog
+            open={!!selectedIncident}
+            onOpenChange={(open) => {
+              if (!open) {
+                setSelectedIncident(null);
+                setUpdateStatus("");
+                setResolutionNotes("");
+                setAssignTo("");
+              }
+            }}
+          >
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 pr-6">
+                  <ShieldAlert className="h-5 w-5 text-emerald-600 shrink-0" />
+                  <span className="truncate">
+                    {incidentDetail?.title || "Incident details"}
+                  </span>
+                </DialogTitle>
+              </DialogHeader>
+
+              {incidentDetailLoading && !incidentDetail ? (
+                <div className="space-y-3 py-2">
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-32 w-full" />
+                  <Skeleton className="h-24 w-full" />
+                </div>
+              ) : incidentDetail ? (
+                <div className="space-y-5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className={getSeverityColor(incidentDetail.severity)}>
+                      {formatStatus(incidentDetail.severity || "—")}
+                    </Badge>
+                    <Badge variant="outline" className={getStatusColor(incidentDetail.status)}>
+                      {formatStatus(incidentDetail.status || "—")}
+                    </Badge>
+                    {incidentDetail.incident_type ? (
+                      <Badge variant="secondary" className="capitalize text-[10px]">
+                        {incidentDetail.incident_type}
+                      </Badge>
+                    ) : null}
+                    <span className="text-[11px] text-muted-foreground font-mono ml-auto">
+                      #{String(incidentDetail.id || "").slice(0, 8)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5" /> Location
+                      </div>
+                      <div className="font-medium">{incidentDetail.location || "Not specified"}</div>
                     </div>
-
-                    {/* Incidents Table */}
-                    {incidentsLoading ? (
-                      <div className="text-center py-8 text-muted-foreground">{t("analytics.loading_incidents")}</div>
-                    ) : filteredIncidents.length === 0 ? (
-                      <div className="text-center py-12 text-muted-foreground">
-                        <svg className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        <p className="text-lg font-medium mb-2">{t("analytics.no_incidents_found")}</p>
-                        <p className="text-sm">
-                          {incidentFilters.search || incidentFilters.severity || incidentFilters.status
-                            ? t("analytics.try_adjusting_filters_incidents")
-                            : t("analytics.all_incidents_here")}
-                        </p>
+                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <User className="h-3.5 w-3.5" /> Reporter
                       </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Title</TableHead>
-                              <TableHead>Severity</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>Reporter</TableHead>
-                              <TableHead>Assigned To</TableHead>
-                              <TableHead>Reported At</TableHead>
-                              <TableHead>Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {paginatedIncidents.map((incident: SafetyIncident) => (
-                              <TableRow key={incident.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedIncident(incident.id)}>
-                                <TableCell className="font-medium">{incident.title}</TableCell>
-                                <TableCell>
-                                  <Badge variant="outline" className={getSeverityColor(String(incident.severity || ''))}>
-                                    {formatStatus(String(incident.severity || ''))}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant="outline" className={getStatusColor(String(incident.status || ''))}>
-                                    {formatStatus(String(incident.status || ''))}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  {incident.is_anonymous
-                                    ? 'Anonymous'
-                                    : incident.reporter_details
-                                      ? `${incident.reporter_details.first_name} ${incident.reporter_details.last_name}`
-                                      : '—'}
-                                </TableCell>
-                                <TableCell>
-                                  {incident.assigned_to_details
-                                    ? `${incident.assigned_to_details.first_name ?? ''} ${incident.assigned_to_details.last_name ?? ''}`.trim()
-                                    : <span className="text-muted-foreground">Unassigned</span>}
-                                </TableCell>
-                                <TableCell>{new Date(incident.created_at).toLocaleDateString()}</TableCell>
-                                <TableCell onClick={(e) => e.stopPropagation()}>
-                                  <Button size="sm" variant="outline" onClick={() => setSelectedIncident(incident.id)}>
-                                    View
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                      <div className="font-medium">
+                        {incidentDetail.is_anonymous
+                          ? "Anonymous"
+                          : incidentDetail.reporter_details
+                            ? `${incidentDetail.reporter_details.first_name} ${incidentDetail.reporter_details.last_name}`
+                            : "—"}
                       </div>
-                    )}
-
-                    {/* Pagination Controls for Incidents */}
-                    {filteredIncidents.length > 0 && (
-                      <div className="flex items-center justify-between mt-3 pt-3 border-t">
-                        <div className="text-sm text-muted-foreground">
-                          Showing {incidentStartIndex + 1}-{Math.min(incidentEndIndex, totalIncidentItems)} of {totalIncidentItems} incidents
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={incidentPage <= 1}
-                            onClick={() => setIncidentPage((p) => Math.max(1, p - 1))}
-                          >
-                            Previous
-                          </Button>
-                          {Array.from({ length: Math.min(totalIncidentPages, 5) }, (_, i) => {
-                            const pageNum = i < 2 ? i + 1 : totalIncidentPages - (4 - i);
-                            if (totalIncidentPages <= 5 || Math.abs(pageNum - incidentPage) <= 2 || pageNum === 1 || pageNum === totalIncidentPages) {
-                              return (
-                                <Button
-                                  key={pageNum}
-                                  variant={pageNum === incidentPage ? 'default' : 'outline'}
-                                  size="sm"
-                                  onClick={() => setIncidentPage(pageNum)}
-                                >
-                                  {pageNum}
-                                </Button>
-                              );
-                            }
-                            return null;
-                          }).filter(Boolean)}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={incidentPage >= totalIncidentPages}
-                            onClick={() => setIncidentPage((p) => Math.min(totalIncidentPages, p + 1))}
-                          >
-                            Next
-                          </Button>
-                        </div>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Calendar className="h-3.5 w-3.5" /> Reported
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
+                      <div className="font-medium">
+                        {incidentDetail.created_at
+                          ? new Date(incidentDetail.created_at).toLocaleString()
+                          : "—"}
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Calendar className="h-3.5 w-3.5" /> Occurred
+                      </div>
+                      <div className="font-medium">
+                        {incidentDetail.occurred_at
+                          ? new Date(incidentDetail.occurred_at).toLocaleString()
+                          : "—"}
+                      </div>
+                    </div>
+                  </div>
 
-                {/* Incident Detail Modal */}
-                <Dialog open={!!selectedIncident} onOpenChange={(open) => { if (!open) { setSelectedIncident(null); setUpdateStatus(''); setResolutionNotes(''); setAssignTo(''); } }}>
-                  <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Incident Details</DialogTitle>
-                    </DialogHeader>
-                    {incidentDetail && (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <div className="font-medium text-muted-foreground mb-1">Incident Type</div>
-                            <div>{incidentDetail.incident_type || '—'}</div>
-                          </div>
-                          <div>
-                            <div className="font-medium text-muted-foreground mb-1">Title</div>
-                            <div>{incidentDetail.title}</div>
-                          </div>
-                          <div>
-                            <div className="font-medium text-muted-foreground mb-1">Location</div>
-                            <div>{incidentDetail.location || '—'}</div>
-                          </div>
-                          <div>
-                            <div className="font-medium text-muted-foreground mb-1">Severity</div>
-                            <Badge variant="outline" className={getSeverityColor(incidentDetail.severity)}>
-                              {formatStatus(incidentDetail.severity)}
-                            </Badge>
-                          </div>
-                          <div>
-                            <div className="font-medium text-muted-foreground mb-1">Status</div>
-                            <Badge variant="outline" className={getStatusColor(incidentDetail.status)}>
-                              {formatStatus(incidentDetail.status)}
-                            </Badge>
-                          </div>
-                          <div>
-                            <div className="font-medium text-muted-foreground mb-1">Reporter</div>
-                            <div>
-                              {incidentDetail.is_anonymous
-                                ? 'Anonymous'
-                                : incidentDetail.reporter_details
-                                  ? `${incidentDetail.reporter_details.first_name} ${incidentDetail.reporter_details.last_name}`
-                                  : '—'}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="font-medium text-muted-foreground mb-1">Reported At</div>
-                            <div>{new Date(incidentDetail.created_at).toLocaleString()}</div>
-                          </div>
-                          <div>
-                            <div className="font-medium text-muted-foreground mb-1">Time of Occurrence</div>
-                            <div>{incidentDetail.occurred_at ? new Date(incidentDetail.occurred_at).toLocaleString() : '—'}</div>
-                          </div>
-                        </div>
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                      Description
+                    </div>
+                    <div className="rounded-lg border border-slate-100 dark:border-slate-800 p-3 text-sm whitespace-pre-wrap leading-relaxed">
+                      {incidentDetail.description || "No description provided."}
+                    </div>
+                  </div>
 
-                        <div>
-                          <div className="font-medium text-muted-foreground mb-1 text-sm">Description</div>
-                          <div className="border rounded-md p-3 bg-muted/30 text-sm whitespace-pre-wrap">
-                            {incidentDetail.description}
-                          </div>
-                        </div>
+                  {incidentDetail.photo ? (
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                        Photo evidence
+                      </div>
+                      <img
+                        src={
+                          typeof incidentDetail.photo === "string" && incidentDetail.photo.startsWith("/")
+                            ? `${(import.meta.env.VITE_BACKEND_URL || "")}${incidentDetail.photo}`
+                            : incidentDetail.photo
+                        }
+                        alt="Incident evidence"
+                        className="max-h-80 w-full rounded-lg border object-contain bg-slate-50 dark:bg-slate-900"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    </div>
+                  ) : null}
 
-                        {incidentDetail.photo && (
-                          <div>
-                            <div className="font-medium text-muted-foreground mb-2 text-sm">Photo Evidence</div>
-                            <img
-                              src={typeof incidentDetail.photo === 'string' && incidentDetail.photo.startsWith('/') ? `${(import.meta.env.VITE_BACKEND_URL || '')}${incidentDetail.photo}` : incidentDetail.photo}
-                              alt="Incident evidence"
-                              className="max-h-96 rounded-md border object-contain"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                            />
-                          </div>
-                        )}
+                  {Array.isArray(incidentDetail.audio_evidence) && incidentDetail.audio_evidence.length > 0 ? (
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                        Audio evidence
+                      </div>
+                      <ul className="space-y-2">
+                        {incidentDetail.audio_evidence.map((url: string, i: number) => (
+                          <li key={i}>
+                            <audio controls className="w-full" src={url.startsWith("/") ? `${(import.meta.env.VITE_BACKEND_URL || "")}${url}` : url} />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
 
-                        <div className="border-t pt-4">
-                          <div className="font-medium mb-2 text-sm">Assign To</div>
-                          <div className="flex items-center gap-2">
-                            <select
-                              value={assignTo || incidentDetail.assigned_to || ''}
-                              onChange={(e) => setAssignTo(e.target.value)}
-                              className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 text-sm"
-                            >
-                              <option value="">Unassigned</option>
-                              {(staffList || []).map((s: any) => (
-                                <option key={s.id} value={s.id}>
-                                  {s.first_name} {s.last_name}{s.role ? ` (${s.role})` : ''}
-                                </option>
-                              ))}
-                            </select>
-                            <Button
-                              size="sm"
-                              disabled={assignMutation.isPending}
-                              onClick={() => {
-                                const val = assignTo || incidentDetail.assigned_to || '';
-                                assignMutation.mutate({
-                                  id: incidentDetail.id,
-                                  assigned_to: val || null,
-                                });
-                              }}
-                            >
-                              {assignMutation.isPending ? 'Assigning...' : 'Assign'}
-                            </Button>
-                          </div>
-                          {incidentDetail.assigned_to_details && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Currently assigned to: {incidentDetail.assigned_to_details.first_name} {incidentDetail.assigned_to_details.last_name}
-                            </div>
-                          )}
-                        </div>
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                    <div className="text-sm font-semibold">Assign owner</div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <select
+                        value={assignTo || incidentDetail.assigned_to || ""}
+                        onChange={(e) => setAssignTo(e.target.value)}
+                        className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm"
+                      >
+                        <option value="">Unassigned</option>
+                        {(staffList || []).map((s: { id: string; first_name?: string; last_name?: string; role?: string }) => (
+                          <option key={s.id} value={s.id}>
+                            {s.first_name} {s.last_name}{s.role ? ` (${s.role})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        disabled={assignMutation.isPending}
+                        onClick={() => {
+                          const val = assignTo || incidentDetail.assigned_to || "";
+                          assignMutation.mutate({
+                            id: incidentDetail.id,
+                            assigned_to: val || null,
+                          });
+                        }}
+                      >
+                        {assignMutation.isPending ? "Assigning…" : "Assign"}
+                      </Button>
+                    </div>
+                    {incidentDetail.assigned_to_details ? (
+                      <div className="text-xs text-muted-foreground">
+                        Currently: {incidentDetail.assigned_to_details.first_name}{" "}
+                        {incidentDetail.assigned_to_details.last_name}
+                      </div>
+                    ) : null}
+                  </div>
 
-                        {incidentDetail.resolution_notes && (
-                          <div>
-                            <div className="font-medium text-muted-foreground mb-1 text-sm">Resolution Notes</div>
-                            <div className="border rounded-md p-3 bg-muted/30 text-sm whitespace-pre-wrap">
-                              {incidentDetail.resolution_notes}
-                            </div>
-                          </div>
-                        )}
+                  {incidentDetail.resolution_notes ? (
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                        Existing resolution notes
+                      </div>
+                      <div className="rounded-lg border p-3 text-sm whitespace-pre-wrap bg-muted/30">
+                        {incidentDetail.resolution_notes}
+                      </div>
+                    </div>
+                  ) : null}
 
-                        {incidentDetail.resolved_by_details && (
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <div className="font-medium text-muted-foreground mb-1">Resolved By</div>
-                              <div>{incidentDetail.resolved_by_details.first_name} {incidentDetail.resolved_by_details.last_name}</div>
-                            </div>
-                            <div>
-                              <div className="font-medium text-muted-foreground mb-1">Resolved At</div>
-                              <div>{incidentDetail.resolved_at ? new Date(incidentDetail.resolved_at).toLocaleString() : '—'}</div>
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="border-t pt-4">
-                          <div className="font-medium mb-3">Update Status</div>
-                          <div className="space-y-3">
-                            <div>
-                              <label className="text-sm font-medium mb-2 block">New Status</label>
-                              <select
-                                value={updateStatus || incidentDetail.status}
-                                onChange={(e) => setUpdateStatus(e.target.value)}
-                                className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2"
-                              >
-                                <option value="OPEN">Open</option>
-                                <option value="RESOLVED">Resolved</option>
-                                <option value="DISMISSED">Dismissed</option>
-                              </select>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium mb-2 block">Resolution Notes</label>
-                              <Textarea
-                                value={resolutionNotes || incidentDetail.resolution_notes || ''}
-                                onChange={(e) => setResolutionNotes(e.target.value)}
-                                placeholder={t("analytics.add_incident_notes")}
-                                rows={4}
-                              />
-                            </div>
-                            <div className="flex gap-2 justify-end">
-                              <Button variant="outline" onClick={() => { setSelectedIncident(null); setUpdateStatus(''); setResolutionNotes(''); setAssignTo(''); }}>
-                                Close
-                              </Button>
-                              <Button
-                                onClick={() => updateStatusMutation.mutate({
-                                  id: incidentDetail.id,
-                                  status: updateStatus || incidentDetail.status,
-                                  resolution_notes: resolutionNotes || incidentDetail.resolution_notes || ''
-                                })}
-                                disabled={updateStatusMutation.isPending}
-                              >
-                                {updateStatusMutation.isPending ? 'Updating...' : 'Update Status'}
-                              </Button>
-                            </div>
-                          </div>
+                  {incidentDetail.resolved_by_details ? (
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Resolved by</div>
+                        <div className="font-medium">
+                          {incidentDetail.resolved_by_details.first_name}{" "}
+                          {incidentDetail.resolved_by_details.last_name}
                         </div>
                       </div>
-                    )}
-                  </DialogContent>
-                </Dialog>
-              </>
-            );
-          })()}
+                      <div>
+                        <div className="text-xs text-muted-foreground">Resolved at</div>
+                        <div className="font-medium">
+                          {incidentDetail.resolved_at
+                            ? new Date(incidentDetail.resolved_at).toLocaleString()
+                            : "—"}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                    <div className="text-sm font-semibold">Update status</div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">New status</label>
+                        <select
+                          value={updateStatus || incidentDetail.status}
+                          onChange={(e) => setUpdateStatus(e.target.value)}
+                          className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm"
+                        >
+                          <option value="OPEN">Open</option>
+                          <option value="RESOLVED">Resolved</option>
+                          <option value="DISMISSED">Dismissed</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Resolution notes</label>
+                      <Textarea
+                        value={resolutionNotes || incidentDetail.resolution_notes || ""}
+                        onChange={(e) => setResolutionNotes(e.target.value)}
+                        placeholder="What happened and how it was handled…"
+                        rows={3}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedIncident(null);
+                          setUpdateStatus("");
+                          setResolutionNotes("");
+                          setAssignTo("");
+                        }}
+                      >
+                        Close
+                      </Button>
+                      <Button
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={() =>
+                          updateStatusMutation.mutate({
+                            id: incidentDetail.id,
+                            status: updateStatus || incidentDetail.status,
+                            resolution_notes:
+                              resolutionNotes || incidentDetail.resolution_notes || "",
+                          })
+                        }
+                        disabled={updateStatusMutation.isPending}
+                      >
+                        {updateStatusMutation.isPending ? "Saving…" : "Save status"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground py-6 text-center">
+                  Couldn&apos;t load this incident.
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
 
       <Dialog open={detailId !== null} onOpenChange={(o) => { if (!o) { setDetailId(null); setReviewComment(""); } }}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Submission Details</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-emerald-600" />
+              Submission review
+            </DialogTitle>
           </DialogHeader>
           {(() => {
             const summary = sortedTable.find(x => x.id === detailId) || filtered.find(x => x.id === detailId);
@@ -1359,17 +1647,28 @@ const ManagerReviewDashboard: React.FC = () => {
             if (!summary) return (<div className="text-sm text-muted-foreground">No data</div>);
             return (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div>Staff: {summary.submitted_by?.name || '—'}</div>
-                    <div>Submitted: {summary.submitted_at ? new Date(summary.submitted_at).toLocaleString() : '—'}</div>
-                    <div>Checklist: {summary.template?.name || '—'}</div>
+                    <div className="text-lg font-semibold">{summary.template?.name || "Checklist"}</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">
+                      {summary.submitted_by?.name || "—"}
+                      {summary.submitted_at
+                        ? ` · ${new Date(summary.submitted_at).toLocaleString()}`
+                        : ""}
+                      {summary.source_type === "shift_progress" ? " · WhatsApp" : ""}
+                    </div>
                   </div>
-                  <div>
-                    <div>Status: {summary.status || '—'}</div>
-                    <div>Notes: {summary.notes || '—'}</div>
-                  </div>
+                  <Badge variant={isCompletedLike(summary.status) ? "secondary" : "outline"}>
+                    {summary.status || "—"}
+                  </Badge>
                 </div>
+
+                {summary.notes ? (
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 text-sm">
+                    <div className="text-xs text-muted-foreground mb-1">Notes</div>
+                    {summary.notes}
+                  </div>
+                ) : null}
 
                 {summary.compiled_summary ? (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
