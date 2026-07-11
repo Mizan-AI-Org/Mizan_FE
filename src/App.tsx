@@ -388,6 +388,11 @@ const App = () => {
                     </RoleBasedRoute>
                   }
                 />
+                {/* Legacy / mistaken deep-link → manager announcements */}
+                <Route
+                  path="dashboard/staff-chat"
+                  element={<Navigate to="/dashboard/announcements" replace />}
+                />
                 {/* Removed legacy add-staff route */}
                 <Route
                   path="dashboard/auto-schedule"
