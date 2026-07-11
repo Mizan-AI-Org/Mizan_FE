@@ -4,6 +4,7 @@ import { Calendar, Clock } from "lucide-react";
 import EnhancedScheduleView from "@/components/schedule/EnhancedScheduleView";
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
+import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { useLanguage } from "@/hooks/use-language";
 
 const StaffSchedulingPage: React.FC = () => {
@@ -23,47 +24,47 @@ const StaffSchedulingPage: React.FC = () => {
   });
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">{t("schedule.page_title")}</h1>
+    <div className={`${PAGE_SHELL_PADDED} space-y-6`}>
+      <div className="space-y-1">
+        <h1 className="text-2xl font-bold tracking-tight">{t("schedule.page_title")}</h1>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-            <CardTitle className="text-xs font-medium leading-tight">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+            <CardTitle className="text-sm font-medium">
               {t("schedule.card_total_staff")}
             </CardTitle>
-            <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="text-lg font-bold leading-none tabular-nums">
+          <CardContent className="p-4 pt-0">
+            <div className="text-2xl font-bold tabular-nums">
               {statsLoading ? "…" : stats?.total_staff || 0}
             </div>
-            <p className="text-[11px] text-muted-foreground leading-snug mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {t("schedule.active_team_members")}
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-            <CardTitle className="text-xs font-medium leading-tight">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+            <CardTitle className="text-sm font-medium">
               {t("schedule.card_scheduled_shifts")}
             </CardTitle>
-            <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="text-lg font-bold leading-none tabular-nums">
+          <CardContent className="p-4 pt-0">
+            <div className="text-2xl font-bold tabular-nums">
               {statsLoading ? "…" : stats?.scheduled_shifts || 0}
             </div>
-            <p className="text-[11px] text-muted-foreground leading-snug mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {t("common.this_week")}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           <EnhancedScheduleView />
         </CardContent>

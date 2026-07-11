@@ -20,6 +20,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { API_BASE } from '@/lib/api';
+import { PAGE_SHELL } from '@/lib/page-shell';
 import { useAuth } from '@/hooks/use-auth';
 
 interface AuditRow {
@@ -149,7 +150,7 @@ const ActivityLogPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/30">
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+            <div className={`${PAGE_SHELL} py-8 space-y-6`}>
                 <div>
                     <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
                         <Activity className="h-6 w-6 text-blue-600" />

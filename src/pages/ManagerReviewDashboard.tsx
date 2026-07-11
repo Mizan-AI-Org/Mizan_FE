@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { RefreshCw, TrendingUp, Users, ClipboardCheck, AlertTriangle, MapPin, User, Calendar, ShieldAlert } from "lucide-react";
+import { PAGE_SHELL } from "@/lib/page-shell";
 import { TableSkeleton } from "@/components/skeletons";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -693,7 +694,7 @@ const ManagerReviewDashboard: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-5 max-w-[1400px] mx-auto">
+    <div className={`${PAGE_SHELL} py-6 space-y-5`}>
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Ops review</h1>

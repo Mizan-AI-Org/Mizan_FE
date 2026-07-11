@@ -1392,7 +1392,11 @@ function widgetFallback(id: DashboardWidgetId): string {
         maintenance: "",
         purchase_orders: "",
         miscellaneous: "",
-        staff_messages: ""
+        staff_messages: "",
+        team_travel: "",
+        team_medical_service: "",
+        operations_tasks: "",
+        staff_daily_progress: "Staff daily progress",
     };
     return map[id] || id;
 }

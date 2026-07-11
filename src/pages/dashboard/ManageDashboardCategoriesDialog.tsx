@@ -344,6 +344,17 @@ function CategoryGroup({
   );
 }
 
+function parseKeywordsInput(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function keywordsToInput(keywords?: string[] | null): string {
+  return (keywords ?? []).join(", ");
+}
+
 function WidgetRow({
   row,
   categories,
@@ -361,6 +372,7 @@ function WidgetRow({
       subtitle?: string;
       icon?: string;
       category_id?: string | null;
+      routing_keywords?: string[];
     },
   ) => void;
   onDelete: (id: string) => void;
@@ -368,10 +380,20 @@ function WidgetRow({
   const [title, setTitle] = useState(row.title);
   const [icon, setIcon] = useState(row.icon || "sparkles");
   const [cat, setCat] = useState<string | "__none__">(row.category_id ?? "__none__");
+  const rowKeywords = keywordsToInput(row.routing_keywords);
+  const [keywords, setKeywords] = useState(rowKeywords);
   const dirty =
     title !== row.title ||
     icon !== (row.icon || "sparkles") ||
-    cat !== (row.category_id ?? "__none__");
+    cat !== (row.category_id ?? "__none__") ||
+    keywords !== rowKeywords;
+
+  useEffect(() => {
+    setTitle(row.title);
+    setIcon(row.icon || "sparkles");
+    setCat(row.category_id ?? "__none__");
+    setKeywords(rowKeywords);
+  }, [row.id, row.title, row.icon, row.category_id, rowKeywords]);
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900/60">
@@ -428,6 +450,17 @@ function WidgetRow({
           </SelectContent>
         </Select>
       </div>
+      <div className="mt-2 space-y-1">
+        <Input
+          value={keywords}
+          onChange={(e) => setKeywords(e.target.value)}
+          placeholder={t("dashboard.manage.routing_keywords_placeholder")}
+          className="h-9 text-sm"
+        />
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          {t("dashboard.manage.routing_keywords_hint")}
+        </p>
+      </div>
       <div className="mt-2 flex items-center justify-between gap-2">
         {row.link_url && (
           <div className="truncate text-[11px] text-slate-400 dark:text-slate-500">
@@ -444,6 +477,7 @@ function WidgetRow({
               title: title.trim() || row.title,
               icon,
               category_id: cat === "__none__" ? null : cat,
+              routing_keywords: parseKeywordsInput(keywords),
             })
           }
         >
@@ -514,11 +548,13 @@ export function ManageDashboardCategoriesDialog({
     icon: string;
     category_id: string | "__none__";
     add_to_dashboard: boolean;
+    routing_keywords: string;
   }>({
     title: "",
     icon: "sparkles",
     category_id: "__none__",
     add_to_dashboard: true,
+    routing_keywords: "",
   });
 
   const handleCreateCategory = () => {
@@ -570,6 +606,7 @@ export function ManageDashboardCategoriesDialog({
         icon: newWidget.icon,
         category_id: newWidget.category_id === "__none__" ? null : newWidget.category_id,
         add_to_dashboard: newWidget.add_to_dashboard,
+        routing_keywords: parseKeywordsInput(newWidget.routing_keywords),
       },
       {
         onSuccess: () => {
@@ -578,6 +615,7 @@ export function ManageDashboardCategoriesDialog({
             icon: "sparkles",
             category_id: newWidget.category_id,
             add_to_dashboard: true,
+            routing_keywords: "",
           });
           toast.success(t("dashboard.manage.widget_created"));
         },
@@ -808,6 +846,19 @@ export function ManageDashboardCategoriesDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="mt-2 space-y-1">
+                  <Input
+                    value={newWidget.routing_keywords}
+                    onChange={(e) =>
+                      setNewWidget((s) => ({ ...s, routing_keywords: e.target.value }))
+                    }
+                    placeholder={t("dashboard.manage.routing_keywords_placeholder")}
+                    className="h-9 text-sm"
+                  />
+                  <p className="text-[11px] text-emerald-700/70 dark:text-emerald-300/70">
+                    {t("dashboard.manage.routing_keywords_hint")}
+                  </p>
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-2">
                   <p className="text-[11px] text-emerald-700/70 dark:text-emerald-300/70">

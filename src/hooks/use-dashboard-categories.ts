@@ -22,6 +22,7 @@ export type DashboardCustomWidgetRow = {
   link_url: string;
   icon: string;
   category_id?: string | null;
+  routing_keywords?: string[];
   created_at?: string | null;
 };
 
@@ -91,6 +92,7 @@ export function useDashboardCategoryMutations() {
       icon?: string;
       category_id?: string | null;
       add_to_dashboard?: boolean;
+      routing_keywords?: string[];
     }) => api.createDashboardCustomWidget(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: CUSTOM_WIDGETS_KEY });
@@ -111,6 +113,7 @@ export function useDashboardCategoryMutations() {
         link_url?: string;
         icon?: string;
         category_id?: string | null;
+        routing_keywords?: string[];
       };
     }) => api.updateDashboardCustomWidget(id, body),
     onSuccess: () => {

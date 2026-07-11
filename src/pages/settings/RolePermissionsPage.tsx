@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { ShieldCheck, RefreshCcw, Save, Search, Users, X } from "lucide-react";
+import { LayoutGrid, Layers, RefreshCcw, Save, Search, ShieldCheck, Users, X, Zap } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,11 +24,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  SettingsSection,
+  SettingsStickyActions,
+  settingsFieldClassName,
+} from "@/components/settings/SettingsSection";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
 import { api } from "@/lib/api";
+import { PAGE_SHELL } from "@/lib/page-shell";
+import { cn } from "@/lib/utils";
 import {
   AssignableUser,
   PermissionBuckets,
@@ -82,16 +89,11 @@ export default function RolePermissionsPage() {
   const { saveMany, reset: resetUser } = useUserPermissionMutations();
 
   const [scope, setScope] = useState<Scope>("role");
-
-  // Role-scope state.
   const [selectedRole, setSelectedRole] = useState<string>("MANAGER");
-
-  // User-scope state.
   const [query, setQuery] = useState("");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
-
-  // Shared draft.
+  const [permTab, setPermTab] = useState<"apps" | "widgets" | "actions">("apps");
   const [draft, setDraft] = useState<PermissionBuckets>(emptyBuckets());
   const [dirty, setDirty] = useState(false);
 
@@ -125,7 +127,6 @@ export default function RolePermissionsPage() {
     );
   }, [users, query]);
 
-  // Reload draft whenever scope / selection / underlying data changes.
   useEffect(() => {
     if (scope === "role") {
       const defaults = catalogQ.data?.role_defaults?.[selectedRole];
@@ -134,7 +135,6 @@ export default function RolePermissionsPage() {
       setDirty(false);
       return;
     }
-    // scope === "users"
     if (selectedUserIds.length === 0) {
       setDraft(emptyBuckets());
       setDirty(false);
@@ -143,9 +143,6 @@ export default function RolePermissionsPage() {
 
     let cancelled = false;
     (async () => {
-      // Primary user = first selected. Load full effective permissions
-      // (including their role fallback) from the server so the editor
-      // mirrors what they see today.
       const primaryId = selectedUserIds[0];
       try {
         const res = await api.getUserPermissions(primaryId);
@@ -153,7 +150,6 @@ export default function RolePermissionsPage() {
         setDraft(res.permissions);
         setDirty(false);
       } catch {
-        // Fall back to catalog defaults for the user's role.
         const primary = userById.get(primaryId);
         const defaults =
           (primary && catalogQ.data?.role_defaults?.[primary.role]) || emptyBuckets();
@@ -215,7 +211,6 @@ export default function RolePermissionsPage() {
         toast({ title: t("rbac.toast.saved") });
         return;
       }
-      // scope === "users"
       if (selectedUserIds.length === 0) return;
       const res = await saveMany.mutateAsync({
         userIds: selectedUserIds,
@@ -245,7 +240,6 @@ export default function RolePermissionsPage() {
         toast({ title: t("rbac.toast.reset_done") });
         return;
       }
-      // scope === "users"
       const targets = selectedUserIds.filter((id) => overrideByUserId.has(id));
       if (targets.length === 0) return;
       await Promise.all(targets.map((id) => resetUser.mutateAsync(id)));
@@ -265,48 +259,64 @@ export default function RolePermissionsPage() {
     const draftIds = new Set(draft[bucket]);
     return (
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl">
             {t(`rbac.bucket.${bucket}.help` as const)}
           </p>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => selectAll(bucket)}>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => selectAll(bucket)}
+            >
               {t("rbac.actions.select_all")}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => clearAll(bucket)}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => clearAll(bucket)}
+            >
               {t("rbac.actions.clear")}
             </Button>
           </div>
         </div>
-        <div className="grid sm:grid-cols-2 gap-2">
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2">
           {entries.map((entry) => {
             const checked = draftIds.has(entry.id);
             return (
               <label
                 key={entry.id}
-                className="flex items-start gap-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer"
+                title={entry.id}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer transition-colors",
+                  checked
+                    ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-800/50 dark:bg-emerald-950/30"
+                    : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50",
+                )}
               >
                 <Checkbox
                   checked={checked}
                   onCheckedChange={(v) => toggle(bucket, entry.id, v === true)}
-                  className="mt-0.5"
+                  className="data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
                 />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium break-words">{entry.label}</div>
-                  <div className="text-xs text-muted-foreground font-mono truncate">{entry.id}</div>
-                </div>
+                <span className="text-sm font-medium text-slate-900 dark:text-slate-100 leading-snug min-w-0">
+                  {entry.label}
+                </span>
               </label>
             );
           })}
-          {entries.length === 0 && <div className="text-sm text-muted-foreground">—</div>}
+          {entries.length === 0 ? (
+            <div className="text-sm text-slate-500 col-span-full py-6 text-center">—</div>
+          ) : null}
         </div>
       </div>
     );
   };
 
-  // ---------------------------------------------------------------------
-  // Scope-specific metadata shown above the permission editor.
-  // ---------------------------------------------------------------------
   const roleBadge = savedByRole.has(selectedRole)
     ? t("rbac.badge.custom")
     : t("rbac.badge.defaults");
@@ -322,14 +332,11 @@ export default function RolePermissionsPage() {
     selectedUsers.length === 0
       ? t("rbac.users.none_selected")
       : selectedUsers.length === 1
-      ? overrideByUserId.has(primaryUser!.id)
-        ? t("rbac.users.starting_from_override")
-        : t("rbac.users.starting_from_role", { role: primaryUser!.role })
-      : t("rbac.users.multiple_selected_hint", { count: selectedUsers.length });
+        ? overrideByUserId.has(primaryUser!.id)
+          ? t("rbac.users.starting_from_override")
+          : t("rbac.users.starting_from_role", { role: primaryUser!.role })
+        : t("rbac.users.multiple_selected_hint", { count: selectedUsers.length });
 
-  // ---------------------------------------------------------------------
-  // Top-right action buttons.
-  // ---------------------------------------------------------------------
   const saveDisabled =
     scope === "role"
       ? !dirty || saveRole.isPending
@@ -344,44 +351,61 @@ export default function RolePermissionsPage() {
       ? resetRole.isPending || !savedByRole.has(selectedRole)
       : resetUser.isPending || !selectedHasAnyOverride;
 
+  const showEditor = !loading && !(scope === "users" && selectedUserIds.length === 0);
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold">{t("rbac.title")}</h1>
-            <p className="text-sm text-muted-foreground">{t("rbac.subtitle")}</p>
-          </div>
-        </div>
+    <div className={`${PAGE_SHELL} pb-24 lg:pb-8 space-y-4`}>
+      <header className="min-w-0">
+        <h1 className="text-2xl sm:text-[1.75rem] font-bold tracking-tight text-slate-900 dark:text-white">
+          {t("rbac.title")}
+        </h1>
+        <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+          {t("rbac.subtitle")}
+        </p>
       </header>
 
-      <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-5">
-        {/* Scope toggle */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 gap-2">
-          <label className="text-sm font-medium">{t("rbac.scope.label")}</label>
-          <Tabs value={scope} onValueChange={(v) => setScope(v as Scope)} className="w-auto">
-            <TabsList>
-              <TabsTrigger value="role" className="gap-2">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                {t("rbac.scope.role")}
-              </TabsTrigger>
-              <TabsTrigger value="users" className="gap-2">
-                <Users className="h-3.5 w-3.5" />
-                {t("rbac.scope.users")}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+      <SettingsSection
+        icon={<Users className="h-5 w-5" />}
+        iconClassName="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+        title={t("rbac.scope.label")}
+        description={t("rbac.scope.section_desc")}
+      >
+        <div className="flex flex-wrap gap-1.5 p-1 rounded-xl bg-slate-100/80 dark:bg-slate-800/60 w-fit">
+          {(
+            [
+              { id: "role" as const, label: t("rbac.scope.role"), icon: ShieldCheck },
+              { id: "users" as const, label: t("rbac.scope.users"), icon: Users },
+            ] as const
+          ).map((opt) => {
+            const Icon = opt.icon;
+            const active = scope === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setScope(opt.id)}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
+                  active
+                    ? "bg-white text-emerald-800 shadow-sm dark:bg-slate-900 dark:text-emerald-200"
+                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
 
         {scope === "role" ? (
-          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 gap-2">
-            <label className="text-sm font-medium">{t("rbac.role_label")}</label>
-            <div className="max-w-xs">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
+            <div className="space-y-2 w-full sm:max-w-xs">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                {t("rbac.role_label")}
+              </label>
               <Select value={selectedRole} onValueChange={setSelectedRole}>
-                <SelectTrigger>
+                <SelectTrigger className={cn(settingsFieldClassName, "h-11")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -393,41 +417,48 @@ export default function RolePermissionsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <p className="text-xs text-muted-foreground">{roleBadge}</p>
+            <Badge
+              variant="outline"
+              className={cn(
+                "h-fit text-xs font-medium",
+                savedByRole.has(selectedRole)
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+                  : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-400",
+              )}
+            >
+              {roleBadge}
+            </Badge>
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">{t("rbac.users.select_hint")}</p>
-
-            <div className="border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50 dark:bg-slate-900/40 flex flex-col">
-              {/* Search + bulk controls */}
-              <div className="p-3 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center gap-2">
+            <p className="text-xs text-slate-500 dark:text-slate-400">{t("rbac.users.select_hint")}</p>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50/50 dark:bg-slate-900/40">
+              <div className="p-3 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center gap-2 bg-white dark:bg-slate-900">
                 <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                   <Input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder={t("rbac.users.search_placeholder")}
-                    className="pl-7 h-9"
+                    className={cn(settingsFieldClassName, "pl-9 h-10")}
                   />
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <Button variant="ghost" size="sm" onClick={selectAllVisible}>
+                  <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={selectAllVisible}>
                     {t("rbac.users.select_all_visible")}
                   </Button>
-                  {selectedUserIds.length > 0 && (
-                    <Button variant="ghost" size="sm" onClick={clearSelection}>
+                  {selectedUserIds.length > 0 ? (
+                    <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={clearSelection}>
                       <X className="h-3 w-3 mr-1" />
                       {t("rbac.users.clear_selection")}
                     </Button>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
-              {/* User grid — 1 / 2 / 3 columns depending on viewport. */}
-              <div className="max-h-[26rem] overflow-y-auto p-3">
+              <div className="max-h-[22rem] overflow-y-auto p-3">
                 {filteredUsers.length === 0 ? (
-                  <div className="p-4 text-sm text-muted-foreground">
+                  <div className="p-6 text-sm text-slate-500 text-center">
                     {users.length === 0 ? t("rbac.users.none_available") : "—"}
                   </div>
                 ) : (
@@ -438,36 +469,36 @@ export default function RolePermissionsPage() {
                       return (
                         <label
                           key={u.id}
-                          className={`flex items-center gap-3 px-3 py-2 rounded-md border cursor-pointer transition-colors ${
+                          className={cn(
+                            "flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors",
                             checked
-                              ? "border-primary/40 bg-primary/5 dark:bg-primary/10"
-                              : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                          }`}
+                              ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-800/50 dark:bg-emerald-950/30"
+                              : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50",
+                          )}
                         >
                           <Checkbox
                             checked={checked}
                             onCheckedChange={(v) => toggleUser(u.id, v === true)}
+                            className="data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
                           />
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200 text-xs font-semibold">
                             {userInitials(u)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium truncate">
+                            <div className="text-sm font-medium truncate text-slate-900 dark:text-slate-100">
                               {u.full_name || u.email}
                             </div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {u.email}
-                            </div>
+                            <div className="text-[11px] text-slate-500 truncate">{u.email}</div>
                           </div>
                           <div className="flex flex-col items-end gap-1 shrink-0">
-                            <Badge variant="secondary" className="font-mono text-[10px]">
+                            <Badge variant="secondary" className="text-[10px] font-medium">
                               {u.role}
                             </Badge>
-                            {overriden && (
-                              <Badge className="text-[10px]">
+                            {overriden ? (
+                              <Badge className="text-[10px] bg-emerald-600 hover:bg-emerald-600">
                                 {t("rbac.users.override_badge")}
                               </Badge>
-                            )}
+                            ) : null}
                           </div>
                         </label>
                       );
@@ -476,90 +507,127 @@ export default function RolePermissionsPage() {
                 )}
               </div>
 
-              {/* Footer: selection count + context badges + hint */}
-              <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
+              <div className="px-3 py-2.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
                 <div className="flex items-center gap-2 flex-wrap">
-                  {selectedUserIds.length > 0 && (
-                    <span className="text-muted-foreground">
+                  {selectedUserIds.length > 0 ? (
+                    <span className="text-slate-500">
                       {t("rbac.users.selected_count", { count: selectedUserIds.length })}
                     </span>
-                  )}
-                  {primaryUser && selectedUsers.length === 1 && (
+                  ) : null}
+                  {primaryUser && selectedUsers.length === 1 ? (
                     <>
-                      <Badge variant="secondary" className="font-mono text-[10px]">
+                      <Badge variant="secondary" className="text-[10px]">
                         {primaryUser.role}
                       </Badge>
                       <Badge
                         variant={overrideByUserId.has(primaryUser.id) ? "default" : "outline"}
+                        className="text-[10px]"
                       >
                         {overrideByUserId.has(primaryUser.id)
                           ? t("rbac.users.override_badge")
                           : t("rbac.users.role_badge")}
                       </Badge>
                     </>
-                  )}
+                  ) : null}
                 </div>
-                <p className="text-muted-foreground">{userScopeHint}</p>
+                <p className="text-slate-500">{userScopeHint}</p>
               </div>
             </div>
           </div>
         )}
+      </SettingsSection>
 
+      <SettingsSection
+        icon={<LayoutGrid className="h-5 w-5" />}
+        iconClassName="bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
+        title={t("rbac.permissions_section_title")}
+        description={t("rbac.permissions_section_desc")}
+        actions={
+          dirty ? (
+            <Badge
+              variant="outline"
+              className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+            >
+              {t("rbac.unsaved_badge")}
+            </Badge>
+          ) : null
+        }
+      >
         {loading ? (
-          <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
-        ) : scope === "users" && selectedUserIds.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-6 text-sm text-muted-foreground text-center">
+          <div className="py-10 text-center text-sm text-slate-500">{t("common.loading")}</div>
+        ) : !showEditor ? (
+          <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 px-4 py-10 text-sm text-slate-500 text-center">
             {t("rbac.users.none_selected")}
           </div>
         ) : (
-          <Tabs defaultValue="apps" className="w-full">
-            <TabsList>
-              <TabsTrigger value="apps">
-                {t("rbac.tabs.apps")} ({draft.apps.length})
+          <Tabs
+            value={permTab}
+            onValueChange={(v) => setPermTab(v as "apps" | "widgets" | "actions")}
+            className="w-full"
+          >
+            <TabsList className="h-auto w-full sm:w-auto flex flex-wrap justify-start gap-1 bg-slate-100/80 dark:bg-slate-800/60 p-1 rounded-xl">
+              <TabsTrigger
+                value="apps"
+                className="gap-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-emerald-800 data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-emerald-200"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                {t("rbac.tabs.apps")}
+                <span className="tabular-nums text-[11px] opacity-70">({draft.apps.length})</span>
               </TabsTrigger>
-              <TabsTrigger value="widgets">
-                {t("rbac.tabs.widgets")} ({draft.widgets.length})
+              <TabsTrigger
+                value="widgets"
+                className="gap-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-emerald-800 data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-emerald-200"
+              >
+                <Layers className="h-3.5 w-3.5" />
+                {t("rbac.tabs.widgets")}
+                <span className="tabular-nums text-[11px] opacity-70">({draft.widgets.length})</span>
               </TabsTrigger>
-              <TabsTrigger value="actions">
-                {t("rbac.tabs.actions")} ({draft.actions.length})
+              <TabsTrigger
+                value="actions"
+                className="gap-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-emerald-800 data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-emerald-200"
+              >
+                <Zap className="h-3.5 w-3.5" />
+                {t("rbac.tabs.actions")}
+                <span className="tabular-nums text-[11px] opacity-70">({draft.actions.length})</span>
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="apps" className="pt-4">
+            <TabsContent value="apps" className="mt-4 focus-visible:outline-none">
               {renderBucket("apps")}
             </TabsContent>
-            <TabsContent value="widgets" className="pt-4">
+            <TabsContent value="widgets" className="mt-4 focus-visible:outline-none">
               {renderBucket("widgets")}
             </TabsContent>
-            <TabsContent value="actions" className="pt-4">
+            <TabsContent value="actions" className="mt-4 focus-visible:outline-none">
               {renderBucket("actions")}
             </TabsContent>
           </Tabs>
         )}
+      </SettingsSection>
 
-        {/* Bottom action bar — separated from content with a divider. */}
-        <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              if (scope === "users") setConfirmResetOpen(true);
-              else void handleReset();
-            }}
-            disabled={resetDisabled}
-            className="w-full sm:w-auto"
-          >
-            <RefreshCcw className="mr-2 h-4 w-4" />
-            {t("rbac.actions.reset_defaults")}
-          </Button>
-          <Button
-            onClick={handleSave}
-            disabled={saveDisabled}
-            className="w-full sm:w-auto"
-          >
-            <Save className="mr-2 h-4 w-4" />
-            {saveLabel}
-          </Button>
-        </div>
-      </section>
+      <SettingsStickyActions hint={dirty ? t("settings.save_hint") : undefined}>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 rounded-xl"
+          onClick={() => {
+            if (scope === "users") setConfirmResetOpen(true);
+            else void handleReset();
+          }}
+          disabled={resetDisabled}
+        >
+          <RefreshCcw className="mr-2 h-4 w-4" />
+          {t("rbac.actions.reset_defaults")}
+        </Button>
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={saveDisabled}
+          className="h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5"
+        >
+          <Save className="mr-2 h-4 w-4" />
+          {saveLabel}
+        </Button>
+      </SettingsStickyActions>
 
       <AlertDialog open={confirmResetOpen} onOpenChange={setConfirmResetOpen}>
         <AlertDialogContent>

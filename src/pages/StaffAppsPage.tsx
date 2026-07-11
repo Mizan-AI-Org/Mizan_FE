@@ -17,6 +17,7 @@ import {
   Mic,
   Sparkles,
 } from "lucide-react";
+import { PAGE_SHELL } from "@/lib/page-shell";
 
 type LayoutContext = { query: string };
 
@@ -125,7 +126,7 @@ const StaffAppsPage: React.FC = () => {
   }, []);
 
   return (
-    <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 transition-all duration-300 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
+    <div className={`${PAGE_SHELL} py-6 transition-all duration-300 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
       {/* Header */}
       <div className="flex items-start justify-between mb-6 sm:mb-8">
         <div>

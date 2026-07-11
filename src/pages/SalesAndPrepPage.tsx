@@ -33,6 +33,7 @@ import { useLanguage } from "../hooks/use-language";
 import { exportPrepListToPDF, exportPrepListToExcel } from "@/utils/prepListExport";
 import { format, addDays } from "date-fns";
 import { toast } from "sonner";
+import { PAGE_SHELL } from "@/lib/page-shell";
 
 const ORDER_TYPE_LABELS: Record<string, string> = {
   DINE_IN: "Dine In",
@@ -194,8 +195,8 @@ export default function SalesAndPrepPage() {
   const showMiyaCard = miyaRec?.miya_recommendation && !isConnectPosPrompt;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50/80 dark:from-[#0f1419] dark:via-slate-950 dark:to-slate-950/80 p-4 md:p-6 lg:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50/80 dark:from-[#0f1419] dark:via-slate-950 dark:to-slate-950/80">
+      <div className={`${PAGE_SHELL} py-6 md:py-8 space-y-6`}>
         <header className="space-y-1">
           <h1 className="text-2xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
             {t("dashboard.sales.page_title") || "Sales Analysis & Prep List"}

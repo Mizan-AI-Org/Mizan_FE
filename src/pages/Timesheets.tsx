@@ -32,6 +32,7 @@ import { Clock, DollarSign, CheckCircle, AlertCircle, Download, Edit, ArrowUpDow
 import { toast } from 'sonner';
 import AssignedShiftModal from '@/components/schedule/AssignedShiftModal';
 import { API_BASE } from "@/lib/api";
+import { PAGE_SHELL } from "@/lib/page-shell";
 
 
 interface TimesheetEntry {
@@ -532,7 +533,7 @@ const Timesheets: React.FC = () => {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 space-y-6">
+    <div className={`${PAGE_SHELL} space-y-6`}>
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Timesheets</h1>
         <p className="text-gray-600 mt-1">Manage and approve staff timesheets</p>

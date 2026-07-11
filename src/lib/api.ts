@@ -449,6 +449,7 @@ export class BackendService {
       link_url: string;
       icon: string;
       category_id?: string | null;
+      routing_keywords?: string[];
       created_at?: string | null;
     }>;
   }> {
@@ -590,6 +591,79 @@ export class BackendService {
   ): Promise<import("./types").CategoryTasksResponse> {
     const qs = `?bucket=${encodeURIComponent(bucket)}&limit=${encodeURIComponent(String(limit))}`;
     return this.fetchWithError(`/dashboard/category-tasks/${qs}`);
+  }
+
+  async searchDashboardOps(q: string): Promise<{
+    success: boolean;
+    staff: Array<{
+      id: string;
+      name: string;
+      phone: string;
+      role: string;
+      is_absent: boolean;
+      open_tasks: Array<{ id: string; title: string; status: string }>;
+    }>;
+    tasks: Array<{
+      id: string;
+      title: string;
+      status: string;
+      category?: string | null;
+      assigned_to?: string | null;
+      assignee_absent?: boolean;
+      validation_label?: string | null;
+      has_photo_proof?: boolean;
+      href?: string;
+    }>;
+    staff_requests: Array<{
+      id: string;
+      subject: string;
+      category?: string;
+      status: string;
+      assignee?: string | null;
+      assignee_absent?: boolean;
+      href?: string;
+    }>;
+  }> {
+    const qs = `?q=${encodeURIComponent(q)}`;
+    return this.fetchWithError(`/dashboard/ops-search/${qs}`);
+  }
+
+  async getStaffDailyProgress(): Promise<{
+    success: boolean;
+    date: string;
+    staff: Array<{
+      id: string;
+      name: string;
+      role: string;
+      is_absent: boolean;
+      total: number;
+      done: number;
+      open: number;
+      pct: number;
+    }>;
+  }> {
+    return this.fetchWithError("/dashboard/staff-daily-progress/");
+  }
+
+  async validateDashboardTask(taskId: string): Promise<{ success: boolean; validation_label?: string }> {
+    return this.fetchWithError(`/dashboard/tasks/${taskId}/validate/`, { method: "POST", body: "{}" });
+  }
+
+  async requireDashboardTaskValidation(
+    taskId: string,
+    required = true,
+  ): Promise<{ success: boolean; validation_label?: string | null }> {
+    return this.fetchWithError(`/dashboard/tasks/${taskId}/require-validation/`, {
+      method: "POST",
+      body: JSON.stringify({ required }),
+    });
+  }
+
+  async validateStaffCapturedOrder(orderId: string): Promise<{ success: boolean; validation_label?: string }> {
+    return this.fetchWithError(`/dashboard/captured-orders/${orderId}/validate/`, {
+      method: "POST",
+      body: "{}",
+    });
   }
 
   /**
@@ -806,6 +880,7 @@ export class BackendService {
     icon?: string;
     category_id?: string | null;
     add_to_dashboard?: boolean;
+    routing_keywords?: string[];
   }): Promise<{
     widget: {
       id: string;
@@ -815,6 +890,7 @@ export class BackendService {
       link_url: string;
       icon: string;
       category_id?: string | null;
+      routing_keywords?: string[];
     };
   }> {
     return this.fetchWithError("/dashboard/custom-widgets/create/", {
@@ -831,6 +907,7 @@ export class BackendService {
       link_url?: string;
       icon?: string;
       category_id?: string | null;
+      routing_keywords?: string[];
     },
   ): Promise<{
     widget: {
@@ -841,6 +918,7 @@ export class BackendService {
       link_url: string;
       icon: string;
       category_id?: string | null;
+      routing_keywords?: string[];
     };
   }> {
     return this.fetchWithError(`/dashboard/custom-widgets/${id}/`, {
