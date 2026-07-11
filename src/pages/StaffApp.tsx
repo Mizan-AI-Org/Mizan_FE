@@ -77,6 +77,7 @@ import {
     Copy,
     Check,
     Share2,
+    ArrowRightLeft,
 } from "lucide-react";
 import { API_BASE, BACKEND_URL, BackendService, api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -88,6 +89,8 @@ import { format, parseISO } from "date-fns";
 import StaffRequestsTab from "@/components/staff/StaffRequestsTab";
 import DeleteStaffConfirmation from "@/components/staff/DeleteStaffConfirmation";
 import DeactivateStaffConfirmation from "@/components/staff/DeactivateStaffConfirmation";
+import MoveStaffBranchDialog from "@/components/staff/MoveStaffBranchDialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { splitInviteRoleSelection, useBusinessVertical } from "@/hooks/use-business-vertical";
 import { useBusinessLocations } from "@/hooks/use-business-locations";
 import {
@@ -108,6 +111,8 @@ interface StaffMember {
     role_display?: string;
     is_active: boolean;
     phone?: string;
+    primary_location?: string | null;
+    primary_location_data?: { id: string; name: string; is_primary?: boolean } | null;
     profile?: {
         join_date?: string;
         hourly_rate?: number;
@@ -894,8 +899,15 @@ const TeamTab: React.FC = () => {
     const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
     const [staffToDelete, setStaffToDelete] = useState<{ id: string; name: string } | null>(null);
     const [staffToDeactivate, setStaffToDeactivate] = useState<{ id: string; name: string } | null>(null);
+    const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
+    const [selectedStaffById, setSelectedStaffById] = useState<Record<string, StaffMember>>({});
+    const [branchFilter, setBranchFilter] = useState<string>("all");
+    const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+    const [moveTargets, setMoveTargets] = useState<StaffMember[]>([]);
     const { user, logout } = useAuth() as AuthContextType;
     const queryClient = useQueryClient();
+    const { data: tenantLocations = [] } = useBusinessLocations();
+    const multiBranch = tenantLocations.length >= 2;
 
     const fetchDocuments = async (staffId: string) => {
         try {
@@ -927,9 +939,18 @@ const TeamTab: React.FC = () => {
     }, [isViewModalOpen, isEditModalOpen, selectedMemberId]);
 
     const { data: staffData, isLoading, error, refetch: refetchStaff } = useQuery<PaginatedResponse<StaffMember>>({
-        queryKey: ["staff-members", staffPage, staffPageSize, searchQuery],
+        queryKey: ["staff-members", staffPage, staffPageSize, searchQuery, branchFilter],
         queryFn: async () => {
-            const response = await fetch(`${API_BASE}/users/?is_active=true&page=${staffPage}&page_size=${staffPageSize}&search=${encodeURIComponent(searchQuery)}`, {
+            const params = new URLSearchParams({
+                is_active: "true",
+                page: String(staffPage),
+                page_size: String(staffPageSize),
+                search: searchQuery,
+            });
+            if (branchFilter && branchFilter !== "all") {
+                params.set("primary_location", branchFilter);
+            }
+            const response = await fetch(`${API_BASE}/users/?${params.toString()}`, {
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem("access_token")}`,
                 },
@@ -974,6 +995,59 @@ const TeamTab: React.FC = () => {
     const staff = Array.isArray(staffData) ? staffData : (staffData?.results || []);
     const invitations = Array.isArray(invitesData) ? invitesData : (invitesData?.results || []);
     const pendingActivations: PendingActivation[] = activationPendingData?.pending ?? [];
+
+    const filteredStaff = staff;
+
+    const clearSelection = () => {
+        setSelectedStaffIds([]);
+        setSelectedStaffById({});
+    };
+
+    const toggleStaffSelected = (member: StaffMember) => {
+        setSelectedStaffIds((prev) => {
+            if (prev.includes(member.id)) {
+                setSelectedStaffById((map) => {
+                    const next = { ...map };
+                    delete next[member.id];
+                    return next;
+                });
+                return prev.filter((x) => x !== member.id);
+            }
+            setSelectedStaffById((map) => ({ ...map, [member.id]: member }));
+            return [...prev, member.id];
+        });
+    };
+
+    const toggleSelectAllVisible = () => {
+        const ids = filteredStaff.map((m) => m.id);
+        const allSelected = ids.length > 0 && ids.every((id) => selectedStaffIds.includes(id));
+        if (allSelected) {
+            setSelectedStaffIds((prev) => prev.filter((id) => !ids.includes(id)));
+            setSelectedStaffById((map) => {
+                const next = { ...map };
+                ids.forEach((id) => delete next[id]);
+                return next;
+            });
+        } else {
+            setSelectedStaffIds((prev) => Array.from(new Set([...prev, ...ids])));
+            setSelectedStaffById((map) => {
+                const next = { ...map };
+                filteredStaff.forEach((m) => {
+                    next[m.id] = m;
+                });
+                return next;
+            });
+        }
+    };
+
+    const openMoveDialog = (members: StaffMember[]) => {
+        if (members.length === 0) {
+            toast.error("Select at least one staff member");
+            return;
+        }
+        setMoveTargets(members);
+        setMoveDialogOpen(true);
+    };
 
     const handleResendInvite = async (inviteId: string) => {
         try {
@@ -2568,6 +2642,20 @@ const TeamTab: React.FC = () => {
                 staffName={staffToDeactivate?.name ?? null}
                 onSuccess={() => { refetchStaff(); setIsEditModalOpen(false); setSelectedMember(null); }}
             />
+            <MoveStaffBranchDialog
+                open={moveDialogOpen}
+                onOpenChange={(open) => {
+                    setMoveDialogOpen(open);
+                    if (!open) setMoveTargets([]);
+                }}
+                staff={moveTargets}
+                locations={tenantLocations}
+                onMoved={() => {
+                    refetchStaff();
+                    clearSelection();
+                    setMoveTargets([]);
+                }}
+            />
 
             {/* Invite link ready (after sending invite – modal is closed) */}
             {lastInviteLink && (
@@ -2623,8 +2711,8 @@ const TeamTab: React.FC = () => {
             )}
 
             {/* Search & Actions */}
-            <div className="flex items-center justify-between gap-3">
-                <div className="relative flex-1 max-w-md">
+            <div className="flex flex-wrap items-center gap-3">
+                <div className="relative flex-1 min-w-[200px] max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
                         placeholder={t("staff.search")}
@@ -2633,6 +2721,25 @@ const TeamTab: React.FC = () => {
                         className="pl-10 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
                     />
                 </div>
+                {multiBranch ? (
+                    <select
+                        value={branchFilter}
+                        onChange={(e) => {
+                            setBranchFilter(e.target.value);
+                            setStaffPage(1);
+                            clearSelection();
+                        }}
+                        className="h-10 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-700 dark:text-slate-200"
+                        aria-label="From branch"
+                    >
+                        <option value="all">All branches</option>
+                        {tenantLocations.map((loc) => (
+                            <option key={loc.id} value={loc.id}>
+                                {loc.name}
+                            </option>
+                        ))}
+                    </select>
+                ) : null}
                 <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
                     <button
                         onClick={() => setViewMode('grid')}
@@ -2659,18 +2766,49 @@ const TeamTab: React.FC = () => {
                         <List className="w-4 h-4" />
                     </button>
                 </div>
-                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setIsInviteModalOpen(true)}>
+                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white ml-auto" onClick={() => setIsInviteModalOpen(true)}>
                     <PlusCircle className="w-4 h-4 mr-2" />
                     {t("staff.add")}
                 </Button>
             </div>
+
+            {multiBranch && selectedStaffIds.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900 px-4 py-3">
+                    <span className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
+                        {selectedStaffIds.length} selected
+                        {branchFilter !== "all"
+                            ? ` · ${tenantLocations.find((l) => l.id === branchFilter)?.name || ""}`
+                            : ""}
+                    </span>
+                    <Button
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={() => {
+                            const targets = selectedStaffIds
+                                .map((id) => selectedStaffById[id])
+                                .filter(Boolean) as StaffMember[];
+                            openMoveDialog(targets);
+                        }}
+                    >
+                        <ArrowRightLeft className="w-4 h-4 mr-1.5" />
+                        Move to branch
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={clearSelection}
+                    >
+                        Clear
+                    </Button>
+                </div>
+            ) : null}
 
             {/* Staff Directory */}
             <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
                 <CardContent className="pt-6">
                     {isLoading ? (
                         viewMode === 'list' ? (
-                            <TableSkeleton rowCount={6} colCount={5} />
+                            <TableSkeleton rowCount={6} colCount={multiBranch ? 6 : 5} />
                         ) : (
                             <CardGridSkeleton count={8} columns="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" />
                         )
@@ -2678,21 +2816,45 @@ const TeamTab: React.FC = () => {
                         <div className="text-center py-8 text-red-500">{t("staff.error_loading_staff")}</div>
                     ) : (
                         <>
-                            {staff && staff.length > 0 ? (
+                            {filteredStaff && filteredStaff.length > 0 ? (
                                 viewMode === 'list' ? (
                                     <Table>
                                         <TableHeader>
                                             <TableRow className="border-slate-100 dark:border-slate-800">
+                                                {multiBranch ? (
+                                                    <TableHead className="w-10">
+                                                        <Checkbox
+                                                            checked={
+                                                                filteredStaff.length > 0 &&
+                                                                filteredStaff.every((m) => selectedStaffIds.includes(m.id))
+                                                            }
+                                                            onCheckedChange={() => toggleSelectAllVisible()}
+                                                            aria-label="Select all on page"
+                                                        />
+                                                    </TableHead>
+                                                ) : null}
                                                 <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.table_name")}</TableHead>
                                                 <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.table_contact")}</TableHead>
                                                 <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.table_role")}</TableHead>
+                                                {multiBranch ? (
+                                                    <TableHead className="text-slate-500 dark:text-slate-400">Branch</TableHead>
+                                                ) : null}
                                                 <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.table_status")}</TableHead>
                                                 <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.table_actions")}</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {staff.map((member) => (
+                                            {filteredStaff.map((member) => (
                                                 <TableRow key={member.id} className="border-slate-100 dark:border-slate-800">
+                                                    {multiBranch ? (
+                                                        <TableCell>
+                                                            <Checkbox
+                                                                checked={selectedStaffIds.includes(member.id)}
+                                                                onCheckedChange={() => toggleStaffSelected(member)}
+                                                                aria-label={`Select ${member.first_name}`}
+                                                            />
+                                                        </TableCell>
+                                                    ) : null}
                                                     <TableCell className="font-medium text-slate-900 dark:text-white">
                                                         {member.first_name} {member.last_name}
                                                     </TableCell>
@@ -2706,13 +2868,32 @@ const TeamTab: React.FC = () => {
                                                             {staffRoleLabel(member)}
                                                         </Badge>
                                                     </TableCell>
+                                                    {multiBranch ? (
+                                                        <TableCell className="text-slate-600 dark:text-slate-300 text-sm">
+                                                            <span className="inline-flex items-center gap-1">
+                                                                <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                                                {member.primary_location_data?.name || "—"}
+                                                            </span>
+                                                        </TableCell>
+                                                    ) : null}
                                                     <TableCell>
                                                         <Badge className={member.is_active ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-red-100 text-red-700"}>
                                                             {member.is_active ? t("common.active") : t("common.inactive")}
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="flex items-center gap-2">
+                                                        <div className="flex items-center gap-1">
+                                                            {multiBranch ? (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8"
+                                                                    onClick={() => openMoveDialog([member])}
+                                                                    title="Move to branch"
+                                                                >
+                                                                    <ArrowRightLeft className="h-4 w-4" />
+                                                                </Button>
+                                                            ) : null}
                                                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditProfile(member)} title={t("common.edit_profile")}>
                                                                 <Edit className="h-4 w-4" />
                                                             </Button>
@@ -2727,8 +2908,26 @@ const TeamTab: React.FC = () => {
                                     </Table>
                                 ) : (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                        {staff.map((member) => (
-                                            <Card key={member.id} className="group relative border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-lg transition-all duration-300 overflow-hidden rounded-2xl">
+                                        {filteredStaff.map((member) => {
+                                            const isSelected = selectedStaffIds.includes(member.id);
+                                            return (
+                                            <Card
+                                                key={member.id}
+                                                className={cn(
+                                                    "group relative border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-lg transition-all duration-300 overflow-hidden rounded-2xl",
+                                                    isSelected && "ring-2 ring-emerald-500 border-emerald-300",
+                                                )}
+                                            >
+                                                {multiBranch ? (
+                                                    <div className="absolute top-3 left-3 z-30">
+                                                        <Checkbox
+                                                            checked={isSelected}
+                                                            onCheckedChange={() => toggleStaffSelected(member)}
+                                                            className="bg-white border-slate-300 shadow-sm"
+                                                            aria-label={`Select ${member.first_name}`}
+                                                        />
+                                                    </div>
+                                                ) : null}
                                                 <div className="h-24 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center relative overflow-hidden">
                                                     <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                                                     <Avatar className="h-14 w-14 border-2 border-white dark:border-slate-700 shadow-lg transition-transform duration-500 group-hover:scale-105">
@@ -2753,15 +2952,31 @@ const TeamTab: React.FC = () => {
                                                             <Edit className="w-3.5 h-3.5 mr-1" />
                                                             Edit
                                                         </Button>
+                                                        {multiBranch ? (
+                                                            <Button
+                                                                size="sm"
+                                                                className="h-8 bg-white hover:bg-white text-slate-700 rounded-lg shadow-sm"
+                                                                onClick={() => openMoveDialog([member])}
+                                                            >
+                                                                <ArrowRightLeft className="w-3.5 h-3.5 mr-1" />
+                                                                Move
+                                                            </Button>
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                                 <CardContent className="p-3 text-center">
                                                     <h3 className="font-bold text-slate-900 dark:text-white truncate">
                                                         {member.first_name} {member.last_name}
                                                     </h3>
-                                                    <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:indigo-400 mt-1 mb-2">
+                                                    <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mt-1 mb-2">
                                                         {staffRoleLabel(member)}
                                                     </p>
+                                                    {multiBranch && member.primary_location_data?.name ? (
+                                                        <p className="flex items-center justify-center gap-1 text-[11px] text-slate-500 mb-2">
+                                                            <MapPin className="w-3 h-3 shrink-0" />
+                                                            <span className="truncate">{member.primary_location_data.name}</span>
+                                                        </p>
+                                                    ) : null}
                                                     <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-3">
                                                         {(() => {
                                                             const email = member.email || "";
@@ -2809,7 +3024,8 @@ const TeamTab: React.FC = () => {
                                                     </Badge>
                                                 </CardContent>
                                             </Card>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )
                             ) : (

@@ -32,14 +32,72 @@ export type CashSessionToday = {
   expected_cash: number | null;
 };
 
+export type BranchStaffMember = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  role_display: string;
+  phone: string;
+  email: string;
+  is_home: boolean;
+  clocked_in: boolean;
+  hourly_rate: number | null;
+  primary_location?: string | null;
+  primary_location_data?: { id: string; name: string } | null;
+};
+
+export type PerformanceDay = {
+  date: string;
+  scheduled: number;
+  completed: number;
+  no_shows: number;
+  mismatches: number;
+  hours_worked: number;
+  labor_cost: number;
+};
+
+export type PerformanceWindow = {
+  scheduled_shifts: number;
+  completed_shifts: number;
+  no_shows: number;
+  attendance_pct: number | null;
+  mismatches: number;
+  hours_worked: number;
+  labor_cost: number;
+};
+
+export type BranchPerformance = {
+  window_days: number;
+  summary: PerformanceWindow;
+  last_7_days: PerformanceWindow;
+  daily: PerformanceDay[];
+};
+
+export type LocationDetailRow = LocationPortfolioRow & {
+  address?: string;
+  timezone?: string;
+  geofence_enabled?: boolean;
+  radius_m?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
+};
+
 export type LocationDetail = Pick<
   PortfolioSummary,
   "generated_at" | "today" | "tenant"
 > & {
-  location: LocationPortfolioRow;
+  location: LocationDetailRow;
   shifts_today: ShiftToday[];
   clock_events_today: ClockEventToday[];
   cash_sessions_today: CashSessionToday[];
+  staff: BranchStaffMember[];
+  staff_summary: {
+    total: number;
+    home: number;
+    clocked_in_now: number;
+  };
+  performance: BranchPerformance;
 };
 
 function getAuthToken() {
