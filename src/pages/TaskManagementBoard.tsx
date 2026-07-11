@@ -248,7 +248,7 @@ export default function TaskManagementBoard() {
   };
 
   return (
-    <div className="h-full flex flex-col space-y-6 max-w-7xl mx-auto dark:bg-slate-900">
+    <div className="h-full flex flex-col space-y-6 w-full dark:bg-slate-900">
       {/* Header Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
@@ -284,8 +284,8 @@ export default function TaskManagementBoard() {
           },
         ].map((metric, i) => (
           <Card key={i} className="border-none shadow-sm dark:bg-slate-800">
-            <CardContent className="p-4 flex items-center justify-between">
-              <div>
+            <CardContent className="p-4 flex items-center justify-between gap-3 min-h-[88px]">
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{metric.label}</p>
                 <div className="flex items-baseline space-x-2">
                   <h2 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{metric.value}</h2>
@@ -297,7 +297,7 @@ export default function TaskManagementBoard() {
                 </div>
                 {metric.subtext && <p className="text-xs text-slate-500 mt-1">{metric.subtext}</p>}
               </div>
-              <div className={cn("p-2 rounded-lg", metric.bg)}>
+              <div className={cn("p-2.5 rounded-lg shrink-0 self-center", metric.bg)}>
                 <metric.icon className={cn("w-5 h-5", metric.color)} />
               </div>
             </CardContent>
@@ -308,19 +308,17 @@ export default function TaskManagementBoard() {
       {/* Staff Live Progress Section */}
       <Card className="border-none shadow-sm dark:bg-slate-800 flex-1">
         <CardHeader className="border-b border-slate-100 dark:border-slate-700 pb-4">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
               <CardTitle className="text-xl font-bold flex items-center gap-2">
-                <User className="w-5 h-5 text-indigo-500" />
+                <User className="w-5 h-5 text-indigo-500 shrink-0" />
                 {t("live_board.staff_live_progress")}
               </CardTitle>
               <p className="text-sm text-slate-500 mt-1">{t("live_board.staff_live_progress_desc")}</p>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="font-normal">
-                {t("live_board.active_staff", { count: staffMetrics.length })}
-              </Badge>
-            </div>
+            <Badge variant="outline" className="font-normal shrink-0 self-start">
+              {t("live_board.active_staff", { count: staffMetrics.length })}
+            </Badge>
           </div>
         </CardHeader>
         <CardContent className="p-0">

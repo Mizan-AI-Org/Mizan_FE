@@ -80,6 +80,7 @@ import {
     ArrowRightLeft,
 } from "lucide-react";
 import { API_BASE, BACKEND_URL, BackendService, api } from "@/lib/api";
+import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
@@ -2711,14 +2712,14 @@ const TeamTab: React.FC = () => {
             )}
 
             {/* Search & Actions */}
-            <div className="flex flex-wrap items-center gap-3">
-                <div className="relative flex-1 min-w-[200px] max-w-md">
+            <div className="flex w-full flex-wrap items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3">
+                <div className="relative flex-1 min-w-[200px] sm:max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
                         placeholder={t("staff.search")}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                        className="pl-10 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
                     />
                 </div>
                 {multiBranch ? (
@@ -2919,7 +2920,7 @@ const TeamTab: React.FC = () => {
                                                 )}
                                             >
                                                 {multiBranch ? (
-                                                    <div className="absolute top-3 left-3 z-30">
+                                                    <div className="absolute top-4 left-4 z-30">
                                                         <Checkbox
                                                             checked={isSelected}
                                                             onCheckedChange={() => toggleStaffSelected(member)}
@@ -4009,52 +4010,48 @@ export default function StaffApp() {
     };
 
     return (
-        <div className="min-h-screen p-4 md:p-6 lg:p-8">
-            <div className="max-w-7xl mx-auto space-y-6">
-                {/* Header */}
-                <header className="mb-6">
-                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">{t("staff.page.title")}</h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                        {t("staff.page.subtitle")}
-                    </p>
-                </header>
+        <div className={`${PAGE_SHELL_PADDED} space-y-6`}>
+            <header className="space-y-1">
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{t("staff.page.title")}</h1>
+                <p className="text-slate-500 dark:text-slate-400 text-sm">
+                    {t("staff.page.subtitle")}
+                </p>
+            </header>
 
-                {/* Tabbed Interface */}
-                <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-                    <TabsList className={`w-full grid ${showRequestsTab ? "grid-cols-5" : "grid-cols-4"} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl mb-6`}>
-                        <TabsTrigger value="team" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all">
-                            <Users className="w-4 h-4 mr-2" />
-                            {t("staff.tabs.team")}
-                        </TabsTrigger>
-                        <TabsTrigger value="presence" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all">
-                            <UserCheck className="w-4 h-4 mr-2" />
-                            {t("staff.tabs.presence")}
-                        </TabsTrigger>
-                        <TabsTrigger value="attendance" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all">
-                            <Clock className="w-4 h-4 mr-2" />
-                            {t("staff.tabs.attendance")}
-                        </TabsTrigger>
-                        {showRequestsTab && (
-                            <TabsTrigger value="requests" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all">
-                                <Inbox className="w-4 h-4 mr-2" />
-                                {t("staff.tabs.requests")}
-                            </TabsTrigger>
-                        )}
-                        <TabsTrigger value="insights" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-4 py-2 text-sm font-semibold transition-all">
-                            <TrendingUp className="w-4 h-4 mr-2" />
-                            {t("staff.tabs.insights")}
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="presence"><PresenceTab /></TabsContent>
-                    <TabsContent value="team"><TeamTab /></TabsContent>
-                    <TabsContent value="attendance"><AttendanceTab /></TabsContent>
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-6">
+                <TabsList className={`w-full grid h-auto ${showRequestsTab ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-2 sm:grid-cols-4"} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl`}>
+                    <TabsTrigger value="team" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
+                        <Users className="w-4 h-4 mr-2 shrink-0" />
+                        {t("staff.tabs.team")}
+                    </TabsTrigger>
+                    <TabsTrigger value="presence" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
+                        <UserCheck className="w-4 h-4 mr-2 shrink-0" />
+                        {t("staff.tabs.presence")}
+                    </TabsTrigger>
+                    <TabsTrigger value="attendance" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
+                        <Clock className="w-4 h-4 mr-2 shrink-0" />
+                        {t("staff.tabs.attendance")}
+                    </TabsTrigger>
                     {showRequestsTab && (
-                        <TabsContent value="requests"><StaffRequestsTab /></TabsContent>
+                        <TabsTrigger value="requests" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
+                            <Inbox className="w-4 h-4 mr-2 shrink-0" />
+                            {t("staff.tabs.requests")}
+                        </TabsTrigger>
                     )}
-                    <TabsContent value="insights"><InsightsTab /></TabsContent>
-                </Tabs>
-            </div>
+                    <TabsTrigger value="insights" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
+                        <TrendingUp className="w-4 h-4 mr-2 shrink-0" />
+                        {t("staff.tabs.insights")}
+                    </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="presence" className="mt-0"><PresenceTab /></TabsContent>
+                <TabsContent value="team" className="mt-0"><TeamTab /></TabsContent>
+                <TabsContent value="attendance" className="mt-0"><AttendanceTab /></TabsContent>
+                {showRequestsTab && (
+                    <TabsContent value="requests" className="mt-0"><StaffRequestsTab /></TabsContent>
+                )}
+                <TabsContent value="insights" className="mt-0"><InsightsTab /></TabsContent>
+            </Tabs>
         </div>
     );
 }

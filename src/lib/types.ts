@@ -105,6 +105,11 @@ export interface StaffCapturedOrderRow {
     created_at: string;
     updated_at: string;
     recorded_by_name: string | null;
+    requires_manager_validation?: boolean;
+    manager_validated_at?: string | null;
+    manager_validated?: boolean | null;
+    validation_label?: string | null;
+    detected_station?: string | null;
 }
 
 /** PATCH body for staff-captured orders (partial update). */
@@ -118,6 +123,8 @@ export type StaffCapturedOrderPatchBody = Partial<{
     special_instructions: string;
     channel: StaffCapturedOrderRow["channel"];
     fulfillment_status: StaffCapturedOrderFulfillmentStatus;
+    detected_station: string;
+    requires_manager_validation: boolean;
 }>;
 
 export interface DailyKPI {
@@ -253,6 +260,14 @@ export interface DashboardTaskDemandItem {
     } | null;
     created_at: string;
     updated_at: string;
+    /** Cross-cutting manager validation (non-blocking). */
+    requires_manager_validation?: boolean;
+    manager_validated?: boolean | null;
+    validation_label?: string | null;
+    assignee_absent?: boolean;
+    has_photo_proof?: boolean;
+    require_photo_proof?: boolean;
+    proof_media_url?: string | null;
 }
 
 /** Bucket id served by GET /api/dashboard/category-tasks/. */

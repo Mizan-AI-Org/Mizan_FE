@@ -28,6 +28,7 @@ import {
   Activity,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { PAGE_SHELL } from "@/lib/page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -211,7 +212,7 @@ export default function OperationalIssuesPage() {
       {/* Widened max-w-7xl so the ranked list + stat strip breathe on
           desktop; the layout shell already provides the top-level
           "Back to Dashboard" pill, so no in-page back affordance. */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className={`${PAGE_SHELL} py-6 space-y-6`}>
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex items-center gap-3">

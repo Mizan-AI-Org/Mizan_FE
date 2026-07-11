@@ -18,6 +18,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
+import { PAGE_SHELL } from "@/lib/page-shell";
 import { DailyKPI } from "../lib/types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -82,7 +83,7 @@ export default function InventoryManagement() {
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans antialiased text-slate-900 pt-4 pb-8">
-            <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-6">
+            <div className={`${PAGE_SHELL} py-6 md:py-8 space-y-6`}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
                     <div>
                         <h1 className="text-3xl font-black text-gray-900 tracking-tight">Inventory Overview</h1>

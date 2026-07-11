@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CalendarDays, CloudDownload, RefreshCw, Plug, Users } from "lucide-react";
+import { PAGE_SHELL } from "@/lib/page-shell";
 import { toast } from "sonner";
 
 /** Backend errors that mean no provider / credentials (not upstream/API outages). */
@@ -79,7 +80,7 @@ export default function ReservationsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1300px] px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className={`${PAGE_SHELL} py-8 space-y-6`}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">

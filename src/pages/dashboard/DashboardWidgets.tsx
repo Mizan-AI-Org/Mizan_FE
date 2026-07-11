@@ -122,6 +122,7 @@ export const DASHBOARD_WIDGET_IDS = [
   "team_medical_service",
   "meetings_reminders",
   "clock_ins",
+  "staff_daily_progress",
   "incidents",
   // Category-bucketed widgets backed by /api/dashboard/category-tasks/.
   // Each one renders the top-N pressing tasks for one Miya-curated lane.
@@ -168,6 +169,7 @@ export const WIDGET_ADD_ICONS: Record<DashboardWidgetId, LucideIcon> = {
   team_medical_service: Heart,
   meetings_reminders: CalendarDays,
   clock_ins: Clock,
+  staff_daily_progress: TrendingUp,
   incidents: ShieldAlert,
   urgent_top: Flame,
   human_resources: Briefcase,
@@ -201,6 +203,7 @@ export const WIDGET_ADD_DESC_KEYS: Record<DashboardWidgetId, string> = {
   team_medical_service: "dashboard.widget_add.team_medical_service",
   meetings_reminders: "dashboard.widget_add.meetings_reminders",
   clock_ins: "dashboard.widget_add.clock_ins",
+  staff_daily_progress: "dashboard.widget_add.staff_daily_progress",
   incidents: "dashboard.widget_add.incidents",
   urgent_top: "dashboard.widget_add.urgent_top",
   human_resources: "dashboard.widget_add.human_resources",
@@ -244,6 +247,7 @@ const WIDGET_ID_TO_CATEGORY: Record<DashboardWidgetId, DashboardWidgetCategoryId
   team_medical_service: "general",
   meetings_reminders: "general",
   clock_ins: "general",
+  staff_daily_progress: "general",
   incidents: "general",
   urgent_top: "general",
   human_resources: "general",
@@ -285,6 +289,7 @@ export function getWidgetCategory(id: DashboardWidgetId): DashboardWidgetCategor
  */
 export const DEFAULT_DASHBOARD_WIDGET_ORDER: DashboardWidgetId[] = [
   "clock_ins",
+  "staff_daily_progress",
   "urgent_top",
   "human_resources",
   "meetings_reminders",
@@ -555,6 +560,10 @@ const CUSTOM_WIDGET_TITLE_ALIASES: Record<string, DashboardWidgetId> = {
   "clocking": "clock_ins",
   "attendance": "clock_ins",
   "pointage": "clock_ins",
+  // staff_daily_progress
+  "staff progress": "staff_daily_progress",
+  "staff daily progress": "staff_daily_progress",
+  "daily progress": "staff_daily_progress",
   // incidents
   "incidents": "incidents",
   "incident": "incidents",
@@ -656,6 +665,7 @@ export type DashboardCustomWidgetDef = {
   link_url: string;
   icon: string;
   category_id?: string | null;
+  routing_keywords?: string[];
   created_at?: string | null;
 };
 
@@ -3039,6 +3049,131 @@ function formatClockInTime(iso: string, locale: string): string {
   }
 }
 
+function StaffDailyProgressCard({
+  cardBase,
+  cardHeaderBase,
+  t,
+  navigate,
+}: {
+  cardBase: string;
+  cardHeaderBase: string;
+  t: (key: string) => string;
+  navigate: NavigateFunction;
+}) {
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: ["dashboard", "staff-daily-progress"],
+    queryFn: () => api.getStaffDailyProgress(),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    retry: 2,
+    refetchOnMount: "always",
+  });
+
+  const staff = data?.staff ?? [];
+
+  const goToStaff = React.useCallback(() => {
+    navigate("/dashboard/staff-app");
+  }, [navigate]);
+
+  return (
+    <Card
+      className={cn(cardBase, "flex flex-col cursor-pointer")}
+      onClick={goToStaff}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          goToStaff();
+        }
+      }}
+    >
+      <CardHeader className={cardHeaderBase}>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/12 text-emerald-600 dark:text-emerald-400">
+            <TrendingUp className="h-4 w-4" aria-hidden />
+          </div>
+          <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+            {t("dashboard.staff_daily_progress.title")}
+          </CardTitle>
+        </div>
+        {data?.date ? (
+          <span className="shrink-0 text-[10px] font-semibold rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+            {data.date}
+          </span>
+        ) : null}
+      </CardHeader>
+
+      <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-4 px-5">
+        <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+          {isLoading ? (
+            <div className="py-6 text-center text-sm text-slate-400">{t("dashboard.staff_daily_progress.loading")}</div>
+          ) : isError ? (
+            <div className="py-6 flex flex-col items-center gap-2 text-center">
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t("dashboard.staff_daily_progress.error")}</p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 px-3 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  refetch();
+                }}
+                disabled={isFetching}
+              >
+                {t("dashboard.staff_daily_progress.retry")}
+              </Button>
+            </div>
+          ) : staff.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t("dashboard.staff_daily_progress.empty")}</p>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {staff.map((row) => {
+                const pct = Math.max(0, Math.min(100, Number(row.pct) || 0));
+                return (
+                  <li
+                    key={row.id}
+                    className="rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-900 dark:text-white" title={row.name}>
+                        {row.name || t("dashboard.staff_daily_progress.fallback_name")}
+                      </div>
+                      {row.is_absent ? (
+                        <Badge
+                          variant="outline"
+                          className="shrink-0 text-[10px] font-semibold border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+                        >
+                          {t("dashboard.staff_daily_progress.absent")}
+                        </Badge>
+                      ) : null}
+                      <span className="shrink-0 text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
+                        {row.done}/{row.total} · {pct}%
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          row.is_absent ? "bg-amber-400" : "bg-emerald-500",
+                        )}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 /** -------------------------------------------------------------------------
  * Reported Incidents widget
  * -------------------------------------------------------------------------
@@ -3899,6 +4034,18 @@ function CategoryTasksCard({
     },
   });
 
+  const validateMutation = useMutation({
+    mutationFn: (id: string) => api.validateDashboardTask(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey });
+      qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
+      toast.success("Marked as validated");
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : "Could not validate");
+    },
+  });
+
   // Drag-and-drop "move row to this bucket" mutation. Triggered when
   // a row from a *different* widget is dropped here. We invalidate
   // every category bucket query (not just source + target) because
@@ -4221,9 +4368,15 @@ function CategoryTasksCard({
                   onStatusChange={(nextStatus) =>
                     statusMutation.mutate({ id: it.id, nextStatus })
                   }
+                  onValidate={
+                    it.kind === "dashboard"
+                      ? () => validateMutation.mutate(it.id)
+                      : undefined
+                  }
                   isPendingId={
-                    statusMutation.isPending && statusMutation.variables?.id === it.id
-                      ? statusMutation.variables.id
+                    (statusMutation.isPending && statusMutation.variables?.id === it.id) ||
+                    (validateMutation.isPending && validateMutation.variables === it.id)
+                      ? it.id
                       : null
                   }
                   onRowNavigate={
@@ -4433,6 +4586,7 @@ function CategoryTaskRow({
   item,
   t,
   onStatusChange,
+  onValidate,
   isPendingId,
   sourceTarget,
   isDragging,
@@ -4441,34 +4595,12 @@ function CategoryTaskRow({
 }: {
   item: DashboardTaskDemandItem;
   t: (key: string) => string;
-  /**
-   * Apply a status flip to this row. The parent ``CategoryTasksCard``
-   * owns the mutation so it can invalidate the bucket query on success.
-   * Optional so the row can also be used in read-only contexts (e.g.
-   * future preview surfaces) without a backing mutation.
-   */
   onStatusChange?: (nextStatus: DashboardTaskDemandItem["status"]) => void;
-  /**
-   * Row id currently being mutated (or ``null``). Drives the spinner
-   * on the quick-complete button so the manager sees feedback the moment
-   * they tap.
-   */
+  onValidate?: () => void;
   isPendingId?: string | null;
-  /**
-   * Bucket the row currently belongs to. Travels in the drag payload
-   * so the drop target can short-circuit a same-bucket drop without
-   * a server round-trip. Optional so the row stays usable from
-   * read-only contexts that don't participate in DnD.
-   */
   sourceTarget?: import("@/lib/types").WidgetDropTarget | string;
-  /** True while *this specific* row is being dragged — drives the
-   *  fade-out / dashed border so the user can see what's leaving. */
   isDragging?: boolean;
-  /** Setter the parent uses to track which row is currently in the
-   *  air. Called with the row id on dragstart and ``null`` on
-   *  dragend. Optional for read-only contexts. */
   onDragStateChange?: (id: string | null) => void;
-  /** Open the full detail / command-centre view for this row. */
   onRowNavigate?: () => void;
 }) {
   const pill = statusPillClass(item.status, item.priority, item.pill_status);
@@ -4476,8 +4608,6 @@ function CategoryTaskRow({
     ? item.assignee.name.split(" ")[0]
     : t("dashboard.category_tasks.unassigned");
   const initials = item.assignee?.initials || "—";
-  // Don't stack a redundant URGENT chip on top of OVERDUE — they convey
-  // the same "this needs attention now" signal and the pill is already red.
   const showUrgentBadge =
     item.priority === "URGENT" &&
     item.pill_status !== "OVERDUE" &&
@@ -4485,26 +4615,20 @@ function CategoryTaskRow({
     item.status !== "COMPLETED" &&
     item.status !== "CANCELLED";
 
-  // Terminal rows (already done / cancelled) drop the action affordances
-  // — flipping a closed ticket back to PENDING from a glance widget is a
-  // footgun. Managers can still re-open from the inbox detail page.
   const isTerminal =
     item.status === "COMPLETED" || item.status === "CANCELLED";
   const isInvoice = item.kind === "invoice";
   const canEdit = !isTerminal && !!onStatusChange;
   const isPending = !!isPendingId && isPendingId === item.id;
+  const needsValidation =
+    !!item.requires_manager_validation && item.manager_validated !== true;
+  const showValidated =
+    !!item.requires_manager_validation && item.manager_validated === true;
 
-  // The quick-complete primary verb depends on the source kind so the
-  // button reads truthfully — invoices get "Mark paid", everything
-  // else gets "Mark done".
   const quickCompleteLabel = isInvoice
     ? t("dashboard.category_tasks.action_mark_paid")
     : t("dashboard.category_tasks.action_mark_done");
 
-  // Stop card-level navigation when the row's controls are tapped —
-  // the parent card is itself a button that deep-links to the bucket
-  // page on click. Without this, every status flip would also yank
-  // the manager off the dashboard.
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
 
   // Drag-and-drop wiring. We disable drag for terminal rows (already
@@ -4616,16 +4740,32 @@ function CategoryTaskRow({
               {t("dashboard.category_tasks.priority_urgent_short")}
             </span>
           ) : null}
+          {needsValidation ? (
+            <span className="shrink-0 inline-flex items-center rounded-sm border border-amber-200 bg-amber-50 px-1 py-px text-[9px] font-semibold text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+              {item.validation_label || t("dashboard.category_tasks.not_validated")}
+            </span>
+          ) : null}
+          {showValidated ? (
+            <span className="shrink-0 inline-flex items-center rounded-sm border border-emerald-200 bg-emerald-50 px-1 py-px text-[9px] font-semibold text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">
+              {t("dashboard.category_tasks.validated")}
+            </span>
+          ) : null}
+          {item.require_photo_proof && !item.has_photo_proof ? (
+            <span className="shrink-0 inline-flex items-center rounded-sm border border-violet-200 bg-violet-50 px-1 py-px text-[9px] font-semibold text-violet-800 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-200">
+              {t("dashboard.category_tasks.photo_proof_needed")}
+            </span>
+          ) : null}
+          {item.has_photo_proof ? (
+            <span className="shrink-0 inline-flex items-center rounded-sm border border-violet-200 bg-violet-50 px-1 py-px text-[9px] font-semibold text-violet-800 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-200">
+              {t("dashboard.category_tasks.photo_proof_ok")}
+            </span>
+          ) : null}
         </div>
         {item.ai_summary ? (
           <div className="truncate text-[10.5px] text-emerald-700 dark:text-emerald-300">
             {item.ai_summary}
           </div>
         ) : null}
-        {/* Meta line: assignee · age. Always present so every row has a
-            consistent visual rhythm and the manager can scan-read the
-            list. The assignee chip moves into here from the right side
-            (which used to fight with the status pill on narrow widths). */}
         <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-slate-500 dark:text-slate-400">
           <span
             className="inline-flex shrink-0 items-center gap-1"
@@ -4635,6 +4775,14 @@ function CategoryTaskRow({
               {initials.slice(0, 2)}
             </span>
             <span className="truncate max-w-[7rem]">{assigneeLabel}</span>
+            {item.assignee_absent ? (
+              <span
+                className="rounded bg-orange-100 px-1 text-[9px] font-bold uppercase tracking-wide text-orange-800 dark:bg-orange-950/40 dark:text-orange-200"
+                title={t("dashboard.category_tasks.absent_title")}
+              >
+                {t("dashboard.category_tasks.absent")}
+              </span>
+            ) : null}
           </span>
           {item.age_label ? (
             <>
@@ -4644,6 +4792,21 @@ function CategoryTaskRow({
           ) : null}
         </div>
       </div>
+
+      {needsValidation && onValidate && item.kind === "dashboard" ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            stop(e);
+            onValidate();
+          }}
+          disabled={isPending}
+          className="shrink-0 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+          title={t("dashboard.category_tasks.validate_title")}
+        >
+          {t("dashboard.category_tasks.validate")}
+        </button>
+      ) : null}
 
       {/* Quick-complete button — ALWAYS visible for non-terminal rows
           (not hover-only) so the affordance is discoverable. This was
@@ -7241,6 +7404,16 @@ export function DashboardWidgetById({
     case "clock_ins":
       return (
         <ClockInsCard cardBase={cardBase} cardHeaderBase={cardHeaderBase} t={t} navigate={navigate} />
+      );
+
+    case "staff_daily_progress":
+      return (
+        <StaffDailyProgressCard
+          cardBase={cardBase}
+          cardHeaderBase={cardHeaderBase}
+          t={t}
+          navigate={navigate}
+        />
       );
 
     case "incidents":

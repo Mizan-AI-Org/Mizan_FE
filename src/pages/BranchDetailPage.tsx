@@ -29,6 +29,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { cn } from "@/lib/utils";
 import MoveStaffBranchDialog from "@/components/staff/MoveStaffBranchDialog";
 import { useBusinessLocations } from "@/hooks/use-business-locations";
@@ -119,7 +120,7 @@ export default function BranchDetailPage() {
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className={`${PAGE_SHELL_PADDED} space-y-6`}>
       {isLoading ? (
         <BranchSkeleton />
       ) : isError || !data ? (

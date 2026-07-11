@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { cn } from "@/lib/utils";
 import {
   useLocationsPortfolio,
@@ -58,9 +59,9 @@ export default function LocationsOverview() {
   }, [data?.locations]);
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+    <div className={`${PAGE_SHELL_PADDED} space-y-6`}>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0 space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">
             Locations Overview
           </h1>
@@ -68,7 +69,7 @@ export default function LocationsOverview() {
             Live status across every branch. Click a branch to drill in.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           {data?.generated_at && (
             <span className="text-xs text-muted-foreground">
               Updated {new Date(data.generated_at).toLocaleTimeString()}
@@ -133,7 +134,7 @@ export default function LocationsOverview() {
           {sortedLocations.length === 0 ? (
             <EmptyState />
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               {sortedLocations.map((loc) => (
                 <BranchCard
                   key={loc.id}
@@ -475,8 +476,8 @@ function PortfolioSkeleton() {
           </Card>
         ))}
       </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
+      <div className="grid gap-4 sm:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, i) => (
           <Card key={i}>
             <CardContent className="space-y-3 p-4">
               <Skeleton className="h-4 w-40" />

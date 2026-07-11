@@ -1,17 +1,9 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -26,8 +18,6 @@ import {
   Users,
   MapPin,
   Plug,
-  Bell,
-  Shield,
   CreditCard as CreditCardIcon,
   Loader2,
   Save,
@@ -36,11 +26,11 @@ import {
   CheckCircle,
   AlertCircle,
   Unplug,
-  ShieldAlert,
   ShieldCheck,
-  ArrowRight,
   Calendar,
   ExternalLink,
+  Languages,
+  Route,
 } from "lucide-react";
 import { FormSectionSkeleton } from "@/components/skeletons";
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";
@@ -63,10 +53,19 @@ import { Language } from "@/contexts/LanguageContext.types";
 import { supportedLanguages } from "@/i18n";
 import axios from "axios";
 import type { AxiosError } from "axios";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { StaffInvitation } from "@/lib/types";
 import { User } from "@/contexts/AuthContext.types";
 import { translateApiError } from "@/i18n/messages";
+import {
+  SettingsSection,
+  SettingsStickyActions,
+  settingsFieldClassName,
+  settingsSelectClassName,
+} from "@/components/settings/SettingsSection";
+import { SettingsNav, type SettingsNavItem } from "@/components/settings/SettingsNav";
+import { PAGE_SHELL } from "@/lib/page-shell";
+import { cn } from "@/lib/utils";
 
 import { API_BASE, api } from "@/lib/api";
 import {
@@ -157,6 +156,8 @@ function normalizeStaffListRows(data: unknown): StaffListRow[] {
 export default function Settings() {
   const queryClient = useQueryClient();
   const { language, setLanguage: setAppLanguage, t } = useLanguage();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [latitude, setLatitude] = useState<number>(0);
   const [longitude, setLongitude] = useState<number>(0);
   const [radius, setRadius] = useState<number>(0);
@@ -211,7 +212,6 @@ export default function Settings() {
   const [pendingInvitations, setPendingInvitations] = useState<
     StaffInvitation[]
   >([]);
-  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   // Quick Settings States
   const [smsNotificationsEnabled, setSmsNotificationsEnabled] = useState(false);
@@ -251,8 +251,29 @@ export default function Settings() {
   const [gcalConnecting, setGcalConnecting] = useState(false);
   const [gcalDisconnecting, setGcalDisconnecting] = useState(false);
   const [gcalDisconnectOpen, setGcalDisconnectOpen] = useState(false);
-  // Controlled tabs for better state management on mobile
-  const [activeTab, setActiveTab] = useState<string>("profile");
+  const [savingGeneral, setSavingGeneral] = useState(false);
+  // Controlled tabs — synced with ?tab= for deep links / OAuth returns
+  const SETTINGS_TABS = useMemo(
+    () => ["profile", "location", "general", "integrations", "billing"] as const,
+    [],
+  );
+  const initialTab = (() => {
+    const fromUrl = (searchParams.get("tab") || "").toLowerCase();
+    return (SETTINGS_TABS as readonly string[]).includes(fromUrl) ? fromUrl : "profile";
+  })();
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  const onSettingsTabChange = (next: string) => {
+    setActiveTab(next);
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        n.set("tab", next);
+        return n;
+      },
+      { replace: true },
+    );
+  };
 
   const apiClient = useMemo(
     () =>
@@ -351,6 +372,48 @@ export default function Settings() {
   // Restrict non-profile settings for staff users: only admins/managers can see other tabs
   const roleUpper = (user?.role || "").toUpperCase();
   const isStaff = !(roleUpper === "SUPER_ADMIN" || roleUpper === "ADMIN" || roleUpper === "MANAGER");
+  const canEditPermissions =
+    roleUpper === "SUPER_ADMIN" || roleUpper === "ADMIN" || roleUpper === "OWNER";
+
+  const settingsNavItems = useMemo((): SettingsNavItem[] => {
+    const items: SettingsNavItem[] = [
+      {
+        id: "profile",
+        label: t("settings.tabs.profile"),
+        description: t("settings.nav.profile_desc"),
+        icon: Users,
+      },
+    ];
+    if (!isStaff) {
+      items.push(
+        {
+          id: "general",
+          label: t("settings.tabs.general"),
+          description: t("settings.nav.general_desc"),
+          icon: Building2,
+        },
+        {
+          id: "location",
+          label: t("settings.tabs.geolocation"),
+          description: t("settings.nav.location_desc"),
+          icon: MapPin,
+        },
+        {
+          id: "integrations",
+          label: t("settings.tabs.integrations"),
+          description: t("settings.nav.integrations_desc"),
+          icon: Plug,
+        },
+        {
+          id: "billing",
+          label: t("settings.tabs.billing"),
+          description: t("settings.nav.billing_desc"),
+          icon: CreditCardIcon,
+        },
+      );
+    }
+    return items;
+  }, [isStaff, t]);
 
   const loadCoreSettings = async () => {
     try {
@@ -543,6 +606,7 @@ export default function Settings() {
         return;
       }
 
+      setSavingGeneral(true);
       const response = await apiClient.put("/settings/unified/", {
         name: restaurantName,
         address: restaurantAddress,
@@ -598,6 +662,8 @@ export default function Settings() {
       } else {
         toast.error(`${t("settings.general.save_error")}${detail ? ": " + detail : ""}`);
       }
+    } finally {
+      setSavingGeneral(false);
     }
   };
 
@@ -966,123 +1032,49 @@ export default function Settings() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold leading-tight">{t("settings.title")}</h1>
-        {user && (
-          <Badge variant="outline" className="hidden sm:inline-flex">
-            {user.email}
-          </Badge>
-        )}
-      </div>
+    <div className={`${PAGE_SHELL} pb-24 lg:pb-8`}>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0">
+        <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-x-8 lg:gap-y-5 lg:items-start">
+          {/* Title sits above the content column so it shares the cards' left edge */}
+          <header className="order-1 min-w-0 lg:col-span-2">
+            <h1 className="text-2xl sm:text-[1.75rem] font-bold tracking-tight text-slate-900 dark:text-white">
+              {t("settings.title")}
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+              {t("settings.subtitle")}
+            </p>
+          </header>
 
-      {(roleUpper === "SUPER_ADMIN" || roleUpper === "ADMIN" || roleUpper === "OWNER") && (
-        <a
-          href="/dashboard/settings/permissions"
-          className="group flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-gradient-to-r from-emerald-50 to-white dark:from-emerald-900/20 dark:to-slate-900 px-4 py-3 hover:shadow-sm transition"
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold">{t("rbac.title")}</div>
-              <div className="text-xs text-muted-foreground">{t("rbac.subtitle")}</div>
-            </div>
-          </div>
-          <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
-        </a>
-      )}
+          <aside className="order-2 lg:col-start-1 lg:row-start-2 lg:sticky lg:top-20 self-start">
+            <SettingsNav
+              items={settingsNavItems}
+              activeId={activeTab}
+              onSelect={setActiveTab}
+              {...(canEditPermissions
+                ? {
+                    permissionsHref: "/dashboard/settings/permissions",
+                    permissionsLabel: t("rbac.title"),
+                    permissionsDescription: t("rbac.subtitle"),
+                    PermissionsIcon: ShieldCheck,
+                  }
+                : {})}
+            />
+          </aside>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList
-          className="mb-4 flex w-full gap-3 overflow-x-auto whitespace-nowrap scroll-smooth snap-x snap-mandatory [-webkit-overflow-scrolling:touch] p-2 bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl sm:grid sm:grid-cols-3 lg:grid-cols-5"
-          aria-label="Settings sections"
-        >
-          <TabsTrigger
-            value="profile"
-            aria-label="Profile settings"
-            className="flex min-w-[140px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 dark:text-slate-400 transition-all duration-200 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-slate-100 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
-          >
-            <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 data-[state=active]:bg-emerald-100 transition-colors">
-              <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" aria-hidden="true" />
-            </div>
-            {t("settings.tabs.profile")}
-          </TabsTrigger>
-          {!isStaff && (
-            <>
-              <TabsTrigger
-                value="location"
-                aria-label="Geolocation settings"
-                className="flex min-w-[160px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 dark:text-slate-400 transition-all duration-200 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-slate-100 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
-              >
-                <div className="p-1.5 rounded-lg bg-rose-100 dark:bg-rose-900/30 transition-colors">
-                  <MapPin className="w-4 h-4 text-rose-600 dark:text-rose-400" aria-hidden="true" />
-                </div>
-                {t("settings.tabs.geolocation")}
-              </TabsTrigger>
-              <TabsTrigger
-                value="general"
-                aria-label="General settings"
-                className="flex min-w-[140px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 dark:text-slate-400 transition-all duration-200 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-slate-100 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
-              >
-                <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 transition-colors">
-                  <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
-                </div>
-                {t("settings.tabs.general")}
-              </TabsTrigger>
-              <TabsTrigger
-                value="integrations"
-                aria-label="Integrations"
-                className="flex min-w-[160px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 dark:text-slate-400 transition-all duration-200 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-slate-100 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
-              >
-                <div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-900/30 transition-colors">
-                  <Plug className="w-4 h-4 text-purple-600 dark:text-purple-400" aria-hidden="true" />
-                </div>
-                {t("settings.tabs.integrations")}
-              </TabsTrigger>
-              <TabsTrigger
-                value="billing"
-                aria-label="Billing"
-                className="flex min-w-[130px] snap-start items-center justify-center gap-2.5 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 dark:text-slate-400 transition-all duration-200 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-slate-100 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/10 sm:justify-start"
-              >
-                <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 transition-colors">
-                  <CreditCardIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-                </div>
-                {t("settings.tabs.billing")}
-              </TabsTrigger>
-            </>
-          )}
-        </TabsList>
-
-        <TabsContent value="profile" className="space-y-6">
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>{t("settings.profile.title")}</CardTitle>
-              <CardDescription>{t("settings.profile.description")}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Suspense
-                fallback={<FormSectionSkeleton fields={5} />}
-              >
-                <ProfileSettings />
-              </Suspense>
-            </CardContent>
-          </Card>
+          <div className="order-3 min-w-0 space-y-4 lg:col-start-2 lg:row-start-2">
+        <TabsContent value="profile" className="mt-0 space-y-4 focus-visible:outline-none">
+          <Suspense fallback={<FormSectionSkeleton fields={5} />}>
+            <ProfileSettings />
+          </Suspense>
         </TabsContent>
 
         {!isStaff && (
-          <TabsContent value="location" className="space-y-6">
+          <TabsContent value="location" className="mt-0 space-y-4 focus-visible:outline-none">
             <SectionErrorBoundary label="Business Locations">
-              <Suspense
-                fallback={<FormSectionSkeleton fields={4} />}
-              >
+              <Suspense fallback={<FormSectionSkeleton fields={4} />}>
                 <MultiLocationSettings
                   apiClient={apiClient}
                   onMutated={() => {
-                    // Restaurant.* fields are kept in sync on the server; refresh
-                    // the cached legacy state so the rest of the UI (sidebar
-                    // badges, agent header) reflects coordinate changes.
                     fetchUnifiedSettings();
                   }}
                 />
@@ -1092,74 +1084,67 @@ export default function Settings() {
         )}
 
         {!isStaff && (
-          <TabsContent value="general" className="space-y-6">
-            <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
-              <CardHeader className="pb-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
-                    <Building2 className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("settings.general.restaurant_info.title")}</CardTitle>
-                    <CardDescription className="text-slate-500 dark:text-slate-400">{t("settings.general.restaurant_info.description")}</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <TabsContent value="general" className="mt-0 space-y-4 focus-visible:outline-none">
+            <SettingsSection
+              icon={<Building2 className="h-5 w-5" />}
+              iconClassName="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+              title={t("settings.general.restaurant_info.title")}
+              description={t("settings.general.restaurant_info.description")}
+            >
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="restaurant-name" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("settings.general.fields.name")}</Label>
+                    <Label htmlFor="restaurant-name">{t("settings.general.fields.name")}</Label>
                     <Input
                       id="restaurant-name"
                       value={restaurantName}
                       onChange={(e) => setRestaurantName(e.target.value)}
-                      className="h-12 rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-gray-100 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                      className={settingsFieldClassName}
                       placeholder={t("settings.general.fields.name_placeholder")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="address" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("settings.general.fields.address")}</Label>
+                    <Label htmlFor="address">{t("settings.general.fields.address")}</Label>
                     <Input
                       id="address"
                       value={restaurantAddress}
                       onChange={(e) => setRestaurantAddress(e.target.value)}
-                      className="h-12 rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-gray-100 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                      className={settingsFieldClassName}
                       placeholder={t("settings.general.fields.address_placeholder")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("settings.general.fields.phone")}</Label>
+                    <Label htmlFor="phone">{t("settings.general.fields.phone")}</Label>
                     <Input
                       id="phone"
                       value={restaurantPhone}
                       onChange={(e) => setRestaurantPhone(e.target.value)}
-                      className="h-12 rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-gray-100 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                      className={settingsFieldClassName}
                       placeholder={t("settings.general.fields.phone_placeholder")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("settings.general.fields.email")}</Label>
+                    <Label htmlFor="email">{t("settings.general.fields.email")}</Label>
                     <Input
                       id="email"
                       type="email"
                       value={restaurantEmail}
                       onChange={(e) => setRestaurantEmail(e.target.value)}
-                      className="h-12 rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-gray-100 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                      className={settingsFieldClassName}
                       placeholder={t("settings.general.fields.email_placeholder")}
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:items-start">
                   <div className="space-y-2">
-                    <Label htmlFor="business-vertical" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    <Label htmlFor="business-vertical">
                       {t("settings.general.business_vertical")}
                     </Label>
                     <select
                       id="business-vertical"
                       value={businessVertical}
                       onChange={(e) => setBusinessVertical(e.target.value as BusinessVertical)}
-                      className="h-12 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-sm font-medium text-slate-700 dark:text-slate-300 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                      className={settingsSelectClassName}
                     >
                       {ALL_BUSINESS_VERTICALS.map((v) => (
                         <option key={v} value={v}>
@@ -1167,17 +1152,17 @@ export default function Settings() {
                         </option>
                       ))}
                     </select>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       {t("settings.general.business_vertical_hint")}
                     </p>
                   </div>
 
-                  <div className="space-y-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-4">
+                  <div className="space-y-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/40 dark:bg-slate-800/30 p-4">
                     <div>
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      <Label className="text-sm font-medium">
                         {t("settings.general.custom_staff_roles_title")}
                       </Label>
-                      <p className="text-[11px] text-slate-500 mt-1">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                         {t("settings.general.custom_staff_roles_desc")}
                       </p>
                     </div>
@@ -1192,7 +1177,7 @@ export default function Settings() {
                               setCustomStaffRoles(next);
                             }}
                             placeholder={t("settings.general.custom_staff_roles_placeholder")}
-                            className="h-10 flex-1 rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                            className={cn(settingsFieldClassName, "h-10")}
                           />
                           <Button
                             type="button"
@@ -1224,74 +1209,62 @@ export default function Settings() {
                     </Button>
                   </div>
                 </div>
+            </SettingsSection>
 
-                <Separator />
-
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start">
+            <SettingsSection
+              icon={<Languages className="h-5 w-5" />}
+              iconClassName="bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
+              title={t("settings.general.language_prefs_title")}
+              description={t("settings.general.language_prefs_desc")}
+            >
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:items-start">
                   <div className="space-y-2">
-                    <Label htmlFor="language" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      {t("settings.general.language")}
-                    </Label>
+                    <Label htmlFor="language">{t("settings.general.language")}</Label>
                     <select
                       id="language"
                       value={language}
                       onChange={(e) => persistLanguagePreference(e.target.value as Language)}
-                      className="h-12 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-sm font-medium text-slate-700 dark:text-slate-300 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                      className={settingsSelectClassName}
                     >
                       <option value="en">English</option>
                       <option value="fr">Français</option>
                       <option value="ar">العربية</option>
                     </select>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       {t("settings.general.language_hint")}
                     </p>
                   </div>
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t("settings.general.preferences")}</h4>
-                    <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 p-4">
-                      <div className="space-y-0.5 min-w-0 flex-1">
-                        <Label htmlFor="automatic-clock-out" className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
-                          {t("settings.general.automatic_clock_out")}
-                        </Label>
-                        <p className="text-xs text-slate-500">
-                          {t("settings.general.automatic_clock_out_desc")}
-                        </p>
-                      </div>
-                      <Switch
-                        id="automatic-clock-out"
-                        checked={automaticClockOut}
-                        onCheckedChange={setAutomaticClockOut}
-                        className="data-[state=checked]:bg-emerald-600 shrink-0"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/30 shrink-0">
-                      <ShieldAlert className="w-5 h-5 text-amber-700 dark:text-amber-400" aria-hidden />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                        {t("settings.general.incident_routing.title")}
-                      </h4>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {t("settings.general.incident_routing.description")}
+                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-4">
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      <Label htmlFor="automatic-clock-out" className="cursor-pointer">
+                        {t("settings.general.automatic_clock_out")}
+                      </Label>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {t("settings.general.automatic_clock_out_desc")}
                       </p>
                     </div>
+                    <Switch
+                      id="automatic-clock-out"
+                      checked={automaticClockOut}
+                      onCheckedChange={setAutomaticClockOut}
+                      className="data-[state=checked]:bg-emerald-600 shrink-0"
+                    />
                   </div>
+                </div>
+            </SettingsSection>
+
+            <SettingsSection
+              icon={<Route className="h-5 w-5" />}
+              iconClassName="bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+              title={t("settings.general.incident_routing.title")}
+              description={t("settings.general.incident_routing.description")}
+            >
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     {INCIDENT_CATEGORY_KEYS.map((cat) => {
                       const i18nKey = `settings.general.incident_categories.${cat.toLowerCase().replace(/\s+/g, "_")}`;
                       return (
                         <div key={cat} className="space-y-1.5">
-                          <Label
-                            htmlFor={`incident-assign-${cat}`}
-                            className="text-sm font-medium text-slate-700 dark:text-slate-300"
-                          >
+                          <Label htmlFor={`incident-assign-${cat}`}>
                             {t(i18nKey)}
                           </Label>
                           <select
@@ -1306,7 +1279,7 @@ export default function Settings() {
                                 return next;
                               });
                             }}
-                            className="h-11 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-sm text-slate-700 dark:text-slate-300 focus:bg-white dark:focus:bg-slate-700 focus:border-emerald-500 focus:ring-emerald-500 transition-all"
+                            className={settingsSelectClassName}
                           >
                             <option value="">{t("settings.general.incident_routing.unassigned")}</option>
                             {staffForSelectors.map((row) => (
@@ -1319,34 +1292,28 @@ export default function Settings() {
                       );
                     })}
                   </div>
-                </div>
+            </SettingsSection>
 
-                <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-                  <Button onClick={saveGeneralSettings} className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-emerald-500/25 transition-all hover:shadow-emerald-500/40">
-                    <Save className="w-4 h-4 mr-2" />
-                    {t("settings.general.save_general")}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
+            <SettingsStickyActions hint={t("settings.save_hint")}>
+              <Button
+                onClick={saveGeneralSettings}
+                className="h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 shadow-sm"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {t("settings.general.save_general")}
+              </Button>
+            </SettingsStickyActions>
           </TabsContent>
         )}
 
         {!isStaff && (
-          <TabsContent value="integrations" className="space-y-6">
-            <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
-              <CardHeader className="pb-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 shadow-lg shadow-purple-500/25">
-                      <Plug className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("pos.title")}</CardTitle>
-                      <CardDescription className="text-slate-500 dark:text-slate-400">{t("pos.description")}</CardDescription>
-                    </div>
-                  </div>
+          <TabsContent value="integrations" className="mt-0 space-y-4 focus-visible:outline-none">
+            <SettingsSection
+              icon={<Plug className="h-5 w-5" />}
+              iconClassName="bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
+              title={t("pos.title")}
+              description={t("pos.description")}
+              actions={
                   <Badge
                     variant="outline"
                     className={
@@ -1363,9 +1330,8 @@ export default function Settings() {
                         ? t("integrations.status.fully_connected")
                         : t("integrations.status.setup_incomplete")}
                   </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
+              }
+            >
                 <div className="space-y-2">
                   <Label htmlFor="pos-provider" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("pos.provider")}</Label>
                   <select
@@ -1837,8 +1803,7 @@ export default function Settings() {
                     )}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </SettingsSection>
 
             <AlertDialog open={posDisconnectOpen} onOpenChange={setPosDisconnectOpen}>
               <AlertDialogContent>
@@ -1876,22 +1841,12 @@ export default function Settings() {
 
             <ReservationIntegration onIntegrationChange={() => void fetchUnifiedSettings()} />
 
-            <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
-              <CardHeader className="pb-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-sky-600 shadow-lg shadow-blue-500/25">
-                      <Calendar className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                        {t("settings.gcal.title") || "Google Calendar"}
-                      </CardTitle>
-                      <CardDescription className="text-slate-500 dark:text-slate-400">
-                        {t("settings.gcal.description") || "Connect Google Calendar to let Miya create meetings, reminders, and see upcoming events."}
-                      </CardDescription>
-                    </div>
-                  </div>
+            <SettingsSection
+              icon={<Calendar className="h-5 w-5" />}
+              iconClassName="bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
+              title={t("settings.gcal.title") || "Google Calendar"}
+              description={t("settings.gcal.description") || "Connect Google Calendar to let Miya create meetings, reminders, and see upcoming events."}
+              actions={
                   <Badge
                     variant="outline"
                     className={
@@ -1904,9 +1859,8 @@ export default function Settings() {
                       ? t("settings.gcal.connected") || "Connected"
                       : t("settings.gcal.not_connected") || "Not connected"}
                   </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
+              }
+            >
                 {gcalConnected ? (
                   <div className="space-y-4">
                     <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/20">
@@ -1978,8 +1932,7 @@ export default function Settings() {
                     </Button>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </SettingsSection>
 
             <AlertDialog open={gcalDisconnectOpen} onOpenChange={setGcalDisconnectOpen}>
               <AlertDialogContent>
@@ -2031,34 +1984,26 @@ export default function Settings() {
         )}
 
         {!isStaff && (
-          <TabsContent value="billing" className="space-y-6">
+          <TabsContent value="billing" className="mt-0 space-y-4 focus-visible:outline-none">
             <Suspense fallback={<FormSectionSkeleton />}>
               <BillingSettings />
             </Suspense>
 
-            <Card className="shadow-soft border-red-100 dark:border-red-900/50 bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/40">
-                    <AlertCircle className="w-5 h-5 text-red-600" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg font-bold text-red-700">{t("settings.danger_zone")}</CardTitle>
-                    <CardDescription className="text-red-600/80">
-                      Permanently delete your account and all data. This cannot be undone.
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Button variant="destructive" className="w-full h-12 rounded-xl font-semibold shadow-lg shadow-red-500/25">
-                  Delete Account
-                </Button>
-              </CardContent>
-            </Card>
+            <SettingsSection
+              icon={<AlertCircle className="h-5 w-5" />}
+              iconClassName="bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
+              title={t("settings.danger_zone")}
+              description={t("settings.danger_zone_desc")}
+              className="border-red-200/80 dark:border-red-900/50"
+            >
+              <Button variant="destructive" className="w-full sm:w-auto h-11 rounded-xl font-semibold">
+                {t("settings.delete_account")}
+              </Button>
+            </SettingsSection>
           </TabsContent>
         )}
-
+          </div>
+        </div>
       </Tabs>
     </div>
   );
