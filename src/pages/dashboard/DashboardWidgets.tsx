@@ -4034,8 +4034,26 @@ function CategoryTasksCard({
   const counts = data?.counts ?? { open: 0, in_progress: 0, completed: 0 };
 
   const goMore = React.useCallback(() => {
-    navigate(moreHref);
-  }, [navigate, moreHref]);
+    // Preserve the widget's status filter so "More" matches what the manager
+    // is looking at (e.g. In progress → inbox In progress, not empty Pending).
+    try {
+      const hashIdx = moreHref.indexOf("#");
+      const withoutHash = hashIdx >= 0 ? moreHref.slice(0, hashIdx) : moreHref;
+      const [path, rawQs = ""] = withoutHash.split("?");
+      const params = new URLSearchParams(rawQs);
+      if (filter === "in_progress") {
+        params.set("status", "APPROVED");
+      } else if (filter === "done") {
+        params.set("status", "CLOSED");
+      } else if (!params.has("status")) {
+        params.set("status", "PENDING");
+      }
+      const qs = params.toString();
+      navigate(qs ? `${path}?${qs}` : path);
+    } catch {
+      navigate(moreHref);
+    }
+  }, [navigate, moreHref, filter]);
 
   return (
     <Card
