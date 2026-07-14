@@ -25,10 +25,6 @@ const StaffSchedulingPage: React.FC = () => {
 
   return (
     <div className={`${PAGE_SHELL_PADDED} space-y-6`}>
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t("schedule.page_title")}</h1>
-      </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
