@@ -88,6 +88,67 @@ export function unwrapDrfListResponse<T>(data: unknown): T[] {
   return [];
 }
 
+/** Walk every page of a DRF paginated list endpoint. */
+export async function fetchAllDrfPages<T>(
+  buildUrl: (page: number) => string,
+  headers: HeadersInit,
+): Promise<T[]> {
+  const rows: T[] = [];
+  let page = 1;
+
+  for (;;) {
+    const response = await fetch(buildUrl(page), {
+      headers,
+      credentials: "include",
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch page ${page}`);
+    }
+
+    const data: unknown = await response.json();
+    if (Array.isArray(data)) {
+      return data as T[];
+    }
+
+    rows.push(...unwrapDrfListResponse<T>(data));
+    const next =
+      data && typeof data === "object" && "next" in data
+        ? (data as { next?: string | null }).next
+        : null;
+    if (!next) break;
+    page += 1;
+    if (page > 50) break;
+  }
+
+  return rows;
+}
+
+/** Active staff directory for pickers (Staff Messages, escalate modal, …). */
+export async function fetchStaffDirectoryForPicker(
+  accessToken: string,
+  opts?: { forMessaging?: boolean },
+): Promise<StaffListItem[]> {
+  const params = new URLSearchParams({
+    page_size: "500",
+    all_branches: "1",
+  });
+  if (opts?.forMessaging) {
+    params.set("for_messaging", "1");
+  }
+
+  return fetchAllDrfPages<StaffListItem>(
+    (page) => {
+      const qs = new URLSearchParams(params);
+      qs.set("page", String(page));
+      return `${API_BASE}/staff/?${qs.toString()}`;
+    },
+    {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
+  );
+}
+
 export class BackendService {
   [x: string]: any;
   // In a real frontend application, HttpService and ConfigService would not be used directly

@@ -101,6 +101,60 @@ import {
   type BusinessVertical,
 } from "@/config/staffInviteRolesByVertical";
 
+const STAFF_MODAL_INPUT =
+    "h-9 rounded-lg bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 font-medium [color-scheme:light] dark:[color-scheme:dark]";
+
+const STAFF_MODAL_SELECT =
+    "w-full h-9 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium px-3 text-sm [color-scheme:light] dark:[color-scheme:dark]";
+
+const STAFF_MODAL_SALARY_INPUT =
+    "h-9 rounded-lg bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 font-semibold";
+
+const STAFF_MODAL_SALARY_TYPE_SELECT =
+    "h-9 min-w-[4.5rem] rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-bold text-[10px] px-2 text-slate-600 dark:text-slate-200 uppercase tracking-widest shrink-0 [color-scheme:light] dark:[color-scheme:dark]";
+
+const STAFF_MODAL_SECTION_TITLE =
+    "text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]";
+
+const STAFF_MODAL_SECTION_TITLE_SM =
+    "text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]";
+
+const STAFF_MODAL_FIELD_LABEL =
+    "text-xs font-bold text-slate-600 dark:text-slate-300 ml-1";
+
+const STAFF_MODAL_DIVIDER =
+    "border-slate-200/60 dark:border-slate-700/60";
+
+const STAFF_MODAL_EMPTY =
+    "py-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl text-center bg-slate-50/30 dark:bg-slate-800/30";
+
+const STAFF_MODAL_EMPTY_TEXT =
+    "text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest";
+
+const STAFF_MODAL_EMPTY_TEXT_SM =
+    "text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest";
+
+const STAFF_MODAL_FOOTER =
+    "p-5 bg-slate-50/80 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-700 flex gap-3";
+
+const STAFF_MODAL_CANCEL_BTN =
+    "flex-1 rounded-xl font-black border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 bg-white/60 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-700";
+
+const STAFF_MODAL_ICON_BOX =
+    "w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors";
+
+const STAFF_MODAL_OVERLAY =
+    "fixed inset-0 z-[3000] overflow-y-auto";
+
+const STAFF_MODAL_OVERLAY_INNER =
+    "flex min-h-full items-center justify-center p-4 sm:p-6 bg-black/50 dark:bg-black/70 backdrop-blur-sm";
+
+const STAFF_MODAL_SHELL =
+    "relative w-full max-w-2xl max-h-[min(90dvh,calc(100vh-2rem))] flex flex-col border border-slate-200/50 dark:border-slate-700/50 shadow-2xl rounded-[1.75rem] sm:rounded-[2rem] overflow-hidden";
+
+const STAFF_MODAL_BODY =
+    "flex-1 min-h-0 overflow-y-auto custom-scrollbar";
+
 // Types
 interface StaffMember {
     id: string;
@@ -1162,22 +1216,21 @@ const TeamTab: React.FC = () => {
         };
 
         return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <Card className="w-full max-w-2xl mx-4 bg-white dark:bg-slate-900 border-none shadow-2xl rounded-[2rem] overflow-hidden max-h-[85vh] flex flex-col">
-                    <div className="relative">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-6 top-6 rounded-full bg-slate-100/50 hover:bg-slate-100 transition-colors z-10"
-                            onClick={() => setIsViewModalOpen(false)}
-                        >
-                            <X className="w-4 h-4 text-slate-500" />
-                        </Button>
-                    </div>
-                    <CardHeader className="pt-10 pb-2 px-10">
-                        <CardTitle className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Staff Profile</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-8 px-10 pb-12 overflow-y-auto custom-scrollbar">
+            <div className={STAFF_MODAL_OVERLAY}>
+                <div className={STAFF_MODAL_OVERLAY_INNER}>
+                    <Card className={cn(STAFF_MODAL_SHELL, "bg-white dark:bg-slate-900")}>
+                        <CardHeader className="shrink-0 pt-5 pb-2 px-6 sm:px-8 flex flex-row items-center justify-between gap-4">
+                            <CardTitle className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Staff Profile</CardTitle>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="shrink-0 rounded-full bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                onClick={() => setIsViewModalOpen(false)}
+                            >
+                                <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                            </Button>
+                        </CardHeader>
+                        <CardContent className={cn(STAFF_MODAL_BODY, "space-y-8 px-6 sm:px-8 pb-6")}>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-6">
                                 <div className="w-20 h-20 rounded-[1.5rem] bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center border border-emerald-100/50">
@@ -1222,18 +1275,18 @@ const TeamTab: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-12 py-8 border-t border-slate-100/60 dark:border-slate-800/60">
+                        <div className={cn("grid grid-cols-2 gap-12 py-8 border-t", STAFF_MODAL_DIVIDER)}>
                             <div className="space-y-6">
-                                <h4 className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Contact Info</h4>
+                                <h4 className={STAFF_MODAL_SECTION_TITLE}>Contact Info</h4>
                                 <div className="space-y-4">
                                     {isWhatsAppActivationEmail(selectedMember.email) ? (
                                         <div className="flex items-center gap-3 group">
-                                            <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
-                                                <Phone className="w-4 h-4 text-slate-400" />
+                                            <div className={STAFF_MODAL_ICON_BOX}>
+                                                <Phone className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                             </div>
                                             <div>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">WhatsApp / Phone</p>
-                                                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">WhatsApp / Phone</p>
+                                                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
                                                     {selectedMember.phone || phoneFromWhatsAppEmail(selectedMember.email) || t("common.not_provided")}
                                                 </p>
                                             </div>
@@ -1241,23 +1294,23 @@ const TeamTab: React.FC = () => {
                                     ) : (
                                         <>
                                             <div className="flex items-center gap-3 group">
-                                                <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
-                                                    <Mail className="w-4 h-4 text-slate-400" />
+                                                <div className={STAFF_MODAL_ICON_BOX}>
+                                                    <Mail className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email Address</p>
-                                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Email Address</p>
+                                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
                                                         {selectedMember.email || t("common.not_provided")}
                                                     </p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3 group">
-                                                <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
-                                                    <Phone className="w-4 h-4 text-slate-400" />
+                                                <div className={STAFF_MODAL_ICON_BOX}>
+                                                    <Phone className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone Number</p>
-                                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedMember.phone || t("common.not_provided")}</p>
+                                                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Phone Number</p>
+                                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{selectedMember.phone || t("common.not_provided")}</p>
                                                 </div>
                                             </div>
                                         </>
@@ -1266,35 +1319,35 @@ const TeamTab: React.FC = () => {
                             </div>
 
                             <div className="space-y-6">
-                                <h4 className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Employment Details</h4>
+                                <h4 className={STAFF_MODAL_SECTION_TITLE}>Employment Details</h4>
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-3 group">
-                                        <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
-                                            <Briefcase className="w-4 h-4 text-slate-400" />
+                                        <div className={STAFF_MODAL_ICON_BOX}>
+                                            <Briefcase className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Department</p>
-                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedMember.profile?.department || t("common.unassigned")}</p>
+                                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Department</p>
+                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{selectedMember.profile?.department || t("common.unassigned")}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3 group">
-                                        <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
-                                            <Clock className="w-4 h-4 text-slate-400" />
+                                        <div className={STAFF_MODAL_ICON_BOX}>
+                                            <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Join Date</p>
-                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedMember.profile?.join_date ? format(new Date(selectedMember.profile.join_date), 'PPP') : "N/A"}</p>
+                                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Join Date</p>
+                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{selectedMember.profile?.join_date ? format(new Date(selectedMember.profile.join_date), 'PPP') : "N/A"}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3 group">
-                                        <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
-                                            <TrendingUp className="w-4 h-4 text-slate-400" />
+                                        <div className={STAFF_MODAL_ICON_BOX}>
+                                            <TrendingUp className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Salary / Wage</p>
-                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Salary / Wage</p>
+                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
                                                 ${selectedMember.profile?.hourly_rate || 0}
-                                                <span className="text-xs text-slate-400 font-normal ml-1">
+                                                <span className="text-xs text-slate-500 dark:text-slate-400 font-normal ml-1">
                                                     {selectedMember.profile?.salary_type === 'MONTHLY' ? '/mo' : '/hr'}
                                                 </span>
                                             </p>
@@ -1305,44 +1358,44 @@ const TeamTab: React.FC = () => {
                         </div>
 
                         {/* Promotion History */}
-                        <div className="space-y-6 pt-4 border-t border-slate-100/60 dark:border-slate-800/60">
-                            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Promotion History</h4>
+                        <div className={cn("space-y-6 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
+                            <h4 className={STAFF_MODAL_SECTION_TITLE}>Promotion History</h4>
                             <div className="space-y-3">
                                 {selectedMember.profile?.promotion_history && selectedMember.profile.promotion_history.length > 0 ? (
                                     selectedMember.profile.promotion_history.map((p, i) => (
-                                        <div key={i} className="flex items-start gap-3 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                                            <div className="bg-white dark:bg-slate-900 p-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
+                                        <div key={i} className="flex items-start gap-3 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
+                                            <div className="bg-white dark:bg-slate-900 p-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
                                                 <Briefcase className="w-4 h-4 text-emerald-500" />
                                             </div>
                                             <div>
                                                 <div className="flex items-center justify-between gap-3">
                                                     <p className="text-sm font-black text-slate-700 dark:text-slate-200">{p.role}</p>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.date}</p>
+                                                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{p.date}</p>
                                                 </div>
-                                                {p.note && <p className="text-xs text-slate-500 mt-1 italic">"{p.note}"</p>}
+                                                {p.note && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 italic">"{p.note}"</p>}
                                             </div>
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="py-6 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl text-center">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No promotion history</p>
+                                    <div className={STAFF_MODAL_EMPTY}>
+                                        <p className={STAFF_MODAL_EMPTY_TEXT}>No promotion history</p>
                                     </div>
                                 )}
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between pt-4 border-t border-slate-100/60">
-                            <h4 className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Documents</h4>
+                        <div className={cn("flex items-center justify-between pt-4 border-t", STAFF_MODAL_DIVIDER)}>
+                            <h4 className={STAFF_MODAL_SECTION_TITLE}>Documents</h4>
                         </div>
                         <div className="space-y-3 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
                             {documents.length > 0 ? (
                                 documents.map((doc, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/30 border border-slate-100/50 dark:border-slate-800 transition-all hover:bg-slate-100/50 hover:shadow-sm">
+                                    <div key={idx} className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 transition-all hover:bg-slate-100/80 dark:hover:bg-slate-800/80 hover:shadow-sm">
                                         <div className="flex items-center gap-3 overflow-hidden">
-                                            <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm">
-                                                <FileText className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                            <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm border border-slate-200 dark:border-slate-700">
+                                                <FileText className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" />
                                             </div>
-                                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 truncate">{doc.title}</span>
+                                            <span className="text-xs font-bold text-slate-600 dark:text-slate-200 truncate">{doc.title}</span>
                                         </div>
                                         <a
                                             href={getDocumentUrl(doc.file)}
@@ -1350,36 +1403,37 @@ const TeamTab: React.FC = () => {
                                             rel="noopener noreferrer"
                                             aria-label={`Download document: ${doc.title}`}
                                             title={`Download ${doc.title}`}
-                                            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-white dark:hover:bg-slate-800 transition-all"
+                                            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-emerald-500 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-900 transition-all"
                                         >
                                             <Download className="w-4 h-4" />
                                         </a>
                                     </div>
                                 ))
                             ) : (
-                                <div className="flex flex-col items-center justify-center py-6 border-2 border-dashed border-slate-100 dark:border-slate-800/60 rounded-[1.5rem] bg-slate-50/30">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">No documents uploaded</p>
+                                <div className={cn(STAFF_MODAL_EMPTY, "flex flex-col items-center justify-center rounded-[1.5rem]")}>
+                                    <p className={cn(STAFF_MODAL_EMPTY_TEXT, "text-center")}>No documents uploaded</p>
                                 </div>
                             )}
                         </div>
+                        </CardContent>
 
-                        <div className="flex gap-3 pt-1">
+                        <div className={cn(STAFF_MODAL_FOOTER, "shrink-0 px-6 sm:px-8")}>
                             <Button
                                 variant="outline"
-                                className="flex-1 h-14 border-slate-200 dark:border-slate-700 rounded-xl font-black text-slate-700 dark:text-slate-200 text-base active:scale-[0.98] transition-all"
+                                className={cn(STAFF_MODAL_CANCEL_BTN, "h-12 sm:h-14 text-base active:scale-[0.98] transition-all")}
                                 onClick={() => setIsViewModalOpen(false)}
                             >
                                 <X className="w-5 h-5 mr-3" /> Cancel
                             </Button>
                             <Button
-                                className="flex-1 h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black tracking-tight text-base shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all"
+                                className="flex-1 h-12 sm:h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black tracking-tight text-base shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all"
                                 onClick={() => { setIsViewModalOpen(false); handleEditProfile(selectedMember); }}
                             >
                                 <Edit className="w-5 h-5 mr-3" /> Edit Profile
                             </Button>
                         </div>
-                    </CardContent>
-                </Card>
+                    </Card>
+                </div>
             </div>
         );
     };
@@ -1542,74 +1596,75 @@ const TeamTab: React.FC = () => {
         };
 
         return (
-            <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-                <Card className="w-full max-w-2xl bg-white dark:bg-slate-900 border-none shadow-2xl rounded-[1.75rem] overflow-hidden">
-                    <CardHeader className="pt-5 pb-1 px-5 flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Edit Staff Profile</CardTitle>
-                            <CardDescription className="text-slate-500 font-medium text-[11px]">Manage detailed staff information</CardDescription>
-                        </div>
-                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate-100" onClick={() => setIsEditModalOpen(false)}>
-                            <X className="w-5 h-5 text-slate-400" />
-                        </Button>
-                    </CardHeader>
+            <div className={STAFF_MODAL_OVERLAY}>
+                <div className={STAFF_MODAL_OVERLAY_INNER}>
+                    <Card className={cn(STAFF_MODAL_SHELL, "bg-white dark:bg-slate-900")}>
+                        <CardHeader className="shrink-0 pt-5 pb-1 px-5 sm:px-6 flex flex-row items-center justify-between gap-4">
+                            <div className="min-w-0">
+                                <CardTitle className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Edit Staff Profile</CardTitle>
+                                <CardDescription className="text-slate-500 dark:text-slate-400 font-medium text-[11px]">Manage detailed staff information</CardDescription>
+                            </div>
+                            <Button variant="ghost" size="icon" className="shrink-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => setIsEditModalOpen(false)}>
+                                <X className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+                            </Button>
+                        </CardHeader>
 
-                    <CardContent className="px-5 pb-5 max-h-[85vh] overflow-y-auto custom-scrollbar">
+                        <CardContent className={cn(STAFF_MODAL_BODY, "px-5 sm:px-6 pb-5")}>
                         <div className="space-y-3 py-2">
                             {/* Personal Information */}
                             <div className="space-y-3">
-                                <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Personal Information</h4>
+                                <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>Personal Information</h4>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-1">First Name</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>First Name</label>
                                         <Input
                                             value={formData.first_name}
                                             onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                                            className="h-9 rounded-lg bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                                            className={STAFF_MODAL_INPUT}
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-1">Last Name</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>Last Name</label>
                                         <Input
                                             value={formData.last_name}
                                             onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                                            className="h-9 rounded-lg bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                                            className={STAFF_MODAL_INPUT}
                                         />
                                     </div>
                                     <div className="space-y-2 col-span-2">
-                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-1">Email Address</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>Email Address</label>
                                         <Input
                                             value={formData.email}
                                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                            className="h-9 rounded-lg bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                                            className={STAFF_MODAL_INPUT}
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-1">Phone Number</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>Phone Number</label>
                                         <Input
                                             value={formData.phone}
                                             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                            className="h-9 rounded-lg bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                                            className={STAFF_MODAL_INPUT}
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-1">Join Date</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>Join Date</label>
                                         <Input
                                             type="date"
                                             value={formData.join_date}
                                             onChange={(e) => setFormData({ ...formData, join_date: e.target.value })}
-                                            className="h-9 rounded-lg bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                                            className={STAFF_MODAL_INPUT}
                                         />
                                     </div>
                                 </div>
                             </div>
 
                             {/* Role & Compensation */}
-                            <div className="space-y-4 pt-4 border-t border-slate-100/60">
-                                <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Role & Compensation</h4>
+                            <div className={cn("space-y-4 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
+                                <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>Role & Compensation</h4>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-1">Current Role</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>Current Role</label>
                                         <select
                                             value={formData.role}
                                             onChange={(e) => {
@@ -1618,7 +1673,7 @@ const TeamTab: React.FC = () => {
                                                 const newDept = roleToDepartment[newRole] || formData.department;
                                                 setFormData({ ...formData, role: newRole, department: newDept });
                                             }}
-                                            className="w-full h-9 rounded-lg bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium px-3 text-sm"
+                                            className={STAFF_MODAL_SELECT}
                                         >
                                             <option value="SUPER_ADMIN">Super Admin</option>
                                             <option value="ADMIN">Admin</option>
@@ -1634,11 +1689,11 @@ const TeamTab: React.FC = () => {
                                         </select>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-1">Department</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>Department</label>
                                         <select
                                             value={formData.department}
                                             onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                                            className="w-full h-9 rounded-lg bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium px-3 text-sm"
+                                            className={STAFF_MODAL_SELECT}
                                         >
                                             <option value="">Unassigned</option>
                                             <option value="Management">{t("staff.departments.management")}</option>
@@ -1650,18 +1705,18 @@ const TeamTab: React.FC = () => {
                                         </select>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 ml-1">Salary / Wage</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>Salary / Wage</label>
                                         <div className="flex gap-2">
                                             <Input
                                                 type="number"
                                                 value={formData.hourly_rate}
                                                 onChange={(e) => setFormData({ ...formData, hourly_rate: parseFloat(e.target.value) })}
-                                                className="h-9 rounded-lg bg-slate-50 border-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-black text-emerald-600"
+                                                className={STAFF_MODAL_SALARY_INPUT}
                                             />
                                             <select
                                                 value={formData.salary_type}
                                                 onChange={(e) => setFormData({ ...formData, salary_type: e.target.value as 'HOURLY' | 'MONTHLY' })}
-                                                className="h-9 rounded-lg bg-slate-100/50 border-none font-black text-[9px] px-2 text-slate-500 uppercase tracking-widest"
+                                                className={STAFF_MODAL_SALARY_TYPE_SELECT}
                                             >
                                                 <option value="HOURLY">/HR</option>
                                                 <option value="MONTHLY">/MO</option>
@@ -1672,25 +1727,25 @@ const TeamTab: React.FC = () => {
                             </div>
 
                             {/* Promotion History */}
-                            <div className="space-y-4 pt-4 border-t border-slate-100/60">
+                            <div className={cn("space-y-4 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
                                 <div className="flex items-center justify-between">
-                                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Promotion History</h4>
+                                    <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>Promotion History</h4>
                                     {!isPromoting && (
-                                        <Button variant="ghost" size="sm" className="text-emerald-600 font-black text-[9px] uppercase tracking-widest" onClick={() => setIsPromoting(true)}>
+                                        <Button variant="ghost" size="sm" className="text-emerald-600 dark:text-emerald-400 font-black text-[9px] uppercase tracking-widest hover:bg-emerald-50 dark:hover:bg-emerald-900/20" onClick={() => setIsPromoting(true)}>
                                             <TrendingUp className="w-3 h-3 mr-1" /> Promote Staff
                                         </Button>
                                     )}
                                 </div>
 
                                 {isPromoting && (
-                                    <div className="p-6 bg-emerald-50/50 rounded-3xl border border-emerald-100 space-y-4 animate-in fade-in slide-in-from-top-2">
+                                    <div className="p-6 bg-emerald-50/50 dark:bg-emerald-900/20 rounded-3xl border border-emerald-100 dark:border-emerald-800/50 space-y-4 animate-in fade-in slide-in-from-top-2">
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="space-y-2">
-                                                <label className="text-xs font-bold text-slate-700 ml-1">New Role</label>
+                                                <label className={STAFF_MODAL_FIELD_LABEL}>New Role</label>
                                                 <select
                                                     value={promoRole}
                                                     onChange={(e) => setPromoRole(e.target.value)}
-                                                    className="w-full h-9 rounded-lg bg-white border-emerald-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium px-3 text-sm"
+                                                    className={STAFF_MODAL_SELECT}
                                                 >
                                                     <option value="SUPER_ADMIN">Super Admin</option>
                                                     <option value="ADMIN">Admin</option>
@@ -1704,21 +1759,21 @@ const TeamTab: React.FC = () => {
                                                 </select>
                                             </div>
                                             <div className="space-y-2">
-                                                <label className="text-xs font-bold text-slate-700 ml-1">Effective Date</label>
-                                                <Input disabled value={format(new Date(), "PPP")} className="h-9 rounded-lg bg-white border-emerald-50 text-slate-400 font-medium" />
+                                                <label className={STAFF_MODAL_FIELD_LABEL}>Effective Date</label>
+                                                <Input disabled value={format(new Date(), "PPP")} className={cn(STAFF_MODAL_INPUT, "opacity-70 cursor-not-allowed")} />
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-xs font-bold text-slate-700 ml-1">Promotion Notes</label>
+                                            <label className={STAFF_MODAL_FIELD_LABEL}>Promotion Notes</label>
                                             <textarea
                                                 value={promoNote}
                                                 onChange={(e) => setPromoNote(e.target.value)}
                                                 placeholder={t("staff.promotion_reason_placeholder")}
-                                                className="w-full p-4 rounded-xl bg-white border-emerald-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium text-sm min-h-[100px]"
+                                                className="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 focus:ring-emerald-500 focus:border-emerald-500 font-medium text-sm min-h-[100px] placeholder:text-slate-400 dark:placeholder:text-slate-500"
                                             />
                                         </div>
                                         <div className="flex gap-2">
-                                            <Button variant="ghost" className="flex-1 rounded-xl font-bold" onClick={() => setIsPromoting(false)}>Cancel</Button>
+                                            <Button variant="ghost" className="flex-1 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => setIsPromoting(false)}>Cancel</Button>
                                             <Button className="flex-2 h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg px-8" onClick={handlePromote}>Confirm Promotion</Button>
                                         </div>
                                     </div>
@@ -1726,38 +1781,38 @@ const TeamTab: React.FC = () => {
 
                                 <div className="space-y-3">
                                     {promotions.length > 0 ? promotions.map((p, i) => (
-                                        <div key={i} className="flex items-start gap-3 bg-slate-50/50 p-4 rounded-2xl border border-slate-100/50">
-                                            <div className="bg-white p-2 rounded-lg shadow-sm border border-slate-100">
+                                        <div key={i} className="flex items-start gap-3 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
+                                            <div className="bg-white dark:bg-slate-900 p-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
                                                 <Briefcase className="w-4 h-4 text-emerald-500" />
                                             </div>
                                             <div className="flex-1">
                                                 <div className="flex items-center justify-between">
-                                                    <p className="text-sm font-black text-slate-700">{p.role}</p>
-                                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{p.date}</p>
+                                                    <p className="text-sm font-black text-slate-700 dark:text-slate-200">{p.role}</p>
+                                                    <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{p.date}</p>
                                                 </div>
-                                                {p.note && <p className="text-xs text-slate-500 mt-1 italic">"{p.note}"</p>}
+                                                {p.note && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 italic">"{p.note}"</p>}
                                             </div>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="text-slate-300 hover:text-red-500 h-6 w-6"
+                                                className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 h-6 w-6"
                                                 onClick={() => setPromotions(promotions.filter((_, idx) => idx !== i))}
                                             >
                                                 <X className="w-3 h-3" />
                                             </Button>
                                         </div>
                                     )) : (
-                                        <div className="py-6 border-2 border-dashed border-slate-50 rounded-2xl text-center">
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">No promotion records found</p>
+                                        <div className={STAFF_MODAL_EMPTY}>
+                                            <p className={STAFF_MODAL_EMPTY_TEXT_SM}>No promotion records found</p>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
                             {/* Documents Section */}
-                            <div className="space-y-4 pt-4 border-t border-slate-100/60">
+                            <div className={cn("space-y-4 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
                                 <div className="flex items-center justify-between">
-                                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Documents</h4>
+                                    <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>Documents</h4>
                                     <label className="cursor-pointer group">
                                         <Input
                                             type="file"
@@ -1779,7 +1834,7 @@ const TeamTab: React.FC = () => {
                                             }}
                                             disabled={isUploading}
                                         />
-                                        <div className="flex items-center gap-1.5 text-xs font-black text-emerald-600 hover:text-emerald-700 transition-colors uppercase tracking-widest">
+                                        <div className="flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors uppercase tracking-widest">
                                             {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-4 h-4" />}
                                             Upload Document
                                         </div>
@@ -1788,14 +1843,14 @@ const TeamTab: React.FC = () => {
                                 <div className="space-y-3">
                                     {documents.length > 0 ? (
                                         documents.map((doc, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 transition-all hover:bg-slate-100/50">
+                                            <div key={idx} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 transition-all hover:bg-slate-100/80 dark:hover:bg-slate-800/80">
                                                 <div className="flex items-center gap-3 overflow-hidden">
-                                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm">
-                                                        <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                                    <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm border border-slate-200 dark:border-slate-700">
+                                                        <FileText className="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
                                                     </div>
                                                     <div className="flex flex-col">
-                                                        <span className="text-sm font-bold text-slate-700 truncate">{doc.title}</span>
-                                                        <span className="text-[9px] font-medium text-slate-400">{format(new Date(doc.uploaded_at), "PPP")}</span>
+                                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{doc.title}</span>
+                                                        <span className="text-[9px] font-medium text-slate-500 dark:text-slate-400">{format(new Date(doc.uploaded_at), "PPP")}</span>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
@@ -1805,14 +1860,14 @@ const TeamTab: React.FC = () => {
                                                         rel="noopener noreferrer"
                                                         aria-label={`Download document: ${doc.title}`}
                                                         title={`Download ${doc.title}`}
-                                                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-white transition-all"
+                                                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-emerald-500 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-900 transition-all"
                                                     >
                                                         <Download className="w-4 h-4" />
                                                     </a>
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
-                                                        className="w-8 h-8 text-slate-400 hover:text-red-500 hover:bg-white transition-all"
+                                                        className="w-8 h-8 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-white dark:hover:bg-slate-900 transition-all"
                                                         onClick={async () => {
                                                             if (!confirm(t("errors.confirm_delete_document"))) return;
                                                             try {
@@ -1831,23 +1886,25 @@ const TeamTab: React.FC = () => {
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/30">
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">No documents uploaded</p>
+                                        <div className={cn(STAFF_MODAL_EMPTY, "flex flex-col items-center justify-center py-8")}>
+                                            <p className={cn(STAFF_MODAL_EMPTY_TEXT_SM, "text-center")}>No documents uploaded</p>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
                             {/* Password Security */}
-                            <div className="space-y-3 pt-4 border-t border-slate-100/60">
+                            <div className={cn("space-y-3 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
                                 <div className="flex items-center justify-between">
-                                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Security</h4>
+                                    <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>Security</h4>
                                     <Button
                                         variant="outline"
                                         size="sm"
                                         className={cn(
                                             "rounded-xl font-bold transition-all h-9 px-4 uppercase tracking-widest text-[9px]",
-                                            showPasswordReset ? "border-red-100 text-red-500 bg-red-50" : "border-slate-100 text-slate-600"
+                                            showPasswordReset
+                                                ? "border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20"
+                                                : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 bg-white/60 dark:bg-slate-800/60"
                                         )}
                                         onClick={() => setShowPasswordReset(!showPasswordReset)}
                                     >
@@ -1855,11 +1912,11 @@ const TeamTab: React.FC = () => {
                                     </Button>
                                 </div>
                                 {showPasswordReset && (
-                                    <div className="p-6 bg-slate-50/80 rounded-3xl border border-slate-100 space-y-3 animate-in fade-in slide-in-from-top-2">
+                                    <div className="p-6 bg-slate-50/80 dark:bg-slate-800/50 rounded-3xl border border-slate-200 dark:border-slate-700 space-y-3 animate-in fade-in slide-in-from-top-2">
                                         <div className="space-y-2">
                                             <div className="flex items-center gap-2 mb-2">
-                                                <Key className="w-4 h-4 text-emerald-600" />
-                                                <label className="text-xs font-black text-slate-700 uppercase tracking-widest">New Password</label>
+                                                <Key className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                                <label className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">New Password</label>
                                             </div>
                                             <div className="flex gap-3">
                                                 <Input
@@ -1867,17 +1924,17 @@ const TeamTab: React.FC = () => {
                                                     value={newPassword}
                                                     onChange={(e) => setNewPassword(e.target.value)}
                                                     placeholder={t("common.enter_password")}
-                                                    className="h-9 rounded-lg bg-white border-slate-200 focus:ring-emerald-500"
+                                                    className={STAFF_MODAL_INPUT}
                                                 />
                                                 <Button
-                                                    className="h-9 bg-slate-900 text-white font-bold rounded-lg px-8 hover:bg-slate-800 transition-all shadow-lg"
+                                                    className="h-9 bg-slate-900 dark:bg-slate-700 text-white font-bold rounded-lg px-8 hover:bg-slate-800 dark:hover:bg-slate-600 transition-all shadow-lg"
                                                     onClick={handleResetPassword}
                                                     disabled={isResetting}
                                                 >
                                                     {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : t("common.update")}
                                                 </Button>
                                             </div>
-                                            <p className="text-[9px] text-slate-400 font-medium ml-1">Staff can use this to login via PIN or password.</p>
+                                            <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium ml-1">Staff can use this to login via PIN or password.</p>
                                         </div>
                                     </div>
                                 )}
@@ -1885,30 +1942,31 @@ const TeamTab: React.FC = () => {
 
                             {/* Danger zone: Deactivate / Remove — only for Owner or Super Admin, not for self */}
                             {(user?.role === "OWNER" || user?.role === "SUPER_ADMIN") && selectedMember && selectedMember.id !== user?.id && (
-                                <div className="space-y-3 pt-4 border-t border-slate-100/60">
-                                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{t("staff.danger_zone")}</h4>
+                                <div className={cn("space-y-3 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
+                                    <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>{t("staff.danger_zone")}</h4>
                                     <div className="flex gap-2">
-                                        <Button variant="outline" size="sm" className="text-amber-600 border-amber-200 hover:bg-amber-50" onClick={() => { setStaffToDeactivate({ id: selectedMember.id, name: `${selectedMember.first_name} ${selectedMember.last_name}` }); setIsDeactivateModalOpen(true); }}>
+                                        <Button variant="outline" size="sm" className="text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20" onClick={() => { setStaffToDeactivate({ id: selectedMember.id, name: `${selectedMember.first_name} ${selectedMember.last_name}` }); setIsDeactivateModalOpen(true); }}>
                                             Deactivate staff
                                         </Button>
-                                        <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => { setStaffToDelete({ id: selectedMember.id, name: `${selectedMember.first_name} ${selectedMember.last_name}` }); setIsDeleteModalOpen(true); }}>
+                                        <Button variant="outline" size="sm" className="text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => { setStaffToDelete({ id: selectedMember.id, name: `${selectedMember.first_name} ${selectedMember.last_name}` }); setIsDeleteModalOpen(true); }}>
                                             Remove staff
                                         </Button>
                                     </div>
                                 </div>
                             )}
                         </div>
-                    </CardContent>
+                        </CardContent>
 
-                    <div className="p-5 bg-slate-50/50 border-t border-slate-100 flex gap-3">
-                        <Button variant="outline" className="flex-1 h-9 rounded-xl font-black text-xs border-slate-200" onClick={() => setIsEditModalOpen(false)}>
-                            Cancel Changes
-                        </Button>
-                        <Button className="flex-1 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs shadow-lg shadow-emerald-200" onClick={handleSave}>
-                            Save Information
-                        </Button>
-                    </div>
-                </Card>
+                        <div className={cn(STAFF_MODAL_FOOTER, "shrink-0")}>
+                            <Button variant="outline" className={STAFF_MODAL_CANCEL_BTN} onClick={() => setIsEditModalOpen(false)}>
+                                Cancel Changes
+                            </Button>
+                            <Button className="flex-1 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs shadow-lg shadow-emerald-600/20 dark:shadow-emerald-900/30" onClick={handleSave}>
+                                Save Information
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
             </div>
         );
     };

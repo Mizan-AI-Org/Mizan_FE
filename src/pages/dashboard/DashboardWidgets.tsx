@@ -4,7 +4,7 @@ import { NavigateFunction } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
-import { api, API_BASE } from "@/lib/api";
+import { api, API_BASE, fetchStaffDirectoryForPicker } from "@/lib/api";
 import type { AuthContextType } from "@/contexts/AuthContext.types";
 import type {
   DashboardTaskDemandItem,
@@ -1029,13 +1029,14 @@ function inboxCategoryClass(category: string | null | undefined): {
   const c = String(category || "").toUpperCase();
   switch (c) {
     case "HR":
+    case "DOCUMENT":
+    case "PAYROLL":
       return {
         bg: "bg-violet-50 dark:bg-violet-950/30",
         text: "text-violet-700 dark:text-violet-300",
         border: "border-violet-200 dark:border-violet-900/50",
       };
     case "FINANCE":
-    case "PAYROLL":
       return {
         bg: "bg-emerald-50 dark:bg-emerald-950/30",
         text: "text-emerald-700 dark:text-emerald-300",
@@ -1114,9 +1115,9 @@ function _inboxCategoryToBucket(
   switch (c) {
     case "HR":
     case "DOCUMENT":
+    case "PAYROLL":
       return "human_resources";
     case "FINANCE":
-    case "PAYROLL":
       return "finance";
     case "MAINTENANCE":
       return "maintenance";
@@ -1162,13 +1163,11 @@ function StaffInboxEnterpriseCard({
   // the row left from regardless of which widget it came out of.
   const dragSession = useDragSession();
 
-  // Latest 5 actionable inquiries across **all** categories. We pull
-  // PENDING + ESCALATED on the server (where the lean serializer skips
-  // comments / voice / transcription) and trim to 5 client-side. Sort
-  // is created_at DESC so newest land on top — matches what a manager
-  // expects from a "team inbox" preview.
+  // Latest actionable inquiries that are not already owned by a named
+  // operational lane (HR, Finance, Maintenance, etc.). Payroll/wage asks
+  // surface on Human Resources only — not duplicated here.
   const listQuery = useQuery<{ items: InboxItem[]; pending: number; escalated: number }>({
-    queryKey: ["staff-requests-inbox-widget", "all", accessToken],
+    queryKey: ["staff-requests-inbox-widget", "unlaned", accessToken],
     enabled: !!accessToken,
     refetchInterval: 60_000,
     staleTime: 30_000,
@@ -1182,6 +1181,7 @@ function StaffInboxEnterpriseCard({
       const fetchPage = async (statusKey: "PENDING" | "ESCALATED") => {
         const qs = new URLSearchParams();
         qs.set("status", statusKey);
+        qs.set("exclude_laned", "true");
         qs.set("page_size", "10");
         const r = await fetch(`${API_BASE}/staff/requests/?${qs.toString()}`, {
           headers: {
@@ -5655,22 +5655,8 @@ function StaffMessagesCard({
   const staffQuery = useQuery({
     queryKey: ["dashboard", "staff-messages", "staff-list", accessToken ?? ""] as const,
     enabled: !!accessToken,
-    queryFn: async () => {
-      const res = await fetch(
-        `${API_BASE}/staff/?page_size=500&all_branches=1`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken || ""}`,
-            Accept: "application/json",
-          },
-          credentials: "include",
-        },
-      );
-      if (!res.ok) throw new Error("Failed to load team");
-      const data = await res.json();
-      const rows = Array.isArray(data) ? data : data?.results || [];
-      return rows as StaffRow[];
-    },
+    queryFn: () =>
+      fetchStaffDirectoryForPicker(accessToken || "", { forMessaging: true }),
     staleTime: 60_000,
   });
 
@@ -5798,9 +5784,8 @@ function StaffMessagesCard({
   const filteredStaff = useMemo(() => {
     const q = recipientSearch.trim().toLowerCase();
     const all = staffRows;
-    if (!q) return all.slice(0, 100);
-    return all
-      .filter((s) => {
+    if (!q) return all;
+    return all.filter((s) => {
         const name = `${s.first_name || ""} ${s.last_name || ""}`.toLowerCase();
         const email = (s.email || "").toLowerCase();
         const phone = (s.phone || "").toLowerCase();
@@ -5813,8 +5798,7 @@ function StaffMessagesCard({
           role.includes(q) ||
           dept.includes(q)
         );
-      })
-      .slice(0, 100);
+      });
   }, [staffRows, recipientSearch]);
 
   const filteredStaffMany = useMemo(() => {
@@ -6359,7 +6343,7 @@ function StaffMessagesCard({
                 autoFocus
               />
             </div>
-            <div className="max-h-56 overflow-y-auto py-1">
+            <div className="max-h-72 overflow-y-auto py-1 custom-scrollbar">
               {staffQuery.isLoading ? (
                 <div className="py-3 text-center text-[11px] text-slate-400">
                   {t("dashboard.staff_messages.loading_staff")}
@@ -6438,6 +6422,14 @@ function StaffMessagesCard({
                 })
               )}
             </div>
+            {!staffQuery.isLoading &&
+            (recipientOpen ? filteredStaff : filteredStaffMany).length > 0 ? (
+              <div className="border-t border-slate-100 dark:border-slate-800 px-2.5 py-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                {(recipientOpen ? filteredStaff : filteredStaffMany).length} of{" "}
+                {staffRows.length}{" "}
+                {staffRows.length === 1 ? "teammate" : "teammates"}
+              </div>
+            ) : null}
           </div>,
           document.body,
         )}
@@ -7449,8 +7441,7 @@ export function DashboardWidgetById({
           icon={Briefcase}
           tone="violet"
           // HR widget aggregates HR + DOCUMENT + PAYROLL (see
-          // BUCKET_TO_CATEGORIES on the backend) so unpaid wages show here
-          // as well as under Finance.
+          // BUCKET_TO_CATEGORIES on the backend) so unpaid wages show here.
           moreHref="/dashboard/staff-requests?lane=human_resources"
           rowDetailHref={buildInboxRowDetailHref({ lane: "human_resources" })}
         />
@@ -7467,9 +7458,7 @@ export function DashboardWidgetById({
           titleKey="dashboard.finance.title"
           icon={Wallet}
           tone="emerald"
-          // Finance widget aggregates FINANCE + PAYROLL (see
-          // BUCKET_TO_CATEGORIES on the backend). Deep-linking to a single
-          // category hid payslip rows here, so we pass both.
+          // Finance widget aggregates vendor/AP invoices (FINANCE only).
           moreHref="/dashboard/staff-requests?lane=finance"
           rowDetailHref={buildInboxRowDetailHref({ lane: "finance" })}
         />
