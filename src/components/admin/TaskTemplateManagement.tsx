@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   Plus,
   Edit,
@@ -81,6 +83,8 @@ interface TaskTemplate {
   priority_level: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   is_critical: boolean;
   ai_generated: boolean;
+  standing_assignees?: string[];
+  standing_assignee_count?: number;
 }
 
 const templateTypeIcons = {
@@ -125,6 +129,8 @@ export default function TaskTemplateManagement() {
   const [importParseErrors, setImportParseErrors] = useState<string[]>([]);
   const [importFileName, setImportFileName] = useState('');
   const importFileInputRef = useRef<HTMLInputElement>(null);
+  const [startProcessTemplate, setStartProcessTemplate] = useState<TaskTemplate | null>(null);
+  const [startProcessStaffIds, setStartProcessStaffIds] = useState<string[]>([]);
 
   const queryClient = useQueryClient();
 
@@ -141,6 +147,28 @@ export default function TaskTemplateManagement() {
       if (!response.ok) throw new Error('Failed to load task templates');
       const data = await response.json();
       return data.results || data;
+    },
+  });
+
+  type StaffOption = { id: string; name: string };
+  const { data: staffOptions = [] } = useQuery<StaffOption[]>({
+    queryKey: ['task-template-staff'],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE}/staff/?page_size=500`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
+      });
+      if (!response.ok) throw new Error('Failed to fetch staff');
+      const json = await response.json();
+      const arr = (json?.results ?? json) as Record<string, unknown>[];
+      return (Array.isArray(arr) ? arr : []).map((s) => {
+        const nested = (s.user as Record<string, unknown>) || {};
+        const id = String(s.id ?? nested.id ?? '');
+        const first = String(s.first_name ?? nested.first_name ?? '');
+        const last = String(s.last_name ?? nested.last_name ?? '');
+        const email = String(s.email ?? nested.email ?? '');
+        const name = `${first} ${last}`.trim() || email || 'Staff member';
+        return { id, name };
+      }).filter((s) => s.id);
     },
   });
 
@@ -237,13 +265,25 @@ export default function TaskTemplateManagement() {
   const seedTemplatesMutation = useMutation({
     mutationFn: async () => {
       const token = localStorage.getItem('access_token') || '';
-      // Fetch current templates to avoid duplicates (use large page_size to get all)
-      const listRes = await fetch(`${API_BASE}/scheduling/task-templates/?page_size=500`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!listRes.ok) throw new Error('Failed to fetch existing templates');
-      const listData = await listRes.json();
-      const existing = (listData.results || listData || []) as TaskTemplate[];
+      // Prefer cached list; fall back to a fresh fetch
+      let existing = (queryClient.getQueryData<TaskTemplate[]>(['task-templates']) || []);
+      if (!existing.length) {
+        const listRes = await fetch(`${API_BASE}/scheduling/task-templates/?page_size=500`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!listRes.ok) {
+          const errBody = await listRes.json().catch(() => ({}));
+          const detail =
+            (errBody as { detail?: string; message?: string }).detail ||
+            (errBody as { message?: string }).message ||
+            (listRes.status === 401
+              ? 'Session expired — please sign in again.'
+              : `Could not load templates (${listRes.status}). Is the API running?`);
+          throw new Error(detail);
+        }
+        const listData = await listRes.json();
+        existing = (listData.results || listData || []) as TaskTemplate[];
+      }
       const existingNames = new Set(existing.map((t) => t.name.trim().toLowerCase()));
 
       const toCreate = builtInTemplates.filter(
@@ -339,25 +379,35 @@ export default function TaskTemplateManagement() {
     },
   });
 
-  // Generate tasks from template mutation
-  const generateTasksMutation = useMutation({
-    mutationFn: async (templateId: string) => {
-      const response = await fetch(`${API_BASE}/scheduling/task-templates/${templateId}/generate_tasks/`, {
+  // Start process checklist for staff (Live Board / Miya — not Tasks & Demands)
+  const startProcessMutation = useMutation({
+    mutationFn: async ({ templateId, staffIds }: { templateId: string; staffIds: string[] }) => {
+      const response = await fetch(`${API_BASE}/scheduling/task-templates/${templateId}/start_process/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ staff_ids: staffIds, notify: true }),
       });
-      if (!response.ok) throw new Error('Failed to generate tasks');
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err?.detail || 'Failed to start process');
+      }
       return response.json();
     },
-    onSuccess: () => {
-      toast.success('Tasks generated successfully');
+    onSuccess: (data) => {
+      const name = data?.template_name || startProcessTemplate?.name || 'Process';
+      const count = data?.count ?? startProcessStaffIds.length;
+      toast.success(t('processes.start_process_success', { name, count }));
+      setStartProcessTemplate(null);
+      setStartProcessStaffIds([]);
+      queryClient.invalidateQueries({ queryKey: ['task-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['live-checklist-progress'] });
     },
-    onError: (error) => {
-      toast.error('Failed to generate tasks');
-      console.error('Generate tasks error:', error);
+    onError: (error: Error) => {
+      toast.error(error?.message || t('processes.start_process_failed'));
+      console.error('Start process error:', error);
     },
   });
 
@@ -383,8 +433,28 @@ export default function TaskTemplateManagement() {
     duplicateTemplateMutation.mutate(templateId);
   };
 
-  const handleGenerateTasks = (templateId: string) => {
-    generateTasksMutation.mutate(templateId);
+  const openStartProcess = (template: TaskTemplate) => {
+    const standing = (template.standing_assignees || []).map(String);
+    setStartProcessStaffIds(standing);
+    setStartProcessTemplate(template);
+  };
+
+  const toggleStartProcessStaff = (staffId: string) => {
+    setStartProcessStaffIds((prev) =>
+      prev.includes(staffId) ? prev.filter((id) => id !== staffId) : [...prev, staffId],
+    );
+  };
+
+  const confirmStartProcess = () => {
+    if (!startProcessTemplate) return;
+    if (!startProcessStaffIds.length) {
+      toast.error(t('processes.start_process_no_staff'));
+      return;
+    }
+    startProcessMutation.mutate({
+      templateId: startProcessTemplate.id,
+      staffIds: startProcessStaffIds,
+    });
   };
 
   const handleFormSuccess = () => {
@@ -427,12 +497,23 @@ export default function TaskTemplateManagement() {
   const importProcessesMutation = useMutation({
     mutationFn: async (payloads: ImportTemplatePayload[]) => {
       const token = localStorage.getItem('access_token') || '';
-      const listRes = await fetch(`${API_BASE}/scheduling/task-templates/?page_size=500`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!listRes.ok) throw new Error('Failed to fetch existing templates');
-      const listData = await listRes.json();
-      const existing = (listData.results || listData || []) as TaskTemplate[];
+      let existing = (queryClient.getQueryData<TaskTemplate[]>(['task-templates']) || []);
+      if (!existing.length) {
+        const listRes = await fetch(`${API_BASE}/scheduling/task-templates/?page_size=500`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!listRes.ok) {
+          const errBody = await listRes.json().catch(() => ({}));
+          throw new Error(
+            (errBody as { detail?: string }).detail ||
+              (listRes.status === 401
+                ? 'Session expired — please sign in again.'
+                : `Could not load templates (${listRes.status}). Is the API running?`),
+          );
+        }
+        const listData = await listRes.json();
+        existing = (listData.results || listData || []) as TaskTemplate[];
+      }
       const existingNames = new Set(existing.map((x) => x.name.trim().toLowerCase()));
 
       let created = 0;
@@ -548,8 +629,9 @@ export default function TaskTemplateManagement() {
       <Button
         type="button"
         variant="outline"
+        size="sm"
         onClick={() => setImportDialogOpen(true)}
-        className="gap-2"
+        className="gap-2 text-slate-600 dark:text-slate-300"
       >
         <Upload className="h-4 w-4" />
         {t('processes.import_processes')}
@@ -656,9 +738,11 @@ export default function TaskTemplateManagement() {
       </Dialog>
 
       <Button
-        variant="outline"
+        variant="ghost"
+        size="sm"
         onClick={() => seedTemplatesMutation.mutate()}
         disabled={seedTemplatesMutation.isPending}
+        className="text-slate-600 dark:text-slate-300"
       >
         {t("processes.load_prebuilt_processes")}
       </Button>
@@ -833,8 +917,10 @@ export default function TaskTemplateManagement() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleGenerateTasks(template.id)}
-                    disabled={generateTasksMutation.isPending}
+                    onClick={() => openStartProcess(template)}
+                    disabled={startProcessMutation.isPending}
+                    title={t('processes.start_process')}
+                    aria-label={t('processes.start_process')}
                   >
                     <Play className="h-3 w-3" />
                   </Button>
@@ -892,6 +978,69 @@ export default function TaskTemplateManagement() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Start process → Live Board checklist (not Tasks & Demands) */}
+      <Dialog
+        open={!!startProcessTemplate}
+        onOpenChange={(open) => {
+          if (!open) {
+            setStartProcessTemplate(null);
+            setStartProcessStaffIds([]);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {t('processes.start_process')}
+              {startProcessTemplate ? `: ${startProcessTemplate.name}` : ''}
+            </DialogTitle>
+            <DialogDescription>{t('processes.start_process_desc')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label>{t('processes.start_process_select_staff')}</Label>
+            <div className="max-h-64 overflow-y-auto rounded-md border border-border divide-y">
+              {staffOptions.length === 0 ? (
+                <p className="px-3 py-3 text-sm text-muted-foreground">No staff found.</p>
+              ) : (
+                staffOptions.map((s) => {
+                  const selected = startProcessStaffIds.includes(s.id);
+                  return (
+                    <label
+                      key={s.id}
+                      className="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-muted/50"
+                    >
+                      <Checkbox
+                        checked={selected}
+                        onCheckedChange={() => toggleStartProcessStaff(s.id)}
+                      />
+                      <span className="text-sm">{s.name}</span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setStartProcessTemplate(null);
+                setStartProcessStaffIds([]);
+              }}
+            >
+              {t('schedule.cancel')}
+            </Button>
+            <Button
+              onClick={confirmStartProcess}
+              disabled={startProcessMutation.isPending || startProcessStaffIds.length === 0}
+            >
+              <Play className="h-3.5 w-3.5 mr-1.5" />
+              {t('processes.start_process')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

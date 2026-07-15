@@ -31,6 +31,8 @@ import {
   ExternalLink,
   Languages,
   Route,
+  FileWarning,
+  Shield,
 } from "lucide-react";
 import { FormSectionSkeleton } from "@/components/skeletons";
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";
@@ -47,6 +49,16 @@ const MultiLocationSettings = lazy(() => import("@/components/settings/MultiLoca
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
 const BillingSettings = lazy(() => import("@/components/settings/BillingSettings"));
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - dynamic import types resolved at runtime
+const ComplianceDocumentsSettings = lazy(
+  () => import("@/components/settings/ComplianceDocumentsSettings"),
+);
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - dynamic import types resolved at runtime
+const PaymentApprovalSettings = lazy(
+  () => import("@/components/settings/PaymentApprovalSettings"),
+);
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/use-language";
 import { Language } from "@/contexts/LanguageContext.types";
@@ -254,7 +266,16 @@ export default function Settings() {
   const [savingGeneral, setSavingGeneral] = useState(false);
   // Controlled tabs — synced with ?tab= for deep links / OAuth returns
   const SETTINGS_TABS = useMemo(
-    () => ["profile", "location", "general", "integrations", "billing"] as const,
+    () =>
+      [
+        "profile",
+        "location",
+        "general",
+        "integrations",
+        "billing",
+        "compliance",
+        "payguard",
+      ] as const,
     [],
   );
   const initialTab = (() => {
@@ -369,9 +390,14 @@ export default function Settings() {
     }
   }, [navigate, apiClient, language]);
 
-  // Restrict non-profile settings for staff users: only admins/managers can see other tabs
+  // Restrict non-profile settings for staff users: only admins/managers/owners see other tabs
   const roleUpper = (user?.role || "").toUpperCase();
-  const isStaff = !(roleUpper === "SUPER_ADMIN" || roleUpper === "ADMIN" || roleUpper === "MANAGER");
+  const isStaff = !(
+    roleUpper === "SUPER_ADMIN" ||
+    roleUpper === "ADMIN" ||
+    roleUpper === "OWNER" ||
+    roleUpper === "MANAGER"
+  );
   const canEditPermissions =
     roleUpper === "SUPER_ADMIN" || roleUpper === "ADMIN" || roleUpper === "OWNER";
 
@@ -409,6 +435,18 @@ export default function Settings() {
           label: t("settings.tabs.billing"),
           description: t("settings.nav.billing_desc"),
           icon: CreditCardIcon,
+        },
+        {
+          id: "compliance",
+          label: t("settings.tabs.compliance"),
+          description: t("settings.nav.compliance_desc"),
+          icon: FileWarning,
+        },
+        {
+          id: "payguard",
+          label: t("settings.tabs.payguard"),
+          description: t("settings.nav.payguard_desc"),
+          icon: Shield,
         },
       );
     }
@@ -1033,7 +1071,7 @@ export default function Settings() {
 
   return (
     <div className={`${PAGE_SHELL} pb-24 lg:pb-8`}>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0">
+      <Tabs value={activeTab} onValueChange={onSettingsTabChange} className="space-y-0">
         <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-x-8 lg:gap-y-5 lg:items-start">
           {/* Title sits above the content column so it shares the cards' left edge */}
           <header className="order-1 min-w-0 lg:col-span-2">
@@ -1049,7 +1087,7 @@ export default function Settings() {
             <SettingsNav
               items={settingsNavItems}
               activeId={activeTab}
-              onSelect={setActiveTab}
+              onSelect={onSettingsTabChange}
               {...(canEditPermissions
                 ? {
                     permissionsHref: "/dashboard/settings/permissions",
@@ -2000,6 +2038,22 @@ export default function Settings() {
                 {t("settings.delete_account")}
               </Button>
             </SettingsSection>
+          </TabsContent>
+        )}
+
+        {!isStaff && (
+          <TabsContent value="compliance" className="mt-0 space-y-4 focus-visible:outline-none">
+            <Suspense fallback={<FormSectionSkeleton />}>
+              <ComplianceDocumentsSettings />
+            </Suspense>
+          </TabsContent>
+        )}
+
+        {!isStaff && (
+          <TabsContent value="payguard" className="mt-0 space-y-4 focus-visible:outline-none">
+            <Suspense fallback={<FormSectionSkeleton />}>
+              <PaymentApprovalSettings />
+            </Suspense>
           </TabsContent>
         )}
           </div>
