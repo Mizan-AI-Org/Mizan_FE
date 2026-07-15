@@ -164,7 +164,7 @@ export class BackendService {
   private async fetchWithError(path: string, options?: { method?: string; body?: string }): Promise<any> {
     const method = options?.method || "GET";
     const init: RequestInit = { method, headers: this.getHeaders() };
-    if (method !== "GET") init.body = options?.body ?? "{}";
+    if (method !== "GET" && method !== "HEAD") init.body = options?.body ?? "{}";
     const response = await fetch(`${API_BASE}${path}`, init);
     if (!response.ok) {
       let message = "Request failed";
@@ -174,9 +174,63 @@ export class BackendService {
       } catch {
         message = `Request failed (${response.status})`;
       }
-      throw new Error(message);
+      const error = new Error(message) as Error & {
+        response?: { status: number; data?: unknown };
+        status?: number;
+      };
+      error.status = response.status;
+      error.response = { status: response.status, data: { detail: message } };
+      throw error;
     }
-    return response.json();
+    if (response.status === 204) return null;
+    const text = await response.text();
+    if (!text) return null;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  }
+
+  /** Axios-like helpers used by Settings panels (PayGuard, compliance, …). */
+  async get(path: string): Promise<{ data: any }> {
+    return { data: await this.fetchWithError(path) };
+  }
+
+  async post(path: string, body?: unknown): Promise<{ data: any }> {
+    return {
+      data: await this.fetchWithError(path, {
+        method: "POST",
+        body: JSON.stringify(body ?? {}),
+      }),
+    };
+  }
+
+  async put(path: string, body?: unknown): Promise<{ data: any }> {
+    return {
+      data: await this.fetchWithError(path, {
+        method: "PUT",
+        body: JSON.stringify(body ?? {}),
+      }),
+    };
+  }
+
+  async patch(path: string, body?: unknown): Promise<{ data: any }> {
+    return {
+      data: await this.fetchWithError(path, {
+        method: "PATCH",
+        body: JSON.stringify(body ?? {}),
+      }),
+    };
+  }
+
+  async delete(path: string): Promise<{ data: any }> {
+    return {
+      data: await this.fetchWithError(path, {
+        method: "DELETE",
+        body: "{}",
+      }),
+    };
   }
 
   private getHeaders(token?: string): Record<string, string> {
