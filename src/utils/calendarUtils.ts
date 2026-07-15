@@ -119,18 +119,9 @@ export const calculateShiftPosition = (
       .filter(other => other.id !== shift.id && shiftsOverlap(shift, other, baseDate, config.timezone))
       .map(other => other.id);
 
-    // Calculate position within overlapping group. We split the day column into
-    // N equal slices (one per overlapping shift) so cards never stack exactly
-    // on top of each other — the manager can see every booking for that slot.
+    // Split the day column among same-day overlapping shifts only.
     const overlapGroup = getOverlapGroup(shift, allShifts, baseDate, config.timezone);
-    const positionInGroup = overlapGroup.findIndex(s => s.id === shift.id);
-    const totalInGroup = Math.max(1, overlapGroup.length);
-
-    // Values are interpreted as percentages by ShiftCard.tsx.
-    const slice = 100 / totalInGroup;
-    const left = positionInGroup * slice;
-    const width = slice; // ShiftCard.tsx applies a 1% gutter
-    const zIndex = 10 + positionInGroup;
+    const { left, width, zIndex } = layoutOverlapColumns(overlapGroup, shift.id);
 
     return {
       ...shift,
@@ -166,17 +157,32 @@ export const calculateShiftPosition = (
   }
 };
 
+/** Same calendar day only — week grids place each day in its own column. */
+export const isSameShiftDay = (shift1: Shift, shift2: Shift): boolean => {
+  if (shift1.date && shift2.date) {
+    return shift1.date === shift2.date;
+  }
+  return shift1.day === shift2.day;
+};
+
 export const shiftsOverlap = (
   shift1: Shift,
   shift2: Shift,
   baseDate: Date,
   timezone: string
 ): boolean => {
+  if (!isSameShiftDay(shift1, shift2)) {
+    return false;
+  }
+
   const { start: start1, end: end1 } = parseShiftTime(shift1, baseDate, timezone);
   const { start: start2, end: end2 } = parseShiftTime(shift2, baseDate, timezone);
 
   return start1 < end2 && start2 < end1;
 };
+
+/** Cap concurrent columns so cards stay readable in a day column. */
+const MAX_OVERLAP_COLUMNS = 3;
 
 export const getOverlapGroup = (
   targetShift: Shift,
@@ -184,12 +190,16 @@ export const getOverlapGroup = (
   baseDate: Date,
   timezone: string
 ): Shift[] => {
+  const sameDayShifts = allShifts.filter(
+    (s) => s.id === targetShift.id || isSameShiftDay(s, targetShift)
+  );
+
   const group: Shift[] = [targetShift];
 
-  for (const shift of allShifts) {
+  for (const shift of sameDayShifts) {
     if (shift.id === targetShift.id) continue;
 
-    const overlapsWithGroup = group.some(groupShift =>
+    const overlapsWithGroup = group.some((groupShift) =>
       shiftsOverlap(shift, groupShift, baseDate, timezone)
     );
 
@@ -198,12 +208,35 @@ export const getOverlapGroup = (
     }
   }
 
-  // Sort by start time
-  return group.sort((a, b) => {
+  // Sort by start time, then id for stable column assignment
+  const sorted = group.sort((a, b) => {
     const { start: startA } = parseShiftTime(a, baseDate, timezone);
     const { start: startB } = parseShiftTime(b, baseDate, timezone);
-    return startA.getTime() - startB.getTime();
+    const byTime = startA.getTime() - startB.getTime();
+    if (byTime !== 0) return byTime;
+    return a.id.localeCompare(b.id);
   });
+
+  // If more than MAX columns overlap, keep the full group for z-order but
+  // calculateShiftPosition will clamp width/left to MAX columns.
+  return sorted;
+};
+
+export const layoutOverlapColumns = (
+  overlapGroup: Shift[],
+  shiftId: string
+): { left: number; width: number; zIndex: number } => {
+  const positionInGroup = Math.max(0, overlapGroup.findIndex((s) => s.id === shiftId));
+  const totalInGroup = Math.max(1, overlapGroup.length);
+  const columns = Math.min(totalInGroup, MAX_OVERLAP_COLUMNS);
+  const slice = 100 / columns;
+  const columnIndex = positionInGroup % columns;
+
+  return {
+    left: columnIndex * slice,
+    width: slice,
+    zIndex: 10 + positionInGroup,
+  };
 };
 
 export const getResponsiveConfig = (containerWidth: number): CalendarConfig => {
@@ -277,17 +310,13 @@ export const parseShiftToCalendar = (
     position.top = (startHour - config.startHour) * config.hourHeight;
     position.height = Math.max((durationHours * config.hourHeight), 20);
 
-    // Handle overlapping positioning — consistent with calculateShiftPosition:
-    // split the column into equal slices, one per overlapping shift.
+    // Handle overlapping positioning — consistent with calculateShiftPosition.
     if (allShifts && overlapsWith.length > 0) {
       const overlapGroup = getOverlapGroup(shift, allShifts, baseDate, timezone);
-      const groupIndex = overlapGroup.findIndex(s => s.id === shift.id);
-      const groupSize = Math.max(1, overlapGroup.length);
-      const slice = 100 / groupSize;
-
-      position.left = groupIndex * slice;
-      position.width = slice;
-      position.zIndex = groupIndex + 1;
+      const layout = layoutOverlapColumns(overlapGroup, shift.id);
+      position.left = layout.left;
+      position.width = layout.width;
+      position.zIndex = layout.zIndex;
     }
   }
 
