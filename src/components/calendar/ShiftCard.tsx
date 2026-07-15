@@ -1,8 +1,7 @@
 import React from 'react';
 import { CalendarShift } from '@/utils/calendarUtils';
 import { formatShiftTime, getShiftDurationText, isOvernightShift } from '@/utils/calendarUtils';
-import { Badge } from '@/components/ui/badge';
-import { Clock, User, MapPin, Calendar } from 'lucide-react';
+import { Clock, User, Calendar } from 'lucide-react';
 import './ShiftCard.css';
 
 export interface ShiftCardProps {
@@ -48,7 +47,7 @@ const getPositionStyles = (shift: CalendarShift): React.CSSProperties => {
 
   const leftPct = hasOverlapLayout ? Math.max(0, shift.position.left) : 0;
   const widthPct = hasOverlapLayout
-    ? Math.max(10, shift.position.width - 1) // 1% gutter so cards don't touch
+    ? Math.max(12, shift.position.width - 1) // 1% gutter so cards don't touch
     : 100;
 
   return {
@@ -78,7 +77,6 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
 }) => {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  // Add error handling for invalid dates
   let startTime = 'Invalid';
   let endTime = 'Invalid';
   let duration = 'Unknown';
@@ -98,19 +96,25 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
   const customCount = shift.tasks?.length ?? 0;
   const hasProcessTasks = processCount > 0;
   const hasCustomTasks = customCount > 0;
-  const hasTasks = hasProcessTasks || hasCustomTasks;
 
-  const cardClasses = `
-    shift-card
-    ${isSelected ? 'selected' : ''}
-    ${isHovered ? 'hovered' : ''}
-    ${compact ? 'compact' : 'standard'}
-    ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' : ''}
-    ${isHovered ? 'shadow-md transform scale-[1.02]' : ''}
-    hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500
-  `;
+  // Auto-compact when the card is too narrow/short for full content
+  const isNarrow = (shift.position.width ?? 100) < 40;
+  const isShort = (shift.position.height ?? 0) < 48;
+  const useCompact = compact || isNarrow || isShort;
+  const useMinimal = (shift.position.width ?? 100) < 20 || (shift.position.height ?? 0) < 28;
 
-  if (compact) {
+  const cardClasses = [
+    'shift-card',
+    useMinimal ? 'minimal' : useCompact ? 'compact' : 'standard',
+    isSelected ? 'selected' : '',
+    isHovered ? 'hovered' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const title = shift.title || 'Unnamed Shift';
+
+  if (useMinimal) {
     return (
       <div
         className={cardClasses}
@@ -120,30 +124,30 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
         onMouseLeave={onMouseLeave}
         role="button"
         tabIndex={0}
+        title={`${title} · ${startTime} – ${endTime}`}
         aria-label={`Shift from ${startTime} to ${endTime}`}
       >
-        <div className="flex items-center justify-between gap-1">
-          <div className="font-medium truncate">
-            {shift.title || 'Unnamed Shift'}
-          </div>
-          {isOvernight && (
-            <Badge variant="outline" className="text-[10px] flex-shrink-0">
-              Overnight
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-600 dark:text-gray-300 flex-wrap">
-          <span>{startTime} - {endTime}</span>
-          {hasProcessTasks && (
-            <span className="rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 dark:text-emerald-300">
-              {processCount} process & tasks
-            </span>
-          )}
-          {hasCustomTasks && (
-            <span className="rounded-full bg-sky-100 dark:bg-sky-900/40 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 dark:text-sky-300">
-              {customCount} custom tasks
-            </span>
-          )}
+        <div className="shift-card-title">{title}</div>
+      </div>
+    );
+  }
+
+  if (useCompact) {
+    return (
+      <div
+        className={cardClasses}
+        style={getPositionStyles(shift)}
+        onClick={onClick}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        role="button"
+        tabIndex={0}
+        title={`${title} · ${startTime} – ${endTime}`}
+        aria-label={`Shift from ${startTime} to ${endTime}`}
+      >
+        <div className="shift-card-title">{title}</div>
+        <div className="shift-card-time">
+          {startTime} – {endTime}
         </div>
       </div>
     );
@@ -160,58 +164,59 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
       tabIndex={0}
       aria-label={`Shift from ${startTime} to ${endTime}, duration ${duration}`}
     >
-      <div className="flex items-start justify-between mb-1">
-        <div className="font-medium text-gray-900 dark:text-gray-100 truncate flex-1">
-          {shift.title || 'Unnamed Shift'}
-        </div>
+      <div className="flex items-start justify-between gap-1 mb-1 min-w-0">
+        <div className="shift-card-title">{title}</div>
         {isOvernight && (
-          <Badge variant="outline" className="text-[10px] ml-1 flex-shrink-0 dark:border-gray-600 dark:text-gray-300">
-            <Calendar className="w-3 h-3 mr-1" />
+          <span className="text-[10px] text-gray-500 dark:text-gray-400 flex-shrink-0">
             Overnight
-          </Badge>
+          </span>
         )}
       </div>
 
-      <div className="space-y-1">
-        <div className="flex items-center text-xs text-gray-600 dark:text-gray-300">
-          <Clock className="w-3 h-3 mr-1 flex-shrink-0" />
+      <div className="space-y-1 min-w-0">
+        <div className="shift-card-time flex items-center gap-1">
+          <Clock className="w-3 h-3 flex-shrink-0 opacity-70" />
           <span className="truncate">
-            {startTime} - {endTime}
+            {startTime} – {endTime}
           </span>
         </div>
-        <div className="flex items-center gap-2 mt-1 flex-wrap">
-          {hasProcessTasks && (
-            <span className="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-[10px] font-medium text-gray-700 dark:text-emerald-300">
-              {processCount} process & task{processCount !== 1 ? 's' : ''}
-            </span>
-          )}
-          {hasCustomTasks && (
-            <span className="inline-flex items-center rounded-full bg-sky-100 dark:bg-sky-900/40 px-2 py-0.5 text-[10px] font-medium text-gray-700 dark:text-sky-300">
-              {customCount} custom task{customCount !== 1 ? 's' : ''}
-            </span>
-          )}
-          {shift.staff_members_details && shift.staff_members_details.length > 0 && (
-            <div className="flex items-center gap-0.5 overflow-hidden">
-              {shift.staff_members_details.slice(0, 3).map((staff) => (
-                <div
-                  key={staff.id}
-                  className="h-5 w-5 rounded-full bg-[#0d5c3e] flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0 ring-1 ring-white dark:ring-slate-800"
-                  title={`${staff.first_name} ${staff.last_name}`}
-                >
-                  {(staff.first_name?.[0] ?? '') + (staff.last_name?.[0] ?? '') || '?'}
-                </div>
-              ))}
-              {shift.staff_members_details.length > 3 && (
-                <div
-                  className="h-5 w-5 rounded-full bg-[#0d5c3e]/90 flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0 ring-1 ring-white dark:ring-slate-800"
-                  title={`${shift.staff_members_details.length - 3} more staff`}
-                >
-                  +{shift.staff_members_details.length - 3}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+
+        {(hasProcessTasks || hasCustomTasks) && (
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap min-w-0">
+            {hasProcessTasks && (
+              <span className="truncate rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 dark:text-emerald-300">
+                {processCount} process
+              </span>
+            )}
+            {hasCustomTasks && (
+              <span className="truncate rounded-full bg-sky-100 dark:bg-sky-900/40 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 dark:text-sky-300">
+                {customCount} task{customCount !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        )}
+
+        {shift.staff_members_details && shift.staff_members_details.length > 0 && (
+          <div className="flex items-center gap-0.5 overflow-hidden mt-1">
+            {shift.staff_members_details.slice(0, 3).map((staff) => (
+              <div
+                key={staff.id}
+                className="h-5 w-5 rounded-full bg-[#0d5c3e] flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0 ring-1 ring-white dark:ring-slate-800"
+                title={`${staff.first_name} ${staff.last_name}`}
+              >
+                {(staff.first_name?.[0] ?? '') + (staff.last_name?.[0] ?? '') || '?'}
+              </div>
+            ))}
+            {shift.staff_members_details.length > 3 && (
+              <div
+                className="h-5 w-5 rounded-full bg-[#0d5c3e]/90 flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0 ring-1 ring-white dark:ring-slate-800"
+                title={`${shift.staff_members_details.length - 3} more staff`}
+              >
+                +{shift.staff_members_details.length - 3}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {showDetails && (
@@ -219,7 +224,6 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
           <div>Timezone: {timezone}</div>
           <div>Day: {shift.day}</div>
           <div>Date: {shift.date}</div>
-          {shift.color && <div>Color: {shift.color}</div>}
         </div>
       )}
     </div>
@@ -270,8 +274,6 @@ export const ShiftTooltip: React.FC<ShiftTooltipProps> = ({ shift, position, vis
           </div>
         )}
 
-
-
         {shift.staff_members_details && shift.staff_members_details.length > 0 && (
           <div className="shift-tooltip-item flex flex-wrap gap-1 mt-2">
             {shift.staff_members_details.map((staff) => (
@@ -291,10 +293,6 @@ export const ShiftTooltip: React.FC<ShiftTooltipProps> = ({ shift, position, vis
             <span>{shift.tasks.length} task{shift.tasks.length !== 1 ? 's' : ''}</span>
           </div>
         )}
-      </div>
-
-      <div className="shift-tooltip-footer">
-        Timezone: {timezone}
       </div>
     </div>
   );

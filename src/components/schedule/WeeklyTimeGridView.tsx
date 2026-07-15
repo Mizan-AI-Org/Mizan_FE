@@ -149,8 +149,7 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
     const [dragStart, setDragStart] = useState<{ day: number; hour: number } | null>(null);
     const [dragEnd, setDragEnd] = useState<{ day: number; hour: number } | null>(null);
     const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-    const [showShiftDetails, setShowShiftDetails] = useState(false);
-    const [compactView, setCompactView] = useState(false);
+    const [showShiftDetails] = useState(false);
 
     const getWeekStart = (date: Date) => {
         const d = new Date(date);
@@ -564,7 +563,7 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                                                 }}
                                                 onMouseLeave={() => setHoveredShiftId(null)}
                                                 showDetails={showShiftDetails}
-                                                compact={compactView}
+                                                compact={view === "week"}
                                             />
                                         ))}
                                     </div>
