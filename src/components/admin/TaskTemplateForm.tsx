@@ -43,6 +43,7 @@ import {
   GitBranch,
   ArrowRight,
   Users,
+  Camera,
   Check as CheckIcon,
   X as XIcon,
 } from 'lucide-react';
@@ -77,6 +78,10 @@ interface TemplateTask {
   priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   estimated_duration?: number;
   response_type?: "yes_no" | "check";
+  /** After Yes, Miya asks staff to send a photo as proof before continuing */
+  requires_photo?: boolean;
+  verification_type?: "NONE" | "PHOTO";
+  verification_required?: boolean;
   branches?: {
     yes?: BranchAction;
     no?: BranchAction;
@@ -100,18 +105,26 @@ const defaultBranches = (): NonNullable<TemplateTask["branches"]> => ({
   no: { type: "alert", message: "Needs attention" },
 });
 
-const normalizeTask = (t: Partial<TemplateTask> & { title?: string }): TemplateTask => ({
-  id: t.id || newTaskId(),
-  title: t.title || "",
-  description: t.description || "",
-  priority: t.priority || "MEDIUM",
-  estimated_duration: t.estimated_duration,
-  response_type: t.response_type || "yes_no",
-  branches: {
-    yes: t.branches?.yes || { type: "next" },
-    no: t.branches?.no || { type: "alert", message: "Needs attention" },
-  },
-});
+const normalizeTask = (t: Partial<TemplateTask> & { title?: string }): TemplateTask => {
+  const requiresPhoto = Boolean(
+    t.requires_photo || t.verification_required || t.verification_type === "PHOTO",
+  );
+  return {
+    id: t.id || newTaskId(),
+    title: t.title || "",
+    description: t.description || "",
+    priority: t.priority || "MEDIUM",
+    estimated_duration: t.estimated_duration,
+    response_type: t.response_type || "yes_no",
+    requires_photo: requiresPhoto,
+    verification_required: requiresPhoto,
+    verification_type: requiresPhoto ? "PHOTO" : "NONE",
+    branches: {
+      yes: t.branches?.yes || { type: "next" },
+      no: t.branches?.no || { type: "alert", message: "Needs attention" },
+    },
+  };
+};
 
 interface ProcessGroup {
   id: string;
@@ -131,6 +144,8 @@ interface TaskTemplate {
   priority_level: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   is_critical: boolean;
   ai_generated?: boolean;
+  /** Staff who can run this checklist after clock-in without a scheduled shift */
+  standing_assignees?: string[];
 }
 
 interface TaskTemplateFormProps {
@@ -213,6 +228,9 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     priority_level: 'MEDIUM',
     is_critical: false,
     ...template,
+    standing_assignees: Array.isArray(template?.standing_assignees)
+      ? template!.standing_assignees!.map(String)
+      : [],
   });
 
   // New hierarchical state: processes (stations) containing tasks
@@ -487,7 +505,21 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     const flattenedTasks: TemplateTask[] = processes.flatMap((p) =>
       p.tasks.map((t) => normalizeTask(t)),
     );
-    saveTemplateMutation.mutate({ ...formData, tasks: flattenedTasks });
+    saveTemplateMutation.mutate({
+      ...formData,
+      tasks: flattenedTasks,
+      standing_assignees: formData.standing_assignees || [],
+    });
+  };
+
+  const toggleStandingAssignee = (staffId: string) => {
+    setFormData((prev) => {
+      const current = prev.standing_assignees || [];
+      const next = current.includes(staffId)
+        ? current.filter((id) => id !== staffId)
+        : [...current, staffId];
+      return { ...prev, standing_assignees: next };
+    });
   };
 
   // Process/task operations for hierarchical structure
@@ -987,6 +1019,86 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
         </CardContent>
       </Card>
 
+      {/* Standing assignees — quiet, optional */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            Who can run this
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Optional. These people get this Yes/No checklist after they clock in with Miya —
+            even if they are not on today&apos;s schedule.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-1.5 border-dashed"
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  {(formData.standing_assignees || []).length > 0
+                    ? `${(formData.standing_assignees || []).length} assigned`
+                    : "Assign staff"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-0 z-[3100]" align="start">
+                <div className="px-3 py-2 border-b text-xs text-muted-foreground">
+                  Clock in → start checklist. No shift required.
+                </div>
+                <div className="max-h-60 overflow-y-auto py-1">
+                  {staffOptions.length === 0 ? (
+                    <p className="px-3 py-3 text-sm text-muted-foreground">No staff found.</p>
+                  ) : (
+                    staffOptions.map((s) => {
+                      const selected = (formData.standing_assignees || []).includes(s.id);
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => toggleStandingAssignee(s.id)}
+                          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors"
+                        >
+                          <span className="min-w-0 truncate">
+                            {s.name}
+                            {s.role ? (
+                              <span className="text-muted-foreground"> · {s.role}</span>
+                            ) : null}
+                          </span>
+                          {selected && <CheckIcon className="h-4 w-4 text-emerald-600 shrink-0" />}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+            {(formData.standing_assignees || []).map((id) => (
+              <Badge
+                key={id}
+                variant="secondary"
+                className="gap-1 pl-2 pr-1 py-0.5 text-xs font-medium"
+              >
+                {staffNameById.get(id) || "Staff"}
+                <button
+                  type="button"
+                  onClick={() => toggleStandingAssignee(id)}
+                  className="rounded-full hover:bg-black/10 dark:hover:bg-white/10 p-0.5"
+                  aria-label={`Remove ${staffNameById.get(id) || "assignee"}`}
+                >
+                  <XIcon className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Tasks */}
       <Card>
         <CardHeader>
@@ -1210,6 +1322,39 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                                       </Button>
                                     </div>
                                   </div>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 px-3 py-2">
+                                  <div className="flex items-start gap-2 min-w-0">
+                                    <Camera className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-medium">Ask for photo after Yes</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        Miya will ask for a photo as proof, then continue to the next task.
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Switch
+                                    checked={!!task.requires_photo}
+                                    onCheckedChange={(checked) => {
+                                      setProcesses((prev) =>
+                                        prev.map((p) => {
+                                          if (p.id !== processId) return p;
+                                          const tasks = [...p.tasks];
+                                          const cur = tasks[index];
+                                          if (!cur) return p;
+                                          tasks[index] = {
+                                            ...cur,
+                                            requires_photo: checked,
+                                            verification_required: checked,
+                                            verification_type: checked ? "PHOTO" : "NONE",
+                                          };
+                                          return { ...p, tasks };
+                                        }),
+                                      );
+                                    }}
+                                    aria-label="Require photo proof after Yes"
+                                  />
                                 </div>
 
                                 {/* Yes / No condition flow */}
