@@ -45,6 +45,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
+  const resolvePostLoginPath = useCallback(
+    (userData: User) => {
+      const state = location.state as { from?: string; platformAdmin?: boolean } | null;
+      const from = state?.from;
+      if (
+        userData.is_platform_operator &&
+        typeof from === "string" &&
+        from.startsWith("/admin")
+      ) {
+        return from;
+      }
+      if (userData.is_platform_operator && state?.platformAdmin) {
+        return "/admin";
+      }
+      const isSupervisor =
+        userData.role === "SUPER_ADMIN" ||
+        userData.role === "ADMIN" ||
+        userData.role === "MANAGER" ||
+        userData.role === "OWNER";
+      return isSupervisor ? "/dashboard" : "/staff-dashboard";
+    },
+    [location.state],
+  );
+
   const initializeAuth = useCallback(async () => {
     try {
       const storedUser = localStorage.getItem("user");
@@ -72,12 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             location.pathname === "/auth" ||
             location.pathname === "/staff-login"
           ) {
-            const isSupervisor =
-              userData.role === "SUPER_ADMIN" ||
-              userData.role === "ADMIN" ||
-              userData.role === "MANAGER" ||
-              userData.role === "OWNER";
-            navigate(isSupervisor ? "/dashboard" : "/staff-dashboard");
+            navigate(resolvePostLoginPath(userData));
           }
         } else {
           // Do not force clear on transient failures; allow app to show login page naturally
@@ -90,7 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [clearAuth, navigate, location.pathname]);
+  }, [clearAuth, navigate, location.pathname, resolvePostLoginPath]);
 
   useEffect(() => {
     initializeAuth();
@@ -184,12 +203,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         data.tokens?.refresh || data.refresh
       );
 
-      const isSupervisor =
-        data.user.role === "SUPER_ADMIN" ||
-        data.user.role === "ADMIN" ||
-        data.user.role === "MANAGER" ||
-        data.user.role === "OWNER";
-      navigate(isSupervisor ? "/dashboard" : "/staff-dashboard");
+      navigate(resolvePostLoginPath(data.user));
     } catch (err) {
 
       if (err instanceof Error) {
@@ -309,12 +323,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     applyLanguageForUser(data.user);
     localStorage.setItem("access_token", data.tokens?.access || data.access);
     localStorage.setItem("refresh_token", data.tokens?.refresh || data.refresh);
-    const isSupervisor =
-      data.user?.role === "SUPER_ADMIN" ||
-      data.user?.role === "ADMIN" ||
-      data.user?.role === "MANAGER" ||
-      data.user?.role === "OWNER";
-    navigate(isSupervisor ? "/dashboard" : "/staff-dashboard");
+    navigate(resolvePostLoginPath(data.user));
   };
 
   const ownerSignup = async (signupData: SignupData) => {

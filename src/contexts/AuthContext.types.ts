@@ -7,6 +7,9 @@ export interface User {
     first_name: string;
     last_name: string;
     role: string;
+    is_staff?: boolean;
+    is_superuser?: boolean;
+    is_platform_operator?: boolean;
     restaurant: string;
     restaurant_name: string;
     restaurant_data?: {

@@ -16,9 +16,11 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import BrandLogo from "@/components/BrandLogo";
 import { useLanguage } from "@/hooks/use-language";
 import { LuaWidget } from "@/components/LuaWidget";
+import ImpersonationBanner from "@/components/platform-admin/ImpersonationBanner";
 import { LiveDateTime } from "@/components/LiveDateTime";
 import { cn } from "@/lib/utils";
 import { PAGE_SHELL } from "@/lib/page-shell";
+import { isImpersonating } from "@/lib/impersonation";
 
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -26,6 +28,7 @@ const DashboardLayout: React.FC = () => {
   const { notifications, markAllAsRead, markAsRead } = useNotifications();
   const isOnDashboardRoot = location.pathname === "/dashboard";
   const { t } = useLanguage();
+  const viewingAsTenant = isImpersonating();
 
   const unreadCount = notifications.filter(n => !n.read).length;
   const [shouldShake, setShouldShake] = useState(false);
@@ -50,7 +53,8 @@ const DashboardLayout: React.FC = () => {
   }, [unreadCount]);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className={cn("min-h-screen flex flex-col", viewingAsTenant && "pt-10")}>
+      <ImpersonationBanner />
       <header className="sticky top-0 z-[2000] bg-card/95 backdrop-blur-sm border-b shadow-soft">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
