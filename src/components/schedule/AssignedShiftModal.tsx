@@ -435,8 +435,9 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
         }
         const startM = toMinutes(startTime);
         const endM = toMinutes(endTime);
-        if (endM <= startM) {
-            toast({ title: 'Invalid time range', description: 'End time must be after start time.', variant: 'destructive' });
+        // Overnight (e.g. 22:00–01:30) is allowed — backend bumps end to next day.
+        if (Number.isNaN(startM) || Number.isNaN(endM)) {
+            toast({ title: 'Invalid time', description: 'Please enter valid start and end times.', variant: 'destructive' });
             return;
         }
         if (isRecurring && !recurringEndDate) {

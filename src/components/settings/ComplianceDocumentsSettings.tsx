@@ -157,14 +157,7 @@ export default function ComplianceDocumentsSettings() {
       description={t("settings.compliance.description")}
     >
       <div className="space-y-6">
-        <div className="rounded-xl border border-teal-200/80 bg-gradient-to-br from-teal-50/80 to-white dark:from-teal-950/30 dark:to-slate-900 dark:border-teal-900 px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
-          <p className="font-medium text-teal-900 dark:text-teal-200 mb-1">
-            {t("settings.compliance.miya_blurb_title")}
-          </p>
-          <p className="text-xs leading-relaxed">{t("settings.compliance.miya_blurb")}</p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
             type="button"
             variant="outline"
