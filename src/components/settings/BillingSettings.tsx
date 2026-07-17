@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -70,6 +70,13 @@ const formatDate = (iso: string | null | undefined, locale: string) => {
   }
 };
 
+function priceIdFor(plan: SubscriptionPlan, interval: Interval): string {
+  if (interval === "year") {
+    return plan.stripe_price_id_yearly || plan.stripe_price_id_monthly || plan.stripe_price_id || "";
+  }
+  return plan.stripe_price_id_monthly || plan.stripe_price_id || "";
+}
+
 function PlanCardSkeleton() {
   return (
     <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4">
@@ -87,6 +94,7 @@ interface PlanCardProps {
   plan: SubscriptionPlan;
   interval: Interval;
   isCurrent: boolean;
+  ctaLabel: string;
   disabled: boolean;
   locale: string;
   checkoutPending: boolean;
@@ -97,6 +105,7 @@ function PlanCard({
   plan,
   interval,
   isCurrent,
+  ctaLabel,
   disabled,
   locale,
   checkoutPending,
@@ -104,24 +113,13 @@ function PlanCard({
 }: PlanCardProps) {
   const monthlyPrice = plan.price_monthly ?? plan.price;
   const yearlyPrice = plan.price_yearly ?? (monthlyPrice ? String(Number(monthlyPrice) * 10) : null);
-  const displayPrice =
-    interval === "month" ? monthlyPrice : yearlyPrice;
+  const displayPrice = interval === "month" ? monthlyPrice : yearlyPrice;
   const monthlyEquivalent =
     interval === "year" && yearlyPrice
       ? String((Number(yearlyPrice) / 12).toFixed(0))
       : null;
 
-  const priceId =
-    interval === "year"
-      ? plan.stripe_price_id_yearly || plan.stripe_price_id_monthly
-      : plan.stripe_price_id_monthly || plan.stripe_price_id || "";
-  const canCheckout = !plan.contact_sales && Boolean(priceId);
-
-  const ctaLabel = plan.contact_sales || !canCheckout
-    ? plan.cta_label || "Contact sales"
-    : isCurrent
-      ? "Current plan"
-      : "Choose plan";
+  const canAct = !isCurrent; // plan_id queue works even without Stripe price IDs
 
   return (
     <div
@@ -181,7 +179,7 @@ function PlanCard({
         )}
         {plan.trial_days > 0 && !isCurrent && (
           <p className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-            {plan.trial_days}-day free trial
+            {plan.trial_days}-day free trial available on signup
           </p>
         )}
       </div>
@@ -204,14 +202,14 @@ function PlanCard({
               : "",
           )}
           variant={plan.highlight ? "default" : "outline"}
-          disabled={disabled || isCurrent || checkoutPending}
+          disabled={disabled || isCurrent || checkoutPending || !canAct}
           onClick={() => onSelect(plan)}
         >
           {checkoutPending ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : null}
           {ctaLabel}
-          {!isCurrent && !plan.contact_sales && canCheckout && (
+          {!isCurrent && (
             <ArrowRight className="ml-2 h-4 w-4" />
           )}
         </Button>
@@ -224,6 +222,7 @@ export default function BillingSettings() {
   const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const [interval, setInterval] = useState<Interval>("month");
+  const handledBillingParam = useRef(false);
 
   const locale = language || "en";
 
@@ -252,40 +251,85 @@ export default function BillingSettings() {
 
   const currentSub = subscriptionQuery.data;
   const currentTier: SubscriptionTier = currentSub?.tier ?? "FREE";
-  const isPaid = Boolean(currentSub?.is_paid);
+  const isEntitled = Boolean(currentSub?.is_paid);
+  const hasProviderSub = Boolean(currentSub?.has_provider_subscription);
+  const providerReady = Boolean(currentSub?.payment_provider?.configured);
+
+  useEffect(() => {
+    if (handledBillingParam.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const billing = params.get("billing");
+    if (!billing) return;
+    handledBillingParam.current = true;
+    params.delete("billing");
+    if (!params.get("tab")) params.set("tab", "billing");
+    const next = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, "", next);
+
+    if (billing === "success") {
+      toast.success("Subscription updated. Thank you!");
+      void queryClient.invalidateQueries({ queryKey: ["current-subscription"] });
+      void queryClient.invalidateQueries({ queryKey: ["billing-entitlements"] });
+    } else if (billing === "cancelled") {
+      toast.message("Checkout cancelled — no charges were made.");
+    }
+  }, [queryClient]);
+
+  // Prefer the interval of the active provider subscription when known.
+  useEffect(() => {
+    if (currentSub?.billing_interval === "month" || currentSub?.billing_interval === "year") {
+      setInterval(currentSub.billing_interval);
+    }
+  }, [currentSub?.billing_interval]);
 
   const checkoutMutation = useMutation({
     mutationFn: async (plan: SubscriptionPlan) => {
-      const priceId =
-        interval === "year"
-          ? plan.stripe_price_id_yearly || plan.stripe_price_id_monthly
-          : plan.stripe_price_id_monthly || plan.stripe_price_id || "";
-      if (!priceId) throw new Error("This plan is not available yet.");
+      const priceId = priceIdFor(plan, interval);
       const origin = window.location.origin;
-      const base = `${origin}/dashboard/settings`;
-      const result = await api.createCheckoutSession({
-        price_id: priceId,
-        success_url: `${base}?billing=success`,
-        cancel_url: `${base}?billing=cancelled`,
+      const base = `${origin}/dashboard/settings?tab=billing`;
+      return api.createCheckoutSession({
+        ...(priceId ? { price_id: priceId } : { plan_id: plan.id }),
+        billing_interval: interval,
+        success_url: `${base}&billing=success`,
+        cancel_url: `${base}&billing=cancelled`,
       });
-      return result.url;
     },
-    onSuccess: (url) => {
-      if (url) window.location.href = url;
+    onSuccess: (result) => {
+      const r = result as Awaited<ReturnType<typeof api.createCheckoutSession>>;
+      if (r.action === "redirect" && r.url) {
+        window.location.href = r.url;
+        return;
+      }
+      if (r.action === "updated") {
+        toast.success(r.message || "Plan updated.");
+        void queryClient.invalidateQueries({ queryKey: ["current-subscription"] });
+        void queryClient.invalidateQueries({ queryKey: ["billing-entitlements"] });
+        return;
+      }
+      if (r.action === "queued") {
+        toast.message(
+          r.message ||
+            "Upgrade request saved. We'll finish billing when your payment wall is ready.",
+        );
+        void queryClient.invalidateQueries({ queryKey: ["current-subscription"] });
+      }
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Could not start checkout. Please try again.");
+      toast.error(error.message || "Could not start upgrade. Please try again.");
     },
   });
 
   const portalMutation = useMutation({
     mutationFn: async () => {
-      const returnUrl = `${window.location.origin}/dashboard/settings`;
-      const result = await api.createBillingPortalSession(returnUrl);
-      return result.url;
+      const returnUrl = `${window.location.origin}/dashboard/settings?tab=billing`;
+      return api.createBillingPortalSession(returnUrl);
     },
-    onSuccess: (url) => {
-      if (url) window.location.href = url;
+    onSuccess: (result) => {
+      if (result?.url) {
+        window.location.href = result.url;
+        return;
+      }
+      toast.message(result?.message || "Billing portal is not available yet for your location.");
     },
     onError: (error: Error) => {
       toast.error(error.message || "Could not open the billing portal.");
@@ -293,38 +337,40 @@ export default function BillingSettings() {
   });
 
   const handleSelect = (plan: SubscriptionPlan) => {
-    if (plan.contact_sales) {
-      const subject = encodeURIComponent(`Mizan AI ${plan.name} — sales enquiry`);
-      window.location.href = `mailto:sales@heymizan.ai?subject=${subject}`;
-      return;
-    }
     void checkoutMutation.mutate(plan);
+  };
+
+  const ctaForPlan = (plan: SubscriptionPlan): string => {
+    const priceId = priceIdFor(plan, interval);
+    const samePlan =
+      currentSub?.plan?.slug === plan.slug &&
+      (currentSub.billing_interval === interval || !currentSub.billing_interval);
+
+    if (hasProviderSub && samePlan) return "Current plan";
+
+    const currentOrder = TIER_ORDER[currentTier] ?? 0;
+    const targetOrder = TIER_ORDER[plan.tier] ?? 0;
+    if (!priceId && !providerReady) return "Request upgrade";
+    if (targetOrder > currentOrder) return "Upgrade";
+    if (targetOrder < currentOrder && hasProviderSub) return "Switch plan";
+    if (isEntitled && !hasProviderSub) return "Subscribe";
+    if (plan.contact_sales && !priceId) return "Request upgrade";
+    return "Choose plan";
   };
 
   const loadingPlans = plansQuery.isLoading;
   const loadingSub = subscriptionQuery.isLoading;
 
-  // Detect Stripe's checkout redirect back so we can refresh state + toast.
-  const params = typeof window !== "undefined"
-    ? new URLSearchParams(window.location.search)
-    : null;
-  if (params?.get("billing") === "success") {
-    params.delete("billing");
-    const newUrl = `${window.location.pathname}${params.toString() ? `?${params}` : ""}`;
-    window.history.replaceState({}, "", newUrl);
-    toast.success("Subscription updated. Thank you!");
-    queryClient.invalidateQueries({ queryKey: ["current-subscription"] });
-    queryClient.invalidateQueries({ queryKey: ["billing-entitlements"] });
-  } else if (params?.get("billing") === "cancelled") {
-    params.delete("billing");
-    const newUrl = `${window.location.pathname}${params.toString() ? `?${params}` : ""}`;
-    window.history.replaceState({}, "", newUrl);
-    toast.message("Checkout cancelled — no charges were made.");
-  }
+  const statusLabel = (() => {
+    if (hasProviderSub) {
+      return t(`billing.status.${currentSub?.status || "active"}`);
+    }
+    if (currentSub?.status === "trialing") return t("billing.status.trialing") || "Trial";
+    return t("billing.status.pilot");
+  })();
 
   return (
     <div className="space-y-6">
-      {/* ---------- Current plan ---------- */}
       <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
         <CardHeader className="pb-5">
           <div className="flex items-center gap-3">
@@ -354,37 +400,60 @@ export default function BillingSettings() {
                   <Sparkles className="w-6 h-6 text-emerald-600" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                       {currentSub?.plan?.name || t(`billing.tier.${currentTier.toLowerCase()}`)}
                     </h4>
                     <Badge
                       className={cn(
-                        isPaid
+                        hasProviderSub
                           ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
-                          : "bg-slate-200 text-slate-700 hover:bg-slate-200",
+                          : "bg-amber-100 text-amber-800 hover:bg-amber-100",
                       )}
                     >
-                      {isPaid
-                        ? t(`billing.status.${currentSub?.status || "active"}`)
-                        : t("billing.status.pilot")}
+                      {statusLabel}
                     </Badge>
                   </div>
                   <p className="mt-1 text-sm text-slate-600 dark:text-slate-400 max-w-xl">
-                    {isPaid && currentSub?.current_period_end ? (
+                    {hasProviderSub && currentSub?.current_period_end ? (
                       <>
                         <CalendarClock className="inline-block w-4 h-4 mr-1 -mt-0.5" />
                         {currentSub.cancel_at_period_end
-                          ? t("billing.cancels_on", { date: formatDate(currentSub.current_period_end, locale) })
-                          : t("billing.renews_on", { date: formatDate(currentSub.current_period_end, locale) })}
+                          ? t("billing.cancels_on", {
+                              date: formatDate(currentSub.current_period_end, locale),
+                            })
+                          : t("billing.renews_on", {
+                              date: formatDate(currentSub.current_period_end, locale),
+                            })}
+                      </>
+                    ) : currentSub?.trial_ends_at ? (
+                      <>
+                        <CalendarClock className="inline-block w-4 h-4 mr-1 -mt-0.5" />
+                        Trial ends {formatDate(currentSub.trial_ends_at, locale)}. Choose a plan
+                        below to upgrade.
                       </>
                     ) : (
                       t("billing.pilot_blurb")
                     )}
                   </p>
+                  {currentSub?.pending_plan ? (
+                    <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+                      Upgrade requested: {currentSub.pending_plan.name}
+                      {currentSub.pending_billing_interval
+                        ? ` (${currentSub.pending_billing_interval}ly)`
+                        : ""}
+                      . Waiting on payment wall for your country.
+                    </p>
+                  ) : null}
+                  {!providerReady && !hasProviderSub ? (
+                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                      Payment for your location will use the provider configured for your
+                      country. You can still request an upgrade below.
+                    </p>
+                  ) : null}
                 </div>
               </div>
-              {isPaid && (
+              {hasProviderSub && (
                 <Button
                   variant="outline"
                   className="shrink-0"
@@ -404,7 +473,6 @@ export default function BillingSettings() {
         </CardContent>
       </Card>
 
-      {/* ---------- Plans ---------- */}
       <Card className="shadow-soft border-0 bg-white dark:bg-slate-900">
         <CardHeader className="pb-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -417,7 +485,6 @@ export default function BillingSettings() {
               </CardDescription>
             </div>
 
-            {/* Interval toggle */}
             <div className="inline-flex rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100/60 dark:bg-slate-800 p-1 self-start">
               {(["month", "year"] as Interval[]).map((opt) => (
                 <button
@@ -451,14 +518,14 @@ export default function BillingSettings() {
               <PlanCardSkeleton />
             </div>
           ) : plansQuery.isError ? (
-            <div className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-red-700">
+            <div className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
               <AlertCircle className="h-5 w-5 shrink-0" />
               <div>
                 <p className="text-sm font-medium">{t("billing.load_error")}</p>
                 <Button
                   size="sm"
                   variant="link"
-                  className="mt-1 px-0 text-red-700"
+                  className="mt-1 px-0 text-red-700 dark:text-red-300"
                   onClick={() => plansQuery.refetch()}
                 >
                   {t("common.retry")}
@@ -472,17 +539,17 @@ export default function BillingSettings() {
           ) : (
             <div className="grid gap-6 md:grid-cols-3 pt-4">
               {sortedPlans.map((plan) => {
-                const isCurrent =
-                  isPaid && currentSub?.plan?.slug === plan.slug &&
-                  (currentSub.billing_interval === interval ||
-                    // Legacy: no interval recorded — match on plan only.
-                    !currentSub.billing_interval);
+                const samePlan =
+                  currentSub?.plan?.slug === plan.slug &&
+                  (currentSub.billing_interval === interval || !currentSub.billing_interval);
+                const isCurrent = hasProviderSub && samePlan;
                 return (
                   <PlanCard
                     key={plan.id}
                     plan={plan}
                     interval={interval}
                     isCurrent={isCurrent}
+                    ctaLabel={ctaForPlan(plan)}
                     disabled={checkoutMutation.isPending}
                     checkoutPending={
                       checkoutMutation.isPending &&

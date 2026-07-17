@@ -4438,22 +4438,28 @@ export class BackendService {
   }
 
   async createCheckoutSession(params: {
-    price_id: string;
+    price_id?: string;
+    plan_id?: number | string;
     success_url: string;
     cancel_url: string;
-  }): Promise<{ url: string }> {
+    billing_interval?: "month" | "year";
+  }): Promise<import("./types").CheckoutUpgradeResult> {
     return this.fetchWithError("/billing/subscription/checkout/", {
       method: "POST",
       body: JSON.stringify(params),
     });
   }
 
-  async createBillingPortalSession(returnUrl: string): Promise<{ url: string }> {
+  async createBillingPortalSession(returnUrl: string): Promise<{
+    url?: string | null;
+    action?: string;
+    message?: string;
+    provider?: string;
+  }> {
     return this.fetchWithError("/billing/subscription/portal/", {
       method: "POST",
       body: JSON.stringify({ return_url: returnUrl }),
     });
   }
 }
-
 export const api = new BackendService();

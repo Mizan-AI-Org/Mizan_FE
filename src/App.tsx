@@ -45,6 +45,39 @@ const FloorManagement = React.lazy(() => import("./pages/FloorManagement"));
 const Auth = React.lazy(() => import("./pages/Auth"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
 const Unauthorized = React.lazy(() => import("./pages/Unauthorized"));
+const PlatformAdminGate = React.lazy(
+  () => import("./components/platform-admin/PlatformAdminGate")
+);
+const PlatformAdminLayout = React.lazy(
+  () => import("./components/platform-admin/PlatformAdminLayout")
+);
+const PlatformOverviewPage = React.lazy(
+  () => import("./pages/platform-admin/OverviewPage")
+);
+const PlatformTenantsPage = React.lazy(
+  () => import("./pages/platform-admin/TenantsPage")
+);
+const PlatformTenantDetailPage = React.lazy(
+  () => import("./pages/platform-admin/TenantDetailPage")
+);
+const PlatformUsersPage = React.lazy(
+  () => import("./pages/platform-admin/UsersPage")
+);
+const PlatformUserDetailPage = React.lazy(
+  () => import("./pages/platform-admin/UserDetailPage")
+);
+const PlatformOperatorsPage = React.lazy(
+  () => import("./pages/platform-admin/OperatorsPage")
+);
+const PlatformBillingPage = React.lazy(
+  () => import("./pages/platform-admin/BillingPage")
+);
+const PlatformHealthPage = React.lazy(
+  () => import("./pages/platform-admin/HealthPage")
+);
+const PlatformAuditPage = React.lazy(
+  () => import("./pages/platform-admin/AuditPage")
+);
 const StaffAppsPage = React.lazy(() => import("./pages/StaffAppsPage"));
 const SafetyDashboard = React.lazy(() => import("./pages/SafetyDashboard"));
 const PinLogin = React.lazy(() => import("./components/auth/PinLogin"));
@@ -202,6 +235,21 @@ const App = () => {
                   </ProtectedRoute>
                 }
               />
+
+              {/* Platform ops — own login on /admin (not restaurant /auth) */}
+              <Route path="/admin" element={<PlatformAdminGate />}>
+                <Route element={<PlatformAdminLayout />}>
+                  <Route index element={<PlatformOverviewPage />} />
+                  <Route path="tenants" element={<PlatformTenantsPage />} />
+                  <Route path="tenants/:id" element={<PlatformTenantDetailPage />} />
+                  <Route path="users" element={<PlatformUsersPage />} />
+                  <Route path="users/:id" element={<PlatformUserDetailPage />} />
+                  <Route path="operators" element={<PlatformOperatorsPage />} />
+                  <Route path="billing" element={<PlatformBillingPage />} />
+                  <Route path="health" element={<PlatformHealthPage />} />
+                  <Route path="audit" element={<PlatformAuditPage />} />
+                </Route>
+              </Route>
 
               {/* Admin/Manager Routes for Dashboard */}
               <Route

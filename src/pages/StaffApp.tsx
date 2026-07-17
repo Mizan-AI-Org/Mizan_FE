@@ -1143,7 +1143,7 @@ const TeamTab: React.FC = () => {
             });
             if (!response.ok) throw new Error("Failed to get link");
             const data = await response.json().catch(() => ({}));
-            const link = data.invite_short_link || data.invite_link;
+            const link = data.invite_short_link || data.invite_link || data.chat_link;
             if (link) {
                 await navigator.clipboard.writeText(link);
                 toast.success(t("toasts.invite_copied"));
@@ -1153,6 +1153,34 @@ const TeamTab: React.FC = () => {
             }
         } catch {
             toast.error(t("errors.failed_to_copy"));
+        }
+    };
+
+    /** Copy wa.me link to open WhatsApp with Miya (for active managers/staff). */
+    const handleCopyMiyaWhatsAppLink = async (preferChat = true) => {
+        try {
+            const response = await fetch(`${API_BASE}/staff/activation/invite-link/`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+            });
+            if (!response.ok) throw new Error("Failed to get link");
+            const data = await response.json().catch(() => ({}));
+            const link = preferChat
+                ? (data.chat_link || data.invite_short_link || data.invite_link)
+                : (data.invite_short_link || data.invite_link || data.chat_link);
+            if (!link) {
+                toast.error(t("errors.no_invite_link") || "WhatsApp link is not configured.");
+                return null;
+            }
+            await navigator.clipboard.writeText(link);
+            setLastInviteLink(link);
+            toast.success(
+                t("toasts.whatsapp_miya_link_copied") ||
+                    "WhatsApp link copied — open it to start chatting with Miya.",
+            );
+            return link;
+        } catch {
+            toast.error(t("errors.failed_to_copy") || "Failed to copy WhatsApp link");
+            return null;
         }
     };
 
@@ -1191,10 +1219,16 @@ const TeamTab: React.FC = () => {
     // View Profile Modal
     const ViewProfileModal = () => {
         const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+        const [isCopyingWaLink, setIsCopyingWaLink] = useState(false);
 
         // Use selectedMember directly as it contains the most up-to-date information (including manual updates after save)
         // logic that preferred "staff" list was causing stale data to be shown until refetch completed
         if (!selectedMember) return null;
+
+        const waPhone =
+            selectedMember.phone ||
+            phoneFromWhatsAppEmail(selectedMember.email) ||
+            "";
 
         const handleGenerateReport = async () => {
             setIsGeneratingReport(true);
@@ -1212,6 +1246,15 @@ const TeamTab: React.FC = () => {
                 toast.error(getErrorMessage(err, "Failed to generate report"));
             } finally {
                 setIsGeneratingReport(false);
+            }
+        };
+
+        const handleCopyProfileWaLink = async () => {
+            setIsCopyingWaLink(true);
+            try {
+                await handleCopyMiyaWhatsAppLink(true);
+            } finally {
+                setIsCopyingWaLink(false);
             }
         };
 
@@ -1247,6 +1290,21 @@ const TeamTab: React.FC = () => {
                                     </Badge>
                                 </div>
                             </div>
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 rounded-xl font-bold h-11 px-4 shadow-sm"
+                                onClick={handleCopyProfileWaLink}
+                                disabled={isCopyingWaLink}
+                            >
+                                {isCopyingWaLink ? (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                    <MessageCircle className="w-4 h-4 mr-2" />
+                                )}
+                                Copy WhatsApp link
+                            </Button>
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -1257,6 +1315,7 @@ const TeamTab: React.FC = () => {
                                 {isGeneratingReport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
                                 PDF Report
                             </Button>
+                            </div>
                         </div>
 
                         {/* Performance Analytics */}
@@ -1284,10 +1343,10 @@ const TeamTab: React.FC = () => {
                                             <div className={STAFF_MODAL_ICON_BOX}>
                                                 <Phone className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                             </div>
-                                            <div>
+                                            <div className="min-w-0 flex-1">
                                                 <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">WhatsApp / Phone</p>
                                                 <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                                                    {selectedMember.phone || phoneFromWhatsAppEmail(selectedMember.email) || t("common.not_provided")}
+                                                    {waPhone || t("common.not_provided")}
                                                 </p>
                                             </div>
                                         </div>
@@ -1308,13 +1367,44 @@ const TeamTab: React.FC = () => {
                                                 <div className={STAFF_MODAL_ICON_BOX}>
                                                     <Phone className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                                 </div>
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Phone Number</p>
-                                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{selectedMember.phone || t("common.not_provided")}</p>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">WhatsApp Number</p>
+                                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                                                        {waPhone || t("common.not_provided")}
+                                                    </p>
+                                                    {!waPhone && (
+                                                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                                                            Add a WhatsApp number (with country code) so Miya can recognize this manager.
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
                                         </>
                                     )}
+
+                                    <div className="rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/20 p-3 space-y-2">
+                                        <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                                            Talk to Miya on WhatsApp
+                                        </p>
+                                        <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                                            Copy the link, open it on this person’s phone, and send the prefilled message to start chatting with Miya.
+                                        </p>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-semibold"
+                                            onClick={handleCopyProfileWaLink}
+                                            disabled={isCopyingWaLink}
+                                        >
+                                            {isCopyingWaLink ? (
+                                                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                                            ) : (
+                                                <Copy className="w-3.5 h-3.5 mr-1.5" />
+                                            )}
+                                            Copy WhatsApp invite link
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1640,12 +1730,16 @@ const TeamTab: React.FC = () => {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className={STAFF_MODAL_FIELD_LABEL}>Phone Number</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>WhatsApp Number</label>
                                         <Input
                                             value={formData.phone}
                                             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                            placeholder="e.g. 2203736808 (country code + number)"
                                             className={STAFF_MODAL_INPUT}
                                         />
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                            Digits only with country code. Miya uses this to recognize the person on WhatsApp.
+                                        </p>
                                     </div>
                                     <div className="space-y-2">
                                         <label className={STAFF_MODAL_FIELD_LABEL}>Join Date</label>

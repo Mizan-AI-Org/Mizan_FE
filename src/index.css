@@ -91,6 +91,10 @@
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --ops-tooltip-bg: #ffffff;
+    --ops-tooltip-border: #e2e8f0;
+    --ops-tooltip-fg: #0f172a;
   }
 
   .dark {
@@ -129,6 +133,10 @@
     --sidebar-accent-foreground: 240 5% 96%;
     --sidebar-border: 220 20% 20%;
     --sidebar-ring: 217 91% 60%;
+
+    --ops-tooltip-bg: #0f172a;
+    --ops-tooltip-border: #334155;
+    --ops-tooltip-fg: #f8fafc;
   }
 }
 

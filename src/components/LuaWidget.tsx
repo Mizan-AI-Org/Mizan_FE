@@ -55,10 +55,11 @@ export const LuaWidget: React.FC = () => {
     const initialized = useRef<string | boolean>(false);
     const widgetRef = useRef<{ destroy: () => void } | null>(null);
     const agentId = import.meta.env.VITE_LUA_AGENT_ID as string | undefined;
+    const hideOnPlatformAdmin = location.pathname.startsWith('/admin');
 
     // Tear down the widget when user logs out so chat history doesn't persist
     useEffect(() => {
-        if (!user) {
+        if (!user || hideOnPlatformAdmin) {
             if (widgetRef.current) {
                 try { widgetRef.current.destroy(); } catch (_) { /* ignore */ }
                 widgetRef.current = null;
@@ -68,11 +69,11 @@ export const LuaWidget: React.FC = () => {
             if (host) host.remove();
             initialized.current = false;
         }
-    }, [user]);
+    }, [user, hideOnPlatformAdmin]);
 
     // Robust Shadow DOM Injection
     useEffect(() => {
-        if (!user) return;
+        if (!user || hideOnPlatformAdmin) return;
 
         const intervalId = setInterval(() => {
             const shadowHost = document.querySelector('#lua-shadow-root');
@@ -158,11 +159,11 @@ export const LuaWidget: React.FC = () => {
             }
         }, 1000); // 1s interval is fine
         return () => clearInterval(intervalId);
-    }, [user, language, isRTL, t]);
+    }, [user, language, isRTL, t, hideOnPlatformAdmin]);
 
     // Watch LuaPop shadow DOM for system-context bubbles (current + historical turns).
     useEffect(() => {
-        if (!user) return;
+        if (!user || hideOnPlatformAdmin) return;
 
         const observer = new MutationObserver(() => {
             const shadowHost = document.querySelector('#lua-shadow-root');
@@ -184,10 +185,10 @@ export const LuaWidget: React.FC = () => {
             observer.disconnect();
             window.clearInterval(pollId);
         };
-    }, [user]);
+    }, [user, hideOnPlatformAdmin]);
 
     useEffect(() => {
-        if (!user) return;
+        if (!user || hideOnPlatformAdmin) return;
         if (businessVerticalQuery.isPending) return;
 
         const businessVertical = businessVerticalQuery.data?.businessVertical ?? "RESTAURANT";
@@ -344,7 +345,7 @@ export const LuaWidget: React.FC = () => {
                 logError({ feature: 'lua-widget', action: 'init' }, err as Error);
             }
         }
-    }, [user, t, agentId, accessToken, language, isRTL, takeOrdersMode, businessVerticalQuery.isPending, businessVerticalQuery.data?.businessVertical]);
+    }, [user, t, agentId, accessToken, language, isRTL, takeOrdersMode, businessVerticalQuery.isPending, businessVerticalQuery.data?.businessVertical, hideOnPlatformAdmin]);
 
     return null;
 };
