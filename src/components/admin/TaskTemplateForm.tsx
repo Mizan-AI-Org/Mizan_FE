@@ -46,6 +46,7 @@ import {
   Camera,
   Check as CheckIcon,
   X as XIcon,
+  ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_BASE, api } from "@/lib/api";
@@ -317,6 +318,18 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
   // Selection map for bulk operations
   const [selectedTasks, setSelectedTasks] = useState<Record<string, Set<number>>>({});
 
+  // Which task cards are expanded (collapsed by default for a denser list)
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(() => new Set());
+
+  const toggleTaskExpanded = (taskId: string) => {
+    setExpandedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  };
+
   // Which task-group accordions are open (controlled so "Add Tasks" can open the new one)
   const [openAccordionIds, setOpenAccordionIds] = useState<string[]>([]);
 
@@ -584,6 +597,12 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       );
     });
     setOpenAccordionIds((o) => (o.includes(resolvedId) ? o : [...o, resolvedId]));
+    // Auto-expand newly added tasks so the manager can tweak them immediately
+    setExpandedTaskIds((prev) => {
+      const next = new Set(prev);
+      newTasks.forEach((t) => next.add(t.id));
+      return next;
+    });
     return newTasks.length;
   };
 
@@ -1229,17 +1248,41 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
               />
               <SearchIcon className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             </div>
-            {flatTasks.some((f) => selectedTasks[f.processId]?.has(f.index)) && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="text-destructive hover:text-destructive"
-                onClick={() => processes.forEach((p) => bulkDeleteSelected(p.id))}
-              >
-                <Trash2 className="h-4 w-4 mr-1" /> Delete selected
-              </Button>
-            )}
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {flatTasks.length > 0 && (
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setExpandedTaskIds(new Set(flatTasks.map((f) => f.task.id)))
+                    }
+                  >
+                    Expand all
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setExpandedTaskIds(new Set())}
+                  >
+                    Collapse all
+                  </Button>
+                </>
+              )}
+              {flatTasks.some((f) => selectedTasks[f.processId]?.has(f.index)) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => processes.forEach((p) => bulkDeleteSelected(p.id))}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" /> Delete selected
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Single flat, ordered list of all tasks */}
@@ -1261,22 +1304,56 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                 <div className="space-y-3">
                   {flatTasks.map((f, ordinal) => {
                     const { task, processId, index } = f;
+                    const isExpanded = expandedTaskIds.has(task.id);
                     return (
                       <SortableTaskCard key={task.id || `${processId}-${index}`} id={`${processId}-${index}`}>
                         {({ setNodeRef, style, attributes, listeners }) => (
                           <div ref={setNodeRef} style={style}>
-                            <Card className="border-l-4" style={{ borderLeftColor: "#0ea5e9" }}>
-                              <CardContent className="pt-4 space-y-4">
-                                <div className="flex gap-3 items-start">
-                                  <div className="flex flex-col items-center gap-2 pt-1 shrink-0">
-                                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-teal-600 text-white text-xs font-bold">
-                                      {ordinal + 1}
-                                    </span>
-                                    <Checkbox
-                                      checked={!!selectedTasks[processId]?.has(index)}
-                                      onCheckedChange={() => toggleTaskSelection(processId, index)}
-                                      aria-label="Select task"
+                            <Card className="border-l-4 overflow-hidden" style={{ borderLeftColor: "#0ea5e9" }}>
+                              <CardContent className={isExpanded ? "pt-4 space-y-4" : "py-3 px-4"}>
+                                {/* Collapsible header */}
+                                <div className="flex gap-2 items-center min-w-0">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 shrink-0"
+                                    onClick={() => toggleTaskExpanded(task.id)}
+                                    aria-expanded={isExpanded}
+                                    aria-label={isExpanded ? "Collapse task" : "Expand task"}
+                                  >
+                                    <ChevronDown
+                                      className={`h-4 w-4 transition-transform ${isExpanded ? "" : "-rotate-90"}`}
                                     />
+                                  </Button>
+                                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-teal-600 text-white text-xs font-bold shrink-0">
+                                    {ordinal + 1}
+                                  </span>
+                                  <Checkbox
+                                    checked={!!selectedTasks[processId]?.has(index)}
+                                    onCheckedChange={() => toggleTaskSelection(processId, index)}
+                                    aria-label="Select task"
+                                    className="shrink-0"
+                                  />
+                                  {isExpanded ? (
+                                    <div className="flex-1 min-w-0" />
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="flex-1 min-w-0 text-left"
+                                      onClick={() => toggleTaskExpanded(task.id)}
+                                    >
+                                      <p className="text-sm font-medium truncate text-slate-900 dark:text-slate-100">
+                                        {task.title?.trim() || "Untitled task"}
+                                      </p>
+                                      {task.description?.trim() ? (
+                                        <p className="text-xs text-muted-foreground truncate">
+                                          {task.description}
+                                        </p>
+                                      ) : null}
+                                    </button>
+                                  )}
+                                  <div className="flex items-center gap-1 shrink-0">
                                     <Button
                                       type="button"
                                       variant="ghost"
@@ -1284,93 +1361,99 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                                       className="h-8 w-8 p-0 cursor-grab active:cursor-grabbing"
                                       {...attributes}
                                       {...listeners}
+                                      aria-label="Drag to reorder"
                                     >
                                       <GripVertical className="h-4 w-4" />
                                     </Button>
-                                  </div>
-                                  <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3 min-w-0">
-                                    <div className="md:col-span-5">
-                                      <Label htmlFor={`task_${processId}_${index}_title`}>Title *</Label>
-                                      <Input
-                                        id={`task_${processId}_${index}_title`}
-                                        value={task.title}
-                                        onChange={(e) => updateTaskInProcess(processId, index, 'title', e.target.value)}
-                                        className={errors[`process_${processId}_task_${index}_title`] ? 'border-red-500' : ''}
-                                      />
-                                      {errors[`process_${processId}_task_${index}_title`] && (
-                                        <p className="text-sm text-red-500">{errors[`process_${processId}_task_${index}_title`]}</p>
-                                      )}
-                                    </div>
-                                    <div className="md:col-span-6">
-                                      <Label htmlFor={`task_${processId}_${index}_description`}>Description</Label>
-                                      <Input
-                                        id={`task_${processId}_${index}_description`}
-                                        value={task.description || ''}
-                                        onChange={(e) => updateTaskInProcess(processId, index, 'description', e.target.value)}
-                                      />
-                                    </div>
-                                    <div className="md:col-span-1 flex md:justify-end md:items-end">
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => removeTaskFromProcess(processId, index)}
-                                        className="w-full md:w-auto text-destructive hover:text-destructive"
-                                        aria-label="Delete task"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeTaskFromProcess(processId, index)}
+                                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                      aria-label="Delete task"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
                                   </div>
                                 </div>
 
-                                <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 px-3 py-2">
-                                  <div className="flex items-start gap-2 min-w-0">
-                                    <Camera className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                                    <div className="min-w-0">
-                                      <p className="text-sm font-medium">Ask for photo after Yes</p>
-                                      <p className="text-xs text-muted-foreground">
-                                        Miya will ask for a photo as proof, then continue to the next task.
-                                      </p>
+                                {isExpanded && (
+                                  <>
+                                    <div className="flex gap-3 items-start pl-1">
+                                      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3 min-w-0">
+                                        <div className="md:col-span-5">
+                                          <Label htmlFor={`task_${processId}_${index}_title`}>Title *</Label>
+                                          <Input
+                                            id={`task_${processId}_${index}_title`}
+                                            value={task.title}
+                                            onChange={(e) => updateTaskInProcess(processId, index, 'title', e.target.value)}
+                                            className={errors[`process_${processId}_task_${index}_title`] ? 'border-red-500' : ''}
+                                          />
+                                          {errors[`process_${processId}_task_${index}_title`] && (
+                                            <p className="text-sm text-red-500">{errors[`process_${processId}_task_${index}_title`]}</p>
+                                          )}
+                                        </div>
+                                        <div className="md:col-span-7">
+                                          <Label htmlFor={`task_${processId}_${index}_description`}>Description</Label>
+                                          <Input
+                                            id={`task_${processId}_${index}_description`}
+                                            value={task.description || ''}
+                                            onChange={(e) => updateTaskInProcess(processId, index, 'description', e.target.value)}
+                                          />
+                                        </div>
+                                      </div>
                                     </div>
-                                  </div>
-                                  <Switch
-                                    checked={!!task.requires_photo}
-                                    onCheckedChange={(checked) => {
-                                      setProcesses((prev) =>
-                                        prev.map((p) => {
-                                          if (p.id !== processId) return p;
-                                          const tasks = [...p.tasks];
-                                          const cur = tasks[index];
-                                          if (!cur) return p;
-                                          tasks[index] = {
-                                            ...cur,
-                                            requires_photo: checked,
-                                            verification_required: checked,
-                                            verification_type: checked ? "PHOTO" : "NONE",
-                                          };
-                                          return { ...p, tasks };
-                                        }),
-                                      );
-                                    }}
-                                    aria-label="Require photo proof after Yes"
-                                  />
-                                </div>
 
-                                {/* Yes / No condition flow */}
-                                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 p-3 space-y-2">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <GitBranch className="h-4 w-4 text-teal-600" />
-                                    <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                                      Condition flow
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      What happens after Yes or No
-                                    </span>
-                                  </div>
-                                  {renderBranchRow(processId, index, task, "yes")}
-                                  {renderBranchRow(processId, index, task, "no")}
-                                </div>
+                                    <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 px-3 py-2">
+                                      <div className="flex items-start gap-2 min-w-0">
+                                        <Camera className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                                        <div className="min-w-0">
+                                          <p className="text-sm font-medium">Ask for photo after Yes</p>
+                                          <p className="text-xs text-muted-foreground">
+                                            Miya will ask for a photo as proof, then continue to the next task.
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <Switch
+                                        checked={!!task.requires_photo}
+                                        onCheckedChange={(checked) => {
+                                          setProcesses((prev) =>
+                                            prev.map((p) => {
+                                              if (p.id !== processId) return p;
+                                              const tasks = [...p.tasks];
+                                              const cur = tasks[index];
+                                              if (!cur) return p;
+                                              tasks[index] = {
+                                                ...cur,
+                                                requires_photo: checked,
+                                                verification_required: checked,
+                                                verification_type: checked ? "PHOTO" : "NONE",
+                                              };
+                                              return { ...p, tasks };
+                                            }),
+                                          );
+                                        }}
+                                        aria-label="Require photo proof after Yes"
+                                      />
+                                    </div>
+
+                                    {/* Yes / No condition flow */}
+                                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 p-3 space-y-2">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <GitBranch className="h-4 w-4 text-teal-600" />
+                                        <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                                          Condition flow
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">
+                                          What happens after Yes or No
+                                        </span>
+                                      </div>
+                                      {renderBranchRow(processId, index, task, "yes")}
+                                      {renderBranchRow(processId, index, task, "no")}
+                                    </div>
+                                  </>
+                                )}
                               </CardContent>
                             </Card>
                           </div>

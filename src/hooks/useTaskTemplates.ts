@@ -49,7 +49,7 @@ export function useTaskTemplates(opts?: { pollIntervalMs?: number; autoStart?: b
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE}/scheduling/task-templates/`, {
+      const res = await fetch(`${API_BASE}/scheduling/task-templates/?page_size=500`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
       });
       if (!res.ok) {

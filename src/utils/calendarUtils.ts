@@ -12,6 +12,8 @@ export interface CalendarShift extends Shift {
   displayEnd: Date;
   durationHours: number;
   overlapsWith: string[];
+  /** 'continuation' = next-day slice of an overnight shift (Google Calendar style). */
+  segment?: 'start' | 'continuation';
   position: {
     top: number;
     height: number;
@@ -79,13 +81,19 @@ export const parseShiftTime = (shift: Shift, baseDate: Date, timezone: string): 
     throw new Error(`Time out of range: start="${shift.start}", end="${shift.end}"`);
   }
 
-  const startDate = new Date(baseDate);
+  // Prefer the shift's own date so overnight math is anchored correctly
+  const anchor =
+    shift.date && /^\d{4}-\d{2}-\d{2}$/.test(shift.date)
+      ? new Date(`${shift.date}T12:00:00`)
+      : new Date(baseDate);
+
+  const startDate = new Date(anchor);
   startDate.setHours(startHour, startMinute, 0, 0);
 
-  let endDate = new Date(baseDate);
+  let endDate = new Date(anchor);
   endDate.setHours(endHour, endMinute, 0, 0);
 
-  // Handle overnight shifts
+  // Handle overnight shifts (e.g. 22:00–01:30)
   if (endDate <= startDate) {
     endDate = addDays(endDate, 1);
   }
@@ -129,6 +137,7 @@ export const calculateShiftPosition = (
       displayEnd,
       durationHours,
       overlapsWith,
+      segment: 'start',
       position: {
         top: Math.max(top, 0),
         height: Math.min(height, (config.endHour - config.startHour) * config.hourHeight - top),
@@ -378,4 +387,81 @@ export const getDayBoundaryCrossings = (shift: Shift, baseDate: Date, timezone: 
   }
 
   return crossings;
+};
+
+/**
+ * Split overnight shifts into start-day + next-day segments for week/day grids
+ * (Google Calendar style: Thu 22:00–24:00 and Fri 00:00–01:30).
+ */
+export const expandOvernightForWeekGrid = (
+  cs: CalendarShift,
+  config: CalendarConfig
+): CalendarShift[] => {
+  const overnight =
+    cs.displayStart &&
+    cs.displayEnd &&
+    !isSameDay(cs.displayStart, cs.displayEnd);
+
+  if (!overnight) {
+    return [{ ...cs, segment: cs.segment || 'start' }];
+  }
+
+  const startH =
+    cs.displayStart.getHours() + cs.displayStart.getMinutes() / 60;
+  const endH = cs.displayEnd.getHours() + cs.displayEnd.getMinutes() / 60;
+  const daySpanHours = config.endHour - config.startHour;
+
+  const topA = Math.max((startH - config.startHour) * config.hourHeight, 0);
+  const heightA = Math.max(
+    Math.min(
+      (config.endHour - startH) * config.hourHeight,
+      daySpanHours * config.hourHeight - topA
+    ),
+    8
+  );
+
+  const segA: CalendarShift = {
+    ...cs,
+    segment: 'start',
+    position: {
+      ...cs.position,
+      top: topA,
+      height: heightA,
+    },
+  };
+
+  const anchor = cs.date
+    ? new Date(`${cs.date}T12:00:00`)
+    : new Date(cs.displayStart);
+  const nextDate = addDays(anchor, 1);
+  const y = nextDate.getFullYear();
+  const m = String(nextDate.getMonth() + 1).padStart(2, '0');
+  const d = String(nextDate.getDate()).padStart(2, '0');
+  const nextDateStr = `${y}-${m}-${d}`;
+  const jsDay = nextDate.getDay();
+  const nextDayIndex = jsDay === 0 ? 6 : jsDay - 1;
+
+  const contEnd = Math.min(endH, config.endHour);
+  if (contEnd <= config.startHour) {
+    return [segA];
+  }
+
+  const heightB = Math.max(
+    (contEnd - config.startHour) * config.hourHeight,
+    8
+  );
+
+  const segB: CalendarShift = {
+    ...cs,
+    segment: 'continuation',
+    day: nextDayIndex,
+    date: nextDateStr,
+    position: {
+      ...cs.position,
+      top: 0,
+      height: heightB,
+    },
+  };
+
+  return [segA, segB];
 };

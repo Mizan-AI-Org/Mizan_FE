@@ -10,7 +10,8 @@ import {
   isOvernightShift,
   getDayBoundaryCrossings,
   formatShiftTime,
-  getShiftDurationText
+  getShiftDurationText,
+  expandOvernightForWeekGrid,
 } from '@/utils/calendarUtils';
 
 export interface CalendarState {
@@ -87,16 +88,16 @@ export const useCalendar = (
     };
   }, [containerWidth, userTimezone, enableResponsive]);
 
-  // Process shifts with enhanced calculations
+  // Process shifts with enhanced calculations (overnight → two day-column segments)
   const processedShifts = useMemo(() => {
     const validShifts = shifts.filter(s => {
       const startValid = typeof s.start === 'string' && /^\d{2}:\d{2}$/.test(s.start);
       const endValid = typeof s.end === 'string' && /^\d{2}:\d{2}$/.test(s.end);
       return startValid && endValid;
     });
-    return validShifts.map(shift => 
-      calculateShiftPosition(shift, baseDate, config, validShifts)
-    );
+    return validShifts
+      .map(shift => calculateShiftPosition(shift, baseDate, config, validShifts))
+      .flatMap(cs => expandOvernightForWeekGrid(cs, config));
   }, [shifts, baseDate, config]);
 
   // Group shifts by day for calendar view

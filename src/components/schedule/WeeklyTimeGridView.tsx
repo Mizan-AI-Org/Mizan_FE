@@ -552,7 +552,7 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                                         {/* Render shifts for this day */}
                                         {(calendarShifts[dayIndex] || []).map((shift) => (
                                             <ShiftCard
-                                                key={shift.id}
+                                                key={`${shift.id}-${shift.date}-${shift.segment || 'start'}`}
                                                 shift={shift}
                                                 isSelected={selectedShift?.id === shift.id}
                                                 isHovered={hoveredShiftId === shift.id}
