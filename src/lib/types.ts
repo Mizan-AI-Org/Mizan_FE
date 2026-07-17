@@ -812,13 +812,29 @@ export interface CurrentSubscription {
     status: SubscriptionStatus;
     tier: SubscriptionTier;
     is_paid: boolean;
+    has_provider_subscription?: boolean;
+    payment_provider?: {
+        id: string;
+        configured: boolean;
+        reason: string;
+    };
     billing_interval: "" | "month" | "year";
     current_period_start: string | null;
     current_period_end: string | null;
     cancel_at_period_end: boolean;
     trial_ends_at: string | null;
     plan: SubscriptionPlan | null;
+    pending_plan?: SubscriptionPlan | null;
+    pending_billing_interval?: string;
 }
+
+export type CheckoutUpgradeResult = {
+    action: "redirect" | "updated" | "queued";
+    url: string | null;
+    provider?: string;
+    message?: string;
+    subscription_id?: number;
+};
 
 export interface BillingEntitlements {
     tier: SubscriptionTier;
