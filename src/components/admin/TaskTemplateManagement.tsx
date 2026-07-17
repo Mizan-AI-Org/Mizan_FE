@@ -138,7 +138,7 @@ export default function TaskTemplateManagement() {
   const { data: templates, isLoading } = useQuery<TaskTemplate[]>({
     queryKey: ['task-templates'],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/scheduling/task-templates/`, {
+      const response = await fetch(`${API_BASE}/scheduling/task-templates/?page_size=500`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json',
@@ -284,10 +284,12 @@ export default function TaskTemplateManagement() {
         const listData = await listRes.json();
         existing = (listData.results || listData || []) as TaskTemplate[];
       }
-      const existingNames = new Set(existing.map((t) => t.name.trim().toLowerCase()));
+      const existingNames = new Set(
+        existing.map((t) => (t.name || '').trim().toLowerCase()).filter(Boolean),
+      );
 
       const toCreate = builtInTemplates.filter(
-        (tpl) => !existingNames.has(tpl.name.trim().toLowerCase())
+        (tpl) => !existingNames.has((tpl.name || '').trim().toLowerCase())
       );
 
       if (toCreate.length === 0) {
@@ -413,8 +415,10 @@ export default function TaskTemplateManagement() {
 
   // Filter templates
   const filteredTemplates = templates?.filter(template => {
-    const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      template.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = (searchTerm || '').toLowerCase();
+    const name = (template.name || '').toLowerCase();
+    const description = (template.description || '').toLowerCase();
+    const matchesSearch = !term || name.includes(term) || description.includes(term);
     const matchesType = filterType === 'all' || template.template_type === filterType;
     const matchesFrequency = filterFrequency === 'all' || template.frequency === filterFrequency;
 
@@ -514,7 +518,9 @@ export default function TaskTemplateManagement() {
         const listData = await listRes.json();
         existing = (listData.results || listData || []) as TaskTemplate[];
       }
-      const existingNames = new Set(existing.map((x) => x.name.trim().toLowerCase()));
+      const existingNames = new Set(
+        existing.map((x) => (x.name || '').trim().toLowerCase()).filter(Boolean),
+      );
 
       let created = 0;
       let skipped = 0;
@@ -522,7 +528,7 @@ export default function TaskTemplateManagement() {
       let lastError = '';
 
       for (const tpl of payloads) {
-        const key = tpl.name.trim().toLowerCase();
+        const key = (tpl.name || '').trim().toLowerCase();
         if (existingNames.has(key)) {
           skipped += 1;
           continue;

@@ -204,10 +204,11 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                                                             )}
                                                             <div className="flex flex-col min-w-0 flex-1">
                                                                 <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-tight truncate">
-                                                                    {isTeam
-                                                                        ? t("schedule.team_shift_n_staff", { count: members.length })
-                                                                            || `Team shift — ${members.length} staff`
-                                                                        : `${displayStaff?.user?.first_name || displayStaff?.first_name || "Unknown"} ${displayStaff?.user?.last_name || displayStaff?.last_name || ""}`.trim()}
+                                                                    {(shift.title || "").trim()
+                                                                        || (isTeam
+                                                                            ? (t("schedule.team_shift_n_staff", { count: members.length })
+                                                                                || `Team shift — ${members.length} staff`)
+                                                                            : `${displayStaff?.user?.first_name || displayStaff?.first_name || "Unknown"} ${displayStaff?.user?.last_name || displayStaff?.last_name || ""}`.trim())}
                                                                 </span>
                                                                 {roleLabel && (
                                                                     <span className="text-[9px] font-bold text-green-700 dark:text-green-400 uppercase tracking-wide bg-green-50 dark:bg-green-900/30 px-1 py-0 rounded mt-0.5 inline-block w-fit">
@@ -225,12 +226,18 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                                                                 <span>{formatTime(shift.end)}</span>
                                                             </div>
 
-                                                            {shift.title && (
+                                                            {/* When title is already the headline, show who is assigned underneath */}
+                                                            {(shift.title || "").trim() ? (
                                                                 <div className="flex items-start text-xs text-gray-500 dark:text-gray-400">
                                                                     <div className="h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-600 mt-1.5 mr-1.5 flex-shrink-0" />
-                                                                    <p className="line-clamp-1 leading-tight">{shift.title}</p>
+                                                                    <p className="line-clamp-1 leading-tight">
+                                                                        {isTeam
+                                                                            ? (t("schedule.team_shift_n_staff", { count: members.length })
+                                                                                || `${members.length} staff`)
+                                                                            : `${displayStaff?.user?.first_name || displayStaff?.first_name || "Unknown"} ${displayStaff?.user?.last_name || displayStaff?.last_name || ""}`.trim()}
+                                                                    </p>
                                                                 </div>
-                                                            )}
+                                                            ) : null}
                                                         </div>
                                                     </div>
                                                 </div>

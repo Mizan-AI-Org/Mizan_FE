@@ -179,12 +179,29 @@ const EnhancedScheduleView: React.FC = () => {
   const isLoading = isLoadingStaff || isLoadingShifts;
 
   const withSeconds = (t: string) => (t && t.length === 5 ? `${t}:00` : t);
+  const toMinutes = (t: string) => {
+    const [h, m] = (t || "0:0").split(":").map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+  const addOneDayYMD = (dStr: string) => {
+    const d = new Date(`${dStr}T12:00:00`);
+    d.setDate(d.getDate() + 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
   const makeISO = (dStr: string, tStr: string) => {
     const d = new Date(`${dStr}T${withSeconds(tStr)}`);
     const offsetMin = -d.getTimezoneOffset();
     const sign = offsetMin >= 0 ? "+" : "-";
     const abs = Math.abs(offsetMin);
     return `${dStr}T${withSeconds(tStr)}${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
+  };
+  /** End datetime: bump calendar date when end clock is on/before start (overnight). */
+  const makeEndISO = (dStr: string, startT: string, endT: string) => {
+    const endDate = toMinutes(endT) <= toMinutes(startT) ? addOneDayYMD(dStr) : dStr;
+    return makeISO(endDate, endT);
   };
 
   const handleSaveShift = async (shift: Shift) => {
@@ -308,7 +325,7 @@ const EnhancedScheduleView: React.FC = () => {
         staff_members: staffIds,
         shift_date: shift.date,
         start_time: makeISO(shift.date, shift.start),
-        end_time: makeISO(shift.date, shift.end),
+        end_time: makeEndISO(shift.date, shift.start, shift.end),
         title,
         notes: title,
         color: shift.color || getStaffColor(staffIds[0]),
