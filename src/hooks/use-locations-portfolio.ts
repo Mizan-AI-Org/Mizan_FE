@@ -67,11 +67,12 @@ export function useLocationsPortfolio() {
     queryKey: ["dashboard", "portfolio"],
     queryFn: async (): Promise<PortfolioSummary> => {
       const token = getAuthToken();
+      // Do not send Cache-Control/Pragma request headers — production CORS
+      // does not allow them, and the browser fails with "Failed to fetch".
+      // `cache: "no-store"` is enough to skip the HTTP cache.
       const res = await fetch(`${API_BASE}/dashboard/portfolio/`, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          "Cache-Control": "no-cache",
-          Pragma: "no-cache",
         },
         credentials: "include",
         cache: "no-store",
