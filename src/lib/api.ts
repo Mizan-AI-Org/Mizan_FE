@@ -275,11 +275,19 @@ export class BackendService {
         headers: this.getHeaders(),
         body: JSON.stringify({ email, password }),
       });
+      const errorData = response.ok ? null : await response.json().catch(() => ({}));
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Login failed");
+        throw new Error(
+          errorData?.error || errorData?.message || "Login failed",
+        );
       }
-      return await response.json();
+      const data = await response.json();
+      if (data?.user?.is_platform_operator) {
+        throw new Error(
+          "Platform operator accounts sign in at /admin only. This page is for restaurant staff and managers.",
+        );
+      }
+      return data;
     } catch (error: any) {
       throw new Error(error.message || "Login failed");
     }

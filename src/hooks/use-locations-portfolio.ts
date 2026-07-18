@@ -29,6 +29,9 @@ export type LocationPortfolioRow = {
   is_active: boolean;
   status: LocationStatus;
   top_concern: string | null;
+  /** Stable code for i18n; prefer over English `top_concern`. */
+  top_concern_code?: string | null;
+  top_concern_params?: Record<string, string | number>;
   metrics: LocationMetrics;
 };
 
@@ -65,8 +68,13 @@ export function useLocationsPortfolio() {
     queryFn: async (): Promise<PortfolioSummary> => {
       const token = getAuthToken();
       const res = await fetch(`${API_BASE}/dashboard/portfolio/`, {
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
         credentials: "include",
+        cache: "no-store",
       });
       if (!res.ok) {
         // Preserve the backend's human-readable reason (permissions, missing

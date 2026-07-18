@@ -3071,20 +3071,21 @@ function StaffDailyProgressCard({
 
   const staff = data?.staff ?? [];
 
-  const goToStaff = React.useCallback(() => {
-    navigate("/dashboard/staff-app");
+  // Task done/total progress belongs on the Live Board, not the staff directory.
+  const goToProgress = React.useCallback(() => {
+    navigate("/dashboard/processes-tasks-app?tab=board#staff-live-progress");
   }, [navigate]);
 
   return (
     <Card
       className={cn(cardBase, "flex flex-col cursor-pointer")}
-      onClick={goToStaff}
+      onClick={goToProgress}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          goToStaff();
+          goToProgress();
         }
       }}
     >

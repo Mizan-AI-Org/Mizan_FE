@@ -45,29 +45,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  const resolvePostLoginPath = useCallback(
-    (userData: User) => {
-      const state = location.state as { from?: string; platformAdmin?: boolean } | null;
-      const from = state?.from;
-      if (
-        userData.is_platform_operator &&
-        typeof from === "string" &&
-        from.startsWith("/admin")
-      ) {
-        return from;
-      }
-      if (userData.is_platform_operator && state?.platformAdmin) {
-        return "/admin";
-      }
-      const isSupervisor =
-        userData.role === "SUPER_ADMIN" ||
-        userData.role === "ADMIN" ||
-        userData.role === "MANAGER" ||
-        userData.role === "OWNER";
-      return isSupervisor ? "/dashboard" : "/staff-dashboard";
-    },
-    [location.state],
-  );
+  const resolvePostLoginPath = useCallback((userData: User) => {
+    const isSupervisor =
+      userData.role === "SUPER_ADMIN" ||
+      userData.role === "ADMIN" ||
+      userData.role === "MANAGER" ||
+      userData.role === "OWNER";
+    return isSupervisor ? "/dashboard" : "/staff-dashboard";
+  }, []);
 
   const initializeAuth = useCallback(async () => {
     try {
@@ -88,6 +73,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
         if (response.ok) {
           const userData: User = await response.json();
+          // Ops sessions belong on /admin only — never treat them as tenant auth.
+          if (userData.is_platform_operator) {
+            if (
+              location.pathname === "/auth" ||
+              location.pathname === "/staff-login" ||
+              !location.pathname.startsWith("/admin")
+            ) {
+              navigate("/admin", { replace: true });
+            }
+            return;
+          }
           setUser(userData);
           applyLanguageForUser(userData);
           // Don't auto-redirect on auth initialization - let the user stay where they are
@@ -194,6 +190,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       const data = isJson ? JSON.parse(rawText) : {};
+      if (data.user?.is_platform_operator || data.code === "platform_ops_use_admin_login") {
+        clearAuth();
+        throw new Error(
+          "Platform operator accounts sign in at /admin only. This page is for restaurant staff and managers.",
+        );
+      }
       setUser(data.user);
       localStorage.setItem("user", JSON.stringify(data.user));
       applyLanguageForUser(data.user);

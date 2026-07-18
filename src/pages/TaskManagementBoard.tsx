@@ -113,6 +113,19 @@ export default function TaskManagementBoard({
 }) {
   const { t } = useLanguage();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#staff-live-progress") return;
+    const el = document.getElementById("staff-live-progress");
+    if (!el) return;
+    // Wait a tick so the board has painted after lazy route load.
+    const id = window.setTimeout(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+    return () => window.clearTimeout(id);
+  }, []);
+
   const [activeProcessesCount, setActiveProcessesCount] = useState(0);
   const [tasksToday, setTasksToday] = useState({ total: 0, completed: 0, ongoing: 0 });
   const [onTimeRate, setOnTimeRate] = useState(0);
@@ -407,8 +420,11 @@ export default function TaskManagementBoard({
         </div>
       </section>
 
-      {/* Staff Live Progress */}
-      <Card className="border border-slate-200 dark:border-slate-700 shadow-none dark:bg-slate-900 flex-1">
+      {/* Staff Live Progress — deep-linked from dashboard Staff progress widget */}
+      <Card
+        id="staff-live-progress"
+        className="border border-slate-200 dark:border-slate-700 shadow-none dark:bg-slate-900 flex-1 scroll-mt-24"
+      >
         <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4 space-y-0">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">

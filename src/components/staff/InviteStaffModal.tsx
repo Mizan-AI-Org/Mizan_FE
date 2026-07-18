@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
+import { api } from "@/lib/api";
+import type { BillingEntitlements } from "@/lib/types";
 import { AuthContextType } from "../../contexts/AuthContext.types";
 import { splitInviteRoleSelection, useBusinessVertical } from "@/hooks/use-business-vertical";
 import { useBusinessLocations } from "@/hooks/use-business-locations";
@@ -35,9 +38,16 @@ interface InviteStaffModalProps {
 
 const InviteStaffModal: React.FC<InviteStaffModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const { t } = useLanguage();
+  const queryClient = useQueryClient();
   const { inviteStaff } = useAuth() as AuthContextType;
   const { data: staffSettings } = useBusinessVertical();
   const { data: locations = [] } = useBusinessLocations();
+  const entitlementsQuery = useQuery<BillingEntitlements>({
+    queryKey: ["billing-entitlements"],
+    queryFn: () => api.getBillingEntitlements(),
+    enabled: isOpen,
+    staleTime: 30 * 1000,
+  });
   const businessVertical = staffSettings?.businessVertical ?? "RESTAURANT";
   const customStaffRoles = staffSettings?.customStaffRoles ?? [];
   const [email, setEmail] = useState("");
@@ -46,6 +56,10 @@ const InviteStaffModal: React.FC<InviteStaffModalProps> = ({ isOpen, onClose, on
   const [allowedLocations, setAllowedLocations] = useState<string[]>([]);
   const [managedLocations, setManagedLocations] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  const maxStaff = entitlementsQuery.data?.limits?.max_staff ?? null;
+  const staffUsed = entitlementsQuery.data?.usage?.staff ?? 0;
+  const atStaffLimit = maxStaff != null && staffUsed >= maxStaff;
 
   // Only show branch pickers when the tenant has more than one location;
   // single-site tenants shouldn't see new fields they don't care about.
@@ -87,6 +101,14 @@ const InviteStaffModal: React.FC<InviteStaffModalProps> = ({ isOpen, onClose, on
       return;
     }
 
+    if (atStaffLimit) {
+      toast.error(
+        t("billing.staff_limit_reached", { max: maxStaff as number }) ||
+          `Your plan allows up to ${maxStaff} staff. Upgrade to invite more.`,
+      );
+      return;
+    }
+
     setIsLoading(true);
     try {
       const accessToken = localStorage.getItem("access_token");
@@ -106,6 +128,7 @@ const InviteStaffModal: React.FC<InviteStaffModalProps> = ({ isOpen, onClose, on
           : {}),
       });
       toast.success("Staff invitation sent successfully!");
+      void queryClient.invalidateQueries({ queryKey: ["billing-entitlements"] });
       onSuccess();
       onClose();
       setEmail("");
@@ -128,6 +151,19 @@ const InviteStaffModal: React.FC<InviteStaffModalProps> = ({ isOpen, onClose, on
           <DialogTitle>Invite New Staff</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          {maxStaff != null ? (
+            <p
+              className={
+                atStaffLimit
+                  ? "text-sm text-amber-700 dark:text-amber-400"
+                  : "text-sm text-muted-foreground"
+              }
+            >
+              {atStaffLimit
+                ? t("billing.staff_limit_reached", { max: maxStaff })
+                : t("billing.staff_usage", { used: staffUsed, max: maxStaff })}
+            </p>
+          ) : null}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="email" className="text-right">
               Email
@@ -273,7 +309,7 @@ const InviteStaffModal: React.FC<InviteStaffModalProps> = ({ isOpen, onClose, on
           )}
         </div>
         <DialogFooter>
-          <Button onClick={handleInviteStaff} disabled={isLoading}>
+          <Button onClick={handleInviteStaff} disabled={isLoading || atStaffLimit}>
             {isLoading ? "Sending..." : "Send Invitation"}
           </Button>
         </DialogFooter>

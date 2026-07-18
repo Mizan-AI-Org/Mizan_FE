@@ -23,7 +23,7 @@ export default function PlatformAdminLogin({ deniedMessage }: Props) {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/login/`, {
+      const res = await fetch(`${API_BASE}/platform/auth/login/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password }),
