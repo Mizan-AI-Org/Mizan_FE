@@ -1,10 +1,12 @@
 import React, { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { platformApi } from "@/lib/platformApi";
 import { Loader2 } from "lucide-react";
 import OpsPagination from "@/components/platform-admin/OpsPagination";
 import {
+  opsBadgeOk,
+  opsBadgeWarn,
   opsInput,
   opsLink,
   opsMuted,
@@ -19,10 +21,20 @@ import {
 
 const PAGE_SIZE = 20;
 
+function StatusBadge({ status }: { status: string }) {
+  const s = (status || "").toLowerCase();
+  const cls =
+    s === "active"
+      ? opsBadgeOk
+      : s === "trialing"
+        ? opsBadgeWarn
+        : "rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-600 dark:text-slate-300";
+  return <span className={cls}>{status || "—"}</span>;
+}
+
 export default function BillingPage() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
-  const qc = useQueryClient();
 
   const { data, isLoading, error, isFetching } = useQuery({
     queryKey: ["platform-subscriptions", status, page],
@@ -34,24 +46,13 @@ export default function BillingPage() {
       }),
   });
 
-  const { data: plans } = useQuery({
-    queryKey: ["platform-plans"],
-    queryFn: () => platformApi.plans(),
-  });
-
-  const patch = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: Record<string, unknown> }) =>
-      platformApi.patchSubscription(id, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["platform-subscriptions"] }),
-  });
-
   return (
     <div className={opsPage}>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className={opsTitle}>Billing</h2>
           <p className={opsSubtitle}>
-            Subscriptions by tenant · new signups default to Starter (trialing)
+            Subscriptions by tenant · status is set by billing activity (not editable here)
             {typeof data?.count === "number" ? ` · ${data.count} total` : ""}
           </p>
         </div>
@@ -62,6 +63,7 @@ export default function BillingPage() {
             setStatus(e.target.value);
           }}
           className={opsInput}
+          aria-label="Filter by status"
         >
           <option value="">All statuses</option>
           <option value="trialing">Trialing</option>
@@ -100,45 +102,16 @@ export default function BillingPage() {
                     </Link>
                   </td>
                   <td className={opsTd}>
-                    <select
-                      value={s.plan ?? ""}
-                      disabled={patch.isPending}
-                      onChange={(e) => {
-                        const plan = e.target.value ? Number(e.target.value) : null;
-                        patch.mutate({ id: s.id, body: { plan } });
-                      }}
-                      className={`${opsInput} h-8 max-w-[160px] text-xs`}
+                    <Link
+                      to={`/admin/tenants/${s.restaurant_id}`}
+                      className={opsLink}
+                      title="Change plan on the tenant page (reason required)"
                     >
-                      <option value="">No plan</option>
-                      {(plans || []).map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
+                      {s.plan_name || "—"}
+                    </Link>
                   </td>
                   <td className={opsTd}>
-                    <select
-                      value={s.status}
-                      disabled={patch.isPending}
-                      onChange={(e) =>
-                        patch.mutate({ id: s.id, body: { status: e.target.value } })
-                      }
-                      className={`${opsInput} h-8 text-xs capitalize`}
-                    >
-                      {[
-                        "trialing",
-                        "active",
-                        "past_due",
-                        "canceled",
-                        "incomplete",
-                        "unpaid",
-                      ].map((st) => (
-                        <option key={st} value={st}>
-                          {st}
-                        </option>
-                      ))}
-                    </select>
+                    <StatusBadge status={s.status} />
                   </td>
                   <td className={opsTd}>{s.billing_interval || "—"}</td>
                   <td className={opsTd}>

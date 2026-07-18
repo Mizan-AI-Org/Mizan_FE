@@ -68,6 +68,9 @@ const PlatformUserDetailPage = React.lazy(
 );
 const PlatformOperatorsPage = React.lazy(
   () => import("./pages/platform-admin/OperatorsPage")
+)
+const PlatformOperatorDetailPage = React.lazy(
+  () => import("./pages/platform-admin/OperatorDetailPage")
 );
 const PlatformBillingPage = React.lazy(
   () => import("./pages/platform-admin/BillingPage")
@@ -245,6 +248,7 @@ const App = () => {
                   <Route path="users" element={<PlatformUsersPage />} />
                   <Route path="users/:id" element={<PlatformUserDetailPage />} />
                   <Route path="operators" element={<PlatformOperatorsPage />} />
+                  <Route path="operators/:id" element={<PlatformOperatorDetailPage />} />
                   <Route path="billing" element={<PlatformBillingPage />} />
                   <Route path="health" element={<PlatformHealthPage />} />
                   <Route path="audit" element={<PlatformAuditPage />} />

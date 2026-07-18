@@ -58,7 +58,7 @@ export default function OperatorsPage() {
         first_name: form.first_name.trim() || undefined,
         last_name: form.last_name.trim() || undefined,
         password: form.password,
-        is_superuser: form.is_superuser,
+        is_superuser: me.is_superuser ? form.is_superuser : false,
       }),
     onSuccess: (user) => {
       setOkMsg(`Operator ready: ${user.email}`);
@@ -89,21 +89,18 @@ export default function OperatorsPage() {
             Mizan staff accounts with access to Platform Admin (/admin)
           </p>
         </div>
-        {me.is_superuser ? (
-          <button
-            type="button"
-            className={opsBtnPrimary}
-            onClick={() => {
-              setOpen((v) => !v);
-              setError(null);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Add operator
-          </button>
-        ) : (
-          <p className={`text-xs ${opsMuted}`}>Only superusers can add operators</p>
-        )}
+        <button
+          type="button"
+          className={opsBtnPrimary}
+          onClick={() => {
+            setOpen((v) => !v);
+            setError(null);
+            setOkMsg(null);
+          }}
+        >
+          <Plus className="h-4 w-4" />
+          Add operator
+        </button>
       </header>
 
       {okMsg ? (
@@ -126,8 +123,7 @@ export default function OperatorsPage() {
             </h3>
           </div>
           <p className={`text-xs ${opsMuted}`}>
-            Creates or promotes an account with <code className="text-[11px]">is_staff</code>.
-            They can sign in and open /admin. Restaurant SUPER_ADMIN alone is not enough.
+            Creates or promotes an account for Platform Admin. They can sign in at /admin.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1.5 sm:col-span-2">
@@ -139,6 +135,7 @@ export default function OperatorsPage() {
                 className={`${opsInput} w-full`}
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                required
               />
             </label>
             <label className="block space-y-1.5">
@@ -173,22 +170,24 @@ export default function OperatorsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
               />
             </label>
-            <label className="flex items-center gap-2 sm:col-span-2 text-sm text-slate-700 dark:text-slate-300">
-              <input
-                type="checkbox"
-                checked={form.is_superuser}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, is_superuser: e.target.checked }))
-                }
-              />
-              Grant superuser (can create other operators)
-            </label>
+            {me.is_superuser ? (
+              <label className="flex items-center gap-2 sm:col-span-2 text-sm text-slate-700 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={form.is_superuser}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, is_superuser: e.target.checked }))
+                  }
+                />
+                Grant superuser (can change other operators&apos; privileges)
+              </label>
+            ) : null}
           </div>
           <div className="flex gap-2">
             <button
               type="button"
               className={opsBtnPrimary}
-              disabled={create.isPending}
+              disabled={create.isPending || !form.email.trim() || form.password.length < 8}
               onClick={() => create.mutate()}
             >
               {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -220,9 +219,12 @@ export default function OperatorsPage() {
               {pageRows.map((u) => (
                 <tr key={u.id} className={opsRow}>
                   <td className={opsTd}>
-                    <div className="font-semibold text-slate-900 dark:text-white">
+                    <Link
+                      to={`/admin/operators/${u.id}`}
+                      className="font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+                    >
                       {u.first_name} {u.last_name}
-                    </div>
+                    </Link>
                     <div className={opsMuted}>{u.email}</div>
                   </td>
                   <td className={`${opsTd} space-x-1`}>
@@ -231,8 +233,8 @@ export default function OperatorsPage() {
                   </td>
                   <td className={opsTd}>{u.is_active ? "Yes" : "No"}</td>
                   <td className={opsTd}>
-                    <Link to={`/admin/users/${u.id}`} className={`text-xs ${opsLink}`}>
-                      Manage →
+                    <Link to={`/admin/operators/${u.id}`} className={`text-xs ${opsLink}`}>
+                      Edit →
                     </Link>
                   </td>
                 </tr>

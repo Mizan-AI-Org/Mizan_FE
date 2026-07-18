@@ -33,6 +33,7 @@ import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { cn } from "@/lib/utils";
 import MoveStaffBranchDialog from "@/components/staff/MoveStaffBranchDialog";
 import { useBusinessLocations } from "@/hooks/use-business-locations";
+import { useLanguage } from "@/hooks/use-language";
 import { useLocationDetail } from "@/hooks/use-location-detail";
 import type {
   BranchStaffMember,
@@ -44,12 +45,17 @@ import type {
   LocationMetrics,
   LocationStatus,
 } from "@/hooks/use-locations-portfolio";
+import {
+  formatPortfolioMoney,
+  translateTopConcern,
+} from "@/lib/locations-i18n";
 
 /**
  * Full branch hub — opened from Locations Overview.
  * Tabs: Today · Staff · Performance · More
  */
 export default function BranchDetailPage() {
+  const { t, language } = useLanguage();
   const { locationId } = useParams<{ locationId: string }>();
   const { data, isLoading, isError, refetch, isFetching } =
     useLocationDetail(locationId);
@@ -67,23 +73,23 @@ export default function BranchDetailPage() {
     const q = `?location=${encodeURIComponent(locationId)}`;
     return [
       {
-        label: "Labor & attendance report",
+        label: t("locations_overview.branch.link_labor"),
         href: `/dashboard/reports/labor-attendance${q}`,
       },
       {
-        label: "Timesheet history",
+        label: t("locations_overview.branch.link_timesheets"),
         href: `/dashboard/timesheets${q}`,
       },
       {
-        label: "Staff directory",
+        label: t("locations_overview.branch.link_staff"),
         href: `/dashboard/staff-app`,
       },
       {
-        label: "Schedule",
+        label: t("locations_overview.branch.link_schedule"),
         href: `/dashboard/scheduling${q}`,
       },
     ];
-  }, [locationId]);
+  }, [locationId, t]);
 
   const clearSelection = () => {
     setSelectedIds([]);
@@ -127,7 +133,7 @@ export default function BranchDetailPage() {
         <Card>
           <CardContent className="flex items-center gap-3 p-4 text-sm text-red-600">
             <AlertTriangle className="h-4 w-4" />
-            Couldn&apos;t load this branch. Try refreshing.
+            {t("locations_overview.branch.error")}
           </CardContent>
         </Card>
       ) : (
@@ -142,10 +148,14 @@ export default function BranchDetailPage() {
                     {data.location.name}
                   </h1>
                   {data.location.is_primary && (
-                    <Badge variant="outline">Primary</Badge>
+                    <Badge variant="outline">
+                      {t("settings.locations.primary_badge")}
+                    </Badge>
                   )}
                   {!data.location.is_active && (
-                    <Badge variant="destructive">Inactive</Badge>
+                    <Badge variant="destructive">
+                      {t("locations_overview.branch.inactive")}
+                    </Badge>
                   )}
                 </div>
                 <p
@@ -156,7 +166,7 @@ export default function BranchDetailPage() {
                     data.location.status === "green" && "text-muted-foreground",
                   )}
                 >
-                  {data.location.top_concern || "All systems go"}
+                  {translateTopConcern(t, data.location)}
                 </p>
                 {data.location.address ? (
                   <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
@@ -168,7 +178,9 @@ export default function BranchDetailPage() {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground">
-                Updated {new Date(data.generated_at).toLocaleTimeString()}
+                {t("locations_overview.updated", {
+                  time: new Date(data.generated_at).toLocaleTimeString(language),
+                })}
               </span>
               <Button
                 variant="outline"
@@ -182,7 +194,7 @@ export default function BranchDetailPage() {
                     isFetching && "animate-spin",
                   )}
                 />
-                Refresh
+                {t("common.refresh")}
               </Button>
             </div>
           </header>
@@ -190,21 +202,29 @@ export default function BranchDetailPage() {
           <KpiStrip
             metrics={data.location.metrics}
             staffTotal={data.staff_summary?.total ?? 0}
+            language={language}
+            t={t}
           />
 
           <Tabs defaultValue="today" className="space-y-4">
             <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/60 p-1">
-              <TabsTrigger value="today">Today</TabsTrigger>
+              <TabsTrigger value="today">
+                {t("locations_overview.branch.tab_today")}
+              </TabsTrigger>
               <TabsTrigger value="staff">
-                Staff
+                {t("locations_overview.branch.tab_staff")}
                 {data.staff_summary?.total ? (
                   <span className="ml-1.5 text-muted-foreground">
                     ({data.staff_summary.total})
                   </span>
                 ) : null}
               </TabsTrigger>
-              <TabsTrigger value="performance">Performance</TabsTrigger>
-              <TabsTrigger value="more">Branch info</TabsTrigger>
+              <TabsTrigger value="performance">
+                {t("locations_overview.branch.tab_performance")}
+              </TabsTrigger>
+              <TabsTrigger value="more">
+                {t("locations_overview.branch.tab_more")}
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="today" className="space-y-4">
@@ -219,7 +239,9 @@ export default function BranchDetailPage() {
               {selectedIds.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900 dark:bg-emerald-950/30">
                   <span className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
-                    {selectedIds.length} selected
+                    {t("locations_overview.branch.selected", {
+                      count: selectedIds.length,
+                    })}
                   </span>
                   <Button
                     size="sm"
@@ -233,10 +255,10 @@ export default function BranchDetailPage() {
                     }
                   >
                     <ArrowRightLeft className="mr-1.5 h-4 w-4" />
-                    Move to branch
+                    {t("locations_overview.branch.move")}
                   </Button>
                   <Button size="sm" variant="ghost" onClick={clearSelection}>
-                    Clear
+                    {t("locations_overview.branch.clear")}
                   </Button>
                 </div>
               ) : null}
@@ -290,31 +312,38 @@ export default function BranchDetailPage() {
 function KpiStrip({
   metrics,
   staffTotal,
+  language,
+  t,
 }: {
   metrics: LocationMetrics;
   staffTotal: number;
+  language: string;
+  t: (key: string, options?: Record<string, string | number>) => string;
 }) {
   const coverageLabel =
     metrics.coverage_pct === null
-      ? `${metrics.clocked_in_now} in`
+      ? t("locations_overview.kpi.in", { count: metrics.clocked_in_now })
       : `${metrics.clocked_in_now}/${metrics.scheduled_today} · ${metrics.coverage_pct}%`;
 
   const noShowSubtitle =
     metrics.potential_no_shows > 0
-      ? `${metrics.no_shows_today} (+${metrics.potential_no_shows} pending)`
-      : `${metrics.no_shows_today} confirmed`;
+      ? t("locations_overview.kpi.no_shows_pending", {
+          count: metrics.no_shows_today,
+          pending: metrics.potential_no_shows,
+        })
+      : String(metrics.no_shows_today);
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
       <Tile
         icon={<Users className="h-4 w-4" />}
-        label="Team at branch"
+        label={t("locations_overview.branch.team")}
         value={String(staffTotal)}
-        subtitle={`${metrics.clocked_in_now} clocked in now`}
+        subtitle={t("locations_overview.kpi.clocked_in") + `: ${metrics.clocked_in_now}`}
       />
       <Tile
         icon={<Users className="h-4 w-4" />}
-        label="Coverage"
+        label={t("locations_overview.coverage")}
         value={coverageLabel}
         tone={
           metrics.coverage_pct !== null && metrics.coverage_pct < 50
@@ -326,12 +355,12 @@ function KpiStrip({
       />
       <Tile
         icon={<DollarSign className="h-4 w-4" />}
-        label="Labor today"
-        value={formatMoney(metrics.labor_cost_today)}
+        label={t("locations_overview.branch.labor_today")}
+        value={formatPortfolioMoney(metrics.labor_cost_today, language)}
       />
       <Tile
         icon={<Clock className="h-4 w-4" />}
-        label="No-shows"
+        label={t("locations_overview.kpi.no_shows")}
         value={String(metrics.no_shows_today + metrics.potential_no_shows)}
         subtitle={noShowSubtitle}
         tone={
@@ -344,26 +373,28 @@ function KpiStrip({
       />
       <Tile
         icon={<MapPinOff className="h-4 w-4" />}
-        label="Mismatches"
+        label={t("locations_overview.stat.mismatches")}
         value={String(metrics.location_mismatches_today)}
         tone={metrics.location_mismatches_today > 0 ? "red" : "neutral"}
       />
       <Tile
         icon={<Wallet className="h-4 w-4" />}
-        label="Cash"
+        label={t("locations_overview.stat.cash")}
         value={String(
           metrics.open_cash_sessions + metrics.flagged_cash_sessions,
         )}
         subtitle={
           metrics.flagged_cash_sessions > 0
-            ? `${metrics.flagged_cash_sessions} flagged`
-            : "No variance"
+            ? t("locations_overview.kpi.flagged_count", {
+                count: metrics.flagged_cash_sessions,
+              })
+            : t("locations_overview.kpi.no_variance")
         }
         tone={metrics.flagged_cash_sessions > 0 ? "red" : "neutral"}
       />
       <Tile
         icon={<ClipboardCheck className="h-4 w-4" />}
-        label="Checklists"
+        label={t("locations_overview.stat.checklists")}
         value={
           metrics.checklist_completion_pct === null
             ? "—"
@@ -371,8 +402,8 @@ function KpiStrip({
         }
         subtitle={
           metrics.checklists_total > 0
-            ? `${metrics.checklists_completed}/${metrics.checklists_total} done`
-            : "None scheduled"
+            ? `${metrics.checklists_completed}/${metrics.checklists_total}`
+            : t("locations_overview.branch.none_scheduled")
         }
         tone={
           metrics.checklist_completion_pct !== null &&
