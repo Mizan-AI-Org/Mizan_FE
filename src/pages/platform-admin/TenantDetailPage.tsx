@@ -48,9 +48,35 @@ export default function TenantDetailPage() {
 
   const suspend = useMutation({
     mutationFn: (suspended: boolean) => platformApi.patchTenant(id, { suspended }),
-    onSuccess: () => {
+    onSuccess: (_res, suspended) => {
+      setError(null);
+      setOkMsg(suspended ? "Tenant suspended." : "Tenant unsuspended.");
       qc.invalidateQueries({ queryKey: ["platform-tenant", id] });
       qc.invalidateQueries({ queryKey: ["platform-tenants"] });
+    },
+    onError: (e: Error) => {
+      setOkMsg(null);
+      setError(e.message);
+    },
+  });
+
+  const deactivate = useMutation({
+    mutationFn: (deactivated: boolean) =>
+      platformApi.patchTenant(id, { deactivated }),
+    onSuccess: (_res, deactivated) => {
+      setError(null);
+      setOkMsg(
+        deactivated
+          ? "Tenant deactivated — all user accounts on this tenant are now inactive."
+          : "Tenant reactivated — user accounts restored to active.",
+      );
+      qc.invalidateQueries({ queryKey: ["platform-tenant", id] });
+      qc.invalidateQueries({ queryKey: ["platform-tenants"] });
+      qc.invalidateQueries({ queryKey: ["platform-users"] });
+    },
+    onError: (e: Error) => {
+      setOkMsg(null);
+      setError(e.message);
     },
   });
 
@@ -133,6 +159,23 @@ export default function TenantDetailPage() {
         <div>
           <h2 className={opsTitle}>{data.name}</h2>
           <p className={opsSubtitle}>{data.email}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-semibold uppercase tracking-wide">
+            {data.deactivated ? (
+              <span className="rounded-full bg-rose-100 px-2 py-0.5 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
+                Deactivated
+              </span>
+            ) : null}
+            {data.suspended && !data.deactivated ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+                Suspended
+              </span>
+            ) : null}
+            {!data.suspended && !data.deactivated ? (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+                Active
+              </span>
+            ) : null}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -155,11 +198,41 @@ export default function TenantDetailPage() {
           </button>
           <button
             type="button"
-            disabled={suspend.isPending}
+            disabled={suspend.isPending || data.deactivated}
             onClick={() => suspend.mutate(!data.suspended)}
             className={opsBtnGhost}
+            title={
+              data.deactivated
+                ? "Reactivate the tenant before changing suspension"
+                : undefined
+            }
           >
             {data.suspended ? "Unsuspend" : "Suspend"}
+          </button>
+          <button
+            type="button"
+            disabled={
+              deactivate.isPending ||
+              (!data.deactivated && !data.suspended)
+            }
+            onClick={() => {
+              const next = !data.deactivated;
+              const ok = window.confirm(
+                next
+                  ? "Deactivate this tenant and disable all user accounts? They will not be able to sign in."
+                  : "Reactivate this tenant and restore user accounts to active?",
+              );
+              if (!ok) return;
+              deactivate.mutate(next);
+            }}
+            className={opsBtnGhost}
+            title={
+              !data.deactivated && !data.suspended
+                ? "Suspend the tenant first, then deactivate accounts"
+                : undefined
+            }
+          >
+            {data.deactivated ? "Reactivate" : "Deactivate accounts"}
           </button>
         </div>
       </header>
@@ -212,6 +285,18 @@ export default function TenantDetailPage() {
         </div>
         {sub ? (
           <div className="space-y-4">
+            {String(sub.status || "").toLowerCase() === "trialing" ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-100">
+                <p className="text-sm font-semibold">14-day free trial</p>
+                <p className={`mt-0.5 text-xs ${opsMuted}`}>
+                  This tenant is on the Starter trial
+                  {sub.trial_ends_at
+                    ? ` — ends ${new Date(String(sub.trial_ends_at)).toLocaleDateString()}.`
+                    : "."}{" "}
+                  They see the trial banner under Settings → Billing.
+                </p>
+              </div>
+            ) : null}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <label className="block space-y-1.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">

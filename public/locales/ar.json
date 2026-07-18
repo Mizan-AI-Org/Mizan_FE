@@ -2504,5 +2504,8 @@
   "billing.trial.enterprise_none": "بدون تجربة مجانية — إعداد مخصص مع فريق النجاح",
   "billing.trial.current_ends": "تنتهي تجربتك المجانية في {{date}}",
   "billing.trial.covered_until": "مشمول بتجربتك الحالية حتى {{date}}",
+  "billing.trial.banner_title": "تجربة مجانية لمدة {{days}} يومًا",
+  "billing.trial.banner_body": "تنتهي في {{date}}. يمكنك الترقية في أي وقت للاحتفاظ بالوصول الكامل.",
+  "billing.trial.banner_body_nodate": "يمكنك الترقية في أي وقت للاحتفاظ بالوصول الكامل.",
   "billing.currency_note": "الأسعار معروضة بعملة {{currency}} حسب موقع نشاطك."
 }

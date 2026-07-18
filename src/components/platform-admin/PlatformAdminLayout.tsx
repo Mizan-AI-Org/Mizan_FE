@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { NavLink, Outlet, useNavigate, useOutletContext } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Building2,
@@ -29,9 +30,22 @@ const NAV = [
 export default function PlatformAdminLayout() {
   const { me } = useOutletContext<{ me: PlatformMe }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const handleOpsLogout = useCallback(() => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("user");
+    queryClient.removeQueries({ queryKey: ["platform-me"] });
+    window.location.assign("/admin");
+  }, [queryClient]);
+
+  const roleSubtitle = me?.is_superuser
+    ? "Platform superuser"
+    : "Platform operator";
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <div className="min-h-screen flex flex-col bg-slate-100/80 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <header className="sticky top-0 z-[2000] bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between gap-4">
@@ -54,15 +68,20 @@ export default function PlatformAdminLayout() {
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <LiveDateTime showTime={false} />
               <ThemeToggle />
-              <UserAvatarMenu variant="icon" />
+              <UserAvatarMenu
+                variant="icon"
+                userOverride={me}
+                subtitle={roleSubtitle}
+                onLogout={handleOpsLogout}
+              />
             </div>
           </div>
         </div>
       </header>
 
       <div className="flex flex-1 min-h-0">
-        <aside className="w-56 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col">
-          <nav className="flex-1 p-3 space-y-1 overflow-auto">
+        <aside className="w-[15.5rem] shrink-0 flex flex-col border-r border-slate-200 bg-white text-slate-900 shadow-[4px_0_24px_-12px_rgba(15,23,42,0.12)] dark:border-slate-800 dark:bg-gradient-to-b dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 dark:text-slate-100 dark:shadow-[4px_0_24px_-12px_rgba(15,23,42,0.45)]">
+          <nav className="flex-1 p-3 pt-4 space-y-1.5 overflow-auto">
             {NAV.map(({ to, end, label, icon: Icon }) => (
               <NavLink
                 key={to}
@@ -70,18 +89,32 @@ export default function PlatformAdminLayout() {
                 end={end}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
+                    "group flex items-center gap-3 rounded-xl px-3.5 py-3 text-[14px] font-semibold transition-all",
                     isActive
-                      ? "bg-[#00E676]/15 text-[#007A3D] dark:text-[#00E676] ring-1 ring-[#00E676]/20"
-                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100",
+                      ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/25 [&_span]:bg-slate-950/15 [&_span]:text-slate-950"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 [&_span]:bg-slate-100 [&_span]:text-slate-500 hover:[&_span]:bg-emerald-50 hover:[&_span]:text-emerald-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white dark:[&_span]:bg-white/5 dark:[&_span]:text-slate-400 dark:hover:[&_span]:bg-white/10 dark:hover:[&_span]:text-emerald-300",
                   )
                 }
               >
-                <Icon className="h-4 w-4 shrink-0" />
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors">
+                  <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2.25} />
+                </span>
                 {label}
               </NavLink>
             ))}
           </nav>
+
+          <div className="mt-auto border-t border-slate-200 p-4 dark:border-white/10">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+              Signed in
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-900 truncate dark:text-white">
+              {[me?.first_name, me?.last_name].filter(Boolean).join(" ") ||
+                me?.email?.split("@")[0] ||
+                "Operator"}
+            </p>
+            <p className="text-xs text-slate-500 truncate dark:text-slate-400">{me?.email}</p>
+          </div>
         </aside>
 
         <main className="flex-1 min-w-0 overflow-auto relative">

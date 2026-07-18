@@ -2504,5 +2504,8 @@
   "billing.trial.enterprise_none": "Pas d'essai gratuit — onboarding dédié avec votre équipe success",
   "billing.trial.current_ends": "Votre essai gratuit se termine le {{date}}",
   "billing.trial.covered_until": "Couvert par votre essai actuel jusqu'au {{date}}",
+  "billing.trial.banner_title": "Essai gratuit de {{days}} jours",
+  "billing.trial.banner_body": "Se termine le {{date}}. Passez à un forfait payant à tout moment pour conserver l'accès.",
+  "billing.trial.banner_body_nodate": "Passez à un forfait payant à tout moment pour conserver l'accès.",
   "billing.currency_note": "Prix affichés en {{currency}} selon l'emplacement de votre établissement."
 }
