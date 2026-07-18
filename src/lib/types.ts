@@ -846,5 +846,6 @@ export interface BillingEntitlements {
     cancel_at_period_end: boolean;
     features: string[];
     limits: { max_locations: number | null; max_staff: number | null };
+    usage?: { staff: number };
     plan: SubscriptionPlan | null;
 }

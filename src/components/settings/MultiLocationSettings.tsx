@@ -130,6 +130,9 @@ export default function MultiLocationSettings({
     queryClient.invalidateQueries({ queryKey: ["business-locations"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard", "portfolio"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard", "summary"] });
+    // Force an immediate refetch so Locations Overview doesn't keep a
+    // stale branch list until the next poll interval.
+    void queryClient.refetchQueries({ queryKey: ["dashboard", "portfolio"] });
   }, [queryClient]);
   const [locations, setLocations] = useState<BusinessLocation[]>([]);
   const [isLoading, setIsLoading] = useState(true);

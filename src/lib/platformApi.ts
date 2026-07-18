@@ -15,11 +15,23 @@ async function platformFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    const msg =
-      (body as { error?: string; detail?: string }).error ||
-      (body as { detail?: string }).detail ||
-      `Request failed (${res.status})`;
-    const err = new Error(msg) as Error & { status?: number };
+    const b = body as {
+      error?: string;
+      detail?: string | string[];
+      [key: string]: unknown;
+    };
+    let msg = b.error || (typeof b.detail === "string" ? b.detail : null);
+    if (!msg && Array.isArray(b.detail)) msg = b.detail.join(" ");
+    if (!msg) {
+      // DRF field errors: { plan: ["…"], reason: ["…"] }
+      const parts = Object.entries(b)
+        .filter(([k, v]) => k !== "error" && Array.isArray(v))
+        .map(([k, v]) => `${k}: ${(v as string[]).join(" ")}`);
+      if (parts.length) msg = parts.join("; ");
+    }
+    const err = new Error(msg || `Request failed (${res.status})`) as Error & {
+      status?: number;
+    };
     err.status = res.status;
     throw err;
   }
@@ -92,6 +104,7 @@ export type PlatformTenant = {
   subscription_status?: string | null;
   subscription_plan?: string | null;
   suspended: boolean;
+  deactivated?: boolean;
   onboarding_done: boolean;
   address?: string;
   owner?: {
@@ -119,6 +132,15 @@ export type PlatformTenant = {
     trial_ends_at?: string | null;
     cancel_at_period_end?: boolean;
     price_monthly?: string | null;
+    last_plan_change?: {
+      from_plan?: string | null;
+      from_tier?: string | null;
+      to_plan?: string | null;
+      to_tier?: string | null;
+      reason?: string;
+      by_email?: string;
+      at?: string;
+    } | null;
   } | null;
   staff?: Array<{
     id: string;
@@ -150,6 +172,7 @@ export type PlatformUser = {
   is_active: boolean;
   is_staff: boolean;
   is_superuser: boolean;
+  is_platform_operator?: boolean;
   is_locked?: boolean;
   failed_login_attempts?: number;
   account_locked_until?: string | null;
@@ -263,6 +286,7 @@ export const platformApi = {
     }),
   operators: () =>
     platformFetch<{ count: number; results: PlatformUser[] }>("/operators/"),
+  operator: (id: string) => platformFetch<PlatformUser>(`/operators/${id}/`),
   createOperator: (body: {
     email: string;
     first_name?: string;
@@ -272,6 +296,11 @@ export const platformApi = {
   }) =>
     platformFetch<PlatformUser>("/operators/", {
       method: "POST",
+      body: JSON.stringify(body),
+    }),
+  patchOperator: (id: string, body: Record<string, unknown>) =>
+    platformFetch<PlatformUser>(`/operators/${id}/`, {
+      method: "PATCH",
       body: JSON.stringify(body),
     }),
   subscriptions: (params?: Record<string, string>) => {

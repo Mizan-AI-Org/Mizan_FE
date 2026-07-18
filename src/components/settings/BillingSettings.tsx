@@ -25,13 +25,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type {
+  BillingEntitlements,
   CurrentSubscription,
   SubscriptionPlan,
   SubscriptionTier,
 } from "@/lib/types";
 import { useLanguage } from "@/hooks/use-language";
+import {
+  translatePlanBadge,
+  translatePlanDescription,
+  translatePlanFeatures,
+  translatePlanName,
+} from "@/lib/billing-i18n";
 
 type Interval = "month" | "year";
+type Translate = (key: string, options?: Record<string, string | number>) => string;
 
 const TIER_ORDER: Record<SubscriptionTier, number> = {
   FREE: 0,
@@ -39,6 +47,16 @@ const TIER_ORDER: Record<SubscriptionTier, number> = {
   GROWTH: 2,
   ENTERPRISE: 3,
 };
+
+/** Prefer region-aware locales so MAD/EUR don't render as "$US". */
+function currencyLocale(uiLanguage: string, currency: string): string {
+  const cur = (currency || "").toUpperCase();
+  const lang = (uiLanguage || "en").toLowerCase();
+  if (cur === "MAD") return lang.startsWith("ar") ? "ar-MA" : "fr-MA";
+  if (cur === "EUR") return lang.startsWith("fr") ? "fr-FR" : lang.startsWith("ar") ? "ar" : "en-IE";
+  if (cur === "USD") return lang.startsWith("fr") ? "en-US" : lang;
+  return lang;
+}
 
 const formatCurrency = (
   value: string | null | undefined,
@@ -48,14 +66,15 @@ const formatCurrency = (
   if (!value) return "—";
   const n = Number(value);
   if (Number.isNaN(n)) return String(value);
+  const code = (currency || "USD").toUpperCase();
   try {
-    return new Intl.NumberFormat(locale, {
+    return new Intl.NumberFormat(currencyLocale(locale, code), {
       style: "currency",
-      currency,
+      currency: code,
       maximumFractionDigits: n % 1 === 0 ? 0 : 2,
     }).format(n);
   } catch {
-    return `${currency} ${n}`;
+    return `${code} ${n}`;
   }
 };
 
@@ -90,6 +109,34 @@ function PlanCardSkeleton() {
   );
 }
 
+type TrialContext = {
+  status?: string | null;
+  trialEndsAt?: string | null;
+  hasProviderSub?: boolean;
+};
+
+function trialCaption(
+  t: Translate,
+  plan: SubscriptionPlan,
+  isCurrent: boolean,
+  ctx: TrialContext,
+  locale: string,
+): string | null {
+  // Trial is Starter-only (14 days at signup). Growth/Enterprise: pay for what you get.
+  const isStarter = plan.tier === "STARTER" || plan.slug === "starter";
+  if (!isStarter) return null;
+
+  // Already paying — trial is gone.
+  if (ctx.hasProviderSub || ctx.status === "active") return null;
+
+  if (isCurrent && ctx.status === "trialing" && ctx.trialEndsAt) {
+    return t("billing.trial.current_ends", {
+      date: formatDate(ctx.trialEndsAt, locale),
+    });
+  }
+  return null;
+}
+
 interface PlanCardProps {
   plan: SubscriptionPlan;
   interval: Interval;
@@ -99,6 +146,8 @@ interface PlanCardProps {
   locale: string;
   checkoutPending: boolean;
   onSelect: (plan: SubscriptionPlan) => void;
+  t: Translate;
+  trialContext: TrialContext;
 }
 
 function PlanCard({
@@ -110,6 +159,8 @@ function PlanCard({
   locale,
   checkoutPending,
   onSelect,
+  t,
+  trialContext,
 }: PlanCardProps) {
   const monthlyPrice = plan.price_monthly ?? plan.price;
   const yearlyPrice = plan.price_yearly ?? (monthlyPrice ? String(Number(monthlyPrice) * 10) : null);
@@ -119,7 +170,14 @@ function PlanCard({
       ? String((Number(yearlyPrice) / 12).toFixed(0))
       : null;
 
-  const canAct = !isCurrent; // plan_id queue works even without Stripe price IDs
+  // On Starter trial, "Upgrade" stays clickable so they can convert to paid.
+  const isPaidCurrent =
+    isCurrent && (trialContext.status || "").toLowerCase() !== "trialing";
+  const canAct = !isPaidCurrent;
+  const features = translatePlanFeatures(t, plan);
+  const description = translatePlanDescription(t, plan);
+  const badge = plan.badge ? translatePlanBadge(t, plan.badge) : "";
+  const trialText = trialCaption(t, plan, isCurrent, trialContext, locale);
 
   return (
     <div
@@ -131,7 +189,7 @@ function PlanCard({
         isCurrent && "ring-2 ring-emerald-500/40",
       )}
     >
-      {plan.badge && (
+      {badge ? (
         <span
           className={cn(
             "absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide",
@@ -140,26 +198,26 @@ function PlanCard({
               : "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900",
           )}
         >
-          {plan.badge}
+          {badge}
         </span>
-      )}
+      ) : null}
 
       <div className="mb-5">
         <div className="flex items-center gap-2">
           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-            {plan.name}
+            {translatePlanName(t, plan)}
           </h3>
           {isCurrent && (
             <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
-              Active
+              {t("billing.badge.active")}
             </Badge>
           )}
         </div>
-        {plan.description && (
+        {description ? (
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {plan.description}
+            {description}
           </p>
-        )}
+        ) : null}
       </div>
 
       <div className="mb-5">
@@ -168,24 +226,25 @@ function PlanCard({
             {formatCurrency(displayPrice, plan.currency, locale)}
           </span>
           <span className="text-sm text-slate-500 dark:text-slate-400">
-            /{interval === "year" ? "yr" : "mo"}
+            /{interval === "year" ? t("billing.interval.yr") : t("billing.interval.mo")}
           </span>
         </div>
         {monthlyEquivalent && (
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            ≈ {formatCurrency(monthlyEquivalent, plan.currency, locale)} / month,
-            billed annually
+            {t("billing.billed_annually", {
+              price: formatCurrency(monthlyEquivalent, plan.currency, locale),
+            })}
           </p>
         )}
-        {plan.trial_days > 0 && !isCurrent && (
+        {trialText ? (
           <p className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-            {plan.trial_days}-day free trial available on signup
+            {trialText}
           </p>
-        )}
+        ) : null}
       </div>
 
       <ul className="mb-6 space-y-2.5 text-sm">
-        {plan.features.map((feature, idx) => (
+        {features.map((feature, idx) => (
           <li key={idx} className="flex items-start gap-2">
             <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
             <span className="text-slate-700 dark:text-slate-300">{feature}</span>
@@ -202,14 +261,14 @@ function PlanCard({
               : "",
           )}
           variant={plan.highlight ? "default" : "outline"}
-          disabled={disabled || isCurrent || checkoutPending || !canAct}
+          disabled={disabled || isPaidCurrent || checkoutPending || !canAct}
           onClick={() => onSelect(plan)}
         >
           {checkoutPending ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : null}
           {ctaLabel}
-          {!isCurrent && (
+          {!isPaidCurrent && (
             <ArrowRight className="ml-2 h-4 w-4" />
           )}
         </Button>
@@ -226,16 +285,26 @@ export default function BillingSettings() {
 
   const locale = language || "en";
 
-  const plansQuery = useQuery<SubscriptionPlan[]>({
-    queryKey: ["subscription-plans"],
-    queryFn: () => api.listSubscriptionPlans(),
-    staleTime: 5 * 60 * 1000,
-  });
-
   const subscriptionQuery = useQuery<CurrentSubscription>({
     queryKey: ["current-subscription"],
     queryFn: () => api.getCurrentSubscription(),
     retry: false,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+
+  const entitlementsQuery = useQuery<BillingEntitlements>({
+    queryKey: ["billing-entitlements"],
+    queryFn: () => api.getBillingEntitlements(),
+    retry: false,
+    staleTime: 30 * 1000,
+  });
+
+  const plansQuery = useQuery<SubscriptionPlan[]>({
+    // Refetch when subscription loads so prices use the tenant location currency.
+    queryKey: ["subscription-plans", subscriptionQuery.data?.status ?? "anon"],
+    queryFn: () => api.listSubscriptionPlans(),
+    staleTime: 60 * 1000,
   });
 
   const sortedPlans = useMemo(() => {
@@ -250,10 +319,22 @@ export default function BillingSettings() {
   }, [plansQuery.data]);
 
   const currentSub = subscriptionQuery.data;
-  const currentTier: SubscriptionTier = currentSub?.tier ?? "FREE";
+  const currentTier: SubscriptionTier =
+    currentSub?.plan?.tier ?? currentSub?.tier ?? "FREE";
+  const currentPlanSlug = currentSub?.plan?.slug ?? null;
   const isEntitled = Boolean(currentSub?.is_paid);
   const hasProviderSub = Boolean(currentSub?.has_provider_subscription);
-  const providerReady = Boolean(currentSub?.payment_provider?.configured);
+  const staffUsed = entitlementsQuery.data?.usage?.staff;
+  const maxStaff =
+    entitlementsQuery.data?.limits?.max_staff ??
+    currentSub?.plan?.max_staff ??
+    null;
+
+  const isPlanCurrent = (plan: SubscriptionPlan): boolean => {
+    if (currentPlanSlug && plan.slug === currentPlanSlug) return true;
+    if (!currentPlanSlug && currentTier && plan.tier === currentTier) return true;
+    return false;
+  };
 
   useEffect(() => {
     if (handledBillingParam.current) return;
@@ -267,13 +348,13 @@ export default function BillingSettings() {
     window.history.replaceState({}, "", next);
 
     if (billing === "success") {
-      toast.success("Subscription updated. Thank you!");
+      toast.success(t("billing.toast.success"));
       void queryClient.invalidateQueries({ queryKey: ["current-subscription"] });
       void queryClient.invalidateQueries({ queryKey: ["billing-entitlements"] });
     } else if (billing === "cancelled") {
-      toast.message("Checkout cancelled — no charges were made.");
+      toast.message(t("billing.toast.cancelled"));
     }
-  }, [queryClient]);
+  }, [queryClient, t]);
 
   // Prefer the interval of the active provider subscription when known.
   useEffect(() => {
@@ -301,21 +382,18 @@ export default function BillingSettings() {
         return;
       }
       if (r.action === "updated") {
-        toast.success(r.message || "Plan updated.");
+        toast.success(r.message || t("billing.toast.plan_updated"));
         void queryClient.invalidateQueries({ queryKey: ["current-subscription"] });
         void queryClient.invalidateQueries({ queryKey: ["billing-entitlements"] });
         return;
       }
       if (r.action === "queued") {
-        toast.message(
-          r.message ||
-            "Upgrade request saved. We'll finish billing when your payment wall is ready.",
-        );
+        toast.message(r.message || t("billing.toast.queued"));
         void queryClient.invalidateQueries({ queryKey: ["current-subscription"] });
       }
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Could not start upgrade. Please try again.");
+      toast.error(error.message || t("billing.toast.checkout_error"));
     },
   });
 
@@ -329,10 +407,10 @@ export default function BillingSettings() {
         window.location.href = result.url;
         return;
       }
-      toast.message(result?.message || "Billing portal is not available yet for your location.");
+      toast.message(result?.message || t("billing.toast.portal_unavailable"));
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Could not open the billing portal.");
+      toast.error(error.message || t("billing.toast.portal_error"));
     },
   });
 
@@ -340,22 +418,20 @@ export default function BillingSettings() {
     void checkoutMutation.mutate(plan);
   };
 
-  const ctaForPlan = (plan: SubscriptionPlan): string => {
-    const priceId = priceIdFor(plan, interval);
-    const samePlan =
-      currentSub?.plan?.slug === plan.slug &&
-      (currentSub.billing_interval === interval || !currentSub.billing_interval);
+  const isTrialing = (currentSub?.status || "").toLowerCase() === "trialing";
 
-    if (hasProviderSub && samePlan) return "Current plan";
+  const ctaForPlan = (plan: SubscriptionPlan): string => {
+    if (isPlanCurrent(plan)) {
+      // Starter trial → Upgrade (convert to paid). Paid current → Current Plan.
+      return isTrialing ? t("billing.cta.upgrade") : t("billing.cta.current");
+    }
 
     const currentOrder = TIER_ORDER[currentTier] ?? 0;
     const targetOrder = TIER_ORDER[plan.tier] ?? 0;
-    if (!priceId && !providerReady) return "Request upgrade";
-    if (targetOrder > currentOrder) return "Upgrade";
-    if (targetOrder < currentOrder && hasProviderSub) return "Switch plan";
-    if (isEntitled && !hasProviderSub) return "Subscribe";
-    if (plan.contact_sales && !priceId) return "Request upgrade";
-    return "Choose plan";
+    if (targetOrder > currentOrder) return t("billing.cta.upgrade");
+    if (targetOrder < currentOrder && hasProviderSub) return t("billing.cta.switch");
+    if (isEntitled && !hasProviderSub) return t("billing.cta.subscribe");
+    return t("billing.cta.upgrade");
   };
 
   const loadingPlans = plansQuery.isLoading;
@@ -366,6 +442,7 @@ export default function BillingSettings() {
       return t(`billing.status.${currentSub?.status || "active"}`);
     }
     if (currentSub?.status === "trialing") return t("billing.status.trialing") || "Trial";
+    if (isEntitled && currentSub?.plan) return t("billing.status.active");
     return t("billing.status.pilot");
   })();
 
@@ -402,7 +479,9 @@ export default function BillingSettings() {
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                      {currentSub?.plan?.name || t(`billing.tier.${currentTier.toLowerCase()}`)}
+                      {currentSub?.plan
+                        ? translatePlanName(t, currentSub.plan)
+                        : t(`billing.tier.${currentTier.toLowerCase()}`)}
                     </h4>
                     <Badge
                       className={cn(
@@ -429,26 +508,41 @@ export default function BillingSettings() {
                     ) : currentSub?.trial_ends_at ? (
                       <>
                         <CalendarClock className="inline-block w-4 h-4 mr-1 -mt-0.5" />
-                        Trial ends {formatDate(currentSub.trial_ends_at, locale)}. Choose a plan
-                        below to upgrade.
+                        {t("billing.trial_ends", {
+                          date: formatDate(currentSub.trial_ends_at, locale),
+                        })}
                       </>
+                    ) : currentSub?.plan ? (
+                      t("billing.current_tier_blurb", {
+                        plan: translatePlanName(t, currentSub.plan),
+                      })
                     ) : (
                       t("billing.pilot_blurb")
                     )}
                   </p>
-                  {currentSub?.pending_plan ? (
-                    <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400">
-                      Upgrade requested: {currentSub.pending_plan.name}
-                      {currentSub.pending_billing_interval
-                        ? ` (${currentSub.pending_billing_interval}ly)`
-                        : ""}
-                      . Waiting on payment wall for your country.
+                  {typeof staffUsed === "number" ? (
+                    <p className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                      {maxStaff == null
+                        ? t("billing.staff_usage_unlimited", { used: staffUsed })
+                        : t("billing.staff_usage", {
+                            used: staffUsed,
+                            max: maxStaff,
+                          })}
                     </p>
                   ) : null}
-                  {!providerReady && !hasProviderSub ? (
-                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                      Payment for your location will use the provider configured for your
-                      country. You can still request an upgrade below.
+                  {currentSub?.pending_plan ? (
+                    <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+                      {t("billing.pending_upgrade", {
+                        name: translatePlanName(t, currentSub.pending_plan),
+                        interval: currentSub.pending_billing_interval
+                          ? t("billing.pending_interval_suffix", {
+                              interval:
+                                currentSub.pending_billing_interval === "year"
+                                  ? t("billing.yearly")
+                                  : t("billing.monthly"),
+                            })
+                          : "",
+                      })}
                     </p>
                   ) : null}
                 </div>
@@ -501,7 +595,7 @@ export default function BillingSettings() {
                   {opt === "month" ? t("billing.monthly") : t("billing.yearly")}
                   {opt === "year" && (
                     <span className="ml-2 inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
-                      -17%
+                      {t("billing.yearly_save")}
                     </span>
                   )}
                 </button>
@@ -539,10 +633,7 @@ export default function BillingSettings() {
           ) : (
             <div className="grid gap-6 md:grid-cols-3 pt-4">
               {sortedPlans.map((plan) => {
-                const samePlan =
-                  currentSub?.plan?.slug === plan.slug &&
-                  (currentSub.billing_interval === interval || !currentSub.billing_interval);
-                const isCurrent = hasProviderSub && samePlan;
+                const isCurrent = isPlanCurrent(plan);
                 return (
                   <PlanCard
                     key={plan.id}
@@ -557,15 +648,17 @@ export default function BillingSettings() {
                     }
                     locale={locale}
                     onSelect={handleSelect}
+                    t={t}
+                    trialContext={{
+                      status: currentSub?.status,
+                      trialEndsAt: currentSub?.trial_ends_at,
+                      hasProviderSub,
+                    }}
                   />
                 );
               })}
             </div>
           )}
-
-          <p className="mt-6 text-xs text-slate-500 dark:text-slate-400">
-            {t("billing.footnote")}
-          </p>
         </CardContent>
       </Card>
     </div>

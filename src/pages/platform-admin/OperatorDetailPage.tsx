@@ -1,25 +1,29 @@
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { platformApi, type PlatformMe } from "@/lib/platformApi";
 import { KeyRound, Loader2, Unlock } from "lucide-react";
 import OpsBackNav from "@/components/platform-admin/OpsBackNav";
 import {
+  opsBadgeOk,
+  opsBadgeViolet,
   opsBtnGhost,
   opsBtnPrimary,
   opsCard,
   opsInput,
-  opsLink,
   opsPage,
   opsSubtitle,
   opsTitle,
 } from "@/components/platform-admin/opsStyles";
 
-export default function UserDetailPage() {
+export default function OperatorDetailPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { me } = useOutletContext<{ me: PlatformMe }>();
   const qc = useQueryClient();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
   const [showReset, setShowReset] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -27,27 +31,32 @@ export default function UserDetailPage() {
   const [actionErr, setActionErr] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["platform-user", id],
-    queryFn: () => platformApi.user(id),
+    queryKey: ["platform-operator", id],
+    queryFn: () => platformApi.operator(id),
     enabled: !!id,
   });
 
-  // Operators belong under /admin/operators — redirect legacy Manage → links.
   useEffect(() => {
-    if (data?.is_platform_operator) {
-      navigate(`/admin/operators/${id}`, { replace: true });
-    }
-  }, [data?.is_platform_operator, id, navigate]);
+    if (!data) return;
+    setFirstName(data.first_name || "");
+    setLastName(data.last_name || "");
+    setPhone(data.phone || "");
+  }, [data]);
 
   const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["platform-user", id] });
-    qc.invalidateQueries({ queryKey: ["platform-users"] });
+    qc.invalidateQueries({ queryKey: ["platform-operator", id] });
+    qc.invalidateQueries({ queryKey: ["platform-operators"] });
   };
 
   const patch = useMutation({
-    mutationFn: (body: Record<string, unknown>) => platformApi.patchUser(id, body),
-    onSuccess: () => {
+    mutationFn: (body: Record<string, unknown>) => platformApi.patchOperator(id, body),
+    onSuccess: (user) => {
       setActionErr(null);
+      setActionMsg("Operator updated.");
+      if (!user.is_platform_operator) {
+        navigate("/admin/operators");
+        return;
+      }
       invalidate();
     },
     onError: (e: Error) => setActionErr(e.message),
@@ -57,7 +66,7 @@ export default function UserDetailPage() {
     mutationFn: () => platformApi.unlockUser(id),
     onSuccess: () => {
       setActionErr(null);
-      setActionMsg("Account unlocked. The user can sign in again.");
+      setActionMsg("Account unlocked.");
       invalidate();
     },
     onError: (e: Error) => setActionErr(e.message),
@@ -67,7 +76,7 @@ export default function UserDetailPage() {
     mutationFn: (pwd: string) => platformApi.resetUserPassword(id, pwd),
     onSuccess: () => {
       setActionErr(null);
-      setActionMsg("Password updated. Share it with the user securely.");
+      setActionMsg("Password updated. Share it securely.");
       setShowReset(false);
       setPassword("");
       setConfirm("");
@@ -86,24 +95,19 @@ export default function UserDetailPage() {
 
   if (error || !data) {
     return (
-      <div className="p-8 text-rose-600">{(error as Error)?.message || "User not found"}</div>
-    );
-  }
-
-  if (data.is_platform_operator) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-[#00C853]" />
+      <div className="p-8 text-rose-600">
+        {(error as Error)?.message || "Operator not found"}
       </div>
     );
   }
 
   const locked = !!data.is_locked;
   const busy = patch.isPending || unlock.isPending || resetPassword.isPending;
+  const isSelf = me.id === data.id;
 
   return (
     <div className={opsPage}>
-      <OpsBackNav to="/admin/users" label="Users" />
+      <OpsBackNav to="/admin/operators" label="Operators" />
 
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -111,6 +115,15 @@ export default function UserDetailPage() {
             {data.first_name} {data.last_name}
           </h2>
           <p className={opsSubtitle}>{data.email}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className={opsBadgeOk}>Ops</span>
+            {data.is_superuser ? <span className={opsBadgeViolet}>Super</span> : null}
+            {!data.is_active ? (
+              <span className="rounded bg-rose-50 dark:bg-rose-950/50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-rose-700 dark:text-rose-400">
+                Inactive
+              </span>
+            ) : null}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -130,7 +143,6 @@ export default function UserDetailPage() {
             type="button"
             className={opsBtnGhost}
             disabled={busy || !locked}
-            title={locked ? "Clear lockout from failed logins" : "Account is not locked"}
             onClick={() => {
               setActionMsg(null);
               setActionErr(null);
@@ -142,31 +154,21 @@ export default function UserDetailPage() {
             ) : (
               <Unlock className="h-4 w-4" />
             )}
-            Unlock account
+            Unlock
           </button>
           <button
             type="button"
             className={opsBtnGhost}
-            disabled={busy}
-            onClick={() => patch.mutate({ is_active: !data.is_active })}
+            disabled={busy || isSelf}
+            title={isSelf ? "You cannot deactivate yourself" : undefined}
+            onClick={() => {
+              setActionMsg(null);
+              setActionErr(null);
+              patch.mutate({ is_active: !data.is_active });
+            }}
           >
             {data.is_active ? "Deactivate" : "Activate"}
           </button>
-          {me.is_superuser ? (
-            <button
-              type="button"
-              className={opsBtnGhost}
-              disabled={busy}
-              onClick={() =>
-                patch.mutate({
-                  is_platform_operator: !data.is_platform_operator,
-                  is_staff: !data.is_platform_operator,
-                })
-              }
-            >
-              {data.is_platform_operator ? "Revoke ops access" : "Grant ops access"}
-            </button>
-          ) : null}
         </div>
       </header>
 
@@ -184,9 +186,6 @@ export default function UserDetailPage() {
       {showReset ? (
         <section className={`${opsCard} p-5 space-y-4 max-w-lg`}>
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Set new password</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Min 8 characters with upper, lower, digit, and special character (for admin roles).
-          </p>
           <label className="block space-y-1.5">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               New password
@@ -245,77 +244,96 @@ export default function UserDetailPage() {
         </section>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Info label="Role" value={data.role} />
-        <Info label="Phone" value={data.phone || "—"} />
-        <Info
-          label="Tenant"
-          value={data.restaurant_name || "—"}
-          link={data.restaurant ? `/admin/tenants/${data.restaurant}` : undefined}
-        />
-        <Info label="Active" value={data.is_active ? "Yes" : "No"} />
-        <Info
-          label="Locked"
-          value={
-            locked
-              ? `Yes${
-                  data.account_locked_until
-                    ? ` until ${new Date(data.account_locked_until).toLocaleString()}`
-                    : ""
-                }`
-              : "No"
-          }
-          tone={locked ? "danger" : undefined}
-        />
-        <Info
-          label="Failed login attempts"
-          value={String(data.failed_login_attempts ?? 0)}
-        />
-        <Info label="Platform ops (is_staff)" value={data.is_staff ? "Yes" : "No"} />
-        <Info label="Superuser" value={data.is_superuser ? "Yes" : "No"} />
-        <Info label="Created" value={new Date(data.created_at).toLocaleString()} />
-      </div>
-    </div>
-  );
-}
-
-function Info({
-  label,
-  value,
-  link,
-  tone,
-}: {
-  label: string;
-  value: string;
-  link?: string;
-  tone?: "danger";
-}) {
-  return (
-    <div
-      className={`${opsCard} px-4 py-3 ${
-        tone === "danger"
-          ? "border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/30"
-          : ""
-      }`}
-    >
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-        {label}
-      </p>
-      {link ? (
-        <Link to={link} className={`mt-1 block text-sm ${opsLink}`}>
-          {value}
-        </Link>
-      ) : (
-        <p
-          className={`mt-1 text-sm ${
-            tone === "danger"
-              ? "text-rose-700 dark:text-rose-400 font-semibold"
-              : "text-slate-900 dark:text-slate-100"
-          }`}
+      <section className={`${opsCard} p-5 space-y-4 max-w-lg`}>
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Profile</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block space-y-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              First name
+            </span>
+            <input
+              className={`${opsInput} w-full`}
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Last name
+            </span>
+            <input
+              className={`${opsInput} w-full`}
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+            />
+          </label>
+          <label className="block space-y-1.5 sm:col-span-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Phone
+            </span>
+            <input
+              className={`${opsInput} w-full`}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          className={opsBtnPrimary}
+          disabled={busy}
+          onClick={() => {
+            setActionMsg(null);
+            setActionErr(null);
+            patch.mutate({
+              first_name: firstName.trim(),
+              last_name: lastName.trim(),
+              phone: phone.trim(),
+            });
+          }}
         >
-          {value}
-        </p>
-      )}
+          {patch.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Save changes
+        </button>
+      </section>
+
+      {me.is_superuser ? (
+        <section className={`${opsCard} p-5 space-y-3 max-w-lg`}>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Privileges</h3>
+          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={!!data.is_superuser}
+              disabled={busy || isSelf}
+              onChange={(e) => {
+                setActionMsg(null);
+                setActionErr(null);
+                patch.mutate({ is_superuser: e.target.checked });
+              }}
+            />
+            Superuser (can grant privileges to other operators)
+          </label>
+          <button
+            type="button"
+            className={opsBtnGhost}
+            disabled={busy || isSelf}
+            onClick={() => {
+              if (
+                !window.confirm(
+                  `Revoke Platform Admin access for ${data.email}? They will no longer open /admin.`,
+                )
+              ) {
+                return;
+              }
+              setActionMsg(null);
+              setActionErr(null);
+              patch.mutate({ is_platform_operator: false });
+            }}
+          >
+            Revoke operator access
+          </button>
+        </section>
+      ) : null}
     </div>
   );
 }

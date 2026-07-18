@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Layers,
@@ -16,8 +17,18 @@ import { cn } from "@/lib/utils";
 export const PROCESSES_TASKS_HEADER_ACTIONS_ID = "processes-tasks-header-actions";
 
 export default function ProcessesTasksApp() {
-    const [activeTab, setActiveTab] = useState("board");
+    const [searchParams] = useSearchParams();
+    const tabParam = searchParams.get("tab");
+    const [activeTab, setActiveTab] = useState(
+        tabParam === "templates" ? "templates" : "board",
+    );
     const { t } = useLanguage();
+
+    useEffect(() => {
+        if (tabParam === "templates" || tabParam === "board") {
+            setActiveTab(tabParam);
+        }
+    }, [tabParam]);
 
     return (
         <div className={`${PAGE_SHELL_PADDED} space-y-5`}>
