@@ -22,17 +22,21 @@ import {
 
 const PAGE_SIZE = 20;
 
+type StatusFilter = "active" | "inactive" | "all";
+
 export default function UsersPage() {
   const [q, setQ] = useState("");
   const [submitted, setSubmitted] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("active");
   const [page, setPage] = useState(1);
   const qc = useQueryClient();
 
   const { data, isLoading, error, isFetching } = useQuery({
-    queryKey: ["platform-users", submitted, page],
+    queryKey: ["platform-users", submitted, status, page],
     queryFn: () =>
       platformApi.users({
         ...(submitted ? { q: submitted } : {}),
+        status,
         page: String(page),
         page_size: String(PAGE_SIZE),
       }),
@@ -44,6 +48,13 @@ export default function UsersPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["platform-users"] }),
   });
 
+  const statusLabel =
+    status === "active"
+      ? "active users"
+      : status === "inactive"
+        ? "inactive users"
+        : "users";
+
   return (
     <div className={opsPage}>
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -51,17 +62,30 @@ export default function UsersPage() {
           <h2 className={opsTitle}>Users</h2>
           <p className={opsSubtitle}>
             Global search across all tenants
-            {typeof data?.count === "number" ? ` · ${data.count} total` : ""}
+            {typeof data?.count === "number" ? ` · ${data.count} ${statusLabel}` : ""}
           </p>
         </div>
         <form
-          className="flex gap-2"
+          className="flex flex-wrap gap-2"
           onSubmit={(e) => {
             e.preventDefault();
             setPage(1);
             setSubmitted(q.trim());
           }}
         >
+          <select
+            value={status}
+            onChange={(e) => {
+              setPage(1);
+              setStatus(e.target.value as StatusFilter);
+            }}
+            className={opsInput}
+            aria-label="User status filter"
+          >
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="all">All</option>
+          </select>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input

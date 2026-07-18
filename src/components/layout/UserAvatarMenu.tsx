@@ -14,6 +14,15 @@ import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
 import { cn } from "@/lib/utils";
 
+export type AvatarMenuUser = {
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  role?: string | null;
+  restaurant_data?: { name?: string | null } | null;
+  restaurant?: unknown;
+};
+
 type UserAvatarMenuProps = {
   /** "icon" = avatar circle only (top nav style). "row" = avatar + name/email row (side-pane style). */
   variant?: "icon" | "row";
@@ -22,10 +31,37 @@ type UserAvatarMenuProps = {
   align?: "start" | "center" | "end";
   side?: "top" | "right" | "bottom" | "left";
   className?: string;
+  /** Prefer this profile when AuthContext has no tenant user (e.g. Platform Admin). */
+  userOverride?: AvatarMenuUser | null;
+  /** Optional subtitle under the name (e.g. "Platform operator"). */
+  subtitle?: string | null;
+  /** Custom sign-out (defaults to AuthContext.logout). */
+  onLogout?: () => void | Promise<void>;
 };
 
 const isUuid = (val: string): boolean =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+function displayName(user: AvatarMenuUser | null | undefined, fallback: string): string {
+  const first = (user?.first_name || "").trim();
+  const last = (user?.last_name || "").trim();
+  if (first && last) return `${first} ${last}`;
+  if (first) return first;
+  if (last) return last;
+  const email = (user?.email || "").trim();
+  if (email) return email.split("@")[0] || email;
+  return fallback;
+}
+
+function initialsFor(user: AvatarMenuUser | null | undefined): string {
+  const first = (user?.first_name || "").trim();
+  const last = (user?.last_name || "").trim();
+  if (first && last) return `${first[0]}${last[0]}`.toUpperCase();
+  if (first) return first.slice(0, 2).toUpperCase();
+  const email = (user?.email || "").trim();
+  if (email) return email.slice(0, 2).toUpperCase();
+  return "U";
+}
 
 export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
   variant = "icon",
@@ -33,19 +69,16 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
   align = "end",
   side,
   className,
+  userOverride,
+  subtitle,
+  onLogout,
 }) => {
-  const { user, logout } = useAuth() as AuthContextType;
+  const { user: authUser, logout } = useAuth() as AuthContextType;
   const { t } = useLanguage();
+  const user = (userOverride ?? authUser) as AvatarMenuUser | null | undefined;
 
-  const initials =
-    user?.first_name && user?.last_name
-      ? `${user.first_name[0]}${user.last_name[0]}`
-      : "U";
-
-  const fullName =
-    user?.first_name && user?.last_name
-      ? `${user.first_name} ${user.last_name}`
-      : t("common.welcome");
+  const initials = initialsFor(user);
+  const fullName = displayName(user, t("common.welcome"));
 
   const restaurantLabel: string = (() => {
     const dataName = user?.restaurant_data?.name;
@@ -59,9 +92,17 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
     return "";
   })();
 
-  const roleLabel = user?.role
-    ? user.role.toLowerCase().replace(/_/g, " ")
-    : "";
+  const roleLabel =
+    subtitle ||
+    (user?.role ? user.role.toLowerCase().replace(/_/g, " ") : "");
+
+  const handleLogout = () => {
+    if (onLogout) {
+      void onLogout();
+      return;
+    }
+    void logout();
+  };
 
   const trigger =
     variant === "icon" || compact ? (
@@ -104,20 +145,26 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-      <DropdownMenuContent align={align} side={side} className="w-56">
-        <div className="px-4 py-2">
-          <p className="text-sm font-medium">{fullName}</p>
-          <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
-          {roleLabel && (
-            <p className="text-xs text-muted-foreground capitalize">{roleLabel}</p>
-          )}
+      <DropdownMenuContent align={align} side={side} className="w-64">
+        <div className="px-4 py-3">
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+            {fullName}
+          </p>
+          {user?.email ? (
+            <p className="mt-0.5 text-xs text-muted-foreground truncate">{user.email}</p>
+          ) : null}
+          {roleLabel ? (
+            <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+              {roleLabel}
+            </p>
+          ) : null}
           {restaurantLabel && !isUuid(restaurantLabel) && (
-            <p className="text-xs text-muted-foreground">{restaurantLabel}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{restaurantLabel}</p>
           )}
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={() => logout()}
+          onClick={handleLogout}
           className="text-destructive"
           aria-label={t("common.sign_out")}
         >

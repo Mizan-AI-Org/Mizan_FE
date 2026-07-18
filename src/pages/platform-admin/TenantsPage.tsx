@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { platformApi } from "@/lib/platformApi";
+import { platformApi, type PlatformTenant } from "@/lib/platformApi";
 import { Loader2, Search } from "lucide-react";
 import OpsPagination from "@/components/platform-admin/OpsPagination";
 import {
@@ -26,6 +26,14 @@ const PAGE_SIZE = 20;
 /** Lifecycle filter: Active = not Suspended and not Deactivated. */
 type StatusFilter = "active" | "suspended" | "deactivated" | "all";
 
+function matchesLifecycle(t: PlatformTenant, status: StatusFilter): boolean {
+  if (status === "all") return true;
+  if (status === "deactivated") return !!t.deactivated;
+  if (status === "suspended") return !!t.suspended && !t.deactivated;
+  // active
+  return !t.suspended && !t.deactivated;
+}
+
 export default function TenantsPage() {
   const [q, setQ] = useState("");
   const [submitted, setSubmitted] = useState("");
@@ -42,6 +50,13 @@ export default function TenantsPage() {
         page_size: String(PAGE_SIZE),
       }),
   });
+
+  // Defense in depth: never show Suspended rows under Active even if an older
+  // API build leaked them through JSONField filter quirks.
+  const rows = useMemo(
+    () => (data?.results || []).filter((t) => matchesLifecycle(t, status)),
+    [data?.results, status],
+  );
 
   const statusLabel =
     status === "active"
@@ -124,7 +139,7 @@ export default function TenantsPage() {
               </tr>
             </thead>
             <tbody className={isFetching ? "opacity-60" : ""}>
-              {(data?.results || []).map((t) => {
+              {rows.map((t) => {
                 const isActive = !t.suspended && !t.deactivated;
                 return (
                   <tr key={t.id} className={opsRow}>
@@ -153,7 +168,7 @@ export default function TenantsPage() {
                   </tr>
                 );
               })}
-              {(data?.results || []).length === 0 ? (
+              {rows.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
                     No tenants found

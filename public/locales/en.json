@@ -2502,5 +2502,8 @@
   "billing.trial.enterprise_none": "No free trial — dedicated onboarding with your success team",
   "billing.trial.current_ends": "Your free trial ends {{date}}",
   "billing.trial.covered_until": "Covered by your current trial until {{date}}",
+  "billing.trial.banner_title": "{{days}}-day free trial",
+  "billing.trial.banner_body": "Ends {{date}}. Upgrade anytime to keep full access.",
+  "billing.trial.banner_body_nodate": "Upgrade anytime to keep full access.",
   "billing.currency_note": "Prices shown in {{currency}} for your business location."
 }

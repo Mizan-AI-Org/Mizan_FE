@@ -11,6 +11,7 @@ import {
   opsBtnPrimary,
   opsCard,
   opsInput,
+  opsMuted,
   opsPage,
   opsSubtitle,
   opsTitle,
@@ -48,18 +49,39 @@ export default function OperatorDetailPage() {
     qc.invalidateQueries({ queryKey: ["platform-operators"] });
   };
 
+  const leaveOperatorsList = (message?: string) => {
+    qc.removeQueries({ queryKey: ["platform-operator", id] });
+    qc.invalidateQueries({ queryKey: ["platform-operators"] });
+    navigate("/admin/operators", {
+      replace: true,
+      state: message ? { flash: message } : undefined,
+    });
+  };
+
   const patch = useMutation({
     mutationFn: (body: Record<string, unknown>) => platformApi.patchOperator(id, body),
     onSuccess: (user) => {
       setActionErr(null);
-      setActionMsg("Operator updated.");
       if (!user.is_platform_operator) {
-        navigate("/admin/operators");
+        leaveOperatorsList(`Revoked Platform Admin access for ${user.email}.`);
         return;
       }
+      qc.setQueryData(["platform-operator", id], user);
+      setActionMsg(
+        user.is_active
+          ? "Operator updated."
+          : "Operator deactivated — they cannot sign in until reactivated.",
+      );
       invalidate();
     },
-    onError: (e: Error) => setActionErr(e.message),
+    onError: (e: Error) => {
+      const msg = e.message || "Update failed";
+      if (/no longer a platform operator/i.test(msg) || /operator not found/i.test(msg)) {
+        leaveOperatorsList(msg);
+        return;
+      }
+      setActionErr(msg);
+    },
   });
 
   const unlock = useMutation({
@@ -95,8 +117,16 @@ export default function OperatorDetailPage() {
 
   if (error || !data) {
     return (
-      <div className="p-8 text-rose-600">
-        {(error as Error)?.message || "Operator not found"}
+      <div className={opsPage}>
+        <OpsBackNav to="/admin/operators" label="Operators" />
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+          <p className="text-sm font-semibold">
+            {(error as Error)?.message || "Operator not found"}
+          </p>
+          <p className={`mt-1 text-xs ${opsMuted}`}>
+            This account may no longer be a platform operator, or the ID is invalid.
+          </p>
+        </div>
       </div>
     );
   }
@@ -160,8 +190,23 @@ export default function OperatorDetailPage() {
             type="button"
             className={opsBtnGhost}
             disabled={busy || isSelf}
-            title={isSelf ? "You cannot deactivate yourself" : undefined}
+            title={
+              isSelf
+                ? "You cannot deactivate yourself"
+                : data.is_active
+                  ? "Block login — keeps them listed as an operator"
+                  : "Restore login access"
+            }
             onClick={() => {
+              if (data.is_active) {
+                if (
+                  !window.confirm(
+                    `Deactivate login for ${data.email}?\n\nThey stay on the Operators list but cannot sign in until you Activate them again.\n\n(Use “Revoke operator access” below to remove Platform Admin entirely.)`,
+                  )
+                ) {
+                  return;
+                }
+              }
               setActionMsg(null);
               setActionErr(null);
               patch.mutate({ is_active: !data.is_active });
