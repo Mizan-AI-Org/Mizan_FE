@@ -9,18 +9,10 @@ import {
   CreditCard,
   ExternalLink,
   Loader2,
-  Sparkles,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -98,13 +90,12 @@ function priceIdFor(plan: SubscriptionPlan, interval: Interval): string {
 
 function PlanCardSkeleton() {
   return (
-    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4">
-      <Skeleton className="h-5 w-24" />
-      <Skeleton className="h-10 w-32" />
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-5/6" />
-      <Skeleton className="h-4 w-4/6" />
-      <Skeleton className="h-10 w-full rounded-xl" />
+    <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-5 space-y-3">
+      <Skeleton className="h-4 w-20" />
+      <Skeleton className="h-8 w-28" />
+      <Skeleton className="h-3 w-full" />
+      <Skeleton className="h-3 w-5/6" />
+      <Skeleton className="h-9 w-full rounded-lg" />
     </div>
   );
 }
@@ -129,7 +120,8 @@ function trialCaption(
   // Already paying — trial is gone.
   if (ctx.hasProviderSub || ctx.status === "active") return null;
 
-  if (isCurrent && ctx.status === "trialing" && ctx.trialEndsAt) {
+  const status = (ctx.status || "").toLowerCase();
+  if (isCurrent && status === "trialing" && ctx.trialEndsAt) {
     return t("billing.trial.current_ends", {
       date: formatDate(ctx.trialEndsAt, locale),
     });
@@ -182,19 +174,19 @@ function PlanCard({
   return (
     <div
       className={cn(
-        "relative flex flex-col rounded-2xl border p-6 transition-shadow",
+        "relative flex flex-col rounded-xl border p-5 transition-shadow",
         plan.highlight
-          ? "border-emerald-400 shadow-lg shadow-emerald-500/10 dark:border-emerald-500/60"
+          ? "border-emerald-400 shadow-md shadow-emerald-500/10 dark:border-emerald-500/60"
           : "border-slate-200 dark:border-slate-800",
-        isCurrent && "ring-2 ring-emerald-500/40",
+        isCurrent && "ring-2 ring-emerald-500/35",
       )}
     >
       {badge ? (
         <span
           className={cn(
-            "absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide",
+            "absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
             plan.highlight
-              ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow"
+              ? "bg-emerald-600 text-white"
               : "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900",
           )}
         >
@@ -202,51 +194,51 @@ function PlanCard({
         </span>
       ) : null}
 
-      <div className="mb-5">
+      <div className="mb-3">
         <div className="flex items-center gap-2">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+          <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
             {translatePlanName(t, plan)}
           </h3>
           {isCurrent && (
-            <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
+            <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">
               {t("billing.badge.active")}
             </Badge>
           )}
         </div>
         {description ? (
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400 line-clamp-2">
             {description}
           </p>
         ) : null}
       </div>
 
-      <div className="mb-5">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+      <div className="mb-3">
+        <div className="flex items-baseline gap-1">
+          <span className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
             {formatCurrency(displayPrice, plan.currency, locale)}
           </span>
-          <span className="text-sm text-slate-500 dark:text-slate-400">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
             /{interval === "year" ? t("billing.interval.yr") : t("billing.interval.mo")}
           </span>
         </div>
         {monthlyEquivalent && (
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
             {t("billing.billed_annually", {
               price: formatCurrency(monthlyEquivalent, plan.currency, locale),
             })}
           </p>
         )}
         {trialText ? (
-          <p className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+          <p className="mt-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
             {trialText}
           </p>
         ) : null}
       </div>
 
-      <ul className="mb-6 space-y-2.5 text-sm">
+      <ul className="mb-4 space-y-1.5 text-xs">
         {features.map((feature, idx) => (
-          <li key={idx} className="flex items-start gap-2">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+          <li key={idx} className="flex items-start gap-1.5">
+            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
             <span className="text-slate-700 dark:text-slate-300">{feature}</span>
           </li>
         ))}
@@ -255,9 +247,9 @@ function PlanCard({
       <div className="mt-auto">
         <Button
           className={cn(
-            "w-full h-11 rounded-xl font-semibold",
+            "w-full h-10 rounded-lg font-semibold",
             plan.highlight
-              ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-500/25"
+              ? "bg-emerald-600 hover:bg-emerald-700 text-white"
               : "",
           )}
           variant={plan.highlight ? "default" : "outline"}
@@ -441,226 +433,229 @@ export default function BillingSettings() {
     if (hasProviderSub) {
       return t(`billing.status.${currentSub?.status || "active"}`);
     }
-    if (currentSub?.status === "trialing") return t("billing.status.trialing") || "Trial";
+    if (isTrialing) return t("billing.status.trialing") || "Trial";
     if (isEntitled && currentSub?.plan) return t("billing.status.active");
     return t("billing.status.pilot");
   })();
 
+  const trialDays =
+    currentSub?.plan?.trial_days && currentSub.plan.trial_days > 0
+      ? currentSub.plan.trial_days
+      : 14;
+
+  const planName = currentSub?.plan
+    ? translatePlanName(t, currentSub.plan)
+    : t(`billing.tier.${currentTier.toLowerCase()}`);
+
+  const statusDetail = (() => {
+    if (hasProviderSub && currentSub?.current_period_end) {
+      return currentSub.cancel_at_period_end
+        ? t("billing.cancels_on", {
+            date: formatDate(currentSub.current_period_end, locale),
+          })
+        : t("billing.renews_on", {
+            date: formatDate(currentSub.current_period_end, locale),
+          });
+    }
+    // Trial end date lives in the banner — don't repeat it here.
+    if (isTrialing) return null;
+    if (currentSub?.plan) {
+      return t("billing.current_tier_blurb", { plan: planName });
+    }
+    return t("billing.pilot_blurb");
+  })();
+
   return (
-    <div className="space-y-6">
-      <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
-        <CardHeader className="pb-5">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25">
-              <CreditCard className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                {t("billing.current_plan")}
-              </CardTitle>
-              <CardDescription className="text-slate-500 dark:text-slate-400">
-                {t("billing.current_plan_desc")}
-              </CardDescription>
-            </div>
+    <div className="space-y-4">
+      {isTrialing && !loadingSub ? (
+        <div
+          role="status"
+          className="flex items-center gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50 px-3.5 py-2.5 text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/35 dark:text-amber-100"
+        >
+          <CalendarClock className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
+          <p className="min-w-0 text-sm">
+            <span className="font-semibold">
+              {t("billing.trial.banner_title", { days: trialDays })}
+            </span>
+            <span className="text-amber-900/75 dark:text-amber-100/75">
+              {" · "}
+              {currentSub?.trial_ends_at
+                ? t("billing.trial.banner_body", {
+                    days: trialDays,
+                    date: formatDate(currentSub.trial_ends_at, locale),
+                  })
+                : t("billing.trial.banner_body_nodate", { days: trialDays })}
+            </span>
+          </p>
+        </div>
+      ) : null}
+
+      {/* Compact current status — keeps plan tiers near the top */}
+      <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200/80 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
+        {loadingSub ? (
+          <div className="flex w-full items-center gap-3">
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="h-5 w-16" />
+            <Skeleton className="h-4 w-40" />
           </div>
-        </CardHeader>
-        <CardContent>
-          {loadingSub ? (
-            <div className="space-y-3">
-              <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-4 w-72" />
-            </div>
-          ) : (
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-4">
-                <div className="p-3 rounded-xl bg-emerald-100 dark:bg-emerald-900/40">
-                  <Sparkles className="w-6 h-6 text-emerald-600" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                      {currentSub?.plan
-                        ? translatePlanName(t, currentSub.plan)
-                        : t(`billing.tier.${currentTier.toLowerCase()}`)}
-                    </h4>
-                    <Badge
-                      className={cn(
-                        hasProviderSub
-                          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
-                          : "bg-amber-100 text-amber-800 hover:bg-amber-100",
-                      )}
-                    >
-                      {statusLabel}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400 max-w-xl">
-                    {hasProviderSub && currentSub?.current_period_end ? (
-                      <>
-                        <CalendarClock className="inline-block w-4 h-4 mr-1 -mt-0.5" />
-                        {currentSub.cancel_at_period_end
-                          ? t("billing.cancels_on", {
-                              date: formatDate(currentSub.current_period_end, locale),
-                            })
-                          : t("billing.renews_on", {
-                              date: formatDate(currentSub.current_period_end, locale),
-                            })}
-                      </>
-                    ) : currentSub?.trial_ends_at ? (
-                      <>
-                        <CalendarClock className="inline-block w-4 h-4 mr-1 -mt-0.5" />
-                        {t("billing.trial_ends", {
-                          date: formatDate(currentSub.trial_ends_at, locale),
-                        })}
-                      </>
-                    ) : currentSub?.plan ? (
-                      t("billing.current_tier_blurb", {
-                        plan: translatePlanName(t, currentSub.plan),
-                      })
-                    ) : (
-                      t("billing.pilot_blurb")
-                    )}
-                  </p>
-                  {typeof staffUsed === "number" ? (
-                    <p className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                      {maxStaff == null
-                        ? t("billing.staff_usage_unlimited", { used: staffUsed })
-                        : t("billing.staff_usage", {
-                            used: staffUsed,
-                            max: maxStaff,
-                          })}
-                    </p>
-                  ) : null}
-                  {currentSub?.pending_plan ? (
-                    <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400">
-                      {t("billing.pending_upgrade", {
-                        name: translatePlanName(t, currentSub.pending_plan),
-                        interval: currentSub.pending_billing_interval
-                          ? t("billing.pending_interval_suffix", {
-                              interval:
-                                currentSub.pending_billing_interval === "year"
-                                  ? t("billing.yearly")
-                                  : t("billing.monthly"),
-                            })
-                          : "",
+        ) : (
+          <>
+            <div className="min-w-0 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <CreditCard className="h-4 w-4 text-slate-400" />
+                {planName}
+              </span>
+              <Badge
+                className={cn(
+                  "text-[10px]",
+                  hasProviderSub
+                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                    : "bg-amber-100 text-amber-800 hover:bg-amber-100",
+                )}
+              >
+                {statusLabel}
+              </Badge>
+              {typeof staffUsed === "number" ? (
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {maxStaff == null
+                    ? t("billing.staff_usage_unlimited", { used: staffUsed })
+                    : t("billing.staff_usage", {
+                        used: staffUsed,
+                        max: maxStaff,
                       })}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-              {hasProviderSub && (
-                <Button
-                  variant="outline"
-                  className="shrink-0"
-                  disabled={portalMutation.isPending}
-                  onClick={() => portalMutation.mutate()}
-                >
-                  {portalMutation.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                  )}
-                  {t("billing.manage_billing")}
-                </Button>
-              )}
+                </span>
+              ) : null}
+              {statusDetail ? (
+                <span className="text-xs text-slate-500 dark:text-slate-400 sm:max-w-xs sm:truncate">
+                  {statusDetail}
+                </span>
+              ) : null}
+              {currentSub?.pending_plan ? (
+                <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                  {t("billing.pending_upgrade", {
+                    name: translatePlanName(t, currentSub.pending_plan),
+                    interval: currentSub.pending_billing_interval
+                      ? t("billing.pending_interval_suffix", {
+                          interval:
+                            currentSub.pending_billing_interval === "year"
+                              ? t("billing.yearly")
+                              : t("billing.monthly"),
+                        })
+                      : "",
+                  })}
+                </span>
+              ) : null}
             </div>
-          )}
-        </CardContent>
-      </Card>
+            {hasProviderSub ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 h-8"
+                disabled={portalMutation.isPending}
+                onClick={() => portalMutation.mutate()}
+              >
+                {portalMutation.isPending ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                {t("billing.manage_billing")}
+              </Button>
+            ) : null}
+          </>
+        )}
+      </div>
 
-      <Card className="shadow-soft border-0 bg-white dark:bg-slate-900">
-        <CardHeader className="pb-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+              {t("billing.plans_title")}
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t("billing.plans_desc")}
+            </p>
+          </div>
+
+          <div className="inline-flex rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100/60 dark:bg-slate-800 p-0.5 self-start">
+            {(["month", "year"] as Interval[]).map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setInterval(opt)}
+                className={cn(
+                  "relative px-3.5 py-1 text-xs font-medium rounded-full transition-all",
+                  interval === opt
+                    ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100"
+                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
+                )}
+              >
+                {opt === "month" ? t("billing.monthly") : t("billing.yearly")}
+                {opt === "year" && (
+                  <span className="ml-1.5 inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                    {t("billing.yearly_save")}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {loadingPlans ? (
+          <div className="grid gap-4 md:grid-cols-3">
+            <PlanCardSkeleton />
+            <PlanCardSkeleton />
+            <PlanCardSkeleton />
+          </div>
+        ) : plansQuery.isError ? (
+          <div className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-3 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+            <AlertCircle className="h-5 w-5 shrink-0" />
             <div>
-              <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                {t("billing.plans_title")}
-              </CardTitle>
-              <CardDescription className="text-slate-500 dark:text-slate-400">
-                {t("billing.plans_desc")}
-              </CardDescription>
-            </div>
-
-            <div className="inline-flex rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100/60 dark:bg-slate-800 p-1 self-start">
-              {(["month", "year"] as Interval[]).map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => setInterval(opt)}
-                  className={cn(
-                    "relative px-4 py-1.5 text-sm font-medium rounded-full transition-all",
-                    interval === opt
-                      ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100"
-                      : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-                  )}
-                >
-                  {opt === "month" ? t("billing.monthly") : t("billing.yearly")}
-                  {opt === "year" && (
-                    <span className="ml-2 inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
-                      {t("billing.yearly_save")}
-                    </span>
-                  )}
-                </button>
-              ))}
+              <p className="text-sm font-medium">{t("billing.load_error")}</p>
+              <Button
+                size="sm"
+                variant="link"
+                className="mt-1 px-0 text-red-700 dark:text-red-300"
+                onClick={() => plansQuery.refetch()}
+              >
+                {t("common.retry")}
+              </Button>
             </div>
           </div>
-        </CardHeader>
-
-        <CardContent>
-          {loadingPlans ? (
-            <div className="grid gap-6 md:grid-cols-3">
-              <PlanCardSkeleton />
-              <PlanCardSkeleton />
-              <PlanCardSkeleton />
-            </div>
-          ) : plansQuery.isError ? (
-            <div className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
-              <AlertCircle className="h-5 w-5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium">{t("billing.load_error")}</p>
-                <Button
-                  size="sm"
-                  variant="link"
-                  className="mt-1 px-0 text-red-700 dark:text-red-300"
-                  onClick={() => plansQuery.refetch()}
-                >
-                  {t("common.retry")}
-                </Button>
-              </div>
-            </div>
-          ) : sortedPlans.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {t("billing.no_plans")}
-            </p>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-3 pt-4">
-              {sortedPlans.map((plan) => {
-                const isCurrent = isPlanCurrent(plan);
-                return (
-                  <PlanCard
-                    key={plan.id}
-                    plan={plan}
-                    interval={interval}
-                    isCurrent={isCurrent}
-                    ctaLabel={ctaForPlan(plan)}
-                    disabled={checkoutMutation.isPending}
-                    checkoutPending={
-                      checkoutMutation.isPending &&
-                      checkoutMutation.variables?.slug === plan.slug
-                    }
-                    locale={locale}
-                    onSelect={handleSelect}
-                    t={t}
-                    trialContext={{
-                      status: currentSub?.status,
-                      trialEndsAt: currentSub?.trial_ends_at,
-                      hasProviderSub,
-                    }}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        ) : sortedPlans.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {t("billing.no_plans")}
+          </p>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-3">
+            {sortedPlans.map((plan) => {
+              const isCurrent = isPlanCurrent(plan);
+              return (
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
+                  interval={interval}
+                  isCurrent={isCurrent}
+                  ctaLabel={ctaForPlan(plan)}
+                  disabled={checkoutMutation.isPending}
+                  checkoutPending={
+                    checkoutMutation.isPending &&
+                    checkoutMutation.variables?.slug === plan.slug
+                  }
+                  locale={locale}
+                  onSelect={handleSelect}
+                  t={t}
+                  trialContext={{
+                    status: currentSub?.status,
+                    trialEndsAt: currentSub?.trial_ends_at,
+                    hasProviderSub,
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
