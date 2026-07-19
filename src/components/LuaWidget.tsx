@@ -277,6 +277,9 @@ export const LuaWidget: React.FC = () => {
                     sttEnabled: true,
                     ttsEnabled: true,
                     voiceResponseEnabled: false,
+
+                    // File attachments (PDF, CSV, DOCX, XLSX) for process imports, invoices, etc.
+                    attachmentsEnabled: true,
                     // ar-MA for Arabic: better Darija (Moroccan) support; fr-FR for French; en-US for English
                     speechRecognitionLanguage: language === "ar" ? "ar-MA" : (language === "fr" ? "fr-FR" : "en-US"),
 
@@ -293,6 +296,7 @@ export const LuaWidget: React.FC = () => {
                         `Token: ${accessToken}`,
                         `business_vertical: ${businessVertical} | tenant_id (API field restaurant_id): ${restaurantId} | Current time: ${now.toLocaleDateString()} ${now.toLocaleTimeString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
                         "Operational directives: You are Miya, the AI Operations Manager for this Mizan workspace only. Mizan is multi-vertical (restaurant, retail, manufacturing, construction, healthcare operations, hospitality, professional services, other). Use business_vertical to choose appropriate language; restaurant_id is always the tenant/workspace id. Never hallucinate: verify every answer from the database using that tenant id, date, and staff. Execute actions only when permitted and after validating permissions, staff, and shift exist. Respect role: managers get full team visibility and recommendations; staff see only their own data. Resolve relative dates (e.g. Tuesday 17th) to the current calendar week. When giving insights, label as Verified Data (state confidently), Recommendation (predictive), or Missing Data (state limitation). Precision over creativity; verification over assumption.",
+                        "File attachments: When the manager attaches a non-image file (PDF, CSV, DOCX, XLSX, TXT), call parse_document with the file URL/bytes immediately. If they want Processes & Tasks recreated from the document, pass import_processes=true (or say so in note) — the backend imports checklists into Processes & Tasks → Templates. Never claim import succeeded unless the tool returns created template ids.",
                         takeOrdersMode
                             ? "Order-taking mode: For every guest order, capture and confirm: customer name; phone for takeout/delivery; order type (dine-in, takeout, delivery); table or pickup location; each menu item with quantity and modifiers; allergens and dietary restrictions; special instructions; repeat the full order back for confirmation before closing. Help staff log details accurately."
                             : "",

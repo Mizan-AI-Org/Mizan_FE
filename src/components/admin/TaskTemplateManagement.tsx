@@ -59,6 +59,7 @@ import {
   parseProcessTemplatesFile,
   SAMPLE_JSON_EXPORT,
   SAMPLE_CSV_EXPORT,
+  SAMPLE_TEXT_EXPORT,
   type ImportTemplatePayload,
 } from '@/lib/processTemplateImport';
 import { PROCESSES_TASKS_HEADER_ACTIONS_ID } from '@/pages/ProcessesTasksApp';
@@ -473,14 +474,29 @@ export default function TaskTemplateManagement() {
     setImportFileName('');
   };
 
-  const downloadImportSample = (kind: 'json' | 'csv') => {
-    const body = kind === 'json' ? SAMPLE_JSON_EXPORT : SAMPLE_CSV_EXPORT;
-    const mime = kind === 'json' ? 'application/json' : 'text/csv;charset=utf-8';
+  const downloadImportSample = (kind: 'json' | 'csv' | 'txt') => {
+    const body =
+      kind === 'json'
+        ? SAMPLE_JSON_EXPORT
+        : kind === 'csv'
+          ? SAMPLE_CSV_EXPORT
+          : SAMPLE_TEXT_EXPORT;
+    const mime =
+      kind === 'json'
+        ? 'application/json'
+        : kind === 'csv'
+          ? 'text/csv;charset=utf-8'
+          : 'text/plain;charset=utf-8';
     const blob = new Blob([body], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = kind === 'json' ? 'mizan-processes-sample.json' : 'mizan-processes-sample.csv';
+    a.download =
+      kind === 'json'
+        ? 'mizan-processes-sample.json'
+        : kind === 'csv'
+          ? 'mizan-processes-sample.csv'
+          : 'mizan-processes-sample.txt';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -488,10 +504,12 @@ export default function TaskTemplateManagement() {
   const applyImportFile = async (file: File) => {
     setImportFileName(file.name);
     try {
-      const text = await file.text();
-      const { templates, errors } = parseProcessTemplatesFile(text, file.name);
+      const { templates, errors } = await parseProcessTemplatesFile(file);
       setImportPreview(templates);
       setImportParseErrors(errors);
+      if (templates.length === 0 && errors.length === 0) {
+        setImportParseErrors([t('processes.import_no_valid_processes')]);
+      }
     } catch {
       setImportPreview([]);
       setImportParseErrors([t('processes.import_failed_read')]);
@@ -659,7 +677,7 @@ export default function TaskTemplateManagement() {
           <input
             ref={importFileInputRef}
             type="file"
-            accept=".json,.csv,application/json,text/csv,text/plain"
+            accept=".json,.csv,.txt,.md,.xlsx,.xls,.docx,application/json,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -671,10 +689,11 @@ export default function TaskTemplateManagement() {
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              variant="secondary"
               size="sm"
               onClick={() => importFileInputRef.current?.click()}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
             >
+              <Upload className="h-4 w-4 mr-1.5" />
               {t('processes.import_choose_file')}
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={() => downloadImportSample('json')}>
@@ -683,10 +702,22 @@ export default function TaskTemplateManagement() {
             <Button type="button" variant="ghost" size="sm" onClick={() => downloadImportSample('csv')}>
               {t('processes.import_download_csv_sample')}
             </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => downloadImportSample('txt')}>
+              {t('processes.import_download_text_sample')}
+            </Button>
           </div>
 
           <div
-            className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground"
+            role="button"
+            tabIndex={0}
+            className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground cursor-pointer hover:border-emerald-500/50 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 transition-colors"
+            onClick={() => importFileInputRef.current?.click()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                importFileInputRef.current?.click();
+              }
+            }}
             onDragOver={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -698,9 +729,18 @@ export default function TaskTemplateManagement() {
               if (f) void applyImportFile(f);
             }}
           >
-            {importFileName
-              ? `${importFileName}`
-              : t('processes.import_no_preview')}
+            {importPreview.length > 0 ? (
+              <p className="font-medium text-emerald-700 dark:text-emerald-400">
+                {t('processes.import_ready_count', { count: importPreview.length, file: importFileName })}
+              </p>
+            ) : importFileName ? (
+              <p>{importFileName}</p>
+            ) : (
+              <>
+                <p>{t('processes.import_drop_hint')}</p>
+                <p className="mt-2 text-xs opacity-80">{t('processes.import_formats_hint')}</p>
+              </>
+            )}
           </div>
 
           {importParseErrors.length > 0 && (
