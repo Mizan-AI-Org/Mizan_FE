@@ -70,7 +70,7 @@ export default function OperatorDetailPage() {
       setActionMsg(
         user.is_active
           ? "Operator updated."
-          : "Operator deactivated — they cannot sign in until reactivated.",
+          : "Operator deactivated - they cannot sign in until reactivated.",
       );
       invalidate();
     },
@@ -194,7 +194,7 @@ export default function OperatorDetailPage() {
               isSelf
                 ? "You cannot deactivate yourself"
                 : data.is_active
-                  ? "Block login — keeps them listed as an operator"
+                  ? "Block login - keeps them listed as an operator"
                   : "Restore login access"
             }
             onClick={() => {

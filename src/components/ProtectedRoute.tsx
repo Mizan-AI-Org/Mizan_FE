@@ -26,7 +26,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/auth" replace />;
   }
 
-  // Platform operators only use /admin — never tenant dashboards.
+  // Platform operators only use /admin - never tenant dashboards.
   if (user.is_platform_operator) {
     return <Navigate to="/admin" replace />;
   }

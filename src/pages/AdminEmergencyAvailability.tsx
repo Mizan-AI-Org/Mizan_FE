@@ -175,7 +175,7 @@ const AdminEmergencyAvailability: React.FC = () => {
                     <Checkbox checked={selectedIds.includes(t.id)} onCheckedChange={() => toggleSelect(t.id)} aria-label="Select task" />
                     <div>
                       <CardTitle className="text-base">{t.title || 'Task'}</CardTitle>
-                      <CardDescription className="text-sm">{t.staff?.name || '—'} • {t.submitted_at ? new Date(t.submitted_at).toLocaleString() : '—'}</CardDescription>
+                      <CardDescription className="text-sm">{t.staff?.name || '-'} • {t.submitted_at ? new Date(t.submitted_at).toLocaleString() : '-'}</CardDescription>
                     </div>
                   </div>
                   <Badge variant={t.priority === 'CRITICAL' ? 'destructive' : (t.priority === 'HIGH' ? 'secondary' : 'outline')} className="text-xs">{t.priority || 'MEDIUM'}</Badge>
@@ -184,7 +184,7 @@ const AdminEmergencyAvailability: React.FC = () => {
               <CardContent className="space-y-3">
                 {t.description && <div className="text-sm text-muted-foreground">{t.description}</div>}
                 <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-xs">{t.status || '—'}</Badge>
+                  <Badge variant="outline" className="text-xs">{t.status || '-'}</Badge>
                   <div className="w-40">
                     <Progress value={t.progress_pct || 0} />
                   </div>

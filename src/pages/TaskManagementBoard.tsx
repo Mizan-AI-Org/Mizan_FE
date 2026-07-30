@@ -275,7 +275,7 @@ export default function TaskManagementBoard({
   };
 
   const formatDue = (iso: string | null): string => {
-    if (!iso) return "—";
+    if (!iso) return "-";
     try {
       const d = new Date(iso);
       if (Number.isNaN(d.getTime())) return iso;
@@ -294,7 +294,7 @@ export default function TaskManagementBoard({
     }
   };
 
-  /** True when at least one staff row has live checklist/task progress — hides empty-state chrome. */
+  /** True when at least one staff row has live checklist/task progress - hides empty-state chrome. */
   const hasLiveProgress = useMemo(
     () =>
       staffMetrics.some(
@@ -361,7 +361,7 @@ export default function TaskManagementBoard({
 
   return (
     <div className="h-full flex flex-col space-y-5 w-full">
-      {/* Compact metrics strip — one composition, less empty card chrome */}
+      {/* Compact metrics strip - one composition, less empty card chrome */}
       <section
         aria-label={t("live_board.metrics_label")}
         className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden"
@@ -420,7 +420,7 @@ export default function TaskManagementBoard({
         </div>
       </section>
 
-      {/* Staff Live Progress — deep-linked from dashboard Staff progress widget */}
+      {/* Staff Live Progress - deep-linked from dashboard Staff progress widget */}
       <Card
         id="staff-live-progress"
         className="border border-slate-200 dark:border-slate-700 shadow-none dark:bg-slate-900 flex-1 scroll-mt-24"
@@ -531,7 +531,7 @@ export default function TaskManagementBoard({
                     {(staff.tasks.tasks_marked_no ?? 0) > 0 && (
                       <div
                         className="flex items-center gap-1.5 text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md dark:bg-amber-900/20"
-                        title="Tasks marked No — follow-up"
+                        title="Tasks marked No - follow-up"
                       >
                         <AlertTriangle className="w-3.5 h-3.5" />
                         <span className="font-medium text-xs">{staff.tasks.tasks_marked_no} No</span>
@@ -643,7 +643,7 @@ export default function TaskManagementBoard({
               </CardTitle>
               <p className="text-sm text-slate-500 mt-1">
                 {t("live_board.all_tasks_desc") ??
-                  "Every task assigned to staff — both shift-attached and standalone."}
+                  "Every task assigned to staff - both shift-attached and standalone."}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">

@@ -57,8 +57,8 @@ function getAuthToken() {
 }
 
 /**
- * Fetches the multi-location portfolio summary — per-branch rollups plus
- * tenant-wide totals — for the Locations Overview page. The backend caches
+ * Fetches the multi-location portfolio summary - per-branch rollups plus
+ * tenant-wide totals - for the Locations Overview page. The backend caches
  * for 60s; we refetch every 60s so an owner watching the page sees fresh
  * numbers without hammering the DB.
  */
@@ -67,7 +67,7 @@ export function useLocationsPortfolio() {
     queryKey: ["dashboard", "portfolio"],
     queryFn: async (): Promise<PortfolioSummary> => {
       const token = getAuthToken();
-      // Do not send Cache-Control/Pragma request headers — production CORS
+      // Do not send Cache-Control/Pragma request headers - production CORS
       // does not allow them, and the browser fails with "Failed to fetch".
       // `cache: "no-store"` is enough to skip the HTTP cache.
       const res = await fetch(`${API_BASE}/dashboard/portfolio/`, {

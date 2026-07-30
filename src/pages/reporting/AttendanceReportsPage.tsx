@@ -258,10 +258,10 @@ export default function AttendanceReportsPage() {
                           ? `${row.shift.start} – ${row.shift.end}`
                           : row.shift?.status === "UNSCHEDULED"
                             ? t("reporting.attendance_team.unscheduled")
-                            : "—"}
+                            : "-"}
                       </TableCell>
                       <TableCell className="text-right text-sm">
-                        {row.clock_in ?? "—"}
+                        {row.clock_in ?? "-"}
                         {row.is_manager_override ? (
                           <Badge variant="outline" className="ml-2 text-[10px]">
                             {t("reporting.attendance_team.manager_override")}
@@ -277,7 +277,7 @@ export default function AttendanceReportsPage() {
                         ) : null}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell text-xs text-slate-600 dark:text-slate-400 max-w-[220px]">
-                        {(row.signals || []).join(" · ") || "—"}
+                        {(row.signals || []).join(" · ") || "-"}
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -336,7 +336,7 @@ export default function AttendanceReportsPage() {
               {data.recent_activity.map((ev) => (
                 <li key={ev.id} className="flex justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-2 last:border-0">
                   <span className="text-slate-700 dark:text-slate-300">
-                    <span className="font-medium">{ev.staff_name}</span> — {ev.event}
+                    <span className="font-medium">{ev.staff_name}</span> - {ev.event}
                   </span>
                   <span className="text-slate-500 shrink-0">{ev.time}</span>
                 </li>
@@ -363,10 +363,10 @@ export default function AttendanceReportsPage() {
                 <div>
                   {detailRow.shift?.start && detailRow.shift?.end
                     ? `${detailRow.shift.start} – ${detailRow.shift.end}`
-                    : "—"}
+                    : "-"}
                 </div>
                 <div className="text-slate-500">{t("reporting.attendance_team.detail_clock_in")}</div>
-                <div>{detailRow.clock_in ?? "—"}</div>
+                <div>{detailRow.clock_in ?? "-"}</div>
                 <div className="text-slate-500">{t("reporting.attendance_team.detail_status")}</div>
                 <div className="capitalize">{detailRow.status?.replace(/_/g, " ")}</div>
               </div>

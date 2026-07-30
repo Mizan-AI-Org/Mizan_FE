@@ -392,7 +392,7 @@ function BranchCard({
             label={t("locations_overview.stat.checklists")}
             value={
               m.checklist_completion_pct === null
-                ? "—"
+                ? "-"
                 : `${m.checklist_completion_pct}%`
             }
             tone={

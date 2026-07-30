@@ -444,7 +444,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     },
     onSuccess: async (resp: TaskTemplate | undefined) => {
       toast.success(template?.id ? 'Process updated successfully' : 'Process created successfully');
-      // In-app only — do NOT WhatsApp-blast the whole team. That polluted the
+      // In-app only - do NOT WhatsApp-blast the whole team. That polluted the
       // dashboard "Messages to staff" feed with failed "A process has been
       // created…" rows and burned Meta's messaging window.
       try {
@@ -1038,7 +1038,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
         </CardContent>
       </Card>
 
-      {/* Standing assignees — quiet, optional */}
+      {/* Standing assignees - quiet, optional */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
@@ -1046,7 +1046,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
             Who can run this
           </CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Optional. These people get this Yes/No checklist after they clock in with Miya —
+            Optional. These people get this Yes/No checklist after they clock in with Miya -
             even if they are not on today&apos;s schedule.
           </p>
         </CardHeader>
@@ -1131,7 +1131,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Add tasks panel — one at a time or several at once */}
+          {/* Add tasks panel - one at a time or several at once */}
           <div className="rounded-xl border border-teal-200 dark:border-teal-900/50 bg-teal-50/50 dark:bg-teal-950/20 p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="inline-flex rounded-lg border border-teal-200 dark:border-teal-800 bg-white dark:bg-slate-900 p-0.5">

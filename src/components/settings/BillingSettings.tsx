@@ -55,7 +55,7 @@ const formatCurrency = (
   currency: string,
   locale: string,
 ) => {
-  if (!value) return "—";
+  if (!value) return "-";
   const n = Number(value);
   if (Number.isNaN(n)) return String(value);
   const code = (currency || "USD").toUpperCase();
@@ -71,7 +71,7 @@ const formatCurrency = (
 };
 
 const formatDate = (iso: string | null | undefined, locale: string) => {
-  if (!iso) return "—";
+  if (!iso) return "-";
   try {
     return new Intl.DateTimeFormat(locale, {
       dateStyle: "medium",
@@ -117,7 +117,7 @@ function trialCaption(
   const isStarter = plan.tier === "STARTER" || plan.slug === "starter";
   if (!isStarter) return null;
 
-  // Already paying — trial is gone.
+  // Already paying - trial is gone.
   if (ctx.hasProviderSub || ctx.status === "active") return null;
 
   const status = (ctx.status || "").toLowerCase();
@@ -457,7 +457,7 @@ export default function BillingSettings() {
             date: formatDate(currentSub.current_period_end, locale),
           });
     }
-    // Trial end date lives in the banner — don't repeat it here.
+    // Trial end date lives in the banner - don't repeat it here.
     if (isTrialing) return null;
     if (currentSub?.plan) {
       return t("billing.current_tier_blurb", { plan: planName });
@@ -490,7 +490,7 @@ export default function BillingSettings() {
         </div>
       ) : null}
 
-      {/* Compact current status — keeps plan tiers near the top */}
+      {/* Compact current status - keeps plan tiers near the top */}
       <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200/80 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
         {loadingSub ? (
           <div className="flex w-full items-center gap-3">

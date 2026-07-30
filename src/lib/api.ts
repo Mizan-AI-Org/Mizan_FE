@@ -474,7 +474,7 @@ export class BackendService {
 
   async getDailyKpis(accessToken: string): Promise<DailyKPI[]> {
     try {
-      // DRF default pagination returns { count, results } — not a bare array. Request a large page for aggregates.
+      // DRF default pagination returns { count, results } - not a bare array. Request a large page for aggregates.
       const response = await fetch(`${API_BASE}/dashboard/kpis/?page_size=500`, {
         method: "GET",
         headers: this.getHeaders(accessToken),
@@ -619,7 +619,7 @@ export class BackendService {
   }
 
   /**
-   * Drag-and-drop endpoint — moves a dashboard row from its current
+   * Drag-and-drop endpoint - moves a dashboard row from its current
    * category widget to a different one. ``bucket`` matches the FE's
    * ``CategoryTaskBucket`` slug (``human_resources``, ``finance``,
    * ``maintenance``, ``purchase_orders``, ``miscellaneous``,
@@ -651,7 +651,7 @@ export class BackendService {
    * that dispatches across StaffRequest / dashboard.Task /
    * scheduling.Task. Pass ``null`` to unassign. The optional
    * ``note`` is stored on the StaffRequest timeline as audit
-   * context — ignored for Task rows.
+   * context - ignored for Task rows.
    */
   async updateDashboardTaskAssignee(
     taskId: string,
@@ -847,7 +847,7 @@ export class BackendService {
   }
 
   /**
-   * Meetings & Reminders widget data — upcoming events pulled from the
+   * Meetings & Reminders widget data - upcoming events pulled from the
    * tenant's Google Calendar (connected during onboarding). If the
    * calendar isn't connected the endpoint still returns 200 with
    * `connected: false` so the widget can render a reconnect CTA.
@@ -914,7 +914,7 @@ export class BackendService {
 
   /**
    * Latest clock-in events for the Clock-ins widget. Only returns
-   * today's ``event_type='in'`` events — break/out events are noise
+   * today's ``event_type='in'`` events - break/out events are noise
    * for the "who just arrived" card. The full timeline lives on
    * ``/dashboard/attendance``.
    */
@@ -934,7 +934,7 @@ export class BackendService {
    * they were, with `?gcal=connected|error` appended.
    *
    * Returns `{ configured: false }` when the server has no OAuth
-   * credentials — callers should show a "Unavailable — ask support"
+   * credentials - callers should show a "Unavailable - ask support"
    * message in that case.
    */
   async startGoogleCalendarConnect(
@@ -4382,7 +4382,7 @@ export class BackendService {
   }
 
   // ---------------------------------------------------------------------
-  // RBAC — per-user overrides
+  // RBAC - per-user overrides
   // ---------------------------------------------------------------------
 
   async listAssignableUsers(): Promise<{

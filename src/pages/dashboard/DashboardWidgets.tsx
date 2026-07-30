@@ -131,12 +131,12 @@ export const DASHBOARD_WIDGET_IDS = [
   "finance",
   "maintenance",
   "operations_tasks",
-  // Procurement asks ("buy 6 bottles of vodka") — separate from Finance
+  // Procurement asks ("buy 6 bottles of vodka") - separate from Finance
   // (paying invoices) and Inventory (stock observations) so the manager
   // who told Miya "we need to purchase X" sees the request next to
   // other open POs instead of buried in the generic inbox.
   "purchase_orders",
-  // Catch-all lane for anything Miya couldn't slot into a named lane —
+  // Catch-all lane for anything Miya couldn't slot into a named lane -
   // general / miscellaneous requests still get a home on the dashboard.
   "miscellaneous",
   // Admin → Staff WhatsApp messaging surface. Composer + delivery /
@@ -215,7 +215,7 @@ export const WIDGET_ADD_DESC_KEYS: Record<DashboardWidgetId, string> = {
   staff_messages: "dashboard.widget_add.staff_messages",
 };
 
-/** Grouping for the Add widget dialog—each id appears in exactly one category. */
+/** Grouping for the Add widget dialog-each id appears in exactly one category. */
 export type DashboardWidgetCategoryId = "general" | "retail" | "hospitality" | "construction";
 
 export const DASHBOARD_WIDGET_CATEGORY_ORDER: DashboardWidgetCategoryId[] = [
@@ -315,7 +315,7 @@ export const DEFAULT_DASHBOARD_WIDGET_ORDER: DashboardWidgetId[] = [
  * Per-user record of "default widget ids the user has explicitly
  * dismissed from their dashboard". Stored in localStorage, keyed by
  * user id. When a new default widget ships (e.g. `tasks_demands`), we
- * append it to the user's saved layout iff its id is NOT in this set —
+ * append it to the user's saved layout iff its id is NOT in this set -
  * so the only reason a default will NOT appear is that the user
  * removed it themselves via the × in Customize mode.
  *
@@ -354,14 +354,14 @@ function writeDismissedDefaults(userId: string | undefined | null, ids: Iterable
   try {
     window.localStorage.setItem(key, JSON.stringify([...new Set(ids)]));
   } catch {
-    /* quota or private mode — best effort only */
+    /* quota or private mode - best effort only */
   }
 }
 
 /**
  * Record that the user has explicitly removed a default widget, so we
  * stop auto-re-adding it on subsequent page loads. No-op for custom
- * (Miya) slot ids — they have their own lifecycle and are never part
+ * (Miya) slot ids - they have their own lifecycle and are never part
  * of the default lane.
  */
 export function markDefaultAsDismissed(
@@ -377,7 +377,7 @@ export function markDefaultAsDismissed(
 
 /**
  * Clear the dismissed set for the user. Called when they hit "Reset
- * layout" — "reset" means "give me the system defaults back", which
+ * layout" - "reset" means "give me the system defaults back", which
  * implicitly un-dismisses everything.
  */
 export function clearDismissedDefaults(userId: string | undefined | null): void {
@@ -390,7 +390,7 @@ export function clearDismissedDefaults(userId: string | undefined | null): void 
  *   2. are NOT already in `order`, and
  *   3. have NOT been explicitly dismissed by the user.
  *
- * Pure read-through — does not write to localStorage, so it is safe to
+ * Pure read-through - does not write to localStorage, so it is safe to
  * call multiple times per page load (Dashboard.tsx runs it against
  * both the localStorage-cached order and the server-returned order).
  */
@@ -433,7 +433,7 @@ export type DashboardWidgetSlotId = DashboardWidgetId | (string & {});
  * matches a known operational lane (e.g. "Purchases" → purchase_orders),
  * we render the data-bound built-in widget instead of the static "Ask
  * Miya" placeholder. This is a belt-and-braces fallback alongside the
- * backend auto-migration in DashboardCustomWidgetListView — protects
+ * backend auto-migration in DashboardCustomWidgetListView - protects
  * tenants whose React Query cache hasn't yet re-fetched after the
  * server-side cleanup ran.
  *
@@ -508,12 +508,12 @@ const CUSTOM_WIDGET_TITLE_ALIASES: Record<string, DashboardWidgetId> = {
   "reunions": "meetings_reminders",
   "calendrier": "meetings_reminders",
   "rappels": "meetings_reminders",
-  // staff_inbox — general inbox (sync with widget_alias_resolver.py)
+  // staff_inbox - general inbox (sync with widget_alias_resolver.py)
   "inbox": "staff_inbox",
   "staff inbox": "staff_inbox",
   "staff requests": "staff_inbox",
   "demandes du personnel": "staff_inbox",
-  // team_travel — leave / travel / scheduling lane
+  // team_travel - leave / travel / scheduling lane
   "leave request": "team_travel",
   "leave requests": "team_travel",
   "team leave": "team_travel",
@@ -535,7 +535,7 @@ const CUSTOM_WIDGET_TITLE_ALIASES: Record<string, DashboardWidgetId> = {
   "team retreats": "team_travel",
   "retreat": "team_travel",
   "retreats": "team_travel",
-  // team_medical_service — occupational health lane
+  // team_medical_service - occupational health lane
   "team medical service": "team_medical_service",
   "team medical services": "team_medical_service",
   "medical service": "team_medical_service",
@@ -547,7 +547,7 @@ const CUSTOM_WIDGET_TITLE_ALIASES: Record<string, DashboardWidgetId> = {
   // staff_messages
   "staff messages": "staff_messages",
   "whatsapp": "staff_messages",
-  // live_attendance (multi-word / "widget" phrasing — matches backend alias)
+  // live_attendance (multi-word / "widget" phrasing - matches backend alias)
   "live attendance": "live_attendance",
   "attendance widget": "live_attendance",
   "widget attendance": "live_attendance",
@@ -608,7 +608,7 @@ function _stripWidgetBoilerplate(s: string): string {
   return key;
 }
 
-/** Phrase-aware alias lookup — mirrors backend ``resolve_widget_alias``. */
+/** Phrase-aware alias lookup - mirrors backend ``resolve_widget_alias``. */
 function resolveWidgetAliasFromText(
   ...candidates: (string | null | undefined)[]
 ): DashboardWidgetId | undefined {
@@ -653,7 +653,7 @@ export function resolveCustomWidgetAlias(
   def: DashboardCustomWidgetDef,
 ): DashboardWidgetId | undefined {
   // Always swap Miya placeholder tiles when the title maps to a data-bound
-  // lane — even if ensure_link auto-assigned a generic /dashboard/* shortcut.
+  // lane - even if ensure_link auto-assigned a generic /dashboard/* shortcut.
   return resolveWidgetAliasFromText(def.title, def.subtitle);
 }
 
@@ -1005,7 +1005,7 @@ function OpsReportsEnterpriseCard({
 
 /** Lean shape of a single staff request as it lands in the dashboard
  * widget. The full ``StaffRequest`` object has many more fields (audio,
- * comments, voice transcription) — we only need what we render. */
+ * comments, voice transcription) - we only need what we render. */
 type InboxItem = {
   id: string;
   subject?: string | null;
@@ -1087,7 +1087,7 @@ function inboxCategoryClass(category: string | null | undefined): {
   }
 }
 
-/** Short label for a category chip — lowercase looks calmer in a dense
+/** Short label for a category chip - lowercase looks calmer in a dense
  * list. We keep "HR" uppercase because everyone reads it that way. */
 function inboxCategoryLabel(category: string | null | undefined): string {
   const c = String(category || "").toUpperCase();
@@ -1102,7 +1102,7 @@ function inboxCategoryLabel(category: string | null | undefined): string {
  * ``RowDragPayload.sourceTarget`` so the destination CategoryTasksCard
  * can short-circuit same-bucket drops correctly. Categories that don't
  * have a dedicated widget bucket (INVENTORY, OPERATIONS, RESERVATIONS,
- * SCHEDULING) fall through to ``miscellaneous`` — dropping them on
+ * SCHEDULING) fall through to ``miscellaneous`` - dropping them on
  * Misc is then a real reclassification (their backend category becomes
  * OTHER), and dropping them on any named lane reclassifies to that
  * lane's category. Keep this in sync with
@@ -1153,19 +1153,19 @@ function StaffInboxEnterpriseCard({
   // Track which row is currently being dragged out so we can fade it
   // in-place; mirrors the behaviour of CategoryTasksCard rows. Cache
   // invalidation on a successful drop is handled by the destination
-  // CategoryTasksCard's ``bucketMutation`` — it already busts every
+  // CategoryTasksCard's ``bucketMutation`` - it already busts every
   // category-tasks query *and* the staff-requests-inbox-widget feed,
   // so the inbox preview refreshes without a duplicate mutation here.
   const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
   // Subscribe to the global drag session so the Staff Inbox dims
-  // itself when one of its own rows is being carried — same affordance
+  // itself when one of its own rows is being carried - same affordance
   // pattern the category cards use, so the manager's eye knows where
   // the row left from regardless of which widget it came out of.
   const dragSession = useDragSession();
 
   // Latest actionable inquiries that are not already owned by a named
   // operational lane (HR, Finance, Maintenance, etc.). Payroll/wage asks
-  // surface on Human Resources only — not duplicated here.
+  // surface on Human Resources only - not duplicated here.
   const listQuery = useQuery<{ items: InboxItem[]; pending: number; escalated: number }>({
     queryKey: ["staff-requests-inbox-widget", "unlaned", accessToken],
     enabled: !!accessToken,
@@ -1325,7 +1325,7 @@ function StaffInboxEnterpriseCard({
                 // /api/dashboard/tasks-demands/<uuid>/bucket/ endpoint can
                 // reclassify into HR / Finance / Maintenance / Purchase
                 // Orders / Misc / Urgent. Terminal rows (already CLOSED /
-                // REJECTED) skip drag — moving a closed ticket between
+                // REJECTED) skip drag - moving a closed ticket between
                 // widgets would silently revive it. Categories without a
                 // dedicated lane fall through to ``miscellaneous`` so the
                 // self-drop guard correctly disables the Misc target only.
@@ -1368,7 +1368,7 @@ function StaffInboxEnterpriseCard({
                     key={it.id}
                     className={cn(
                       "flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-all cursor-pointer",
-                      // Subtle "you can grab me" affordance — matches the
+                      // Subtle "you can grab me" affordance - matches the
                       // CategoryTasksCard row treatment so DnD feels the
                       // same wherever items live.
                       draggable && "cursor-grab active:cursor-grabbing",
@@ -1435,7 +1435,7 @@ function StaffInboxEnterpriseCard({
           )}
         </div>
 
-        {/* Footer "More v" — keeps the visual consistency with the new
+        {/* Footer "More v" - keeps the visual consistency with the new
             category widgets. Whole card is also clickable. */}
         <button
           type="button"
@@ -1495,7 +1495,7 @@ function ReservationsDashboardCard({
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <Badge variant="outline" className="text-slate-500 border-none px-0 text-[10px] font-bold h-4">
-            {isLoading ? "…" : isError ? "—" : rows.length}
+            {isLoading ? "…" : isError ? "-" : rows.length}
           </Badge>
           <ArrowRight className="w-4 h-4 text-slate-400" />
         </div>
@@ -1519,7 +1519,7 @@ function ReservationsDashboardCard({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-xs font-semibold text-slate-900 dark:text-white truncate min-w-0">
-                      {r.guest_name || "—"}
+                      {r.guest_name || "-"}
                     </span>
                     {r.status ? (
                       <Badge variant="secondary" className="shrink-0 text-[10px] font-normal max-w-[7rem] truncate">
@@ -1528,7 +1528,7 @@ function ReservationsDashboardCard({
                     ) : null}
                   </div>
                   <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                    <span className="truncate">{r.start_time ? String(r.start_time) : "—"}</span>
+                    <span className="truncate">{r.start_time ? String(r.start_time) : "-"}</span>
                     {r.covers != null ? (
                       <span>
                         {t("dashboard.reservations.covers")} {r.covers}
@@ -1606,7 +1606,7 @@ function sourcePrefix(src: DashboardTaskDemandItem["source"]): string {
 }
 
 /**
- * Visual definition for one row's status pill — colors + i18n label key.
+ * Visual definition for one row's status pill - colors + i18n label key.
  * Centralised here so every widget uses the same vocabulary and no row
  * is missing a status indicator.
  */
@@ -1652,7 +1652,7 @@ const PILL_VISUALS: Record<NonNullable<DashboardTaskDemandItem["pill_status"]>, 
     bg: "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-900/50",
     label: "assigned",
   },
-  // Holding patterns — manager has touched the row but it's not moving on its own.
+  // Holding patterns - manager has touched the row but it's not moving on its own.
   WAITING_ON: {
     dot: "bg-violet-500",
     text: "text-violet-700 dark:text-violet-300",
@@ -1709,7 +1709,7 @@ const PILL_VISUALS: Record<NonNullable<DashboardTaskDemandItem["pill_status"]>, 
  * Resolve the visual pill for a row. Prefers the granular ``pill_status``
  * the backend now emits, but falls back to the coarse ``status`` field
  * (and finally a priority-aware default) so older API responses still
- * render a status — every row should ALWAYS show a status pill, never a
+ * render a status - every row should ALWAYS show a status pill, never a
  * blank space.
  */
 function statusPillClass(
@@ -1746,7 +1746,7 @@ function TasksDemandsCard({
     useQuery<DashboardTasksDemandsResponse>({
       queryKey: ["dashboard", "tasks-demands", 5],
       queryFn: () => api.getDashboardTasksDemands(5),
-      // Dashboard widget — bounded cost. 60 s refetch matches the other
+      // Dashboard widget - bounded cost. 60 s refetch matches the other
       // operational cards, with staleTime so tab switches don't re-fetch.
       refetchInterval: 60_000,
       staleTime: 30_000,
@@ -1826,7 +1826,7 @@ function TasksDemandsCard({
     { isPending: bucketMutation.isPending },
   );
 
-  // Reassign target — set when the manager clicks "Reassign" in the
+  // Reassign target - set when the manager clicks "Reassign" in the
   // row dropdown. Holds the row's id + display title + (if present)
   // the request category so the escalate modal can highlight the
   // right department tag chips. ``null`` means the modal is closed.
@@ -1847,7 +1847,7 @@ function TasksDemandsCard({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
       // Category-bucketed widgets surface the same rows by category
-      // and need to redraw the assignee chip after a reassign — bust
+      // and need to redraw the assignee chip after a reassign - bust
       // them all via predicate match on the queryKey shape.
       qc.invalidateQueries({
         predicate: (q) =>
@@ -2076,7 +2076,7 @@ function TasksDemandsCard({
                       </div>
 
                       {/* Status pill (right-aligned, mirrors row-level
-                          hierarchy — status is the primary signal now) */}
+                          hierarchy - status is the primary signal now) */}
                       <span
                         className={cn(
                           "shrink-0 mt-0.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap",
@@ -2169,7 +2169,7 @@ function TasksDemandsCard({
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
-                          {/* Reassign — opens the same picker the
+                          {/* Reassign - opens the same picker the
                               staff inbox uses so the manager can
                               hand the row off to anyone in the
                               tenant. We pass the row's id + title
@@ -2213,7 +2213,7 @@ function TasksDemandsCard({
         </button>
       </CardContent>
 
-      {/* Reassign picker — same modal the staff inbox uses, opened
+      {/* Reassign picker - same modal the staff inbox uses, opened
           when the manager picks "Reassign" from a row's action
           menu. Mounted at the card level so it survives the row
           re-rendering after the mutation invalidates the query. */}
@@ -2236,7 +2236,7 @@ function TasksDemandsCard({
 
 
 // --------------------------------------------------------------------------
-// Meetings & Reminders — pulls upcoming events from the tenant's Google
+// Meetings & Reminders - pulls upcoming events from the tenant's Google
 // Calendar. Design mirrors the Tasks & Demands card: row-per-item with a
 // right-aligned status pill, a "+" affordance via the per-row action menu,
 // and a footer link that opens the full calendar in a new tab. When the
@@ -2270,7 +2270,7 @@ function pillClassForMeetingStatus(status: MeetingReminderItem["status"]) {
 }
 
 /**
- * Compact "sync orbit" strip — shows who Google Calendar is linked to and
+ * Compact "sync orbit" strip - shows who Google Calendar is linked to and
  * gives one-tap connect / switch / disconnect without leaving the dashboard.
  */
 function GoogleCalendarSyncHub({
@@ -2500,7 +2500,7 @@ function MeetingsRemindersCard({
     useQuery<DashboardMeetingsRemindersResponse>({
       queryKey: ["dashboard", "meetings-reminders", 5],
       queryFn: () => api.getDashboardMeetingsReminders(5),
-      // Google Calendar data is comparatively cold — 90 s poll matches
+      // Google Calendar data is comparatively cold - 90 s poll matches
       // the "what's coming up in the next few hours" framing without
       // burning Google quota for idle tabs.
       refetchInterval: 90_000,
@@ -2625,7 +2625,7 @@ function MeetingsRemindersCard({
             {t("dashboard.meetings_reminders.title")}
           </CardTitle>
         </div>
-        {/* Share/open-external quick action — matches the mock's top-right
+        {/* Share/open-external quick action - matches the mock's top-right
             forward icon. Opens the full agenda in a new tab. */}
         <a
           href={calendarLink}
@@ -2863,7 +2863,7 @@ function MeetingsRemindersCard({
 }
 
 /**
- * Clock-ins widget — "who just arrived today".
+ * Clock-ins widget - "who just arrived today".
  *
  * Mirrors the product mock: a compact list of the latest 5 arrivals
  * with a tiny status icon on the right (check = on time, red × = late).
@@ -2886,7 +2886,7 @@ function ClockInsCard({
     useQuery<DashboardClockInsResponse>({
       queryKey: ["dashboard", "clock-ins", 5],
       queryFn: () => api.getDashboardClockIns(5),
-      // 30 s refetch matches the widget's framing ("just arrived") —
+      // 30 s refetch matches the widget's framing ("just arrived") -
       // a fresh arrival shouldn't lag by more than one poll cycle.
       refetchInterval: 30_000,
       staleTime: 15_000,
@@ -2904,7 +2904,7 @@ function ClockInsCard({
 
   const goToAttendance = React.useCallback(() => {
     // Deep-link straight to the "Live Attendance List" tab inside the
-    // Staff app — that's where the manager can scan the full table of
+    // Staff app - that's where the manager can scan the full table of
     // shifts, clock-ins and statuses for every staff member.
     navigate("/dashboard/staff-app?tab=attendance");
   }, [navigate]);
@@ -3004,7 +3004,7 @@ function ClockInsCard({
                         </span>
                       </div>
                       {/* Subtitle: role or "X min late". Shown only when
-                          we have something meaningful to say — keeps the
+                          we have something meaningful to say - keeps the
                           row feeling dense & scannable like the mock. */}
                       {isLate && typeof ev.lateness_minutes === "number" ? (
                         <div className="text-[11px] text-amber-600 dark:text-amber-400">
@@ -3210,7 +3210,7 @@ function StaffDailyProgressCard({
  * -------------------------------------------------------------------------
  * Shows the 5 most recent **open** incidents reported by staff (safety,
  * maintenance, service, customer, etc.). Resolved / dismissed items are
- * excluded — they stay on the analytics page, not the live dashboard lane.
+ * excluded - they stay on the analytics page, not the live dashboard lane.
  * Tapping the card opens the Reported Incidents tab on /dashboard/analytics.
  *
  * Data source: GET /api/staff/safety-concerns/?status=OPEN (same records as
@@ -3263,7 +3263,7 @@ function formatIncidentRelative(iso: string | null, t: (k: string) => string): s
   }
 }
 
-/** Terminal incident states — resolved/dismissed items belong on analytics, not live widgets. */
+/** Terminal incident states - resolved/dismissed items belong on analytics, not live widgets. */
 function isOpenIncidentStatus(status: string | null | undefined): boolean {
   const s = String(status || "").toUpperCase();
   return s !== "RESOLVED" && s !== "DISMISSED" && s !== "ADDRESSED" && s !== "CLOSED";
@@ -3404,7 +3404,7 @@ function RecentIncidentsCard({
               </div>
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 {t("dashboard.incidents.all_clear") ||
-                  "No open incidents — all clear."}
+                  "No open incidents - all clear."}
               </p>
             </div>
           ) : (
@@ -3506,7 +3506,7 @@ function RecentIncidentsCard({
  *
  * Miya pre-classifies every incoming task or staff request into a
  * category (HR, FINANCE, MAINTENANCE, MEETING, …) on ingest, so the
- * widgets are pure indexed reads — no LLM round-trip on the dashboard
+ * widgets are pure indexed reads - no LLM round-trip on the dashboard
  * polling path.
  * ---------------------------------------------------------------------*/
 
@@ -3514,7 +3514,7 @@ type CategoryWidgetTone =
   // Each tone gives us coordinated icon-bg / accent / link colors so all
   // cards share the same shape and only the hue differs. Keeps the
   // dashboard visually calm even with five list-style cards stacked.
-  // ``slate`` is reserved for the catch-all miscellaneous lane — neutral
+  // ``slate`` is reserved for the catch-all miscellaneous lane - neutral
   // so it doesn't compete with the named categories visually.
   | "rose"
   | "violet"
@@ -3565,7 +3565,7 @@ type CategoryTasksFilter = "open" | "in_progress" | "done";
 // MIME-style drag payload type so we can roundtrip a row's identity
 // across HTML5 ``DataTransfer``. We deliberately use a custom MIME so
 // other native drops (text, URLs, files dragged from the OS) don't
-// accidentally trigger our drop-handler — Chrome / Safari only fire
+// accidentally trigger our drop-handler - Chrome / Safari only fire
 // ``dragenter`` / ``drop`` on a target that has a matching MIME or
 // when ``preventDefault`` is called on dragover.
 const ROW_DRAG_MIME = "application/x-mizan-dashboard-row";
@@ -3595,7 +3595,7 @@ interface RowDragPayload {
 // surface a clear "drop here" affordance *before* the user hovers.
 //
 // This is a render-time concern (styling), never a source of truth for the
-// drop operation itself — the actual payload still rides on DataTransfer
+// drop operation itself - the actual payload still rides on DataTransfer
 // so OS-level cross-window drags remain possible.
 interface DragSessionState {
   active: boolean;
@@ -3675,7 +3675,7 @@ function canAcceptBucketDrop(
         ok: false,
         message:
           t("dashboard.category_tasks.bucket_move_staff_to_custom_hint") ||
-          "Staff requests move between category widgets only — not custom tiles.",
+          "Staff requests move between category widgets only - not custom tiles.",
       };
     }
     if (kind === "scheduling") {
@@ -3879,7 +3879,7 @@ function bindTaskRowDragHandlers(opts: {
 // a branded preview of the row instead of a full-width opaque clone of the
 // <li>. The element is appended to the body, handed to ``setDragImage``,
 // then removed on the next tick (the browser has already snapshotted it
-// at that point — GIF-like, the snapshot doesn't track DOM changes).
+// at that point - GIF-like, the snapshot doesn't track DOM changes).
 function buildDragImage(title: string): HTMLElement {
   const chip = document.createElement("div");
   chip.textContent = title;
@@ -3934,7 +3934,7 @@ function buildInboxRowDetailHref(opts: { lane?: string; priority?: string }) {
       "dashboard";
 
     // Miya / dashboard.Task rows (Operations, Tasks & Demands, custom tiles)
-    // live outside the staff-request inbox — open the task detail pane directly.
+    // live outside the staff-request inbox - open the task detail pane directly.
     if (kind === "dashboard" || kind === "scheduling") {
       return tasksDemandsDetailHref({ ...item, kind });
     }
@@ -3956,7 +3956,7 @@ function buildInboxRowDetailHref(opts: { lane?: string; priority?: string }) {
       return `/dashboard/staff-requests/${item.id}?kind=invoice`;
     }
 
-    // Legacy payloads without ``kind`` — still try the dashboard detail route.
+    // Legacy payloads without ``kind`` - still try the dashboard detail route.
     return tasksDemandsDetailHref({ ...item, kind: "dashboard" });
   };
 }
@@ -4009,7 +4009,7 @@ function CategoryTasksCard({
   const [justReceivedDrop, setJustReceivedDrop] = useState(false);
   // Global drag session (sibling-aware): tells this card whether *any*
   // drag is in progress and which bucket it came from. Used to light up
-  // every valid drop target at once — not just the one under the cursor.
+  // every valid drop target at once - not just the one under the cursor.
   const dragSession = useDragSession();
   const isValidDropTarget =
     dragSession.active && dragSession.sourceTarget !== bucket;
@@ -4025,7 +4025,7 @@ function CategoryTasksCard({
   >({
     queryKey,
     queryFn: () => api.getDashboardCategoryTasks(bucket, 5),
-    // Match the existing tasks_demands cadence — dashboards cluster
+    // Match the existing tasks_demands cadence - dashboards cluster
     // multiple of these widgets, so we keep them in sync.
     refetchInterval: 60_000,
     staleTime: 30_000,
@@ -4034,7 +4034,7 @@ function CategoryTasksCard({
     refetchOnMount: "always",
   });
 
-  // Inline status flip — every row in the widget can be marked
+  // Inline status flip - every row in the widget can be marked
   // pending / in progress / done / cancelled (or paid / voided for an
   // invoice) directly from the card so the manager doesn't have to
   // open the inbox detail page just to close a ticket. The unified
@@ -4051,7 +4051,7 @@ function CategoryTasksCard({
     onSuccess: () => {
       // Bust the bucket query and the global tasks-demands feed so
       // every widget that surfaces this row picks up the new status
-      // on the next render — no stale "Pending" pill.
+      // on the next render - no stale "Pending" pill.
       qc.invalidateQueries({ queryKey });
       qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
       qc.invalidateQueries({ queryKey: ["dashboard", "summary"] });
@@ -4080,7 +4080,7 @@ function CategoryTasksCard({
   // Drag-and-drop "move row to this bucket" mutation. Triggered when
   // a row from a *different* widget is dropped here. We invalidate
   // every category bucket query (not just source + target) because
-  // a category move can ripple — e.g. an URGENT bump leaves the row
+  // a category move can ripple - e.g. an URGENT bump leaves the row
   // in its original category widget too, so every card needs to
   // refresh its "urgent" count.
   const bucketMutation = useMutation({
@@ -4095,7 +4095,7 @@ function CategoryTasksCard({
     }) => api.updateDashboardTaskBucket(id, bucket, column),
     onSuccess: (_data, variables) => {
       invalidateWidgetTaskQueries(qc);
-      // Staff Inbox lists *all* categories — a bucket move from any
+      // Staff Inbox lists *all* categories - a bucket move from any
       // widget (including from the inbox itself) should refresh the
       // inbox preview so the row's category pill updates and a row
       // moved out of the inbox via DnD doesn't linger in the UI.
@@ -4104,7 +4104,7 @@ function CategoryTasksCard({
           Array.isArray(q.queryKey) &&
           q.queryKey[0] === "staff-requests-inbox-widget",
       });
-      // Confirmation toast — the row's title is in the payload so we
+      // Confirmation toast - the row's title is in the payload so we
       // can render something specific ("Moved 'Pay butchers invoice'
       // to Finance") rather than a generic "Saved".
       toast.success(
@@ -4120,7 +4120,7 @@ function CategoryTasksCard({
     },
     onError: (err: unknown) => {
       // The backend returns user-readable messages for the rejection
-      // cases (invoice can't move, custom-category task, etc.) — we
+      // cases (invoice can't move, custom-category task, etc.) - we
       // surface those verbatim so the manager understands why.
       const msg =
         err instanceof Error
@@ -4165,11 +4165,11 @@ function CategoryTasksCard({
   const onDragOverRow = React.useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
       // ``preventDefault`` is required to make this element a valid
-      // drop target — without it, ``drop`` never fires.
+      // drop target - without it, ``drop`` never fires.
       const types = e.dataTransfer.types;
       if (!types || !Array.from(types).includes(ROW_DRAG_MIME)) return;
       // Self-drop guard: if the drag originated in THIS bucket, do NOT
-      // render the "drop here" affordance — releasing here would be a
+      // render the "drop here" affordance - releasing here would be a
       // no-op and the ring would lie about the outcome. We still call
       // preventDefault so the drop event fires and the handler can
       // silently no-op (vs the browser bouncing back to origin), but
@@ -4238,21 +4238,21 @@ function CategoryTasksCard({
       className={cn(
         cardBase,
         "flex flex-col transition-all relative",
-        // Tier 1 — global "a drag is in progress and you can drop me
+        // Tier 1 - global "a drag is in progress and you can drop me
         // here" affordance. Shows as soon as any row starts dragging
         // from a different bucket, before the user hovers this card.
         // A soft dashed emerald border signals receptivity without
         // yelling. We don't apply this to the source bucket (that
-        // would be misleading — dropping back yourself is a no-op).
+        // would be misleading - dropping back yourself is a no-op).
         isValidDropTarget &&
           !isDropTarget &&
           "ring-2 ring-dashed ring-emerald-300/70 dark:ring-emerald-500/50 ring-offset-1 ring-offset-background",
-        // Tier 2 — cursor is currently over this card, so it's the
+        // Tier 2 - cursor is currently over this card, so it's the
         // row's live destination. Solid ring + lift so the manager
         // knows releasing here commits the move.
         isDropTarget &&
           "ring-2 ring-primary/70 ring-offset-2 ring-offset-background shadow-xl scale-[1.015] bg-emerald-50/40 dark:bg-emerald-950/20",
-        // Source-bucket affordance — a gentle dim so the manager sees
+        // Source-bucket affordance - a gentle dim so the manager sees
         // "this is where the row is leaving from". Deliberately not a
         // drop-target ring.
         isSourceBucket && "opacity-70",
@@ -4276,7 +4276,7 @@ function CategoryTasksCard({
           onDragLeave: onDragLeaveRow,
         }}
       />
-      {/* "Drop to move to <Category>" pill — shown only on the live
+      {/* "Drop to move to <Category>" pill - shown only on the live
           drop-target card. Gives the manager a direct-manipulation
           confirmation of what will happen on release so they don't
           have to guess based on which card has the stronger ring. */}
@@ -4341,7 +4341,7 @@ function CategoryTasksCard({
         className="flex min-h-0 flex-1 flex-col pt-1 pb-3 px-5"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Status strip — at-a-glance counts so the manager doesn't have
+        {/* Status strip - at-a-glance counts so the manager doesn't have
             to skim every row to spot trouble. Rendered only when there's
             something to call out (overdue / waiting / escalated / new);
             otherwise the area collapses and the list gets the full
@@ -4421,7 +4421,7 @@ function CategoryTasksCard({
           )}
         </div>
 
-        {/* Footer "More v" — centered chevron-down that mirrors the
+        {/* Footer "More v" - centered chevron-down that mirrors the
             mockup. Clicking it (or anywhere on the card) deep-links to
             the full list view for this bucket. */}
         <button
@@ -4448,7 +4448,7 @@ function CategoryTasksCard({
  * Compact status strip rendered just under the card header. Surfaces the
  * granular sub-counts the API returns (overdue / waiting / escalated /
  * new) plus the totals for the currently-active filter so the manager
- * can size up the bucket in one glance — no need to scroll the list to
+ * can size up the bucket in one glance - no need to scroll the list to
  * see "are there bills that already slipped?" or "how many escalations
  * landed today?". The whole strip collapses to nothing when there are
  * no rows to call out, keeping the card visually quiet on a calm day.
@@ -4463,7 +4463,7 @@ function CategoryStatusStrip({
   t: (key: string) => string;
 }) {
   // ``counts`` may come from older deployments without the granular
-  // breakdown — coerce missing fields to 0 so we never render NaN.
+  // breakdown - coerce missing fields to 0 so we never render NaN.
   const overdue = counts.overdue ?? 0;
   const waitingOn = counts.waiting_on ?? 0;
   const escalated = counts.escalated ?? 0;
@@ -4477,7 +4477,7 @@ function CategoryStatusStrip({
 
   const hasBreakdown = overdue + waitingOn + escalated + fresh > 0;
 
-  // Nothing useful to show — return null so the card's vertical space
+  // Nothing useful to show - return null so the card's vertical space
   // collapses cleanly to the list.
   if (total === 0 && !hasBreakdown) return null;
 
@@ -4490,7 +4490,7 @@ function CategoryStatusStrip({
 
   return (
     <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[10.5px]">
-      {/* Total chip — neutral so the colored signal chips (overdue / new)
+      {/* Total chip - neutral so the colored signal chips (overdue / new)
           pop against it. */}
       <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 dark:bg-slate-800/70 dark:text-slate-200">
         <span className="tabular-nums">{total}</span>
@@ -4609,7 +4609,7 @@ function CategoryFilterChip({
  *   • A meta strip: assignee chip · "•" · age label ("12m ago", "yesterday", …)
  *   • A small URGENT chip when ``priority === "URGENT"`` AND the row's pill
  *     isn't already red (so we don't double-stamp OVERDUE rows)
- *   • The granular status pill on the right — ALWAYS rendered, even when
+ *   • The granular status pill on the right - ALWAYS rendered, even when
  *     the backend's ``pill_status`` field is missing (we fall back to the
  *     coarse ``status`` so older responses still get a status indicator).
  */
@@ -4638,7 +4638,7 @@ function CategoryTaskRow({
   const assigneeLabel = item.assignee?.name?.trim()
     ? item.assignee.name.split(" ")[0]
     : t("dashboard.category_tasks.unassigned");
-  const initials = item.assignee?.initials || "—";
+  const initials = item.assignee?.initials || "-";
   const showUrgentBadge =
     item.priority === "URGENT" &&
     item.pill_status !== "OVERDUE" &&
@@ -4665,7 +4665,7 @@ function CategoryTaskRow({
   // Drag-and-drop wiring. We disable drag for terminal rows (already
   // done / cancelled) so a closed ticket can't be silently revived
   // in another bucket, and for invoices because the BE rejects any
-  // cross-bucket move on those — letting the manager drag them would
+  // cross-bucket move on those - letting the manager drag them would
   // just produce an error toast on every drop.
   const draggable = !isTerminal && !isInvoice && !!sourceTarget;
   const onRowDragStart = React.useCallback(
@@ -4688,7 +4688,7 @@ function CategoryTaskRow({
         // Offset (14, 14) puts the chip just below-right of the
         // cursor so it doesn't cover the cursor hotspot.
         e.dataTransfer.setDragImage(ghost, 14, 14);
-        // setDragImage snapshots the element at this instant —
+        // setDragImage snapshots the element at this instant -
         // remove the DOM node on the next tick to keep the page
         // clean.
         window.setTimeout(() => ghost.remove(), 0);
@@ -4710,7 +4710,7 @@ function CategoryTaskRow({
     [draggable, sourceTarget, item.id, item.kind, item.title, onDragStateChange],
   );
   const onRowDragEnd = React.useCallback(() => {
-    // Always clear the global session on drag end — even on a failed
+    // Always clear the global session on drag end - even on a failed
     // drop (user released outside any card) so sibling affordances
     // collapse back to idle state.
     _publishDragSession(_emptyDragSession);
@@ -4726,7 +4726,7 @@ function CategoryTaskRow({
         // hover so the manager realises the rows are interactive
         // even before they grab one.
         draggable && "cursor-grab active:cursor-grabbing",
-        // Source-row ghost while dragging — a stronger fade plus a
+        // Source-row ghost while dragging - a stronger fade plus a
         // dashed emerald outline and a "Moving…" watermark via
         // ``italic``. Makes it unambiguous that this row is the one
         // being carried, so the manager isn't confused by the chip
@@ -4839,7 +4839,7 @@ function CategoryTaskRow({
         </button>
       ) : null}
 
-      {/* Quick-complete button — ALWAYS visible for non-terminal rows
+      {/* Quick-complete button - ALWAYS visible for non-terminal rows
           (not hover-only) so the affordance is discoverable. This was
           the user's primary complaint: "no clear action or button to
           update the status". One tap → COMPLETED, with a spinner while
@@ -4870,7 +4870,7 @@ function CategoryTaskRow({
         </button>
       ) : null}
 
-      {/* Status pill — clickable when editable so the manager has a
+      {/* Status pill - clickable when editable so the manager has a
           second discoverable entry point ("the colored chip is the
           status; tap it to change") on top of the explicit menu. */}
       {canEdit ? (
@@ -4895,7 +4895,7 @@ function CategoryTaskRow({
           <DropdownMenuContent align="end" onClick={stop} className="w-48">
             {isInvoice ? (
               <>
-                {/* Invoices have their own state machine — only mark
+                {/* Invoices have their own state machine - only mark
                     paid / mark voided are meaningful. PENDING /
                     IN_PROGRESS would be misleading verbs for a bill. */}
                 <DropdownMenuItem
@@ -4948,7 +4948,7 @@ function CategoryTaskRow({
           </DropdownMenuContent>
         </DropdownMenu>
       ) : (
-        // Read-only pill for terminal rows — same shape, no chevron.
+        // Read-only pill for terminal rows - same shape, no chevron.
         <span
           className={cn(
             "shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
@@ -5087,7 +5087,7 @@ function MiyaCustomDashboardWidgetCard({
       ) as HTMLButtonElement | null | undefined;
       btn?.click();
     } catch {
-      /* Miya widget not mounted — silently no-op */
+      /* Miya widget not mounted - silently no-op */
     }
   };
 
@@ -5179,7 +5179,7 @@ function CustomWidgetTasksCard({
       ) as HTMLButtonElement | null | undefined;
       btn?.click();
     } catch {
-      /* Miya widget not mounted — silently no-op */
+      /* Miya widget not mounted - silently no-op */
     }
   };
 
@@ -5617,7 +5617,7 @@ function CustomWidgetTasksCard({
 }
 
 // --------------------------------------------------------------------------
-// Staff Messages — admin-to-staff WhatsApp messaging from the dashboard.
+// Staff Messages - admin-to-staff WhatsApp messaging from the dashboard.
 //
 // Two surfaces in one card:
 //
@@ -5700,7 +5700,7 @@ function StaffMessagesCard({
   const recentQuery = useQuery({
     queryKey: ["dashboard", "staff-messages", "recent", STAFF_MESSAGES_RECENT_LIMIT] as const,
     queryFn: () => api.getStaffMessagesRecent(STAFF_MESSAGES_RECENT_LIMIT),
-    // 30 s poll mirrors the other operational widgets — also gives
+    // 30 s poll mirrors the other operational widgets - also gives
     // the WhatsApp webhook a quick window to flip ✓ → ✓✓ → blue.
     refetchInterval: 30_000,
     staleTime: 15_000,
@@ -6548,7 +6548,7 @@ export function DashboardWidgetById({
     const aliasedBuiltin = resolveCustomWidgetAlias(def);
     if (aliasedBuiltin) {
       // Re-enter with the built-in id so the rest of the switch handles
-      // rendering — keeps the data-binding path identical to a
+      // rendering - keeps the data-binding path identical to a
       // user-added built-in widget.
       return <DashboardWidgetById id={aliasedBuiltin} props={props} />;
     }
@@ -6733,7 +6733,7 @@ export function DashboardWidgetById({
                           )}
                         >
                           <div className="flex items-start gap-3">
-                            {/* Rank pill — makes it obvious the list is
+                            {/* Rank pill - makes it obvious the list is
                                 priority-ordered. 1 is the single most
                                 urgent issue right now. */}
                             <div
@@ -6916,12 +6916,12 @@ export function DashboardWidgetById({
       );
 
     case "operations": {
-      // Operations widget — purely operational productivity signals.
+      // Operations widget - purely operational productivity signals.
       // Replaces the former review-based stats (negative reviews /
       // average rating) that were deprecated when the Shift Reviews
       // feature was removed. The three rows below pull from the
       // `analytics` and `operations.next_delivery` payloads the
-      // summary endpoint already emits — zero new backend work.
+      // summary endpoint already emits - zero new backend work.
       const az = summary?.analytics as Record<string, number> | undefined;
       const openTasks = az?.tasks_open_today ?? 0;
       const urgentOpen = az?.urgent_tasks_open ?? 0;

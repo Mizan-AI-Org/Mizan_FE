@@ -431,7 +431,7 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                                         <div className="mt-1 space-y-0.5">
                                             {dayShifts.slice(0, 3).map((s) => {
                                                 const staff = staffMembers.find((m) => m.id === s.staffId);
-                                                const name = staff ? `${staff.first_name || ""} ${staff.last_name || ""}`.trim() || "—" : "—";
+                                                const name = staff ? `${staff.first_name || ""} ${staff.last_name || ""}`.trim() || "-" : "-";
                                                 const timeStr = `${(s.start || "").slice(0, 5)}-${(s.end || "").slice(0, 5)}`;
                                                 return (
                                                     <div key={s.id} className="text-[10px] truncate rounded px-1 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300" title={`${name} ${timeStr}`}>

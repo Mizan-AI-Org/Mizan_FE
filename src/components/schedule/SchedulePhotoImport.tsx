@@ -381,7 +381,7 @@ const SchedulePhotoImport: React.FC<SchedulePhotoImportProps> = ({
                     <tbody>
                       {parsed.shifts.map((s, i) => (
                         <tr key={i} className="border-t dark:border-slate-700">
-                          <td className="p-2">{s.employee_name || "—"}</td>
+                          <td className="p-2">{s.employee_name || "-"}</td>
                           <td className="p-2">{s.role}</td>
                           <td className="p-2">{DAY_NAMES[s.day_of_week] ?? s.day_of_week}</td>
                           <td className="p-2">{s.start_time}</td>

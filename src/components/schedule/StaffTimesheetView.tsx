@@ -263,8 +263,8 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
                   </td>
                 </tr>
                 {staff.map((member) => {
-                  const name = `${member.first_name || ""} ${member.last_name || ""}`.trim() || "—";
-                  const initials = name !== "—" ? name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() : "—";
+                  const name = `${member.first_name || ""} ${member.last_name || ""}`.trim() || "-";
+                  const initials = name !== "-" ? name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() : "-";
                   return (
                     <tr key={member.id} className="border-b border-gray-100 dark:border-slate-800 hover:bg-gray-50/50 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="py-2 px-4 border-r border-gray-100 dark:border-slate-800">
@@ -290,7 +290,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
                           >
                             <div className="space-y-1">
                               {dayShifts.length === 0 ? (
-                                <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
+                                <span className="text-xs text-gray-300 dark:text-gray-600">-</span>
                               ) : (
                                 dayShifts.map((shift) => {
                                   const roleInitial = (member.role || "S").charAt(0).toUpperCase();

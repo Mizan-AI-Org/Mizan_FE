@@ -159,7 +159,7 @@ const SafetyDashboard: React.FC = () => {
                   <>
                     <div className="flex justify-between items-center">
                       <span className="text-xs md:text-sm">{t("safety.dashboard.compliance.sops")}</span>
-                      <span className="font-medium text-xs md:text-sm text-green-600">{sopLoading ? '—' : `${sopPct}%`}</span>
+                      <span className="font-medium text-xs md:text-sm text-green-600">{sopLoading ? '-' : `${sopPct}%`}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div className="bg-green-600 h-2 rounded-full" style={{ width: `${sopLoading ? 0 : sopPct}%` }}></div>
@@ -177,7 +177,7 @@ const SafetyDashboard: React.FC = () => {
                   <>
                     <div className="flex justify-between items-center mt-3">
                       <span className="text-xs md:text-sm">{t("safety.dashboard.compliance.checklists")}</span>
-                      <span className="font-medium text-xs md:text-sm text-amber-600">{checklistLoading ? '—' : `${pct}%`}</span>
+                      <span className="font-medium text-xs md:text-sm text-amber-600">{checklistLoading ? '-' : `${pct}%`}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div className="bg-amber-500 h-2 rounded-full" style={{ width: `${pct}%` }}></div>
@@ -197,7 +197,7 @@ const SafetyDashboard: React.FC = () => {
                   <>
                     <div className="flex justify-between items-center mt-3">
                       <span className="text-xs md:text-sm">{t("safety.dashboard.compliance.tasks")}</span>
-                      <span className="font-medium text-xs md:text-sm text-blue-600">{loading ? '—' : `${taskPct}%`}</span>
+                      <span className="font-medium text-xs md:text-sm text-blue-600">{loading ? '-' : `${taskPct}%`}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${loading ? 0 : taskPct}%` }}></div>
@@ -238,7 +238,7 @@ const SafetyDashboard: React.FC = () => {
                 const descClass = sev === 'CRITICAL' ? 'text-red-700' : sev === 'HIGH' ? 'text-orange-700' : sev === 'MEDIUM' ? 'text-amber-700' : 'text-gray-700';
                 const timeClass = sev === 'CRITICAL' ? 'text-red-600' : sev === 'HIGH' ? 'text-orange-600' : sev === 'MEDIUM' ? 'text-amber-600' : 'text-gray-600';
                 const snippetBase = String(c.description || '').slice(0, 100);
-                const snippet = `${sev} • ${new Date(c.created_at).toLocaleString(language)} — ${snippetBase}${(c.description || '').length > 100 ? '…' : ''}`;
+                const snippet = `${sev} • ${new Date(c.created_at).toLocaleString(language)} - ${snippetBase}${(c.description || '').length > 100 ? '…' : ''}`;
                 return (
                   <button key={c.id} className={`p-2 md:p-3 rounded-md w-full text-left ${containerClass}`} onClick={() => setSelectedIncident(c.id)}>
                     <div className={`font-medium text-xs md:text-sm ${titleClass}`}>{c.title}</div>
@@ -343,7 +343,7 @@ const SafetyDashboard: React.FC = () => {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <div className="font-medium text-muted-foreground mb-1">{t("safety.dashboard.incident_details.type")}</div>
-                  <div>{incidentDetail.incident_type || '—'}</div>
+                  <div>{incidentDetail.incident_type || '-'}</div>
                 </div>
                 <div>
                   <div className="font-medium text-muted-foreground mb-1">{t("safety.dashboard.incident_details.title_label")}</div>
@@ -351,7 +351,7 @@ const SafetyDashboard: React.FC = () => {
                 </div>
                 <div>
                   <div className="font-medium text-muted-foreground mb-1">{t("safety.dashboard.incident_details.location")}</div>
-                  <div>{incidentDetail.location || '—'}</div>
+                  <div>{incidentDetail.location || '-'}</div>
                 </div>
                 <div>
                   <div className="font-medium text-muted-foreground mb-1">{t("safety.dashboard.incident_details.severity")}</div>
@@ -371,7 +371,7 @@ const SafetyDashboard: React.FC = () => {
                 </div>
                 <div>
                   <div className="font-medium text-muted-foreground mb-1">{t("safety.dashboard.incident_details.occurred_at")}</div>
-                  <div>{incidentDetail.occurred_at ? new Date(incidentDetail.occurred_at).toLocaleString(language) : '—'}</div>
+                  <div>{incidentDetail.occurred_at ? new Date(incidentDetail.occurred_at).toLocaleString(language) : '-'}</div>
                 </div>
                 {incidentDetail.assigned_to_details && (
                   <div>

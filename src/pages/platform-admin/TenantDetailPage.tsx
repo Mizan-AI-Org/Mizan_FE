@@ -67,8 +67,8 @@ export default function TenantDetailPage() {
       setError(null);
       setOkMsg(
         deactivated
-          ? "Tenant deactivated — all user accounts on this tenant are now inactive."
-          : "Tenant reactivated — user accounts restored to active.",
+          ? "Tenant deactivated - all user accounts on this tenant are now inactive."
+          : "Tenant reactivated - user accounts restored to active.",
       );
       qc.invalidateQueries({ queryKey: ["platform-tenant", id] });
       qc.invalidateQueries({ queryKey: ["platform-tenants"] });
@@ -89,7 +89,7 @@ export default function TenantDetailPage() {
     onSuccess: async (_res, body) => {
       setError(null);
       if ("plan" in body) {
-        setOkMsg("Plan updated — effective tier refreshed.");
+        setOkMsg("Plan updated - effective tier refreshed.");
         setPendingPlanId(null);
         setPlanReason("");
       }
@@ -249,10 +249,10 @@ export default function TenantDetailPage() {
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Info label="Country" value={data.country_code || "—"} />
-        <Info label="Currency" value={data.currency || "—"} />
-        <Info label="Timezone" value={data.timezone || "—"} />
-        <Info label="POS" value={data.pos_provider || "—"} />
+        <Info label="Country" value={data.country_code || "-"} />
+        <Info label="Currency" value={data.currency || "-"} />
+        <Info label="Timezone" value={data.timezone || "-"} />
+        <Info label="POS" value={data.pos_provider || "-"} />
         <Info label="Staff count" value={String(data.staff_count)} />
         <Info
           label="Onboarding"
@@ -263,11 +263,11 @@ export default function TenantDetailPage() {
           value={
             data.owner
               ? `${data.owner.first_name} ${data.owner.last_name} (${data.owner.email})`
-              : "—"
+              : "-"
           }
         />
         <Info label="Created" value={new Date(data.created_at).toLocaleString()} />
-        <Info label="Address" value={data.address || "—"} />
+        <Info label="Address" value={data.address || "-"} />
       </div>
 
       <section className={`${opsCard} p-5 space-y-4`}>
@@ -276,7 +276,7 @@ export default function TenantDetailPage() {
             <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Billing</h3>
             <p className={`mt-0.5 text-xs ${opsMuted}`}>
               Change plan/tier with a required reason. Status is set by billing
-              activity — not editable here.
+              activity - not editable here.
             </p>
           </div>
           <Link to="/admin/billing" className={`text-xs ${opsLink}`}>
@@ -291,7 +291,7 @@ export default function TenantDetailPage() {
                 <p className={`mt-0.5 text-xs ${opsMuted}`}>
                   This tenant is on the Starter trial
                   {sub.trial_ends_at
-                    ? ` — ends ${new Date(String(sub.trial_ends_at)).toLocaleDateString()}.`
+                    ? ` - ends ${new Date(String(sub.trial_ends_at)).toLocaleDateString()}.`
                     : "."}{" "}
                   They see the trial banner under Settings → Billing.
                 </p>
@@ -327,7 +327,7 @@ export default function TenantDetailPage() {
               </label>
               <Info
                 label="Status"
-                value={String(sub.status || "—")}
+                value={String(sub.status || "-")}
               />
               <Info
                 label="Effective tier"
@@ -338,16 +338,16 @@ export default function TenantDetailPage() {
                 value={
                   sub.trial_ends_at
                     ? new Date(String(sub.trial_ends_at)).toLocaleDateString()
-                    : "—"
+                    : "-"
                 }
               />
-              <Info label="Stripe customer" value={String(sub.stripe_customer_id || "—")} />
+              <Info label="Stripe customer" value={String(sub.stripe_customer_id || "-")} />
               <Info
                 label="Period end"
                 value={
                   sub.current_period_end
                     ? new Date(String(sub.current_period_end)).toLocaleDateString()
-                    : "—"
+                    : "-"
                 }
               />
             </div>
@@ -361,7 +361,7 @@ export default function TenantDetailPage() {
                       (p) => String(p.id) === pendingPlanId,
                     );
                     const from = sub.plan || "Starter";
-                    const to = selected ? `${selected.name} (${selected.tier})` : "—";
+                    const to = selected ? `${selected.name} (${selected.tier})` : "-";
                     return (
                       <span className={`block mt-1 font-normal ${opsMuted}`}>
                         {from} → {to}
@@ -376,7 +376,7 @@ export default function TenantDetailPage() {
                   <textarea
                     className={`${opsInput} w-full min-h-[88px] py-2`}
                     value={planReason}
-                    placeholder="e.g. Comp upgrade for pilot partner — approved by ops on 2026-07-17"
+                    placeholder="e.g. Comp upgrade for pilot partner - approved by ops on 2026-07-17"
                     onChange={(e) => setPlanReason(e.target.value)}
                   />
                   <span
@@ -537,7 +537,7 @@ export default function TenantDetailPage() {
                       {new Date(row.timestamp).toLocaleString()}
                     </td>
                     <td className={`${opsTd} font-mono text-xs`}>{row.action_type}</td>
-                    <td className={opsTd}>{row.user_email || "—"}</td>
+                    <td className={opsTd}>{row.user_email || "-"}</td>
                     <td className={`${opsTd} max-w-md truncate`}>{row.description}</td>
                   </tr>
                 ))}

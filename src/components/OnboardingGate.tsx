@@ -9,7 +9,7 @@ import { restaurantOnboardingComplete } from '@/lib/onboarding-gate';
  * Staff roles (CHEF, WAITER, CLEANER, …) and users whose tenant has already
  * finished setup pass through unchanged. Completion is determined solely from
  * ``restaurant_data.onboarding_completed_at`` (set by skip-all / complete /
- * finishing required steps) — never from a sticky browser-local flag.
+ * finishing required steps) - never from a sticky browser-local flag.
  */
 const OnboardingGate: React.FC<{ children: React.ReactNode }> = ({
     children,

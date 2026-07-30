@@ -85,7 +85,7 @@ export function buildTimesheetMatrix(
 }
 
 function cellText(shifts: Shift[]): string {
-  if (!shifts.length) return "—";
+  if (!shifts.length) return "-";
   return shifts.map((s) => timeRange(s.start, s.end)).join(", ");
 }
 
@@ -128,7 +128,7 @@ export async function exportTimesheetToPDF(
     rows.push([role, "", "", "", "", "", "", ""]);
     roleRowIndices.add(roleRowIndex);
     staff.forEach((member) => {
-      const name = `${member.first_name || ""} ${member.last_name || ""}`.trim() || "—";
+      const name = `${member.first_name || ""} ${member.last_name || ""}`.trim() || "-";
       const dayCells = weekDates.map((d) => {
         const dayShifts = (shiftsByStaffByDate[member.id] || {})[dateStr(d)] || [];
         return cellText(dayShifts);
@@ -175,7 +175,7 @@ export async function exportTimesheetToPDF(
       if (data.section === "head") {
         data.cell.styles.halign = data.column.index === 0 ? "left" : "center";
       }
-      if (data.section === "body" && data.column.index > 0 && data.cell.raw && String(data.cell.raw).trim() && String(data.cell.raw) !== "—") {
+      if (data.section === "body" && data.column.index > 0 && data.cell.raw && String(data.cell.raw).trim() && String(data.cell.raw) !== "-") {
         data.cell.styles.halign = "center";
       }
     },
@@ -206,7 +206,7 @@ export async function exportTimesheetToExcel(
   staffByRole.forEach(({ role, staff }) => {
     rows.push([role, "", "", "", "", "", "", ""]);
     staff.forEach((member) => {
-      const name = `${member.first_name || ""} ${member.last_name || ""}`.trim() || "—";
+      const name = `${member.first_name || ""} ${member.last_name || ""}`.trim() || "-";
       const dayCells = weekDates.map((d) => {
         const dayShifts = (shiftsByStaffByDate[member.id] || {})[dateStr(d)] || [];
         return cellText(dayShifts);

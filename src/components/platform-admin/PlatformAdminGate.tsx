@@ -13,7 +13,7 @@ export default function PlatformAdminGate() {
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
   const impersonating = typeof window !== "undefined" && isImpersonating();
 
-  // Support session uses a restaurant JWT — never wipe it; bounce back to the app.
+  // Support session uses a restaurant JWT - never wipe it; bounce back to the app.
   useEffect(() => {
     if (!impersonating) return;
     window.location.replace("/dashboard");

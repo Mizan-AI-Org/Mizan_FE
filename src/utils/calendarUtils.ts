@@ -166,7 +166,7 @@ export const calculateShiftPosition = (
   }
 };
 
-/** Same calendar day only — week grids place each day in its own column. */
+/** Same calendar day only - week grids place each day in its own column. */
 export const isSameShiftDay = (shift1: Shift, shift2: Shift): boolean => {
   if (shift1.date && shift2.date) {
     return shift1.date === shift2.date;
@@ -319,7 +319,7 @@ export const parseShiftToCalendar = (
     position.top = (startHour - config.startHour) * config.hourHeight;
     position.height = Math.max((durationHours * config.hourHeight), 20);
 
-    // Handle overlapping positioning — consistent with calculateShiftPosition.
+    // Handle overlapping positioning - consistent with calculateShiftPosition.
     if (allShifts && overlapsWith.length > 0) {
       const overlapGroup = getOverlapGroup(shift, allShifts, baseDate, timezone);
       const layout = layoutOverlapColumns(overlapGroup, shift.id);

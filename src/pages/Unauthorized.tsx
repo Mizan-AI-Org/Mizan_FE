@@ -22,7 +22,7 @@ const Unauthorized: React.FC = () => {
           <p className="text-sm text-muted-foreground text-center">
             Platform Admin (<code className="text-xs">/admin</code>) is only for
             dedicated Mizan operators. Restaurant SUPER_ADMIN or OWNER accounts
-            cannot access it — even if they have Django staff privileges. Ask a
+            cannot access it - even if they have Django staff privileges. Ask a
             platform superuser to add you under <strong>Operators</strong>.
           </p>
           <div className="flex gap-2 justify-center">

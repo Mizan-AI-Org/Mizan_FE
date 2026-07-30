@@ -39,12 +39,12 @@ export async function exportPrepListToPDF(
 
   const headers = ["Item", "Qty Needed", "Unit", "In Stock", "Short"];
   const rows = items.map((item) => {
-    const name = item.ingredient ?? item.menu_item ?? "—";
+    const name = item.ingredient ?? item.menu_item ?? "-";
     const qty = item.needed ?? item.forecast_portions ?? 0;
     const unit = item.unit ?? "portions";
-    const inStock = item.in_stock != null ? String(item.in_stock) : "—";
+    const inStock = item.in_stock != null ? String(item.in_stock) : "-";
     const gap = (item as { gap?: number }).gap;
-    const short = gap != null && gap > 0 ? String(gap) : "—";
+    const short = gap != null && gap > 0 ? String(gap) : "-";
     return [name, String(qty), unit, inStock, short];
   });
 
@@ -80,7 +80,7 @@ export async function exportPrepListToExcel(
 
   const headers = ["Item", "Qty Needed", "Unit", "In Stock", "Short"];
   const rows = items.map((item) => {
-    const name = item.ingredient ?? item.menu_item ?? "—";
+    const name = item.ingredient ?? item.menu_item ?? "-";
     const qty = item.needed ?? item.forecast_portions ?? 0;
     const unit = item.unit ?? "portions";
     const inStock = item.in_stock ?? "";

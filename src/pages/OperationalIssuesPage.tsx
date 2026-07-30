@@ -1,5 +1,5 @@
 /**
- * Operational Issues page — the full brain view.
+ * Operational Issues page - the full brain view.
  *
  * Fetches the dashboard summary (already cached to 55s on the backend)
  * and renders the complete list of operational insights ranked from
@@ -148,7 +148,7 @@ export default function OperationalIssuesPage() {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["dashboard-summary"],
     queryFn: () => api.getDashboardSummary(),
-    // Page is a "full list" surface — 60 s refresh keeps it lively
+    // Page is a "full list" surface - 60 s refresh keeps it lively
     // without hammering the same cache key the dashboard widgets
     // already hit.
     refetchInterval: 60_000,
@@ -160,7 +160,7 @@ export default function OperationalIssuesPage() {
       insights?: { items_all?: InsightItem[]; items?: InsightItem[] };
     } | undefined;
     // Fall back to `items` for older backends that haven't shipped
-    // `items_all` yet — keeps the page working during rolling deploys.
+    // `items_all` yet - keeps the page working during rolling deploys.
     return summary?.insights?.items_all ?? summary?.insights?.items ?? [];
   }, [data]);
 

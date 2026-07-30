@@ -194,24 +194,24 @@ export default function ReservationsPage() {
                   {rows.map((r) => (
                     <TableRow key={r.id || `${r.start_time}-${r.guest_name}`}>
                       <TableCell className="font-medium whitespace-nowrap">
-                        {r.start_time ? String(r.start_time) : "—"}
+                        {r.start_time ? String(r.start_time) : "-"}
                       </TableCell>
-                      <TableCell>{r.guest_name || "—"}</TableCell>
-                      <TableCell>{r.covers ?? "—"}</TableCell>
+                      <TableCell>{r.guest_name || "-"}</TableCell>
+                      <TableCell>{r.covers ?? "-"}</TableCell>
                       <TableCell>
                         {r.status ? (
                           <Badge variant="secondary" className="font-normal">
                             {String(r.status)}
                           </Badge>
                         ) : (
-                          "—"
+                          "-"
                         )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
-                        {[r.phone, r.email].filter(Boolean).join(" · ") || "—"}
+                        {[r.phone, r.email].filter(Boolean).join(" · ") || "-"}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-[220px] truncate">
-                        {r.notes || "—"}
+                        {r.notes || "-"}
                       </TableCell>
                     </TableRow>
                   ))}

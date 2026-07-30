@@ -61,7 +61,7 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
     }, [shifts, staffMembers, searchTerm]);
 
     // One card per shift, not per member. Multi-staff (team) shifts render once
-    // with every attendee as an avatar chip — matches the "Assign Staff (N selected)"
+    // with every attendee as an avatar chip - matches the "Assign Staff (N selected)"
     // modal UX. Single-staff legacy shifts still show a primary avatar + name.
     const groupedShifts = useMemo(() => {
         const groups: { [key: string]: Shift[] } = {};
@@ -207,7 +207,7 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                                                                     {(shift.title || "").trim()
                                                                         || (isTeam
                                                                             ? (t("schedule.team_shift_n_staff", { count: members.length })
-                                                                                || `Team shift — ${members.length} staff`)
+                                                                                || `Team shift - ${members.length} staff`)
                                                                             : `${displayStaff?.user?.first_name || displayStaff?.first_name || "Unknown"} ${displayStaff?.user?.last_name || displayStaff?.last_name || ""}`.trim())}
                                                                 </span>
                                                                 {roleLabel && (

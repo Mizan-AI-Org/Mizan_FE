@@ -5,7 +5,7 @@
  * notifications, manager-side announcements, scheduled-shift attachments,
  * task evidence) rendered them as a plain bulleted list of blue underlined
  * links. Managers reported "Attached files are only shown as links, which
- * reduces usability" — they want to see what they're about to open without
+ * reduces usability" - they want to see what they're about to open without
  * having to click through to a new tab first.
  *
  * This component classifies an attachment by its MIME type (or filename
@@ -19,7 +19,7 @@
  *                and ALWAYS a primary "Open" affordance plus a secondary
  *                Download icon button. The whole card is keyboard-friendly.
  *
- * Use `AttachmentList` when you have an array — it splits images into a
+ * Use `AttachmentList` when you have an array - it splits images into a
  * responsive gallery grid and stacks the rest as cards, so a mixed list
  * (3 photos + 1 PDF) reads cleanly without bespoke layout glue at the
  * call site.
@@ -41,7 +41,7 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * Loose attachment shape — every back-end serializer that surfaces a file
+ * Loose attachment shape - every back-end serializer that surfaces a file
  * uses a slightly different field name combination (``url`` /
  * ``original_name`` / ``filename`` / ``content_type`` / ``mime_type`` /
  * ``size``). Accept all of them as optional and resolve at render time so
@@ -83,7 +83,7 @@ function resolveMime(a: AttachmentLike): string {
 }
 
 function extensionOf(name: string): string {
-  // Strip URL query/hash before extracting the extension — uploads served
+  // Strip URL query/hash before extracting the extension - uploads served
   // from S3 etc. often append signed-URL params after the filename.
   const clean = name.split(/[?#]/)[0];
   const m = clean.toLowerCase().match(/\.([a-z0-9]+)$/);
@@ -178,7 +178,7 @@ function kindLabel(kind: AttachmentKind): string {
 
 function tonesForKind(kind: AttachmentKind): string {
   // Coordinated icon-bg / icon-text pair so each file type reads as its
-  // own visual lane (red PDFs, green sheets, sky docs, etc.) — same
+  // own visual lane (red PDFs, green sheets, sky docs, etc.) - same
   // language as the dashboard category widgets for consistency.
   switch (kind) {
     case "pdf":
@@ -208,7 +208,7 @@ function IconForKind({
   className?: string;
 }) {
   // Fall back to a generic "file" icon for anything we don't have a
-  // dedicated lucide glyph for — we want a visual signal even for
+  // dedicated lucide glyph for - we want a visual signal even for
   // unknown types, never an empty box.
   switch (kind) {
     case "pdf":
@@ -230,7 +230,7 @@ function IconForKind({
 }
 
 /**
- * Lightweight image lightbox. We don't pull in a 3rd-party lib — the only
+ * Lightweight image lightbox. We don't pull in a 3rd-party lib - the only
  * features the app actually needs are "fill the screen" + "click outside
  * or hit Escape to close" + "tap the image without it closing".
  */
@@ -281,9 +281,9 @@ function ImageLightbox({
 }
 
 /**
- * Generic file card — kind-tinted icon, filename, kind badge + size, and
+ * Generic file card - kind-tinted icon, filename, kind badge + size, and
  * an Open + Download button pair. Used for everything that isn't an
- * image, audio file, or video — i.e. the long tail of PDFs, docs,
+ * image, audio file, or video - i.e. the long tail of PDFs, docs,
  * sheets, archives and unknown blobs.
  */
 function FileCard({
@@ -388,7 +388,7 @@ export function AttachmentPreview({
             loading="lazy"
             className="h-32 w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
           />
-          {/* Overlay caption — subtle gradient + truncated filename + size */}
+          {/* Overlay caption - subtle gradient + truncated filename + size */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 text-[11px] font-medium text-white">
             <span className="truncate" title={name}>
               {name}
@@ -486,7 +486,7 @@ export function AttachmentList({
 }: {
   attachments: AttachmentLike[] | undefined | null;
   className?: string;
-  /** Shown when ``attachments`` is empty — pass ``null`` to render nothing. */
+  /** Shown when ``attachments`` is empty - pass ``null`` to render nothing. */
   emptyMessage?: string | null;
 }) {
   const safe = (attachments || []).filter((a) => !!a?.url);

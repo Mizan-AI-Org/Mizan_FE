@@ -65,8 +65,8 @@ export default function AuditPage() {
                   <td className={`${opsTd} font-mono text-xs text-slate-700 dark:text-slate-300`}>
                     {row.action_type}
                   </td>
-                  <td className={opsTd}>{row.user_email || "—"}</td>
-                  <td className={opsTd}>{row.restaurant_name || "—"}</td>
+                  <td className={opsTd}>{row.user_email || "-"}</td>
+                  <td className={opsTd}>{row.restaurant_name || "-"}</td>
                   <td className={`${opsTd} max-w-md truncate`}>{row.description}</td>
                 </tr>
               ))}

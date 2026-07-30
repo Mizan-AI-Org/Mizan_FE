@@ -1,13 +1,13 @@
 /**
  * Canonical staff-tag vocabulary (mirrors ``accounts.staff_tags`` on
  * the backend). Each tag describes the operational *context* a person
- * works in — KITCHEN / SERVICE / FRONT_OFFICE / … — and complements
+ * works in - KITCHEN / SERVICE / FRONT_OFFICE / … - and complements
  * ``CustomUser.role`` (the formal job title).
  *
  * Why duplicate the list on the frontend?
  * - We want zero-network rendering of tag chips on first paint.
  * - The list is tiny, slow-moving, and the source of truth for both
- *   the backend serializer validator AND the FE pickers — keeping
+ *   the backend serializer validator AND the FE pickers - keeping
  *   them in sync via a single static const is far simpler than
  *   threading a dynamic catalog API everywhere.
  *
@@ -85,7 +85,7 @@ export function normalizeStaffTags(values: unknown): StaffTag[] {
 }
 
 /**
- * Tone classes for the tag chip — keeps the colours in one place so
+ * Tone classes for the tag chip - keeps the colours in one place so
  * lists, the picker, and the staff-profile screen all render
  * consistently. Mid-saturation pastels so a row with 3 tags doesn't
  * compete with the staff member's name. Dark-mode tones are tuned

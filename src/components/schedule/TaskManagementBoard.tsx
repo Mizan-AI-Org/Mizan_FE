@@ -876,7 +876,7 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
                           <p className="text-sm text-gray-500 line-clamp-2 mb-2">{task.description}</p>
                           <div className="flex justify-between items-center text-xs text-gray-500 gap-2">
                             <div className="min-w-0 truncate">
-                              Due: {task.due_date ? format(new Date(task.due_date), "MMM d, h:mm a") : "—"}
+                              Due: {task.due_date ? format(new Date(task.due_date), "MMM d, h:mm a") : "-"}
                             </div>
                             <div className="flex items-center gap-0.5 shrink-0">
                               {task.status !== "COMPLETED" && (
@@ -1214,7 +1214,7 @@ export const TaskManagementBoard: React.FC<TaskManagementBoardProps> = ({
                     // Close the edit modal before opening the confirm
                     // AlertDialog. Stacking two Radix modals causes the
                     // outer overlay to swallow the inner dialog's button
-                    // clicks — the symptom users see as "Delete does
+                    // clicks - the symptom users see as "Delete does
                     // nothing". We stash the id locally so the delete
                     // still fires after the edit modal unmounts.
                     const id = selectedTask.id;

@@ -278,7 +278,7 @@ export default function TaskTemplateManagement() {
             (errBody as { detail?: string; message?: string }).detail ||
             (errBody as { message?: string }).message ||
             (listRes.status === 401
-              ? 'Session expired — please sign in again.'
+              ? 'Session expired - please sign in again.'
               : `Could not load templates (${listRes.status}). Is the API running?`);
           throw new Error(detail);
         }
@@ -382,7 +382,7 @@ export default function TaskTemplateManagement() {
     },
   });
 
-  // Start process checklist for staff (Live Board / Miya — not Tasks & Demands)
+  // Start process checklist for staff (Live Board / Miya - not Tasks & Demands)
   const startProcessMutation = useMutation({
     mutationFn: async ({ templateId, staffIds }: { templateId: string; staffIds: string[] }) => {
       const response = await fetch(`${API_BASE}/scheduling/task-templates/${templateId}/start_process/`, {
@@ -529,7 +529,7 @@ export default function TaskTemplateManagement() {
           throw new Error(
             (errBody as { detail?: string }).detail ||
               (listRes.status === 401
-                ? 'Session expired — please sign in again.'
+                ? 'Session expired - please sign in again.'
                 : `Could not load templates (${listRes.status}). Is the API running?`),
           );
         }
