@@ -13,6 +13,14 @@ async function platformFetch<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { ...authHeaders(), ...(init?.headers || {}) },
   });
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const err = new Error(
+      "Platform API returned a non-JSON response. Check VITE_BACKEND_URL / API proxy configuration.",
+    ) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const b = body as {
