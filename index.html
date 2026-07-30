@@ -13,8 +13,8 @@
   <!-- Warm up connections used during first paint to shave ~200–400ms on cold starts -->
   <link rel="preconnect" href="https://api.heymizan.ai" crossorigin />
   <link rel="dns-prefetch" href="https://api.heymizan.ai" />
-  <link rel="preconnect" href="https://lua-ai-global.github.io" crossorigin />
-  <link rel="dns-prefetch" href="https://lua-ai-global.github.io" />
+  <link rel="preconnect" href="https://api.fish.audio" crossorigin />
+  <link rel="dns-prefetch" href="https://api.fish.audio" />
 
   <!-- Start fetching the initial locale file in parallel with JS (i18n useSuspense needs it) -->
   <link rel="preload" href="/locales/en.json" as="fetch" type="application/json" crossorigin />
@@ -32,8 +32,7 @@
 <body>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
-  <!-- Must NOT block initial paint; load after the app shell -->
-  <script async defer src="https://lua-ai-global.github.io/lua-pop/lua-pop.umd.js"></script>
+  <!-- Fish Audio Miya — no external LuaPop script needed -->
   <!-- Notifications disabled: Service worker registration removed -->
 </body>
 

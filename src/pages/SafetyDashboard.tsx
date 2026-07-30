@@ -19,7 +19,8 @@ import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { arSA, enUS, fr } from 'date-fns/locale';
 import type { Alert as AlertType } from '@/lib/types';
-import { API_BASE } from "@/lib/api";
+import { API_BASE, resolveMediaUrl } from "@/lib/api";
+import { AttachmentList, type AttachmentLike } from "@/components/ui/attachment-preview";
 import { useLanguage } from '@/hooks/use-language';
 import { ListSkeleton } from '@/components/skeletons';
 
@@ -388,17 +389,43 @@ const SafetyDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {incidentDetail.photo && (
-                <div>
-                  <div className="font-medium text-muted-foreground mb-2 text-sm">Photo Evidence</div>
-                  <img
-                    src={typeof incidentDetail.photo === 'string' && incidentDetail.photo.startsWith('/') ? `${(import.meta as any).env?.VITE_BACKEND_URL || ''}${incidentDetail.photo}` : incidentDetail.photo}
-                    alt="Incident evidence"
-                    className="max-h-96 rounded-md border object-contain"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                </div>
-              )}
+              {(() => {
+                const detail = incidentDetail as {
+                  attachments?: AttachmentLike[];
+                  photo_url?: string;
+                  photo?: string;
+                  attachment_url?: string;
+                  attachment_filename?: string;
+                  attachment_content_type?: string;
+                  audio_evidence?: string[];
+                };
+                const items: AttachmentLike[] = Array.isArray(detail.attachments) && detail.attachments.length
+                  ? detail.attachments.filter((a) => !!a?.url)
+                  : (() => {
+                      const built: AttachmentLike[] = [];
+                      const photoUrl = detail.photo_url?.trim() || resolveMediaUrl(detail.photo) || "";
+                      if (photoUrl) built.push({ url: photoUrl, name: "Photo evidence", content_type: "image/jpeg" });
+                      if (detail.attachment_url?.trim()) {
+                        built.push({
+                          url: detail.attachment_url,
+                          name: detail.attachment_filename || "Attachment",
+                          content_type: detail.attachment_content_type,
+                        });
+                      }
+                      for (const [idx, raw] of (detail.audio_evidence || []).entries()) {
+                        const url = resolveMediaUrl(raw) || raw;
+                        if (url) built.push({ url, name: `Audio ${idx + 1}`, content_type: "audio/mpeg" });
+                      }
+                      return built;
+                    })();
+                if (!items.length) return null;
+                return (
+                  <div>
+                    <div className="font-medium text-muted-foreground mb-2 text-sm">Attachments</div>
+                    <AttachmentList attachments={items} />
+                  </div>
+                );
+              })()}
             </div>
           )}
         </DialogContent>

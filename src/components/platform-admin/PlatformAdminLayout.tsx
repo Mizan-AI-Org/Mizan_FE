@@ -9,6 +9,7 @@ import {
   HeartPulse,
   ScrollText,
   Shield,
+  MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PlatformMe } from "@/lib/platformApi";
@@ -23,6 +24,7 @@ const NAV = [
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/operators", label: "Operators", icon: Shield },
   { to: "/admin/billing", label: "Billing", icon: CreditCard },
+  { to: "/admin/whatsapp", label: "WhatsApp", icon: MessageCircle },
   { to: "/admin/health", label: "Health", icon: HeartPulse },
   { to: "/admin/audit", label: "Audit", icon: ScrollText },
 ];
