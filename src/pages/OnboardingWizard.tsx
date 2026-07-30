@@ -136,42 +136,42 @@ const CATEGORY_GROUPS: {
     groupKey: string;
     items: { key: string; labelKey: string }[];
 }[] = [
-    {
-        groupKey: "onboarding.owners.groups.incidents",
-        items: [
-            { key: "incident.equipment", labelKey: "onboarding.owners.cats.incident_equipment" },
-            { key: "incident.safety", labelKey: "onboarding.owners.cats.incident_safety" },
-            { key: "incident.hr", labelKey: "onboarding.owners.cats.incident_hr" },
-            { key: "incident.customer", labelKey: "onboarding.owners.cats.incident_customer" },
-            { key: "incident.security", labelKey: "onboarding.owners.cats.incident_security" },
-            { key: "incident.quality", labelKey: "onboarding.owners.cats.incident_quality" },
-        ],
-    },
-    {
-        groupKey: "onboarding.owners.groups.requests",
-        items: [
-            { key: "request.payroll", labelKey: "onboarding.owners.cats.request_payroll" },
-            { key: "request.scheduling", labelKey: "onboarding.owners.cats.request_scheduling" },
-            { key: "request.hr", labelKey: "onboarding.owners.cats.request_hr" },
-            { key: "request.document", labelKey: "onboarding.owners.cats.request_document" },
-            // New buckets for the intelligent-inbox. Miya routes WhatsApp
-            // messages tagged with these categories directly to the owner
-            // set here. Falls back to ``incident.equipment`` if unset.
-            { key: "request.maintenance", labelKey: "onboarding.owners.cats.request_maintenance" },
-            { key: "request.reservations", labelKey: "onboarding.owners.cats.request_reservations" },
-            { key: "request.inventory", labelKey: "onboarding.owners.cats.request_inventory" },
-        ],
-    },
-    {
-        groupKey: "onboarding.owners.groups.departments",
-        items: [
-            { key: "task.foh", labelKey: "onboarding.owners.cats.task_foh" },
-            { key: "task.boh", labelKey: "onboarding.owners.cats.task_boh" },
-            { key: "task.bar", labelKey: "onboarding.owners.cats.task_bar" },
-            { key: "task.finance", labelKey: "onboarding.owners.cats.task_finance" },
-        ],
-    },
-];
+        {
+            groupKey: "onboarding.owners.groups.incidents",
+            items: [
+                { key: "incident.equipment", labelKey: "onboarding.owners.cats.incident_equipment" },
+                { key: "incident.safety", labelKey: "onboarding.owners.cats.incident_safety" },
+                { key: "incident.hr", labelKey: "onboarding.owners.cats.incident_hr" },
+                { key: "incident.customer", labelKey: "onboarding.owners.cats.incident_customer" },
+                { key: "incident.security", labelKey: "onboarding.owners.cats.incident_security" },
+                { key: "incident.quality", labelKey: "onboarding.owners.cats.incident_quality" },
+            ],
+        },
+        {
+            groupKey: "onboarding.owners.groups.requests",
+            items: [
+                { key: "request.payroll", labelKey: "onboarding.owners.cats.request_payroll" },
+                { key: "request.scheduling", labelKey: "onboarding.owners.cats.request_scheduling" },
+                { key: "request.hr", labelKey: "onboarding.owners.cats.request_hr" },
+                { key: "request.document", labelKey: "onboarding.owners.cats.request_document" },
+                // New buckets for the intelligent-inbox. Miya routes WhatsApp
+                // messages tagged with these categories directly to the owner
+                // set here. Falls back to ``incident.equipment`` if unset.
+                { key: "request.maintenance", labelKey: "onboarding.owners.cats.request_maintenance" },
+                { key: "request.reservations", labelKey: "onboarding.owners.cats.request_reservations" },
+                { key: "request.inventory", labelKey: "onboarding.owners.cats.request_inventory" },
+            ],
+        },
+        {
+            groupKey: "onboarding.owners.groups.departments",
+            items: [
+                { key: "task.foh", labelKey: "onboarding.owners.cats.task_foh" },
+                { key: "task.boh", labelKey: "onboarding.owners.cats.task_boh" },
+                { key: "task.bar", labelKey: "onboarding.owners.cats.task_bar" },
+                { key: "task.finance", labelKey: "onboarding.owners.cats.task_finance" },
+            ],
+        },
+    ];
 
 const authHeaders = () => ({
     Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
@@ -472,13 +472,13 @@ const OnboardingWizard: React.FC = () => {
             toast.error(
                 detail
                     ? t("onboarding.gcal.error_detail", {
-                          defaultValue: "Google Calendar connect failed: {{detail}}",
-                          detail,
-                      })
+                        defaultValue: "Google Calendar connect failed: {{detail}}",
+                        detail,
+                    })
                     : t(
-                          "onboarding.gcal.error",
-                          "Google Calendar connect failed. Try again or skip for now.",
-                      ),
+                        "onboarding.gcal.error",
+                        "Google Calendar connect failed. Try again or skip for now.",
+                    ),
             );
             goTo("google_calendar");
         }
@@ -587,8 +587,8 @@ const OnboardingWizard: React.FC = () => {
                                                 active
                                                     ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/25"
                                                     : done
-                                                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                                                      : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700",
+                                                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                                        : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700",
                                             )}
                                         >
                                             {done ? (
@@ -631,9 +631,9 @@ const OnboardingWizard: React.FC = () => {
                                         e instanceof Error
                                             ? e.message
                                             : t(
-                                                  "onboarding.err.dismiss",
-                                                  "Could not continue to the dashboard. Try again.",
-                                              ),
+                                                "onboarding.err.dismiss",
+                                                "Could not continue to the dashboard. Try again.",
+                                            ),
                                     );
                                 }
                             }}
@@ -846,10 +846,10 @@ const OnboardingWizard: React.FC = () => {
             const body = (await res.json().catch(() => ({}))) as { detail?: string };
             throw new Error(
                 body.detail ||
-                    t(
-                        "onboarding.err.dismiss",
-                        "Could not continue to the dashboard. Try again.",
-                    ),
+                t(
+                    "onboarding.err.dismiss",
+                    "Could not continue to the dashboard. Try again.",
+                ),
             );
         }
         await queryClient.invalidateQueries({ queryKey: ["onboarding-status"] });
@@ -1513,9 +1513,9 @@ const PermissionsStep: React.FC<{
                                         {roles.length === 0
                                             ? t("onboarding.perms.no_roles", "No one has access")
                                             : t("onboarding.perms.role_count", {
-                                                  defaultValue: "{{count}} role(s)",
-                                                  count: roles.length,
-                                              })}
+                                                defaultValue: "{{count}} role(s)",
+                                                count: roles.length,
+                                            })}
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
@@ -1714,8 +1714,8 @@ const OwnersStep: React.FC<{
                                                                 {selectedNames.length === 0
                                                                     ? t("onboarding.owners.pick_placeholder", "Pick people")
                                                                     : selectedNames.length <= 2
-                                                                      ? selectedNames.join(", ")
-                                                                      : `${selectedNames.length} people`}
+                                                                        ? selectedNames.join(", ")
+                                                                        : `${selectedNames.length} people`}
                                                             </span>
                                                             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                         </Button>
@@ -1833,10 +1833,10 @@ const GoogleCalendarStep: React.FC<{
             if (res.status === 501) {
                 setServerNote(
                     body.detail ||
-                        t(
-                            "onboarding.gcal.not_configured",
-                            "Google Calendar isn't enabled on this server yet.",
-                        ),
+                    t(
+                        "onboarding.gcal.not_configured",
+                        "Google Calendar isn't enabled on this server yet.",
+                    ),
                 );
                 return;
             }
