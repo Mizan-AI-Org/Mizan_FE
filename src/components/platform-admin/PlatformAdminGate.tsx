@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { platformApi } from "@/lib/platformApi";
-import { isImpersonating } from "@/lib/impersonation";
+import { exitImpersonation, isImpersonating } from "@/lib/impersonation";
 import { Loader2 } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 import PlatformAdminLogin from "@/components/platform-admin/PlatformAdminLogin";
@@ -13,10 +13,11 @@ export default function PlatformAdminGate() {
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
   const impersonating = typeof window !== "undefined" && isImpersonating();
 
-  // Support session uses a restaurant JWT - never wipe it; bounce back to the app.
+  // Leaving a tenant impersonation session: restore ops tokens and stay on /admin.
   useEffect(() => {
     if (!impersonating) return;
-    window.location.replace("/dashboard");
+    exitImpersonation();
+    window.location.replace("/admin");
   }, [impersonating]);
 
   const { data, isLoading, error, isFetched } = useQuery({
@@ -34,9 +35,10 @@ export default function PlatformAdminGate() {
 
   useEffect(() => {
     if (!denied) return;
-    // Only clear the active session when it is not an ops support impersonation.
+    // Drop tenant session artifacts — restaurant JWTs cannot open Platform Admin.
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
+    localStorage.removeItem("user");
     queryClient.removeQueries({ queryKey: ["platform-me"] });
   }, [denied, queryClient]);
 

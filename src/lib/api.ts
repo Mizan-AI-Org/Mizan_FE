@@ -43,7 +43,9 @@ import {
 // In production, also use relative /api to leverage Netlify/Vercel rewrites to api.heymizan.ai.
 // Only use explicit URL if VITE_BACKEND_URL is set (e.g., for local testing against production).
 const explicitBackend = import.meta.env.VITE_BACKEND_URL;
-export const BACKEND_URL = explicitBackend ?? "";
+/** In production, call api.heymizan.ai directly — host /api rewrites are not always applied. */
+export const BACKEND_URL =
+  explicitBackend ?? (import.meta.env.PROD ? "https://api.heymizan.ai" : "");
 
 // If BACKEND_URL is empty, API_BASE becomes "/api" which works with proxy/rewrites
 export const API_BASE = BACKEND_URL ? `${BACKEND_URL}/api` : "/api";

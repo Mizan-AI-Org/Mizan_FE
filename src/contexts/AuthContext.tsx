@@ -67,6 +67,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const initializeAuth = useCallback(async () => {
     try {
+      // Platform Admin (/admin) uses its own login + /api/platform/* — skip tenant bootstrap.
+      if (location.pathname.startsWith("/admin")) {
+        return;
+      }
+
       const storedUser = localStorage.getItem("user");
       const token = localStorage.getItem("access_token");
 
@@ -129,6 +134,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // Skip the call when the tab is hidden so background tabs don't hammer the API,
   // and bump the interval to 5 min on production-sized workspaces.
   useEffect(() => {
+    if (location.pathname.startsWith("/admin")) return;
+
     const token = localStorage.getItem("access_token");
     if (!token) return;
 
@@ -166,7 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       cancelled = true;
       clearInterval(refreshInterval);
     };
-  }, [user, applyLanguageForUser]);
+  }, [user, applyLanguageForUser, location.pathname]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -462,7 +469,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error("Logout error:", error);
     } finally {
       clearAuth();
-      navigate("/auth");
+      if (location.pathname.startsWith("/admin")) {
+        window.location.assign("/admin");
+      } else {
+        navigate("/auth");
+      }
     }
   };
 
