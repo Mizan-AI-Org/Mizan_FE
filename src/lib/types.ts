@@ -160,7 +160,7 @@ export interface Task {
     title: string;
     description: string;
     priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-    status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+    status: 'PENDING' | 'ACCEPTED' | 'IN_PROGRESS' | 'COMPLETED' | 'UNABLE_TO_COMPLETE' | 'CANCELLED';
     due_date: string;
     created_at: string;
     updated_at: string;
@@ -208,7 +208,7 @@ export interface DashboardTaskDemandItem {
     description: string | null;
     priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
     /** Coarse status used by filter/counter logic (kept for back-compat). */
-    status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+    status: 'PENDING' | 'ACCEPTED' | 'IN_PROGRESS' | 'COMPLETED' | 'UNABLE_TO_COMPLETE' | 'CANCELLED';
     /**
      * Granular per-row status used by the colored pill on each widget row.
      * Returned by the backend; older deployments may not include it, in
@@ -268,6 +268,10 @@ export interface DashboardTaskDemandItem {
     has_photo_proof?: boolean;
     require_photo_proof?: boolean;
     proof_media_url?: string | null;
+    proof_caption?: string | null;
+    proof_submitted_at?: string | null;
+    proof_submitted_by_name?: string | null;
+    proof_submitter_name?: string | null;
 }
 
 /** Bucket id served by GET /api/dashboard/category-tasks/. */
@@ -431,7 +435,19 @@ export interface Invoice {
     currency: string;
     issue_date?: string | null;
     due_date: string;
-    status: 'DRAFT' | 'OPEN' | 'PAID' | 'VOIDED';
+    status:
+      | 'DRAFT'
+      | 'SUBMITTED'
+      | 'UNDER_REVIEW'
+      | 'PENDING_APPROVAL'
+      | 'APPROVED'
+      | 'REJECTED'
+      | 'RETURNED'
+      | 'OPEN'
+      | 'PAYMENT_IN_PROGRESS'
+      | 'PAID'
+      | 'PAYMENT_FAILED'
+      | 'VOIDED';
     category?: string;
     notes?: string;
     photo?: string | null;
@@ -441,6 +457,10 @@ export interface Invoice {
     attachment_filename?: string;
     has_attachment?: boolean;
     photo_url?: string;
+    proof_of_payment?: string | null;
+    proof_of_payment_url?: string;
+    returned_reason?: string;
+    lifecycle_status?: string;
     paid_at?: string | null;
     paid_amount?: string | null;
     payment_method?: string;
@@ -449,6 +469,7 @@ export interface Invoice {
     created_by_name?: string;
     paid_by?: string | null;
     paid_by_name?: string;
+    approval_status?: string;
     is_overdue: boolean;
     days_until_due: number | null;
     created_at: string;

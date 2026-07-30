@@ -335,16 +335,22 @@ function dashboardTaskStatusLabel(
   t: (key: string, options?: Record<string, unknown>) => string,
 ): string {
   const s = String(status || "").toUpperCase();
+  if (s === "ACCEPTED") return t("staff.requests.status_accepted", { defaultValue: "Accepted" });
   if (s === "IN_PROGRESS") return t("staff.requests.status_in_progress");
   if (s === "COMPLETED") return t("staff.requests.status_completed");
+  if (s === "UNABLE_TO_COMPLETE")
+    return t("staff.requests.status_unable", { defaultValue: "Unable to complete" });
   if (s === "CANCELLED") return t("staff.requests.status_cancelled");
   return t("staff.requests.status_pending");
 }
 
 function dashboardTaskStatusBadge(status?: string) {
   const s = String(status || "").toUpperCase();
+  if (s === "ACCEPTED") return "bg-indigo-50 text-indigo-700 border-indigo-200 ring-1 ring-indigo-200";
   if (s === "IN_PROGRESS") return "bg-sky-50 text-sky-700 border-sky-200 ring-1 ring-sky-200";
   if (s === "COMPLETED") return "bg-emerald-50 text-emerald-700 border-emerald-200 ring-1 ring-emerald-200";
+  if (s === "UNABLE_TO_COMPLETE")
+    return "bg-orange-50 text-orange-700 border-orange-200 ring-1 ring-orange-200";
   if (s === "CANCELLED") return "bg-rose-50 text-rose-700 border-rose-200 ring-1 ring-rose-200";
   return "bg-yellow-50 text-yellow-700 border-yellow-200 ring-1 ring-yellow-200";
 }
@@ -381,17 +387,38 @@ function invoiceStatusLabel(
   t: (key: string, options?: Record<string, unknown>) => string,
 ) {
   const s = String(status || "").toUpperCase();
-  if (s === "PAID") return t("staff.requests.invoice_status_paid");
-  if (s === "VOIDED") return t("staff.requests.invoice_status_voided");
-  if (s === "DRAFT") return t("staff.requests.invoice_status_draft");
-  return t("staff.requests.invoice_status_open");
+  const map: Record<string, string> = {
+    PAID: t("staff.requests.invoice_status_paid"),
+    VOIDED: t("staff.requests.invoice_status_voided"),
+    DRAFT: t("staff.requests.invoice_status_draft"),
+    SUBMITTED: t("staff.requests.invoice_status_submitted", { defaultValue: "Submitted" }),
+    UNDER_REVIEW: t("staff.requests.invoice_status_under_review", { defaultValue: "Under Review" }),
+    PENDING_APPROVAL: t("staff.requests.invoice_status_pending_approval", { defaultValue: "Pending Approval" }),
+    APPROVED: t("staff.requests.invoice_status_approved", { defaultValue: "Approved" }),
+    REJECTED: t("staff.requests.invoice_status_rejected", { defaultValue: "Rejected" }),
+    RETURNED: t("staff.requests.invoice_status_returned", { defaultValue: "Returned for Changes" }),
+    PAYMENT_IN_PROGRESS: t("staff.requests.invoice_status_payment_in_progress", { defaultValue: "Payment in Progress" }),
+    PAYMENT_FAILED: t("staff.requests.invoice_status_payment_failed", { defaultValue: "Payment Failed" }),
+    OPEN: t("staff.requests.invoice_status_open"),
+  };
+  return map[s] || s.replace(/_/g, " ") || t("staff.requests.invoice_status_open");
 }
 
 function invoiceStatusBadge(status?: string) {
   const s = String(status || "").toUpperCase();
   if (s === "PAID") return "bg-emerald-50 text-emerald-700 border-emerald-200 ring-1 ring-emerald-200";
-  if (s === "VOIDED") return "bg-slate-50 text-slate-600 border-slate-200 ring-1 ring-slate-200";
-  if (s === "DRAFT") return "bg-slate-50 text-slate-700 border-slate-200 ring-1 ring-slate-200";
+  if (s === "VOIDED" || s === "REJECTED" || s === "PAYMENT_FAILED") {
+    return "bg-slate-50 text-slate-600 border-slate-200 ring-1 ring-slate-200";
+  }
+  if (s === "DRAFT" || s === "RETURNED") {
+    return "bg-slate-50 text-slate-700 border-slate-200 ring-1 ring-slate-200";
+  }
+  if (s === "APPROVED" || s === "PAYMENT_IN_PROGRESS") {
+    return "bg-sky-50 text-sky-700 border-sky-200 ring-1 ring-sky-200";
+  }
+  if (s === "PENDING_APPROVAL" || s === "UNDER_REVIEW" || s === "SUBMITTED") {
+    return "bg-amber-50 text-amber-800 border-amber-200 ring-1 ring-amber-200";
+  }
   return "bg-yellow-50 text-yellow-700 border-yellow-200 ring-1 ring-yellow-200";
 }
 
@@ -407,7 +434,20 @@ function InvoiceDetailPanel({
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   const attachments = invoiceAttachmentItems(invoice);
-  const isOpen = String(invoice.status || "").toUpperCase() === "OPEN";
+  const displayStatus = String(invoice.lifecycle_status || invoice.status || "").toUpperCase();
+  const unpaidActive = [
+    "OPEN",
+    "SUBMITTED",
+    "UNDER_REVIEW",
+    "PENDING_APPROVAL",
+    "APPROVED",
+    "PAYMENT_IN_PROGRESS",
+    "RETURNED",
+  ].includes(displayStatus);
+  const canMarkPaid = unpaidActive && displayStatus !== "PAID" && displayStatus !== "VOIDED";
+  const proofUrl =
+    resolveStoredMediaUrl(invoice.proof_of_payment_url) ||
+    resolveStoredMediaUrl(invoice.proof_of_payment);
 
   return (
     <div className="space-y-5">
@@ -421,8 +461,8 @@ function InvoiceDetailPanel({
             <p className="text-sm text-muted-foreground mt-1">#{invoice.invoice_number}</p>
           ) : null}
         </div>
-        <Badge variant="outline" className={cn("text-xs font-bold px-3 py-1 uppercase rounded-full", invoiceStatusBadge(invoice.status))}>
-          {invoiceStatusLabel(invoice.status, t)}
+        <Badge variant="outline" className={cn("text-xs font-bold px-3 py-1 uppercase rounded-full", invoiceStatusBadge(displayStatus))}>
+          {invoiceStatusLabel(displayStatus, t)}
         </Badge>
       </div>
 
@@ -448,6 +488,27 @@ function InvoiceDetailPanel({
         </div>
       ) : null}
 
+      {invoice.returned_reason ? (
+        <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 p-4">
+          <div className="text-xs font-bold uppercase tracking-widest text-amber-800 mb-2">
+            {t("staff.requests.invoice_returned_reason", { defaultValue: "Returned for changes" })}
+          </div>
+          <p className="text-sm whitespace-pre-wrap leading-relaxed">{invoice.returned_reason}</p>
+        </div>
+      ) : null}
+
+      {displayStatus === "PAID" ? (
+        <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/40 p-4 space-y-1 text-sm">
+          <div className="text-xs font-bold uppercase tracking-widest text-emerald-800 mb-2">
+            {t("staff.requests.invoice_payment", { defaultValue: "Payment" })}
+          </div>
+          {invoice.paid_by_name ? <p>Paid by {invoice.paid_by_name}</p> : null}
+          {invoice.paid_at ? <p>Paid at {new Date(invoice.paid_at).toLocaleString()}</p> : null}
+          {invoice.payment_method ? <p>Method: {invoice.payment_method}</p> : null}
+          {invoice.payment_reference ? <p>Ref: {invoice.payment_reference}</p> : null}
+        </div>
+      ) : null}
+
       <div className="rounded-2xl border border-border/40 bg-background p-4">
         <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
           <FileText className="w-3.5 h-3.5" />
@@ -462,7 +523,22 @@ function InvoiceDetailPanel({
         )}
       </div>
 
-      {isOpen ? (
+      {proofUrl ? (
+        <div className="rounded-2xl border border-border/40 bg-background p-4 space-y-3">
+          <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            {t("staff.requests.invoice_proof_of_payment", { defaultValue: "Proof of payment" })}
+          </div>
+          {/\.(png|jpe?g|gif|webp)(\?|$)/i.test(proofUrl) ? (
+            <img src={proofUrl} alt="Proof of payment" className="max-h-64 rounded-xl border object-contain" />
+          ) : (
+            <a href={proofUrl} target="_blank" rel="noreferrer" className="text-sm text-primary underline">
+              {t("staff.requests.download_proof", { defaultValue: "Download proof" })}
+            </a>
+          )}
+        </div>
+      ) : null}
+
+      {canMarkPaid ? (
         <Button onClick={onMarkPaid} disabled={isUpdating} className="w-full sm:w-auto">
           {isUpdating ? t("staff.requests.updating") : t("staff.requests.mark_paid")}
         </Button>
@@ -522,10 +598,36 @@ function DashboardTaskDetailPanel({
             {task.description || t("staff.requests.no_description")}
           </div>
         </div>
+        {(task.proof_media_url || task.has_photo_proof) ? (
+          <div className="rounded-2xl border border-border/40 bg-background p-4 space-y-2">
+            <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+              {t("staff.requests.photo_proof", { defaultValue: "Photo proof" })}
+            </div>
+            {task.proof_media_url ? (
+              <img
+                src={resolveStoredMediaUrl(task.proof_media_url) || task.proof_media_url}
+                alt={task.proof_caption || "Task proof"}
+                className="max-h-64 w-full rounded-xl border object-contain bg-muted/20"
+              />
+            ) : null}
+            {task.proof_caption ? (
+              <p className="text-sm text-foreground/90 whitespace-pre-wrap">{task.proof_caption}</p>
+            ) : null}
+            <p className="text-xs text-muted-foreground">
+              {[task.proof_submitter_name || task.proof_submitted_by_name, task.proof_submitted_at ? new Date(task.proof_submitted_at).toLocaleString() : null]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          </div>
+        ) : task.require_photo_proof ? (
+          <div className="rounded-2xl border border-amber-200/80 bg-amber-50/50 px-4 py-3 text-sm text-amber-900">
+            {t("staff.requests.photo_proof_needed", { defaultValue: "Photo proof required before completion." })}
+          </div>
+        ) : null}
       </div>
 
       <div className="px-6 pb-6 flex flex-wrap gap-2 mt-auto">
-        {(["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"] as const).map((nextStatus) => (
+        {(["PENDING", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "UNABLE_TO_COMPLETE", "CANCELLED"] as const).map((nextStatus) => (
           <Button
             key={nextStatus}
             size="sm"

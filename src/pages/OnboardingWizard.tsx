@@ -542,10 +542,10 @@ const OnboardingWizard: React.FC = () => {
     /* -------------------------- Render active step ----------------------- */
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/60 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950/20">
+        <div className="min-h-dvh flex flex-col bg-gradient-to-br from-slate-50 via-white to-emerald-50/60 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950/20">
             {/* Top bar */}
-            <div className="sticky top-0 z-10 backdrop-blur-xl bg-white/80 dark:bg-slate-950/80 border-b border-slate-200/60 dark:border-slate-800/60 shadow-sm">
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3.5 flex items-center gap-4">
+            <div className="sticky top-0 z-10 shrink-0 backdrop-blur-xl bg-white/80 dark:bg-slate-950/80 border-b border-slate-200/60 dark:border-slate-800/60 shadow-sm">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center gap-4">
                     <div className="flex items-center gap-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100">
                         <div className="flex items-center justify-center h-7 w-7 rounded-full border-[3px] border-emerald-500 bg-white dark:bg-slate-900">
                             <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -568,7 +568,7 @@ const OnboardingWizard: React.FC = () => {
                     </button>
                 </div>
                 {/* Step chips */}
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-3 overflow-x-auto scrollbar-none">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-3 overflow-x-auto scrollbar-none">
                     <div className="flex items-center gap-1.5 text-xs">
                         {WIZARD_ORDER.filter((s) => s !== "welcome" && s !== "done").map(
                             (s, i) => {
@@ -606,11 +606,14 @@ const OnboardingWizard: React.FC = () => {
                 </div>
             </div>
 
-            {/* Step body */}
-            <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
+            {/* Step body — fills remaining viewport */}
+            <div className="flex-1 min-h-0 flex flex-col max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
                 <div
                     key={animKey}
-                    className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+                    className={cn(
+                        "animate-in fade-in slide-in-from-bottom-2 duration-300 flex-1 min-h-0 flex flex-col",
+                        step === "welcome" || step === "done" ? "" : "",
+                    )}
                 >
                     {step === "welcome" && (
                         <WelcomeStep
@@ -731,7 +734,7 @@ const OnboardingWizard: React.FC = () => {
 
                 {/* Footer nav for intermediate steps (welcome + done hide it) */}
                 {step !== "welcome" && step !== "done" && (
-                    <div className="mt-8 flex items-center justify-between">
+                    <div className="mt-4 shrink-0 flex items-center justify-between pt-2">
                         <Button
                             variant="ghost"
                             size="sm"
@@ -764,15 +767,15 @@ const OnboardingWizard: React.FC = () => {
                 headers: authHeaders(),
             });
             if (res.ok) {
-                localStorage.setItem("onboarding_skipped", "true");
                 await queryClient.invalidateQueries({ queryKey: ["onboarding-status"] });
+                // Refresh /auth/me so OnboardingGate sees onboarding_completed_at.
+                await syncSessionFromBackend();
                 navigate("/dashboard");
             } else {
                 toast.error(t("onboarding.skip_failed", "Couldn't skip setup. Please try again."));
             }
         } catch {
-            localStorage.setItem("onboarding_skipped", "true");
-            navigate("/dashboard");
+            toast.error(t("onboarding.skip_failed", "Couldn't skip setup. Please try again."));
         }
     }
 
@@ -890,69 +893,90 @@ const WelcomeStep: React.FC<{
 }> = ({ onStart, userName, restaurantName, completedAlready, onGoToDashboard }) => {
     const { t } = useTranslation();
     return (
-        <div className="text-center space-y-8 py-6">
-            <div className="inline-flex items-center justify-center gap-3">
-                <BrandLogo size="lg" ariaLabel="Mizan AI" />
-                <span className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-                    Mizan AI
-                </span>
-            </div>
+        <div className="flex-1 min-h-0 flex flex-col justify-center py-2 sm:py-4">
+            <div className="grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] gap-8 lg:gap-12 xl:gap-16 items-center">
+                <div className="space-y-6 sm:space-y-8 text-center lg:text-left">
+                    <div className="inline-flex items-center justify-center lg:justify-start gap-3">
+                        <BrandLogo size="lg" ariaLabel="Mizan AI" />
+                        <span className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                            Mizan AI
+                        </span>
+                    </div>
 
-            <div className="space-y-4">
-                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
-                    {t("onboarding.welcome.title", {
-                        defaultValue: "Hello {{name}}, welcome to Mizan AI",
-                        name: userName || "there",
-                    })}
-                </h1>
-                <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-                    {t("onboarding.welcome.subtitle", {
-                        defaultValue:
-                            "Let's get {{restaurant}} set up in about 2 minutes — you can skip anything you want.",
-                        restaurant: restaurantName || "your business",
-                    })}
-                </p>
-            </div>
+                    <div className="space-y-3 sm:space-y-4">
+                        <h1 className="text-3xl sm:text-4xl xl:text-5xl font-bold tracking-tight text-slate-900 dark:text-white leading-[1.15]">
+                            {t("onboarding.welcome.title", {
+                                defaultValue: "Hello {{name}}, welcome to Mizan AI",
+                                name: userName || "there",
+                            })}
+                        </h1>
+                        <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                            {t("onboarding.welcome.subtitle", {
+                                defaultValue:
+                                    "Let's get {{restaurant}} set up in about 2 minutes — you can skip anything you want.",
+                                restaurant: restaurantName || "your business",
+                            })}
+                        </p>
+                    </div>
 
-            <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto text-left">
-                <WelcomeBullet
-                    icon={FileSpreadsheet}
-                    title={t("onboarding.welcome.b1_title", "Upload your team")}
-                    desc={t("onboarding.welcome.b1_desc", "A CSV of staff or collaborators — we'll invite them on WhatsApp.")}
-                />
-                <WelcomeBullet
-                    icon={Users}
-                    title={t("onboarding.welcome.b2_title", "Pick your widgets")}
-                    desc={t("onboarding.welcome.b2_desc", "Choose the dashboard cards you care about most.")}
-                />
-                <WelcomeBullet
-                    icon={ShieldCheck}
-                    title={t("onboarding.welcome.b3_title", "Set permissions")}
-                    desc={t("onboarding.welcome.b3_desc", "Decide which roles can see each widget.")}
-                />
-                <WelcomeBullet
-                    icon={UserCog}
-                    title={t("onboarding.welcome.b4_title", "Assign owners")}
-                    desc={t("onboarding.welcome.b4_desc", "Tell Miya who handles each type of issue or request.")}
-                />
-            </div>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start pt-1">
+                        <Button
+                            size="lg"
+                            className="gap-2 min-w-[220px] bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all text-base py-6"
+                            onClick={onStart}
+                        >
+                            {completedAlready
+                                ? t("onboarding.welcome.cta_resume", "Review my setup")
+                                : t("onboarding.welcome.cta", "Let's get started")}
+                            <ArrowRight className="h-5 w-5" />
+                        </Button>
+                        {completedAlready && (
+                            <Button
+                                size="lg"
+                                variant="outline"
+                                onClick={onGoToDashboard}
+                                className="py-6 text-base"
+                            >
+                                {t("onboarding.welcome.cta_skip", "Go to dashboard")}
+                            </Button>
+                        )}
+                    </div>
+                </div>
 
-            <div className="pt-6 flex flex-col sm:flex-row gap-3 justify-center">
-                <Button
-                    size="lg"
-                    className="gap-2 min-w-[220px] bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all text-base py-6"
-                    onClick={onStart}
-                >
-                    {completedAlready
-                        ? t("onboarding.welcome.cta_resume", "Review my setup")
-                        : t("onboarding.welcome.cta", "Let's get started")}
-                    <ArrowRight className="h-5 w-5" />
-                </Button>
-                {completedAlready && (
-                    <Button size="lg" variant="outline" onClick={onEnterDashboard} className="py-6 text-base">
-                        {t("onboarding.welcome.cta_skip", "Go to dashboard")}
-                    </Button>
-                )}
+                <div className="grid sm:grid-cols-2 gap-3 sm:gap-4 auto-rows-fr">
+                    <WelcomeBullet
+                        icon={FileSpreadsheet}
+                        title={t("onboarding.welcome.b1_title", "Upload your team")}
+                        desc={t(
+                            "onboarding.welcome.b1_desc",
+                            "A CSV of staff or collaborators — we'll invite them on WhatsApp.",
+                        )}
+                    />
+                    <WelcomeBullet
+                        icon={Users}
+                        title={t("onboarding.welcome.b2_title", "Pick your widgets")}
+                        desc={t(
+                            "onboarding.welcome.b2_desc",
+                            "Choose the dashboard cards you care about most.",
+                        )}
+                    />
+                    <WelcomeBullet
+                        icon={ShieldCheck}
+                        title={t("onboarding.welcome.b3_title", "Set permissions")}
+                        desc={t(
+                            "onboarding.welcome.b3_desc",
+                            "Decide which roles can see each widget.",
+                        )}
+                    />
+                    <WelcomeBullet
+                        icon={UserCog}
+                        title={t("onboarding.welcome.b4_title", "Assign owners")}
+                        desc={t(
+                            "onboarding.welcome.b4_desc",
+                            "Tell Miya who handles each type of issue or request.",
+                        )}
+                    />
+                </div>
             </div>
         </div>
     );
@@ -963,13 +987,17 @@ const WelcomeBullet: React.FC<{
     title: string;
     desc: string;
 }> = ({ icon: Icon, title, desc }) => (
-    <div className="group flex gap-4 p-5 rounded-xl bg-white/90 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/70 shadow-sm hover:shadow-md hover:border-emerald-200 dark:hover:border-emerald-800/50 transition-all duration-200">
-        <div className="mt-0.5 h-10 w-10 shrink-0 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/50 transition-colors">
+    <div className="group flex h-full gap-4 p-5 sm:p-6 rounded-2xl bg-white/90 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/70 shadow-sm hover:shadow-md hover:border-emerald-200 dark:hover:border-emerald-800/50 transition-all duration-200">
+        <div className="mt-0.5 h-11 w-11 shrink-0 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/50 transition-colors">
             <Icon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
         </div>
-        <div className="space-y-1">
-            <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">{title}</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{desc}</div>
+        <div className="space-y-1.5 min-w-0 text-left">
+            <div className="font-semibold text-sm sm:text-base text-slate-800 dark:text-slate-200">
+                {title}
+            </div>
+            <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                {desc}
+            </div>
         </div>
     </div>
 );
@@ -1073,7 +1101,7 @@ const StaffCsvStep: React.FC<{
                     if (f) handleFile(f);
                 }}
                 className={cn(
-                    "border-2 border-dashed rounded-xl p-8 text-center transition cursor-pointer",
+                    "border-2 border-dashed rounded-xl p-10 sm:p-14 text-center transition cursor-pointer",
                     dragging
                         ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/10"
                         : "border-slate-300 dark:border-slate-700 hover:border-emerald-400",
@@ -1292,7 +1320,7 @@ const WidgetsStep: React.FC<{
             )}
             alreadyDoneBadge={status.steps.widgets}
         >
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {DASHBOARD_WIDGET_IDS.map((id) => {
                     const Icon = WIDGET_ADD_ICONS[id];
                     const on = selected.has(id);
@@ -1302,7 +1330,7 @@ const WidgetsStep: React.FC<{
                             key={id}
                             onClick={() => toggle(id)}
                             className={cn(
-                                "relative text-left p-3 rounded-xl border transition select-none",
+                                "relative text-left p-3.5 sm:p-4 rounded-xl border transition select-none h-full",
                                 on
                                     ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 ring-2 ring-emerald-500/20"
                                     : "border-slate-200 dark:border-slate-800 hover:border-slate-300 hover:bg-slate-50/60 dark:hover:bg-slate-900/30",
@@ -1310,7 +1338,7 @@ const WidgetsStep: React.FC<{
                         >
                             <div
                                 className={cn(
-                                    "h-8 w-8 rounded-lg flex items-center justify-center mb-2",
+                                    "h-9 w-9 rounded-lg flex items-center justify-center mb-2.5",
                                     on
                                         ? "bg-emerald-500 text-white"
                                         : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
@@ -1318,7 +1346,7 @@ const WidgetsStep: React.FC<{
                             >
                                 <Icon className="h-4 w-4" />
                             </div>
-                            <div className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
+                            <div className="text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-200 leading-snug">
                                 {t(`dashboard.${id}.title`, widgetFallback(id))}
                             </div>
                             {on && (
@@ -1467,7 +1495,7 @@ const PermissionsStep: React.FC<{
             )}
             alreadyDoneBadge={status.steps.widget_permissions}
         >
-            <div className="space-y-2.5 max-h-[440px] overflow-y-auto pr-1">
+            <div className="space-y-2.5 flex-1 min-h-0 overflow-y-auto pr-1">
                 {DASHBOARD_WIDGET_IDS.map((id) => {
                     const Icon = WIDGET_ADD_ICONS[id];
                     const roles = visibility[id] || [];
@@ -1652,7 +1680,7 @@ const OwnersStep: React.FC<{
                     )}
                 </div>
             ) : (
-                <div className="space-y-5 max-h-[440px] overflow-y-auto pr-1">
+                <div className="space-y-5 flex-1 min-h-0 overflow-y-auto pr-1">
                     {CATEGORY_GROUPS.map((group) => (
                         <div key={group.groupKey} className="space-y-2">
                             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -1907,18 +1935,18 @@ const DoneStep: React.FC<{
     const { t } = useTranslation();
 
     return (
-        <div className="text-center space-y-10 py-10 relative overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-8 sm:gap-10 py-6 relative overflow-hidden">
             <ConfettiBurst />
 
-            <div className="inline-flex h-28 w-28 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-2xl shadow-emerald-500/40 animate-in zoom-in-75 duration-500">
-                <PartyPopper className="h-14 w-14 text-white" />
+            <div className="inline-flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-2xl shadow-emerald-500/40 animate-in zoom-in-75 duration-500">
+                <PartyPopper className="h-12 w-12 sm:h-14 sm:w-14 text-white" />
             </div>
 
-            <div className="space-y-4">
-                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">
+            <div className="space-y-3 sm:space-y-4 max-w-2xl">
+                <h1 className="text-3xl sm:text-4xl xl:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">
                     {t("onboarding.done.title", "Enjoy Mizan!")}
                 </h1>
-                <p className="text-lg text-slate-500 dark:text-slate-400 max-w-xl mx-auto leading-relaxed">
+                <p className="text-base sm:text-lg text-slate-500 dark:text-slate-400 leading-relaxed">
                     {t(
                         "onboarding.done.subtitle",
                         "{{restaurant}} is ready. Miya is listening on WhatsApp and your dashboard is live.",
@@ -1994,9 +2022,9 @@ const StepShell: React.FC<{
 }> = ({ icon, title, subtitle, children, alreadyDoneBadge, optional }) => {
     const { t } = useTranslation();
     return (
-        <Card className="shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 border-slate-200/80 dark:border-slate-800/60 overflow-hidden">
-            <CardContent className="p-6 sm:p-8 space-y-6">
-                <div className="flex items-start gap-4">
+        <Card className="flex-1 min-h-0 flex flex-col shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 border-slate-200/80 dark:border-slate-800/60 overflow-hidden">
+            <CardContent className="flex-1 min-h-0 flex flex-col p-5 sm:p-7 lg:p-8 gap-5 sm:gap-6">
+                <div className="flex items-start gap-4 shrink-0">
                     <div className="h-12 w-12 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-900/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-sm">
                         {icon}
                     </div>
@@ -2017,17 +2045,21 @@ const StepShell: React.FC<{
                                 </Badge>
                             )}
                         </div>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">{subtitle}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed max-w-3xl">
+                            {subtitle}
+                        </p>
                     </div>
                 </div>
-                {children}
+                <div className="flex-1 min-h-0 flex flex-col gap-5 sm:gap-6 overflow-y-auto">
+                    {children}
+                </div>
             </CardContent>
         </Card>
     );
 };
 
 const StepActions: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <div className="pt-4 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-3 flex-wrap">
+    <div className="pt-4 mt-auto shrink-0 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-3 flex-wrap">
         {children}
     </div>
 );

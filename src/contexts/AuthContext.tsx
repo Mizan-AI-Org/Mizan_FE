@@ -6,6 +6,7 @@ import { AuthContext } from "./AuthContext";
 import { AuthContextType, User } from "./AuthContext.types";
 import { api, API_BASE } from "../lib/api";
 import i18n from "@/i18n";
+import { clearOnboardingSkipFlags, restaurantOnboardingComplete } from "@/lib/onboarding-gate";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -22,6 +23,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     sessionStorage.removeItem("lua_login_nonce");
+    clearOnboardingSkipFlags();
     setUser(null);
   }, []);
 
@@ -51,7 +53,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       userData.role === "ADMIN" ||
       userData.role === "MANAGER" ||
       userData.role === "OWNER";
-    return isSupervisor ? "/dashboard" : "/staff-dashboard";
+    if (!isSupervisor) return "/staff-dashboard";
+
+    const isOwnerLike =
+      userData.role === "SUPER_ADMIN" ||
+      userData.role === "ADMIN" ||
+      userData.role === "OWNER";
+    if (isOwnerLike && !restaurantOnboardingComplete(userData)) {
+      return "/onboarding";
+    }
+    return "/dashboard";
   }, []);
 
   const initializeAuth = useCallback(async () => {
@@ -108,6 +119,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [clearAuth, navigate, location.pathname, resolvePostLoginPath]);
 
   useEffect(() => {
+    // Purge legacy browser-global skip flag left by older builds so a new
+    // business on this machine can still enter onboarding.
+    clearOnboardingSkipFlags();
     initializeAuth();
   }, [initializeAuth]);
 
@@ -277,12 +291,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         data.tokens?.refresh || data.refresh
       );
 
-      const isSupervisor =
-        data.user.role === "SUPER_ADMIN" ||
-        data.user.role === "ADMIN" ||
-        data.user.role === "MANAGER" ||
-        data.user.role === "OWNER";
-      navigate(isSupervisor ? "/dashboard" : "/staff-dashboard");
+      navigate(resolvePostLoginPath(data.user));
     } catch (err) {
 
       if (err instanceof Error) {
@@ -371,12 +380,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const data = contentType.includes("application/json") && rawText
       ? JSON.parse(rawText)
       : {};
+    clearOnboardingSkipFlags();
     setUser(data.user);
     localStorage.setItem("user", JSON.stringify(data.user));
     applyLanguageForUser(data.user);
     localStorage.setItem("access_token", data.tokens.access);
     localStorage.setItem("refresh_token", data.tokens.refresh);
-    navigate("/dashboard");
+    navigate("/onboarding");
   };
 
   const acceptInvitation = async (
@@ -402,12 +412,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.setItem("user", JSON.stringify(data.user));
     localStorage.setItem("access_token", data.tokens.access);
     localStorage.setItem("refresh_token", data.tokens.refresh);
-    const isSupervisor =
-      data.user?.role === "SUPER_ADMIN" ||
-      data.user?.role === "ADMIN" ||
-      data.user?.role === "MANAGER" ||
-      data.user?.role === "OWNER";
-    navigate(isSupervisor ? "/dashboard" : "/staff-dashboard");
+    navigate(resolvePostLoginPath(data.user));
   };
 
   const inviteStaff = async (
