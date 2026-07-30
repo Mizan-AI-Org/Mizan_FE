@@ -170,24 +170,24 @@ export interface Task {
 }
 
 /** Row shape served by GET /api/dashboard/tasks-demands/. Kept
- * deliberately small for the dashboard widget — no restaurant id, no
+ * deliberately small for the dashboard widget - no restaurant id, no
  * full user object. */
 export type DashboardTaskPillStatus =
-    /** Created in the last few hours and still pending — gives newly captured rows a distinct visual signal so they're easy to spot. */
+    /** Created in the last few hours and still pending - gives newly captured rows a distinct visual signal so they're easy to spot. */
     | 'NEW'
     /** Default "needs action" state for an unassigned, untouched item. */
     | 'PENDING'
     /** A staff request that's been APPROVED and has a named assignee. */
     | 'ASSIGNED'
-    /** Work has started — same as the legacy IN_PROGRESS coarse status. */
+    /** Work has started - same as the legacy IN_PROGRESS coarse status. */
     | 'IN_PROGRESS'
     /** Manager has parked the request awaiting an external dependency (supplier, contractor, document). */
     | 'WAITING_ON'
     /** A request that was bounced up the chain to a senior manager. */
     | 'ESCALATED'
-    /** A task whose due date has passed (or whose follow-up date has slipped) — top priority for the manager's attention. */
+    /** A task whose due date has passed (or whose follow-up date has slipped) - top priority for the manager's attention. */
     | 'OVERDUE'
-    /** Open invoice or task due within the next 3 days — early heads-up before it slips. */
+    /** Open invoice or task due within the next 3 days - early heads-up before it slips. */
     | 'DUE_SOON'
     /** Invoice that hasn't been finalised yet (DRAFT status). */
     | 'DRAFT'
@@ -222,7 +222,7 @@ export interface DashboardTaskDemandItem {
      */
     age_label?: string;
     /**
-     * Source model that owns this row. Drives the row's action menu —
+     * Source model that owns this row. Drives the row's action menu -
      * invoices only accept "Mark paid" / "Mark voided" while tasks /
      * staff requests accept the full PENDING → IN_PROGRESS → DONE flow.
      * The dashboard task-status PATCH endpoint figures out which model
@@ -236,7 +236,7 @@ export interface DashboardTaskDemandItem {
     source: 'MANUAL' | 'WHATSAPP' | 'EMAIL' | 'MIYA' | 'SYSTEM';
     source_label: string;
     ai_summary: string;
-    /** Dashboard widget bucket — set by the intent router so HR / Finance /
+    /** Dashboard widget bucket - set by the intent router so HR / Finance /
      *  Maintenance / Meetings widgets can filter without extra round-trips. */
     category?:
         | 'DOCUMENT'
@@ -309,7 +309,7 @@ export interface CategoryTasksResponse {
     /**
      * Coarse counts (``open / in_progress / completed``) drive the filter
      * chips. The granular fields (``overdue / waiting_on / escalated /
-     * new``) are best-effort — counted from the trimmed top-N items and
+     * new``) are best-effort - counted from the trimmed top-N items and
      * only used to render the warning badges in the card header. They
      * may be undefined on older backends.
      */
@@ -477,7 +477,7 @@ export interface Invoice {
 }
 
 /** Row shape served by GET /api/dashboard/meetings-reminders/. Thin by design
- * so the widget can render without a second call — the full event detail
+ * so the widget can render without a second call - the full event detail
  * is one click away in Google Calendar via `html_link`. */
 export interface MeetingReminderItem {
     id: string;
@@ -489,7 +489,7 @@ export interface MeetingReminderItem {
     /** First-name label for the organizer, or literally "Me" when it's the viewer. */
     owner_label: string;
     owner_is_me: boolean;
-    /** Widget pill vocabulary — mapped from event time + color on the backend. */
+    /** Widget pill vocabulary - mapped from event time + color on the backend. */
     status: 'URGENT' | 'PENDING' | 'DONE';
     html_link: string | null;
     hangout_link: string | null;
@@ -539,7 +539,7 @@ export interface DashboardClockInsResponse {
     counts: {
         on_time: number;
         late: number;
-        /** Total clock-in events today across the whole tenant — lets the
+        /** Total clock-in events today across the whole tenant - lets the
          * card show "3 late / 17 today" without a second request. */
         total: number;
     };

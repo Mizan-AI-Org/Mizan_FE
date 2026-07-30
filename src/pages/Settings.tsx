@@ -264,7 +264,7 @@ export default function Settings() {
   const [gcalDisconnecting, setGcalDisconnecting] = useState(false);
   const [gcalDisconnectOpen, setGcalDisconnectOpen] = useState(false);
   const [savingGeneral, setSavingGeneral] = useState(false);
-  // Controlled tabs — synced with ?tab= for deep links / OAuth returns
+  // Controlled tabs - synced with ?tab= for deep links / OAuth returns
   const SETTINGS_TABS = useMemo(
     () =>
       [
@@ -881,7 +881,7 @@ export default function Settings() {
     }
   };
 
-  // Toast uses partner-credentials auth — the tenant only needs to
+  // Toast uses partner-credentials auth - the tenant only needs to
   // provide their restaurantGuid, which the backend verifies against
   // Toast before persisting. No browser redirect.
   const [toastGuidInput, setToastGuidInput] = useState("");
@@ -916,7 +916,7 @@ export default function Settings() {
     }
   };
 
-  // Clover uses standard OAuth 2.0 — we ask the backend for the
+  // Clover uses standard OAuth 2.0 - we ask the backend for the
   // authorize URL (signed state bound to this tenant) and navigate.
   const connectClover = async () => {
     try {
@@ -1555,8 +1555,8 @@ export default function Settings() {
                           }
                           className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100 rounded-md"
                         >
-                          <option value="RESTAURANT_K">Restaurant — K-Series API</option>
-                          <option value="RETAIL_X">Retail — X-Series API</option>
+                          <option value="RESTAURANT_K">Restaurant - K-Series API</option>
+                          <option value="RETAIL_X">Retail - X-Series API</option>
                         </select>
                       </div>
                       <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
@@ -1661,7 +1661,7 @@ export default function Settings() {
                           <div className="text-sm font-medium text-slate-800 dark:text-slate-200">Toast POS</div>
                           <div className="text-xs text-slate-500 dark:text-slate-400">
                             {t("pos.toast.subtitle") ||
-                              "Provide your Toast restaurantGuid. Mizan uses its partner credentials to pull your orders — no API keys stored in your browser."}
+                              "Provide your Toast restaurantGuid. Mizan uses its partner credentials to pull your orders - no API keys stored in your browser."}
                           </div>
                         </div>
                         <Badge
@@ -1693,7 +1693,7 @@ export default function Settings() {
                             />
                             <p className="text-xs text-slate-400">
                               {t("pos.toast.guid_hint") ||
-                                "Find this in Toast Web — Restaurant Admin → API access. Format: UUID."}
+                                "Find this in Toast Web - Restaurant Admin → API access. Format: UUID."}
                             </p>
                           </div>
                           <Button

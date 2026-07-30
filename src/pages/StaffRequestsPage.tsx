@@ -92,7 +92,7 @@ type StaffRequest = {
 
 const STATUSES: { key: StaffRequestStatus; labelKey: string }[] = [
   { key: "PENDING", labelKey: "staff.requests.status_pending" },
-  // APPROVED in the inbox means "manager acknowledged — being worked on",
+  // APPROVED in the inbox means "manager acknowledged - being worked on",
   // which the dashboard widgets surface as "In progress".
   { key: "APPROVED", labelKey: "staff.requests.status_in_progress" },
   // "Waiting on" parks an acknowledged request that is blocked by an
@@ -235,7 +235,7 @@ function getAssigneeName(r: Pick<StaffRequest, "assignee_summary" | "assignee_de
   return "";
 }
 
-/** Who sent the request — never bury this behind a generic "Staff" label.
+/** Who sent the request - never bury this behind a generic "Staff" label.
  *  Returns "" when unknown; translate at call site with `t("staff.requests.unknown_sender")`. */
 function getRequesterName(r: Pick<StaffRequest, "staff_display_name" | "staff_name" | "staff_phone" | "staff_phone_display">): string {
   const name = (r.staff_display_name || r.staff_name || "").trim();
@@ -476,7 +476,7 @@ function InvoiceDetailPanel({
         <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
           <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("staff.requests.invoice_due_date")}</div>
           <div className="text-lg font-semibold mt-1">
-            {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : "—"}
+            {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : "-"}
           </div>
         </div>
       </div>
@@ -700,7 +700,7 @@ const StaffRequestsPage: React.FC = () => {
   const isDashboardDetail = detailKind === "dashboard" || detailKind === "scheduling";
 
   // Apply widget deep-links once lanes are loaded (?lane= or legacy ?category=).
-  // Params are captured on first mount — a separate strip-on-mount effect used
+  // Params are captured on first mount - a separate strip-on-mount effect used
   // to delete them before lanes finished loading, which dropped the Team Travel tab.
   useEffect(() => {
     if (deepLinkAppliedRef.current || inboxLanesQuery.isLoading) return;
@@ -745,7 +745,7 @@ const StaffRequestsPage: React.FC = () => {
   const [comment, setComment] = useState("");
   const [escalateModalOpen, setEscalateModalOpen] = useState(false);
   const [reassignModalOpen, setReassignModalOpen] = useState(false);
-  // "Assigned to me" toggle — scopes the inbox to rows this manager owns.
+  // "Assigned to me" toggle - scopes the inbox to rows this manager owns.
   const [assignedToMe, setAssignedToMe] = useState(false);
 
   // Debounce the search term so we don't hit the backend on every keystroke.
@@ -797,7 +797,7 @@ const StaffRequestsPage: React.FC = () => {
     // Keep the previous results visible while revalidating so switching tabs /
     // typing in search doesn't flash "Loading…".
     placeholderData: keepPreviousData,
-    // Rows don't change that often — treat them as fresh for 30s so flipping
+    // Rows don't change that often - treat them as fresh for 30s so flipping
     // between tabs/pages is instant from cache.
     staleTime: 30_000,
     refetchOnWindowFocus: false,
@@ -843,7 +843,7 @@ const StaffRequestsPage: React.FC = () => {
     refetchOnWindowFocus: false,
   });
 
-  // "Assigned to me (N)" pill count is NOT scoped to the current status tab —
+  // "Assigned to me (N)" pill count is NOT scoped to the current status tab -
   // it's the total open rows owned by the manager across any status (except
   // CLOSED/REJECTED). We need this independent of the main counts query.
   const myCountsQuery = useQuery({
@@ -1626,7 +1626,7 @@ const StaffRequestsPage: React.FC = () => {
                           </Badge>
                         </div>
 
-                        {/* Sender first — managers triage by who asked */}
+                        {/* Sender first - managers triage by who asked */}
                         <div className="mb-3 flex items-center gap-3 rounded-2xl border border-emerald-200/70 bg-emerald-50/60 px-3.5 py-3 dark:border-emerald-900/50 dark:bg-emerald-950/30">
                           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-sm font-bold text-white dark:bg-emerald-600">
                             {requesterInitials(getRequesterName(selected) || t("staff.requests.unknown_sender"))}

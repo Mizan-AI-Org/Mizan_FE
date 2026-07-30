@@ -220,7 +220,7 @@ const Timesheets: React.FC = () => {
       });
       if (!response.ok) return [];
       const body = await response.json();
-      // /api/users/ is a DRF ModelViewSet — paginated callers get
+      // /api/users/ is a DRF ModelViewSet - paginated callers get
       // { count, next, previous, results: [...] } while unpaginated
       // ones get a bare array. Handle both.
       if (Array.isArray(body)) return body;

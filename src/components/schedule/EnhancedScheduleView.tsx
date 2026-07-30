@@ -79,7 +79,7 @@ const EnhancedScheduleView: React.FC = () => {
     },
   });
 
-  // Fetch shifts for the current week (filter by week_start — list is paginated
+  // Fetch shifts for the current week (filter by week_start - list is paginated
   // and older/current weeks fall off page 1 when many future schedules exist).
   const weekStartStr = toYMD(getWeekStart(currentDate));
   const { data: scheduleData, isLoading: isLoadingShifts, refetch: refetchShifts } = useQuery<WeeklyScheduleData>({
@@ -216,7 +216,7 @@ const EnhancedScheduleView: React.FC = () => {
     const tasksPayload = (shift.tasks || []).map((t) => ({ title: t.title, priority: t.priority || "MEDIUM" }));
 
     try {
-      // —— Recurring: use batch API (one request create, or delete+create for edit) ——
+      // -- Recurring: use batch API (one request create, or delete+create for edit) --
       const hasCustomDays = Array.isArray(shift.days_of_week) && shift.days_of_week.length > 0;
       const isRecurringSave = shift.isRecurring && shift.recurringEndDate && (shift.frequency === 'CUSTOM' ? hasCustomDays : shift.frequency);
       if (isRecurringSave) {
@@ -274,7 +274,7 @@ const EnhancedScheduleView: React.FC = () => {
         return;
       }
 
-      // —— Single shift: one PUT or one POST ——
+      // -- Single shift: one PUT or one POST --
       let targetedScheduleId = scheduleData?.id;
       const currentWeekStart = toYMD(getWeekStart(parseISO(shift.date)));
       if (currentWeekStart !== weekStartStr) {

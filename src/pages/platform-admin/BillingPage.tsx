@@ -29,7 +29,7 @@ function StatusBadge({ status }: { status: string }) {
       : s === "trialing"
         ? opsBadgeWarn
         : "rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-600 dark:text-slate-300";
-  return <span className={cls}>{status || "—"}</span>;
+  return <span className={cls}>{status || "-"}</span>;
 }
 
 export default function BillingPage() {
@@ -107,20 +107,20 @@ export default function BillingPage() {
                       className={opsLink}
                       title="Change plan on the tenant page (reason required)"
                     >
-                      {s.plan_name || "—"}
+                      {s.plan_name || "-"}
                     </Link>
                   </td>
                   <td className={opsTd}>
                     <StatusBadge status={s.status} />
                   </td>
-                  <td className={opsTd}>{s.billing_interval || "—"}</td>
+                  <td className={opsTd}>{s.billing_interval || "-"}</td>
                   <td className={opsTd}>
                     {s.current_period_end
                       ? new Date(s.current_period_end).toLocaleDateString()
-                      : "—"}
+                      : "-"}
                   </td>
                   <td className={`${opsTd} font-mono text-[11px] ${opsMuted} truncate max-w-[140px]`}>
-                    {s.stripe_customer_id || "—"}
+                    {s.stripe_customer_id || "-"}
                   </td>
                 </tr>
               ))}

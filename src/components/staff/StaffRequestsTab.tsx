@@ -268,17 +268,17 @@ const StaffRequestsTab: React.FC = () => {
                       <div className="space-y-4">
                         <div>
                           <div className="text-xs font-medium text-muted-foreground mb-1">Description</div>
-                          <div className="text-sm whitespace-pre-wrap">{selected.description || "—"}</div>
+                          <div className="text-sm whitespace-pre-wrap">{selected.description || "-"}</div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3 text-xs">
                           <div>
                             <div className="font-medium text-muted-foreground">Source</div>
-                            <div>{selected.source || "—"}</div>
+                            <div>{selected.source || "-"}</div>
                           </div>
                           <div>
                             <div className="font-medium text-muted-foreground">External ID</div>
-                            <div>{selected.external_id || "—"}</div>
+                            <div>{selected.external_id || "-"}</div>
                           </div>
                         </div>
 
@@ -313,7 +313,7 @@ const StaffRequestsTab: React.FC = () => {
 
                     <Separator className="my-3" />
 
-                    {/* Approve / Decline removed — the manager inbox
+                    {/* Approve / Decline removed - the manager inbox
                         only needs Escalate (hand it off) and Close
                         (mark resolved). See StaffRequestsPage.tsx for
                         the full rationale. */}

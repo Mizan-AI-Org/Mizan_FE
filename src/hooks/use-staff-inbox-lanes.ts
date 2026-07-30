@@ -26,7 +26,7 @@ async function fetchStaffInboxLanes(): Promise<StaffInboxLane[]> {
   return Array.isArray(data?.lanes) ? data.lanes : [];
 }
 
-/** Tabs on All Requests — one per dashboard command-centre widget on the user's layout. */
+/** Tabs on All Requests - one per dashboard command-centre widget on the user's layout. */
 export function useStaffInboxLanes() {
   return useQuery({
     queryKey: ["staff-inbox-lanes"],

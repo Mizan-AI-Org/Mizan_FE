@@ -129,7 +129,7 @@ const ManagerReviewDashboard: React.FC = () => {
   const [checklistPage, setChecklistPage] = useState(1);
   const checklistPageSize = 10;
 
-  // Top-level tab — deep-linkable via ?tab=submitted|incidents so that the
+  // Top-level tab - deep-linkable via ?tab=submitted|incidents so that the
   // dashboard's "Reported Incidents" widget can land directly on the right
   // tab. We keep the URL in sync when the user switches tabs manually so
   // copy-pasting the address bar reproduces what they're looking at.
@@ -405,7 +405,7 @@ const ManagerReviewDashboard: React.FC = () => {
   const topTemplates = useMemo(() => {
     const map = new Map<string, number>();
     filtered.forEach((s) => {
-      const name = String(s.template?.name || '').trim() || '—';
+      const name = String(s.template?.name || '').trim() || '-';
       map.set(name, (map.get(name) || 0) + 1);
     });
     return Array.from(map.entries())
@@ -417,11 +417,11 @@ const ManagerReviewDashboard: React.FC = () => {
   const topStaff = useMemo(() => {
     const map = new Map<string, number>();
     filtered.forEach((s) => {
-      const name = String(s.submitted_by?.name || '').trim() || '—';
+      const name = String(s.submitted_by?.name || '').trim() || '-';
       map.set(name, (map.get(name) || 0) + 1);
     });
     return Array.from(map.entries())
-      .filter(([name]) => name !== '—')
+      .filter(([name]) => name !== '-')
       .sort((a, b) => b[1] - a[1])
       .slice(0, 6)
       .map(([name, count]) => ({ name, count }));
@@ -699,7 +699,7 @@ const ManagerReviewDashboard: React.FC = () => {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Ops review</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Checklist submissions and safety incidents — review, assign, resolve.
+            Checklist submissions and safety incidents - review, assign, resolve.
           </p>
         </div>
         <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 p-1 gap-1">
@@ -799,7 +799,7 @@ const ManagerReviewDashboard: React.FC = () => {
                 </div>
                 <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
                   <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{t("common.avg_score")}</div>
-                  <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.avgCompletion ?? "—"}{typeof trendKpis.avgCompletion === 'number' ? "%" : ""}</div>
+                  <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.avgCompletion ?? "-"}{typeof trendKpis.avgCompletion === 'number' ? "%" : ""}</div>
                   <div className="text-[11px] text-muted-foreground mt-1">{t("analytics.from_checklist_summaries")}</div>
                 </div>
                 <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 md:col-span-2">
@@ -807,7 +807,7 @@ const ManagerReviewDashboard: React.FC = () => {
                     <AlertTriangle className="h-3 w-3 text-amber-600" />
                     {t("analytics.issue_rate")}
                   </div>
-                  <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.issueRate ?? "—"}{typeof trendKpis.issueRate === 'number' ? "%" : ""}</div>
+                  <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.issueRate ?? "-"}{typeof trendKpis.issueRate === 'number' ? "%" : ""}</div>
                   <div className="text-[11px] text-muted-foreground mt-1">{t("analytics.issue_rate_desc")}</div>
                 </div>
               </div>
@@ -856,7 +856,7 @@ const ManagerReviewDashboard: React.FC = () => {
                 <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 space-y-3">
                   <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("common.top_checklists")}</div>
                   {topTemplates.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">—</div>
+                    <div className="text-sm text-muted-foreground">-</div>
                   ) : (
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
@@ -982,7 +982,7 @@ const ManagerReviewDashboard: React.FC = () => {
                             className={cn(!isCompletedLike(s.status) && "bg-amber-50/60 dark:bg-amber-950/20")}
                           >
                             <TableCell>
-                              <div className="font-medium text-sm">{s.template?.name || "—"}</div>
+                              <div className="font-medium text-sm">{s.template?.name || "-"}</div>
                               {s.source_type === "shift_progress" ? (
                                 <Badge variant="outline" className="mt-0.5 text-[10px]">WhatsApp</Badge>
                               ) : null}
@@ -992,7 +992,7 @@ const ManagerReviewDashboard: React.FC = () => {
                                 </div>
                               ) : null}
                             </TableCell>
-                            <TableCell className="text-sm">{s.submitted_by?.name || "—"}</TableCell>
+                            <TableCell className="text-sm">{s.submitted_by?.name || "-"}</TableCell>
                             <TableCell className="text-sm whitespace-nowrap">
                               {s.submitted_at
                                 ? new Date(s.submitted_at).toLocaleString(undefined, {
@@ -1001,13 +1001,13 @@ const ManagerReviewDashboard: React.FC = () => {
                                     hour: "2-digit",
                                     minute: "2-digit",
                                   })
-                                : "—"}
+                                : "-"}
                             </TableCell>
                             <TableCell>
                               <div className="min-w-[120px] space-y-1">
                                 <div className="flex items-center justify-between text-[11px]">
                                   <span className="tabular-nums">
-                                    {s.compiled_summary?.completed_steps ?? "—"}/{s.compiled_summary?.total_steps ?? "—"}
+                                    {s.compiled_summary?.completed_steps ?? "-"}/{s.compiled_summary?.total_steps ?? "-"}
                                     {typeof rate === "number" ? ` · ${rate}%` : ""}
                                   </span>
                                   {typeof s.compiled_summary?.duration_minutes === "number" ? (
@@ -1030,7 +1030,7 @@ const ManagerReviewDashboard: React.FC = () => {
                                 variant={isCompletedLike(s.status) ? "secondary" : "outline"}
                                 className="text-[10px]"
                               >
-                                {s.status || "—"}
+                                {s.status || "-"}
                               </Badge>
                             </TableCell>
                             <TableCell>
@@ -1188,7 +1188,7 @@ const ManagerReviewDashboard: React.FC = () => {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Reported incidents</CardTitle>
               <CardDescription>
-                Safety and service reports from staff — assign and close them here.
+                Safety and service reports from staff - assign and close them here.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1294,12 +1294,12 @@ const ManagerReviewDashboard: React.FC = () => {
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className={getSeverityColor(String(incident.severity || ""))}>
-                              {formatStatus(String(incident.severity || "—"))}
+                              {formatStatus(String(incident.severity || "-"))}
                             </Badge>
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className={getStatusColor(String(incident.status || ""))}>
-                              {formatStatus(String(incident.status || "—"))}
+                              {formatStatus(String(incident.status || "-"))}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-sm">
@@ -1326,7 +1326,7 @@ const ManagerReviewDashboard: React.FC = () => {
                                   hour: "2-digit",
                                   minute: "2-digit",
                                 })
-                              : "—"}
+                              : "-"}
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Button size="sm" variant="outline" onClick={() => setSelectedIncident(incident.id)}>
@@ -1402,10 +1402,10 @@ const ManagerReviewDashboard: React.FC = () => {
                 <div className="space-y-5">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline" className={getSeverityColor(incidentDetail.severity)}>
-                      {formatStatus(incidentDetail.severity || "—")}
+                      {formatStatus(incidentDetail.severity || "-")}
                     </Badge>
                     <Badge variant="outline" className={getStatusColor(incidentDetail.status)}>
-                      {formatStatus(incidentDetail.status || "—")}
+                      {formatStatus(incidentDetail.status || "-")}
                     </Badge>
                     {incidentDetail.incident_type ? (
                       <Badge variant="secondary" className="capitalize text-[10px]">
@@ -1433,7 +1433,7 @@ const ManagerReviewDashboard: React.FC = () => {
                           ? "Anonymous"
                           : incidentDetail.reporter_details
                             ? `${incidentDetail.reporter_details.first_name} ${incidentDetail.reporter_details.last_name}`
-                            : "—"}
+                            : "-"}
                       </div>
                     </div>
                     <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 space-y-1">
@@ -1443,7 +1443,7 @@ const ManagerReviewDashboard: React.FC = () => {
                       <div className="font-medium">
                         {incidentDetail.created_at
                           ? new Date(incidentDetail.created_at).toLocaleString()
-                          : "—"}
+                          : "-"}
                       </div>
                     </div>
                     <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 space-y-1">
@@ -1453,7 +1453,7 @@ const ManagerReviewDashboard: React.FC = () => {
                       <div className="font-medium">
                         {incidentDetail.occurred_at
                           ? new Date(incidentDetail.occurred_at).toLocaleString()
-                          : "—"}
+                          : "-"}
                       </div>
                     </div>
                   </div>
@@ -1564,7 +1564,7 @@ const ManagerReviewDashboard: React.FC = () => {
                         <div className="font-medium">
                           {incidentDetail.resolved_at
                             ? new Date(incidentDetail.resolved_at).toLocaleString()
-                            : "—"}
+                            : "-"}
                         </div>
                       </div>
                     </div>
@@ -1652,7 +1652,7 @@ const ManagerReviewDashboard: React.FC = () => {
                   <div>
                     <div className="text-lg font-semibold">{summary.template?.name || "Checklist"}</div>
                     <div className="text-sm text-muted-foreground mt-0.5">
-                      {summary.submitted_by?.name || "—"}
+                      {summary.submitted_by?.name || "-"}
                       {summary.submitted_at
                         ? ` · ${new Date(summary.submitted_at).toLocaleString()}`
                         : ""}
@@ -1660,7 +1660,7 @@ const ManagerReviewDashboard: React.FC = () => {
                     </div>
                   </div>
                   <Badge variant={isCompletedLike(summary.status) ? "secondary" : "outline"}>
-                    {summary.status || "—"}
+                    {summary.status || "-"}
                   </Badge>
                 </div>
 
@@ -1681,7 +1681,7 @@ const ManagerReviewDashboard: React.FC = () => {
                     </div>
                     <div className="border rounded-md p-3">
                       <div className="text-muted-foreground">Duration</div>
-                      <div className="font-semibold">{typeof summary.compiled_summary.duration_minutes === 'number' ? `${summary.compiled_summary.duration_minutes} min` : '—'}</div>
+                      <div className="font-semibold">{typeof summary.compiled_summary.duration_minutes === 'number' ? `${summary.compiled_summary.duration_minutes} min` : '-'}</div>
                     </div>
                     <div className="border rounded-md p-3">
                       <div className="text-muted-foreground">Evidence</div>
@@ -1741,7 +1741,7 @@ const ManagerReviewDashboard: React.FC = () => {
                           <div className="font-medium">{t("common.checklist_report")}</div>
                           {(exec as any).shift ? (
                             <div className="text-xs text-muted-foreground">
-                              Shift: {(exec as any).shift.shift_date || '—'}{' '}
+                              Shift: {(exec as any).shift.shift_date || '-'}{' '}
                               {(exec as any).shift.start_time ? `(${new Date((exec as any).shift.start_time).toLocaleTimeString()}` : ''}
                               {(exec as any).shift.end_time ? ` – ${new Date((exec as any).shift.end_time).toLocaleTimeString()})` : (exec as any).shift.start_time ? ')' : ''}
                               {(exec as any).shift.role ? ` • Role: ${(exec as any).shift.role}` : ''}
@@ -1749,7 +1749,7 @@ const ManagerReviewDashboard: React.FC = () => {
                             </div>
                           ) : exec.assigned_shift_info ? (
                             <div className="text-xs text-muted-foreground">
-                              Shift: {exec.assigned_shift_info.shift_date || '—'}{' '}
+                              Shift: {exec.assigned_shift_info.shift_date || '-'}{' '}
                               {exec.assigned_shift_info.start_time ? `(${new Date(exec.assigned_shift_info.start_time).toLocaleTimeString()}` : ''}
                               {exec.assigned_shift_info.end_time ? ` – ${new Date(exec.assigned_shift_info.end_time).toLocaleTimeString()})` : exec.assigned_shift_info.start_time ? ')' : ''}
                               {exec.assigned_shift_info.role ? ` • Role: ${exec.assigned_shift_info.role}` : ''}
@@ -1781,7 +1781,7 @@ const ManagerReviewDashboard: React.FC = () => {
                                 <ul className="list-disc pl-4">
                                   {sr.evidence.map((ev: ExecutionEvidence, eidx: number) => (
                                     <li key={ev.id || eidx} className="break-all">
-                                      {ev.evidence_type || 'FILE'} — {ev.filename || ev.file_path || '—'}
+                                      {ev.evidence_type || 'FILE'} - {ev.filename || ev.file_path || '-'}
                                     </li>
                                   ))}
                                 </ul>
@@ -1802,7 +1802,7 @@ const ManagerReviewDashboard: React.FC = () => {
                                   </div>
                                   {a.description ? <div className="mt-1 text-muted-foreground">{a.description}</div> : null}
                                   <div className="mt-2 text-muted-foreground">
-                                    Assigned to: {a.assigned_to ? `${a.assigned_to.first_name || ''} ${a.assigned_to.last_name || ''}`.trim() : '—'} • Priority: {a.priority || '—'}
+                                    Assigned to: {a.assigned_to ? `${a.assigned_to.first_name || ''} ${a.assigned_to.last_name || ''}`.trim() : '-'} • Priority: {a.priority || '-'}
                                   </div>
                                 </div>
                               ))}

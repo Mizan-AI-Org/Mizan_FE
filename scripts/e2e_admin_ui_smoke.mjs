@@ -89,7 +89,7 @@ async function main() {
           (await page.getByText(/Overall:\s*Degraded/i).count()) > 0 &&
           (await page.getByText(/Stripe/i).count()) > 0 &&
           (await page.getByText(/Needs setup|Missing/i).count()) > 0;
-        // Only fail if overall degraded solely due to stripe optional — hard to assert; check Healthy or Degraded with required
+        // Only fail if overall degraded solely due to stripe optional - hard to assert; check Healthy or Degraded with required
         const healthy = await page.getByText(/Overall:\s*Healthy/i).count();
         const degraded = await page.getByText(/Overall:\s*Degraded/i).count();
         if (healthy) add("pass", "Health overall Healthy");
@@ -120,7 +120,7 @@ async function main() {
     await browser.close();
   }
 
-  const lines = ["# Platform Admin UI Smoke", "", ...findings.map((f) => `- **${f.sev.toUpperCase()}** — ${f.title}${f.detail ? `: ${f.detail}` : ""}`)];
+  const lines = ["# Platform Admin UI Smoke", "", ...findings.map((f) => `- **${f.sev.toUpperCase()}** - ${f.title}${f.detail ? `: ${f.detail}` : ""}`)];
   fs.writeFileSync("/Users/macbookpro/code/Mizan_AI/e2e-ui-smoke.md", lines.join("\n"));
   console.log(lines.join("\n"));
   const bad = findings.filter((f) => ["critical", "high", "medium"].includes(f.sev));

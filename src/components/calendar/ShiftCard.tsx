@@ -37,7 +37,7 @@ const getPositionStyles = (shift: CalendarShift): React.CSSProperties => {
   const color = getColorForDayOfWeek(shift);
 
   // Overlap handling: calendarUtils.calculateShiftPosition assigns each shift in
-  // an overlap group a column — `position.left` is the starting % within the
+  // an overlap group a column - `position.left` is the starting % within the
   // day column and `position.width` is the % width. If width<=0 (no overlap
   // group recorded), fall back to filling the column so older data still renders.
   const hasOverlapLayout =

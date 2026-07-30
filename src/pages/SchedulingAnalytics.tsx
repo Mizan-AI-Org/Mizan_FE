@@ -152,7 +152,7 @@ const SchedulingAnalytics: React.FC = () => {
   const laborBudget = laborCostsData?.budget;
   const costPerHour = laborTotalHours > 0 ? laborTotalCost / laborTotalHours : 0;
   const topRoleCost = laborChartData.length ? Math.max(...laborChartData.map((d: { value: number }) => d.value)) : 0;
-  const topRoleName = laborChartData.length ? laborChartData.find((d: { value: number }) => d.value === topRoleCost)?.name ?? "—" : "—";
+  const topRoleName = laborChartData.length ? laborChartData.find((d: { value: number }) => d.value === topRoleCost)?.name ?? "-" : "-";
 
   // Handle export report
   const handleExportReport = () => {

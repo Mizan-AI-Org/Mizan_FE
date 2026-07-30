@@ -467,7 +467,7 @@ const PaginationControls: React.FC<{
 type TodayShiftOption = { id: string; shift_date: string; start_time: string | null; end_time: string | null; role?: string };
 
 function formatShiftTime(isoOrTime: string | null): string {
-    if (!isoOrTime) return "—";
+    if (!isoOrTime) return "-";
     if (/^\d{2}:\d{2}/.test(isoOrTime)) return isoOrTime.slice(0, 5);
     try {
         return format(parseISO(isoOrTime), "HH:mm");
@@ -855,7 +855,7 @@ const PresenceTab: React.FC = () => {
                             <div className="grid grid-cols-2 gap-2 text-sm">
                                 <div>
                                     <span className="text-slate-500 dark:text-slate-400">{t("staff.presence.table.clock_in")}</span>
-                                    <p className="font-medium text-slate-900 dark:text-white">{selectedPresenceRecord.clock_in ?? "—"}</p>
+                                    <p className="font-medium text-slate-900 dark:text-white">{selectedPresenceRecord.clock_in ?? "-"}</p>
                                 </div>
                                 <div>
                                     <span className="text-slate-500 dark:text-slate-400">{t("staff.presence.table.status")}</span>
@@ -898,7 +898,7 @@ const PresenceTab: React.FC = () => {
                                                 value={overrideShiftId}
                                                 onChange={(e) => setOverrideShiftId(e.target.value)}
                                             >
-                                                <option value="">— Select shift —</option>
+                                                <option value="">- Select shift -</option>
                                                 {todayShifts.map((s) => (
                                                     <option key={s.id} value={s.id}>
                                                         {formatShiftTime(s.start_time)} – {formatShiftTime(s.end_time)}
@@ -1175,7 +1175,7 @@ const TeamTab: React.FC = () => {
             setLastInviteLink(link);
             toast.success(
                 t("toasts.whatsapp_miya_link_copied") ||
-                    "WhatsApp link copied — open it to start chatting with Miya.",
+                    "WhatsApp link copied - open it to start chatting with Miya.",
             );
             return link;
         } catch {
@@ -2034,7 +2034,7 @@ const TeamTab: React.FC = () => {
                                 )}
                             </div>
 
-                            {/* Danger zone: Deactivate / Remove — only for Owner or Super Admin, not for self */}
+                            {/* Danger zone: Deactivate / Remove - only for Owner or Super Admin, not for self */}
                             {(user?.role === "OWNER" || user?.role === "SUPER_ADMIN") && selectedMember && selectedMember.id !== user?.id && (
                                 <div className={cn("space-y-3 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
                                     <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>{t("staff.danger_zone")}</h4>
@@ -2262,7 +2262,7 @@ const TeamTab: React.FC = () => {
                         if (data.created > 0 && (data.invite_short_link || data.invite_link)) {
                             setLastInviteLink(data.invite_short_link || data.invite_link);
                             handleCloseInviteModal();
-                            toast.success(`${data.created} staff members ready. Copy and share the link—when they click it and message Miya, their account will be activated and Miya will reply via WhatsApp.`);
+                            toast.success(`${data.created} staff members ready. Copy and share the link-when they click it and message Miya, their account will be activated and Miya will reply via WhatsApp.`);
                             refetch();
                             refetchActivationPending();
                         } else {
@@ -2747,7 +2747,7 @@ const TeamTab: React.FC = () => {
                                         <strong>Tip:</strong>{" "}
                                         {inviteMethod === "email"
                                             ? "Use valid email addresses. Roles should match the role codes (MANAGER, CHEF, WAITER, etc.)."
-                                            : <>Use WhatsApp numbers in international format (digits only), e.g. <code>2126XXXXXXXX</code> for Morocco. After upload, copy and share the invite link with staff—when they click it and send the message to Miya, their account is activated and Miya replies via WhatsApp.</>
+                                            : <>Use WhatsApp numbers in international format (digits only), e.g. <code>2126XXXXXXXX</code> for Morocco. After upload, copy and share the invite link with staff-when they click it and send the message to Miya, their account is activated and Miya replies via WhatsApp.</>
                                         }
                                     </p>
                                 </div>
@@ -3013,8 +3013,8 @@ const TeamTab: React.FC = () => {
                                                     </TableCell>
                                                     <TableCell className="text-slate-600 dark:text-slate-300">
                                                         {isWhatsAppActivationEmail(member.email)
-                                                            ? (member.phone || phoneFromWhatsAppEmail(member.email) || "—")
-                                                            : (member.email || "—")}
+                                                            ? (member.phone || phoneFromWhatsAppEmail(member.email) || "-")
+                                                            : (member.email || "-")}
                                                     </TableCell>
                                                     <TableCell>
                                                         <Badge variant="outline" className="capitalize">
@@ -3025,7 +3025,7 @@ const TeamTab: React.FC = () => {
                                                         <TableCell className="text-slate-600 dark:text-slate-300 text-sm">
                                                             <span className="inline-flex items-center gap-1">
                                                                 <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                                                {member.primary_location_data?.name || "—"}
+                                                                {member.primary_location_data?.name || "-"}
                                                             </span>
                                                         </TableCell>
                                                     ) : null}
@@ -3231,7 +3231,7 @@ const TeamTab: React.FC = () => {
                                     {pendingActivations.map((pa) => (
                                         <TableRow key={`act-${pa.id}`} className="border-slate-100 dark:border-slate-800">
                                             <TableCell className="font-medium text-slate-900 dark:text-white">
-                                                {pa.first_name || "—"} {pa.last_name || ""}
+                                                {pa.first_name || "-"} {pa.last_name || ""}
                                             </TableCell>
                                             <TableCell className="text-slate-600 dark:text-slate-300">
                                                 <div className="flex items-center gap-2">
@@ -3522,7 +3522,7 @@ const AttendanceTab: React.FC = () => {
                                 ) : paginatedLiveList.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={6} className="text-center py-8 text-slate-500">
-                                            {t("staff.attendance.search_placeholder")} — no match.
+                                            {t("staff.attendance.search_placeholder")} - no match.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -3558,7 +3558,7 @@ const AttendanceTab: React.FC = () => {
                                                 {item.shift.start ? `${item.shift.start} - ${item.shift.end}` : <span className="text-slate-400 italic">{t("staff.attendance.unscheduled")}</span>}
                                             </TableCell>
                                             <TableCell className="text-sm font-bold text-slate-900 dark:text-white">
-                                                {item.clock_in || <span className="text-slate-300">—</span>}
+                                                {item.clock_in || <span className="text-slate-300">-</span>}
                                             </TableCell>
                                             <TableCell>
                                                 {/* Status Badges */}
@@ -4016,7 +4016,7 @@ const InsightsTab: React.FC = () => {
                         <ShieldAlert className="w-5 h-5 text-red-500" />
                         {t("staff.insights.managerial_action")}
                     </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t("staff.insights.managerial_action_subtitle") || "Based on this week's data — burnout, punctuality, no-shows."}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t("staff.insights.managerial_action_subtitle") || "Based on this week's data - burnout, punctuality, no-shows."}</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

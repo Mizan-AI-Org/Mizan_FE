@@ -126,7 +126,7 @@ function roleLabel(role: string | undefined): string {
 }
 
 /**
- * Tone classes for the role badge — Owner & Admin pop in violet so the
+ * Tone classes for the role badge - Owner & Admin pop in violet so the
  * highest-authority recipients are visually distinct from regular staff.
  * Managers get an amber tint (mid-authority). Everyone else gets a
  * neutral slate badge so the list stays calm.
@@ -163,7 +163,7 @@ type Props = {
    * Optional ``StaffRequest.category`` of the row being escalated.
    * When set, the picker pre-suggests the canonical department tags
    * for that bucket (see ``CATEGORY_TO_TAGS``) so the manager can
-   * one-click filter to the right team. Doesn't restrict — the
+   * one-click filter to the right team. Doesn't restrict - the
    * manager can clear the suggestion or pick someone outside it.
    */
   category?: string | null;
@@ -186,8 +186,8 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
 
   // When the caller passes a ``category``, surface the tags the
   // backend's tag-routing fallback would consider. The first tag in
-  // the list is the "primary" department for that bucket — e.g.
-  // PURCHASE_ORDER → PURCHASES — so we put the strongest filter first.
+  // the list is the "primary" department for that bucket - e.g.
+  // PURCHASE_ORDER → PURCHASES - so we put the strongest filter first.
   const suggestedTags: readonly StaffTag[] = useMemo(() => {
     if (!category) return [];
     const key = String(category).toUpperCase();
@@ -203,7 +203,7 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
       //
       // ``all_branches=1`` opts out of the MANAGER branch-scope
       // filter on the staff list endpoint. Escalation is a "hand
-      // this off to anyone in the company" action — the branch
+      // this off to anyone in the company" action - the branch
       // scope is the right default for schedule pickers, but for
       // escalate we want every active teammate visible regardless
       // of which branch they sit in. The shape normaliser below
@@ -226,7 +226,7 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
 
   // Client-side filter + sort. We fetch every member in one go (the
   // backend caps at 500 which covers any realistic restaurant chain),
-  // then filter in-memory as the manager types — no debounce needed,
+  // then filter in-memory as the manager types - no debounce needed,
   // no extra round trips. Sort puts owners / admins / managers first
   // so escalating "above your head" is a one-click action even with a
   // long list.
@@ -238,7 +238,7 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
           const name = displayName(m).toLowerCase();
           const email = (m.email || "").toLowerCase();
           const role = (m.role || "").toLowerCase();
-          // Tag IDs are searchable too — typing "kitchen" should
+          // Tag IDs are searchable too - typing "kitchen" should
           // surface anyone tagged KITCHEN even if their name doesn't
           // include the word.
           const tagBlob = (m.tags || []).join(" ").toLowerCase();
@@ -284,12 +284,12 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
             {isReassign
-              ? "Pick the teammate who should own this request. The status won't change — they'll be pinged on WhatsApp."
+              ? "Pick the teammate who should own this request. The status won't change - they'll be pinged on WhatsApp."
               : t("staff.requests.escalate_modal_description")}
           </p>
         </DialogHeader>
 
-        {/* Search + count strip — discoverable, single-key access to any
+        {/* Search + count strip - discoverable, single-key access to any
             teammate even when the list is long. Total / filtered counts
             on the right give the manager confidence the list is
             complete (the previous "only 10 names" complaint was fed by
@@ -344,7 +344,7 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
               front so they're the obvious first stop for a manager
               triaging a PURCHASE_ORDER (PURCHASES first), a FINANCE
               row (CONTROL first), etc. Clicking a chip toggles a
-              single-select filter — multi-select would let the
+              single-select filter - multi-select would let the
               manager paint themselves into a 0-row corner, so we
               keep it boolean. */}
           <div className="flex flex-wrap items-center gap-1 pt-0.5">
@@ -442,7 +442,7 @@ export const EscalateStaffRequestModal: React.FC<Props> = ({
                         : "border-border hover:bg-muted/60"
                     )}
                   >
-                    {/* Avatar / initials bubble — gives the list a face
+                    {/* Avatar / initials bubble - gives the list a face
                         and avoids the "wall of identical UserCircle2"
                         we used to render for every row. */}
                     <div

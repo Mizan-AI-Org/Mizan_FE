@@ -9,13 +9,13 @@
  * state on mount).
  *
  * Steps:
- *   0. Welcome           — greet by name, show what's coming
- *   1. staff_csv         — upload staff CSV (activation-by-WhatsApp flow)
- *   2. widgets           — pick which dashboard widgets to show
- *   3. widget_permissions — pick which roles can see each widget
- *   4. category_owners   — pick who owns each incident/request/task category
- *   5. google_calendar   — (optional) connect Google Calendar
- *   6. Done              — confetti + "Enjoy Mizan" → /dashboard
+ *   0. Welcome           - greet by name, show what's coming
+ *   1. staff_csv         - upload staff CSV (activation-by-WhatsApp flow)
+ *   2. widgets           - pick which dashboard widgets to show
+ *   3. widget_permissions - pick which roles can see each widget
+ *   4. category_owners   - pick who owns each incident/request/task category
+ *   5. google_calendar   - (optional) connect Google Calendar
+ *   6. Done              - confetti + "Enjoy Mizan" → /dashboard
  *
  * Persistence: substantive steps persist via their Save/Continue handlers.
  * Skipping a step records progress where needed (e.g. ``staff_csv`` marked
@@ -179,7 +179,7 @@ const authHeaders = () => ({
 });
 
 /* -------------------------------------------------------------------------- */
-/*  CSV parsing — header-aware, very forgiving                                 */
+/*  CSV parsing - header-aware, very forgiving                                 */
 /* -------------------------------------------------------------------------- */
 
 interface ParsedStaffRow {
@@ -606,7 +606,7 @@ const OnboardingWizard: React.FC = () => {
                 </div>
             </div>
 
-            {/* Step body — fills remaining viewport */}
+            {/* Step body - fills remaining viewport */}
             <div className="flex-1 min-h-0 flex flex-col max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
                 <div
                     key={animKey}
@@ -913,7 +913,7 @@ const WelcomeStep: React.FC<{
                         <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto lg:mx-0 leading-relaxed">
                             {t("onboarding.welcome.subtitle", {
                                 defaultValue:
-                                    "Let's get {{restaurant}} set up in about 2 minutes — you can skip anything you want.",
+                                    "Let's get {{restaurant}} set up in about 2 minutes - you can skip anything you want.",
                                 restaurant: restaurantName || "your business",
                             })}
                         </p>
@@ -949,7 +949,7 @@ const WelcomeStep: React.FC<{
                         title={t("onboarding.welcome.b1_title", "Upload your team")}
                         desc={t(
                             "onboarding.welcome.b1_desc",
-                            "A CSV of staff or collaborators — we'll invite them on WhatsApp.",
+                            "A CSV of staff or collaborators - we'll invite them on WhatsApp.",
                         )}
                     />
                     <WelcomeBullet
@@ -1062,7 +1062,7 @@ const StaffCsvStep: React.FC<{
             const count = rows.length;
             toast.success(
                 t("onboarding.staff.saved", {
-                    defaultValue: "Invited {{count}} staff — they'll get a WhatsApp.",
+                    defaultValue: "Invited {{count}} staff - they'll get a WhatsApp.",
                     count,
                 }),
             );
@@ -1083,7 +1083,7 @@ const StaffCsvStep: React.FC<{
             title={t("onboarding.staff.title", "Upload your staff")}
             subtitle={t(
                 "onboarding.staff.subtitle",
-                "Drop a CSV of your team. We'll send each person a WhatsApp to activate their account — no app install needed.",
+                "Drop a CSV of your team. We'll send each person a WhatsApp to activate their account - no app install needed.",
             )}
             alreadyDoneBadge={alreadyDone}
         >
@@ -1664,7 +1664,7 @@ const OwnersStep: React.FC<{
             title={t("onboarding.owners.title", "Who owns what?")}
             subtitle={t(
                 "onboarding.owners.subtitle",
-                "Pick one or more people for each category — Miya routes incidents, requests, and tasks to them automatically.",
+                "Pick one or more people for each category - Miya routes incidents, requests, and tasks to them automatically.",
             )}
             alreadyDoneBadge={status.steps.category_owners}
         >
@@ -1676,7 +1676,7 @@ const OwnersStep: React.FC<{
                 <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 text-sm text-amber-800 dark:text-amber-200">
                     {t(
                         "onboarding.owners.no_staff",
-                        "No staff yet — upload a CSV in step 1 and come back.",
+                        "No staff yet - upload a CSV in step 1 and come back.",
                     )}
                 </div>
             ) : (
@@ -1872,7 +1872,7 @@ const GoogleCalendarStep: React.FC<{
             title={t("onboarding.gcal.title", "Connect Google Calendar")}
             subtitle={t(
                 "onboarding.gcal.subtitle",
-                "Optional. Sync shifts and reservations both ways — or skip and add it later.",
+                "Optional. Sync shifts and reservations both ways - or skip and add it later.",
             )}
             alreadyDoneBadge={status.steps.google_calendar}
             optional
@@ -1969,7 +1969,7 @@ const DoneStep: React.FC<{
 
 const ConfettiBurst: React.FC = () => {
     // 18 emoji pieces with randomized offsets and animation delays.
-    // No external dependency — plain inline styles + Tailwind keyframes.
+    // No external dependency - plain inline styles + Tailwind keyframes.
     const pieces = useMemo(
         () =>
             Array.from({ length: 18 }).map((_, i) => ({

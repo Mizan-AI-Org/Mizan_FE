@@ -92,7 +92,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
             setPrimaryLocation(staffMember.user.primary_location || '');
             setAllowedLocations(staffMember.user.allowed_locations || []);
             setManagedLocations(staffMember.user.managed_locations || []);
-            // Source ``tags`` from whichever shape the API sent — the
+            // Source ``tags`` from whichever shape the API sent - the
             // staff-list endpoint nests them under ``profile.tags``,
             // while some legacy rows carry them flat. Normalising
             // handles both.
@@ -326,7 +326,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                         />
                     </div>
 
-                    {/* Department tags — operational context (KITCHEN /
+                    {/* Department tags - operational context (KITCHEN /
                         SERVICE / PURCHASES / …). Drives smart task
                         routing on Miya's side and the tag filter in
                         the escalate modal. Sits above the multi-branch

@@ -13,7 +13,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { cn } from "@/lib/utils";
 
-/** Portal target for process actions (New / Import / Pre-Built) — shown on Live Board and Templates. */
+/** Portal target for process actions (New / Import / Pre-Built) - shown on Live Board and Templates. */
 export const PROCESSES_TASKS_HEADER_ACTIONS_ID = "processes-tasks-header-actions";
 
 export default function ProcessesTasksApp() {

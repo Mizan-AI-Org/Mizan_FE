@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# optimize-images.sh — convert every PNG / JPG in public/ to high-quality WebP.
+# optimize-images.sh - convert every PNG / JPG in public/ to high-quality WebP.
 #
 # Requires `cwebp` (install: `brew install webp` on macOS, `apt-get install
 # webp` on Ubuntu). Safe to re-run: files whose .webp is newer than the

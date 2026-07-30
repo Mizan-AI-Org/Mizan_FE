@@ -9,7 +9,7 @@ export default function ImpersonationBanner() {
   return (
     <div className="fixed inset-x-0 top-0 z-[2100] flex items-center justify-center gap-4 bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-md">
       <span>
-        Viewing as {state.restaurant.name} — support session
+        Viewing as {state.restaurant.name} - support session
       </span>
       <button
         type="button"

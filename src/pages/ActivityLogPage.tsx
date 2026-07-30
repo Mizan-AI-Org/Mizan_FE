@@ -80,7 +80,7 @@ const badgeTone = (actionType: string): string => {
 };
 
 const formatWhen = (iso: string | null): string => {
-    if (!iso) return '—';
+    if (!iso) return '-';
     try {
         const d = new Date(iso);
         return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], {
@@ -157,8 +157,8 @@ const ActivityLogPage: React.FC = () => {
                         Activity log
                     </h1>
                     <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
-                        Every material change in your account — logins, staff
-                        edits, schedule changes, orders, settings — with who
+                        Every material change in your account - logins, staff
+                        edits, schedule changes, orders, settings - with who
                         did it and when. Tenant-scoped.
                     </p>
                 </div>
@@ -309,7 +309,7 @@ const ActivityLogPage: React.FC = () => {
                                                     {row.description}
                                                 </td>
                                                 <td className="px-4 py-2.5 text-xs text-muted-foreground font-mono">
-                                                    {row.ip_address || '—'}
+                                                    {row.ip_address || '-'}
                                                 </td>
                                             </tr>
                                         ))}

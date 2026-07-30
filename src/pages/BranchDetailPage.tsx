@@ -51,7 +51,7 @@ import {
 } from "@/lib/locations-i18n";
 
 /**
- * Full branch hub — opened from Locations Overview.
+ * Full branch hub - opened from Locations Overview.
  * Tabs: Today · Staff · Performance · More
  */
 export default function BranchDetailPage() {
@@ -397,7 +397,7 @@ function KpiStrip({
         label={t("locations_overview.stat.checklists")}
         value={
           metrics.checklist_completion_pct === null
-            ? "—"
+            ? "-"
             : `${metrics.checklist_completion_pct}%`
         }
         subtitle={
@@ -595,7 +595,7 @@ function PerformanceSection({
           icon={<ClipboardCheck className="h-4 w-4" />}
           label="Attendance (30d)"
           value={
-            s30.attendance_pct === null ? "—" : `${s30.attendance_pct}%`
+            s30.attendance_pct === null ? "-" : `${s30.attendance_pct}%`
           }
           subtitle={`${s30.completed_shifts}/${s30.scheduled_shifts} shifts`}
         />
@@ -625,7 +625,7 @@ function PerformanceSection({
         <Tile
           icon={<ClipboardCheck className="h-4 w-4" />}
           label="Attendance (7d)"
-          value={s7.attendance_pct === null ? "—" : `${s7.attendance_pct}%`}
+          value={s7.attendance_pct === null ? "-" : `${s7.attendance_pct}%`}
           subtitle={`${s7.completed_shifts}/${s7.scheduled_shifts} shifts`}
         />
         <Tile
@@ -716,7 +716,7 @@ function BranchProfileCard({
             label="Geofence"
             value={
               location.geofence_enabled
-                ? `On · ${location.radius_m ?? "—"}m radius`
+                ? `On · ${location.radius_m ?? "-"}m radius`
                 : "Off"
             }
           />
@@ -765,7 +765,7 @@ function ShiftsCard({ shifts }: { shifts: ShiftToday[] }) {
                 <div className="min-w-0">
                   <div className="truncate font-medium">{s.staff_name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {s.role || "—"}
+                    {s.role || "-"}
                     {s.start_time && (
                       <>
                         {" · "}
@@ -883,12 +883,12 @@ function CashSessionsCard({ sessions }: { sessions: CashSessionToday[] }) {
                   <td className="py-2 pr-4">
                     {cs.opening_float !== null
                       ? formatMoney(cs.opening_float)
-                      : "—"}
+                      : "-"}
                   </td>
                   <td className="py-2 pr-4">
                     {cs.counted_cash !== null
                       ? formatMoney(cs.counted_cash)
-                      : "—"}
+                      : "-"}
                   </td>
                   <td
                     className={cn(
@@ -898,7 +898,7 @@ function CashSessionsCard({ sessions }: { sessions: CashSessionToday[] }) {
                         "text-red-600",
                     )}
                   >
-                    {cs.variance !== null ? formatMoney(cs.variance) : "—"}
+                    {cs.variance !== null ? formatMoney(cs.variance) : "-"}
                   </td>
                 </tr>
               ))}
