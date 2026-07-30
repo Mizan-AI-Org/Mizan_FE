@@ -260,7 +260,9 @@ const App = () => {
                 path="/"
                 element={
                   <ProtectedRoute>
-                    <DashboardLayout />
+                    <OnboardingGate>
+                      <DashboardLayout />
+                    </OnboardingGate>
                   </ProtectedRoute>
                 }
               >
@@ -269,9 +271,7 @@ const App = () => {
                   path="dashboard"
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
-                      <OnboardingGate>
-                        <Dashboard />
-                      </OnboardingGate>
+                      <Dashboard />
                     </RoleBasedRoute>
                   }
                 />

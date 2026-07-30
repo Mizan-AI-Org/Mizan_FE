@@ -629,8 +629,18 @@ export default function Dashboard() {
                       const staffHits = opsSearchQuery.data?.staff ?? [];
                       const taskHits = opsSearchQuery.data?.tasks ?? [];
                       const requestHits = opsSearchQuery.data?.staff_requests ?? [];
+                      const invoiceHits = opsSearchQuery.data?.invoices ?? [];
+                      const incidentHits = opsSearchQuery.data?.incidents ?? [];
+                      const reminderHits = opsSearchQuery.data?.reminders ?? [];
+                      const meetingHits = opsSearchQuery.data?.meetings ?? [];
                       const empty =
-                        staffHits.length === 0 && taskHits.length === 0 && requestHits.length === 0;
+                        staffHits.length === 0 &&
+                        taskHits.length === 0 &&
+                        requestHits.length === 0 &&
+                        invoiceHits.length === 0 &&
+                        incidentHits.length === 0 &&
+                        reminderHits.length === 0 &&
+                        meetingHits.length === 0;
                       if (empty) {
                         return <p className="px-3 py-4 text-sm text-slate-500">{t("dashboard.ops_search.empty")}</p>;
                       }
@@ -721,6 +731,116 @@ export default function Dashboard() {
                                       </span>
                                       <Badge variant="outline" className="shrink-0 text-[10px]">
                                         {req.status}
+                                      </Badge>
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                          {invoiceHits.length > 0 ? (
+                            <div className="px-1.5 pb-1">
+                              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                {t("dashboard.ops_search.section_invoices", { defaultValue: "Invoices" })}
+                              </div>
+                              <ul>
+                                {invoiceHits.map((inv) => (
+                                  <li key={inv.id}>
+                                    <button
+                                      type="button"
+                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                                      onClick={() => go(inv.href || `/dashboard/finance?invoice=${inv.id}`)}
+                                    >
+                                      <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
+                                        {inv.vendor_name}
+                                        {inv.invoice_number ? ` · ${inv.invoice_number}` : ""}
+                                      </span>
+                                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                                        {inv.status}
+                                      </Badge>
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                          {incidentHits.length > 0 ? (
+                            <div className="px-1.5 pb-1">
+                              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                {t("dashboard.ops_search.section_incidents", { defaultValue: "Incidents" })}
+                              </div>
+                              <ul>
+                                {incidentHits.map((inc) => (
+                                  <li key={inc.id}>
+                                    <button
+                                      type="button"
+                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                                      onClick={() =>
+                                        go(inc.href || `/dashboard/staff-requests?kind=incident&id=${inc.id}`)
+                                      }
+                                    >
+                                      <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
+                                        {inc.title}
+                                      </span>
+                                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                                        {inc.status || "OPEN"}
+                                      </Badge>
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                          {reminderHits.length > 0 ? (
+                            <div className="px-1.5 pb-1">
+                              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                {t("dashboard.ops_search.section_reminders", { defaultValue: "Reminders" })}
+                              </div>
+                              <ul>
+                                {reminderHits.map((rem) => (
+                                  <li key={rem.id}>
+                                    <button
+                                      type="button"
+                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                                      onClick={() => go(rem.href || "/dashboard")}
+                                    >
+                                      <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
+                                        {rem.title}
+                                      </span>
+                                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                                        {rem.status || "pending"}
+                                      </Badge>
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                          {meetingHits.length > 0 ? (
+                            <div className="px-1.5 pb-1">
+                              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                {t("dashboard.ops_search.section_meetings", { defaultValue: "Meetings" })}
+                              </div>
+                              <ul>
+                                {meetingHits.map((m) => (
+                                  <li key={m.id || m.title}>
+                                    <button
+                                      type="button"
+                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                                      onClick={() => {
+                                        if (m.href) {
+                                          window.open(m.href, "_blank", "noopener,noreferrer");
+                                          setOpsSearchOpen(false);
+                                        } else {
+                                          go("/dashboard");
+                                        }
+                                      }}
+                                    >
+                                      <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
+                                        {m.title}
+                                      </span>
+                                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                                        {m.status || "meeting"}
                                       </Badge>
                                     </button>
                                   </li>

@@ -1720,6 +1720,8 @@ function statusPillClass(
   if (pillStatus && PILL_VISUALS[pillStatus]) return PILL_VISUALS[pillStatus];
   if (status === "COMPLETED") return PILL_VISUALS.DONE;
   if (status === "IN_PROGRESS") return PILL_VISUALS.IN_PROGRESS;
+  if (status === "ACCEPTED") return PILL_VISUALS.ASSIGNED;
+  if (status === "UNABLE_TO_COMPLETE") return PILL_VISUALS.ESCALATED;
   if (status === "CANCELLED") return PILL_VISUALS.CANCELLED;
   if (priority === "URGENT") return PILL_VISUALS.OVERDUE;
   return PILL_VISUALS.PENDING;
@@ -2126,6 +2128,20 @@ function TasksDemandsCard({
                               {t("dashboard.tasks_demands.mark_in_progress")}
                             </DropdownMenuItem>
                           )}
+                          {row.status !== "ACCEPTED" && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                mutation.mutate({
+                                  id: row.id,
+                                  nextStatus: "ACCEPTED",
+                                })
+                              }
+                            >
+                              {t("dashboard.tasks_demands.mark_accepted", {
+                                defaultValue: "Mark accepted",
+                              })}
+                            </DropdownMenuItem>
+                          )}
                           {row.status !== "COMPLETED" && (
                             <DropdownMenuItem
                               onClick={() =>
@@ -2136,6 +2152,20 @@ function TasksDemandsCard({
                               }
                             >
                               {t("dashboard.tasks_demands.mark_completed")}
+                            </DropdownMenuItem>
+                          )}
+                          {row.status !== "UNABLE_TO_COMPLETE" && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                mutation.mutate({
+                                  id: row.id,
+                                  nextStatus: "UNABLE_TO_COMPLETE",
+                                })
+                              }
+                            >
+                              {t("dashboard.tasks_demands.mark_unable", {
+                                defaultValue: "Mark unable to complete",
+                              })}
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
@@ -5507,6 +5537,20 @@ function CustomWidgetTasksCard({
                               {t("dashboard.tasks_demands.mark_in_progress")}
                             </DropdownMenuItem>
                           )}
+                          {row.status !== "ACCEPTED" && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                mutation.mutate({
+                                  id: row.id,
+                                  nextStatus: "ACCEPTED",
+                                })
+                              }
+                            >
+                              {t("dashboard.tasks_demands.mark_accepted", {
+                                defaultValue: "Mark accepted",
+                              })}
+                            </DropdownMenuItem>
+                          )}
                           {row.status !== "COMPLETED" && (
                             <DropdownMenuItem
                               onClick={() =>
@@ -5517,6 +5561,20 @@ function CustomWidgetTasksCard({
                               }
                             >
                               {t("dashboard.tasks_demands.mark_completed")}
+                            </DropdownMenuItem>
+                          )}
+                          {row.status !== "UNABLE_TO_COMPLETE" && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                mutation.mutate({
+                                  id: row.id,
+                                  nextStatus: "UNABLE_TO_COMPLETE",
+                                })
+                              }
+                            >
+                              {t("dashboard.tasks_demands.mark_unable", {
+                                defaultValue: "Mark unable to complete",
+                              })}
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />

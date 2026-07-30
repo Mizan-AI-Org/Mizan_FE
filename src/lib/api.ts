@@ -604,7 +604,13 @@ export class BackendService {
 
   async updateDashboardTaskStatus(
     taskId: string,
-    nextStatus: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED",
+    nextStatus:
+      | "PENDING"
+      | "ACCEPTED"
+      | "IN_PROGRESS"
+      | "COMPLETED"
+      | "UNABLE_TO_COMPLETE"
+      | "CANCELLED",
   ): Promise<DashboardTaskDemandItem> {
     return this.fetchWithError(
       `/dashboard/tasks-demands/${taskId}/status/`,
@@ -716,8 +722,19 @@ export class BackendService {
     return this.fetchWithError(`/dashboard/category-tasks/${qs}`);
   }
 
-  async searchDashboardOps(q: string): Promise<{
+  async searchDashboardOps(
+    q: string,
+    filters?: {
+      module?: string;
+      status?: string;
+      category?: string;
+      assignee?: string;
+      date_from?: string;
+      date_to?: string;
+    }
+  ): Promise<{
     success: boolean;
+    module?: string;
     staff: Array<{
       id: string;
       name: string;
@@ -746,9 +763,49 @@ export class BackendService {
       assignee_absent?: boolean;
       href?: string;
     }>;
+    invoices?: Array<{
+      id: string;
+      vendor_name: string;
+      invoice_number?: string;
+      amount: string;
+      currency?: string;
+      status: string;
+      due_date?: string | null;
+      href?: string;
+    }>;
+    incidents?: Array<{
+      id: string;
+      title: string;
+      status?: string;
+      incident_type?: string;
+      href?: string;
+    }>;
+    reminders?: Array<{
+      id: string;
+      title: string;
+      status?: string;
+      due_at?: string | null;
+      owner?: string | null;
+      href?: string;
+    }>;
+    meetings?: Array<{
+      id?: string;
+      title: string;
+      start?: string;
+      end?: string | null;
+      status?: string;
+      owner_label?: string;
+      href?: string | null;
+    }>;
   }> {
-    const qs = `?q=${encodeURIComponent(q)}`;
-    return this.fetchWithError(`/dashboard/ops-search/${qs}`);
+    const params = new URLSearchParams({ q });
+    if (filters?.module) params.set("module", filters.module);
+    if (filters?.status) params.set("status", filters.status);
+    if (filters?.category) params.set("category", filters.category);
+    if (filters?.assignee) params.set("assignee", filters.assignee);
+    if (filters?.date_from) params.set("date_from", filters.date_from);
+    if (filters?.date_to) params.set("date_to", filters.date_to);
+    return this.fetchWithError(`/dashboard/ops-search/?${params.toString()}`);
   }
 
   async getStaffDailyProgress(): Promise<{
