@@ -15,7 +15,7 @@ import { UserAvatarMenu } from "@/components/layout/UserAvatarMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import BrandLogo from "@/components/BrandLogo";
 import { useLanguage } from "@/hooks/use-language";
-import { LuaWidget } from "@/components/LuaWidget";
+import { MiyaWidget } from "@/components/MiyaWidget";
 import ImpersonationBanner from "@/components/platform-admin/ImpersonationBanner";
 import { LiveDateTime } from "@/components/LiveDateTime";
 import { cn } from "@/lib/utils";
@@ -176,7 +176,7 @@ const DashboardLayout: React.FC = () => {
         )}
         <Outlet />
       </main>
-      <LuaWidget />
+      <MiyaWidget />
     </div>
   );
 };

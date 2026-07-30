@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
-import { api, API_BASE, toAbsoluteUrl } from "@/lib/api";
+import { api, API_BASE, resolveMediaUrl, toAbsoluteUrl } from "@/lib/api";
+import { AttachmentList, type AttachmentLike } from "@/components/ui/attachment-preview";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -467,6 +468,50 @@ const ManagerReviewDashboard: React.FC = () => {
     incident_type?: string | null;
     description?: string | null;
   };
+
+  type IncidentDetail = SafetyIncident & {
+    photo?: string | null;
+    photo_url?: string | null;
+    attachment_url?: string | null;
+    attachment_filename?: string | null;
+    attachment_content_type?: string | null;
+    attachments?: AttachmentLike[] | null;
+    audio_evidence?: string[] | null;
+    occurred_at?: string | null;
+    assigned_to?: string | null;
+    resolved_by_details?: { first_name?: string; last_name?: string } | null;
+    resolved_at?: string | null;
+  };
+
+  function incidentAttachmentItems(detail: IncidentDetail | undefined): AttachmentLike[] {
+    if (!detail) return [];
+    if (Array.isArray(detail.attachments) && detail.attachments.length > 0) {
+      return detail.attachments.filter((a) => !!a?.url);
+    }
+    const items: AttachmentLike[] = [];
+    const photoUrl =
+      detail.photo_url?.trim() ||
+      resolveMediaUrl(detail.photo) ||
+      "";
+    if (photoUrl) {
+      items.push({ url: photoUrl, name: "Photo evidence", content_type: "image/jpeg" });
+    }
+    const fileUrl = detail.attachment_url?.trim() || "";
+    if (fileUrl) {
+      items.push({
+        url: fileUrl,
+        name: detail.attachment_filename?.trim() || "Attachment",
+        content_type: detail.attachment_content_type || undefined,
+      });
+    }
+    for (const [idx, raw] of (detail.audio_evidence || []).entries()) {
+      const url = resolveMediaUrl(raw) || raw;
+      if (url) {
+        items.push({ url, name: `Audio ${idx + 1}`, content_type: "audio/mpeg" });
+      }
+    }
+    return items;
+  }
 
   const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 
@@ -1467,40 +1512,18 @@ const ManagerReviewDashboard: React.FC = () => {
                     </div>
                   </div>
 
-                  {incidentDetail.photo ? (
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                        Photo evidence
+                  {(() => {
+                    const attachments = incidentAttachmentItems(incidentDetail as IncidentDetail);
+                    if (attachments.length === 0) return null;
+                    return (
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                          Attachments
+                        </div>
+                        <AttachmentList attachments={attachments} />
                       </div>
-                      <img
-                        src={
-                          typeof incidentDetail.photo === "string" && incidentDetail.photo.startsWith("/")
-                            ? `${(import.meta.env.VITE_BACKEND_URL || "")}${incidentDetail.photo}`
-                            : incidentDetail.photo
-                        }
-                        alt="Incident evidence"
-                        className="max-h-80 w-full rounded-lg border object-contain bg-slate-50 dark:bg-slate-900"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
-                      />
-                    </div>
-                  ) : null}
-
-                  {Array.isArray(incidentDetail.audio_evidence) && incidentDetail.audio_evidence.length > 0 ? (
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                        Audio evidence
-                      </div>
-                      <ul className="space-y-2">
-                        {incidentDetail.audio_evidence.map((url: string, i: number) => (
-                          <li key={i}>
-                            <audio controls className="w-full" src={url.startsWith("/") ? `${(import.meta.env.VITE_BACKEND_URL || "")}${url}` : url} />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
+                    );
+                  })()}
 
                   <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
                     <div className="text-sm font-semibold">Assign owner</div>
