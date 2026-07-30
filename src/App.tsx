@@ -78,6 +78,9 @@ const PlatformBillingPage = React.lazy(
 const PlatformHealthPage = React.lazy(
   () => import("./pages/platform-admin/HealthPage")
 );
+const PlatformWhatsAppPage = React.lazy(
+  () => import("./pages/platform-admin/WhatsAppPage")
+);
 const PlatformAuditPage = React.lazy(
   () => import("./pages/platform-admin/AuditPage")
 );
@@ -250,6 +253,7 @@ const App = () => {
                   <Route path="operators" element={<PlatformOperatorsPage />} />
                   <Route path="operators/:id" element={<PlatformOperatorDetailPage />} />
                   <Route path="billing" element={<PlatformBillingPage />} />
+                  <Route path="whatsapp" element={<PlatformWhatsAppPage />} />
                   <Route path="health" element={<PlatformHealthPage />} />
                   <Route path="audit" element={<PlatformAuditPage />} />
                 </Route>

@@ -47,6 +47,18 @@ const explicitBackend = import.meta.env.VITE_BACKEND_URL;
 export const BACKEND_URL =
   explicitBackend ?? (import.meta.env.PROD ? "https://api.heymizan.ai" : "");
 
+/** Resolve a stored media path or presigned URL for display/download. */
+export function resolveMediaUrl(path: string | null | undefined): string {
+  const raw = (path || "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const base = BACKEND_URL || "";
+  if (!base) {
+    return raw.startsWith("/") ? raw : `/${raw}`;
+  }
+  return `${base}${raw.startsWith("/") ? raw : `/${raw}`}`;
+}
+
 // If BACKEND_URL is empty, API_BASE becomes "/api" which works with proxy/rewrites
 export const API_BASE = BACKEND_URL ? `${BACKEND_URL}/api` : "/api";
 

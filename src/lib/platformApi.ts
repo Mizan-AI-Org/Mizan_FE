@@ -257,6 +257,49 @@ export type Paginated<T> = {
   results: T[];
 };
 
+export type PlatformWhatsAppConfig = {
+  phone_number_id: string;
+  business_account_id: string;
+  verify_token: string;
+  activation_phone: string;
+  api_version: string;
+  miya_whatsapp_enabled: boolean;
+  miya_voice_default: boolean;
+  access_token_set: boolean;
+  access_token_masked: string;
+  webhook_callback_url: string;
+  connected: boolean;
+  last_probe_at: string | null;
+  last_probe_ok: boolean | null;
+  last_probe_message: string;
+  display_phone_number: string;
+  verified_name: string;
+  config_source?: string;
+  updated_at: string | null;
+};
+
+export type PlatformWhatsAppTemplate = {
+  id: string;
+  meta_id: string;
+  name: string;
+  language: string;
+  category: string;
+  status: string;
+  body_text: string;
+  footer_text: string;
+  header_text: string;
+  synced_at: string | null;
+};
+
+export type PlatformWhatsAppTestResult = {
+  ok: boolean;
+  reason?: string;
+  message?: string;
+  display_phone_number?: string;
+  verified_name?: string;
+  config?: PlatformWhatsAppConfig;
+};
+
 export const platformApi = {
   me: () => platformFetch<PlatformMe>("/me/"),
   overview: () => platformFetch<PlatformOverview>("/overview/"),
@@ -339,4 +382,29 @@ export const platformApi = {
       method: "POST",
       body: JSON.stringify({ restaurant_id: restaurantId }),
     }),
+  whatsappConfig: () => platformFetch<PlatformWhatsAppConfig>("/whatsapp/config/"),
+  saveWhatsAppConfig: (body: Record<string, unknown>) =>
+    platformFetch<PlatformWhatsAppConfig>("/whatsapp/config/", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  testWhatsAppConnection: () =>
+    platformFetch<PlatformWhatsAppTestResult>("/whatsapp/config/test/", {
+      method: "POST",
+      body: "{}",
+    }),
+  whatsappTemplates: () =>
+    platformFetch<{ results: PlatformWhatsAppTemplate[] }>("/whatsapp/templates/"),
+  syncWhatsAppTemplates: () =>
+    platformFetch<{ ok: boolean; synced?: number; results: PlatformWhatsAppTemplate[] }>(
+      "/whatsapp/templates/sync/",
+      { method: "POST", body: "{}" },
+    ),
+  createWhatsAppTemplate: (body: Record<string, unknown>) =>
+    platformFetch<{ results: PlatformWhatsAppTemplate[] }>("/whatsapp/templates/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  deleteWhatsAppTemplate: (id: string) =>
+    platformFetch<void>(`/whatsapp/templates/${id}/`, { method: "DELETE" }),
 };
