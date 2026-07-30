@@ -12,7 +12,7 @@ interface ErrorBoundaryState {
     errorInfo: ErrorInfo | null;
 }
 
-/** Browser extensions / dnd-kit / Radix portals can throw NotFoundError DOM races — ignore those. */
+/** Browser extensions / dnd-kit / Radix portals can throw NotFoundError DOM races - ignore those. */
 function isBenignDomRace(error: unknown): boolean {
     const msg = error instanceof Error ? error.message : String(error || "");
     const name = error instanceof Error ? error.name : "";
@@ -85,7 +85,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     }
 }
 
-/** Inline recovery for a single settings section — keeps the rest of the page usable. */
+/** Inline recovery for a single settings section - keeps the rest of the page usable. */
 export class SectionErrorBoundary extends Component<
   { children: ReactNode; label?: string },
   { hasError: boolean }

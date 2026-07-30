@@ -1,6 +1,6 @@
 # Mizan Frontend
 
-Web client for **Mizan AI** — a restaurant operations platform covering scheduling, staff, attendance, POS, checklists, multi-location reporting, and the **Miya** AI assistant. Built with Vite, React 18, TypeScript, Tailwind CSS, shadcn/Radix, and TanStack Query.
+Web client for **Mizan AI** - a restaurant operations platform covering scheduling, staff, attendance, POS, checklists, multi-location reporting, and the **Miya** AI assistant. Built with Vite, React 18, TypeScript, Tailwind CSS, shadcn/Radix, and TanStack Query.
 
 ---
 
@@ -121,10 +121,10 @@ mizan-frontend/
 
 All client-readable variables **must be prefixed with `VITE_`** (Vite only exposes those to the bundle).
 
-Create `mizan-frontend/.env.local` (preferred — gitignored) or edit `.env`:
+Create `mizan-frontend/.env.local` (preferred - gitignored) or edit `.env`:
 
 ```dotenv
-# Firebase Cloud Messaging — required for browser push notifications
+# Firebase Cloud Messaging - required for browser push notifications
 VITE_FIREBASE_API_KEY=...
 VITE_FIREBASE_AUTH_DOMAIN=...
 VITE_FIREBASE_PROJECT_ID=...
@@ -136,7 +136,7 @@ VITE_FIREBASE_MEASUREMENT_ID=...
 # Lua AI agent (Miya)
 VITE_LUA_AGENT_ID=baseAgent_agent_xxxxxxxxxxxxx
 
-# Optional — override the API base URL (defaults to "/api" via the Vite proxy
+# Optional - override the API base URL (defaults to "/api" via the Vite proxy
 # in dev, or same-origin in prod). Useful when the frontend is hosted on a
 # different domain than the backend (e.g. Vercel + EC2).
 # VITE_API_BASE_URL=https://api.heymizan.ai/api
@@ -169,7 +169,7 @@ The dev server proxies `/api/*` to `http://localhost:8000` (Django backend). To 
 
 ### Working with the backend
 
-If you change a Django model or URL, restart the backend — the frontend will pick up the new shape automatically because all data goes through `src/lib/api.ts`. If the schema changes are breaking, update the matching call in `api.ts` (and any consumer hooks).
+If you change a Django model or URL, restart the backend - the frontend will pick up the new shape automatically because all data goes through `src/lib/api.ts`. If the schema changes are breaking, update the matching call in `api.ts` (and any consumer hooks).
 
 ---
 
@@ -202,11 +202,11 @@ The output is a fully static site in `dist/`. Deploy it behind any CDN or static
 
 Only true leaf libraries are split off:
 
-- `vendor-xlsx` — `xlsx`
-- `vendor-pdf` — `jspdf`, `html2canvas`
-- `vendor-firebase` — `firebase`
+- `vendor-xlsx` - `xlsx`
+- `vendor-pdf` - `jspdf`, `html2canvas`
+- `vendor-firebase` - `firebase`
 
-Read the comments in `vite.config.ts` before changing this — circular ESM cycles are silent and only show up in the production bundle.
+Read the comments in `vite.config.ts` before changing this - circular ESM cycles are silent and only show up in the production bundle.
 
 ### Hosting tips
 
@@ -237,7 +237,7 @@ Read the comments in `vite.config.ts` before changing this — circular ESM cycl
 
 ### State
 
-- **Server state** lives in TanStack Query — almost no hand-rolled `useEffect` data fetching.
+- **Server state** lives in TanStack Query - almost no hand-rolled `useEffect` data fetching.
 - **Auth state** lives in `AuthContext` (`src/contexts/AuthContext.tsx`).
 - **Theme & language** live in their own contexts and persist via `localStorage`.
 - **UI ephemeral state** (modals, side-pane collapsed/expanded, dashboard widget order, etc.) is colocated in components and persisted to `localStorage` per-user where it makes sense.
@@ -251,12 +251,12 @@ Read the comments in `vite.config.ts` before changing this — circular ESM cycl
 
 ## UI System
 
-The UI is **shadcn/Radix-based** (no MUI). Primitives live in `src/components/ui/` and follow the shadcn pattern — copy-and-own, styled with Tailwind, composable.
+The UI is **shadcn/Radix-based** (no MUI). Primitives live in `src/components/ui/` and follow the shadcn pattern - copy-and-own, styled with Tailwind, composable.
 
 Conventions:
 
 - Use `cn()` from `@/lib/utils` to merge Tailwind classes.
-- Compose primitives in `src/components/<feature>/...`. Don't reach into `ui/*` and modify it for a one-off — wrap it.
+- Compose primitives in `src/components/<feature>/...`. Don't reach into `ui/*` and modify it for a one-off - wrap it.
 - Color tokens come from Tailwind config; for accents prefer the shared gradients (`from-emerald-500 to-teal-500`, `from-rose-500 to-pink-500`, …).
 - Animations use `tailwindcss-animate` and small `transition-*` utilities. Avoid framer-motion unless you really need it.
 
@@ -277,7 +277,7 @@ Catalogs are JSON files in `public/locales/{en,fr,ar}.json`, loaded at runtime b
 
 - The active language is selected through `useLanguage()` (see `src/hooks/use-language.ts`) and persisted to `localStorage`.
 - Add new keys to **all three** catalogs at the same time. Missing keys fall back to the key string and look ugly in the UI.
-- Arabic (`ar`) is RTL — components must use logical Tailwind utilities (`ms-*`/`me-*`, `start-*`/`end-*`) where directionality matters.
+- Arabic (`ar`) is RTL - components must use logical Tailwind utilities (`ms-*`/`me-*`, `start-*`/`end-*`) where directionality matters.
 - Legacy `'ma'` (Moroccan Darija) is remapped to `'ar'`; there is no separate `ma.json`.
 
 ---
@@ -286,8 +286,8 @@ Catalogs are JSON files in `public/locales/{en,fr,ar}.json`, loaded at runtime b
 
 Routes are declared centrally in `src/App.tsx`. Two guards are commonly used:
 
-- `<ProtectedRoute>` — requires an authenticated user.
-- `<RoleBasedRoute roles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>` — requires one of the listed roles.
+- `<ProtectedRoute>` - requires an authenticated user.
+- `<RoleBasedRoute roles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>` - requires one of the listed roles.
 
 App-level capability checks (which Quick Action tiles to show, which dashboard widgets to surface, etc.) come from `usePermissions()`, which reads the backend RBAC catalog on login.
 
@@ -306,7 +306,7 @@ All HTTP traffic goes through `src/lib/api.ts`. Each method:
 
 - Accepts the bearer token explicitly (or pulls it from `localStorage`).
 - Returns a typed response.
-- Normalises paginated DRF responses (`{ count, next, previous, results }`) where appropriate. Be aware: many older endpoints are paginated — when adding a new caller, always handle both `Array.isArray(body)` and `Array.isArray(body.results)`.
+- Normalises paginated DRF responses (`{ count, next, previous, results }`) where appropriate. Be aware: many older endpoints are paginated - when adding a new caller, always handle both `Array.isArray(body)` and `Array.isArray(body.results)`.
 
 For caching, use TanStack Query keys that include any inputs (token, filters, IDs). Example:
 
@@ -344,7 +344,7 @@ npx tsc -p tsconfig.app.json --noEmit
 ```
 
 - Tests live next to the file they cover (`Foo.test.tsx`) or under `__tests__/`.
-- The TS config uses `strict: false` for now (see comment in `tsconfig.app.json`) — this is being tightened incrementally. Don't make it worse.
+- The TS config uses `strict: false` for now (see comment in `tsconfig.app.json`) - this is being tightened incrementally. Don't make it worse.
 - ESLint enforces:
   - `react-hooks` rules of hooks
   - `react-refresh` only-export-components
@@ -372,7 +372,7 @@ return [];
 
 ### Translations show as raw keys (`app.locations_overview`)
 
-The key is missing from one of the locale files. Add it to **all three** — `en.json`, `fr.json`, `ar.json`.
+The key is missing from one of the locale files. Add it to **all three** - `en.json`, `fr.json`, `ar.json`.
 
 ### CORS / 401 errors in dev
 
@@ -380,14 +380,14 @@ Make sure the backend is running on `:8000` and that the Vite dev proxy (`/api`)
 
 ### Bundle too large / slow first paint
 
-Check `dist/assets/*.js` sizes after `npm run build`. Heavy pages should be `React.lazy`'d in `App.tsx`. Heavy leaf libraries can be added to the `manualChunks` allow-list — but only if they really are leaves (no other libraries import them and they don't import React).
+Check `dist/assets/*.js` sizes after `npm run build`. Heavy pages should be `React.lazy`'d in `App.tsx`. Heavy leaf libraries can be added to the `manualChunks` allow-list - but only if they really are leaves (no other libraries import them and they don't import React).
 
 ---
 
 ## Contributing
 
 1. Branch off `dev`.
-2. Make your change. Keep diffs focused — one feature/fix per PR.
+2. Make your change. Keep diffs focused - one feature/fix per PR.
 3. Run `npm run lint` and `npm run test` before pushing.
 4. Open a PR against `dev`. CI runs lint + typecheck + tests.
 5. The PR description should explain **why** more than **what**.
@@ -396,10 +396,10 @@ When adding new UI:
 
 - Reuse `src/components/ui/*` primitives instead of inventing one-offs.
 - Add i18n keys for any user-facing string.
-- Provide loading skeletons and empty states. The product is used in low-bandwidth environments — never show a blank screen while data loads.
+- Provide loading skeletons and empty states. The product is used in low-bandwidth environments - never show a blank screen while data loads.
 
 ---
 
 ## License
 
-Proprietary — © Mizan AI. All rights reserved.
+Proprietary - © Mizan AI. All rights reserved.

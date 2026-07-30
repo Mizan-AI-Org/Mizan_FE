@@ -305,7 +305,7 @@ const ReportsPage: React.FC = () => {
                 <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto z-[3100]">
                     <DialogHeader>
                         <DialogTitle>
-                            {(ReportTypes.find(type => type.value === viewingReport?.report_type)?.label || viewingReport?.report_type) + " — " + t("reportsPage.detail_title_suffix")}
+                            {(ReportTypes.find(type => type.value === viewingReport?.report_type)?.label || viewingReport?.report_type) + " - " + t("reportsPage.detail_title_suffix")}
                         </DialogTitle>
                     </DialogHeader>
                     <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-lg border border-slate-100 dark:border-slate-800">

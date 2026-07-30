@@ -32,7 +32,7 @@ export default function UserDetailPage() {
     enabled: !!id,
   });
 
-  // Operators belong under /admin/operators — redirect legacy Manage → links.
+  // Operators belong under /admin/operators - redirect legacy Manage → links.
   useEffect(() => {
     if (data?.is_platform_operator) {
       navigate(`/admin/operators/${id}`, { replace: true });
@@ -247,10 +247,10 @@ export default function UserDetailPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Info label="Role" value={data.role} />
-        <Info label="Phone" value={data.phone || "—"} />
+        <Info label="Phone" value={data.phone || "-"} />
         <Info
           label="Tenant"
-          value={data.restaurant_name || "—"}
+          value={data.restaurant_name || "-"}
           link={data.restaurant ? `/admin/tenants/${data.restaurant}` : undefined}
         />
         <Info label="Active" value={data.is_active ? "Yes" : "No"} />

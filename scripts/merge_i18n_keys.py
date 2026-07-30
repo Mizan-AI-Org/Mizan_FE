@@ -16,9 +16,9 @@ KEYS: dict[str, dict[str, str]] = {
         "ar": "صندوق وارد الموظفين",
     },
     "staff.requests.default_subtitle": {
-        "en": "Triage WhatsApp and portal requests — assign, reply, escalate, or close.",
-        "fr": "Triez les demandes WhatsApp et portail — assignez, répondez, escaladez ou clôturez.",
-        "ar": "فرز طلبات واتساب والبوابة — عيّن، ردّ، صعّد أو أغلق.",
+        "en": "Triage WhatsApp and portal requests - assign, reply, escalate, or close.",
+        "fr": "Triez les demandes WhatsApp et portail - assignez, répondez, escaladez ou clôturez.",
+        "ar": "فرز طلبات واتساب والبوابة - عيّن، ردّ، صعّد أو أغلق.",
     },
     "staff.requests.assigned_to_me": {
         "en": "Assigned to me",
@@ -156,9 +156,9 @@ KEYS: dict[str, dict[str, str]] = {
         "ar": "غير مُسند",
     },
     "staff.requests.unassigned_hint": {
-        "en": "Unassigned — reassign or set a category owner in Settings.",
-        "fr": "Non assigné — réassignez ou définissez un responsable de catégorie dans Paramètres.",
-        "ar": "غير مُسند — أعد التعيين أو حدّد مالكاً للفئة في الإعدادات.",
+        "en": "Unassigned - reassign or set a category owner in Settings.",
+        "fr": "Non assigné - réassignez ou définissez un responsable de catégorie dans Paramètres.",
+        "ar": "غير مُسند - أعد التعيين أو حدّد مالكاً للفئة في الإعدادات.",
     },
     "staff.requests.assigned_to": {
         "en": "Assigned to",
@@ -211,9 +211,9 @@ KEYS: dict[str, dict[str, str]] = {
         "ar": "النشاط",
     },
     "staff.requests.activity_empty": {
-        "en": "No activity yet — replies and status changes appear here.",
-        "fr": "Aucune activité pour l'instant — les réponses et changements de statut apparaissent ici.",
-        "ar": "لا نشاط بعد — تظهر الردود وتغييرات الحالة هنا.",
+        "en": "No activity yet - replies and status changes appear here.",
+        "fr": "Aucune activité pour l'instant - les réponses et changements de statut apparaissent ici.",
+        "ar": "لا نشاط بعد - تظهر الردود وتغييرات الحالة هنا.",
     },
     "staff.requests.author_miya": {
         "en": "Miya AI",
@@ -306,9 +306,9 @@ KEYS: dict[str, dict[str, str]] = {
         "ar": "المهام والطلبات",
     },
     "staff.requests.tasks_demands_subtitle": {
-        "en": "Miya-created and ingested tasks — review, reassign, and close from here.",
-        "fr": "Tâches créées ou ingérées par Miya — revue, réassignation et clôture ici.",
-        "ar": "مهام أنشأتها أو استقبلتها ميا — راجع وأعد التعيين وأغلق من هنا.",
+        "en": "Miya-created and ingested tasks - review, reassign, and close from here.",
+        "fr": "Tâches créées ou ingérées par Miya - revue, réassignation et clôture ici.",
+        "ar": "مهام أنشأتها أو استقبلتها ميا - راجع وأعد التعيين وأغلق من هنا.",
     },
     "staff.requests.mark_paid": {
         "en": "Mark as paid",
@@ -563,9 +563,9 @@ KEYS: dict[str, dict[str, str]] = {
         "ar": "موظف",
     },
     "dashboard.widget_add.staff_daily_progress": {
-        "en": "Per-staff task progress today — done/total with absent badges.",
-        "fr": "Progression des tâches par personne aujourd'hui — fait/total avec badges d'absence.",
-        "ar": "تقدّم مهام كل موظف اليوم — منجز/الإجمالي مع شارات الغياب.",
+        "en": "Per-staff task progress today - done/total with absent badges.",
+        "fr": "Progression des tâches par personne aujourd'hui - fait/total avec badges d'absence.",
+        "ar": "تقدّم مهام كل موظف اليوم - منجز/الإجمالي مع شارات الغياب.",
     },
     # --- Validation / proof / absent on category rows ---
     "dashboard.category_tasks.not_validated": {

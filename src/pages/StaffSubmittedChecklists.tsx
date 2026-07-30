@@ -96,12 +96,12 @@ const StaffSubmittedChecklists: React.FC = () => {
                 <TableBody>
                   {filtered.map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell>{r.template?.name || "—"}</TableCell>
-                      <TableCell>{r.submitted_at ? new Date(r.submitted_at).toLocaleString() : "—"}</TableCell>
+                      <TableCell>{r.template?.name || "-"}</TableCell>
+                      <TableCell>{r.submitted_at ? new Date(r.submitted_at).toLocaleString() : "-"}</TableCell>
                       <TableCell>
-                        <Badge variant={r.status === "COMPLETED" ? "secondary" : "outline"} className="text-xs">{r.status || "—"}</Badge>
+                        <Badge variant={r.status === "COMPLETED" ? "secondary" : "outline"} className="text-xs">{r.status || "-"}</Badge>
                       </TableCell>
-                      <TableCell className="max-w-xs truncate" title={r.notes || undefined}>{r.notes || "—"}</TableCell>
+                      <TableCell className="max-w-xs truncate" title={r.notes || undefined}>{r.notes || "-"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

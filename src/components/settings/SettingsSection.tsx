@@ -81,7 +81,7 @@ type SettingsStickyActionsProps = {
 };
 
 /** Sticky bottom action bar so Save stays reachable on long forms.
- *  Stays within the content column — no page-bleed negative margins. */
+ *  Stays within the content column - no page-bleed negative margins. */
 export function SettingsStickyActions({ children, className, hint }: SettingsStickyActionsProps) {
   return (
     <div

@@ -148,7 +148,7 @@ export default function SalesAndPrepPage() {
   };
 
   const formatDate = (iso?: string) => {
-    if (!iso) return "—";
+    if (!iso) return "-";
     try {
       return format(new Date(iso), "MMM d");
     } catch {
@@ -497,7 +497,7 @@ export default function SalesAndPrepPage() {
                         <div key={i} className="flex flex-col gap-0.5 py-1 border-b border-slate-50 dark:border-slate-800/50 last:border-0">
                           <div className="flex justify-between text-sm">
                             <span className="font-medium text-slate-900 dark:text-white truncate pr-2">
-                              {item.ingredient ?? item.menu_item ?? "—"}
+                              {item.ingredient ?? item.menu_item ?? "-"}
                             </span>
                             <span className={`shrink-0 font-medium ${gap > 0 ? "text-amber-600" : "text-slate-600 dark:text-slate-400"}`}>
                               {item.needed ?? item.forecast_portions ?? 0} {item.unit ?? "portions"}
@@ -597,7 +597,7 @@ export default function SalesAndPrepPage() {
           <DialogHeader>
             <DialogTitle className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <span>
-                Prep List — {prepList?.target_end_date ? `${prepList?.target_date} – ${prepList.target_end_date}` : (prepList?.target_date || prepStartDate)} ({prepList?.day_of_week})
+                Prep List - {prepList?.target_end_date ? `${prepList?.target_date} – ${prepList.target_end_date}` : (prepList?.target_date || prepStartDate)} ({prepList?.day_of_week})
               </span>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -641,7 +641,7 @@ export default function SalesAndPrepPage() {
                   return (
                     <tr key={i} className="border-b border-slate-100 dark:border-slate-800/50">
                       <td className="py-2 font-medium text-slate-900 dark:text-white">
-                        {item.ingredient ?? item.menu_item ?? "—"}
+                        {item.ingredient ?? item.menu_item ?? "-"}
                         {item.shelf_life_days != null && (
                           <span className="ml-1 text-[10px] text-slate-500">· {item.shelf_life_days}d shelf</span>
                         )}
@@ -651,10 +651,10 @@ export default function SalesAndPrepPage() {
                         <span className="text-slate-400"> {item.unit ?? "portions"}</span>
                       </td>
                       <td className="py-2 text-right text-slate-600 dark:text-slate-400">
-                        {item.in_stock != null ? item.in_stock : "—"}
+                        {item.in_stock != null ? item.in_stock : "-"}
                       </td>
                       <td className={`py-2 text-right font-medium ${gap > 0 ? "text-amber-600" : "text-slate-400"}`}>
-                        {gap > 0 ? gap : "—"}
+                        {gap > 0 ? gap : "-"}
                       </td>
                       <td className="py-2 text-right">
                         {item.suggested_order_qty ? (
@@ -667,11 +667,11 @@ export default function SalesAndPrepPage() {
                             ) : null}
                           </span>
                         ) : (
-                          "—"
+                          "-"
                         )}
                       </td>
                       <td className="py-2 text-left text-slate-600 dark:text-slate-400">
-                        {item.supplier_name || (gap > 0 ? <span className="text-amber-600">no supplier</span> : "—")}
+                        {item.supplier_name || (gap > 0 ? <span className="text-amber-600">no supplier</span> : "-")}
                         {item.lead_time_days != null && item.supplier_name && (
                           <span className="block text-[10px] text-slate-500">{item.lead_time_days}d lead</span>
                         )}
@@ -683,7 +683,7 @@ export default function SalesAndPrepPage() {
                             {formatDate(item.order_by)}
                           </span>
                         ) : (
-                          "—"
+                          "-"
                         )}
                       </td>
                     </tr>

@@ -159,7 +159,7 @@ const OnboardingWizard = React.lazy(() => import("./pages/OnboardingWizard"));
 //   coming back to it is instant.
 // - placeholderData keepPreviousData: when a query's key changes (tab switch,
 //   date change, filter change) keep the last result visible while the next
-//   request is in flight — no "Loading…" flash.
+//   request is in flight - no "Loading…" flash.
 // - refetchOnWindowFocus / refetchOnReconnect off: avoid the usual flurry of
 //   background refetches that re-render the whole dashboard whenever the tab
 //   regains focus (very expensive on mobile and on laptops switching Wi-Fi).
@@ -239,7 +239,7 @@ const App = () => {
                 }
               />
 
-              {/* Platform ops — own login on /admin (not restaurant /auth) */}
+              {/* Platform ops - own login on /admin (not restaurant /auth) */}
               <Route path="/admin" element={<PlatformAdminGate />}>
                 <Route element={<PlatformAdminLayout />}>
                   <Route index element={<PlatformOverviewPage />} />

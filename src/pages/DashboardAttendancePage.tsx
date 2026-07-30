@@ -102,7 +102,7 @@ export default function DashboardAttendancePage() {
     onError: (err: Error) => {
       const msg = err.message || "Failed to mark as no-show";
       const friendly = msg.includes("404")
-        ? "Shift not found. It may have been updated or removed—refresh the page to see the latest."
+        ? "Shift not found. It may have been updated or removed-refresh the page to see the latest."
         : msg;
       toast.error(friendly);
     },

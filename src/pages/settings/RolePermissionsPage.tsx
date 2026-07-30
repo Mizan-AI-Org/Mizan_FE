@@ -310,7 +310,7 @@ export default function RolePermissionsPage() {
             );
           })}
           {entries.length === 0 ? (
-            <div className="text-sm text-slate-500 col-span-full py-6 text-center">—</div>
+            <div className="text-sm text-slate-500 col-span-full py-6 text-center">-</div>
           ) : null}
         </div>
       </div>
@@ -459,7 +459,7 @@ export default function RolePermissionsPage() {
               <div className="max-h-[22rem] overflow-y-auto p-3">
                 {filteredUsers.length === 0 ? (
                   <div className="p-6 text-sm text-slate-500 text-center">
-                    {users.length === 0 ? t("rbac.users.none_available") : "—"}
+                    {users.length === 0 ? t("rbac.users.none_available") : "-"}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">

@@ -10,7 +10,7 @@ type Props = {
 };
 
 /**
- * Dedicated Platform Admin sign-in — stays on /admin (does not use /auth restaurant login).
+ * Dedicated Platform Admin sign-in - stays on /admin (does not use /auth restaurant login).
  */
 export default function PlatformAdminLogin({ deniedMessage }: Props) {
   const [email, setEmail] = useState("");

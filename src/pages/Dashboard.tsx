@@ -90,7 +90,7 @@ type AppItem = {
   comingSoon?: boolean;
   nameKey?: string;
   descKey?: string;
-  /** RBAC app id — also filtered by usePermissions().canApp */
+  /** RBAC app id - also filtered by usePermissions().canApp */
   appId?: string;
 };
 
@@ -339,7 +339,7 @@ export default function Dashboard() {
     const parsed = parseStoredWidgetOrder(localStorage.getItem(widgetStorageKey));
     // Merge any newly-shipped default widgets into the cached order so
     // they show up immediately on the next paint (before the server
-    // response arrives). The merge is pure — it won't re-add anything
+    // response arrives). The merge is pure - it won't re-add anything
     // the user has explicitly dismissed, and it deliberately does NOT
     // mutate the dismissed-defaults set so the server-side merge below
     // still gets a fair chance to add missing defaults.
@@ -1310,7 +1310,7 @@ export default function Dashboard() {
             })}
         </nav>
 
-        {/* Footer — user avatar / account menu */}
+        {/* Footer - user avatar / account menu */}
         <div
           className={cn(
             "mt-auto px-2 pb-3 pt-2",

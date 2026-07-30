@@ -404,7 +404,7 @@ export default function OverviewPage() {
             <HealthDot ok={data.health.whatsapp_configured} label="WhatsApp" />
             <HealthDot ok={data.health.lua_webhook_configured} label="Lua webhook" />
             <p className="pt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-              Payment providers are per tenant / country — see{" "}
+              Payment providers are per tenant / country - see{" "}
               <Link to="/admin/health" className="font-semibold text-emerald-700 dark:text-emerald-400 hover:underline">
                 Health
               </Link>

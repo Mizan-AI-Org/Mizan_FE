@@ -64,7 +64,7 @@ export interface BusinessLocation {
 }
 
 interface MultiLocationSettingsProps {
-  /** Authenticated axios instance from the parent Settings page — already
+  /** Authenticated axios instance from the parent Settings page - already
    *  has Authorization + Accept-Language headers configured, so we don't
    *  re-implement that here. */
   apiClient: AxiosInstance;
@@ -87,7 +87,7 @@ function describeError(error: unknown, fallback: string): string {
   if (!err?.response && err?.message) {
     // Proxy/backend restart mid-request (ECONNREFUSED) often surfaces here.
     if (/network error/i.test(err.message) || err.code === "ERR_NETWORK") {
-      return "Server is restarting — wait a second and try again.";
+      return "Server is restarting - wait a second and try again.";
     }
     return err.message;
   }
@@ -96,7 +96,7 @@ function describeError(error: unknown, fallback: string): string {
       typeof err.response?.data?.detail === "string"
         ? err.response.data.detail
         : null;
-    return detail503 || "Server is busy — please try again in a moment.";
+    return detail503 || "Server is busy - please try again in a moment.";
   }
   const data = err?.response?.data;
   if (data) {
@@ -155,7 +155,7 @@ export default function MultiLocationSettings({
       const rows = Array.isArray(resp.data)
         ? resp.data
         : resp.data?.results ?? [];
-      // Sort primary first, then by name — mirrors the Meta.ordering so the
+      // Sort primary first, then by name - mirrors the Meta.ordering so the
       // UI and DB agree on visual order regardless of DRF pagination config.
       rows.sort((a, b) => {
         if (a.is_primary !== b.is_primary) return a.is_primary ? -1 : 1;
@@ -236,7 +236,7 @@ export default function MultiLocationSettings({
   const handlePolygonChange = useCallback(
     async (loc: BusinessLocation, polygon: Array<[number, number]>) => {
       // Polygon edits are emitted on every click so we debounce with a
-      // shallow "unchanged" check rather than a timer — avoids 50
+      // shallow "unchanged" check rather than a timer - avoids 50
       // requests while the user draws.
       if (
         polygon.length === loc.geofence_polygon.length &&
@@ -346,7 +346,7 @@ export default function MultiLocationSettings({
       is_active: true,
     };
     try {
-      // One automatic retry — covers brief backend reloads (StatReloader /
+      // One automatic retry - covers brief backend reloads (StatReloader /
       // deploys) that otherwise surface as a cryptic HTTP 500 toast.
       let resp;
       try {
@@ -643,7 +643,7 @@ function LocationRow({
             </div>
           )}
 
-          {/* Coordinates + geofence editor — reuse the existing single-location map */}
+          {/* Coordinates + geofence editor - reuse the existing single-location map */}
           <GeolocationMapSettings
             latitude={location.latitude ?? 0}
             longitude={location.longitude ?? 0}

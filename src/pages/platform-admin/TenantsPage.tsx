@@ -149,10 +149,10 @@ export default function TenantsPage() {
                       </Link>
                       <div className={opsMuted}>{t.email}</div>
                     </td>
-                    <td className={opsTd}>{t.country_code || "—"}</td>
+                    <td className={opsTd}>{t.country_code || "-"}</td>
                     <td className={`${opsTd} tabular-nums`}>{t.staff_count}</td>
                     <td className={opsTd}>{t.subscription_plan || "Starter"}</td>
-                    <td className={`${opsTd} capitalize`}>{t.subscription_status || "—"}</td>
+                    <td className={`${opsTd} capitalize`}>{t.subscription_status || "-"}</td>
                     <td className={`${opsTd} space-x-1`}>
                       {t.suspended ? (
                         <span className={opsBadgeDanger}>Suspended</span>

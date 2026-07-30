@@ -136,7 +136,7 @@ export default function UsersPage() {
                         {u.restaurant_name || "View tenant"}
                       </Link>
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </td>
                   <td className={`${opsTd} space-x-1`}>

@@ -35,9 +35,9 @@ const getMessageString = (x: unknown): string | undefined => {
 
 // Safe date formatting to prevent RangeError on invalid timestamps
 const formatSafe = (value: string | Date | null | undefined, fmt: string): string => {
-    if (!value) return "—";
+    if (!value) return "-";
     const d = typeof value === "string" ? parseISO(value) : value;
-    return isValid(d) ? format(d as Date, fmt) : "—";
+    return isValid(d) ? format(d as Date, fmt) : "-";
 };
 
 interface ClockEvent {
@@ -867,7 +867,7 @@ export default function TimeClockPage() {
                             {isClockedIn ? (
                                 <p className="text-muted-foreground">You’re currently clocked in.</p>
                             ) : inRange ? (
-                                <p className="text-muted-foreground">You’re within range. {scheduleActive ? "You can clock in." : "Outside scheduled hours — clock-in permitted."}</p>
+                                <p className="text-muted-foreground">You’re within range. {scheduleActive ? "You can clock in." : "Outside scheduled hours - clock-in permitted."}</p>
                             ) : (
                                 <p className="text-muted-foreground">Move into range to enable clock-in.</p>
                             )}
@@ -977,7 +977,7 @@ export default function TimeClockPage() {
                                                 ) : verified === false ? (
                                                     <XCircle className="w-4 h-4 text-red-500" />
                                                 ) : (
-                                                    <span className="text-muted-foreground">—</span>
+                                                    <span className="text-muted-foreground">-</span>
                                                 )}
                                             </div>
                                         </div>

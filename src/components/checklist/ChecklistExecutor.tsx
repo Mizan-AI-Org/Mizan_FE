@@ -463,7 +463,7 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
                 <p className="text-sm text-muted-foreground mt-2">{currentStep.instruction}</p>
               )}
             </div>
-            <Badge variant="outline" className="text-xs whitespace-nowrap">{currentStep.estimatedSeconds ? `${Math.round(currentStep.estimatedSeconds / 60)}m` : '—'}</Badge>
+            <Badge variant="outline" className="text-xs whitespace-nowrap">{currentStep.estimatedSeconds ? `${Math.round(currentStep.estimatedSeconds / 60)}m` : '-'}</Badge>
           </div>
 
           {validationMsg && (

@@ -125,7 +125,7 @@ export default function HealthPage() {
                   Degraded
                 </span>{" "}
                 means a required platform service (WhatsApp, Lua webhook, or Redis) is missing
-                or unreachable — not that a payment provider is unset.
+                or unreachable - not that a payment provider is unset.
               </p>
             ) : null}
           </div>

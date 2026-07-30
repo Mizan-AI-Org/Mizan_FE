@@ -495,15 +495,15 @@ export default function TakeOrdersPage() {
       return [
         time,
         items,
-        row.customer_name || "—",
-        row.customer_phone || "—",
-        row.table_or_location || "—",
-        row.dietary_notes || "—",
-        row.special_instructions || "—",
+        row.customer_name || "-",
+        row.customer_phone || "-",
+        row.table_or_location || "-",
+        row.dietary_notes || "-",
+        row.special_instructions || "-",
         t(channelLabelKey(row.channel)),
         t(orderTypeLabelKey(row.order_type)),
         t(`take_orders.status.${st}`),
-        row.recorded_by_name || "—",
+        row.recorded_by_name || "-",
       ];
     },
     [t],
@@ -521,7 +521,7 @@ export default function TakeOrdersPage() {
       }
       const fileSlug = staffOrdersExportFileSlug(exportDateFrom, exportDateTo);
       const rangeSubtitle =
-        exportDateFrom === exportDateTo ? exportDateFrom : `${exportDateFrom} — ${exportDateTo}`;
+        exportDateFrom === exportDateTo ? exportDateFrom : `${exportDateFrom} - ${exportDateTo}`;
       setExportBusy(kind);
       try {
         const rows = await api.listStaffCapturedOrders({ dateFrom: exportDateFrom, dateTo: exportDateTo });
@@ -698,7 +698,7 @@ export default function TakeOrdersPage() {
                       className="h-8 w-[9.75rem] rounded-md border-slate-200 bg-white px-2 text-[11px] dark:border-slate-600 dark:bg-slate-900/50"
                       aria-label={t("take_orders.filter_date_from")}
                     />
-                    <span className="text-[10px] text-slate-400">—</span>
+                    <span className="text-[10px] text-slate-400">-</span>
                     <Label htmlFor="take-orders-to" className="sr-only">
                       {t("take_orders.filter_date_to")}
                     </Label>

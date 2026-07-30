@@ -84,7 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
         if (response.ok) {
           const userData: User = await response.json();
-          // Ops sessions belong on /admin only — never treat them as tenant auth.
+          // Ops sessions belong on /admin only - never treat them as tenant auth.
           if (userData.is_platform_operator) {
             if (
               location.pathname === "/auth" ||

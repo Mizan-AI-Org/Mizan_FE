@@ -81,13 +81,13 @@ export function StaffTagChips({
 }
 
 /**
- * Editable tag picker — a row of toggleable chips, one per canonical
+ * Editable tag picker - a row of toggleable chips, one per canonical
  * tag, with a check mark on selected ones. Multi-select; tag order is
  * preserved across toggles so clicking the same tag twice doesn't
  * reorder the user's mental model of "primary department first".
  *
  * Why chips and not a dropdown / multi-select listbox?
- * - 10 options total — chips are visible-by-default and faster to
+ * - 10 options total - chips are visible-by-default and faster to
  *   tap on touch devices.
  * - We want the manager to *see* the available departments so adding
  *   the right ones doesn't require remembering keywords.
