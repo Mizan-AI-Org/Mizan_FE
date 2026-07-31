@@ -27,6 +27,7 @@ const DashboardLayout: React.FC = () => {
   const location = useLocation();
   const { notifications, markAllAsRead, markAsRead } = useNotifications();
   const isOnDashboardRoot = location.pathname === "/dashboard";
+  const isAutomationBuilder = /^\/dashboard\/automations\/.+/.test(location.pathname);
   const { t } = useLanguage();
   const viewingAsTenant = isImpersonating();
 
@@ -148,7 +149,7 @@ const DashboardLayout: React.FC = () => {
       </header>
 
       <main className="flex-1">
-        {location.pathname !== "/dashboard" && (
+        {location.pathname !== "/dashboard" && !isAutomationBuilder && (
           <div className={`${PAGE_SHELL} pt-4 pb-3`}>
             {location.pathname.startsWith("/dashboard/settings/") &&
             location.pathname !== "/dashboard/settings" ? (
