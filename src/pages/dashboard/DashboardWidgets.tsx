@@ -4077,6 +4077,20 @@ function CategoryTasksCard({
     },
   });
 
+  const chaseMutation = useMutation({
+    mutationFn: (item: DashboardTaskDemandItem) =>
+      api.chaseOperationalRecord({
+        record_id: item.id,
+        record_type: item.kind === "dashboard" ? "dashboard_task" : "staff_request",
+      }),
+    onSuccess: (data) => {
+      toast.success(data?.message_for_user || "WhatsApp follow-up sent");
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : "Could not send follow-up");
+    },
+  });
+
   // Drag-and-drop "move row to this bucket" mutation. Triggered when
   // a row from a *different* widget is dropped here. We invalidate
   // every category bucket query (not just source + target) because
@@ -4404,9 +4418,15 @@ function CategoryTasksCard({
                       ? () => validateMutation.mutate(it.id)
                       : undefined
                   }
+                  onChase={
+                    it.status !== "COMPLETED" && it.status !== "CANCELLED"
+                      ? () => chaseMutation.mutate(it)
+                      : undefined
+                  }
                   isPendingId={
                     (statusMutation.isPending && statusMutation.variables?.id === it.id) ||
-                    (validateMutation.isPending && validateMutation.variables === it.id)
+                    (validateMutation.isPending && validateMutation.variables === it.id) ||
+                    (chaseMutation.isPending && chaseMutation.variables?.id === it.id)
                       ? it.id
                       : null
                   }
@@ -4618,6 +4638,7 @@ function CategoryTaskRow({
   t,
   onStatusChange,
   onValidate,
+  onChase,
   isPendingId,
   sourceTarget,
   isDragging,
@@ -4628,6 +4649,7 @@ function CategoryTaskRow({
   t: (key: string) => string;
   onStatusChange?: (nextStatus: DashboardTaskDemandItem["status"]) => void;
   onValidate?: () => void;
+  onChase?: () => void;
   isPendingId?: string | null;
   sourceTarget?: import("@/lib/types").WidgetDropTarget | string;
   isDragging?: boolean;
@@ -4787,7 +4809,14 @@ function CategoryTaskRow({
             </span>
           ) : null}
           {item.has_photo_proof ? (
-            <span className="shrink-0 inline-flex items-center rounded-sm border border-violet-200 bg-violet-50 px-1 py-px text-[9px] font-semibold text-violet-800 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-200">
+            <span className="shrink-0 inline-flex items-center gap-1 rounded-sm border border-violet-200 bg-violet-50 px-1 py-px text-[9px] font-semibold text-violet-800 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-200">
+              {item.proof_media_url ? (
+                <img
+                  src={item.proof_media_url}
+                  alt=""
+                  className="h-4 w-4 rounded object-cover"
+                />
+              ) : null}
               {t("dashboard.category_tasks.photo_proof_ok")}
             </span>
           ) : null}
@@ -4836,6 +4865,21 @@ function CategoryTaskRow({
           title={t("dashboard.category_tasks.validate_title")}
         >
           {t("dashboard.category_tasks.validate")}
+        </button>
+      ) : null}
+
+      {onChase && item.kind === "dashboard" ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            stop(e);
+            onChase();
+          }}
+          disabled={isPending}
+          className="shrink-0 rounded-md border border-sky-300 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-900 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100 disabled:opacity-50"
+          title={t("dashboard.category_tasks.update_now_title")}
+        >
+          {t("dashboard.category_tasks.update_now")}
         </button>
       ) : null}
 

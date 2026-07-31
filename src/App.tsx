@@ -111,6 +111,8 @@ const OperationalIssuesPage = React.lazy(
   () => import("./pages/OperationalIssuesPage")
 );
 const TaskTemplates = React.lazy(() => import("./pages/TaskTemplates"));
+const AutomationsPage = React.lazy(() => import("./pages/automations/AutomationsPage"));
+const AutomationBuilderPage = React.lazy(() => import("./pages/automations/AutomationBuilderPage"));
 const ManagerSwapRequests = React.lazy(
   () => import("./pages/ManagerSwapRequests")
 );
@@ -467,6 +469,22 @@ const App = () => {
                       allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
                     >
                       <Timesheets />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/automations"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                      <AutomationsPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/automations/:id"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                      <AutomationBuilderPage />
                     </RoleBasedRoute>
                   }
                 />

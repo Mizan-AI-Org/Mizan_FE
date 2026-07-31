@@ -843,6 +843,17 @@ export class BackendService {
     return this.fetchWithError(`/dashboard/tasks/${taskId}/validate/`, { method: "POST", body: "{}" });
   }
 
+  /** Send WhatsApp follow-up to assignee ("Update now"). */
+  async chaseOperationalRecord(payload: {
+    record_id: string;
+    record_type?: "dashboard_task" | "staff_request";
+  }): Promise<{ success: boolean; message_for_user?: string }> {
+    return this.fetchWithError("/dashboard/records/chase/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
   async requireDashboardTaskValidation(
     taskId: string,
     required = true,
@@ -4497,6 +4508,64 @@ export class BackendService {
     return this.fetchWithError("/rbac/user-permissions/bulk/", {
       method: "POST",
       body: JSON.stringify({ user_ids: userIds, permissions }),
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Tenant automations
+  // ---------------------------------------------------------------------
+  async getAutomationsCatalog(accessToken: string) {
+    return this.fetchWithError("/automations/catalog/", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }
+
+  async listAutomations(accessToken: string) {
+    const data = await this.fetchWithError("/automations/", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    return unwrapDrfListResponse(data);
+  }
+
+  async getAutomation(accessToken: string, id: string) {
+    return this.fetchWithError(`/automations/${id}/`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }
+
+  async createAutomation(accessToken: string, body: Record<string, unknown>) {
+    return this.fetchWithError("/automations/", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async updateAutomation(accessToken: string, id: string, body: Record<string, unknown>) {
+    return this.fetchWithError(`/automations/${id}/`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async toggleAutomation(accessToken: string, id: string) {
+    return this.fetchWithError(`/automations/${id}/toggle/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }
+
+  async deleteAutomation(accessToken: string, id: string) {
+    return this.fetchWithError(`/automations/${id}/`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
   }
 
