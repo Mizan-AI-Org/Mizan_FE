@@ -17,7 +17,8 @@ const LEGACY_LABELS: Record<string, string> = {
   whatsapp_access_token: "WhatsApp access token",
   whatsapp_phone_number_id: "WhatsApp phone number ID",
   whatsapp_activation_wa_phone: "WhatsApp activation number",
-  lua_whatsapp_webhook: "Lua WhatsApp webhook",
+  lua_whatsapp_webhook: "Miya WhatsApp (in-Django)",
+  miya_whatsapp: "Miya WhatsApp (in-Django)",
   redis: "Redis / cache",
 };
 
@@ -124,7 +125,7 @@ export default function HealthPage() {
                 <span className="font-semibold text-slate-700 dark:text-slate-300">
                   Degraded
                 </span>{" "}
-                means a required platform service (WhatsApp, Lua webhook, or Redis) is missing
+                means a required platform service (WhatsApp, Miya, or Redis) is missing
                 or unreachable - not that a payment provider is unset.
               </p>
             ) : null}
