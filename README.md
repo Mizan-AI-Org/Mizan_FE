@@ -42,7 +42,7 @@ Web client for **Mizan AI** - a restaurant operations platform covering scheduli
 | **Notifications** | `sonner` (toasts), Firebase Cloud Messaging (push) |
 | **PDF / CSV** | `jspdf`, `jspdf-autotable`, `xlsx` |
 | **Realtime** | WebSocket → backend Django Channels |
-| **AI assistant** | Lua agent SDK (Miya) |
+| **AI assistant** | Miya widget + Mastra Cloud |
 | **Testing** | Vitest + Testing Library + jsdom |
 | **Linting** | ESLint 9 (`typescript-eslint`, `react-hooks`, `jsx-a11y`) |
 
@@ -89,7 +89,7 @@ mizan-frontend/
 │   │
 │   ├── i18n/                 # i18next bootstrap + language switching
 │   ├── config/               # Static config (roles by vertical, etc.)
-│   ├── integrations/         # 3rd-party adapters (Firebase, Lua agent, …)
+│   ├── integrations/         # 3rd-party adapters (Firebase, Mastra, …)
 │   ├── services/             # Service-level wrappers around api.ts
 │   ├── types/                # Shared TypeScript types
 │   └── utils/                # Pure utility functions
@@ -132,9 +132,6 @@ VITE_FIREBASE_STORAGE_BUCKET=...
 VITE_FIREBASE_MESSAGING_SENDER_ID=...
 VITE_FIREBASE_APP_ID=...
 VITE_FIREBASE_MEASUREMENT_ID=...
-
-# Lua AI agent (Miya)
-VITE_LUA_AGENT_ID=baseAgent_agent_xxxxxxxxxxxxx
 
 # Optional - override the API base URL (defaults to "/api" via the Vite proxy
 # in dev, or same-origin in prod). Useful when the frontend is hosted on a

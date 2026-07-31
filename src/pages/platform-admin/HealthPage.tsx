@@ -17,7 +17,7 @@ const LEGACY_LABELS: Record<string, string> = {
   whatsapp_access_token: "WhatsApp access token",
   whatsapp_phone_number_id: "WhatsApp phone number ID",
   whatsapp_activation_wa_phone: "WhatsApp activation number",
-  lua_whatsapp_webhook: "Miya WhatsApp (in-Django)",
+  lua_whatsapp_webhook: "Miya WhatsApp (Mastra)",
   miya_whatsapp: "Miya WhatsApp (in-Django)",
   redis: "Redis / cache",
 };

@@ -2500,15 +2500,21 @@ function MeetingsRemindersCard({
     useQuery<DashboardMeetingsRemindersResponse>({
       queryKey: ["dashboard", "meetings-reminders", 5],
       queryFn: () => api.getDashboardMeetingsReminders(5),
-      // Google Calendar data is comparatively cold - 90 s poll matches
-      // the "what's coming up in the next few hours" framing without
-      // burning Google quota for idle tabs.
       refetchInterval: 90_000,
       staleTime: 45_000,
       retry: 2,
       retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 6000),
       refetchOnMount: "always",
     });
+
+  const { data: personalReminders } = useQuery({
+    queryKey: ["dashboard", "personal-reminders"],
+    queryFn: () => api.getDashboardPersonalReminders("pending"),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
+  const reminderRows = personalReminders?.reminders ?? [];
 
   const locale =
     typeof navigator !== "undefined" && navigator.language ? navigator.language : "en-US";
@@ -2842,6 +2848,27 @@ function MeetingsRemindersCard({
             </ul>
           )}
         </div>
+
+        {reminderRows.length > 0 ? (
+          <div className="mt-4 border-t border-slate-100 dark:border-slate-800 pt-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+              {t("dashboard.ops_search.section_reminders")}
+            </p>
+            <ul className="space-y-1.5">
+              {reminderRows.slice(0, 4).map((r) => (
+                <li key={String(r.id)} className="text-[13px] text-slate-700 dark:text-slate-200">
+                  <span className="font-medium">{String(r.title || "")}</span>
+                  {r.due_at ? (
+                    <span className="text-slate-500 dark:text-slate-400">
+                      {" · "}
+                      {new Date(String(r.due_at)).toLocaleString()}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         {/* Footer: "Open in Calendar" CTA to match the mock. Always visible
             when connected so the manager has a one-click bail-out to the
@@ -5124,15 +5151,7 @@ function MiyaCustomDashboardWidgetCard({
   const hasNavigableLink = !!link && !isMiyaDeepLink;
 
   const askMiya = () => {
-    try {
-      const host = document.querySelector("#lua-shadow-root");
-      const btn = host?.shadowRoot?.querySelector?.(
-        "button.lua-pop-button, button",
-      ) as HTMLButtonElement | null | undefined;
-      btn?.click();
-    } catch {
-      /* Miya widget not mounted - silently no-op */
-    }
+    window.dispatchEvent(new CustomEvent("miya:open"));
   };
 
   const open = () => {
@@ -5216,15 +5235,7 @@ function CustomWidgetTasksCard({
   const hasNavigableLink = !!link && !isMiyaDeepLink;
 
   const askMiya = () => {
-    try {
-      const host = document.querySelector("#lua-shadow-root");
-      const btn = host?.shadowRoot?.querySelector?.(
-        "button.lua-pop-button, button",
-      ) as HTMLButtonElement | null | undefined;
-      btn?.click();
-    } catch {
-      /* Miya widget not mounted - silently no-op */
-    }
+    window.dispatchEvent(new CustomEvent("miya:open"));
   };
 
   const openLink = () => {

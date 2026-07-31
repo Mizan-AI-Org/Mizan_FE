@@ -182,9 +182,20 @@ export const useNotifications = () => {
                 };
 
                 ws.current.onmessage = (event) => {
-                    const data: WebSocketMessage = JSON.parse(event.data);
+                    const data = JSON.parse(event.data);
                     if (data.type === 'notification_message') {
                         queryClient.invalidateQueries({ queryKey: ['notifications', user.id] });
+                        const ntype = String(
+                            data.notification?.notification_type || data.notification?.type || ''
+                        ).toUpperCase();
+                        if (ntype.startsWith('TASK_') || data.type === 'tasks_invalidate') {
+                            queryClient.invalidateQueries({ queryKey: ['dashboard', 'tasks-demands'] });
+                            queryClient.invalidateQueries({ queryKey: ['dashboard', 'my-tasks'] });
+                        }
+                    }
+                    if (data.type === 'tasks_invalidate') {
+                        queryClient.invalidateQueries({ queryKey: ['dashboard', 'tasks-demands'] });
+                        queryClient.invalidateQueries({ queryKey: ['dashboard', 'my-tasks'] });
                     }
                 };
 

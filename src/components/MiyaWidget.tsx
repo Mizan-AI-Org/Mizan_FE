@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { Mic, MicOff, Send, X } from "lucide-react";
+import { Mic, MicOff, Paperclip, Send, X } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
@@ -9,6 +9,7 @@ import { logError } from "@/lib/logging";
 import { cn } from "@/lib/utils";
 
 type ChatTurn = { role: "user" | "assistant"; content: string };
+type PendingAttachment = { id: string; title: string };
 
 const ALLOWED_ROLES = [
   "ADMIN",
@@ -48,12 +49,16 @@ export const MiyaWidget: React.FC = () => {
   const [enabled, setEnabled] = useState(true);
   const [voiceInputEnabled, setVoiceInputEnabled] = useState(false);
   const [fishAudioConfigured, setFishAudioConfigured] = useState(false);
+  const [attachmentsEnabled, setAttachmentsEnabled] = useState(true);
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const historyRef = useRef<ChatTurn[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canUseVoiceInput = Boolean(user?.role && VOICE_INPUT_ROLES.has(user.role));
 
@@ -66,6 +71,12 @@ export const MiyaWidget: React.FC = () => {
   }, [history, loading, open, voiceProcessing]);
 
   useEffect(() => {
+    const openHandler = () => setOpen(true);
+    window.addEventListener("miya:open", openHandler);
+    return () => window.removeEventListener("miya:open", openHandler);
+  }, []);
+
+  useEffect(() => {
     if (!user || !accessToken || hideOnPlatformAdmin) return;
     fetch(`${API_BASE}/miya/config/`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -75,6 +86,7 @@ export const MiyaWidget: React.FC = () => {
         setEnabled(Boolean(data.enabled));
         setVoiceInputEnabled(Boolean(data.voice_input_enabled));
         setFishAudioConfigured(Boolean(data.fish_audio_configured));
+        setAttachmentsEnabled(data.attachments_enabled !== false);
       })
       .catch(() => setEnabled(true));
   }, [user, accessToken, hideOnPlatformAdmin]);
@@ -91,12 +103,26 @@ export const MiyaWidget: React.FC = () => {
   }, []);
 
   const sendTextMessage = useCallback(
-    async (text: string) => {
-      if (!text.trim() || !accessToken || loading || voiceProcessing) return;
+    async (text: string, attachmentIds: string[] = []) => {
+      const ids =
+        attachmentIds.length > 0
+          ? attachmentIds
+          : pendingAttachments.map((a) => a.id);
+      if ((!text.trim() && ids.length === 0) || !accessToken || loading || voiceProcessing) return;
 
-      const userMessage = text.trim();
+      const userMessage =
+        text.trim() ||
+        (ids.length
+          ? `Please review the ${ids.length === 1 ? "document" : "documents"} I attached and remember the details.`
+          : "");
+      const attachmentNote =
+        pendingAttachments.length > 0
+          ? `\n📎 ${pendingAttachments.map((a) => a.title).join(", ")}`
+          : "";
+
       setInput("");
-      setHistory((prev) => [...prev, { role: "user", content: userMessage }]);
+      setPendingAttachments([]);
+      setHistory((prev) => [...prev, { role: "user", content: userMessage + attachmentNote }]);
       setLoading(true);
 
       const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -121,9 +147,10 @@ export const MiyaWidget: React.FC = () => {
           },
           body: JSON.stringify({
             message: userMessage,
-            history: historyRef.current.slice(-12),
+            history: historyRef.current.slice(-8),
             voice: fishAudioConfigured,
             restaurant_id: user?.restaurant || user?.restaurant_data?.id || undefined,
+            attachment_ids: ids,
           }),
         });
 
@@ -135,7 +162,8 @@ export const MiyaWidget: React.FC = () => {
           }
 
           for (let attempt = 0; attempt < 90; attempt += 1) {
-            await sleep(2000);
+            const delayMs = [400, 600, 800, 1000, 1200, 1500][Math.min(attempt, 5)];
+            await sleep(delayMs);
             const statusResp = await fetch(
               `${API_BASE}/miya/chat/status/?task_id=${encodeURIComponent(taskId)}`,
               { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -179,7 +207,43 @@ export const MiyaWidget: React.FC = () => {
         setLoading(false);
       }
     },
-    [accessToken, appendAssistantError, fishAudioConfigured, loading, user, voiceProcessing],
+    [accessToken, appendAssistantError, fishAudioConfigured, loading, pendingAttachments, user, voiceProcessing],
+  );
+
+  const uploadAttachment = useCallback(
+    async (file: File) => {
+      if (!accessToken || uploadingAttachment) return;
+      setUploadingAttachment(true);
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        const restaurantId = user?.restaurant || user?.restaurant_data?.id;
+        if (restaurantId) form.append("restaurant_id", String(restaurantId));
+        const resp = await fetch(`${API_BASE}/miya/attachments/`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: form,
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+          throw new Error(data.error || "Upload failed");
+        }
+        const doc = data.document as { id?: string; title?: string } | undefined;
+        if (doc?.id) {
+          setPendingAttachments((prev) => [
+            ...prev,
+            { id: doc.id, title: doc.title || file.name },
+          ]);
+        }
+      } catch (err) {
+        logError({ feature: "miya-widget", action: "attachment-upload" }, err as Error);
+        appendAssistantError("Could not upload that file. Try a PDF or photo under 12 MB.");
+      } finally {
+        setUploadingAttachment(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    },
+    [accessToken, appendAssistantError, uploadingAttachment, user],
   );
 
   const sendVoiceBlob = useCallback(
@@ -188,10 +252,28 @@ export const MiyaWidget: React.FC = () => {
 
       setVoiceProcessing(true);
 
+      const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      const applyVoicePayload = (data: {
+        transcript?: string;
+        reply?: string;
+        audio?: { base64?: string; mime_type?: string };
+      }) => {
+        const transcript = (data.transcript || "").trim();
+        const reply = data.reply || "Done.";
+        if (transcript) {
+          setHistory((prev) => [...prev, { role: "user", content: transcript }]);
+        }
+        setHistory((prev) => [...prev, { role: "assistant", content: reply }]);
+        if (data.audio?.base64) {
+          playBase64Audio(data.audio.base64, data.audio.mime_type || "audio/mpeg");
+        }
+      };
+
       try {
         const form = new FormData();
         form.append("audio", blob, `miya-voice.${mimeType.includes("ogg") ? "ogg" : "webm"}`);
-        form.append("history", JSON.stringify(historyRef.current.slice(-12)));
+        form.append("history", JSON.stringify(historyRef.current.slice(-8)));
         form.append("voice", "true");
         form.append("language", language || "en");
         const restaurantId = user?.restaurant || user?.restaurant_data?.id;
@@ -204,6 +286,42 @@ export const MiyaWidget: React.FC = () => {
           headers: { Authorization: `Bearer ${accessToken}` },
           body: form,
         });
+
+        if (resp.status === 202) {
+          const queued = await resp.json();
+          const taskId = queued.task_id as string | undefined;
+          const earlyTranscript = (queued.transcript || "").trim();
+          if (earlyTranscript) {
+            setHistory((prev) => [...prev, { role: "user", content: earlyTranscript }]);
+          }
+          if (!taskId) {
+            throw new Error("Miya did not return a task id");
+          }
+
+          for (let attempt = 0; attempt < 90; attempt += 1) {
+            const delayMs = [400, 600, 800, 1000, 1200, 1500][Math.min(attempt, 5)];
+            await sleep(delayMs);
+            const statusResp = await fetch(
+              `${API_BASE}/miya/chat/status/?task_id=${encodeURIComponent(taskId)}`,
+              { headers: { Authorization: `Bearer ${accessToken}` } },
+            );
+            const statusData = await statusResp.json();
+            if (statusData.status === "complete") {
+              applyVoicePayload({
+                transcript: earlyTranscript ? undefined : statusData.transcript,
+                reply: statusData.reply,
+                audio: statusData.audio,
+              });
+              return;
+            }
+            if (statusData.status === "failed" || !statusResp.ok) {
+              throw new Error(
+                statusData.error || statusData.reply || `Miya voice chat failed (${statusResp.status})`,
+              );
+            }
+          }
+          throw new Error("Miya is still thinking — try a simpler question or try again.");
+        }
 
         const data = await resp.json();
         if (!resp.ok) {
@@ -218,20 +336,15 @@ export const MiyaWidget: React.FC = () => {
           throw new Error(data.error || data.detail || `Voice chat failed (${resp.status})`);
         }
 
-        const transcript = (data.transcript || "").trim();
-        const reply = data.reply || "Done.";
-
-        if (transcript) {
-          setHistory((prev) => [...prev, { role: "user", content: transcript }]);
-        }
-        setHistory((prev) => [...prev, { role: "assistant", content: reply }]);
-
-        if (data.audio?.base64) {
-          playBase64Audio(data.audio.base64, data.audio.mime_type || "audio/mpeg");
-        }
+        applyVoicePayload(data);
       } catch (err) {
         logError({ feature: "miya-widget", action: "voice-chat" }, err as Error);
-        appendAssistantError(t("ai.voice_transcribe_failed"));
+        const msg = err instanceof Error ? err.message : "";
+        if (msg.includes("task") || msg.includes("thinking") || msg.includes("503")) {
+          appendAssistantError(msg || t("ai.chat_error"));
+        } else {
+          appendAssistantError(t("ai.voice_transcribe_failed"));
+        }
       } finally {
         setVoiceProcessing(false);
       }
@@ -391,6 +504,28 @@ export const MiyaWidget: React.FC = () => {
           </div>
 
           <div className="border-t border-slate-100 p-3 bg-white dark:border-slate-800 dark:bg-slate-900">
+            {pendingAttachments.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {pendingAttachments.map((att) => (
+                  <span
+                    key={att.id}
+                    className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+                  >
+                    📎 {att.title}
+                    <button
+                      type="button"
+                      className="hover:text-red-600"
+                      onClick={() =>
+                        setPendingAttachments((prev) => prev.filter((p) => p.id !== att.id))
+                      }
+                      aria-label={`Remove ${att.title}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -398,6 +533,30 @@ export const MiyaWidget: React.FC = () => {
               }}
               className="flex items-center gap-2"
             >
+              {attachmentsEnabled && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void uploadAttachment(file);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={busy || uploadingAttachment}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="shrink-0 rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-emerald-600 dark:hover:bg-slate-800 dark:hover:text-emerald-400 disabled:opacity-50"
+                    aria-label="Attach document"
+                    title="Attach document"
+                  >
+                    <Paperclip className="h-5 w-5" />
+                  </button>
+                </>
+              )}
               {canUseVoiceInput && voiceInputEnabled && (
                 <button
                   type="button"
@@ -443,7 +602,7 @@ export const MiyaWidget: React.FC = () => {
               />
               <button
                 type="submit"
-                disabled={busy || !input.trim()}
+                disabled={busy || (!input.trim() && pendingAttachments.length === 0)}
                 className="shrink-0 rounded-xl bg-emerald-500 p-2 text-white disabled:opacity-40 hover:bg-emerald-600"
                 aria-label="Send message"
               >

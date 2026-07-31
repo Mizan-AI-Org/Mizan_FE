@@ -89,7 +89,8 @@ export type PlatformOverview = {
   health: {
     whatsapp_configured: boolean;
     miya_whatsapp_enabled?: boolean;
-    /** @deprecated use miya_whatsapp_enabled */
+    mastra_bridge_configured?: boolean;
+    /** @deprecated use miya_whatsapp_enabled or mastra_bridge_configured */
     lua_webhook_configured: boolean;
     stripe_configured?: boolean;
   };

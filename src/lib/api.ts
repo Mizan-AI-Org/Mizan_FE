@@ -603,6 +603,33 @@ export class BackendService {
     return this.fetchWithError(`/dashboard/tasks-demands/${qs}`);
   }
 
+  async getDashboardMyTasks(status = "open", limit = 25): Promise<{ success: boolean; tasks: DashboardTaskDemandItem[]; count: number }> {
+    const qs = `?status=${encodeURIComponent(status)}&limit=${encodeURIComponent(String(limit))}`;
+    return this.fetchWithError(`/dashboard/my-tasks/${qs}`);
+  }
+
+  async getDashboardPersonalReminders(status = "pending"): Promise<{ success: boolean; reminders: Array<Record<string, unknown>>; count: number }> {
+    const qs = `?status=${encodeURIComponent(status)}`;
+    return this.fetchWithError(`/dashboard/personal-reminders/${qs}`);
+  }
+
+  async getDashboardTenantDocuments(limit = 10, q = ""): Promise<{ success: boolean; documents: Array<Record<string, unknown>>; count: number }> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (q.trim()) params.set("q", q.trim());
+    return this.fetchWithError(`/dashboard/tenant-documents/?${params.toString()}`);
+  }
+
+  async getCategoryOwners(): Promise<{ success?: boolean; owners: Record<string, string | string[]> }> {
+    return this.fetchWithError("/onboarding/category-owners/");
+  }
+
+  async saveCategoryOwners(owners: Record<string, string | string[]>): Promise<{ saved: boolean; owners: Record<string, string[]> }> {
+    return this.fetchWithError("/onboarding/category-owners/", {
+      method: "PUT",
+      body: JSON.stringify({ owners }),
+    });
+  }
+
   async getDashboardTaskDemand(taskId: string): Promise<DashboardTaskDemandItem> {
     return this.fetchWithError(`/dashboard/tasks-demands/${taskId}/`);
   }
