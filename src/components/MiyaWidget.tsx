@@ -99,6 +99,19 @@ export const MiyaWidget: React.FC = () => {
       setHistory((prev) => [...prev, { role: "user", content: userMessage }]);
       setLoading(true);
 
+      const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      const applyChatPayload = (data: {
+        reply?: string;
+        audio?: { base64?: string; mime_type?: string };
+      }) => {
+        const reply = data.reply || "Done.";
+        setHistory((prev) => [...prev, { role: "assistant", content: reply }]);
+        if (fishAudioConfigured && data.audio?.base64) {
+          playBase64Audio(data.audio.base64, data.audio.mime_type || "audio/mpeg");
+        }
+      };
+
       try {
         const resp = await fetch(`${API_BASE}/miya/chat/`, {
           method: "POST",
@@ -114,17 +127,39 @@ export const MiyaWidget: React.FC = () => {
           }),
         });
 
+        if (resp.status === 202) {
+          const queued = await resp.json();
+          const taskId = queued.task_id as string | undefined;
+          if (!taskId) {
+            throw new Error("Miya did not return a task id");
+          }
+
+          for (let attempt = 0; attempt < 90; attempt += 1) {
+            await sleep(2000);
+            const statusResp = await fetch(
+              `${API_BASE}/miya/chat/status/?task_id=${encodeURIComponent(taskId)}`,
+              { headers: { Authorization: `Bearer ${accessToken}` } },
+            );
+            const statusData = await statusResp.json();
+            if (statusData.status === "complete") {
+              applyChatPayload(statusData);
+              return;
+            }
+            if (statusData.status === "failed" || !statusResp.ok) {
+              throw new Error(
+                statusData.error || statusData.reply || `Miya chat failed (${statusResp.status})`,
+              );
+            }
+          }
+          throw new Error("Miya is still thinking — try a simpler question or try again.");
+        }
+
         const data = await resp.json();
         if (!resp.ok) {
           throw new Error(data.error || data.detail || `Miya chat failed (${resp.status})`);
         }
 
-        const reply = data.reply || "Done.";
-        setHistory((prev) => [...prev, { role: "assistant", content: reply }]);
-
-        if (fishAudioConfigured && data.audio?.base64) {
-          playBase64Audio(data.audio.base64, data.audio.mime_type || "audio/mpeg");
-        }
+        applyChatPayload(data);
       } catch (err) {
         logError({ feature: "miya-widget", action: "chat" }, err as Error);
         const detail =
@@ -134,9 +169,11 @@ export const MiyaWidget: React.FC = () => {
         appendAssistantError(
           detail.includes("OPENAI") || detail.includes("503")
             ? "Miya is temporarily unavailable. Check that OPENAI_API_KEY is configured on the server."
-            : detail.length < 200
-              ? detail
-              : "Sorry, I couldn't reach Mizan right now. Try again in a moment.",
+            : detail.includes("Failed to fetch")
+              ? "Miya timed out reaching the server. If this persists, ask your admin to confirm Celery workers are running."
+              : detail.length < 200
+                ? detail
+                : "Sorry, I couldn't reach Mizan right now. Try again in a moment.",
         );
       } finally {
         setLoading(false);
