@@ -18,6 +18,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { MiyaWidget } from "@/components/MiyaWidget";
 import ImpersonationBanner from "@/components/platform-admin/ImpersonationBanner";
 import { LiveDateTime } from "@/components/LiveDateTime";
+import { OpsSearchBar } from "@/components/OpsSearchBar";
 import { cn } from "@/lib/utils";
 import { PAGE_SHELL } from "@/lib/page-shell";
 import { isImpersonating } from "@/lib/impersonation";
@@ -68,6 +69,9 @@ const DashboardLayout: React.FC = () => {
               <BrandLogo size="sm" />
               <h1 className="text-2xl font-bold select-none">{t("common.brand")}</h1>
             </button>
+            <div className="hidden md:block flex-1 max-w-md mx-4">
+              <OpsSearchBar />
+            </div>
             <div className="flex items-center gap-2 sm:gap-4 shrink-0 flex-wrap justify-end">
               <LiveDateTime showTime={false} />
               <ThemeToggle />

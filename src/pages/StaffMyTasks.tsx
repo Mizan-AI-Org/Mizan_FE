@@ -93,6 +93,16 @@ const StaffMyTasks: React.FC = () => {
     staleTime: 60 * 1000,
   });
 
+  const { data: dashboardTasks } = useQuery({
+    enabled: Boolean(token),
+    queryKey: ["dashboard", "my-tasks"],
+    queryFn: () => api.getDashboardMyTasks("open", 20),
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
+
+  const opsTasks = dashboardTasks?.tasks ?? [];
+
   const hasResults = (obj: unknown): obj is { results: ChecklistExecutionItem[] } => {
     return typeof obj === "object" && obj !== null && "results" in (obj as Record<string, unknown>);
   };
@@ -570,6 +580,39 @@ const StaffMyTasks: React.FC = () => {
         </div>
         <h2 className="text-lg font-semibold">My Checklist</h2>
       </div>
+
+      {opsTasks.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold">Ops tasks from Miya</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {opsTasks.map((task) => (
+              <Card key={task.id}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="text-base">{task.title}</CardTitle>
+                    <Badge variant="outline" className="text-xs">{task.status}</Badge>
+                  </div>
+                  {task.description ? (
+                    <CardDescription className="text-sm">{task.description}</CardDescription>
+                  ) : null}
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-2">
+                  {task.status !== "IN_PROGRESS" ? (
+                    <Button size="sm" variant="outline" onClick={async () => {
+                      await api.updateDashboardTaskStatus(String(task.id), "IN_PROGRESS");
+                      queryClient.invalidateQueries({ queryKey: ["dashboard", "my-tasks"] });
+                    }}>Start</Button>
+                  ) : null}
+                  <Button size="sm" onClick={async () => {
+                    await api.updateDashboardTaskStatus(String(task.id), "COMPLETED");
+                    queryClient.invalidateQueries({ queryKey: ["dashboard", "my-tasks"] });
+                  }}>Mark done</Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {inProgress.length > 0 && (
         <div className="space-y-3">
