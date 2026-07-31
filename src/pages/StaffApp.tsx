@@ -3844,9 +3844,7 @@ const InsightsTab: React.FC = () => {
     };
 
     const openMiyaChat = () => {
-        const host = document.querySelector("#lua-shadow-root");
-        const btn = host?.shadowRoot?.querySelector?.("button.lua-pop-button, button");
-        if (btn) (btn as HTMLButtonElement).click();
+        window.dispatchEvent(new CustomEvent("miya:open"));
     };
 
     return (

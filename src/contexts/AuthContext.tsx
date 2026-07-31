@@ -22,7 +22,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.removeItem("user");
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
-    sessionStorage.removeItem("lua_login_nonce");
     clearOnboardingSkipFlags();
     setUser(null);
   }, []);

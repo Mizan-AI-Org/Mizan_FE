@@ -199,6 +199,7 @@ export default function Settings() {
   const [incidentCategoryAssignees, setIncidentCategoryAssignees] = useState<
     Record<string, string>
   >({});
+  const [categoryOwners, setCategoryOwners] = useState<Record<string, string[]>>({});
   const [staffForSelectors, setStaffForSelectors] = useState<StaffListRow[]>([]);
   const [businessVertical, setBusinessVertical] = useState<BusinessVertical>("RESTAURANT");
   const [customStaffRoles, setCustomStaffRoles] = useState<{ id: string; name: string }[]>([]);
@@ -584,6 +585,18 @@ export default function Settings() {
         setStaffForSelectors(normalizeStaffListRows(staffRes.data));
       } catch {
         setStaffForSelectors([]);
+      }
+
+      try {
+        const ownersRes = await api.getCategoryOwners();
+        const raw = ownersRes?.owners || {};
+        const normalized: Record<string, string[]> = {};
+        for (const [k, v] of Object.entries(raw)) {
+          normalized[k] = Array.isArray(v) ? v.map(String) : v ? [String(v)] : [];
+        }
+        setCategoryOwners(normalized);
+      } catch {
+        setCategoryOwners({});
       }
     } catch (error) {
       const axiosErr = error as AxiosError<{ detail?: string }>;
@@ -1330,6 +1343,78 @@ export default function Settings() {
                       );
                     })}
                   </div>
+            </SettingsSection>
+
+            <SettingsSection
+              icon={<Route className="h-5 w-5" />}
+              iconClassName="bg-violet-50 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300"
+              title={t("onboarding.owners.title", "Category owners")}
+              description={t(
+                "onboarding.owners.subtitle",
+                "Multi-person routing for incidents, staff requests, and task departments.",
+              )}
+            >
+              <div className="space-y-4">
+                {[
+                  "request.maintenance",
+                  "request.payroll",
+                  "request.scheduling",
+                  "request.hr",
+                  "request.inventory",
+                  "task.foh",
+                  "task.boh",
+                  "task.finance",
+                ].map((cat) => (
+                  <div key={cat} className="space-y-2">
+                    <Label>{cat}</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {staffForSelectors.map((row) => {
+                        const selected = (categoryOwners[cat] || []).includes(String(row.id));
+                        return (
+                          <button
+                            key={`${cat}-${row.id}`}
+                            type="button"
+                            className={`rounded-full border px-3 py-1 text-xs ${
+                              selected
+                                ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                                : "border-slate-200 text-slate-600"
+                            }`}
+                            onClick={() => {
+                              setCategoryOwners((prev) => {
+                                const current = prev[cat] || [];
+                                const next = current.includes(String(row.id))
+                                  ? current.filter((id) => id !== String(row.id))
+                                  : [...current, String(row.id)];
+                                if (next.length === 0) {
+                                  const { [cat]: _, ...rest } = prev;
+                                  return rest;
+                                }
+                                return { ...prev, [cat]: next };
+                              });
+                            }}
+                          >
+                            {[row.first_name, row.last_name].filter(Boolean).join(" ") || row.email}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      await api.saveCategoryOwners(categoryOwners);
+                      toast.success(t("settings.general.save_success", "Saved"));
+                    } catch {
+                      toast.error(t("settings.general.save_error", "Save failed"));
+                    }
+                  }}
+                >
+                  {t("onboarding.owners.save", "Save category owners")}
+                </Button>
+              </div>
             </SettingsSection>
 
             <SettingsStickyActions hint={t("settings.save_hint")}>
