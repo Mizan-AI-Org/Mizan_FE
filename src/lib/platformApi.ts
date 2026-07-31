@@ -28,7 +28,10 @@ async function platformFetch<T>(path: string, init?: RequestInit): Promise<T> {
       detail?: string | string[];
       [key: string]: unknown;
     };
-    let msg = b.error || (typeof b.detail === "string" ? b.detail : null);
+    let msg =
+      b.error ||
+      (typeof b.message === "string" ? b.message : null) ||
+      (typeof b.detail === "string" ? b.detail : null);
     if (!msg && Array.isArray(b.detail)) msg = b.detail.join(" ");
     if (!msg) {
       // DRF field errors: { plan: ["…"], reason: ["…"] }
@@ -269,6 +272,8 @@ export type PlatformWhatsAppConfig = {
   access_token_masked: string;
   webhook_callback_url: string;
   connected: boolean;
+  disconnected?: boolean;
+  disconnected_at?: string | null;
   last_probe_at: string | null;
   last_probe_ok: boolean | null;
   last_probe_message: string;
@@ -291,12 +296,26 @@ export type PlatformWhatsAppTemplate = {
   synced_at: string | null;
 };
 
+export type PlatformWhatsAppPhoneOption = {
+  phone_number_id: string;
+  display_phone_number: string;
+  verified_name: string;
+  business_account_id: string;
+  business_account_name: string;
+};
+
 export type PlatformWhatsAppTestResult = {
   ok: boolean;
   reason?: string;
   message?: string;
   display_phone_number?: string;
   verified_name?: string;
+  assigned_waba_count?: number;
+  available_phone_numbers?: PlatformWhatsAppPhoneOption[];
+  suggested_phone_number_id?: string;
+  suggested_business_account_id?: string;
+  fix_steps?: string[];
+  auto_corrected?: boolean;
   config?: PlatformWhatsAppConfig;
 };
 
@@ -388,8 +407,13 @@ export const platformApi = {
       method: "PUT",
       body: JSON.stringify(body),
     }),
-  testWhatsAppConnection: () =>
+  testWhatsAppConnection: (body?: Record<string, unknown>) =>
     platformFetch<PlatformWhatsAppTestResult>("/whatsapp/config/test/", {
+      method: "POST",
+      body: JSON.stringify(body || {}),
+    }),
+  disconnectWhatsApp: () =>
+    platformFetch<PlatformWhatsAppConfig>("/whatsapp/config/disconnect/", {
       method: "POST",
       body: "{}",
     }),
