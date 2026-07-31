@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Settings2,
   Trash2,
+  Unlink,
   Zap,
 } from "lucide-react";
 import {
@@ -132,11 +133,37 @@ export default function WhatsAppPage() {
   });
 
   const testMutation = useMutation({
-    mutationFn: () => platformApi.testWhatsAppConnection(),
-    onSuccess: () => {
+    mutationFn: () =>
+      platformApi.testWhatsAppConnection({
+        phone_number_id: form.phone_number_id.trim(),
+        business_account_id: form.business_account_id.trim(),
+        activation_phone: form.activation_phone.trim(),
+        api_version: form.api_version.trim(),
+        ...(form.access_token.trim() ? { access_token: form.access_token.trim() } : {}),
+      }),
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["platform-whatsapp-config"] });
+      if (data?.auto_corrected && data.phone_number_id) {
+        setForm((f) => ({
+          ...f,
+          phone_number_id: data.phone_number_id || f.phone_number_id,
+          business_account_id:
+            data.suggested_business_account_id || f.business_account_id,
+        }));
+      }
     },
   });
+
+  const applySuggestedIds = useCallback(
+    (phoneNumberId: string, businessAccountId?: string) => {
+      setForm((f) => ({
+        ...f,
+        phone_number_id: phoneNumberId,
+        business_account_id: businessAccountId || f.business_account_id,
+      }));
+    },
+    [],
+  );
 
   const syncMutation = useMutation({
     mutationFn: () => platformApi.syncWhatsAppTemplates(),
@@ -167,8 +194,30 @@ export default function WhatsAppPage() {
     },
   });
 
+  const disconnectMutation = useMutation({
+    mutationFn: () => platformApi.disconnectWhatsApp(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform-whatsapp-config"] });
+      queryClient.invalidateQueries({ queryKey: ["platform-whatsapp-templates"] });
+      setForm({
+        phone_number_id: "",
+        business_account_id: "",
+        access_token: "",
+        verify_token: "",
+        activation_phone: "212784476751",
+        api_version: "v22.0",
+        miya_whatsapp_enabled: true,
+        miya_voice_default: false,
+      });
+      testMutation.reset();
+    },
+  });
+
   const config = configQuery.data;
   const connected = config?.connected || config?.last_probe_ok;
+  const canDisconnect =
+    Boolean(config?.connected || config?.access_token_set || config?.phone_number_id) &&
+    !config?.disconnected;
 
   const copyWebhook = useCallback(async () => {
     const url = config?.webhook_callback_url;
@@ -256,11 +305,56 @@ export default function WhatsAppPage() {
                 <p className={opsMuted}>
                   {connected
                     ? `Meta verified ${config?.display_phone_number || config?.verified_name || "phone number"}. Miya routes inbound messages for CRUD.`
-                    : "Save Meta API credentials and run Test Connection to link the central number to Miya."}
+                    : config?.disconnected
+                      ? "WhatsApp is disconnected. Miya will not send or receive WhatsApp messages until you connect again."
+                      : "Save Meta API credentials and run Test Connection to link the central number to Miya."}
                 </p>
                 {config?.last_probe_message && !connected && (
                   <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{config.last_probe_message}</p>
                 )}
+                {testMutation.data?.fix_steps && !connected && (
+                  <ol className="mt-3 list-decimal space-y-1 pl-4 text-xs text-slate-600 dark:text-slate-300">
+                    {testMutation.data.fix_steps.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ol>
+                )}
+                {testMutation.data?.available_phone_numbers &&
+                  testMutation.data.available_phone_numbers.length > 0 &&
+                  !connected && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                        Numbers this token can access:
+                      </p>
+                      {testMutation.data.available_phone_numbers.map((phone) => (
+                        <div
+                          key={phone.phone_number_id}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2"
+                        >
+                          <div className="text-xs text-slate-600 dark:text-slate-300">
+                            <span className="font-semibold text-slate-900 dark:text-white">
+                              {phone.display_phone_number || phone.verified_name || "WhatsApp number"}
+                            </span>
+                            <span className="block font-mono text-[11px] text-slate-500">
+                              Phone ID {phone.phone_number_id}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className={opsBtnGhost}
+                            onClick={() =>
+                              applySuggestedIds(
+                                phone.phone_number_id,
+                                phone.business_account_id,
+                              )
+                            }
+                          >
+                            Use this ID
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
               </div>
             </div>
 
@@ -273,7 +367,6 @@ export default function WhatsAppPage() {
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Phone Number ID</span>
                 <input
                   className={`${opsInput} w-full`}
-                  placeholder="100234567890123"
                   value={form.phone_number_id}
                   onChange={(e) => setForm((f) => ({ ...f, phone_number_id: e.target.value }))}
                 />
@@ -285,7 +378,6 @@ export default function WhatsAppPage() {
                 </span>
                 <input
                   className={`${opsInput} w-full`}
-                  placeholder="100234567890456"
                   value={form.business_account_id}
                   onChange={(e) => setForm((f) => ({ ...f, business_account_id: e.target.value }))}
                 />
@@ -299,11 +391,6 @@ export default function WhatsAppPage() {
                   <input
                     type={showToken ? "text" : "password"}
                     className={`${opsInput} w-full pr-10`}
-                    placeholder={
-                      config?.access_token_set
-                        ? `Saved (${config.access_token_masked}) — leave blank to keep`
-                        : "EAA…"
-                    }
                     value={form.access_token}
                     onChange={(e) => setForm((f) => ({ ...f, access_token: e.target.value }))}
                   />
@@ -316,13 +403,17 @@ export default function WhatsAppPage() {
                     {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {config?.access_token_set && (
+                  <p className={opsMuted}>
+                    Saved ({config.access_token_masked}). Leave blank to keep the current token.
+                  </p>
+                )}
               </label>
 
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Webhook Verify Token</span>
                 <input
                   className={`${opsInput} w-full`}
-                  placeholder="your-custom-verify-string"
                   value={form.verify_token}
                   onChange={(e) => setForm((f) => ({ ...f, verify_token: e.target.value }))}
                 />
@@ -337,7 +428,6 @@ export default function WhatsAppPage() {
                 </span>
                 <input
                   className={`${opsInput} w-full`}
-                  placeholder="212784476751"
                   value={form.activation_phone}
                   onChange={(e) => setForm((f) => ({ ...f, activation_phone: e.target.value }))}
                 />
@@ -404,7 +494,14 @@ export default function WhatsAppPage() {
                 type="button"
                 className={opsBtnGhost}
                 disabled={testMutation.isPending}
-                onClick={() => testMutation.mutate()}
+                onClick={async () => {
+                  try {
+                    await saveMutation.mutateAsync();
+                  } catch {
+                    return;
+                  }
+                  testMutation.mutate();
+                }}
               >
                 {testMutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -413,17 +510,46 @@ export default function WhatsAppPage() {
                 )}
                 Test API Connection
               </button>
+              {canDisconnect && (
+                <button
+                  type="button"
+                  className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-rose-200 dark:border-rose-900 bg-white dark:bg-slate-900 px-4 text-sm font-medium text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-50"
+                  disabled={disconnectMutation.isPending}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Disconnect WhatsApp? This clears saved Meta credentials, disables Miya on WhatsApp, and removes cached templates.",
+                      )
+                    ) {
+                      disconnectMutation.mutate();
+                    }
+                  }}
+                >
+                  {disconnectMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Unlink className="h-4 w-4" />
+                  )}
+                  Disconnect
+                </button>
+              )}
             </div>
 
-            {(saveMutation.error || testMutation.error) && (
+            {disconnectMutation.error && (
               <p className="text-sm text-rose-600 dark:text-rose-400">
-                {((saveMutation.error || testMutation.error) as Error).message}
+                {(disconnectMutation.error as Error).message}
               </p>
             )}
-            {testMutation.data && !testMutation.data.ok && (
+
+            {(saveMutation.error || (testMutation.data && !testMutation.data.ok && testMutation.data.message)) && (
               <p className="text-sm text-rose-600 dark:text-rose-400">
-                {testMutation.data.message || "Connection test failed"}
+                {saveMutation.error
+                  ? (saveMutation.error as Error).message
+                  : testMutation.data?.message || "Connection test failed"}
               </p>
+            )}
+            {testMutation.data?.ok && testMutation.data.message && (
+              <p className="text-sm text-emerald-700 dark:text-emerald-400">{testMutation.data.message}</p>
             )}
           </div>
 
@@ -495,7 +621,6 @@ export default function WhatsAppPage() {
                   <span className="text-sm font-medium">Name</span>
                   <input
                     className={`${opsInput} w-full`}
-                    placeholder="welcome_offer"
                     value={newTemplate.name}
                     onChange={(e) => setNewTemplate((t) => ({ ...t, name: e.target.value }))}
                   />
@@ -524,7 +649,6 @@ export default function WhatsAppPage() {
                   <span className="text-sm font-medium">Body</span>
                   <textarea
                     className={`${opsInput} w-full min-h-[80px] py-2`}
-                    placeholder="Hi {{1}}, welcome to Mizan!"
                     value={newTemplate.body_text}
                     onChange={(e) => setNewTemplate((t) => ({ ...t, body_text: e.target.value }))}
                   />
@@ -533,7 +657,6 @@ export default function WhatsAppPage() {
                   <span className="text-sm font-medium">Footer (optional)</span>
                   <input
                     className={`${opsInput} w-full`}
-                    placeholder="Reply STOP to opt out"
                     value={newTemplate.footer_text}
                     onChange={(e) => setNewTemplate((t) => ({ ...t, footer_text: e.target.value }))}
                   />
