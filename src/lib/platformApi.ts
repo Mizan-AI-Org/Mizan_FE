@@ -88,6 +88,8 @@ export type PlatformOverview = {
   };
   health: {
     whatsapp_configured: boolean;
+    miya_whatsapp_enabled?: boolean;
+    /** @deprecated use miya_whatsapp_enabled */
     lua_webhook_configured: boolean;
     stripe_configured?: boolean;
   };
