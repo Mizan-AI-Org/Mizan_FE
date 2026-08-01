@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { User, Mail, Phone, ShieldAlert, Lock, Save, Loader2 } from "lucide-react";
+import { User, Phone, ShieldAlert, Lock, Save, Loader2 } from "lucide-react";
 import {
   SettingsSection,
   SettingsStickyActions,
@@ -138,9 +138,9 @@ const ProfileSettings: React.FC = () => {
         icon={<User className="h-5 w-5" />}
         iconClassName="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
         title={t("profile.section_personal")}
-        description={t("profile.section_personal_desc")}
+        description={t("profile.section_contact_desc")}
       >
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
           <div className="space-y-2">
             <Label htmlFor="firstName">{t("profile.first_name")}</Label>
             <Input
@@ -163,16 +163,6 @@ const ProfileSettings: React.FC = () => {
               placeholder={t("profile.placeholder_last_name")}
             />
           </div>
-        </div>
-      </SettingsSection>
-
-      <SettingsSection
-        icon={<Mail className="h-5 w-5" />}
-        iconClassName="bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
-        title={t("profile.section_contact")}
-        description={t("profile.section_contact_desc")}
-      >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="email">{t("profile.email_address")}</Label>
             <Input
@@ -200,94 +190,96 @@ const ProfileSettings: React.FC = () => {
               />
             </div>
           </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label>{t("profile.role")}</Label>
-            <div className="inline-flex max-w-full items-center gap-2.5 rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/20 px-3.5 py-2.5">
-              <ShieldAlert className="w-4 h-4 text-emerald-700 dark:text-emerald-300 shrink-0" />
-              <span className="text-sm font-semibold text-emerald-900 dark:text-emerald-200 uppercase tracking-wide">
-                {user?.role?.replace(/_/g, " ") || "N/A"}
-              </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-border/40">
+          <Label className="text-sm text-muted-foreground shrink-0">{t("profile.role")}</Label>
+          <div className="inline-flex max-w-full items-center gap-2.5 rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/20 px-3.5 py-2">
+            <ShieldAlert className="w-4 h-4 text-emerald-700 dark:text-emerald-300 shrink-0" />
+            <span className="text-sm font-semibold text-emerald-900 dark:text-emerald-200 uppercase tracking-wide">
+              {user?.role?.replace(/_/g, " ") || "N/A"}
+            </span>
+          </div>
+        </div>
+      </SettingsSection>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
+        <SettingsSection
+          icon={<ShieldAlert className="h-5 w-5" />}
+          iconClassName="bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+          title={t("profile.emergency_contact")}
+          description={t("profile.emergency_contact_desc")}
+        >
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="emergencyContactName">{t("profile.contact_name")}</Label>
+              <Input
+                id="emergencyContactName"
+                value={emergencyContactName}
+                onChange={(e) => setEmergencyContactName(e.target.value)}
+                className={settingsFieldClassName}
+                placeholder={t("profile.emergency_contact_name")}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emergencyContactPhone">{t("profile.contact_phone")}</Label>
+              <Input
+                id="emergencyContactPhone"
+                type="tel"
+                value={emergencyContactPhone}
+                onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                className={settingsFieldClassName}
+                placeholder={t("profile.phone_placeholder")}
+              />
             </div>
           </div>
-        </div>
-      </SettingsSection>
+        </SettingsSection>
 
-      <SettingsSection
-        icon={<ShieldAlert className="h-5 w-5" />}
-        iconClassName="bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-        title={t("profile.emergency_contact")}
-        description={t("profile.emergency_contact_desc")}
-      >
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="emergencyContactName">{t("profile.contact_name")}</Label>
-            <Input
-              id="emergencyContactName"
-              value={emergencyContactName}
-              onChange={(e) => setEmergencyContactName(e.target.value)}
-              className={settingsFieldClassName}
-              placeholder={t("profile.emergency_contact_name")}
-            />
+        <SettingsSection
+          icon={<Lock className="h-5 w-5" />}
+          iconClassName="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+          title={t("profile.change_password")}
+          description={t("profile.change_password_desc")}
+        >
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">{t("profile.current_password")}</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className={settingsFieldClassName}
+                placeholder="••••••••"
+                autoComplete="current-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">{t("profile.new_password")}</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className={settingsFieldClassName}
+                placeholder="••••••••"
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">{t("profile.confirm_password")}</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className={settingsFieldClassName}
+                placeholder="••••••••"
+                autoComplete="new-password"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="emergencyContactPhone">{t("profile.contact_phone")}</Label>
-            <Input
-              id="emergencyContactPhone"
-              type="tel"
-              value={emergencyContactPhone}
-              onChange={(e) => setEmergencyContactPhone(e.target.value)}
-              className={settingsFieldClassName}
-              placeholder={t("profile.phone_placeholder")}
-            />
-          </div>
-        </div>
-      </SettingsSection>
-
-      <SettingsSection
-        icon={<Lock className="h-5 w-5" />}
-        iconClassName="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
-        title={t("profile.change_password")}
-        description={t("profile.change_password_desc")}
-      >
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor="currentPassword">{t("profile.current_password")}</Label>
-            <Input
-              id="currentPassword"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className={settingsFieldClassName}
-              placeholder="••••••••"
-              autoComplete="current-password"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="newPassword">{t("profile.new_password")}</Label>
-            <Input
-              id="newPassword"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className={settingsFieldClassName}
-              placeholder="••••••••"
-              autoComplete="new-password"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">{t("profile.confirm_password")}</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className={settingsFieldClassName}
-              placeholder="••••••••"
-              autoComplete="new-password"
-            />
-          </div>
-        </div>
-      </SettingsSection>
+        </SettingsSection>
+      </div>
 
       <SettingsStickyActions hint={t("settings.save_hint")}>
         <Button

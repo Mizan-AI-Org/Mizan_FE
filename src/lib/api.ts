@@ -849,9 +849,10 @@ export class BackendService {
     return this.fetchWithError(`/dashboard/ops-search/?${params.toString()}`);
   }
 
-  async getStaffDailyProgress(): Promise<{
+  async getStaffDailyProgress(date?: string): Promise<{
     success: boolean;
     date: string;
+    archived?: boolean;
     staff: Array<{
       id: string;
       name: string;
@@ -863,7 +864,20 @@ export class BackendService {
       pct: number;
     }>;
   }> {
-    return this.fetchWithError("/dashboard/staff-daily-progress/");
+    const q = date ? `?date=${encodeURIComponent(date)}` : "";
+    return this.fetchWithError(`/dashboard/staff-daily-progress/${q}`);
+  }
+
+  async getStaffDailyProgressHistory(days = 30): Promise<{
+    success: boolean;
+    days: Array<{
+      date: string;
+      staff_count: number;
+      incomplete: number;
+      avg_pct: number;
+    }>;
+  }> {
+    return this.fetchWithError(`/dashboard/staff-daily-progress/history/?days=${days}`);
   }
 
   async validateDashboardTask(taskId: string): Promise<{ success: boolean; validation_label?: string }> {
@@ -4343,6 +4357,37 @@ export class BackendService {
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch assigned shifts");
     }
+  }
+
+  /** Manager ops-review rollup: overdue, pending sign-off, per-staff stats. */
+  async getManagerChecklistAccountability(days = 30): Promise<{
+    period_days: number;
+    counts: {
+      pending_review: number;
+      overdue: number;
+      in_progress: number;
+      due_today: number;
+      completed_period: number;
+      with_issues: number;
+      open_assignments: number;
+    };
+    pending_review: Array<Record<string, unknown>>;
+    overdue: Array<Record<string, unknown>>;
+    in_progress: Array<Record<string, unknown>>;
+    staff_accountability: Array<{
+      staff_id: string;
+      staff_name: string;
+      open: number;
+      overdue: number;
+      completed: number;
+      pending_review: number;
+      with_issues: number;
+      avg_completion_rate: number | null;
+    }>;
+  }> {
+    return this.fetchWithError(
+      `/checklists/executions/manager-accountability/?days=${encodeURIComponent(String(days))}`,
+    );
   }
 
   /** Live checklist progress (WhatsApp/conversational step-by-step) for managers. */

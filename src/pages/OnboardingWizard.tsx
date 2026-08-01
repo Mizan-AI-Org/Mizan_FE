@@ -36,7 +36,6 @@ import {
     CalendarPlus,
     Check,
     CheckCircle2,
-    ChevronDown,
     ChevronRight,
     Circle,
     Download,
@@ -57,14 +56,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import BrandLogo from "@/components/BrandLogo";
 import { Label } from "@/components/ui/label";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 
 import { API_BASE, api } from "@/lib/api";
+import { CATEGORY_OWNER_GROUPS } from "@/lib/categoryOwners";
+import { CategoryOwnerPicker } from "@/components/settings/CategoryOwnerPicker";
+import { fetchStaffRosterCount } from "@/lib/staffPicker";
 import type { User as AuthUser } from "@/contexts/AuthContext.types";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
@@ -132,46 +129,7 @@ const ROLE_CHOICES: { id: string; labelKey: string }[] = [
 ];
 
 /** Categories collected on the owners step. Keys MUST match the backend list. */
-const CATEGORY_GROUPS: {
-    groupKey: string;
-    items: { key: string; labelKey: string }[];
-}[] = [
-        {
-            groupKey: "onboarding.owners.groups.incidents",
-            items: [
-                { key: "incident.equipment", labelKey: "onboarding.owners.cats.incident_equipment" },
-                { key: "incident.safety", labelKey: "onboarding.owners.cats.incident_safety" },
-                { key: "incident.hr", labelKey: "onboarding.owners.cats.incident_hr" },
-                { key: "incident.customer", labelKey: "onboarding.owners.cats.incident_customer" },
-                { key: "incident.security", labelKey: "onboarding.owners.cats.incident_security" },
-                { key: "incident.quality", labelKey: "onboarding.owners.cats.incident_quality" },
-            ],
-        },
-        {
-            groupKey: "onboarding.owners.groups.requests",
-            items: [
-                { key: "request.payroll", labelKey: "onboarding.owners.cats.request_payroll" },
-                { key: "request.scheduling", labelKey: "onboarding.owners.cats.request_scheduling" },
-                { key: "request.hr", labelKey: "onboarding.owners.cats.request_hr" },
-                { key: "request.document", labelKey: "onboarding.owners.cats.request_document" },
-                // New buckets for the intelligent-inbox. Miya routes WhatsApp
-                // messages tagged with these categories directly to the owner
-                // set here. Falls back to ``incident.equipment`` if unset.
-                { key: "request.maintenance", labelKey: "onboarding.owners.cats.request_maintenance" },
-                { key: "request.reservations", labelKey: "onboarding.owners.cats.request_reservations" },
-                { key: "request.inventory", labelKey: "onboarding.owners.cats.request_inventory" },
-            ],
-        },
-        {
-            groupKey: "onboarding.owners.groups.departments",
-            items: [
-                { key: "task.foh", labelKey: "onboarding.owners.cats.task_foh" },
-                { key: "task.boh", labelKey: "onboarding.owners.cats.task_boh" },
-                { key: "task.bar", labelKey: "onboarding.owners.cats.task_bar" },
-                { key: "task.finance", labelKey: "onboarding.owners.cats.task_finance" },
-            ],
-        },
-    ];
+const CATEGORY_GROUPS = CATEGORY_OWNER_GROUPS;
 
 const authHeaders = () => ({
     Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
@@ -1583,14 +1541,6 @@ const PermissionsStep: React.FC<{
 /*  Step 4: Category / department owners                                       */
 /* -------------------------------------------------------------------------- */
 
-interface StaffItem {
-    id: string;
-    first_name?: string;
-    last_name?: string;
-    email?: string;
-    role?: string;
-}
-
 const OwnersStep: React.FC<{
     status: OnboardingStatus;
     onSaved: (owners: Record<string, string[]>) => Promise<void> | void;
@@ -1611,39 +1561,11 @@ const OwnersStep: React.FC<{
     );
     const [saving, setSaving] = useState(false);
 
-    const staffQuery = useQuery<StaffItem[]>({
-        queryKey: ["onboarding-staff-list"],
-        queryFn: async () => {
-            const token = localStorage.getItem("access_token") || "";
-            try {
-                const list = await api.getStaffList(token);
-                return (list as unknown as StaffItem[]) || [];
-            } catch {
-                return [];
-            }
-        },
+    const rosterQuery = useQuery({
+        queryKey: ["onboarding-staff-roster-count"],
+        queryFn: fetchStaffRosterCount,
         staleTime: 60_000,
     });
-
-    const staff = staffQuery.data || [];
-
-    const toggleOwner = (cat: string, uid: string) => {
-        setOwners((prev) => {
-            const current = prev[cat] || [];
-            const next = current.includes(uid)
-                ? current.filter((id) => id !== uid)
-                : [...current, uid];
-            if (next.length === 0) {
-                const { [cat]: _, ...rest } = prev;
-                return rest;
-            }
-            return { ...prev, [cat]: next };
-        });
-    };
-
-    const staffName = (s: StaffItem) =>
-        (s.first_name || s.email || "unnamed") +
-        (s.last_name ? ` ${s.last_name}` : "");
 
     const save = async () => {
         setSaving(true);
@@ -1657,6 +1579,7 @@ const OwnersStep: React.FC<{
     };
 
     const totalAssigned = Object.values(owners).filter((v) => v.length > 0).length;
+    const hasStaff = (rosterQuery.data ?? 0) > 0;
 
     return (
         <StepShell
@@ -1668,11 +1591,11 @@ const OwnersStep: React.FC<{
             )}
             alreadyDoneBadge={status.steps.category_owners}
         >
-            {staffQuery.isLoading ? (
+            {rosterQuery.isLoading ? (
                 <div className="py-8 flex justify-center">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-            ) : staff.length === 0 ? (
+            ) : !hasStaff ? (
                 <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 text-sm text-amber-800 dark:text-amber-200">
                     {t(
                         "onboarding.owners.no_staff",
@@ -1687,75 +1610,30 @@ const OwnersStep: React.FC<{
                                 {t(group.groupKey, group.groupKey.split(".").pop() || "")}
                             </div>
                             <div className="space-y-1.5">
-                                {group.items.map((cat) => {
-                                    const selected = owners[cat.key] || [];
-                                    const selectedNames = selected
-                                        .map((uid) => staff.find((s) => s.id === uid))
-                                        .filter(Boolean)
-                                        .map((s) => staffName(s!));
-
-                                    return (
-                                        <div
-                                            key={cat.key}
-                                            className="flex items-center gap-3 p-2.5 rounded-lg bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800"
-                                        >
-                                            <Label className="flex-1 text-sm font-medium">
-                                                {t(cat.labelKey, cat.key)}
-                                            </Label>
-                                            <div className="w-[260px]">
-                                                <Popover>
-                                                    <PopoverTrigger asChild>
-                                                        <Button
-                                                            variant="outline"
-                                                            role="combobox"
-                                                            className="w-full justify-between font-normal h-auto min-h-[36px] py-1.5"
-                                                        >
-                                                            <span className="truncate text-left flex-1 text-sm">
-                                                                {selectedNames.length === 0
-                                                                    ? t("onboarding.owners.pick_placeholder", "Pick people")
-                                                                    : selectedNames.length <= 2
-                                                                        ? selectedNames.join(", ")
-                                                                        : `${selectedNames.length} people`}
-                                                            </span>
-                                                            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                        </Button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-[260px] p-0" align="end">
-                                                        <div className="max-h-[200px] overflow-y-auto p-1">
-                                                            {staff.map((s) => {
-                                                                const isSelected = selected.includes(s.id);
-                                                                return (
-                                                                    <button
-                                                                        key={s.id}
-                                                                        type="button"
-                                                                        className={cn(
-                                                                            "flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left",
-                                                                            isSelected && "bg-emerald-50 dark:bg-emerald-900/20",
-                                                                        )}
-                                                                        onClick={() => toggleOwner(cat.key, s.id)}
-                                                                    >
-                                                                        <div className={cn(
-                                                                            "flex items-center justify-center h-4 w-4 rounded border shrink-0",
-                                                                            isSelected
-                                                                                ? "bg-emerald-500 border-emerald-500 text-white"
-                                                                                : "border-slate-300 dark:border-slate-600",
-                                                                        )}>
-                                                                            {isSelected && <Check className="h-3 w-3" />}
-                                                                        </div>
-                                                                        <span className="truncate">
-                                                                            {staffName(s)}
-                                                                            {s.role ? ` · ${s.role}` : ""}
-                                                                        </span>
-                                                                    </button>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </PopoverContent>
-                                                </Popover>
-                                            </div>
+                                {group.items.map((cat) => (
+                                    <div
+                                        key={cat.key}
+                                        className="flex flex-col gap-2 p-2.5 rounded-lg bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 sm:flex-row sm:items-start sm:gap-3"
+                                    >
+                                        <Label className="sm:flex-1 text-sm font-medium pt-1">
+                                            {t(cat.labelKey, cat.key)}
+                                        </Label>
+                                        <div className="sm:w-[min(320px,100%)] shrink-0">
+                                            <CategoryOwnerPicker
+                                                selectedIds={owners[cat.key] || []}
+                                                onChange={(ids) => {
+                                                    setOwners((prev) => {
+                                                        if (ids.length === 0) {
+                                                            const { [cat.key]: _, ...rest } = prev;
+                                                            return rest;
+                                                        }
+                                                        return { ...prev, [cat.key]: ids };
+                                                    });
+                                                }}
+                                            />
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     ))}
@@ -1790,7 +1668,7 @@ const OwnersStep: React.FC<{
                     </Button>
                     <Button
                         onClick={save}
-                        disabled={saving || staff.length === 0}
+                        disabled={saving || !hasStaff}
                         className="gap-2 bg-emerald-500 hover:bg-emerald-600"
                     >
                         {saving ? (

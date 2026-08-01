@@ -48,6 +48,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { openDashboardTaskSheet } from "@/lib/dashboard-task-sheet";
 import {
   DashboardWidgetById,
   DashboardWidgetId,
@@ -178,7 +179,8 @@ const apps: AppItem[] = [
 export default function Dashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
   const { user, hasRole, accessToken } = useAuth() as AuthContextType;
   const { t } = useLanguage();
   const { canApp, canWidget } = usePermissions();
@@ -660,6 +662,14 @@ export default function Dashboard() {
                         setOpsSearchOpen(false);
                         navigate(href);
                       };
+                      const goTask = (taskId: string, href?: string) => {
+                        setOpsSearchOpen(false);
+                        if (href && href.includes("task=")) {
+                          navigate(href.startsWith("/") ? href : `/${href}`);
+                          return;
+                        }
+                        openDashboardTaskSheet(navigate, location, taskId);
+                      };
                       return (
                         <div className="py-1.5">
                           {staffHits.length > 0 ? (
@@ -706,12 +716,7 @@ export default function Dashboard() {
                                     <button
                                       type="button"
                                       className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                                      onClick={() =>
-                                        go(
-                                          task.href ||
-                                            `/dashboard/staff-requests?list=dashboard&kind=dashboard&id=${task.id}`,
-                                        )
-                                      }
+                                      onClick={() => goTask(task.id, task.href)}
                                     >
                                       <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
                                         {task.title}

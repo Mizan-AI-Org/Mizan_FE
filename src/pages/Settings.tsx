@@ -76,10 +76,12 @@ import {
   settingsSelectClassName,
 } from "@/components/settings/SettingsSection";
 import { SettingsNav, type SettingsNavItem } from "@/components/settings/SettingsNav";
-import { PAGE_SHELL } from "@/lib/page-shell";
+import { SETTINGS_PAGE_SHELL } from "@/lib/page-shell";
 import { cn } from "@/lib/utils";
 
 import { API_BASE, api } from "@/lib/api";
+import { CATEGORY_OWNER_GROUPS, mergeLegacyIncidentAssignees } from "@/lib/categoryOwners";
+import { CategoryOwnerPicker } from "@/components/settings/CategoryOwnerPicker";
 import {
   ALL_BUSINESS_VERTICALS,
   parseBusinessVertical,
@@ -114,57 +116,6 @@ interface AISettings {
   features_enabled: Record<string, boolean>;
 }
 
-/** Keys align with `SafetyConcernReport.incident_type` defaults used in reporting. */
-const INCIDENT_CATEGORY_KEYS = [
-  "Safety",
-  "Maintenance",
-  "HR",
-  "Food Safety",
-  "Customer Issue",
-  "General",
-] as const;
-
-/** Matches `StaffSerializer` (GET /api/staff/): flat CustomUser fields. */
-interface StaffListRow {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-}
-
-/** `/api/staff/` returns flat users; some callers may still use nested `{ user: {...} }`. */
-function normalizeStaffListRows(data: unknown): StaffListRow[] {
-  const arr: unknown[] = Array.isArray(data)
-    ? data
-    : data && typeof data === "object" && "results" in (data as object)
-      ? ((data as { results?: unknown[] }).results ?? [])
-      : [];
-  const out: StaffListRow[] = [];
-  for (const row of arr) {
-    if (!row || typeof row !== "object") continue;
-    const r = row as Record<string, unknown>;
-    const nested = r.user as Record<string, unknown> | undefined;
-    if (nested && typeof nested.id === "string") {
-      out.push({
-        id: nested.id,
-        email: String(nested.email ?? ""),
-        first_name: String(nested.first_name ?? ""),
-        last_name: String(nested.last_name ?? ""),
-      });
-      continue;
-    }
-    if (typeof r.id === "string") {
-      out.push({
-        id: r.id,
-        email: String(r.email ?? ""),
-        first_name: String(r.first_name ?? ""),
-        last_name: String(r.last_name ?? ""),
-      });
-    }
-  }
-  return out;
-}
-
 export default function Settings() {
   const queryClient = useQueryClient();
   const { language, setLanguage: setAppLanguage, t } = useLanguage();
@@ -195,12 +146,7 @@ export default function Settings() {
     Sunday: { open: "10:00", close: "14:00", isClosed: true },
   });
   const [automaticClockOut, setAutomaticClockOut] = useState(false);
-  /** Maps incident category (e.g. Safety) → CustomUser id for default routing */
-  const [incidentCategoryAssignees, setIncidentCategoryAssignees] = useState<
-    Record<string, string>
-  >({});
   const [categoryOwners, setCategoryOwners] = useState<Record<string, string[]>>({});
-  const [staffForSelectors, setStaffForSelectors] = useState<StaffListRow[]>([]);
   const [businessVertical, setBusinessVertical] = useState<BusinessVertical>("RESTAURANT");
   const [customStaffRoles, setCustomStaffRoles] = useState<{ id: string; name: string }[]>([]);
   const [breakDuration, setBreakDuration] = useState(30);
@@ -555,10 +501,21 @@ export default function Settings() {
       );
 
       const rawAssignees = data.incident_category_assignees;
-      if (rawAssignees && typeof rawAssignees === "object" && !Array.isArray(rawAssignees)) {
-        setIncidentCategoryAssignees(rawAssignees as Record<string, string>);
-      } else {
-        setIncidentCategoryAssignees({});
+      const legacyAssignees =
+        rawAssignees && typeof rawAssignees === "object" && !Array.isArray(rawAssignees)
+          ? (rawAssignees as Record<string, string>)
+          : {};
+
+      try {
+        const ownersRes = await api.getCategoryOwners();
+        const raw = ownersRes?.owners || {};
+        const normalized: Record<string, string[]> = {};
+        for (const [k, v] of Object.entries(raw)) {
+          normalized[k] = Array.isArray(v) ? v.map(String) : v ? [String(v)] : [];
+        }
+        setCategoryOwners(mergeLegacyIncidentAssignees(normalized, legacyAssignees));
+      } catch {
+        setCategoryOwners(mergeLegacyIncidentAssignees({}, legacyAssignees));
       }
 
       setGcalConnected(data.google_calendar_connected || false);
@@ -580,24 +537,6 @@ export default function Settings() {
         setCustomStaffRoles([]);
       }
 
-      try {
-        const staffRes = await apiClient.get("/staff/");
-        setStaffForSelectors(normalizeStaffListRows(staffRes.data));
-      } catch {
-        setStaffForSelectors([]);
-      }
-
-      try {
-        const ownersRes = await api.getCategoryOwners();
-        const raw = ownersRes?.owners || {};
-        const normalized: Record<string, string[]> = {};
-        for (const [k, v] of Object.entries(raw)) {
-          normalized[k] = Array.isArray(v) ? v.map(String) : v ? [String(v)] : [];
-        }
-        setCategoryOwners(normalized);
-      } catch {
-        setCategoryOwners({});
-      }
     } catch (error) {
       const axiosErr = error as AxiosError<{ detail?: string }>;
       console.error("Failed to load unified settings:", axiosErr);
@@ -671,7 +610,6 @@ export default function Settings() {
         break_duration: breakDuration,
         email_notifications: emailNotifications,
         push_notifications: pushNotifications,
-        incident_category_assignees: incidentCategoryAssignees,
         business_vertical: businessVertical,
         custom_staff_roles: customStaffRoles
           .map((r) => ({ id: r.id, name: r.name.trim() }))
@@ -679,6 +617,7 @@ export default function Settings() {
         // Include the version for optimistic locking
         settings_schema_version: settingsSchemaVersion,
       });
+      await api.saveCategoryOwners(categoryOwners);
       if (response.status === 200) {
         const ver =
           typeof response.data?.settings_schema_version === "number"
@@ -1083,9 +1022,9 @@ export default function Settings() {
   };
 
   return (
-    <div className={`${PAGE_SHELL} pb-24 lg:pb-8`}>
+    <div className={`${SETTINGS_PAGE_SHELL} pb-24 lg:pb-8`}>
       <Tabs value={activeTab} onValueChange={onSettingsTabChange} className="space-y-0">
-        <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-x-8 lg:gap-y-5 lg:items-start">
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(200px,240px)_minmax(0,1fr)] lg:gap-x-8 xl:gap-x-10 lg:gap-y-4 lg:items-start">
           {/* Title sits above the content column so it shares the cards' left edge */}
           <header className="order-1 min-w-0 lg:col-span-2">
             <h1 className="text-2xl sm:text-[1.75rem] font-bold tracking-tight text-slate-900 dark:text-white">
@@ -1142,7 +1081,7 @@ export default function Settings() {
               title={t("settings.general.restaurant_info.title")}
               description={t("settings.general.restaurant_info.description")}
             >
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="space-y-2">
                     <Label htmlFor="restaurant-name">{t("settings.general.fields.name")}</Label>
                     <Input
@@ -1186,7 +1125,7 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:items-start">
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start">
                   <div className="space-y-2">
                     <Label htmlFor="business-vertical">
                       {t("settings.general.business_vertical")}
@@ -1208,7 +1147,7 @@ export default function Settings() {
                     </p>
                   </div>
 
-                  <div className="space-y-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/40 dark:bg-slate-800/30 p-4">
+                  <div className="space-y-3 rounded-xl border border-slate-200/90 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-4">
                     <div>
                       <Label className="text-sm font-medium">
                         {t("settings.general.custom_staff_roles_title")}
@@ -1217,7 +1156,7 @@ export default function Settings() {
                         {t("settings.general.custom_staff_roles_desc")}
                       </p>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                       {customStaffRoles.map((row, idx) => (
                         <div key={row.id} className="flex gap-2 items-center">
                           <Input
@@ -1268,7 +1207,7 @@ export default function Settings() {
               title={t("settings.general.language_prefs_title")}
               description={t("settings.general.language_prefs_desc")}
             >
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:items-start">
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start">
                   <div className="space-y-2">
                     <Label htmlFor="language">{t("settings.general.language")}</Label>
                     <select
@@ -1285,7 +1224,7 @@ export default function Settings() {
                       {t("settings.general.language_hint")}
                     </p>
                   </div>
-                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-4 h-full min-h-[5.5rem]">
                     <div className="space-y-0.5 min-w-0 flex-1">
                       <Label htmlFor="automatic-clock-out" className="cursor-pointer">
                         {t("settings.general.automatic_clock_out")}
@@ -1306,114 +1245,40 @@ export default function Settings() {
 
             <SettingsSection
               icon={<Route className="h-5 w-5" />}
-              iconClassName="bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-              title={t("settings.general.incident_routing.title")}
-              description={t("settings.general.incident_routing.description")}
-            >
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {INCIDENT_CATEGORY_KEYS.map((cat) => {
-                      const i18nKey = `settings.general.incident_categories.${cat.toLowerCase().replace(/\s+/g, "_")}`;
-                      return (
-                        <div key={cat} className="space-y-1.5">
-                          <Label htmlFor={`incident-assign-${cat}`}>
-                            {t(i18nKey)}
-                          </Label>
-                          <select
-                            id={`incident-assign-${cat}`}
-                            value={incidentCategoryAssignees[cat] ?? ""}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setIncidentCategoryAssignees((prev) => {
-                                const next = { ...prev };
-                                if (!v) delete next[cat];
-                                else next[cat] = v;
-                                return next;
-                              });
-                            }}
-                            className={settingsSelectClassName}
-                          >
-                            <option value="">{t("settings.general.incident_routing.unassigned")}</option>
-                            {staffForSelectors.map((row) => (
-                              <option key={row.id} value={row.id}>
-                                {[row.first_name, row.last_name].filter(Boolean).join(" ") || row.email}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      );
-                    })}
-                  </div>
-            </SettingsSection>
-
-            <SettingsSection
-              icon={<Route className="h-5 w-5" />}
               iconClassName="bg-violet-50 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300"
-              title={t("onboarding.owners.title", "Category owners")}
+              title={t("onboarding.owners.title", "Who owns what?")}
               description={t(
                 "onboarding.owners.subtitle",
-                "Multi-person routing for incidents, staff requests, and task departments.",
+                "Pick one or more people for each category — Miya routes incidents, requests, and tasks to them automatically.",
               )}
             >
-              <div className="space-y-4">
-                {[
-                  "request.maintenance",
-                  "request.payroll",
-                  "request.scheduling",
-                  "request.hr",
-                  "request.inventory",
-                  "task.foh",
-                  "task.boh",
-                  "task.finance",
-                ].map((cat) => (
-                  <div key={cat} className="space-y-2">
-                    <Label>{cat}</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {staffForSelectors.map((row) => {
-                        const selected = (categoryOwners[cat] || []).includes(String(row.id));
-                        return (
-                          <button
-                            key={`${cat}-${row.id}`}
-                            type="button"
-                            className={`rounded-full border px-3 py-1 text-xs ${
-                              selected
-                                ? "border-emerald-600 bg-emerald-50 text-emerald-800"
-                                : "border-slate-200 text-slate-600"
-                            }`}
-                            onClick={() => {
+              <div className="space-y-6">
+                {CATEGORY_OWNER_GROUPS.map((group) => (
+                  <div key={group.groupKey} className="space-y-3">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {t(group.groupKey)}
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-2">
+                      {group.items.map((cat) => (
+                        <div key={cat.key} className="space-y-2 rounded-xl border border-border/50 bg-muted/10 px-3.5 py-3">
+                          <Label className="text-sm font-medium">{t(cat.labelKey)}</Label>
+                          <CategoryOwnerPicker
+                            selectedIds={categoryOwners[cat.key] || []}
+                            onChange={(ids) => {
                               setCategoryOwners((prev) => {
-                                const current = prev[cat] || [];
-                                const next = current.includes(String(row.id))
-                                  ? current.filter((id) => id !== String(row.id))
-                                  : [...current, String(row.id)];
-                                if (next.length === 0) {
-                                  const { [cat]: _, ...rest } = prev;
+                                if (ids.length === 0) {
+                                  const { [cat.key]: _, ...rest } = prev;
                                   return rest;
                                 }
-                                return { ...prev, [cat]: next };
+                                return { ...prev, [cat.key]: ids };
                               });
                             }}
-                          >
-                            {[row.first_name, row.last_name].filter(Boolean).join(" ") || row.email}
-                          </button>
-                        );
-                      })}
+                          />
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={async () => {
-                    try {
-                      await api.saveCategoryOwners(categoryOwners);
-                      toast.success(t("settings.general.save_success", "Saved"));
-                    } catch {
-                      toast.error(t("settings.general.save_error", "Save failed"));
-                    }
-                  }}
-                >
-                  {t("onboarding.owners.save", "Save category owners")}
-                </Button>
               </div>
             </SettingsSection>
 
@@ -1455,29 +1320,40 @@ export default function Settings() {
                   </Badge>
               }
             >
-                <div className="space-y-2">
-                  <Label htmlFor="pos-provider" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("pos.provider")}</Label>
-                  <select
-                    id="pos-provider"
-                    value={posSettings.pos_provider}
-                    onChange={(e) =>
-                      setPosSettings({
-                        ...posSettings,
-                        pos_provider: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100 rounded-md"
-                  >
-                    <option value="NONE">{t("pos.not_configured")}</option>
-                    <option value="SQUARE">Square</option>
-                    <option value="TOAST">Toast</option>
-                    <option value="LIGHTSPEED">Lightspeed</option>
-                    <option value="CLOVER">Clover</option>
-                    <option value="STRIPE" disabled={posSettings.pos_provider !== "STRIPE"}>Stripe (Coming soon…)</option>
-                    <option value="CUSTOM">{t("pos.custom_api") || "Custom API"}</option>
-                  </select>
-                </div>
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] lg:items-start">
+                  <div className="space-y-3 lg:sticky lg:top-24">
+                    <div className="space-y-2">
+                      <Label htmlFor="pos-provider" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("pos.provider")}</Label>
+                      <select
+                        id="pos-provider"
+                        value={posSettings.pos_provider}
+                        onChange={(e) =>
+                          setPosSettings({
+                            ...posSettings,
+                            pos_provider: e.target.value,
+                          })
+                        }
+                        className={settingsSelectClassName}
+                      >
+                        <option value="NONE">{t("pos.not_configured")}</option>
+                        <option value="SQUARE">Square</option>
+                        <option value="TOAST">Toast</option>
+                        <option value="LIGHTSPEED">Lightspeed</option>
+                        <option value="CLOVER">Clover</option>
+                        <option value="STRIPE" disabled={posSettings.pos_provider !== "STRIPE"}>Stripe (Coming soon…)</option>
+                        <option value="CUSTOM">{t("pos.custom_api") || "Custom API"}</option>
+                      </select>
+                    </div>
+                    {posSettings.pos_provider === "NONE" ? (
+                      <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/30 p-4">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                          {t("pos.description")}
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
 
+                  <div className="min-w-0">
                 <div>
                   {posSettings.pos_provider === "SQUARE" ? (
                     <div className="space-y-3">
@@ -1883,7 +1759,13 @@ export default function Settings() {
                         </>
                       )}
                     </div>
-                  ) : posSettings.pos_provider === "NONE" ? null : (
+                  ) : posSettings.pos_provider === "NONE" ? (
+                    <div className="flex min-h-[120px] items-center justify-center rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/40 dark:bg-slate-800/20 px-6 py-8 text-center">
+                      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
+                        {t("pos.select_provider_first")}
+                      </p>
+                    </div>
+                  ) : (
                     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="space-y-1">
@@ -1900,6 +1782,8 @@ export default function Settings() {
                       </div>
                     </div>
                   )}
+                </div>
+                  </div>
                 </div>
 
                 {posConnectionStatus !== "idle" && (
