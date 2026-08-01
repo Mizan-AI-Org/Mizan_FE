@@ -1369,8 +1369,9 @@ const TeamTab: React.FC = () => {
             }
             setIsCopyingWaLink(true);
             try {
-                // Pending ONE-TAP staff need the activation phrase, not "Hi Miya".
-                await handleCopyMiyaWhatsAppLink(!profileNeedsActivationLink);
+                // Always copy the ONE-TAP activation short link from staff profile
+                // (never "Hi Miya" chat) so invites open with the activation phrase.
+                await handleCopyMiyaWhatsAppLink(false);
             } finally {
                 setIsCopyingWaLink(false);
             }
@@ -1489,14 +1490,10 @@ const TeamTab: React.FC = () => {
                                     {profileCanCopyWhatsAppLink ? (
                                     <div className="rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/20 p-3 space-y-2">
                                         <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-                                            {profileNeedsActivationLink
-                                                ? t("staff.profile.whatsapp_activation_title")
-                                                : t("staff.profile.whatsapp_chat_title")}
+                                            {t("staff.profile.whatsapp_activation_title")}
                                         </p>
                                         <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                                            {profileNeedsActivationLink
-                                                ? t("staff.profile.whatsapp_activation_hint")
-                                                : t("staff.profile.whatsapp_chat_hint")}
+                                            {t("staff.profile.whatsapp_activation_hint")}
                                         </p>
                                         {profilePhoneMissingCountryCode ? (
                                             <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">
