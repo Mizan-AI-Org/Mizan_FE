@@ -389,43 +389,61 @@ const SafetyDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {(() => {
-                const detail = incidentDetail as {
-                  attachments?: AttachmentLike[];
-                  photo_url?: string;
-                  photo?: string;
-                  attachment_url?: string;
-                  attachment_filename?: string;
-                  attachment_content_type?: string;
-                  audio_evidence?: string[];
-                };
-                const items: AttachmentLike[] = Array.isArray(detail.attachments) && detail.attachments.length
-                  ? detail.attachments.filter((a) => !!a?.url)
-                  : (() => {
-                      const built: AttachmentLike[] = [];
-                      const photoUrl = detail.photo_url?.trim() || resolveMediaUrl(detail.photo) || "";
-                      if (photoUrl) built.push({ url: photoUrl, name: "Photo evidence", content_type: "image/jpeg" });
-                      if (detail.attachment_url?.trim()) {
+              <div>
+                <div className="font-medium text-muted-foreground mb-2 text-sm">
+                  {t("analytics.incident_photo_evidence") || "Photo evidence"}
+                </div>
+                <AttachmentList
+                  attachments={(() => {
+                    const detail = incidentDetail as {
+                      attachments?: AttachmentLike[];
+                      photo_url?: string;
+                      photo?: string;
+                      photo_evidence?: Array<{
+                        url?: string;
+                        storage_key?: string;
+                        filename?: string;
+                        mime_type?: string;
+                      }>;
+                      attachment_url?: string;
+                      attachment_filename?: string;
+                      attachment_content_type?: string;
+                      audio_evidence?: string[];
+                    };
+                    if (Array.isArray(detail.attachments) && detail.attachments.length) {
+                      return detail.attachments.filter((a) => !!a?.url);
+                    }
+                    const built: AttachmentLike[] = [];
+                    const photoUrl = detail.photo_url?.trim() || resolveMediaUrl(detail.photo) || "";
+                    if (photoUrl) built.push({ url: photoUrl, name: "Photo evidence", content_type: "image/jpeg" });
+                    if (detail.attachment_url?.trim()) {
+                      built.push({
+                        url: detail.attachment_url,
+                        name: detail.attachment_filename || "Attachment",
+                        content_type: detail.attachment_content_type,
+                      });
+                    }
+                    for (const [idx, raw] of (detail.audio_evidence || []).entries()) {
+                      const url = resolveMediaUrl(raw) || raw;
+                      if (url) built.push({ url, name: `Audio ${idx + 1}`, content_type: "audio/mpeg" });
+                    }
+                    for (const [idx, entry] of (detail.photo_evidence || []).entries()) {
+                      if (!entry || typeof entry !== "object") continue;
+                      const raw = (entry.storage_key || entry.url || "").trim();
+                      const url = resolveMediaUrl(raw) || raw;
+                      if (url && !built.some((i) => i.url === url)) {
                         built.push({
-                          url: detail.attachment_url,
-                          name: detail.attachment_filename || "Attachment",
-                          content_type: detail.attachment_content_type,
+                          url,
+                          name: entry.filename?.trim() || `Photo ${idx + 1}`,
+                          content_type: entry.mime_type || "image/jpeg",
                         });
                       }
-                      for (const [idx, raw] of (detail.audio_evidence || []).entries()) {
-                        const url = resolveMediaUrl(raw) || raw;
-                        if (url) built.push({ url, name: `Audio ${idx + 1}`, content_type: "audio/mpeg" });
-                      }
-                      return built;
-                    })();
-                if (!items.length) return null;
-                return (
-                  <div>
-                    <div className="font-medium text-muted-foreground mb-2 text-sm">Attachments</div>
-                    <AttachmentList attachments={items} />
-                  </div>
-                );
-              })()}
+                    }
+                    return built;
+                  })()}
+                  emptyMessage={t("analytics.no_incident_photos") || "No photos were attached to this report."}
+                />
+              </div>
             </div>
           )}
         </DialogContent>

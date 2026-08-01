@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useLanguage } from '@/hooks/use-language';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, api } from "@/lib/api";
 import {
   Clock,
   User,
@@ -49,8 +51,20 @@ interface ScheduledTask {
 type TaskScopeFilter = "all" | "shift" | "standalone";
 type TaskStatusFilter = "all" | "open" | "completed";
 
+interface DailyProgressStaff {
+  id: string;
+  name: string;
+  role: string;
+  is_absent: boolean;
+  total: number;
+  done: number;
+  open: number;
+  pct: number;
+}
+
 interface StaffMetric {
   staff_id: string;
+  shift_id?: string;
   name: string;
   role: string;
   shift_status: 'ON_SHIFT' | 'BREAK' | 'OFF_SHIFT';
@@ -114,17 +128,15 @@ export default function TaskManagementBoard({
   const { t } = useLanguage();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.location.hash !== "#staff-live-progress") return;
-    const el = document.getElementById("staff-live-progress");
-    if (!el) return;
-    // Wait a tick so the board has painted after lazy route load.
-    const id = window.setTimeout(() => {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 80);
-    return () => window.clearTimeout(id);
-  }, []);
+  const dailyProgressQuery = useQuery({
+    queryKey: ["dashboard", "staff-daily-progress", "live"],
+    queryFn: () => api.getStaffDailyProgress(),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
+  const dailyProgressStaff: DailyProgressStaff[] = dailyProgressQuery.data?.staff ?? [];
+  const dailyProgressDate = dailyProgressQuery.data?.date;
 
   const [activeProcessesCount, setActiveProcessesCount] = useState(0);
   const [tasksToday, setTasksToday] = useState({ total: 0, completed: 0, ongoing: 0 });
@@ -210,6 +222,17 @@ export default function TaskManagementBoard({
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#staff-live-progress") return;
+    const el = document.getElementById("staff-live-progress");
+    if (!el) return;
+    const id = window.setTimeout(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+    return () => window.clearTimeout(id);
+  }, [isLoading, staffMetrics.length, dailyProgressStaff.length]);
+
   const scopeCounts = useMemo(() => {
     const shift = allTasks.filter((t) => !!t.assigned_shift).length;
     const standalone = allTasks.length - shift;
@@ -294,8 +317,8 @@ export default function TaskManagementBoard({
     }
   };
 
-  /** True when at least one staff row has live checklist/task progress - hides empty-state chrome. */
-  const hasLiveProgress = useMemo(
+  /** Live checklist rows from shifts in progress today. */
+  const hasShiftLiveProgress = useMemo(
     () =>
       staffMetrics.some(
         (s) =>
@@ -305,6 +328,10 @@ export default function TaskManagementBoard({
       ) || staffMetrics.length > 0,
     [staffMetrics],
   );
+
+  const hasDailyProgress = dailyProgressStaff.length > 0;
+  const hasAnyProgress = hasShiftLiveProgress || hasDailyProgress;
+  const progressLoading = isLoading || dailyProgressQuery.isLoading;
 
   const metrics = [
     {
@@ -430,16 +457,24 @@ export default function TaskManagementBoard({
             <div className="min-w-0">
               <CardTitle className="text-lg font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
                 <User className="w-5 h-5 text-teal-600 dark:text-teal-400 shrink-0" />
-                {t("live_board.staff_live_progress")}
+                {hasShiftLiveProgress
+                  ? t("live_board.staff_live_progress")
+                  : hasDailyProgress
+                    ? t("dashboard.staff_daily_progress.title")
+                    : t("live_board.staff_live_progress")}
               </CardTitle>
               <p className="text-sm text-slate-500 mt-1">
-                {t("live_board.staff_live_progress_desc")}
+                {hasShiftLiveProgress
+                  ? t("live_board.staff_live_progress_desc")
+                  : hasDailyProgress
+                    ? t("live_board.daily_task_progress_desc")
+                    : t("live_board.staff_live_progress_desc")}
               </p>
             </div>
             <span
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium shrink-0 self-start",
-                hasLiveProgress
+                hasAnyProgress
                   ? "border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-300"
                   : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
               )}
@@ -447,24 +482,31 @@ export default function TaskManagementBoard({
               <span
                 className={cn(
                   "h-1.5 w-1.5 rounded-full",
-                  hasLiveProgress ? "bg-teal-500" : "bg-slate-400",
+                  hasAnyProgress ? "bg-teal-500" : "bg-slate-400",
                 )}
               />
-              {t("live_board.active_staff", { count: staffMetrics.length })}
+              {hasShiftLiveProgress
+                ? t("live_board.active_staff", { count: staffMetrics.length })
+                : hasDailyProgress
+                  ? t("live_board.staff_with_tasks_today", { count: dailyProgressStaff.length })
+                  : t("live_board.active_staff", { count: 0 })}
+              {dailyProgressDate && hasDailyProgress ? (
+                <span className="text-[10px] opacity-80">· {dailyProgressDate}</span>
+              ) : null}
             </span>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {isLoading ? (
+          {progressLoading ? (
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               <StaffRowSkeleton />
               <StaffRowSkeleton />
             </div>
-          ) : hasLiveProgress ? (
+          ) : hasShiftLiveProgress ? (
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {staffMetrics.map((staff) => (
                 <div
-                  key={staff.staff_id}
+                  key={`${staff.staff_id}-${staff.shift_id ?? "shift"}`}
                   className="p-4 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors"
                 >
                   <div className="flex items-center gap-3 w-full md:w-52 shrink-0">
@@ -573,6 +615,63 @@ export default function TaskManagementBoard({
                   </div>
                 </div>
               ))}
+            </div>
+          ) : hasDailyProgress ? (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {dailyProgressStaff.map((row) => {
+                const pct = Math.max(0, Math.min(100, Number(row.pct) || 0));
+                return (
+                  <div
+                    key={row.id}
+                    className="p-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 w-full sm:w-52 shrink-0 min-w-0">
+                      <Avatar className="h-10 w-10 border border-slate-200 dark:border-slate-700 shrink-0">
+                        <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${row.name}`} />
+                        <AvatarFallback>{row.name.substring(0, 2)}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <h4 className="font-semibold text-sm text-slate-900 dark:text-white truncate" title={row.name}>
+                          {row.name || t("dashboard.staff_daily_progress.fallback_name")}
+                        </h4>
+                        {row.role ? (
+                          <p className="text-xs text-slate-500 truncate">{row.role}</p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-center mb-1.5 gap-2">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                          {t("live_board.tasks_today_label")}
+                        </span>
+                        <span className="text-xs font-semibold tabular-nums text-slate-500 shrink-0">
+                          {row.done}/{row.total} · {pct}%
+                        </span>
+                      </div>
+                      <Progress value={pct} className="h-1.5" />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {row.is_absent ? (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-semibold border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+                        >
+                          {t("dashboard.staff_daily_progress.absent")}
+                        </Badge>
+                      ) : row.open > 0 ? (
+                        <Badge variant="outline" className="text-[10px] font-semibold">
+                          {t("live_board.open_tasks_count", { count: row.open })}
+                        </Badge>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-emerald-600 text-sm font-medium">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>{t("live_board.all_tasks_done")}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center px-6 py-12 text-center">

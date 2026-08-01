@@ -69,7 +69,7 @@ export function SettingsSection({
           {actions ? <div className="shrink-0">{actions}</div> : null}
         </div>
       </CardHeader>
-      <CardContent className={cn("space-y-4 px-5 sm:px-6 pb-5 pt-0", contentClassName)}>{children}</CardContent>
+      <CardContent className={cn("space-y-5 px-5 sm:px-6 pb-5 sm:pb-6 pt-0", contentClassName)}>{children}</CardContent>
     </Card>
   );
 }

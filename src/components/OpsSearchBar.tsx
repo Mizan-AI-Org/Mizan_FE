@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useLanguage } from "@/hooks/use-language";
+import { openDashboardTaskSheet } from "@/lib/dashboard-task-sheet";
 
 type OpsSearchBarProps = {
   className?: string;
@@ -13,6 +15,7 @@ type OpsSearchBarProps = {
 
 export function OpsSearchBar({ className = "", inputClassName = "" }: OpsSearchBarProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useLanguage();
   const ref = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
@@ -40,7 +43,18 @@ export function OpsSearchBar({ className = "", inputClassName = "" }: OpsSearchB
 
   const go = (href: string) => {
     setOpen(false);
+    setQuery("");
     navigate(href);
+  };
+
+  const openTask = (taskId: string, href?: string) => {
+    setOpen(false);
+    setQuery("");
+    if (href && href.includes("task=")) {
+      navigate(href.startsWith("/") ? href : `/${href}`);
+      return;
+    }
+    openDashboardTaskSheet(navigate, location, taskId);
   };
 
   const data = searchQuery.data;
@@ -113,10 +127,15 @@ export function OpsSearchBar({ className = "", inputClassName = "" }: OpsSearchB
                       <li key={task.id}>
                         <button
                           type="button"
-                          className="flex w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                          onClick={() => go("/dashboard")}
+                          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                          onClick={() => openTask(task.id, task.href)}
                         >
-                          {task.title}
+                          <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
+                            {task.title}
+                          </span>
+                          <Badge variant="outline" className="shrink-0 text-[10px]">
+                            {task.status}
+                          </Badge>
                         </button>
                       </li>
                     ))}
@@ -133,10 +152,42 @@ export function OpsSearchBar({ className = "", inputClassName = "" }: OpsSearchB
                       <li key={r.id}>
                         <button
                           type="button"
-                          className="flex w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                          onClick={() => go("/dashboard")}
+                          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                          onClick={() => go(r.href || `/dashboard/staff-requests/${r.id}`)}
                         >
-                          {r.title || r.category}
+                          <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
+                            {r.subject || r.category}
+                          </span>
+                          <Badge variant="outline" className="shrink-0 text-[10px]">
+                            {r.status}
+                          </Badge>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {invoiceHits.length > 0 ? (
+                <div className="px-1.5 pb-1">
+                  <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {t("dashboard.ops_search.section_invoices", { defaultValue: "Invoices" })}
+                  </div>
+                  <ul>
+                    {invoiceHits.map((inv) => (
+                      <li key={inv.id}>
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                          onClick={() =>
+                            go(inv.href || `/dashboard/staff-requests/${inv.id}?kind=invoice`)
+                          }
+                        >
+                          <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
+                            {inv.vendor_name}
+                          </span>
+                          <Badge variant="outline" className="shrink-0 text-[10px]">
+                            {inv.status}
+                          </Badge>
                         </button>
                       </li>
                     ))}

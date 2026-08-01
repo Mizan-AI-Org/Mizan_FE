@@ -13,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,7 +24,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  SettingsSection,
   SettingsStickyActions,
   settingsFieldClassName,
 } from "@/components/settings/SettingsSection";
@@ -49,8 +47,15 @@ import {
 
 type BucketKey = keyof PermissionBuckets;
 type Scope = "role" | "users";
+type PermTab = "apps" | "widgets" | "actions";
 
 const ALLOWED_EDITORS = ["SUPER_ADMIN", "ADMIN", "OWNER"] as const;
+
+const PERM_TABS: { id: PermTab; bucket: BucketKey; icon: typeof LayoutGrid }[] = [
+  { id: "apps", bucket: "apps", icon: LayoutGrid },
+  { id: "widgets", bucket: "widgets", icon: Layers },
+  { id: "actions", bucket: "actions", icon: Zap },
+];
 
 const emptyBuckets = (): PermissionBuckets => ({ apps: [], widgets: [], actions: [] });
 
@@ -93,7 +98,7 @@ export default function RolePermissionsPage() {
   const [query, setQuery] = useState("");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
-  const [permTab, setPermTab] = useState<"apps" | "widgets" | "actions">("apps");
+  const [permTab, setPermTab] = useState<PermTab>("apps");
   const [draft, setDraft] = useState<PermissionBuckets>(emptyBuckets());
   const [dirty, setDirty] = useState(false);
 
@@ -169,6 +174,8 @@ export default function RolePermissionsPage() {
   const catalog = catalogQ.data;
   const loading =
     catalogQ.isLoading || savedRolesQ.isLoading || assignableQ.isLoading || userPermsQ.isLoading;
+
+  const activeBucket = PERM_TABS.find((tab) => tab.id === permTab)?.bucket ?? "apps";
 
   const toggle = (bucket: BucketKey, id: string, enabled: boolean) => {
     setDraft((curr) => applyBuckets(curr, bucket, id, enabled));
@@ -258,61 +265,34 @@ export default function RolePermissionsPage() {
     const entries = catalog?.[bucket] ?? [];
     const draftIds = new Set(draft[bucket]);
     return (
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl">
-            {t(`rbac.bucket.${bucket}.help` as const)}
-          </p>
-          <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => selectAll(bucket)}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5">
+        {entries.map((entry) => {
+          const checked = draftIds.has(entry.id);
+          return (
+            <label
+              key={entry.id}
+              title={entry.id}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border px-2.5 py-2 cursor-pointer transition-colors min-w-0",
+                checked
+                  ? "border-emerald-200/80 bg-emerald-50/80 dark:border-emerald-800/50 dark:bg-emerald-950/35"
+                  : "border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-800/50",
+              )}
             >
-              {t("rbac.actions.select_all")}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => clearAll(bucket)}
-            >
-              {t("rbac.actions.clear")}
-            </Button>
-          </div>
-        </div>
-        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2">
-          {entries.map((entry) => {
-            const checked = draftIds.has(entry.id);
-            return (
-              <label
-                key={entry.id}
-                title={entry.id}
-                className={cn(
-                  "flex items-center gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer transition-colors",
-                  checked
-                    ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-800/50 dark:bg-emerald-950/30"
-                    : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50",
-                )}
-              >
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={(v) => toggle(bucket, entry.id, v === true)}
-                  className="data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
-                />
-                <span className="text-sm font-medium text-slate-900 dark:text-slate-100 leading-snug min-w-0">
-                  {entry.label}
-                </span>
-              </label>
-            );
-          })}
-          {entries.length === 0 ? (
-            <div className="text-sm text-slate-500 col-span-full py-6 text-center">-</div>
-          ) : null}
-        </div>
+              <Checkbox
+                checked={checked}
+                onCheckedChange={(v) => toggle(bucket, entry.id, v === true)}
+                className="h-4 w-4 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+              />
+              <span className="text-[13px] font-medium text-slate-800 dark:text-slate-100 leading-snug truncate">
+                {entry.label}
+              </span>
+            </label>
+          );
+        })}
+        {entries.length === 0 ? (
+          <div className="text-sm text-slate-500 col-span-full py-8 text-center">-</div>
+        ) : null}
       </div>
     );
   };
@@ -326,16 +306,6 @@ export default function RolePermissionsPage() {
     .filter((u): u is AssignableUser => !!u);
 
   const selectedHasAnyOverride = selectedUsers.some((u) => overrideByUserId.has(u.id));
-
-  const primaryUser = selectedUsers[0];
-  const userScopeHint =
-    selectedUsers.length === 0
-      ? t("rbac.users.none_selected")
-      : selectedUsers.length === 1
-        ? overrideByUserId.has(primaryUser!.id)
-          ? t("rbac.users.starting_from_override")
-          : t("rbac.users.starting_from_role", { role: primaryUser!.role })
-        : t("rbac.users.multiple_selected_hint", { count: selectedUsers.length });
 
   const saveDisabled =
     scope === "role"
@@ -354,58 +324,61 @@ export default function RolePermissionsPage() {
   const showEditor = !loading && !(scope === "users" && selectedUserIds.length === 0);
 
   return (
-    <div className={`${PAGE_SHELL} pb-24 lg:pb-8 space-y-4`}>
-      <header className="min-w-0">
-        <h1 className="text-2xl sm:text-[1.75rem] font-bold tracking-tight text-slate-900 dark:text-white">
-          {t("rbac.title")}
-        </h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-          {t("rbac.subtitle")}
-        </p>
+    <div className={`${PAGE_SHELL} pb-24 lg:pb-8 space-y-3`}>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            {t("rbac.title")}
+          </h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            {t("rbac.subtitle")}
+          </p>
+        </div>
+        {dirty ? (
+          <Badge
+            variant="outline"
+            className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+          >
+            {t("rbac.unsaved_badge")}
+          </Badge>
+        ) : null}
       </header>
 
-      <SettingsSection
-        icon={<Users className="h-5 w-5" />}
-        iconClassName="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-        title={t("rbac.scope.label")}
-        description={t("rbac.scope.section_desc")}
-      >
-        <div className="flex flex-wrap gap-1.5 p-1 rounded-xl bg-slate-100/80 dark:bg-slate-800/60 w-fit">
-          {(
-            [
-              { id: "role" as const, label: t("rbac.scope.role"), icon: ShieldCheck },
-              { id: "users" as const, label: t("rbac.scope.users"), icon: Users },
-            ] as const
-          ).map((opt) => {
-            const Icon = opt.icon;
-            const active = scope === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setScope(opt.id)}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
-                  active
-                    ? "bg-white text-emerald-800 shadow-sm dark:bg-slate-900 dark:text-emerald-200"
-                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200",
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
+      <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+        {/* Scope + role toolbar */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 border-b border-slate-200/80 dark:border-slate-800 px-3 sm:px-4 py-2.5 bg-slate-50/70 dark:bg-slate-900/80">
+          <div className="flex gap-0.5 p-0.5 rounded-lg bg-slate-200/60 dark:bg-slate-800/80">
+            {(
+              [
+                { id: "role" as const, label: t("rbac.scope.role"), icon: ShieldCheck },
+                { id: "users" as const, label: t("rbac.scope.users"), icon: Users },
+              ] as const
+            ).map((opt) => {
+              const Icon = opt.icon;
+              const active = scope === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setScope(opt.id)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors",
+                    active
+                      ? "bg-white text-emerald-800 shadow-sm dark:bg-slate-950 dark:text-emerald-200"
+                      : "text-slate-600 hover:text-slate-900 dark:text-slate-400",
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
 
-        {scope === "role" ? (
-          <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
-            <div className="space-y-2 w-full sm:max-w-xs">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                {t("rbac.role_label")}
-              </label>
+          {scope === "role" ? (
+            <>
               <Select value={selectedRole} onValueChange={setSelectedRole}>
-                <SelectTrigger className={cn(settingsFieldClassName, "h-11")}>
+                <SelectTrigger className={cn(settingsFieldClassName, "h-9 w-[140px] text-xs font-semibold")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -416,199 +389,171 @@ export default function RolePermissionsPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <Badge
-              variant="outline"
-              className={cn(
-                "h-fit text-xs font-medium",
-                savedByRole.has(selectedRole)
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
-                  : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-400",
-              )}
-            >
-              {roleBadge}
-            </Badge>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] font-medium hidden sm:inline-flex",
+                  savedByRole.has(selectedRole)
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+                    : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-400",
+                )}
+              >
+                {roleBadge}
+              </Badge>
+            </>
+          ) : (
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              {selectedUserIds.length > 0
+                ? t("rbac.users.selected_count", { count: selectedUserIds.length })
+                : t("rbac.users.select_hint")}
+            </span>
+          )}
+
+          <div className="flex-1 min-w-[8px]" />
+
+          {/* Permission type tabs — inline in toolbar */}
+          <div className="flex flex-wrap gap-0.5 p-0.5 rounded-lg bg-slate-200/60 dark:bg-slate-800/80">
+            {PERM_TABS.map(({ id, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setPermTab(id)}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-colors whitespace-nowrap",
+                  permTab === id
+                    ? "bg-white text-emerald-800 shadow-sm dark:bg-slate-950 dark:text-emerald-200"
+                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400",
+                )}
+              >
+                <Icon className="h-3 w-3 shrink-0" />
+                {t(`rbac.tabs.${id}` as const)}
+                <span className="tabular-nums opacity-60">({draft[id].length})</span>
+              </button>
+            ))}
           </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-xs text-slate-500 dark:text-slate-400">{t("rbac.users.select_hint")}</p>
-            <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50/50 dark:bg-slate-900/40">
-              <div className="p-3 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center gap-2 bg-white dark:bg-slate-900">
-                <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+        </div>
+
+        <div
+          className={cn(
+            "grid min-h-[420px]",
+            scope === "users" ? "lg:grid-cols-[minmax(220px,260px)_1fr]" : "grid-cols-1",
+          )}
+        >
+          {scope === "users" ? (
+            <aside className="border-b lg:border-b-0 lg:border-r border-slate-200/80 dark:border-slate-800 flex flex-col min-h-0">
+              <div className="p-2 border-b border-slate-200/80 dark:border-slate-800">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                   <Input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder={t("rbac.users.search_placeholder")}
-                    className={cn(settingsFieldClassName, "pl-9 h-10")}
+                    className={cn(settingsFieldClassName, "pl-8 h-9 text-sm")}
                   />
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={selectAllVisible}>
+                <div className="mt-1.5 flex items-center gap-1">
+                  <Button type="button" variant="ghost" size="sm" className="h-7 text-[11px] px-2" onClick={selectAllVisible}>
                     {t("rbac.users.select_all_visible")}
                   </Button>
                   {selectedUserIds.length > 0 ? (
-                    <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={clearSelection}>
-                      <X className="h-3 w-3 mr-1" />
+                    <Button type="button" variant="ghost" size="sm" className="h-7 text-[11px] px-2" onClick={clearSelection}>
+                      <X className="h-3 w-3 mr-0.5" />
                       {t("rbac.users.clear_selection")}
                     </Button>
                   ) : null}
                 </div>
               </div>
-
-              <div className="max-h-[22rem] overflow-y-auto p-3">
+              <div className="flex-1 overflow-y-auto p-2 space-y-1 max-h-[min(52vh,520px)] lg:max-h-none">
                 {filteredUsers.length === 0 ? (
-                  <div className="p-6 text-sm text-slate-500 text-center">
+                  <p className="py-6 text-center text-xs text-slate-500">
                     {users.length === 0 ? t("rbac.users.none_available") : "-"}
-                  </div>
+                  </p>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {filteredUsers.map((u) => {
-                      const checked = selectedUserIds.includes(u.id);
-                      const overriden = overrideByUserId.has(u.id) || u.has_override;
-                      return (
-                        <label
-                          key={u.id}
-                          className={cn(
-                            "flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors",
-                            checked
-                              ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-800/50 dark:bg-emerald-950/30"
-                              : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50",
-                          )}
-                        >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(v) => toggleUser(u.id, v === true)}
-                            className="data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
-                          />
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200 text-xs font-semibold">
-                            {userInitials(u)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium truncate text-slate-900 dark:text-slate-100">
-                              {u.full_name || u.email}
-                            </div>
-                            <div className="text-[11px] text-slate-500 truncate">{u.email}</div>
-                          </div>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <Badge variant="secondary" className="text-[10px] font-medium">
-                              {u.role}
-                            </Badge>
+                  filteredUsers.map((u) => {
+                    const checked = selectedUserIds.includes(u.id);
+                    const overriden = overrideByUserId.has(u.id) || u.has_override;
+                    return (
+                      <label
+                        key={u.id}
+                        className={cn(
+                          "flex items-center gap-2 px-2 py-2 rounded-lg border cursor-pointer transition-colors",
+                          checked
+                            ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-800/50 dark:bg-emerald-950/30"
+                            : "border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/40",
+                        )}
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) => toggleUser(u.id, v === true)}
+                          className="h-4 w-4 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                        />
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200 text-[10px] font-bold">
+                          {userInitials(u)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-semibold truncate">{u.full_name || u.email}</div>
+                          <div className="text-[10px] text-slate-500 truncate flex items-center gap-1">
+                            <span>{u.role}</span>
                             {overriden ? (
-                              <Badge className="text-[10px] bg-emerald-600 hover:bg-emerald-600">
-                                {t("rbac.users.override_badge")}
-                              </Badge>
+                              <span className="text-emerald-600 dark:text-emerald-400">· {t("rbac.users.override_badge")}</span>
                             ) : null}
                           </div>
-                        </label>
-                      );
-                    })}
-                  </div>
+                        </div>
+                      </label>
+                    );
+                  })
                 )}
               </div>
+            </aside>
+          ) : null}
 
-              <div className="px-3 py-2.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {selectedUserIds.length > 0 ? (
-                    <span className="text-slate-500">
-                      {t("rbac.users.selected_count", { count: selectedUserIds.length })}
-                    </span>
-                  ) : null}
-                  {primaryUser && selectedUsers.length === 1 ? (
-                    <>
-                      <Badge variant="secondary" className="text-[10px]">
-                        {primaryUser.role}
-                      </Badge>
-                      <Badge
-                        variant={overrideByUserId.has(primaryUser.id) ? "default" : "outline"}
-                        className="text-[10px]"
-                      >
-                        {overrideByUserId.has(primaryUser.id)
-                          ? t("rbac.users.override_badge")
-                          : t("rbac.users.role_badge")}
-                      </Badge>
-                    </>
-                  ) : null}
-                </div>
-                <p className="text-slate-500">{userScopeHint}</p>
+          <div className="flex flex-col min-h-0 min-w-0">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 border-b border-slate-100 dark:border-slate-800/80">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-xl">
+                {t(`rbac.bucket.${activeBucket}.help` as const)}
+              </p>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[11px] px-2"
+                  onClick={() => selectAll(activeBucket)}
+                >
+                  {t("rbac.actions.select_all")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[11px] px-2"
+                  onClick={() => clearAll(activeBucket)}
+                >
+                  {t("rbac.actions.clear")}
+                </Button>
               </div>
             </div>
-          </div>
-        )}
-      </SettingsSection>
 
-      <SettingsSection
-        icon={<LayoutGrid className="h-5 w-5" />}
-        iconClassName="bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
-        title={t("rbac.permissions_section_title")}
-        description={t("rbac.permissions_section_desc")}
-        actions={
-          dirty ? (
-            <Badge
-              variant="outline"
-              className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
-            >
-              {t("rbac.unsaved_badge")}
-            </Badge>
-          ) : null
-        }
-      >
-        {loading ? (
-          <div className="py-10 text-center text-sm text-slate-500">{t("common.loading")}</div>
-        ) : !showEditor ? (
-          <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 px-4 py-10 text-sm text-slate-500 text-center">
-            {t("rbac.users.none_selected")}
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+              {loading ? (
+                <div className="py-12 text-center text-sm text-slate-500">{t("common.loading")}</div>
+              ) : !showEditor ? (
+                <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 px-4 py-12 text-sm text-slate-500 text-center">
+                  {t("rbac.users.none_selected")}
+                </div>
+              ) : (
+                renderBucket(activeBucket)
+              )}
+            </div>
           </div>
-        ) : (
-          <Tabs
-            value={permTab}
-            onValueChange={(v) => setPermTab(v as "apps" | "widgets" | "actions")}
-            className="w-full"
-          >
-            <TabsList className="h-auto w-full sm:w-auto flex flex-wrap justify-start gap-1 bg-slate-100/80 dark:bg-slate-800/60 p-1 rounded-xl">
-              <TabsTrigger
-                value="apps"
-                className="gap-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-emerald-800 data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-emerald-200"
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                {t("rbac.tabs.apps")}
-                <span className="tabular-nums text-[11px] opacity-70">({draft.apps.length})</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="widgets"
-                className="gap-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-emerald-800 data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-emerald-200"
-              >
-                <Layers className="h-3.5 w-3.5" />
-                {t("rbac.tabs.widgets")}
-                <span className="tabular-nums text-[11px] opacity-70">({draft.widgets.length})</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="actions"
-                className="gap-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-emerald-800 data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-emerald-200"
-              >
-                <Zap className="h-3.5 w-3.5" />
-                {t("rbac.tabs.actions")}
-                <span className="tabular-nums text-[11px] opacity-70">({draft.actions.length})</span>
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="apps" className="mt-4 focus-visible:outline-none">
-              {renderBucket("apps")}
-            </TabsContent>
-            <TabsContent value="widgets" className="mt-4 focus-visible:outline-none">
-              {renderBucket("widgets")}
-            </TabsContent>
-            <TabsContent value="actions" className="mt-4 focus-visible:outline-none">
-              {renderBucket("actions")}
-            </TabsContent>
-          </Tabs>
-        )}
-      </SettingsSection>
+        </div>
+      </div>
 
       <SettingsStickyActions hint={dirty ? t("settings.save_hint") : undefined}>
         <Button
           type="button"
           variant="outline"
-          className="h-11 rounded-xl"
+          className="h-10 rounded-xl"
           onClick={() => {
             if (scope === "users") setConfirmResetOpen(true);
             else void handleReset();
@@ -622,7 +567,7 @@ export default function RolePermissionsPage() {
           type="button"
           onClick={handleSave}
           disabled={saveDisabled}
-          className="h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5"
+          className="h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5"
         >
           <Save className="mr-2 h-4 w-4" />
           {saveLabel}
