@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { SignupData } from "../lib/types";
 import { AuthContext } from "./AuthContext";
 import { AuthContextType, User } from "./AuthContext.types";
-import { api, API_BASE } from "../lib/api";
+import { api, API_BASE, refreshAccessToken } from "../lib/api";
 import i18n from "@/i18n";
 import { clearOnboardingSkipFlags, restaurantOnboardingComplete } from "@/lib/onboarding-gate";
 
@@ -76,15 +76,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (storedUser && token) {
         // Verify token is still valid by fetching profile
-        const response = await fetch(`${API_BASE}/auth/me/`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: localStorage.getItem("access_token")
-              ? `Bearer ${localStorage.getItem("access_token")}`
-              : "",
-          },
-        });
+        const fetchProfile = () =>
+          fetch(`${API_BASE}/auth/me/`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: localStorage.getItem("access_token")
+                ? `Bearer ${localStorage.getItem("access_token")}`
+                : "",
+            },
+          });
+
+        let response = await fetchProfile();
+        if (response.status === 401 && (await refreshAccessToken())) {
+          response = await fetchProfile();
+        }
 
         if (response.ok) {
           const userData: User = await response.json();
@@ -144,13 +150,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (cancelled) return;
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       try {
-        const response = await fetch(`${API_BASE}/auth/me/`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        });
+        const fetchProfile = () =>
+          fetch(`${API_BASE}/auth/me/`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            },
+          });
+        let response = await fetchProfile();
+        if (response.status === 401 && (await refreshAccessToken())) {
+          response = await fetchProfile();
+        }
         if (response.ok) {
           const latest: User = await response.json();
           const prev = user ? JSON.stringify(user) : null;
@@ -173,6 +184,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       clearInterval(refreshInterval);
     };
   }, [user, applyLanguageForUser, location.pathname]);
+
+  // api.ts broadcasts this when a 401 survives a silent token-refresh attempt
+  // (expired/blacklisted refresh token) so state clears and the user is sent
+  // back to login instead of hammering the API with a dead access token.
+  useEffect(() => {
+    const onAuthExpired = () => {
+      clearAuth();
+      if (!location.pathname.startsWith("/admin")) {
+        navigate("/auth", { replace: true });
+      }
+    };
+    window.addEventListener("mizan:auth-expired", onAuthExpired);
+    return () => window.removeEventListener("mizan:auth-expired", onAuthExpired);
+  }, [clearAuth, navigate, location.pathname]);
 
   const login = async (email: string, password: string) => {
     try {

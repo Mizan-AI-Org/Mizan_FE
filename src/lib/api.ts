@@ -163,6 +163,62 @@ export async function fetchStaffDirectoryForPicker(
   );
 }
 
+let refreshInFlight: Promise<string | null> | null = null;
+
+/**
+ * Persist rotated tokens. Backend has ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION
+ * enabled, so the old refresh token stops working the instant a new one is issued —
+ * both values from a refresh response must be stored, not just the access token.
+ */
+function persistTokens(access: string, refresh?: string) {
+  try {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("access_token", access);
+    if (refresh) window.localStorage.setItem("refresh_token", refresh);
+  } catch {
+    // ignore storage failures
+  }
+}
+
+/** Let AuthContext react (clear state, redirect to login) without api.ts depending on React. */
+function broadcastAuthExpired() {
+  try {
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem("access_token");
+    window.localStorage.removeItem("refresh_token");
+    window.dispatchEvent(new Event("mizan:auth-expired"));
+  } catch {
+    // ignore
+  }
+}
+
+/** Refresh the access token once, sharing a single in-flight call across concurrent 401s. */
+export function refreshAccessToken(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    try {
+      if (typeof window === "undefined") return null;
+      const refresh = window.localStorage.getItem("refresh_token");
+      if (!refresh) return null;
+      const response = await fetch(`${API_BASE}/token/refresh/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh }),
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      if (!data?.access) return null;
+      persistTokens(data.access, data.refresh);
+      return data.access as string;
+    } catch {
+      return null;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
+}
+
 export class BackendService {
   [x: string]: any;
   // In a real frontend application, HttpService and ConfigService would not be used directly
@@ -177,9 +233,26 @@ export class BackendService {
 
   private async fetchWithError(path: string, options?: { method?: string; body?: string }): Promise<any> {
     const method = options?.method || "GET";
-    const init: RequestInit = { method, headers: this.getHeaders() };
-    if (method !== "GET" && method !== "HEAD") init.body = options?.body ?? "{}";
-    const response = await fetch(`${API_BASE}${path}`, init);
+    const buildInit = (): RequestInit => {
+      const init: RequestInit = { method, headers: this.getHeaders() };
+      if (method !== "GET" && method !== "HEAD") init.body = options?.body ?? "{}";
+      return init;
+    };
+
+    let response = await fetch(`${API_BASE}${path}`, buildInit());
+
+    // Transparent silent refresh: retry once with a fresh access token before
+    // surfacing the 401 to callers. Falls through to normal error handling
+    // (and a logout broadcast) if there's no refresh token or it's expired.
+    if (response.status === 401) {
+      const refreshedToken = await refreshAccessToken();
+      if (refreshedToken) {
+        response = await fetch(`${API_BASE}${path}`, buildInit());
+      } else {
+        broadcastAuthExpired();
+      }
+    }
+
     if (!response.ok) {
       let message = "Request failed";
       try {
@@ -453,18 +526,25 @@ export class BackendService {
     }
   }
 
-  async refreshToken(refreshToken: string): Promise<{ access: string }> {
+  /**
+   * Refresh the access token and persist whatever the backend rotates back.
+   * ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION are on server-side, so the
+   * returned `refresh` (not just `access`) must be saved or the next refresh fails.
+   */
+  async refreshToken(refreshToken: string): Promise<{ access: string; refresh?: string }> {
     try {
-      const response = await fetch(`${API_BASE}/auth/token/refresh/`, {
+      const response = await fetch(`${API_BASE}/token/refresh/`, {
         method: "POST",
-        headers: this.getHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh: refreshToken }),
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Token refresh failed");
+        throw new Error(errorData.message || errorData.detail || "Token refresh failed");
       }
-      return await response.json();
+      const data = await response.json();
+      persistTokens(data.access, data.refresh);
+      return data;
     } catch (error: any) {
       throw new Error(error.message || "Token refresh failed");
     }
