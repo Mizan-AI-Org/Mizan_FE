@@ -215,6 +215,95 @@ function phoneFromWhatsAppEmail(email: string | null | undefined): string {
     return m ? m[1] : "";
 }
 
+function phoneDigitsOnly(value: string | null | undefined): string {
+    return (value || "").replace(/\D/g, "");
+}
+
+/** Loose match for pending-record phone vs profile phone (handles missing country code). */
+function phonesMatch(a: string | null | undefined, b: string | null | undefined): boolean {
+    const da = phoneDigitsOnly(a);
+    const db = phoneDigitsOnly(b);
+    if (!da || !db) return false;
+    if (da === db) return true;
+    const tail = Math.min(da.length, db.length, 9);
+    return da.slice(-tail) === db.slice(-tail);
+}
+
+const STAFF_ACTIVATION_WA_TEXT = "Hi Mizan AI, I am ready to activate my account!";
+const MIYA_CHAT_WA_TEXT = "Hi Miya";
+
+/** Build a wa.me link with a specific prefilled message. */
+function buildWhatsAppMeLink(phoneDigits: string, text: string): string {
+    const phone = phoneDigitsOnly(phoneDigits);
+    if (!phone) return "";
+    return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+}
+
+function extractWaMePhone(link: string): string {
+    const m = (link || "").match(/wa\.me\/(\d+)/i);
+    return m?.[1] || "";
+}
+
+function isMiyaChatInviteLink(link: string): boolean {
+    if (!link) return false;
+    try {
+        const decoded = decodeURIComponent(link);
+        return /[?&]text=Hi\+?Miya(?:&|$)/i.test(link) || /[?&]text=Hi Miya(?:&|$)/i.test(decoded);
+    } catch {
+        return /text=Hi\+?Miya/i.test(link);
+    }
+}
+
+function isStaffActivationInviteLink(link: string): boolean {
+    if (!link) return false;
+    // Short redirects: /wa (activation) — not /wa/hi (chat)
+    if (/\/wa\/?($|\?)/i.test(link) && !/\/wa\/hi/i.test(link)) return true;
+    if (link.includes("/api/go/wa")) return true;
+    try {
+        const decoded = decodeURIComponent(link);
+        return /activate my account/i.test(decoded);
+    } catch {
+        return /activate/i.test(link);
+    }
+}
+
+/**
+ * Prefer the ONE-TAP activation wa.me link. Never return the "Hi Miya" chat link
+ * for staff invites — rewrite it to the activation phrase if needed.
+ */
+function pickActivationInviteLink(data: {
+    invite_link?: string;
+    invite_short_link?: string;
+    chat_link?: string;
+}): string {
+    // Prefer short redirect (https://api…/wa) over the long wa.me URL.
+    const candidates = [data.invite_short_link, data.invite_link].filter(Boolean) as string[];
+    for (const candidate of candidates) {
+        if (isMiyaChatInviteLink(candidate)) continue;
+        if (isStaffActivationInviteLink(candidate) || candidate.includes("/wa")) {
+            return candidate;
+        }
+    }
+    // API sometimes returns chat_link-shaped URLs in invite fields — rebuild activation.
+    const phone =
+        extractWaMePhone(data.invite_link || "") ||
+        extractWaMePhone(data.invite_short_link || "") ||
+        extractWaMePhone(data.chat_link || "");
+    return buildWhatsAppMeLink(phone, STAFF_ACTIVATION_WA_TEXT);
+}
+
+function pickMiyaChatLink(data: {
+    chat_short_link?: string;
+    chat_link?: string;
+    invite_link?: string;
+}): string {
+    const short = (data.chat_short_link || "").trim();
+    if (short.includes("/wa/hi")) return short;
+    if (data.chat_link && isMiyaChatInviteLink(data.chat_link)) return data.chat_link;
+    const phone = extractWaMePhone(data.chat_link || "") || extractWaMePhone(data.invite_link || "");
+    return buildWhatsAppMeLink(phone, MIYA_CHAT_WA_TEXT);
+}
+
 /** ONE-TAP activation pending (StaffActivationRecord) */
 interface PendingActivation {
     id: string;
@@ -946,7 +1035,20 @@ const TeamTab: React.FC = () => {
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-    const [lastInviteLink, setLastInviteLink] = useState<string | null>(null);
+    const [lastInviteLink, setLastInviteLinkState] = useState<string | null>(null);
+    /** Always store the activation phrase — never the "Hi Miya" chat link. */
+    const setLastInviteLink = (link: string | null) => {
+        if (!link) {
+            setLastInviteLinkState(null);
+            return;
+        }
+        if (isMiyaChatInviteLink(link)) {
+            const fixed = buildWhatsAppMeLink(extractWaMePhone(link), STAFF_ACTIVATION_WA_TEXT);
+            setLastInviteLinkState(fixed || null);
+            return;
+        }
+        setLastInviteLinkState(link);
+    };
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [documents, setDocuments] = useState<StaffDocument[]>([]);
     const [isUploading, setIsUploading] = useState(false);
@@ -1143,7 +1245,7 @@ const TeamTab: React.FC = () => {
             });
             if (!response.ok) throw new Error("Failed to get link");
             const data = await response.json().catch(() => ({}));
-            const link = data.invite_short_link || data.invite_link || data.chat_link;
+            const link = pickActivationInviteLink(data);
             if (link) {
                 await navigator.clipboard.writeText(link);
                 toast.success(t("toasts.invite_copied"));
@@ -1156,28 +1258,32 @@ const TeamTab: React.FC = () => {
         }
     };
 
-    /** Copy wa.me link to open WhatsApp with Miya (for active managers/staff). */
-    const handleCopyMiyaWhatsAppLink = async (preferChat = true) => {
+    /** Copy wa.me link — activation invite (ONE-TAP) or Miya chat, depending on preferChat. */
+    const handleCopyMiyaWhatsAppLink = async (
+        preferChat = true,
+    ): Promise<{ link: string; kind: "activation" | "chat" } | null> => {
         try {
             const response = await fetch(`${API_BASE}/staff/activation/invite-link/`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
             });
             if (!response.ok) throw new Error("Failed to get link");
             const data = await response.json().catch(() => ({}));
-            const link = preferChat
-                ? (data.chat_link || data.invite_short_link || data.invite_link)
-                : (data.invite_short_link || data.invite_link || data.chat_link);
+            const activationLink = pickActivationInviteLink(data);
+            const chatLink = pickMiyaChatLink(data);
+            const kind: "activation" | "chat" = preferChat ? "chat" : "activation";
+            const link = preferChat ? chatLink : activationLink;
             if (!link) {
                 toast.error(t("errors.no_invite_link") || "WhatsApp link is not configured.");
                 return null;
             }
             await navigator.clipboard.writeText(link);
-            setLastInviteLink(link);
-            toast.success(
-                t("toasts.whatsapp_miya_link_copied") ||
-                    "WhatsApp link copied - open it to start chatting with Miya.",
-            );
-            return link;
+            if (kind === "activation") {
+                setLastInviteLink(link);
+                toast.success(t("toasts.invite_copied"));
+            } else {
+                toast.success(t("toasts.whatsapp_miya_link_copied"));
+            }
+            return { link, kind };
         } catch {
             toast.error(t("errors.failed_to_copy") || "Failed to copy WhatsApp link");
             return null;
@@ -1249,10 +1355,22 @@ const TeamTab: React.FC = () => {
             }
         };
 
+        const profileNeedsActivationLink =
+            !selectedMember.is_active &&
+            pendingActivations.some((pa) => phonesMatch(pa.phone, waPhone));
+        const profileCanCopyWhatsAppLink = phoneDigitsOnly(waPhone).length >= 6;
+        const profilePhoneMissingCountryCode =
+            profileCanCopyWhatsAppLink && phoneDigitsOnly(waPhone).length < 11;
+
         const handleCopyProfileWaLink = async () => {
+            if (!profileCanCopyWhatsAppLink) {
+                toast.error(t("staff.profile.whatsapp_missing_hint"));
+                return;
+            }
             setIsCopyingWaLink(true);
             try {
-                await handleCopyMiyaWhatsAppLink(true);
+                // Pending ONE-TAP staff need the activation phrase, not "Hi Miya".
+                await handleCopyMiyaWhatsAppLink(!profileNeedsActivationLink);
             } finally {
                 setIsCopyingWaLink(false);
             }
@@ -1291,20 +1409,6 @@ const TeamTab: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 rounded-xl font-bold h-11 px-4 shadow-sm"
-                                onClick={handleCopyProfileWaLink}
-                                disabled={isCopyingWaLink}
-                            >
-                                {isCopyingWaLink ? (
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                ) : (
-                                    <MessageCircle className="w-4 h-4 mr-2" />
-                                )}
-                                Copy WhatsApp link
-                            </Button>
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -1374,7 +1478,7 @@ const TeamTab: React.FC = () => {
                                                     </p>
                                                     {!waPhone && (
                                                         <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
-                                                            Add a WhatsApp number (with country code) so Miya can recognize this manager.
+                                                            {t("staff.profile.whatsapp_add_phone_hint")}
                                                         </p>
                                                     )}
                                                 </div>
@@ -1382,13 +1486,23 @@ const TeamTab: React.FC = () => {
                                         </>
                                     )}
 
+                                    {profileCanCopyWhatsAppLink ? (
                                     <div className="rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/20 p-3 space-y-2">
                                         <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-                                            Talk to Miya on WhatsApp
+                                            {profileNeedsActivationLink
+                                                ? t("staff.profile.whatsapp_activation_title")
+                                                : t("staff.profile.whatsapp_chat_title")}
                                         </p>
                                         <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                                            Copy the link, open it on this person’s phone, and send the prefilled message to start chatting with Miya.
+                                            {profileNeedsActivationLink
+                                                ? t("staff.profile.whatsapp_activation_hint")
+                                                : t("staff.profile.whatsapp_chat_hint")}
                                         </p>
+                                        {profilePhoneMissingCountryCode ? (
+                                            <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">
+                                                {t("staff.profile.whatsapp_country_code_hint")}
+                                            </p>
+                                        ) : null}
                                         <Button
                                             type="button"
                                             variant="outline"
@@ -1402,9 +1516,19 @@ const TeamTab: React.FC = () => {
                                             ) : (
                                                 <Copy className="w-3.5 h-3.5 mr-1.5" />
                                             )}
-                                            Copy WhatsApp invite link
+                                            {t("staff.profile.copy_activation_link")}
                                         </Button>
                                     </div>
+                                    ) : (
+                                    <div className="rounded-xl border border-amber-100 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-950/20 p-3 space-y-1.5">
+                                        <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                                            {t("staff.profile.whatsapp_missing_title")}
+                                        </p>
+                                        <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                                            {t("staff.profile.whatsapp_missing_hint")}
+                                        </p>
+                                    </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -2259,8 +2383,9 @@ const TeamTab: React.FC = () => {
                         const data = await response.json().catch(() => ({}));
                         if (!response.ok)
                             throw new Error(data.error || data.detail || data.errors?.[0] || "Failed to create staff records");
-                        if (data.created > 0 && (data.invite_short_link || data.invite_link)) {
-                            setLastInviteLink(data.invite_short_link || data.invite_link);
+                        const activationLink = pickActivationInviteLink(data);
+                        if (data.created > 0 && activationLink) {
+                            setLastInviteLink(activationLink);
                             handleCloseInviteModal();
                             toast.success(`${data.created} staff members ready. Copy and share the link-when they click it and message Miya, their account will be activated and Miya will reply via WhatsApp.`);
                             refetch();
@@ -2351,7 +2476,7 @@ const TeamTab: React.FC = () => {
                     throw new Error(errorData.error || errorData.detail || "Failed to send invitation");
                 }
                 const data = await response.json().catch(() => ({}));
-                const link = data.invite_short_link || data.invite_link || null;
+                const link = pickActivationInviteLink(data) || null;
                 if (link) setLastInviteLink(link);
                 toast.success(data.message || `Invitation sent successfully via ${inviteMethod === "email" ? "Email" : "WhatsApp"}`);
                 handleCloseInviteModal();
@@ -2810,8 +2935,8 @@ const TeamTab: React.FC = () => {
                 }}
             />
 
-            {/* Invite link ready (after sending invite – modal is closed) */}
-            {lastInviteLink && (
+            {/* Staff activation link (after ONE-TAP invite — never the "Hi Miya" chat link) */}
+            {lastInviteLink && isStaffActivationInviteLink(lastInviteLink) && (
                 <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
                     <p className="text-sm font-medium text-slate-700 dark:text-slate-300 shrink-0">{t("staff.invite_link_ready")}</p>
                     <div className="flex flex-1 min-w-0 items-center gap-2">
@@ -2826,7 +2951,7 @@ const TeamTab: React.FC = () => {
                             onClick={async () => {
                                 try {
                                     await navigator.clipboard.writeText(lastInviteLink);
-                                    toast.success(t("toasts.link_copied"));
+                                    toast.success(t("toasts.invite_copied"));
                                 } catch {
                                     toast.error(t("errors.no_invite_link"));
                                 }
