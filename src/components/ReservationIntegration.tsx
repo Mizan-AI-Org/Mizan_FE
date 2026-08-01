@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -318,37 +317,39 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="reservation-provider" className="text-sm font-medium">
-            {t("settings.reservation.provider_label")}
-          </Label>
-          <select
-            id="reservation-provider"
-            value={provider}
-            onChange={(e) => setProvider(e.target.value as ReservationProvider)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100 rounded-md text-sm"
-          >
-            <option value="NONE">{t("settings.reservation.provider_none")}</option>
-            <option value="EATAPP">Eat App (Eat Now)</option>
-            <option value="OPENTABLE" disabled>
-              OpenTable (soon)
-            </option>
-            <option value="THEFORK" disabled>
-              TheFork (soon)
-            </option>
-            <option value="SEVENROOMS" disabled>
-              SevenRooms (soon)
-            </option>
-            <option value="CUSTOM">{t("settings.reservation.provider_custom")}</option>
-          </select>
-          {provider === "NONE" && (
-            <p className="text-xs text-muted-foreground">{t("settings.reservation.connect_hint")}</p>
-          )}
-        </div>
+      <CardContent className="space-y-5 px-5 sm:px-6 pb-5 sm:pb-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] lg:items-start">
+          <div className="space-y-3 lg:sticky lg:top-24">
+            <div className="space-y-2">
+              <Label htmlFor="reservation-provider" className="text-sm font-medium">
+                {t("settings.reservation.provider_label")}
+              </Label>
+              <select
+                id="reservation-provider"
+                value={provider}
+                onChange={(e) => setProvider(e.target.value as ReservationProvider)}
+                className="h-11 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950/40 px-3 text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+              >
+                <option value="NONE">{t("settings.reservation.provider_none")}</option>
+                <option value="EATAPP">Eat App (Eat Now)</option>
+                <option value="OPENTABLE" disabled>
+                  OpenTable (soon)
+                </option>
+                <option value="THEFORK" disabled>
+                  TheFork (soon)
+                </option>
+                <option value="SEVENROOMS" disabled>
+                  SevenRooms (soon)
+                </option>
+                <option value="CUSTOM">{t("settings.reservation.provider_custom")}</option>
+              </select>
+              {provider === "NONE" && (
+                <p className="text-xs text-muted-foreground">{t("settings.reservation.connect_hint")}</p>
+              )}
+            </div>
+          </div>
 
-        <Separator />
-
+          <div className="min-w-0 space-y-4">
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-3">
             <div className="space-y-1">
@@ -617,6 +618,8 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
                 </Button>
               )}
             </div>
+          </div>
+        </div>
           </div>
         </div>
       </CardContent>

@@ -10,11 +10,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SettingsSection } from "@/components/settings/SettingsSection";
+import {
+  SettingsSection,
+  SettingsStickyActions,
+} from "@/components/settings/SettingsSection";
 import { api } from "@/lib/api";
 import { useLanguage } from "@/hooks/use-language";
 import { toast } from "sonner";
-import { CheckCircle2, ChevronDown, Loader2, Plus, Shield, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  Bell,
+  Loader2,
+  MessageCircle,
+  Plus,
+  Shield,
+  Trash2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Step = { role: string; user_id: string; label: string };
@@ -35,27 +46,6 @@ type Policy = {
   tiers: Tier[];
 };
 
-type PendingApproval = {
-  id: string;
-  tier_name: string;
-  current_step_index: number;
-  reminder_count: number;
-  requested_by_name?: string | null;
-  invoice: {
-    id: string;
-    vendor_name: string;
-    amount: string;
-    currency: string;
-    invoice_number?: string;
-  };
-  steps: Array<{
-    id: string;
-    label: string;
-    status: string;
-    is_current?: boolean;
-  }>;
-};
-
 type StaffOption = { id: string; label: string; role: string };
 
 const COMMON_CURRENCIES = ["MAD", "EUR", "USD", "GBP", "AED", "SAR"] as const;
@@ -67,7 +57,24 @@ const ROLES = [
   { id: "SUPERVISOR", labelKey: "settings.payguard.role_supervisor", fallback: "Supervisor" },
 ] as const;
 
-const ACCENT_CYCLE = ["teal", "amber", "rose", "sky"] as const;
+const TIER_ACCENTS = [
+  {
+    ring: "border-teal-200 dark:border-teal-800",
+    badge: "bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-200",
+  },
+  {
+    ring: "border-amber-200 dark:border-amber-800",
+    badge: "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200",
+  },
+  {
+    ring: "border-rose-200 dark:border-rose-800",
+    badge: "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200",
+  },
+  {
+    ring: "border-sky-200 dark:border-sky-800",
+    badge: "bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-200",
+  },
+] as const;
 
 function roleLabel(
   roleId: string,
@@ -107,6 +114,29 @@ function defaultTiers(currency = "MAD"): Tier[] {
   ];
 }
 
+function tiersForCurrency(tiers: Tier[], currency: string): Tier[] {
+  return tiers
+    .filter((tier) => (tier.currency || currency).toUpperCase() === currency.toUpperCase())
+    .sort((a, b) => {
+      const am = a.max_amount == null || a.max_amount === "" ? Infinity : Number(a.max_amount);
+      const bm = b.max_amount == null || b.max_amount === "" ? Infinity : Number(b.max_amount);
+      return am - bm;
+    });
+}
+
+/** Single open-ended tier is confusing — use the recommended ladder instead. */
+function needsDefaultLadder(currencyTiers: Tier[]): boolean {
+  if (currencyTiers.length === 0) return true;
+  if (currencyTiers.length === 1) {
+    const only = currencyTiers[0];
+    return only.max_amount == null || only.max_amount === "";
+  }
+  const withLimits = currencyTiers.filter(
+    (t) => t.max_amount != null && t.max_amount !== "" && Number.isFinite(Number(t.max_amount)),
+  );
+  return withLimits.length === 0;
+}
+
 function normalizePolicy(p: Partial<Policy> | null | undefined): Policy {
   const currency = String(p?.currency || "MAD").toUpperCase().slice(0, 8) || "MAD";
   let currencies = Array.isArray(p?.currencies)
@@ -114,13 +144,29 @@ function normalizePolicy(p: Partial<Policy> | null | undefined): Policy {
     : [];
   if (!currencies.length) currencies = [currency];
   if (!currencies.includes(currency)) currencies = [currency, ...currencies];
-  const tiersRaw = Array.isArray(p?.tiers) && p!.tiers!.length ? p!.tiers! : defaultTiers(currency);
+
+  let tiersRaw = Array.isArray(p?.tiers) && p!.tiers!.length ? p!.tiers! : defaultTiers(currency);
+  const currencyTiers = tiersForCurrency(
+    tiersRaw.map((tier, i) => ({
+      ...tier,
+      currency: String(tier.currency || currency).toUpperCase().slice(0, 8) || currency,
+      id: tier.id || `tier_${i}`,
+    })),
+    currency,
+  );
+
+  if (needsDefaultLadder(currencyTiers)) {
+    tiersRaw = [
+      ...tiersRaw.filter((t) => String(t.currency || currency).toUpperCase() !== currency),
+      ...defaultTiers(currency),
+    ];
+  }
+
   const tiers = tiersRaw.map((tier, i) => {
     const first = Array.isArray(tier.steps) && tier.steps.length ? tier.steps[0] : null;
     return {
       ...tier,
       currency: String(tier.currency || currency).toUpperCase().slice(0, 8) || currency,
-      // Simple UI: one approver per amount band.
       steps: [
         {
           role: (first?.role || "MANAGER").toUpperCase(),
@@ -131,11 +177,13 @@ function normalizePolicy(p: Partial<Policy> | null | undefined): Policy {
       id: tier.id || `tier_${i}`,
     };
   });
+
   for (const tier of tiers) {
     if (tier.currency && !currencies.includes(tier.currency)) {
       currencies.push(tier.currency);
     }
   }
+
   return {
     enabled: !!p?.enabled,
     currency,
@@ -157,26 +205,47 @@ function whoValue(step: Step): string {
   return `role:${(step.role || "MANAGER").toUpperCase()}`;
 }
 
+function approverLabel(
+  step: Step,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  if (step.user_id) return step.label || roleLabel(step.role, t);
+  return t("settings.payguard.any_with_role", {
+    defaultValue: `Any ${step.role}`,
+    role: roleLabel(step.role || "MANAGER", t),
+  });
+}
+
+function pickTierForAmount(rules: Tier[], amount: number): Tier | null {
+  for (const tier of rules) {
+    const max =
+      tier.max_amount == null || tier.max_amount === ""
+        ? Infinity
+        : Number(tier.max_amount);
+    if (Number.isFinite(max) && amount <= max) return tier;
+    if (!Number.isFinite(max)) return tier;
+  }
+  return rules[rules.length - 1] ?? null;
+}
+
 export default function PaymentApprovalSettings() {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [policy, setPolicy] = useState<Policy>(() => normalizePolicy(null));
-  const [pending, setPending] = useState<PendingApproval[]>([]);
   const [staff, setStaff] = useState<StaffOption[]>([]);
-  const [showMore, setShowMore] = useState(false);
+  const [previewAmount, setPreviewAmount] = useState("12000");
+  const [newCurrencyCode, setNewCurrencyCode] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [polRes, pendRes, staffRes] = await Promise.all([
+      const [polRes, staffRes] = await Promise.all([
         api.get("/finance/payment-approval/policy/"),
-        api.get("/finance/payment-approval/pending/").catch(() => ({ data: { approvals: [] } })),
         api.get("/staff/?page_size=200").catch(() => ({ data: [] })),
       ]);
       const p = polRes.data?.policy;
       if (p) setPolicy(normalizePolicy(p));
-      setPending(Array.isArray(pendRes.data?.approvals) ? pendRes.data.approvals : []);
       const list = Array.isArray(staffRes.data)
         ? staffRes.data
         : staffRes.data?.results || [];
@@ -209,40 +278,39 @@ export default function PaymentApprovalSettings() {
 
   const currency = policy.currency || "MAD";
 
-  const rules = useMemo(() => {
-    return policy.tiers
-      .filter((tier) => (tier.currency || policy.currency) === currency)
-      .sort((a, b) => {
-        const am = a.max_amount == null || a.max_amount === "" ? Infinity : Number(a.max_amount);
-        const bm = b.max_amount == null || b.max_amount === "" ? Infinity : Number(b.max_amount);
-        return am - bm;
-      });
-  }, [policy.tiers, policy.currency, currency]);
+  const rules = useMemo(
+    () => tiersForCurrency(policy.tiers, currency),
+    [policy.tiers, currency],
+  );
+
+  const previewTier = useMemo(() => {
+    const amt = Number(previewAmount);
+    if (!Number.isFinite(amt) || amt <= 0) return null;
+    return pickTierForAmount(rules, amt);
+  }, [previewAmount, rules]);
 
   const save = async () => {
     setSaving(true);
     try {
-      // Keep one currency in sync; strip extra multi-step history to one approver.
       const cleaned: Policy = {
         ...policy,
-        currencies: [currency],
-        currency,
-        tiers: policy.tiers
-          .filter((tier) => (tier.currency || policy.currency) === currency)
-          .map((tier) => {
-            const step = tier.steps[0] || { role: "MANAGER", user_id: "", label: "Manager" };
-            return {
-              ...tier,
-              currency,
-              steps: [
-                {
-                  role: (step.role || "MANAGER").toUpperCase(),
-                  user_id: step.user_id || "",
-                  label: step.label || roleLabel(step.role || "MANAGER", t),
-                },
-              ],
-            };
-          }),
+        currencies: [...policy.currencies],
+        currency: policy.currency,
+        tiers: policy.tiers.map((tier) => {
+          const step = tier.steps[0] || { role: "MANAGER", user_id: "", label: "Manager" };
+          const tierCurrency = String(tier.currency || policy.currency).toUpperCase();
+          return {
+            ...tier,
+            currency: tierCurrency,
+            steps: [
+              {
+                role: (step.role || "MANAGER").toUpperCase(),
+                user_id: step.user_id || "",
+                label: step.label || roleLabel(step.role || "MANAGER", t),
+              },
+            ],
+          };
+        }),
       };
       await api.put("/finance/payment-approval/policy/", { policy: cleaned });
       toast.success(t("settings.payguard.saved"));
@@ -251,22 +319,6 @@ export default function PaymentApprovalSettings() {
       toast.error(t("settings.payguard.save_error"));
     } finally {
       setSaving(false);
-    }
-  };
-
-  const act = async (invoiceId: string, action: "approve" | "reject") => {
-    try {
-      const res = await api.post("/finance/payment-approval/act/", {
-        invoice_id: invoiceId,
-        action,
-      });
-      toast.success(res.data?.message_for_user || t("settings.payguard.acted"));
-      await load();
-    } catch (e: unknown) {
-      const msg =
-        (e as { response?: { data?: { message_for_user?: string } } })?.response?.data
-          ?.message_for_user || t("settings.payguard.act_error");
-      toast.error(msg);
     }
   };
 
@@ -327,10 +379,10 @@ export default function PaymentApprovalSettings() {
           ),
           {
             id: `tier_${Date.now()}`,
-            name: t("settings.payguard.rule_new", { defaultValue: "New rule" }),
+            name: t("settings.payguard.rule_new", { defaultValue: "New level" }),
             currency,
             max_amount: null,
-            accent: ACCENT_CYCLE[rules.length % ACCENT_CYCLE.length],
+            accent: "sky",
             steps: [{ role: "OWNER", user_id: "", label: roleLabel("OWNER", t) }],
           },
         ],
@@ -350,17 +402,80 @@ export default function PaymentApprovalSettings() {
     const c = code.toUpperCase().slice(0, 8);
     setPolicy((prev) => {
       const hasBands = prev.tiers.some((tier) => (tier.currency || prev.currency) === c);
+      const currencies = prev.currencies.includes(c)
+        ? prev.currencies
+        : [...prev.currencies, c];
       return {
         ...prev,
         currency: c,
-        currencies: [c],
-        tiers: hasBands
-          ? prev.tiers.map((tier) =>
-              (tier.currency || prev.currency) === c ? { ...tier, currency: c } : tier,
-            )
-          : [...prev.tiers.filter((tier) => (tier.currency || prev.currency) !== prev.currency), ...defaultTiers(c)],
+        currencies,
+        tiers: hasBands ? prev.tiers : [...prev.tiers, ...defaultTiers(c)],
       };
     });
+  };
+
+  const addCurrency = () => {
+    const c = newCurrencyCode.trim().toUpperCase().slice(0, 8);
+    if (!c || c.length < 3) return;
+    setNewCurrencyCode("");
+    changeCurrency(c);
+  };
+
+  const removeCurrency = (code: string) => {
+    const c = code.toUpperCase().slice(0, 8);
+    setPolicy((prev) => {
+      if (prev.currencies.length <= 1) return prev;
+      const currencies = prev.currencies.filter((x) => x !== c);
+      const nextActive = prev.currency === c ? currencies[0] : prev.currency;
+      return {
+        ...prev,
+        currency: nextActive,
+        currencies,
+        tiers: prev.tiers.filter((tier) => (tier.currency || prev.currency) !== c),
+      };
+    });
+  };
+
+  const resetToRecommended = () => {
+    setPolicy((prev) => ({
+      ...prev,
+      tiers: [
+        ...prev.tiers.filter((tier) => (tier.currency || prev.currency) !== currency),
+        ...defaultTiers(currency),
+      ],
+    }));
+    toast.message(t("settings.payguard.recommended_applied"));
+  };
+
+  const tierRangeText = (tier: Tier, idx: number) => {
+    const isLast = idx === rules.length - 1;
+    const prevMax =
+      idx === 0
+        ? null
+        : rules[idx - 1].max_amount == null || rules[idx - 1].max_amount === ""
+          ? null
+          : Number(rules[idx - 1].max_amount);
+
+    if (isLast) {
+      if (prevMax != null && Number.isFinite(prevMax)) {
+        return t("settings.payguard.range_above", {
+          amount: formatAmount(prevMax, currency),
+        });
+      }
+      return t("settings.payguard.any_amount", { defaultValue: "Any amount" });
+    }
+
+    const max = tier.max_amount == null || tier.max_amount === "" ? null : Number(tier.max_amount);
+    if (prevMax != null && Number.isFinite(prevMax) && max != null && Number.isFinite(max)) {
+      return t("settings.payguard.range_between", {
+        from: formatAmount(prevMax + 1, currency),
+        to: formatAmount(max, currency),
+      });
+    }
+    if (max != null && Number.isFinite(max)) {
+      return t("settings.payguard.range_up_to", { amount: formatAmount(max, currency) });
+    }
+    return t("settings.payguard.any_amount", { defaultValue: "Any amount" });
   };
 
   if (loading) {
@@ -392,154 +507,259 @@ export default function PaymentApprovalSettings() {
           </div>
         }
       >
-        <div className="space-y-5">
+        <div className="space-y-6">
           {!policy.enabled ? (
-            <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-5 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
-              {t(
-                "settings.payguard.disabled_hint",
-                "Turn this on to require approval before an invoice can be paid.",
-              )}
-            </p>
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-5 py-6 dark:border-slate-700 dark:bg-slate-900/40">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                {t("settings.payguard.disabled_hint")}
+              </p>
+              <ul className="mt-4 space-y-2 text-xs text-slate-500 dark:text-slate-400">
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                    1
+                  </span>
+                  {t("settings.payguard.step_submit")}
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                    2
+                  </span>
+                  {t("settings.payguard.step_miya")}
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                    3
+                  </span>
+                  {t("settings.payguard.step_pay")}
+                </li>
+              </ul>
+            </div>
           ) : (
             <>
-              <div className="max-w-xs space-y-1.5">
-                <Label>{t("settings.payguard.currency")}</Label>
-                <Select value={currency} onValueChange={changeCurrency}>
-                  <SelectTrigger className="h-11">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from(
-                      new Set([...COMMON_CURRENCIES, currency, ...policy.currencies]),
-                    ).map((code) => (
-                      <SelectItem key={code} value={code}>
-                        {code}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* How it works */}
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  { n: 1, text: t("settings.payguard.step_submit") },
+                  { n: 2, text: t("settings.payguard.step_miya"), icon: MessageCircle },
+                  { n: 3, text: t("settings.payguard.step_pay") },
+                ].map(({ n, text, icon: Icon }) => (
+                  <div
+                    key={n}
+                    className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/40"
+                  >
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white">
+                      {n}
+                    </span>
+                    <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                      {Icon ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Icon className="h-3 w-3 text-emerald-600" />
+                          {text}
+                        </span>
+                      ) : (
+                        text
+                      )}
+                    </p>
+                  </div>
+                ))}
               </div>
 
               <div className="space-y-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                    {t("settings.payguard.rules_title", "Who must approve?")}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    {t(
-                      "settings.payguard.rules_hint",
-                      "Pick an amount limit and who says yes. Bigger bills use the next rule.",
-                    )}
+                  <Label>{t("settings.payguard.currencies")}</Label>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {t("settings.payguard.currencies_hint")}
                   </p>
                 </div>
 
-                <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
-                  <div className="hidden grid-cols-[1fr_1fr_auto] gap-3 border-b border-slate-100 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-800 dark:bg-slate-900/60 sm:grid">
-                    <span>{t("settings.payguard.col_amount", "If the bill is…")}</span>
-                    <span>{t("settings.payguard.col_who", "Then ask…")}</span>
-                    <span className="w-9" />
-                  </div>
-
-                  <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {rules.map((tier, idx) => {
-                      const step = tier.steps[0] || {
-                        role: "MANAGER",
-                        user_id: "",
-                        label: "Manager",
-                      };
-                      const isLast = idx === rules.length - 1;
-                      const prevMax =
-                        idx === 0
-                          ? null
-                          : rules[idx - 1].max_amount == null || rules[idx - 1].max_amount === ""
-                            ? null
-                            : Number(rules[idx - 1].max_amount);
-
-                      return (
-                        <li
-                          key={tier.id}
-                          className="grid gap-3 px-4 py-3 sm:grid-cols-[1fr_1fr_auto] sm:items-center"
+                <div className="flex flex-wrap items-center gap-2">
+                  {policy.currencies.map((code) => {
+                    const active = code === currency;
+                    return (
+                      <div key={code} className="flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => changeCurrency(code)}
+                          className={cn(
+                            "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                            active
+                              ? "border-emerald-600 bg-emerald-600 text-white"
+                              : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200",
+                          )}
                         >
-                          <div className="space-y-1.5">
-                            <p className="text-xs font-medium text-slate-500 sm:hidden">
-                              {t("settings.payguard.col_amount", "If the bill is…")}
-                            </p>
-                            {isLast ? (
-                              <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                                {prevMax != null && Number.isFinite(prevMax)
-                                  ? t("settings.payguard.range_above", {
-                                      amount: formatAmount(prevMax, currency),
-                                    })
-                                  : t("settings.payguard.any_amount", {
-                                      defaultValue: "Any amount",
-                                    })}
-                              </p>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <span className="shrink-0 text-sm text-slate-600 dark:text-slate-300">
-                                  {t("settings.payguard.up_to", { defaultValue: "Up to" })}
+                          {code}
+                        </button>
+                        {policy.currencies.length > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => removeCurrency(code)}
+                            className="rounded-full p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
+                            aria-label={t("settings.payguard.remove_currency", { code })}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="w-full max-w-[120px] space-y-1">
+                    <Label htmlFor="payguard-new-currency" className="text-xs text-slate-500">
+                      {t("settings.payguard.currency_placeholder")}
+                    </Label>
+                    <Input
+                      id="payguard-new-currency"
+                      value={newCurrencyCode}
+                      onChange={(e) => setNewCurrencyCode(e.target.value.toUpperCase())}
+                      placeholder="MAD"
+                      maxLength={8}
+                      className="h-10 uppercase"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addCurrency();
+                        }
+                      }}
+                    />
+                  </div>
+                  <Button type="button" variant="outline" size="sm" className="h-10" onClick={addCurrency}>
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    {t("settings.payguard.add_currency")}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="h-10" onClick={resetToRecommended}>
+                    {t("settings.payguard.use_recommended")}
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {COMMON_CURRENCIES.filter((code) => !policy.currencies.includes(code)).map(
+                    (code) => (
+                      <button
+                        key={code}
+                        type="button"
+                        onClick={() => changeCurrency(code)}
+                        className="rounded-md border border-dashed border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-500 hover:border-emerald-300 hover:text-emerald-700 dark:border-slate-700 dark:hover:border-emerald-800"
+                      >
+                        + {code}
+                      </button>
+                    ),
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-500">
+                  {t("settings.payguard.currency_branch_hint", { currency })}
+                </p>
+              </div>
+
+              {/* Approval ladder */}
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {t("settings.payguard.ladder_title")}
+                  </h3>
+                  <p className="mt-0.5 text-xs text-slate-500">{t("settings.payguard.ladder_hint")}</p>
+                </div>
+
+                <div className="space-y-0">
+                  {rules.map((tier, idx) => {
+                    const step = tier.steps[0] || {
+                      role: "MANAGER",
+                      user_id: "",
+                      label: "Manager",
+                    };
+                    const isLast = idx === rules.length - 1;
+                    const accent = TIER_ACCENTS[idx % TIER_ACCENTS.length];
+
+                    return (
+                      <div key={tier.id}>
+                        <div
+                          className={cn(
+                            "rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-950/30",
+                            accent.ring,
+                          )}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1 space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span
+                                  className={cn(
+                                    "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                    accent.badge,
+                                  )}
+                                >
+                                  {t("settings.payguard.level_label", { n: idx + 1 })}
                                 </span>
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  value={tier.max_amount ?? ""}
-                                  onChange={(e) => setRuleMax(tier.id, e.target.value)}
-                                  className="h-10 max-w-[140px]"
-                                  aria-label={t("settings.payguard.band_name")}
-                                />
-                                <span className="shrink-0 text-sm font-medium text-slate-500">
-                                  {currency}
+                                <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                                  {tierRangeText(tier, idx)}
                                 </span>
                               </div>
-                            )}
-                          </div>
 
-                          <div className="space-y-1.5">
-                            <p className="text-xs font-medium text-slate-500 sm:hidden">
-                              {t("settings.payguard.col_who", "Then ask…")}
-                            </p>
-                            <Select
-                              value={whoValue(step)}
-                              onValueChange={(v) => setRuleApprover(tier.id, v)}
-                            >
-                              <SelectTrigger className="h-10">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {ROLES.map((r) => (
-                                  <SelectItem key={r.id} value={`role:${r.id}`}>
-                                    {t("settings.payguard.any_with_role", {
-                                      defaultValue: `Any ${r.fallback}`,
-                                      role: t(r.labelKey, { defaultValue: r.fallback }),
-                                    })}
-                                  </SelectItem>
-                                ))}
-                                {staff.map((s) => (
-                                  <SelectItem key={s.id} value={`user:${s.id}`}>
-                                    {s.label} ({roleLabel(s.role, t)})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                              {!isLast ? (
+                                <div className="flex items-center gap-2">
+                                  <Label className="sr-only">{t("settings.payguard.band_name")}</Label>
+                                  <span className="shrink-0 text-xs text-slate-500">
+                                    {t("settings.payguard.up_to")}
+                                  </span>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    value={tier.max_amount ?? ""}
+                                    onChange={(e) => setRuleMax(tier.id, e.target.value)}
+                                    className="h-9 max-w-[120px]"
+                                  />
+                                  <span className="text-xs font-medium text-slate-500">{currency}</span>
+                                </div>
+                              ) : null}
+                            </div>
 
-                          <div className="flex justify-end">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-9 w-9 text-slate-400 hover:text-rose-600"
-                              disabled={rules.length <= 1}
-                              onClick={() => removeRule(tier.id)}
-                              aria-label={t("settings.payguard.remove_band")}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex w-full items-center gap-2 sm:w-auto sm:min-w-[220px]">
+                              <Select
+                                value={whoValue(step)}
+                                onValueChange={(v) => setRuleApprover(tier.id, v)}
+                              >
+                                <SelectTrigger className="h-10 flex-1">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {ROLES.map((r) => (
+                                    <SelectItem key={r.id} value={`role:${r.id}`}>
+                                      {t("settings.payguard.any_with_role", {
+                                        role: t(r.labelKey, { defaultValue: r.fallback }),
+                                      })}
+                                    </SelectItem>
+                                  ))}
+                                  {staff.map((s) => (
+                                    <SelectItem key={s.id} value={`user:${s.id}`}>
+                                      {s.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 shrink-0 text-slate-400 hover:text-rose-600"
+                                disabled={rules.length <= 1}
+                                onClick={() => removeRule(tier.id)}
+                                aria-label={t("settings.payguard.remove_band")}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                        </div>
+
+                        {!isLast ? (
+                          <div className="flex justify-center py-1">
+                            <ArrowDown className="h-4 w-4 text-slate-300 dark:text-slate-600" aria-hidden />
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <Button type="button" variant="outline" size="sm" onClick={addRule}>
@@ -548,138 +768,98 @@ export default function PaymentApprovalSettings() {
                 </Button>
               </div>
 
-              <div className="rounded-xl border border-slate-200 dark:border-slate-800">
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-200"
-                  onClick={() => setShowMore((v) => !v)}
-                >
-                  {t("settings.payguard.more_options", "Reminder options")}
-                  <ChevronDown
-                    className={cn(
-                      "h-4 w-4 text-slate-400 transition-transform",
-                      showMore && "rotate-180",
-                    )}
+              {/* Live preview */}
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+                  {t("settings.payguard.preview_title")}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={previewAmount}
+                    onChange={(e) => setPreviewAmount(e.target.value)}
+                    className="h-9 w-[120px] bg-white dark:bg-slate-950"
+                    aria-label={t("settings.payguard.preview_amount")}
                   />
-                </button>
-                {showMore ? (
-                  <div className="grid gap-3 border-t border-slate-100 px-4 pb-4 pt-3 dark:border-slate-800 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label>{t("settings.payguard.stuck_hours")}</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={72}
-                        value={policy.stuck_hours}
-                        onChange={(e) =>
-                          setPolicy((p) => ({
-                            ...p,
-                            stuck_hours: Number(e.target.value) || 4,
-                          }))
-                        }
-                        className="h-10"
-                      />
-                      <p className="text-[11px] text-slate-400">
-                        {t(
-                          "settings.payguard.stuck_hours_hint",
-                          "Miya nudges the approver on WhatsApp if they wait too long.",
-                        )}
-                      </p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>{t("settings.payguard.max_reminders")}</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={10}
-                        value={policy.max_reminders}
-                        onChange={(e) =>
-                          setPolicy((p) => ({
-                            ...p,
-                            max_reminders: Number(e.target.value) || 3,
-                          }))
-                        }
-                        className="h-10"
-                      />
-                    </div>
+                  <span className="text-sm text-slate-600 dark:text-slate-300">{currency}</span>
+                  <span className="text-sm text-slate-400">→</span>
+                  <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                    {previewTier
+                      ? t("settings.payguard.preview_result", {
+                          approver: approverLabel(previewTier.steps[0], t),
+                        })
+                      : t("settings.payguard.preview_invalid")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Reminders — always visible, compact */}
+              <div className="rounded-xl border border-slate-200 px-4 py-3 dark:border-slate-800">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                  <Bell className="h-4 w-4 text-slate-400" />
+                  {t("settings.payguard.reminders_title")}
+                </div>
+                <p className="mt-1 text-xs text-slate-500">{t("settings.payguard.stuck_hours_hint")}</p>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="stuck-hours" className="text-xs text-slate-500 whitespace-nowrap">
+                      {t("settings.payguard.stuck_hours")}
+                    </Label>
+                    <Input
+                      id="stuck-hours"
+                      type="number"
+                      min={1}
+                      max={72}
+                      value={policy.stuck_hours}
+                      onChange={(e) =>
+                        setPolicy((p) => ({
+                          ...p,
+                          stuck_hours: Number(e.target.value) || 4,
+                        }))
+                      }
+                      className="h-9 w-16"
+                    />
                   </div>
-                ) : null}
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="max-reminders" className="text-xs text-slate-500 whitespace-nowrap">
+                      {t("settings.payguard.max_reminders")}
+                    </Label>
+                    <Input
+                      id="max-reminders"
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={policy.max_reminders}
+                      onChange={(e) =>
+                        setPolicy((p) => ({
+                          ...p,
+                          max_reminders: Number(e.target.value) || 3,
+                        }))
+                      }
+                      className="h-9 w-16"
+                    />
+                  </div>
+                </div>
               </div>
             </>
           )}
 
-          <div className="flex justify-end gap-2 pt-1">
+          <SettingsStickyActions hint={t("settings.payguard.save_hint")}>
             <Button type="button" variant="outline" onClick={() => void load()} disabled={saving}>
               {t("settings.payguard.reset")}
             </Button>
             <Button
               type="button"
-              className="premium-button"
+              className="h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5"
               onClick={() => void save()}
               disabled={saving}
             >
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {t("settings.payguard.save")}
             </Button>
-          </div>
+          </SettingsStickyActions>
         </div>
-      </SettingsSection>
-
-      <SettingsSection
-        icon={<CheckCircle2 className="h-4 w-4" />}
-        iconClassName="bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-        title={t("settings.payguard.queue_title")}
-        description={t("settings.payguard.queue_desc")}
-      >
-        {pending.length === 0 ? (
-          <p className="py-6 text-center text-sm text-slate-500">
-            {t("settings.payguard.queue_empty")}
-          </p>
-        ) : (
-          <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-            {pending.map((a) => {
-              const current = a.steps.find((s) => s.is_current) || a.steps[a.current_step_index];
-              return (
-                <li
-                  key={a.id}
-                  className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                      {a.invoice.vendor_name}
-                      {a.invoice.invoice_number ? ` · #${a.invoice.invoice_number}` : ""}
-                    </p>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {Number(a.invoice.amount).toLocaleString()} {a.invoice.currency}
-                      {" · "}
-                      {t("settings.payguard.waiting_on", {
-                        label: current?.label || t("settings.payguard.approver"),
-                      })}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void act(a.invoice.id, "reject")}
-                    >
-                      {t("settings.payguard.reject")}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="premium-button"
-                      onClick={() => void act(a.invoice.id, "approve")}
-                    >
-                      {t("settings.payguard.approve")}
-                    </Button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
       </SettingsSection>
     </div>
   );

@@ -15,6 +15,7 @@ import type {
   DashboardClockInsResponse,
 } from "@/lib/types";
 import { toast } from "sonner";
+import { DashboardTaskDetailSheet } from "@/components/dashboard/DashboardTaskDetailSheet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1207,7 +1208,7 @@ function StaffInboxEnterpriseCard({
         const tb = b.created_at ? Date.parse(b.created_at) : 0;
         return tb - ta;
       });
-      const items = merged.slice(0, 5);
+      const items = merged.slice(0, WIDGET_TASK_PREVIEW_LIMIT);
       return {
         items,
         pending: pendingRows.length,
@@ -1219,6 +1220,8 @@ function StaffInboxEnterpriseCard({
   const items = listQuery.data?.items ?? [];
   const pendingCount = listQuery.data?.pending ?? 0;
   const escalatedCount = listQuery.data?.escalated ?? 0;
+  const inboxTotal = pendingCount + escalatedCount;
+  const showInboxMore = inboxTotal > WIDGET_TASK_PREVIEW_LIMIT;
   const isLoading = listQuery.isLoading;
   const isError = listQuery.isError;
 
@@ -1435,20 +1438,17 @@ function StaffInboxEnterpriseCard({
           )}
         </div>
 
-        {/* Footer "More v" - keeps the visual consistency with the new
-            category widgets. Whole card is also clickable. */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            goInbox();
-          }}
-          className="mt-1 flex w-full items-center justify-center gap-1 rounded-md py-1 text-[11px] font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
-          aria-label={t("dashboard.category_tasks.more")}
-        >
-          {t("dashboard.category_tasks.more")}
-          <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-        </button>
+        {/* Footer "More" when inbox has more than the preview limit. */}
+        {showInboxMore ? (
+          <WidgetTasksMoreFooter
+            visible
+            t={t}
+            onClick={(e) => {
+              e.stopPropagation();
+              goInbox();
+            }}
+          />
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -1479,7 +1479,8 @@ function ReservationsDashboardCard({
     retry: false,
   });
   const rows = data?.reservations ?? [];
-  const preview = rows.slice(0, 5);
+  const preview = rows.slice(0, WIDGET_TASK_PREVIEW_LIMIT);
+  const showReservationsMore = rows.length > WIDGET_TASK_PREVIEW_LIMIT;
 
   return (
     <Card
@@ -1727,6 +1728,51 @@ function statusPillClass(
   return PILL_VISUALS.PENDING;
 }
 
+/** Max task rows shown inside a dashboard widget before "More". */
+const WIDGET_TASK_PREVIEW_LIMIT = 4;
+
+function taskDemandStatusLabel(
+  pill: PillVisual,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  const tasksKey = `dashboard.tasks_demands.status_${pill.label}`;
+  const categoryKey = `dashboard.category_tasks.pill_${pill.label}`;
+  const fromTasks = t(tasksKey);
+  if (fromTasks !== tasksKey) return fromTasks;
+  const fromCategory = t(categoryKey);
+  if (fromCategory !== categoryKey) return fromCategory;
+  return pill.label.replace(/_/g, " ");
+}
+
+function WidgetTasksMoreFooter({
+  visible,
+  onClick,
+  t,
+  className,
+}: {
+  visible: boolean;
+  onClick: (e: React.MouseEvent) => void;
+  t: (key: string) => string;
+  className?: string;
+}) {
+  if (!visible) return null;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "mt-1 flex w-full items-center justify-center gap-1 rounded-md py-1 text-[11px] font-medium transition-colors",
+        "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+        className,
+      )}
+      aria-label={t("dashboard.category_tasks.more")}
+    >
+      {t("dashboard.category_tasks.more")}
+      <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+    </button>
+  );
+}
+
 function TasksDemandsCard({
   cardBase,
   cardHeaderBase,
@@ -1876,6 +1922,16 @@ function TasksDemandsCard({
     return data.completed;
   }, [data, tab]);
 
+  const activeTabCount =
+    tab === "pending"
+      ? counts.pending
+      : tab === "in_progress"
+        ? counts.in_progress
+        : counts.completed;
+  const previewRows = rows.slice(0, WIDGET_TASK_PREVIEW_LIMIT);
+  const showMoreLink =
+    activeTabCount > WIDGET_TASK_PREVIEW_LIMIT || rows.length > WIDGET_TASK_PREVIEW_LIMIT;
+
   const tabs: { id: TasksDemandsTab; labelKey: string; count: number }[] = [
     { id: "pending", labelKey: "dashboard.tasks_demands.tab_pending", count: counts.pending },
     {
@@ -2000,7 +2056,7 @@ function TasksDemandsCard({
             </div>
           ) : (
             <ul className="space-y-1.5">
-              {rows.map((row) => {
+              {previewRows.map((row) => {
                 const pill = statusPillClass(row.status, row.priority, row.pill_status);
                 const SrcIcon = sourceIcon(row.source);
                 // Hide the source chip for generic SYSTEM-sourced rows
@@ -2088,7 +2144,7 @@ function TasksDemandsCard({
                           className={cn("h-1.5 w-1.5 rounded-full", pill.dot)}
                           aria-hidden
                         />
-                        {t(`dashboard.tasks_demands.status_${pill.label}`)}
+                        {taskDemandStatusLabel(pill, t)}
                       </span>
 
                       {/* Action menu */}
@@ -2203,14 +2259,17 @@ function TasksDemandsCard({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => navigate("/dashboard/staff-requests?kind=dashboard&list=dashboard")}
-          className="mt-3 flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline self-start"
-        >
-          {t("dashboard.tasks_demands.open_all")}
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
+        {showMoreLink ? (
+          <WidgetTasksMoreFooter
+            visible
+            t={t}
+            className="mt-2 self-start w-auto px-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate("/dashboard/staff-requests?kind=dashboard&list=dashboard");
+            }}
+          />
+        ) : null}
       </CardContent>
 
       {/* Reassign picker - same modal the staff inbox uses, opened
@@ -3117,8 +3176,15 @@ function StaffDailyProgressCard({
   t: (key: string) => string;
   navigate: NavigateFunction;
 }) {
+  const { user: authUser } = useAuth() as AuthContextType;
+  const isManager = ["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"].includes(
+    (authUser?.role || "").toUpperCase(),
+  );
+  const [historyOpen, setHistoryOpen] = React.useState(false);
+  const [selectedDate, setSelectedDate] = React.useState<string | null>(null);
+
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ["dashboard", "staff-daily-progress"],
+    queryKey: ["dashboard", "staff-daily-progress", "live"],
     queryFn: () => api.getStaffDailyProgress(),
     refetchInterval: 60_000,
     staleTime: 30_000,
@@ -3126,14 +3192,91 @@ function StaffDailyProgressCard({
     refetchOnMount: "always",
   });
 
-  const staff = data?.staff ?? [];
+  const historyIndexQuery = useQuery({
+    queryKey: ["dashboard", "staff-daily-progress", "history-index"],
+    queryFn: () => api.getStaffDailyProgressHistory(30),
+    enabled: historyOpen && isManager,
+    staleTime: 60_000,
+  });
 
-  // Task done/total progress belongs on the Live Board, not the staff directory.
+  const archivedQuery = useQuery({
+    queryKey: ["dashboard", "staff-daily-progress", "archived", selectedDate],
+    queryFn: () => api.getStaffDailyProgress(selectedDate!),
+    enabled: Boolean(selectedDate),
+    staleTime: 300_000,
+  });
+
+  const liveStaff = data?.staff ?? [];
+
   const goToProgress = React.useCallback(() => {
     navigate("/dashboard/processes-tasks-app?tab=board#staff-live-progress");
   }, [navigate]);
 
+  const renderStaffList = (
+    rows: typeof liveStaff,
+    loading: boolean,
+    emptyKey = "dashboard.staff_daily_progress.empty",
+  ) => {
+    if (loading) {
+      return (
+        <div className="py-6 text-center text-sm text-slate-400">
+          {t("dashboard.staff_daily_progress.loading")}
+        </div>
+      );
+    }
+    if (rows.length === 0) {
+      return (
+        <div className="py-8 text-center">
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t(emptyKey)}</p>
+        </div>
+      );
+    }
+    return (
+      <ul className="space-y-2">
+        {rows.map((row) => {
+          const pct = Math.max(0, Math.min(100, Number(row.pct) || 0));
+          return (
+            <li
+              key={row.id}
+              className="rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <div
+                  className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-900 dark:text-white"
+                  title={row.name}
+                >
+                  {row.name || t("dashboard.staff_daily_progress.fallback_name")}
+                </div>
+                {row.is_absent ? (
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 text-[10px] font-semibold border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+                  >
+                    {t("dashboard.staff_daily_progress.absent")}
+                  </Badge>
+                ) : null}
+                <span className="shrink-0 text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
+                  {row.done}/{row.total} · {pct}%
+                </span>
+              </div>
+              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all",
+                    row.is_absent ? "bg-amber-400" : "bg-emerald-500",
+                  )}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
+
   return (
+    <>
     <Card
       className={cn(cardBase, "flex flex-col cursor-pointer")}
       onClick={goToProgress}
@@ -3155,17 +3298,33 @@ function StaffDailyProgressCard({
             {t("dashboard.staff_daily_progress.title")}
           </CardTitle>
         </div>
-        {data?.date ? (
-          <span className="shrink-0 text-[10px] font-semibold rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
-            {data.date}
-          </span>
-        ) : null}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {data?.date ? (
+            <span className="text-[10px] font-semibold rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+              {data.date}
+            </span>
+          ) : null}
+          {isManager ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-[10px] font-semibold"
+              onClick={(e) => {
+                e.stopPropagation();
+                setHistoryOpen(true);
+              }}
+            >
+              {t("dashboard.staff_daily_progress.history")}
+            </Button>
+          ) : null}
+        </div>
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-4 px-5">
         <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
           {isLoading ? (
-            <div className="py-6 text-center text-sm text-slate-400">{t("dashboard.staff_daily_progress.loading")}</div>
+            renderStaffList([], true)
           ) : isError ? (
             <div className="py-6 flex flex-col items-center gap-2 text-center">
               <p className="text-sm text-slate-500 dark:text-slate-400">{t("dashboard.staff_daily_progress.error")}</p>
@@ -3183,52 +3342,70 @@ function StaffDailyProgressCard({
                 {t("dashboard.staff_daily_progress.retry")}
               </Button>
             </div>
-          ) : staff.length === 0 ? (
-            <div className="py-8 text-center">
-              <p className="text-sm text-slate-500 dark:text-slate-400">{t("dashboard.staff_daily_progress.empty")}</p>
-            </div>
           ) : (
-            <ul className="space-y-2">
-              {staff.map((row) => {
-                const pct = Math.max(0, Math.min(100, Number(row.pct) || 0));
-                return (
-                  <li
-                    key={row.id}
-                    className="rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-900 dark:text-white" title={row.name}>
-                        {row.name || t("dashboard.staff_daily_progress.fallback_name")}
-                      </div>
-                      {row.is_absent ? (
-                        <Badge
-                          variant="outline"
-                          className="shrink-0 text-[10px] font-semibold border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
-                        >
-                          {t("dashboard.staff_daily_progress.absent")}
-                        </Badge>
-                      ) : null}
-                      <span className="shrink-0 text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
-                        {row.done}/{row.total} · {pct}%
-                      </span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-all",
-                          row.is_absent ? "bg-amber-400" : "bg-emerald-500",
-                        )}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            renderStaffList(liveStaff, false)
           )}
         </div>
       </CardContent>
     </Card>
+
+    <AlertDialog open={historyOpen} onOpenChange={setHistoryOpen}>
+      <AlertDialogContent className="max-w-md" onClick={(e) => e.stopPropagation()}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("dashboard.staff_daily_progress.history_title")}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("dashboard.staff_daily_progress.history_desc")}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="max-h-64 overflow-y-auto space-y-1 py-2">
+          {historyIndexQuery.isLoading ? (
+            <p className="text-sm text-slate-500">{t("dashboard.staff_daily_progress.loading")}</p>
+          ) : (historyIndexQuery.data?.days ?? []).length === 0 ? (
+            <p className="text-sm text-slate-500">{t("dashboard.staff_daily_progress.history_empty")}</p>
+          ) : (
+            (historyIndexQuery.data?.days ?? []).map((day) => (
+              <button
+                key={day.date}
+                type="button"
+                className={cn(
+                  "w-full flex items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                  selectedDate === day.date
+                    ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
+                    : "border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800/50",
+                )}
+                onClick={() => setSelectedDate(day.date)}
+              >
+                <span className="font-medium">{day.date}</span>
+                <span className="text-xs text-slate-500 tabular-nums">
+                  {day.staff_count} staff · {day.avg_pct}% · {day.incomplete} open
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+        {selectedDate ? (
+          <div className="border-t border-slate-200 dark:border-slate-700 pt-3 max-h-48 overflow-y-auto">
+            <p className="text-xs font-semibold text-slate-500 mb-2">{selectedDate}</p>
+            {renderStaffList(
+              archivedQuery.data?.staff ?? [],
+              archivedQuery.isLoading,
+              "dashboard.staff_daily_progress.empty_archive",
+            )}
+          </div>
+        ) : null}
+        <AlertDialogFooter>
+          <AlertDialogCancel
+            onClick={() => {
+              setSelectedDate(null);
+              setHistoryOpen(false);
+            }}
+          >
+            {t("dashboard.staff_daily_progress.history_close")}
+          </AlertDialogCancel>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
@@ -4241,16 +4418,45 @@ function CategoryTasksCard({
   );
 
   const toneClasses = CATEGORY_TONE[tone];
+  const openItems: DashboardTaskDemandItem[] = data?.items ?? [];
+  const inProgressItems = useMemo(() => {
+    return openItems.filter((it) => {
+      if (it.status === "IN_PROGRESS") return true;
+      const pill = (it.pill_status || "").toUpperCase();
+      return ["IN_PROGRESS", "ASSIGNED", "WAITING_ON", "ESCALATED"].includes(pill);
+    });
+  }, [openItems]);
+
   const items: DashboardTaskDemandItem[] = useMemo(() => {
     if (!data) return [];
     if (filter === "done") return data.completed ?? [];
-    if (filter === "in_progress") {
-      return (data.items ?? []).filter((it) => it.status === "IN_PROGRESS");
-    }
-    return data.items ?? [];
-  }, [data, filter]);
+    if (filter === "in_progress") return inProgressItems;
+    return openItems;
+  }, [data, filter, inProgressItems, openItems]);
 
   const counts = data?.counts ?? { open: 0, in_progress: 0, completed: 0 };
+
+  // New Miya tasks land as Pending (open lane). If the manager left
+  // "in progress" selected from a prior visit, the card looks empty
+  // even though open items exist — snap back to the open lane.
+  React.useEffect(() => {
+    if (filter !== "in_progress" || !data) return;
+    const openCount = data.counts?.open ?? 0;
+    const inProgCount = data.counts?.in_progress ?? 0;
+    if (openCount > 0 && inProgCount === 0 && inProgressItems.length === 0) {
+      setFilter("open");
+    }
+  }, [data, filter, inProgressItems.length]);
+
+  const activeTotal =
+    filter === "done"
+      ? counts.completed
+      : filter === "in_progress"
+        ? counts.in_progress
+        : counts.open;
+  const previewItems = items.slice(0, WIDGET_TASK_PREVIEW_LIMIT);
+  const showMoreFooter =
+    activeTotal > WIDGET_TASK_PREVIEW_LIMIT || items.length > WIDGET_TASK_PREVIEW_LIMIT;
 
   const goMore = React.useCallback(() => {
     // Preserve the widget's status filter so "More" matches what the manager
@@ -4420,16 +4626,38 @@ function CategoryTasksCard({
                 <Icon className="h-5 w-5" aria-hidden />
               </div>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                {t(
-                  filter === "done"
-                    ? "dashboard.category_tasks.empty_done"
-                    : "dashboard.category_tasks.empty_open",
-                )}
+                {filter === "in_progress" && openItems.length > 0
+                  ? t("dashboard.category_tasks.empty_in_progress_with_open", {
+                      defaultValue: "{{count}} open items are still pending — nothing marked in progress yet.",
+                      count: openItems.length,
+                    })
+                  : t(
+                      filter === "done"
+                        ? "dashboard.category_tasks.empty_done"
+                        : "dashboard.category_tasks.empty_open",
+                    )}
               </p>
+              {filter === "in_progress" && openItems.length > 0 ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="mt-3 h-8 text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFilter("open");
+                  }}
+                >
+                  {t("dashboard.category_tasks.view_all_open", {
+                    defaultValue: "View all open ({{count}})",
+                    count: openItems.length,
+                  })}
+                </Button>
+              ) : null}
             </div>
           ) : (
             <ul className="space-y-1">
-              {items.map((it) => (
+              {previewItems.map((it) => (
                 <CategoryTaskRow
                   key={it.id}
                   item={it}
@@ -4468,24 +4696,17 @@ function CategoryTasksCard({
           )}
         </div>
 
-        {/* Footer "More v" - centered chevron-down that mirrors the
-            mockup. Clicking it (or anywhere on the card) deep-links to
-            the full list view for this bucket. */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            goMore();
-          }}
-          className={cn(
-            "mt-1 flex w-full items-center justify-center gap-1 rounded-md py-1 text-[11px] font-medium transition-colors",
-            "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
-          )}
-          aria-label={t("dashboard.category_tasks.more")}
-        >
-          {t("dashboard.category_tasks.more")}
-          <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-        </button>
+        {/* Footer "More" when the bucket has more rows than the preview. */}
+        {showMoreFooter ? (
+          <WidgetTasksMoreFooter
+            visible
+            t={t}
+            onClick={(e) => {
+              e.stopPropagation();
+              goMore();
+            }}
+          />
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -5223,6 +5444,7 @@ function CustomWidgetTasksCard({
   const qc = useQueryClient();
   const [tab, setTab] = useState<TasksDemandsTab>("pending");
   const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const customDropTarget = def.slot_id || `${CUSTOM_WIDGET_PREFIX}${def.id}`;
   const queryKey = useMemo(
     () => ["dashboard", "custom-widget-tasks", def.id, 5] as const,
@@ -5345,6 +5567,16 @@ function CustomWidgetTasksCard({
     if (tab === "in_progress") return data.in_progress;
     return data.completed;
   }, [data, tab]);
+
+  const activeTabCount =
+    tab === "pending"
+      ? tabCounts.pending
+      : tab === "in_progress"
+        ? tabCounts.in_progress
+        : tabCounts.completed;
+  const previewRows = rows.slice(0, WIDGET_TASK_PREVIEW_LIMIT);
+  const showMoreLink =
+    activeTabCount > WIDGET_TASK_PREVIEW_LIMIT || rows.length > WIDGET_TASK_PREVIEW_LIMIT;
 
   const tabs: { id: TasksDemandsTab; labelKey: string; count: number }[] = [
     {
@@ -5476,7 +5708,7 @@ function CustomWidgetTasksCard({
             </div>
           ) : (
             <ul className="space-y-1.5">
-              {rows.map((row) => {
+              {previewRows.map((row) => {
                 const pill = statusPillClass(row.status, row.priority, row.pill_status);
                 const SrcIcon = sourceIcon(row.source);
                 const showSource =
@@ -5494,7 +5726,7 @@ function CustomWidgetTasksCard({
                 return (
                   <li
                     key={row.id}
-                    onClick={() => navigate(tasksDemandsDetailHref(row))}
+                    onClick={() => setDetailTaskId(row.id)}
                     className={cn(
                       "group rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-slate-700/80 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 px-2 py-1.5 transition-colors cursor-pointer",
                       rowDraggable && "cursor-grab active:cursor-grabbing",
@@ -5554,7 +5786,7 @@ function CustomWidgetTasksCard({
                           className={cn("h-1.5 w-1.5 rounded-full", pill.dot)}
                           aria-hidden
                         />
-                        {t(`dashboard.tasks_demands.status_${pill.label}`)}
+                        {taskDemandStatusLabel(pill, t)}
                       </span>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -5648,6 +5880,21 @@ function CustomWidgetTasksCard({
           )}
         </div>
 
+        {showMoreLink ? (
+          <WidgetTasksMoreFooter
+            visible
+            t={t}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (hasNavigableLink) {
+                openLink();
+                return;
+              }
+              navigate("/dashboard/staff-requests?kind=dashboard&list=dashboard");
+            }}
+          />
+        ) : null}
+
         {showActionButton ? (
           <Button
             type="button"
@@ -5667,6 +5914,15 @@ function CustomWidgetTasksCard({
           </p>
         ) : null}
       </CardContent>
+      <DashboardTaskDetailSheet
+        taskId={detailTaskId}
+        open={!!detailTaskId}
+        onOpenChange={(open) => {
+          if (!open) setDetailTaskId(null);
+        }}
+        widgetTitle={def.title}
+        queryKeysToInvalidate={[queryKey]}
+      />
     </Card>
   );
 }

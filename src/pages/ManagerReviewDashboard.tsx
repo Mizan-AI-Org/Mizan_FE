@@ -28,11 +28,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, TrendingUp, Users, ClipboardCheck, AlertTriangle, MapPin, User, Calendar, ShieldAlert } from "lucide-react";
+import { RefreshCw, TrendingUp, Users, ClipboardCheck, AlertTriangle, MapPin, User, Calendar, ShieldAlert, Camera, ChevronDown } from "lucide-react";
 import { PAGE_SHELL } from "@/lib/page-shell";
 import { TableSkeleton } from "@/components/skeletons";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type SubmittedChecklist = {
   id: string;
@@ -274,6 +275,7 @@ const ManagerReviewDashboard: React.FC = () => {
     },
     onSuccess: async (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["manager-submitted-checklists"] });
+      queryClient.invalidateQueries({ queryKey: ["manager-checklist-accountability"] });
       queryClient.invalidateQueries({ queryKey: ["manager-review-detail"] });
       toast.success(variables.decision === 'APPROVED' ? t("toasts.submission_approved") : t("toasts.submission_rejected"));
       try { await api.logAdminAction(String(variables.id), { action: 'MANAGER_REVIEW_DECISION', message: variables.decision }); } catch { /* ignore */ }
@@ -333,6 +335,42 @@ const ManagerReviewDashboard: React.FC = () => {
   const [dateTo, setDateTo] = useState('');
   const [staffFilter, setStaffFilter] = useState('');
   const [trendDays, setTrendDays] = useState<7 | 14 | 30>(14);
+  const [accountabilityFilter, setAccountabilityFilter] = useState<
+    "all" | "needs_review" | "has_issues" | "overdue"
+  >("all");
+
+  const { data: accountability, isLoading: accountabilityLoading } = useQuery({
+    queryKey: ["manager-checklist-accountability", trendDays],
+    queryFn: () => api.getManagerChecklistAccountability(Math.max(trendDays, 30)),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
+  const accountabilityCounts = accountability?.counts ?? {
+    pending_review: 0,
+    overdue: 0,
+    in_progress: 0,
+    due_today: 0,
+    completed_period: 0,
+    with_issues: 0,
+    open_assignments: 0,
+  };
+
+  const submissionNeedsReview = useCallback((s: SubmittedChecklist) => {
+    const st = String(s.status || "").toUpperCase();
+    return st === "COMPLETED";
+  }, []);
+
+  const submissionHasIssues = useCallback((s: SubmittedChecklist) => {
+    const cs = s.compiled_summary;
+    if (!cs) return false;
+    return (
+      (cs.failed_steps || 0) > 0 ||
+      (cs.required_missing || 0) > 0 ||
+      (cs.out_of_range_measurements || 0) > 0 ||
+      (cs.actions_open || 0) > 0
+    );
+  }, []);
 
   const trendRange = useMemo(() => {
     const end = new Date();
@@ -467,11 +505,21 @@ const ManagerReviewDashboard: React.FC = () => {
     resolution_notes?: string | null;
     incident_type?: string | null;
     description?: string | null;
+    has_attachments?: boolean | null;
+    photo_count?: number | null;
   };
 
   type IncidentDetail = SafetyIncident & {
     photo?: string | null;
     photo_url?: string | null;
+    photo_evidence?: Array<{
+      url?: string;
+      storage_key?: string;
+      filename?: string;
+      mime_type?: string;
+      caption?: string;
+      submitted_at?: string;
+    }> | null;
     attachment_url?: string | null;
     attachment_filename?: string | null;
     attachment_content_type?: string | null;
@@ -510,6 +558,18 @@ const ManagerReviewDashboard: React.FC = () => {
         items.push({ url, name: `Audio ${idx + 1}`, content_type: "audio/mpeg" });
       }
     }
+    for (const [idx, entry] of (detail.photo_evidence || []).entries()) {
+      if (!entry || typeof entry !== "object") continue;
+      const raw = (entry.storage_key || entry.url || "").trim();
+      const url = resolveMediaUrl(raw) || raw;
+      if (url && !items.some((i) => i.url === url)) {
+        items.push({
+          url,
+          name: entry.filename?.trim() || `Photo ${idx + 1}`,
+          content_type: entry.mime_type || "image/jpeg",
+        });
+      }
+    }
     return items;
   }
 
@@ -540,6 +600,8 @@ const ManagerReviewDashboard: React.FC = () => {
           last_name: typeof x.assigned_to_details.last_name === "string" ? x.assigned_to_details.last_name : null,
         } : null,
         created_at: typeof x.created_at === "string" ? x.created_at : null,
+        has_attachments: Boolean(x.has_attachments),
+        photo_count: typeof x.photo_count === "number" ? x.photo_count : 0,
       }));
   }, [incidents]);
 
@@ -690,7 +752,11 @@ const ManagerReviewDashboard: React.FC = () => {
       const fromOk = !dateFrom || ts >= new Date(dateFrom).getTime();
       const toOk = !dateTo || ts <= new Date(dateTo).getTime() + 86400000 - 1;
       const staffOk = !staffFilter || String(s.submitted_by?.name || '').toLowerCase().includes(staffFilter.trim().toLowerCase());
-      return fromOk && toOk && staffOk;
+      const reviewOk =
+        accountabilityFilter !== "needs_review" || submissionNeedsReview(s);
+      const issuesOk =
+        accountabilityFilter !== "has_issues" || submissionHasIssues(s);
+      return fromOk && toOk && staffOk && reviewOk && issuesOk;
     });
     const arr = [...inRange];
     arr.sort((a, b) => {
@@ -712,7 +778,7 @@ const ManagerReviewDashboard: React.FC = () => {
       return sortDir === 'asc' ? r : -r;
     });
     return arr;
-  }, [filtered, sortBy, sortDir, dateFrom, dateTo, staffFilter]);
+  }, [filtered, sortBy, sortDir, dateFrom, dateTo, staffFilter, accountabilityFilter, submissionNeedsReview, submissionHasIssues]);
 
   // Pagination calculations for checklists
   const totalChecklistItems = sortedTable.length;
@@ -764,7 +830,9 @@ const ManagerReviewDashboard: React.FC = () => {
               "rounded-full px-1.5 py-0.5 text-[10px] tabular-nums",
               activeTab === "submitted" ? "bg-white/20" : "bg-slate-200 dark:bg-slate-700",
             )}>
-              {trendKpis.totalInRange}
+              {accountabilityCounts.pending_review > 0
+                ? accountabilityCounts.pending_review
+                : trendKpis.totalInRange}
             </span>
           </button>
           <button
@@ -796,6 +864,274 @@ const ManagerReviewDashboard: React.FC = () => {
         </TabsList>
 
         <TabsContent value="submitted" className="mt-0 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Card className={cn(accountabilityCounts.pending_review > 0 && "border-amber-300 dark:border-amber-800")}>
+              <CardContent className="p-4">
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  {t("analytics.accountability.pending_review", "Needs your review")}
+                </div>
+                <div className={cn(
+                  "mt-1 text-2xl font-semibold tabular-nums",
+                  accountabilityCounts.pending_review > 0 && "text-amber-600",
+                )}>
+                  {accountabilityLoading ? "…" : accountabilityCounts.pending_review}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {t("analytics.accountability.pending_review_desc", "Completed — awaiting sign-off")}
+                </div>
+              </CardContent>
+            </Card>
+            <Card className={cn(accountabilityCounts.overdue > 0 && "border-red-300 dark:border-red-900")}>
+              <CardContent className="p-4">
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  {t("analytics.accountability.overdue", "Overdue")}
+                </div>
+                <div className={cn(
+                  "mt-1 text-2xl font-semibold tabular-nums",
+                  accountabilityCounts.overdue > 0 && "text-red-600",
+                )}>
+                  {accountabilityLoading ? "…" : accountabilityCounts.overdue}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {t("analytics.accountability.overdue_desc", "Past due — not finished")}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  {t("analytics.accountability.in_progress", "In progress")}
+                </div>
+                <div className="mt-1 text-2xl font-semibold tabular-nums text-sky-600">
+                  {accountabilityLoading ? "…" : accountabilityCounts.in_progress}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {t("analytics.accountability.in_progress_desc", "Started but not submitted")}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  {t("analytics.accountability.with_issues", "Submissions with issues")}
+                </div>
+                <div className={cn(
+                  "mt-1 text-2xl font-semibold tabular-nums",
+                  accountabilityCounts.with_issues > 0 && "text-amber-700",
+                )}>
+                  {accountabilityLoading ? "…" : accountabilityCounts.with_issues}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {t("analytics.accountability.with_issues_desc", "Failed steps, gaps, or open actions")}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {(accountability?.pending_review?.length ?? 0) > 0 ? (
+            <Card className="border-amber-200 dark:border-amber-900/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  {t("analytics.accountability.review_queue", "Review queue")}
+                </CardTitle>
+                <CardDescription>
+                  {t("analytics.accountability.review_queue_desc", "Sign off or reject completed checklists to hold staff accountable.")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {(accountability?.pending_review ?? []).slice(0, 8).map((row) => {
+                  const r = row as SubmittedChecklist & { needs_review?: boolean };
+                  return (
+                    <div
+                      key={`${r.source_type}-${r.id}`}
+                      className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-amber-100 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-950/20 px-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm truncate">{r.template?.name || t("analytics.checklist_fallback")}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {r.submitted_by?.name || "-"}
+                          {r.submitted_at
+                            ? ` · ${new Date(r.submitted_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
+                            : ""}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        className="shrink-0 bg-emerald-600 hover:bg-emerald-700"
+                        onClick={() => {
+                          setDetailId(String(r.id));
+                          setDetailSourceType(r.source_type === "shift_progress" ? "shift_progress" : "execution");
+                          setReviewComment(r.notes || "");
+                        }}
+                      >
+                        {t("analytics.review_now", "Review now")}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {(accountability?.overdue?.length ?? 0) > 0 ? (
+            <Collapsible defaultOpen={false} className="group/overdue">
+              <Card className="border-red-200 dark:border-red-900/40">
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full text-left rounded-t-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <CardTitle className="text-base flex items-center gap-2 text-red-700 dark:text-red-400">
+                            <AlertTriangle className="h-4 w-4 shrink-0" />
+                            {t("analytics.accountability.overdue_queue", "Overdue assignments")}
+                            <Badge variant="outline" className="ml-1 border-red-300 text-red-700 dark:text-red-300 tabular-nums">
+                              {accountability?.overdue?.length ?? 0}
+                            </Badge>
+                          </CardTitle>
+                          <CardDescription className="mt-1">
+                            {t("analytics.accountability.overdue_queue_desc", "Follow up with staff who missed their checklist deadline.")}
+                          </CardDescription>
+                        </div>
+                        <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/overdue:rotate-180" />
+                      </div>
+                    </CardHeader>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-2 pt-0">
+                    {(accountability?.overdue ?? []).slice(0, 6).map((row) => {
+                      const r = row as SubmittedChecklist;
+                      return (
+                        <div
+                          key={`overdue-${r.source_type}-${r.id}`}
+                          className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm"
+                        >
+                          <div className="min-w-0">
+                            <div className="font-medium truncate">{r.template?.name || "-"}</div>
+                            <div className="text-xs text-muted-foreground">{r.submitted_by?.name || "-"}</div>
+                          </div>
+                          <Badge variant="outline" className="shrink-0 border-red-300 text-red-700 dark:text-red-300">
+                            {t("analytics.accountability.overdue", "Overdue")}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          ) : null}
+
+          {(accountability?.staff_accountability?.length ?? 0) > 0 ? (
+            <Collapsible defaultOpen={false} className="group/staff">
+              <Card>
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full text-left rounded-t-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Users className="h-4 w-4 text-emerald-600 shrink-0" />
+                            {t("analytics.accountability.staff_table", "Staff accountability")}
+                            <Badge variant="secondary" className="ml-1 tabular-nums">
+                              {accountability?.staff_accountability?.length ?? 0}
+                            </Badge>
+                          </CardTitle>
+                          <CardDescription className="mt-1">
+                            {t("analytics.accountability.staff_table_desc", {
+                              defaultValue: "Per-person completion, overdue work, and quality flags for the last {{days}} days.",
+                              days: accountability?.period_days ?? 30,
+                            })}
+                          </CardDescription>
+                        </div>
+                        <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/staff:rotate-180" />
+                      </div>
+                    </CardHeader>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="overflow-x-auto pt-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t("analytics.accountability.col_staff", "Staff")}</TableHead>
+                          <TableHead className="text-right">{t("analytics.accountability.col_completed", "Completed")}</TableHead>
+                          <TableHead className="text-right">{t("analytics.accountability.col_open", "Open")}</TableHead>
+                          <TableHead className="text-right">{t("analytics.accountability.col_overdue", "Overdue")}</TableHead>
+                          <TableHead className="text-right">{t("analytics.accountability.col_pending_review", "Awaiting review")}</TableHead>
+                          <TableHead className="text-right">{t("analytics.accountability.col_issues", "With issues")}</TableHead>
+                          <TableHead className="text-right">{t("common.avg_score")}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(accountability?.staff_accountability ?? []).map((row) => (
+                          <TableRow
+                            key={row.staff_id}
+                            className={cn(row.overdue > 0 && "bg-red-50/40 dark:bg-red-950/10")}
+                          >
+                            <TableCell className="font-medium">{row.staff_name}</TableCell>
+                            <TableCell className="text-right tabular-nums">{row.completed}</TableCell>
+                            <TableCell className="text-right tabular-nums">{row.open}</TableCell>
+                            <TableCell className={cn("text-right tabular-nums", row.overdue > 0 && "text-red-600 font-semibold")}>
+                              {row.overdue}
+                            </TableCell>
+                            <TableCell className={cn("text-right tabular-nums", row.pending_review > 0 && "text-amber-600 font-semibold")}>
+                              {row.pending_review}
+                            </TableCell>
+                            <TableCell className={cn("text-right tabular-nums", row.with_issues > 0 && "text-amber-700")}>
+                              {row.with_issues}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {typeof row.avg_completion_rate === "number" ? `${row.avg_completion_rate}%` : "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          ) : null}
+
+          {(liveItems.length > 0 || liveProgressLoading) ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <RefreshCw className={cn("h-4 w-4 text-emerald-600", liveProgressLoading && "animate-spin")} />
+                  {t("analytics.accountability.live_progress", "Live checklist progress")}
+                </CardTitle>
+                <CardDescription>{t("analytics.accountability.live_progress_desc", "Staff currently completing checklists on WhatsApp or the app.")}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {liveItems.length === 0 ? (
+                  <div className="text-sm text-muted-foreground py-2">{t("analytics.accountability.no_live", "No checklists in progress right now.")}</div>
+                ) : (
+                  liveItems.slice(0, 8).map((item) => (
+                    <div key={item.id} className="rounded-lg border border-slate-100 dark:border-slate-800 px-3 py-2 text-sm">
+                      <div className="flex justify-between gap-2">
+                        <span className="font-medium truncate">{item.staff_name || "Staff"}</span>
+                        <span className="text-xs tabular-nums text-muted-foreground">{item.progress_percentage ?? 0}%</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {item.completed_tasks}/{item.total_tasks} steps
+                        {item.channel ? ` · ${item.channel}` : ""}
+                      </div>
+                      <Progress value={item.progress_percentage ?? 0} className="h-1 mt-1.5" />
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+
           <Card className="overflow-hidden">
             <CardHeader className="pb-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -952,6 +1288,27 @@ const ManagerReviewDashboard: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
+                {([
+                  { id: "all" as const, label: t("analytics.accountability.filter_all", "All") },
+                  { id: "needs_review" as const, label: t("analytics.accountability.filter_review", "Needs review") },
+                  { id: "has_issues" as const, label: t("analytics.accountability.filter_issues", "Has issues") },
+                ]).map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => { setAccountabilityFilter(f.id); setChecklistPage(1); }}
+                    className={cn(
+                      "rounded-full px-3 py-1 text-xs font-medium border transition",
+                      accountabilityFilter === f.id
+                        ? "bg-emerald-600 text-white border-emerald-600"
+                        : "border-slate-200 dark:border-slate-700 text-muted-foreground hover:bg-muted/60",
+                    )}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
                 <Input
                   placeholder="Search name or checklist…"
                   value={search}
@@ -986,7 +1343,11 @@ const ManagerReviewDashboard: React.FC = () => {
                 <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 px-4 py-12 text-center">
                   <ClipboardCheck className="mx-auto h-10 w-10 text-muted-foreground/40 mb-3" />
                   <div className="font-medium text-sm">{t("analytics.no_submissions")}</div>
-                  <div className="text-xs text-muted-foreground mt-1">Try widening the date range or clearing filters.</div>
+                  <div className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+                    {accountabilityCounts.open_assignments > 0 || accountabilityCounts.in_progress > 0
+                      ? t("analytics.accountability.empty_with_open", "{{open}} checklists are assigned or in progress — use Live progress and Staff accountability above to follow up.", { open: accountabilityCounts.open_assignments + accountabilityCounts.in_progress })
+                      : t("analytics.try_widening_range")}
+                  </div>
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800">
@@ -1071,12 +1432,23 @@ const ManagerReviewDashboard: React.FC = () => {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge
-                                variant={isCompletedLike(s.status) ? "secondary" : "outline"}
-                                className="text-[10px]"
-                              >
-                                {s.status || "-"}
-                              </Badge>
+                              <div className="flex flex-col gap-1">
+                                <Badge
+                                  variant={isCompletedLike(s.status) ? "secondary" : "outline"}
+                                  className="text-[10px] w-fit"
+                                >
+                                  {s.status || "-"}
+                                </Badge>
+                                {submissionNeedsReview(s) ? (
+                                  <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                                    {t("analytics.accountability.awaiting_signoff", "Awaiting sign-off")}
+                                  </span>
+                                ) : String(s.status || "").toUpperCase() === "APPROVED" ? (
+                                  <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                                    {t("analytics.accountability.signed_off", "Manager signed off")}
+                                  </span>
+                                ) : null}
+                              </div>
                             </TableCell>
                             <TableCell>
                               <Button
@@ -1136,34 +1508,8 @@ const ManagerReviewDashboard: React.FC = () => {
             </CardContent>
           </Card>
 
-          {(liveItems.length > 0 || recentActivity.length > 0) && (
-            <div className="grid gap-4 lg:grid-cols-2">
-              {liveItems.length > 0 ? (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <RefreshCw className={cn("h-4 w-4 text-emerald-600", liveProgressLoading && "animate-spin")} />
-                      Live checklist progress
-                    </CardTitle>
-                    <CardDescription>In-progress WhatsApp checklists</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {liveItems.slice(0, 8).map((item) => (
-                      <div key={item.id} className="rounded-lg border border-slate-100 dark:border-slate-800 px-3 py-2 text-sm">
-                        <div className="flex justify-between gap-2">
-                          <span className="font-medium truncate">{item.staff_name || "Staff"}</span>
-                          <span className="text-xs tabular-nums text-muted-foreground">{item.progress_percentage ?? 0}%</span>
-                        </div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {item.completed_tasks}/{item.total_tasks} steps
-                          {item.channel ? ` · ${item.channel}` : ""}
-                        </div>
-                        <Progress value={item.progress_percentage ?? 0} className="h-1 mt-1.5" />
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              ) : null}
+          {(recentActivity.length > 0) && (
+            <div className="grid gap-4 lg:grid-cols-1">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">{t("analytics.live_activity")}</CardTitle>
@@ -1310,6 +1656,7 @@ const ManagerReviewDashboard: React.FC = () => {
                         <TableHead>Status</TableHead>
                         <TableHead>Owner</TableHead>
                         <TableHead>Reported</TableHead>
+                        <TableHead className="w-[52px] text-center">Photos</TableHead>
                         <TableHead className="w-[90px]" />
                       </TableRow>
                     </TableHeader>
@@ -1372,6 +1719,19 @@ const ManagerReviewDashboard: React.FC = () => {
                                   minute: "2-digit",
                                 })
                               : "-"}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {incident.has_attachments || (incident.photo_count ?? 0) > 0 ? (
+                              <span
+                                className="inline-flex items-center justify-center gap-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-[10px] font-semibold tabular-nums"
+                                title={t("analytics.incident_has_photos")}
+                              >
+                                <Camera className="h-3 w-3" />
+                                {(incident.photo_count ?? 0) > 0 ? incident.photo_count : "✓"}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground">—</span>
+                            )}
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Button size="sm" variant="outline" onClick={() => setSelectedIncident(incident.id)}>
@@ -1512,18 +1872,15 @@ const ManagerReviewDashboard: React.FC = () => {
                     </div>
                   </div>
 
-                  {(() => {
-                    const attachments = incidentAttachmentItems(incidentDetail as IncidentDetail);
-                    if (attachments.length === 0) return null;
-                    return (
-                      <div>
-                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                          Attachments
-                        </div>
-                        <AttachmentList attachments={attachments} />
-                      </div>
-                    );
-                  })()}
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                      {t("analytics.incident_photo_evidence")}
+                    </div>
+                    <AttachmentList
+                      attachments={incidentAttachmentItems(incidentDetail as IncidentDetail)}
+                      emptyMessage={t("analytics.no_incident_photos")}
+                    />
+                  </div>
 
                   <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
                     <div className="text-sm font-semibold">Assign owner</div>

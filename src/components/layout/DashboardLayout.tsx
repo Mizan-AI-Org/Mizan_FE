@@ -1,15 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Outlet, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { Bell, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNotifications } from '../../hooks/useNotifications';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { NotificationDropdownContent } from "@/components/layout/NotificationDropdownContent";
 import { UserAvatarMenu } from "@/components/layout/UserAvatarMenu";
 // Removed mobile sidebar Sheet components per design update
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -19,14 +14,21 @@ import { MiyaWidget } from "@/components/MiyaWidget";
 import ImpersonationBanner from "@/components/platform-admin/ImpersonationBanner";
 import { LiveDateTime } from "@/components/LiveDateTime";
 import { OpsSearchBar } from "@/components/OpsSearchBar";
+import { DashboardTaskDetailSheet } from "@/components/dashboard/DashboardTaskDetailSheet";
+import { closeDashboardTaskSheet } from "@/lib/dashboard-task-sheet";
 import { cn } from "@/lib/utils";
-import { PAGE_SHELL } from "@/lib/page-shell";
+import { PAGE_SHELL, SETTINGS_PAGE_SHELL } from "@/lib/page-shell";
 import { isImpersonating } from "@/lib/impersonation";
 
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const taskSheetId = (searchParams.get("task") || "").trim() || null;
+  const taskWidgetTitle = (searchParams.get("widget") || "").trim() || undefined;
   const { notifications, markAllAsRead, markAsRead } = useNotifications();
+  const isSettingsPage = location.pathname === "/dashboard/settings" || location.pathname.startsWith("/dashboard/settings/");
+  const pageShell = isSettingsPage ? SETTINGS_PAGE_SHELL : PAGE_SHELL;
   const isOnDashboardRoot = location.pathname === "/dashboard";
   const isAutomationBuilder = /^\/dashboard\/automations\/.+/.test(location.pathname);
   const { t } = useLanguage();
@@ -88,57 +90,13 @@ const DashboardLayout: React.FC = () => {
                       )}
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-80">
-                    <div className="px-4 py-2 font-medium">{t("common.notifications.title")}</div>
-                    <DropdownMenuSeparator />
-                    {notifications.length === 0 ? (
-                      <p className="text-center text-sm text-muted-foreground py-4">{t("common.notifications.empty")}</p>
-                    ) : (
-                      notifications.map((notification) => (
-                        <DropdownMenuItem
-                          key={notification.id}
-                          className="flex flex-col items-start space-y-1 p-2 cursor-pointer"
-                          onClick={() => {
-                            // Deep-link for staff requests (manager inbox)
-                            const data = (notification as unknown as { data?: any }).data || {};
-                            const route = data?.route as string | undefined;
-                            const staffRequestId = data?.staff_request_id as string | undefined;
-                            if (route) {
-                              markAsRead(notification.id);
-                              navigate(route);
-                              return;
-                            }
-                            if (staffRequestId) {
-                              markAsRead(notification.id);
-                              navigate(`/dashboard/staff-requests/${staffRequestId}`);
-                              return;
-                            }
-                          }}
-                        >
-                          <p className="text-sm font-medium capitalize">{notification.verb.replace(/_/g, ' ')}</p>
-                          {notification.description && (
-                            <p className="text-xs text-muted-foreground">{notification.description}</p>
-                          )}
-                          <p className="text-xs text-muted-foreground">{new Date(notification.timestamp).toLocaleString()}</p>
-                          {!notification.read && (
-                            <Button variant="link" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); markAsRead(notification.id); }} className="self-end h-auto p-0 text-xs text-blue-600">
-                              {t("common.notifications.mark_as_read")}
-                            </Button>
-                          )}
-                        </DropdownMenuItem>
-                      ))
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => navigate("/dashboard/staff-requests")}
-                      className="text-sm"
-                    >
-                      {t("staff.view_staff_requests")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={markAllAsRead}>
-                      {t("common.notifications.mark_all_read")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
+                  <NotificationDropdownContent
+                    notifications={notifications}
+                    markAsRead={markAsRead}
+                    markAllAsRead={markAllAsRead}
+                    t={t}
+                    staffRequestsLabel={t("staff.view_staff_requests")}
+                  />
                 </DropdownMenu>
               </div>
 
@@ -154,7 +112,7 @@ const DashboardLayout: React.FC = () => {
 
       <main className="flex-1">
         {location.pathname !== "/dashboard" && !isAutomationBuilder && (
-          <div className={`${PAGE_SHELL} pt-4 pb-3`}>
+          <div className={`${pageShell} pt-4 pb-3`}>
             {location.pathname.startsWith("/dashboard/settings/") &&
             location.pathname !== "/dashboard/settings" ? (
               <button
@@ -182,6 +140,14 @@ const DashboardLayout: React.FC = () => {
         <Outlet />
       </main>
       <MiyaWidget />
+      <DashboardTaskDetailSheet
+        taskId={taskSheetId}
+        open={!!taskSheetId}
+        onOpenChange={(open) => {
+          if (!open) closeDashboardTaskSheet(navigate, location);
+        }}
+        widgetTitle={taskWidgetTitle}
+      />
     </div>
   );
 };
