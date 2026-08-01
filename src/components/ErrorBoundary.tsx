@@ -39,17 +39,23 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         return { hasError: true, error, errorInfo: null };
     }
 
+    private errorId: string | null = null;
+
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
         if (isBenignDomRace(error)) {
             console.warn("Ignored benign DOM race:", error.message);
             return;
         }
-        console.error("Uncaught error:", error, errorInfo);
+        // Full error + component stack only ever goes to the console (dev tools,
+        // Sentry breadcrumbs, etc.) - never rendered to the page in production.
+        this.errorId = Math.random().toString(36).slice(2, 10);
+        console.error(`Uncaught error [${this.errorId}]:`, error, errorInfo);
         this.setState({ errorInfo });
     }
 
     public render() {
         if (this.state.hasError) {
+            const isDev = import.meta.env.DEV;
             return (
                 <div className="flex items-center justify-center min-h-screen bg-gray-100">
                     <Card className="w-full max-w-md shadow-lg">
@@ -58,19 +64,24 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
                             <CardDescription>We're sorry for the inconvenience. Please try again later.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {this.state.error && (
+                            {isDev && this.state.error && (
                                 <div className="bg-red-50 border border-red-200 p-3 rounded-md text-sm text-red-800">
-                                    <p className="font-semibold">Error:</p>
+                                    <p className="font-semibold">Error (dev only):</p>
                                     <p>{this.state.error.toString()}</p>
                                 </div>
                             )}
-                            {this.state.errorInfo && (
+                            {isDev && this.state.errorInfo && (
                                 <details className="text-sm text-gray-700">
-                                    <summary className="cursor-pointer text-blue-600">Details</summary>
+                                    <summary className="cursor-pointer text-blue-600">Component stack (dev only)</summary>
                                     <pre className="mt-2 p-2 bg-gray-50 rounded-md overflow-auto max-h-40">
                                         {this.state.errorInfo.componentStack}
                                     </pre>
                                 </details>
+                            )}
+                            {!isDev && this.errorId && (
+                                <p className="text-xs text-gray-500">
+                                    Reference: {this.errorId}
+                                </p>
                             )}
                             <Button onClick={() => window.location.reload()} className="w-full">
                                 Reload Page

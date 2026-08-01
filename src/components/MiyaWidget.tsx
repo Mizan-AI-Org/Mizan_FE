@@ -59,6 +59,9 @@ export const MiyaWidget: React.FC = () => {
   const chunksRef = useRef<Blob[]>([]);
   const historyRef = useRef<ChatTurn[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const launcherButtonRef = useRef<HTMLButtonElement>(null);
 
   const canUseVoiceInput = Boolean(user?.role && VOICE_INPUT_ROLES.has(user.role));
 
@@ -75,6 +78,23 @@ export const MiyaWidget: React.FC = () => {
     window.addEventListener("miya:open", openHandler);
     return () => window.removeEventListener("miya:open", openHandler);
   }, []);
+
+  // Basic dialog semantics: move focus in on open, back to the launcher on
+  // close, and let Escape close it like any other modal.
+  useEffect(() => {
+    if (open) {
+      const focusTimer = window.setTimeout(() => textInputRef.current?.focus(), 0);
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") setOpen(false);
+      };
+      document.addEventListener("keydown", onKeyDown);
+      return () => {
+        window.clearTimeout(focusTimer);
+        document.removeEventListener("keydown", onKeyDown);
+      };
+    }
+    launcherButtonRef.current?.focus();
+  }, [open]);
 
   useEffect(() => {
     if (!user || !accessToken || hideOnPlatformAdmin) return;
@@ -448,6 +468,10 @@ export const MiyaWidget: React.FC = () => {
     <div className={cn("fixed z-[9999]", isRTL ? "left-5" : "right-5")} style={{ bottom: 72 }}>
       {open && (
         <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="miya-chat-title"
           className={cn(
             "mb-3 w-[min(100vw-2rem,360px)] rounded-2xl border border-emerald-100 bg-white shadow-2xl overflow-hidden flex flex-col dark:border-slate-700 dark:bg-slate-900",
             "animate-in slide-in-from-bottom-4 duration-300",
@@ -459,7 +483,7 @@ export const MiyaWidget: React.FC = () => {
             style={{ background: "linear-gradient(135deg, #00E676 0%, #00C853 100%)" }}
           >
             <div>
-              <div className="font-bold text-lg">{t("ai.chat_title")}</div>
+              <div id="miya-chat-title" className="font-bold text-lg">{t("ai.chat_title")}</div>
             </div>
             <button
               type="button"
@@ -590,7 +614,12 @@ export const MiyaWidget: React.FC = () => {
                   {recording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                 </button>
               )}
+              <label htmlFor="miya-chat-text-input" className="sr-only">
+                {t("ai.chat_placeholder")}
+              </label>
               <input
+                id="miya-chat-text-input"
+                ref={textInputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={t("ai.chat_placeholder")}
@@ -614,6 +643,7 @@ export const MiyaWidget: React.FC = () => {
       )}
 
       <button
+        ref={launcherButtonRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(
@@ -622,6 +652,7 @@ export const MiyaWidget: React.FC = () => {
         )}
         aria-label={open ? t("ai.chat_close") : t("ai.chat_button")}
         aria-expanded={open}
+        aria-haspopup="dialog"
       >
         <div
           className={cn(

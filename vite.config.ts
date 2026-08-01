@@ -56,7 +56,6 @@ export default defineConfig(({ mode }) => ({
           // other.
           if (id.includes('xlsx')) return 'vendor-xlsx';
           if (id.includes('jspdf') || id.includes('html2canvas')) return 'vendor-pdf';
-          if (id.includes('firebase')) return 'vendor-firebase';
 
           // Everything else (including React, Radix, recharts, leaflet, etc.)
           // lands in the entry chunk or in per-route chunks chosen by Rollup,
