@@ -256,7 +256,7 @@ function isMiyaChatInviteLink(link: string): boolean {
 
 function isStaffActivationInviteLink(link: string): boolean {
     if (!link) return false;
-    // Short redirects: /wa (activation) — not /wa/hi (chat)
+    // Short redirects: /wa (activation) - not /wa/hi (chat)
     if (/\/wa\/?($|\?)/i.test(link) && !/\/wa\/hi/i.test(link)) return true;
     if (link.includes("/api/go/wa")) return true;
     try {
@@ -269,7 +269,7 @@ function isStaffActivationInviteLink(link: string): boolean {
 
 /**
  * Prefer the ONE-TAP activation wa.me link. Never return the "Hi Miya" chat link
- * for staff invites — rewrite it to the activation phrase if needed.
+ * for staff invites - rewrite it to the activation phrase if needed.
  */
 function pickActivationInviteLink(data: {
     invite_link?: string;
@@ -284,7 +284,7 @@ function pickActivationInviteLink(data: {
             return candidate;
         }
     }
-    // API sometimes returns chat_link-shaped URLs in invite fields — rebuild activation.
+    // API sometimes returns chat_link-shaped URLs in invite fields - rebuild activation.
     const phone =
         extractWaMePhone(data.invite_link || "") ||
         extractWaMePhone(data.invite_short_link || "") ||
@@ -958,7 +958,7 @@ const PresenceTab: React.FC = () => {
                                         {todayShifts.map((s) => (
                                             <li key={s.id} className="flex items-center justify-between text-slate-700 dark:text-slate-300">
                                                 <span>
-                                                    {formatShiftTime(s.start_time)} – {formatShiftTime(s.end_time)}
+                                                    {formatShiftTime(s.start_time)} - {formatShiftTime(s.end_time)}
                                                     {s.role && ` (${s.role})`}
                                                 </span>
                                             </li>
@@ -990,7 +990,7 @@ const PresenceTab: React.FC = () => {
                                                 <option value="">- Select shift -</option>
                                                 {todayShifts.map((s) => (
                                                     <option key={s.id} value={s.id}>
-                                                        {formatShiftTime(s.start_time)} – {formatShiftTime(s.end_time)}
+                                                        {formatShiftTime(s.start_time)} - {formatShiftTime(s.end_time)}
                                                         {s.role ? ` ${s.role}` : ""}
                                                     </option>
                                                 ))}
@@ -1036,7 +1036,7 @@ const TeamTab: React.FC = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
     const [lastInviteLink, setLastInviteLinkState] = useState<string | null>(null);
-    /** Always store the activation phrase — never the "Hi Miya" chat link. */
+    /** Always store the activation phrase - never the "Hi Miya" chat link. */
     const setLastInviteLink = (link: string | null) => {
         if (!link) {
             setLastInviteLinkState(null);
@@ -1258,7 +1258,7 @@ const TeamTab: React.FC = () => {
         }
     };
 
-    /** Copy wa.me link — activation invite (ONE-TAP) or Miya chat, depending on preferChat. */
+    /** Copy wa.me link - activation invite (ONE-TAP) or Miya chat, depending on preferChat. */
     const handleCopyMiyaWhatsAppLink = async (
         preferChat = true,
     ): Promise<{ link: string; kind: "activation" | "chat" } | null> => {
@@ -2932,7 +2932,7 @@ const TeamTab: React.FC = () => {
                 }}
             />
 
-            {/* Staff activation link (after ONE-TAP invite — never the "Hi Miya" chat link) */}
+            {/* Staff activation link (after ONE-TAP invite - never the "Hi Miya" chat link) */}
             {lastInviteLink && isStaffActivationInviteLink(lastInviteLink) && (
                 <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
                     <p className="text-sm font-medium text-slate-700 dark:text-slate-300 shrink-0">{t("staff.invite_link_ready")}</p>

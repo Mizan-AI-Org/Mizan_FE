@@ -97,7 +97,7 @@ export async function exportTimesheetToPDF(
 ): Promise<void> {
   const { weekDates, staffByRole, shiftsByStaffByDate } = buildTimesheetMatrix(shifts, staffMembers, currentDate);
   const dateStr = (d: Date) => format(d, "yyyy-MM-dd");
-  const rangeLabel = `${format(weekDates[0], "MMM d")} – ${format(weekDates[6], "MMM d, yyyy")}`;
+  const rangeLabel = `${format(weekDates[0], "MMM d")} - ${format(weekDates[6], "MMM d, yyyy")}`;
 
   const { jsPDF } = await import("jspdf");
   const { autoTable } = await import("jspdf-autotable");

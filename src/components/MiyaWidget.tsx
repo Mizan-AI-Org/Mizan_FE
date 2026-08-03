@@ -199,7 +199,7 @@ export const MiyaWidget: React.FC = () => {
               );
             }
           }
-          throw new Error("Miya is still thinking — try a simpler question or try again.");
+          throw new Error("Miya is still thinking - try a simpler question or try again.");
         }
 
         const data = await resp.json();
@@ -340,7 +340,7 @@ export const MiyaWidget: React.FC = () => {
               );
             }
           }
-          throw new Error("Miya is still thinking — try a simpler question or try again.");
+          throw new Error("Miya is still thinking - try a simpler question or try again.");
         }
 
         const data = await resp.json();

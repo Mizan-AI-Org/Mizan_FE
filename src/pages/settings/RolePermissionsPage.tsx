@@ -411,7 +411,7 @@ export default function RolePermissionsPage() {
 
           <div className="flex-1 min-w-[8px]" />
 
-          {/* Permission type tabs — inline in toolbar */}
+          {/* Permission type tabs - inline in toolbar */}
           <div className="flex flex-wrap gap-0.5 p-0.5 rounded-lg bg-slate-200/60 dark:bg-slate-800/80">
             {PERM_TABS.map(({ id, icon: Icon }) => (
               <button

@@ -1249,7 +1249,7 @@ export default function Settings() {
               title={t("onboarding.owners.title", "Who owns what?")}
               description={t(
                 "onboarding.owners.subtitle",
-                "Pick one or more people for each category — Miya routes incidents, requests, and tasks to them automatically.",
+                "Pick one or more people for each category - Miya routes incidents, requests, and tasks to them automatically.",
               )}
             >
               <div className="space-y-6">

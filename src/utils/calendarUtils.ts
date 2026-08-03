@@ -93,7 +93,7 @@ export const parseShiftTime = (shift: Shift, baseDate: Date, timezone: string): 
   let endDate = new Date(anchor);
   endDate.setHours(endHour, endMinute, 0, 0);
 
-  // Handle overnight shifts (e.g. 22:00–01:30)
+  // Handle overnight shifts (e.g. 22:00-01:30)
   if (endDate <= startDate) {
     endDate = addDays(endDate, 1);
   }
@@ -391,7 +391,7 @@ export const getDayBoundaryCrossings = (shift: Shift, baseDate: Date, timezone: 
 
 /**
  * Split overnight shifts into start-day + next-day segments for week/day grids
- * (Google Calendar style: Thu 22:00–24:00 and Fri 00:00–01:30).
+ * (Google Calendar style: Thu 22:00-24:00 and Fri 00:00-01:30).
  */
 export const expandOvernightForWeekGrid = (
   cs: CalendarShift,

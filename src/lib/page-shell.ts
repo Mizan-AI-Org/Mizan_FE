@@ -8,7 +8,7 @@ export const SETTINGS_PAGE_SHELL =
 
 export const PAGE_SHELL_PADDED = `${PAGE_SHELL} py-6 pb-28`;
 
-/** Directly below DashboardLayout back row — avoids double top spacing. */
+/** Directly below DashboardLayout back row - avoids double top spacing. */
 export const PAGE_SHELL_BELOW_BACK = `${PAGE_SHELL} pb-28 pt-0`;
 
 /** Wider shell for automation builder canvas. */

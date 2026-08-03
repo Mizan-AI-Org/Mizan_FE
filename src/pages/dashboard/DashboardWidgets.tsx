@@ -4438,7 +4438,7 @@ function CategoryTasksCard({
 
   // New Miya tasks land as Pending (open lane). If the manager left
   // "in progress" selected from a prior visit, the card looks empty
-  // even though open items exist — snap back to the open lane.
+  // even though open items exist - snap back to the open lane.
   React.useEffect(() => {
     if (filter !== "in_progress" || !data) return;
     const openCount = data.counts?.open ?? 0;
@@ -4628,7 +4628,7 @@ function CategoryTasksCard({
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 {filter === "in_progress" && openItems.length > 0
                   ? t("dashboard.category_tasks.empty_in_progress_with_open", {
-                      defaultValue: "{{count}} open items are still pending — nothing marked in progress yet.",
+                      defaultValue: "{{count}} open items are still pending - nothing marked in progress yet.",
                       count: openItems.length,
                     })
                   : t(
@@ -6254,12 +6254,20 @@ function StaffMessagesCard({
         if (wa > 1 || n > 1) {
           toast.success(
             t("dashboard.staff_messages.send_success_group", { count: wa }) ||
-              `WhatsApp delivered to ${wa} teammates.`,
+              `WhatsApp accepted for ${wa} teammates.`,
           );
         } else {
+          const who = (resp.recipient_name || "").trim();
+          const phone = (resp.recipient_phone || "").trim();
+          const dest =
+            who && phone
+              ? `${who} (+${phone})`
+              : who || (phone ? `+${phone}` : "");
           toast.success(
-            t("dashboard.staff_messages.send_success") ||
-              "Message sent on WhatsApp.",
+            dest
+              ? `WhatsApp accepted for ${dest}. Check their chat with Mizan AI.`
+              : t("dashboard.staff_messages.send_success") ||
+                  "Message sent on WhatsApp.",
           );
         }
       } else if (resp.whatsapp_failed) {

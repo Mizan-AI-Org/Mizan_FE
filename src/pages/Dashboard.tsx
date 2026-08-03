@@ -32,6 +32,7 @@ import {
   ChevronRight,
   Search,
   Loader2,
+  Radio,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { Badge } from "@/components/ui/badge";
@@ -107,6 +108,17 @@ const apps: AppItem[] = [
     descKey: "app.locations_overview.desc",
     roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
     appId: "locations_overview",
+  },
+  {
+    name: "OPERATIONS LIVE",
+    href: "/dashboard/operations-live",
+    icon: Radio,
+    gradient: "bg-orange-500",
+    description: "Daily demands, incidents, and tasks in one live feed",
+    nameKey: "app.operations_live",
+    descKey: "app.operations_live.desc",
+    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+    appId: "operations_live",
   },
   {
     name: "PROCESSES & TASKS",

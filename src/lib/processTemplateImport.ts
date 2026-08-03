@@ -541,7 +541,7 @@ export function parseProcessTemplatesFromCsv(text: string, fileName = 'import.cs
   return parseRowsToTemplates(rows, fileName);
 }
 
-const TASK_LINE_RE = /^[-*•–-]\s+(.+)$/;
+const TASK_LINE_RE = /^[-*•--]\s+(.+)$/;
 const NUMBERED_TASK_RE = /^\d+[.)]\s+(.+)$/;
 const HEADING_RE = /^#{1,6}\s+(.+)$/;
 const LABEL_PROCESS_RE = /^(?:process|checklist|template|name)\s*[:：-]\s*(.+)$/i;

@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const initializeAuth = useCallback(async () => {
     try {
-      // Platform Admin (/admin) uses its own login + /api/platform/* — skip tenant bootstrap.
+      // Platform Admin (/admin) uses its own login + /api/platform/* - skip tenant bootstrap.
       if (location.pathname.startsWith("/admin")) {
         return;
       }

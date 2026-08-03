@@ -46,7 +46,7 @@ export default function OpsPagination({
       )}
     >
       <p className="text-xs text-slate-500 dark:text-slate-400">
-        Showing <span className="font-semibold text-slate-700 dark:text-slate-200">{from}–{to}</span> of{" "}
+        Showing <span className="font-semibold text-slate-700 dark:text-slate-200">{from}-{to}</span> of{" "}
         <span className="font-semibold text-slate-700 dark:text-slate-200">{total}</span>
       </p>
       <div className="flex items-center gap-2">

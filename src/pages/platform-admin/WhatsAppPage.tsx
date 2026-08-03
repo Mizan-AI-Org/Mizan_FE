@@ -431,7 +431,7 @@ export default function WhatsAppPage() {
                   value={form.activation_phone}
                   onChange={(e) => setForm((f) => ({ ...f, activation_phone: e.target.value }))}
                 />
-                <p className={opsMuted}>Staff wa.me link — not the Meta Phone Number ID.</p>
+                <p className={opsMuted}>Staff wa.me link - not the Meta Phone Number ID.</p>
               </label>
 
               <div className="flex flex-wrap gap-4 pt-1">

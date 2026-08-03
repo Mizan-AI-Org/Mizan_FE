@@ -95,7 +95,7 @@ export async function searchStaffPicker(opts: SearchOpts = {}): Promise<StaffPic
   return { results, count };
 }
 
-/** Lightweight roster check — avoids loading the full staff list. */
+/** Lightweight roster check - avoids loading the full staff list. */
 export async function fetchStaffRosterCount(): Promise<number> {
   const { count } = await searchStaffPicker({ pageSize: 1 });
   return count;
