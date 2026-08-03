@@ -187,7 +187,7 @@ const Timesheets: React.FC = () => {
       return d;
     });
     const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
-    return { weekStart, days, label: `${fmt(days[0])} – ${fmt(days[6])}` };
+    return { weekStart, days, label: `${fmt(days[0])} - ${fmt(days[6])}` };
   }, [dateFrom]);
 
   const roleColor = (role?: string) => {
@@ -432,7 +432,7 @@ const Timesheets: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  /** Export payroll timesheets (hours, earnings) from backend for pay period – CSV for payroll systems */
+  /** Export payroll timesheets (hours, earnings) from backend for pay period - CSV for payroll systems */
   const exportPayrollCSV = async () => {
     const start = dateFrom || weekRange.days[0]?.toISOString().slice(0, 10);
     const end = dateTo || weekRange.days[weekRange.days.length - 1]?.toISOString().slice(0, 10);
@@ -575,7 +575,7 @@ const Timesheets: React.FC = () => {
                           <div className="h-10" />
                         ) : shifts.map((s) => (
                           <div key={s.id} className={`border rounded px-2 py-1 mb-1 ${roleColor(s.role)}`}>
-                            <div className="font-medium">{hhmm(s.start_time)} – {hhmm(s.end_time)}</div>
+                            <div className="font-medium">{hhmm(s.start_time)} - {hhmm(s.end_time)}</div>
                             <div className="text-xs">{s.role}</div>
                           </div>
                         ))}

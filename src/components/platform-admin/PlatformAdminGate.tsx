@@ -35,7 +35,7 @@ export default function PlatformAdminGate() {
 
   useEffect(() => {
     if (!denied) return;
-    // Drop tenant session artifacts — restaurant JWTs cannot open Platform Admin.
+    // Drop tenant session artifacts - restaurant JWTs cannot open Platform Admin.
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("user");

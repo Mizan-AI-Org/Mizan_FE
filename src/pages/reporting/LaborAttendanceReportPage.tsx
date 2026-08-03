@@ -320,7 +320,7 @@ const LaborAttendanceReportPage: React.FC = () => {
                           </SelectContent>
                         </Select>
                         <span className="text-sm text-muted-foreground tabular-nums">
-                          {(staffPage - 1) * pageSize + 1}–{Math.min(staffPage * pageSize, byStaff.length)} of {byStaff.length}
+                          {(staffPage - 1) * pageSize + 1}-{Math.min(staffPage * pageSize, byStaff.length)} of {byStaff.length}
                         </span>
                       </div>
                       {staffTotalPages > 1 && (

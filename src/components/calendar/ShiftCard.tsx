@@ -15,15 +15,15 @@ export interface ShiftCardProps {
   compact?: boolean;
 }
 
-/** One distinct color per day of week (Sun=0 … Sat=6) – clearly different hues. */
+/** One distinct color per day of week (Sun=0 … Sat=6) - clearly different hues. */
 const DAY_COLORS: Record<number, string> = {
-  0: '#dc2626', // Sunday – red
-  1: '#ea580c', // Monday – orange
-  2: '#65a30d', // Tuesday – lime
-  3: '#059669', // Wednesday – emerald
-  4: '#0284c7', // Thursday – sky
-  5: '#4f46e5', // Friday – indigo
-  6: '#7c3aed', // Saturday – violet
+  0: '#dc2626', // Sunday - red
+  1: '#ea580c', // Monday - orange
+  2: '#65a30d', // Tuesday - lime
+  3: '#059669', // Wednesday - emerald
+  4: '#0284c7', // Thursday - sky
+  5: '#4f46e5', // Friday - indigo
+  6: '#7c3aed', // Saturday - violet
 };
 
 function getColorForDayOfWeek(shift: CalendarShift): string {
@@ -124,7 +124,7 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
         onMouseLeave={onMouseLeave}
         role="button"
         tabIndex={0}
-        title={`${title} · ${startTime} – ${endTime}`}
+        title={`${title} · ${startTime} - ${endTime}`}
         aria-label={`Shift from ${startTime} to ${endTime}`}
       >
         <div className="shift-card-title">{title}</div>
@@ -142,12 +142,12 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
         onMouseLeave={onMouseLeave}
         role="button"
         tabIndex={0}
-        title={`${title} · ${startTime} – ${endTime}`}
+        title={`${title} · ${startTime} - ${endTime}`}
         aria-label={`Shift from ${startTime} to ${endTime}`}
       >
         <div className="shift-card-title">{title}</div>
         <div className="shift-card-time">
-          {startTime} – {endTime}
+          {startTime} - {endTime}
         </div>
       </div>
     );
@@ -177,7 +177,7 @@ export const ShiftCard: React.FC<ShiftCardProps> = ({
         <div className="shift-card-time flex items-center gap-1">
           <Clock className="w-3 h-3 flex-shrink-0 opacity-70" />
           <span className="truncate">
-            {startTime} – {endTime}
+            {startTime} - {endTime}
           </span>
         </div>
 

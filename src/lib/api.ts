@@ -43,7 +43,7 @@ import {
 // In production, also use relative /api to leverage Netlify/Vercel rewrites to api.heymizan.ai.
 // Only use explicit URL if VITE_BACKEND_URL is set (e.g., for local testing against production).
 const explicitBackend = import.meta.env.VITE_BACKEND_URL;
-/** In production, call api.heymizan.ai directly — host /api rewrites are not always applied. */
+/** In production, call api.heymizan.ai directly - host /api rewrites are not always applied. */
 export const BACKEND_URL =
   explicitBackend ?? (import.meta.env.PROD ? "https://api.heymizan.ai" : "");
 
@@ -167,7 +167,7 @@ let refreshInFlight: Promise<string | null> | null = null;
 
 /**
  * Persist rotated tokens. Backend has ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION
- * enabled, so the old refresh token stops working the instant a new one is issued —
+ * enabled, so the old refresh token stops working the instant a new one is issued  - 
  * both values from a refresh response must be stored, not just the access token.
  */
 function persistTokens(access: string, refresh?: string) {
@@ -681,6 +681,20 @@ export class BackendService {
   async getDashboardTasksDemands(limit = 5): Promise<DashboardTasksDemandsResponse> {
     const qs = `?limit=${encodeURIComponent(String(limit))}`;
     return this.fetchWithError(`/dashboard/tasks-demands/${qs}`);
+  }
+
+  /** Operations Live - unified daily operations feed. */
+  async getOperationsLive(params?: {
+    limit?: number;
+    q?: string;
+    searchBy?: "staff" | "task" | "category";
+  }): Promise<import("@/lib/types").OperationsLiveResponse> {
+    const search = new URLSearchParams();
+    if (params?.limit) search.set("limit", String(params.limit));
+    if (params?.q?.trim()) search.set("q", params.q.trim());
+    if (params?.searchBy) search.set("search_by", params.searchBy);
+    const qs = search.toString();
+    return this.fetchWithError(`/dashboard/operations-live/${qs ? `?${qs}` : ""}`);
   }
 
   async getDashboardMyTasks(status = "open", limit = 25): Promise<{ success: boolean; tasks: DashboardTaskDemandItem[]; count: number }> {

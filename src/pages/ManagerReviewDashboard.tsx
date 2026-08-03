@@ -877,7 +877,7 @@ const ManagerReviewDashboard: React.FC = () => {
                   {accountabilityLoading ? "…" : accountabilityCounts.pending_review}
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  {t("analytics.accountability.pending_review_desc", "Completed — awaiting sign-off")}
+                  {t("analytics.accountability.pending_review_desc", "Completed - awaiting sign-off")}
                 </div>
               </CardContent>
             </Card>
@@ -893,7 +893,7 @@ const ManagerReviewDashboard: React.FC = () => {
                   {accountabilityLoading ? "…" : accountabilityCounts.overdue}
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  {t("analytics.accountability.overdue_desc", "Past due — not finished")}
+                  {t("analytics.accountability.overdue_desc", "Past due - not finished")}
                 </div>
               </CardContent>
             </Card>
@@ -1089,7 +1089,7 @@ const ManagerReviewDashboard: React.FC = () => {
                               {row.with_issues}
                             </TableCell>
                             <TableCell className="text-right tabular-nums">
-                              {typeof row.avg_completion_rate === "number" ? `${row.avg_completion_rate}%` : "—"}
+                              {typeof row.avg_completion_rate === "number" ? `${row.avg_completion_rate}%` : " - "}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1345,7 +1345,7 @@ const ManagerReviewDashboard: React.FC = () => {
                   <div className="font-medium text-sm">{t("analytics.no_submissions")}</div>
                   <div className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
                     {accountabilityCounts.open_assignments > 0 || accountabilityCounts.in_progress > 0
-                      ? t("analytics.accountability.empty_with_open", "{{open}} checklists are assigned or in progress — use Live progress and Staff accountability above to follow up.", { open: accountabilityCounts.open_assignments + accountabilityCounts.in_progress })
+                      ? t("analytics.accountability.empty_with_open", "{{open}} checklists are assigned or in progress - use Live progress and Staff accountability above to follow up.", { open: accountabilityCounts.open_assignments + accountabilityCounts.in_progress })
                       : t("analytics.try_widening_range")}
                   </div>
                 </div>
@@ -1480,7 +1480,7 @@ const ManagerReviewDashboard: React.FC = () => {
               {sortedTable.length > 0 && (
                 <div className="flex items-center justify-between pt-2">
                   <div className="text-sm text-muted-foreground">
-                    Showing {checklistStartIndex + 1}–{Math.min(checklistEndIndex, totalChecklistItems)} of {totalChecklistItems}
+                    Showing {checklistStartIndex + 1}-{Math.min(checklistEndIndex, totalChecklistItems)} of {totalChecklistItems}
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
@@ -1730,7 +1730,7 @@ const ManagerReviewDashboard: React.FC = () => {
                                 {(incident.photo_count ?? 0) > 0 ? incident.photo_count : "✓"}
                               </span>
                             ) : (
-                              <span className="text-[10px] text-muted-foreground">—</span>
+                              <span className="text-[10px] text-muted-foreground">-</span>
                             )}
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
@@ -1748,7 +1748,7 @@ const ManagerReviewDashboard: React.FC = () => {
               {filteredIncidents.length > 0 && (
                 <div className="flex items-center justify-between pt-1">
                   <div className="text-sm text-muted-foreground">
-                    Showing {incidentStartIndex + 1}–{Math.min(incidentEndIndex, totalIncidentItems)} of {totalIncidentItems}
+                    Showing {incidentStartIndex + 1}-{Math.min(incidentEndIndex, totalIncidentItems)} of {totalIncidentItems}
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
@@ -2123,7 +2123,7 @@ const ManagerReviewDashboard: React.FC = () => {
                             <div className="text-xs text-muted-foreground">
                               Shift: {(exec as any).shift.shift_date || '-'}{' '}
                               {(exec as any).shift.start_time ? `(${new Date((exec as any).shift.start_time).toLocaleTimeString()}` : ''}
-                              {(exec as any).shift.end_time ? ` – ${new Date((exec as any).shift.end_time).toLocaleTimeString()})` : (exec as any).shift.start_time ? ')' : ''}
+                              {(exec as any).shift.end_time ? ` - ${new Date((exec as any).shift.end_time).toLocaleTimeString()})` : (exec as any).shift.start_time ? ')' : ''}
                               {(exec as any).shift.role ? ` • Role: ${(exec as any).shift.role}` : ''}
                               {(exec as any).channel ? ` • Channel: ${(exec as any).channel}` : ''}
                             </div>
@@ -2131,7 +2131,7 @@ const ManagerReviewDashboard: React.FC = () => {
                             <div className="text-xs text-muted-foreground">
                               Shift: {exec.assigned_shift_info.shift_date || '-'}{' '}
                               {exec.assigned_shift_info.start_time ? `(${new Date(exec.assigned_shift_info.start_time).toLocaleTimeString()}` : ''}
-                              {exec.assigned_shift_info.end_time ? ` – ${new Date(exec.assigned_shift_info.end_time).toLocaleTimeString()})` : exec.assigned_shift_info.start_time ? ')' : ''}
+                              {exec.assigned_shift_info.end_time ? ` - ${new Date(exec.assigned_shift_info.end_time).toLocaleTimeString()})` : exec.assigned_shift_info.start_time ? ')' : ''}
                               {exec.assigned_shift_info.role ? ` • Role: ${exec.assigned_shift_info.role}` : ''}
                               {exec.assigned_shift_info.department ? ` • Dept: ${exec.assigned_shift_info.department}` : ''}
                             </div>

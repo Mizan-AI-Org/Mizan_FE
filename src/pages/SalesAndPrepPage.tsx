@@ -160,7 +160,7 @@ export default function SalesAndPrepPage() {
     if (!prepItems.length) return;
     setExportingPrep(format);
     const dateLabel = prepList?.target_end_date
-      ? `${prepList?.target_date}–${prepList.target_end_date}`
+      ? `${prepList?.target_date}-${prepList.target_end_date}`
       : (prepList?.target_date || prepStartDate);
     try {
       if (format === "pdf") {
@@ -357,7 +357,7 @@ export default function SalesAndPrepPage() {
                     <h3 className="font-semibold text-slate-900 dark:text-white">{t("dashboard.prep.title") || "Recommended Prep List"}</h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {useDateRange
-                        ? `Prep list for ${prepList?.target_date || prepStartDate} – ${prepList?.target_end_date || prepEndDate} (${prepList?.day_of_week})`
+                        ? `Prep list for ${prepList?.target_date || prepStartDate} - ${prepList?.target_end_date || prepEndDate} (${prepList?.day_of_week})`
                         : `Prep list for ${prepList?.target_date || prepStartDate} (${prepList?.day_of_week})`}
                     </p>
                   </div>
@@ -374,7 +374,7 @@ export default function SalesAndPrepPage() {
                     }}
                     className="text-xs px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
                   />
-                  <span className="text-slate-400 dark:text-slate-500">–</span>
+                  <span className="text-slate-400 dark:text-slate-500">-</span>
                   <input
                     type="date"
                     value={prepEndDate}
@@ -597,7 +597,7 @@ export default function SalesAndPrepPage() {
           <DialogHeader>
             <DialogTitle className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <span>
-                Prep List - {prepList?.target_end_date ? `${prepList?.target_date} – ${prepList.target_end_date}` : (prepList?.target_date || prepStartDate)} ({prepList?.day_of_week})
+                Prep List - {prepList?.target_end_date ? `${prepList?.target_date} - ${prepList.target_end_date}` : (prepList?.target_date || prepStartDate)} ({prepList?.day_of_week})
               </span>
               <div className="flex flex-wrap gap-2">
                 <Button

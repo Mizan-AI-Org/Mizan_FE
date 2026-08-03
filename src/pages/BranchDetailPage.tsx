@@ -770,7 +770,7 @@ function ShiftsCard({ shifts }: { shifts: ShiftToday[] }) {
                       <>
                         {" · "}
                         {formatTime(s.start_time)}
-                        {s.end_time && ` – ${formatTime(s.end_time)}`}
+                        {s.end_time && ` - ${formatTime(s.end_time)}`}
                       </>
                     )}
                   </div>

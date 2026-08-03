@@ -22,7 +22,7 @@ const AcceptInvitation: React.FC = () => {
     const [lastName, setLastName] = useState('');
     const [password, setPassword] = useState<string>('');
     const [confirmPassword, setConfirmPassword] = useState<string>('');
-    // PIN the staff will use to log in (4 digits) – for frontline staff only
+    // PIN the staff will use to log in (4 digits) - for frontline staff only
     const [pinCode, setPinCode] = useState<string>('');
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
@@ -68,7 +68,7 @@ const AcceptInvitation: React.FC = () => {
                     return;
                 }
 
-                // User already accepted – redirect to login with a friendly message
+                // User already accepted - redirect to login with a friendly message
                 if (data.is_accepted) {
                     toast({
                         title: t('auth.accept.toast_already_accepted_title') || 'Already accepted',

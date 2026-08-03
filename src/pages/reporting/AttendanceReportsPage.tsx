@@ -255,7 +255,7 @@ export default function AttendanceReportsPage() {
                       </TableCell>
                       <TableCell className="text-sm whitespace-nowrap">
                         {row.shift?.start && row.shift?.end
-                          ? `${row.shift.start} – ${row.shift.end}`
+                          ? `${row.shift.start} - ${row.shift.end}`
                           : row.shift?.status === "UNSCHEDULED"
                             ? t("reporting.attendance_team.unscheduled")
                             : "-"}
@@ -362,7 +362,7 @@ export default function AttendanceReportsPage() {
                 <div className="text-slate-500">{t("reporting.attendance_team.detail_shift")}</div>
                 <div>
                   {detailRow.shift?.start && detailRow.shift?.end
-                    ? `${detailRow.shift.start} – ${detailRow.shift.end}`
+                    ? `${detailRow.shift.start} - ${detailRow.shift.end}`
                     : "-"}
                 </div>
                 <div className="text-slate-500">{t("reporting.attendance_team.detail_clock_in")}</div>

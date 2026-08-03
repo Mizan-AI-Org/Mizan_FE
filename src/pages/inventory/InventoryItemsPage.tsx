@@ -375,7 +375,7 @@ export default function InventoryItemsPage() {
                                         min="0"
                                         value={newItem.shelf_life_days ?? ""}
                                         onChange={(e) => setNewItem({ ...newItem, shelf_life_days: e.target.value === "" ? null : parseInt(e.target.value, 10) })}
-                                        placeholder="Perishable = 1–2"
+                                        placeholder="Perishable = 1-2"
                                     />
                                     <p className="text-[11px] text-muted-foreground">Leave blank for dry goods.</p>
                                 </div>
@@ -483,7 +483,7 @@ export default function InventoryItemsPage() {
                                             min="0"
                                             value={selectedItem.shelf_life_days ?? ""}
                                             onChange={(e) => setSelectedItem({ ...selectedItem, shelf_life_days: e.target.value === "" ? null : parseInt(e.target.value, 10) })}
-                                            placeholder="Perishable = 1–2"
+                                            placeholder="Perishable = 1-2"
                                         />
                                         <p className="text-[11px] text-muted-foreground">Leave blank for dry goods.</p>
                                     </div>

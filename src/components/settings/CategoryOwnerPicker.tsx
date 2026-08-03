@@ -157,7 +157,7 @@ export function CategoryOwnerPicker({
                       total: rosterTotal,
                     })
                   : t("onboarding.owners.roster_total", {
-                      defaultValue: "{{total}} people on roster — type to narrow",
+                      defaultValue: "{{total}} people on roster - type to narrow",
                       total: rosterTotal,
                     })}
               </p>

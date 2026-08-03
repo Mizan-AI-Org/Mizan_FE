@@ -394,7 +394,7 @@ const SchedulingAnalytics: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm font-medium">Week</p>
-                    <p className="text-muted-foreground">{salesLaborRec.week_start} – {salesLaborRec.week_end}</p>
+                    <p className="text-muted-foreground">{salesLaborRec.week_start} - {salesLaborRec.week_end}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium">Estimated revenue</p>

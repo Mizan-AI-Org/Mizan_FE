@@ -124,7 +124,7 @@ function tiersForCurrency(tiers: Tier[], currency: string): Tier[] {
     });
 }
 
-/** Single open-ended tier is confusing — use the recommended ladder instead. */
+/** Single open-ended tier is confusing - use the recommended ladder instead. */
 function needsDefaultLadder(currencyTiers: Tier[]): boolean {
   if (currencyTiers.length === 0) return true;
   if (currencyTiers.length === 1) {
@@ -794,7 +794,7 @@ export default function PaymentApprovalSettings() {
                 </div>
               </div>
 
-              {/* Reminders — always visible, compact */}
+              {/* Reminders - always visible, compact */}
               <div className="rounded-xl border border-slate-200 px-4 py-3 dark:border-slate-800">
                 <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
                   <Bell className="h-4 w-4 text-slate-400" />

@@ -203,7 +203,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
     });
   };
 
-  const displayRange = `${format(weekDates[0], "MMM d")} – ${format(weekDates[6], "MMM d, yyyy")}`;
+  const displayRange = `${format(weekDates[0], "MMM d")} - ${format(weekDates[6], "MMM d, yyyy")}`;
 
   if (isLoading) {
     return <StaffTimesheetViewSkeleton />;

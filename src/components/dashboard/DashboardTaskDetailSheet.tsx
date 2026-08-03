@@ -51,6 +51,7 @@ export function DashboardTaskDetailSheet({
       await queryClient.invalidateQueries({ queryKey: key });
     }
     await queryClient.invalidateQueries({ queryKey: ["dashboard", "tasks-demands"] });
+    await queryClient.invalidateQueries({ queryKey: ["dashboard", "operations-live"] });
     await queryClient.invalidateQueries({ queryKey: ["dashboard", "custom-widget-tasks"] });
     await queryClient.invalidateQueries({
       predicate: (q) =>

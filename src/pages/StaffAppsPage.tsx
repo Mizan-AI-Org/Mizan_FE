@@ -143,7 +143,7 @@ const StaffAppsPage: React.FC = () => {
         </Badge>
       </div>
 
-      {/* Responsive grid: 2–4 per row depending on size */}
+      {/* Responsive grid: 2-4 per row depending on size */}
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {filtered.map((item) => {
           const Icon = item.icon;

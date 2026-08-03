@@ -191,22 +191,28 @@ export const useNotifications = () => {
                         if (ntype.startsWith('TASK_') || data.type === 'tasks_invalidate') {
                             queryClient.invalidateQueries({ queryKey: ['dashboard', 'tasks-demands'] });
                             queryClient.invalidateQueries({ queryKey: ['dashboard', 'my-tasks'] });
+                            queryClient.invalidateQueries({ queryKey: ['dashboard', 'operations-live'] });
                             queryClient.invalidateQueries({
                                 predicate: (q) =>
                                     Array.isArray(q.queryKey) &&
                                     q.queryKey[0] === 'dashboard' &&
-                                    q.queryKey[1] === 'category-tasks',
+                                    (q.queryKey[1] === 'category-tasks' ||
+                                        q.queryKey[1] === 'clock-ins' ||
+                                        q.queryKey[1] === 'summary'),
                             });
                         }
                     }
                     if (data.type === 'tasks_invalidate') {
                         queryClient.invalidateQueries({ queryKey: ['dashboard', 'tasks-demands'] });
                         queryClient.invalidateQueries({ queryKey: ['dashboard', 'my-tasks'] });
+                        queryClient.invalidateQueries({ queryKey: ['dashboard', 'operations-live'] });
                         queryClient.invalidateQueries({
                             predicate: (q) =>
                                 Array.isArray(q.queryKey) &&
                                 q.queryKey[0] === 'dashboard' &&
-                                q.queryKey[1] === 'category-tasks',
+                                (q.queryKey[1] === 'category-tasks' ||
+                                    q.queryKey[1] === 'clock-ins' ||
+                                    q.queryKey[1] === 'summary'),
                         });
                     }
                 };

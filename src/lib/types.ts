@@ -274,6 +274,30 @@ export interface DashboardTaskDemandItem {
     proof_submitter_name?: string | null;
 }
 
+/** Row in the Operations Live full-page feed. */
+export interface OperationsLiveItem extends DashboardTaskDemandItem {
+    from?: { name: string; role?: string | null };
+    to?: { id?: string | null; name: string; is_me?: boolean; role?: string | null };
+    operation?: string;
+    display_status?: 'critical' | 'pending' | 'in_progress' | 'completed';
+    escalated_to?: { name: string; role?: string | null } | null;
+    attachment_label?: string | null;
+    attachment_url?: string | null;
+    /** Soft-delete via CANCELLED is available for this row. */
+    can_cancel?: boolean;
+    /** Custom dashboard process widget title (e.g. Wedding). */
+    process_label?: string | null;
+}
+
+export interface OperationsLiveResponse {
+    restaurant_name: string;
+    counts: { pending: number; in_progress: number; completed: number };
+    pending: OperationsLiveItem[];
+    in_progress: OperationsLiveItem[];
+    completed: OperationsLiveItem[];
+    generated_at: string;
+}
+
 /** Bucket id served by GET /api/dashboard/category-tasks/. */
 export type CategoryTaskBucket =
     | 'urgent'
@@ -384,6 +408,9 @@ export interface StaffMessageSendResponse {
     whatsapp_platform_issue?: boolean;
     /** In-app notifications delivered (same as announcement fan-out count). */
     notified_count?: number;
+    /** Single-recipient sends: name + digits-only phone Meta accepted. */
+    recipient_name?: string | null;
+    recipient_phone?: string | null;
     /** Echo of targeting mode + filters for analytics / toasts. */
     audience?: {
         mode: string;
