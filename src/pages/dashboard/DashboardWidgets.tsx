@@ -1030,7 +1030,6 @@ function inboxCategoryClass(category: string | null | undefined): {
   const c = String(category || "").toUpperCase();
   switch (c) {
     case "HR":
-    case "DOCUMENT":
     case "PAYROLL":
       return {
         bg: "bg-violet-50 dark:bg-violet-950/30",
