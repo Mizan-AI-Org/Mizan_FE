@@ -257,7 +257,7 @@ export class BackendService {
       let message = "Request failed";
       try {
         const err = await response.json();
-        message = err.detail || err.error || err.message || message;
+        message = err.message_for_user || err.detail || err.error || err.message || message;
       } catch {
         message = `Request failed (${response.status})`;
       }
@@ -805,6 +805,24 @@ export class BackendService {
     );
   }
 
+  /** Assign one or more staff to a dashboard task; each new assignee gets WhatsApp. */
+  async updateDashboardTaskAssignees(
+    taskId: string,
+    assigneeIds: string[],
+    note?: string,
+  ): Promise<DashboardTaskDemandItem> {
+    return this.fetchWithError(
+      `/dashboard/tasks-demands/${taskId}/assignee/`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          assignee_ids: assigneeIds,
+          ...(note ? { note } : {}),
+        }),
+      },
+    );
+  }
+
   /**
    * Recent outbound WhatsApp messages from this manager's tenant,
    * with delivery / read receipts (sourced from the WhatsApp
@@ -1068,6 +1086,55 @@ export class BackendService {
     });
   }
 
+  async getInvoiceTimeline(
+    invoiceId: string,
+  ): Promise<{
+    success: boolean;
+    invoice_id: string;
+    events: import("./types").InvoiceTimelineEvent[];
+    summary: string;
+  }> {
+    return this.fetchWithError(`/finance/invoices/${invoiceId}/timeline/`);
+  }
+
+  async actInvoicePaymentApproval(
+    invoiceId: string,
+    action: "approve" | "reject" | "request_info",
+    note?: string,
+  ): Promise<{ success: boolean; status?: string; message?: string }> {
+    return this.fetchWithError(`/finance/payment-approval/act/`, {
+      method: "POST",
+      body: JSON.stringify({ invoice_id: invoiceId, action, note: note || "" }),
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  async uploadInvoiceProof(
+    invoiceId: string,
+    file: File,
+  ): Promise<{ success: boolean; invoice: import("./types").Invoice }> {
+    const formData = new FormData();
+    formData.append("proof_of_payment", file, file.name);
+    const headers = this.getHeaders();
+    delete headers["Content-Type"];
+    const response = await fetch(`${API_BASE}/finance/invoices/${invoiceId}/proof-of-payment/`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+    if (!response.ok) {
+      let message = "Upload failed";
+      try {
+        const err = await response.json();
+        message = err.message_for_user || err.detail || err.error || err.message || message;
+      } catch {
+        message = `Upload failed (${response.status})`;
+      }
+      throw new Error(message);
+    }
+    return response.json();
+  }
+
   async getInvoice(invoiceId: string): Promise<import("./types").Invoice> {
     return this.fetchWithError(`/finance/invoices/${invoiceId}/`);
   }
@@ -1205,7 +1272,7 @@ export class BackendService {
       let message = "Request failed";
       try {
         const err = await response.json();
-        message = err.detail || err.error || err.message || message;
+        message = err.message_for_user || err.detail || err.error || err.message || message;
       } catch {
         message = `Request failed (${response.status})`;
       }
@@ -1276,7 +1343,7 @@ export class BackendService {
       let message = "Request failed";
       try {
         const err = await response.json();
-        message = err.detail || err.error || err.message || message;
+        message = err.message_for_user || err.detail || err.error || err.message || message;
       } catch {
         message = `Request failed (${response.status})`;
       }
@@ -1337,7 +1404,7 @@ export class BackendService {
       let message = "Request failed";
       try {
         const err = await response.json();
-        message = err.detail || err.error || err.message || message;
+        message = err.message_for_user || err.detail || err.error || err.message || message;
       } catch {
         message = `Request failed (${response.status})`;
       }
@@ -4556,7 +4623,7 @@ export class BackendService {
       let message = "Request failed";
       try {
         const err = await response.json();
-        message = err.detail || err.error || err.message || message;
+        message = err.message_for_user || err.detail || err.error || err.message || message;
       } catch {
         message = `Request failed (${response.status})`;
       }
@@ -4652,7 +4719,7 @@ export class BackendService {
       let message = "Request failed";
       try {
         const err = await response.json();
-        message = err.detail || err.error || err.message || message;
+        message = err.message_for_user || err.detail || err.error || err.message || message;
       } catch {
         message = `Request failed (${response.status})`;
       }

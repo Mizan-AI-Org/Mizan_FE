@@ -21,18 +21,28 @@ import {
 } from "@/lib/staffPicker";
 
 type Props = {
-  assigneeId: string | null;
+  /** Single-assignee mode (legacy). */
+  assigneeId?: string | null;
   assigneeName?: string | null;
-  onChange: (assigneeId: string | null) => void;
+  onChange?: (assigneeId: string | null) => void;
+  /** Multi-assignee mode — preferred for task detail. */
+  assigneeIds?: string[];
+  assigneeNames?: Record<string, string>;
+  onAssigneesChange?: (assigneeIds: string[]) => void;
+  multiple?: boolean;
   disabled?: boolean;
   isUpdating?: boolean;
   className?: string;
 };
 
 export function TaskAssigneePicker({
-  assigneeId,
+  assigneeId = null,
   assigneeName,
   onChange,
+  assigneeIds,
+  assigneeNames,
+  onAssigneesChange,
+  multiple = false,
   disabled = false,
   isUpdating = false,
   className,
@@ -41,6 +51,12 @@ export function TaskAssigneePicker({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const isMulti = multiple || !!onAssigneesChange;
+  const selectedIds = useMemo(() => {
+    if (isMulti) return assigneeIds ?? [];
+    return assigneeId ? [assigneeId] : [];
+  }, [isMulti, assigneeIds, assigneeId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
@@ -55,13 +71,13 @@ export function TaskAssigneePicker({
   }, [open]);
 
   const resolveQuery = useQuery({
-    queryKey: ["staff-picker-resolve", assigneeId],
+    queryKey: ["staff-picker-resolve", selectedIds.join(",")],
     queryFn: () =>
       searchStaffPicker({
-        ids: assigneeId ? [assigneeId] : [],
-        pageSize: 1,
+        ids: selectedIds,
+        pageSize: Math.max(selectedIds.length, 1),
       }),
-    enabled: !!assigneeId && !assigneeName,
+    enabled: selectedIds.length > 0,
     staleTime: 120_000,
   });
 
@@ -76,51 +92,71 @@ export function TaskAssigneePicker({
     staleTime: 30_000,
   });
 
-  const resolvedName = useMemo(() => {
-    if (assigneeName) return assigneeName;
-    const row = resolveQuery.data?.results?.[0];
-    return row ? staffPickerDisplayName(row) : null;
-  }, [assigneeName, resolveQuery.data?.results]);
+  const nameById = useMemo(() => {
+    const map: Record<string, string> = { ...(assigneeNames || {}) };
+    if (!isMulti && assigneeName && assigneeId) {
+      map[assigneeId] = assigneeName;
+    }
+    for (const row of resolveQuery.data?.results ?? []) {
+      map[row.id] = staffPickerDisplayName(row);
+    }
+    return map;
+  }, [assigneeNames, assigneeName, assigneeId, isMulti, resolveQuery.data?.results]);
 
   const rosterTotal = searchQuery.data?.count;
   const searchResults = searchQuery.data?.results ?? [];
   const isLoading = searchQuery.isLoading || searchQuery.isFetching;
 
-  const pick = (row: StaffPickerRow) => {
+  const toggle = (row: StaffPickerRow) => {
     if (disabled || isUpdating) return;
-    onChange(row.id);
+    const id = row.id;
+    if (isMulti) {
+      const next = selectedIds.includes(id)
+        ? selectedIds.filter((x) => x !== id)
+        : [...selectedIds, id];
+      onAssigneesChange?.(next);
+      return;
+    }
+    onChange?.(id);
     setOpen(false);
   };
 
-  const unassign = () => {
+  const removeId = (id: string) => {
     if (disabled || isUpdating) return;
-    onChange(null);
+    if (isMulti) {
+      onAssigneesChange?.(selectedIds.filter((x) => x !== id));
+      return;
+    }
+    onChange?.(null);
   };
 
   return (
     <div className={cn("space-y-2", className)}>
-      {assigneeId ? (
+      {selectedIds.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge
-            variant="secondary"
-            className="gap-1.5 pl-2 pr-1 py-1 text-xs font-medium bg-background border border-border/70"
-          >
-            <UserCircle2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="max-w-[180px] truncate">
-              {resolvedName || t("onboarding.owners.loading_name", "…")}
-            </span>
-            {!disabled ? (
-              <button
-                type="button"
-                onClick={unassign}
-                disabled={isUpdating}
-                className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-muted disabled:opacity-50"
-                aria-label={t("dashboard.task_detail.unassign", { defaultValue: "Unassign" })}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            ) : null}
-          </Badge>
+          {selectedIds.map((id) => (
+            <Badge
+              key={id}
+              variant="secondary"
+              className="gap-1.5 pl-2 pr-1 py-1 text-xs font-medium bg-background border border-border/70"
+            >
+              <UserCircle2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              <span className="max-w-[180px] truncate">
+                {nameById[id] || t("onboarding.owners.loading_name", "…")}
+              </span>
+              {!disabled ? (
+                <button
+                  type="button"
+                  onClick={() => removeId(id)}
+                  disabled={isUpdating}
+                  className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-muted disabled:opacity-50"
+                  aria-label={t("dashboard.task_detail.unassign", { defaultValue: "Remove" })}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              ) : null}
+            </Badge>
+          ))}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
@@ -142,8 +178,10 @@ export function TaskAssigneePicker({
             ) : (
               <UserCircle2 className="h-3.5 w-3.5 mr-1.5" />
             )}
-            {assigneeId
-              ? t("dashboard.task_detail.change_assignee", { defaultValue: "Change assignee" })
+            {selectedIds.length > 0
+              ? isMulti
+                ? t("dashboard.task_detail.add_assignee", { defaultValue: "Add staff" })
+                : t("dashboard.task_detail.change_assignee", { defaultValue: "Change assignee" })
               : t("dashboard.task_detail.assign", { defaultValue: "Assign someone" })}
             <ChevronDown className="ml-1.5 h-3.5 w-3.5 opacity-50" />
           </Button>
@@ -185,12 +223,12 @@ export function TaskAssigneePicker({
               ) : (
                 <CommandGroup>
                   {searchResults.map((row) => {
-                    const picked = assigneeId === row.id;
+                    const picked = selectedIds.includes(row.id);
                     return (
                       <CommandItem
                         key={row.id}
                         value={row.id}
-                        onSelect={() => pick(row)}
+                        onSelect={() => toggle(row)}
                         className="flex items-center gap-2 py-2"
                       >
                         <div

@@ -258,6 +258,13 @@ export interface DashboardTaskDemandItem {
         initials: string;
         role?: string | null;
     } | null;
+    /** All staff assigned to this task (dashboard.Task M2M). */
+    assignees?: Array<{
+        id: string;
+        name: string;
+        initials: string;
+        role?: string | null;
+    }>;
     created_at: string;
     updated_at: string;
     /** Cross-cutting manager validation (non-blocking). */
@@ -501,6 +508,17 @@ export interface Invoice {
     days_until_due: number | null;
     created_at: string;
     updated_at: string;
+}
+
+export interface InvoiceTimelineEvent {
+    id: string;
+    kind: "audit" | "approval_step";
+    event_type: string;
+    at: string;
+    actor: string;
+    channel: string;
+    summary: string;
+    metadata?: Record<string, unknown>;
 }
 
 /** Row shape served by GET /api/dashboard/meetings-reminders/. Thin by design

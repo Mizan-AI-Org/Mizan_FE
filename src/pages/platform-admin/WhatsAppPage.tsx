@@ -75,7 +75,13 @@ export default function WhatsAppPage() {
     api_version: "v22.0",
     miya_whatsapp_enabled: true,
     miya_voice_default: false,
+    miya_voice_label: "Sarah",
+    miya_fish_reference_id: "",
+    miya_fish_model: "s2.1-pro",
+    miya_voice_speed: 1.05,
+    miya_openai_fallback_voice: "shimmer",
   });
+  const [voicePreviewLoading, setVoicePreviewLoading] = useState(false);
   const [newTemplate, setNewTemplate] = useState({
     name: "",
     language: "en_US",
@@ -104,6 +110,11 @@ export default function WhatsAppPage() {
       api_version: c.api_version || "v22.0",
       miya_whatsapp_enabled: c.miya_whatsapp_enabled,
       miya_voice_default: c.miya_voice_default,
+      miya_voice_label: c.miya_voice_label || "Sarah",
+      miya_fish_reference_id: c.miya_fish_reference_id || "",
+      miya_fish_model: c.miya_fish_model || "s2.1-pro",
+      miya_voice_speed: c.miya_voice_speed ?? 1.05,
+      miya_openai_fallback_voice: c.miya_openai_fallback_voice || "shimmer",
       access_token: "",
     }));
   }, [configQuery.data]);
@@ -124,6 +135,11 @@ export default function WhatsAppPage() {
         api_version: form.api_version,
         miya_whatsapp_enabled: form.miya_whatsapp_enabled,
         miya_voice_default: form.miya_voice_default,
+        miya_voice_label: form.miya_voice_label,
+        miya_fish_reference_id: form.miya_fish_reference_id,
+        miya_fish_model: form.miya_fish_model,
+        miya_voice_speed: form.miya_voice_speed,
+        miya_openai_fallback_voice: form.miya_openai_fallback_voice,
         ...(form.access_token.trim() ? { access_token: form.access_token.trim() } : {}),
       }),
     onSuccess: () => {
@@ -458,6 +474,113 @@ export default function WhatsAppPage() {
                   Default Fish Audio voice replies
                 </label>
               </div>
+            </section>
+
+            <section className={`${opsCard} p-6 space-y-4`}>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Miya voice identity
+              </h3>
+              <p className={opsMuted}>
+                Young female voice (Fish Audio Sarah by default). Cross-lingual on s2.1-pro — speaks
+                English, French, Arabic, and Darija from the reply text. Env vars override when fields
+                are empty.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Voice label</span>
+                  <input
+                    className={`${opsInput} w-full`}
+                    value={form.miya_voice_label}
+                    onChange={(e) => setForm((f) => ({ ...f, miya_voice_label: e.target.value }))}
+                    placeholder="Sarah"
+                  />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Fish Audio model</span>
+                  <input
+                    className={`${opsInput} w-full font-mono text-xs`}
+                    value={form.miya_fish_model}
+                    onChange={(e) => setForm((f) => ({ ...f, miya_fish_model: e.target.value }))}
+                    placeholder="s2.1-pro"
+                  />
+                </label>
+                <label className="block space-y-1.5 sm:col-span-2">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    Fish Audio reference ID
+                  </span>
+                  <input
+                    className={`${opsInput} w-full font-mono text-xs`}
+                    value={form.miya_fish_reference_id}
+                    onChange={(e) => setForm((f) => ({ ...f, miya_fish_reference_id: e.target.value }))}
+                    placeholder="933563129e564b19a115bedd57b7406a"
+                  />
+                  <p className={opsMuted}>
+                    Browse voices at fish.audio/discover. Provider: {config?.miya_voice_provider || "—"}
+                  </p>
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    Speaking speed ({form.miya_voice_speed.toFixed(2)}×)
+                  </span>
+                  <input
+                    type="range"
+                    min={0.85}
+                    max={1.25}
+                    step={0.01}
+                    value={form.miya_voice_speed}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, miya_voice_speed: parseFloat(e.target.value) }))
+                    }
+                    className="w-full"
+                  />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    OpenAI fallback voice
+                  </span>
+                  <select
+                    className={`${opsInput} w-full`}
+                    value={form.miya_openai_fallback_voice}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, miya_openai_fallback_voice: e.target.value }))
+                    }
+                  >
+                    <option value="shimmer">shimmer (warm female)</option>
+                    <option value="nova">nova (friendly female)</option>
+                    <option value="coral">coral (clear female)</option>
+                    <option value="sage">sage (calm female)</option>
+                  </select>
+                </label>
+              </div>
+              <button
+                type="button"
+                className={opsBtnGhost}
+                disabled={voicePreviewLoading}
+                onClick={async () => {
+                  setVoicePreviewLoading(true);
+                  try {
+                    await saveMutation.mutateAsync();
+                    const res = await platformApi.previewMiyaVoice(
+                      "Hello, I'm Miya — your AI operations companion.",
+                    );
+                    if (res.base64) {
+                      const audio = new Audio(`data:${res.mime_type};base64,${res.base64}`);
+                      await audio.play();
+                    }
+                  } catch {
+                    /* toast optional */
+                  } finally {
+                    setVoicePreviewLoading(false);
+                  }
+                }}
+              >
+                {voicePreviewLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <MessageSquare className="h-4 w-4" />
+                )}
+                Preview Miya voice
+              </button>
             </section>
 
             <section className={`${opsCard} p-6 space-y-3`}>

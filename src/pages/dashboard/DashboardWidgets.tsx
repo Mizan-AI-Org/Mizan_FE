@@ -4290,7 +4290,11 @@ function CategoryTasksCard({
       toast.success(data?.message_for_user || "WhatsApp follow-up sent");
     },
     onError: (err: unknown) => {
-      toast.error(err instanceof Error ? err.message : "Could not send follow-up");
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Could not send follow-up";
+      toast.error(msg);
     },
   });
 

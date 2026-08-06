@@ -76,18 +76,26 @@ export function DashboardTaskDetailSheet({
     },
   });
 
-  const assigneeMutation = useMutation({
-    mutationFn: (assigneeId: string | null) => {
+  const saveAssigneesMutation = useMutation({
+    mutationFn: (assigneeIds: string[]) => {
       if (!taskId) throw new Error("No task selected");
-      return api.updateDashboardTaskAssignee(taskId, assigneeId);
+      return api.updateDashboardTaskAssignees(taskId, assigneeIds);
     },
     onSuccess: async (updated) => {
       queryClient.setQueryData(["dashboard-task-demand", taskId], updated);
       await invalidateTaskQueries();
-      toast.success(t("dashboard.task_detail.updated", { defaultValue: "Task updated" }));
+      toast.success(
+        t("dashboard.task_detail.assignees_saved", {
+          defaultValue: "Assignees saved — staff notified on WhatsApp.",
+        }),
+      );
     },
     onError: (err: unknown) => {
-      toast.error(err instanceof Error ? err.message : t("dashboard.task_detail.update_failed", { defaultValue: "Could not update task" }));
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : t("dashboard.task_detail.update_failed", { defaultValue: "Could not update task" }),
+      );
     },
   });
 
@@ -121,9 +129,13 @@ export function DashboardTaskDetailSheet({
               task={task}
               widgetTitle={widgetTitle}
               onStatusChange={(nextStatus) => statusMutation.mutate(nextStatus)}
-              onAssigneeChange={(assigneeId) => assigneeMutation.mutate(assigneeId)}
-              isUpdating={statusMutation.isPending || assigneeMutation.isPending}
-              isAssigneeUpdating={assigneeMutation.isPending}
+              onSaveAssignees={
+                task.kind === "dashboard" || task.kind === undefined
+                  ? (ids) => saveAssigneesMutation.mutate(ids)
+                  : undefined
+              }
+              isUpdating={statusMutation.isPending}
+              isSaving={saveAssigneesMutation.isPending}
               t={t}
               onOpenInbox={() => {
                 onOpenChange(false);
