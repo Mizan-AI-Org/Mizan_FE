@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Calendar,
   ChevronDown,
@@ -17,7 +17,6 @@ import { cn } from "@/lib/utils";
 import { BACKEND_URL } from "@/lib/api";
 import type { DashboardTaskDemandItem } from "@/lib/types";
 import {
-  dashboardTaskPrimaryAction,
   dashboardTaskPriorityBadge,
   dashboardTaskSecondaryStatuses,
   dashboardTaskStatusBadge,
@@ -25,12 +24,31 @@ import {
   resolveStoredMediaUrl,
 } from "@/components/dashboard/dashboard-task-detail-utils";
 
+function initialAssigneeIds(task: DashboardTaskDemandItem): string[] {
+  if (task.assignees?.length) {
+    return task.assignees.map((a) => a.id);
+  }
+  if (task.assignee?.id) {
+    return [task.assignee.id];
+  }
+  return [];
+}
+
+function sameIdSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sa = [...a].sort();
+  const sb = [...b].sort();
+  return sa.every((id, i) => id === sb[i]);
+}
+
 export function DashboardTaskDetailContent({
   task,
   widgetTitle,
   onStatusChange,
+  onSaveAssignees,
   onAssigneeChange,
   isUpdating,
+  isSaving,
   isAssigneeUpdating,
   t,
   onOpenInbox,
@@ -38,14 +56,37 @@ export function DashboardTaskDetailContent({
   task: DashboardTaskDemandItem;
   widgetTitle?: string;
   onStatusChange: (status: DashboardTaskDemandItem["status"]) => void;
+  /** Multi-assign save (dashboard tasks). */
+  onSaveAssignees?: (assigneeIds: string[]) => void;
+  /** Legacy single-assign immediate update (staff inbox). */
   onAssigneeChange?: (assigneeId: string | null) => void;
   isUpdating: boolean;
+  isSaving?: boolean;
   isAssigneeUpdating?: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
   onOpenInbox?: () => void;
 }) {
-  const primary = dashboardTaskPrimaryAction(task.status, t);
-  const secondaryStatuses = dashboardTaskSecondaryStatuses(task.status, primary?.nextStatus);
+  const multiAssignMode = !!onSaveAssignees;
+  const savedIds = useMemo(() => initialAssigneeIds(task), [task]);
+  const [pendingIds, setPendingIds] = useState<string[]>(savedIds);
+
+  useEffect(() => {
+    setPendingIds(initialAssigneeIds(task));
+  }, [task.id, task.updated_at, task.assignees, task.assignee?.id]);
+
+  const assigneeNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const a of task.assignees ?? []) {
+      map[a.id] = a.name;
+    }
+    if (task.assignee?.id && task.assignee.name) {
+      map[task.assignee.id] = task.assignee.name;
+    }
+    return map;
+  }, [task.assignees, task.assignee]);
+
+  const hasAssigneeChanges = multiAssignMode && !sameIdSet(pendingIds, savedIds);
+  const secondaryStatuses = dashboardTaskSecondaryStatuses(task.status, null);
   const dueLabel = task.due_date
     ? new Date(task.due_date).toLocaleDateString(undefined, {
         weekday: "short",
@@ -53,6 +94,14 @@ export function DashboardTaskDetailContent({
         day: "numeric",
       })
     : null;
+
+  const assigneeSummary =
+    pendingIds.length > 0
+      ? pendingIds
+          .map((id) => assigneeNames[id])
+          .filter(Boolean)
+          .join(", ")
+      : null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -69,7 +118,7 @@ export function DashboardTaskDetailContent({
             {task.title}
           </h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            {[task.source_label || task.source, task.assignee?.name]
+            {[task.source_label || task.source, assigneeSummary || task.assignee?.name]
               .filter(Boolean)
               .join(" · ")}
           </p>
@@ -99,10 +148,19 @@ export function DashboardTaskDetailContent({
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
             <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              {t("dashboard.task_detail.assignee", { defaultValue: "Assignee" })}
+              {t("dashboard.task_detail.assignees", { defaultValue: "Assignees" })}
             </div>
             <div className="mt-1.5">
-              {onAssigneeChange && task.kind !== "invoice" ? (
+              {multiAssignMode && task.kind !== "invoice" ? (
+                <TaskAssigneePicker
+                  multiple
+                  assigneeIds={pendingIds}
+                  assigneeNames={assigneeNames}
+                  onAssigneesChange={setPendingIds}
+                  disabled={isUpdating || isSaving}
+                  isUpdating={isSaving}
+                />
+              ) : onAssigneeChange && task.kind !== "invoice" ? (
                 <TaskAssigneePicker
                   assigneeId={task.assignee?.id ?? null}
                   assigneeName={task.assignee?.name}
@@ -112,7 +170,7 @@ export function DashboardTaskDetailContent({
                 />
               ) : (
                 <p className="text-sm font-medium truncate">
-                  {task.assignee?.name || t("staff.requests.unassigned")}
+                  {assigneeSummary || task.assignee?.name || t("staff.requests.unassigned")}
                 </p>
               )}
             </div>
@@ -177,19 +235,19 @@ export function DashboardTaskDetailContent({
 
       <div className="shrink-0 space-y-2 border-t border-border/60 pt-4">
         <div className="flex flex-wrap items-center gap-2">
-          {primary ? (
+          {multiAssignMode ? (
             <Button
               className="flex-1 sm:flex-none"
-              disabled={isUpdating}
-              onClick={() => onStatusChange(primary.nextStatus)}
+              disabled={isUpdating || isSaving || !hasAssigneeChanges}
+              onClick={() => onSaveAssignees?.(pendingIds)}
             >
-              {primary.label}
+              {t("common.save", { defaultValue: "Save" })}
             </Button>
           ) : null}
           {secondaryStatuses.length > 0 ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" disabled={isUpdating} className="gap-1.5">
+                <Button variant="outline" disabled={isUpdating || isSaving} className="gap-1.5">
                   {t("dashboard.task_detail.more_actions", { defaultValue: "More actions" })}
                   <ChevronDown className="h-4 w-4" aria-hidden />
                 </Button>

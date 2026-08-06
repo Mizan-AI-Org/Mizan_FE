@@ -405,15 +405,77 @@ function invoiceStatusBadge(status?: string) {
 
 function InvoiceDetailPanel({
   invoice,
-  onMarkPaid,
-  isUpdating,
   t,
 }: {
   invoice: Invoice;
-  onMarkPaid: () => void;
-  isUpdating: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
+  const queryClient = useQueryClient();
+  const [approvalNote, setApprovalNote] = useState("");
+  const [paidOn, setPaidOn] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [paymentReference, setPaymentReference] = useState("");
+  const proofInputRef = useRef<HTMLInputElement>(null);
+
+  const timelineQuery = useQuery({
+    queryKey: ["finance-invoice-timeline", invoice.id],
+    queryFn: () => api.getInvoiceTimeline(invoice.id),
+  });
+
+  const invalidateInvoice = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["finance-invoice", invoice.id] });
+    await queryClient.invalidateQueries({ queryKey: ["finance-invoice-timeline", invoice.id] });
+    await queryClient.invalidateQueries({ queryKey: ["dashboard", "category-tasks"] });
+  };
+
+  const markPaidMutation = useMutation({
+    mutationFn: () =>
+      api.markInvoicePaid(invoice.id, {
+        paid_on: paidOn || undefined,
+        payment_method: paymentMethod || undefined,
+        payment_reference: paymentReference || undefined,
+      }),
+    onSuccess: async () => {
+      await invalidateInvoice();
+      toast.success(t("staff.requests.invoice_paid_toast"));
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : t("staff.requests.invoice_paid_error"));
+    },
+  });
+
+  const approvalMutation = useMutation({
+    mutationFn: (action: "approve" | "reject" | "request_info") =>
+      api.actInvoicePaymentApproval(invoice.id, action, approvalNote),
+    onSuccess: async () => {
+      setApprovalNote("");
+      await invalidateInvoice();
+      toast.success(t("staff.requests.invoice_approval_saved", { defaultValue: "Approval updated." }));
+    },
+    onError: (err: unknown) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : t("staff.requests.invoice_approval_error", { defaultValue: "Could not update approval." }),
+      );
+    },
+  });
+
+  const proofMutation = useMutation({
+    mutationFn: (file: File) => api.uploadInvoiceProof(invoice.id, file),
+    onSuccess: async () => {
+      await invalidateInvoice();
+      toast.success(t("staff.requests.invoice_proof_uploaded", { defaultValue: "Proof uploaded." }));
+    },
+    onError: (err: unknown) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : t("staff.requests.invoice_proof_error", { defaultValue: "Could not upload proof." }),
+      );
+    },
+  });
+
   const attachments = invoiceAttachmentItems(invoice);
   const displayStatus = String(invoice.lifecycle_status || invoice.status || "").toUpperCase();
   const unpaidActive = [
@@ -426,9 +488,12 @@ function InvoiceDetailPanel({
     "RETURNED",
   ].includes(displayStatus);
   const canMarkPaid = unpaidActive && displayStatus !== "PAID" && displayStatus !== "VOIDED";
+  const canApprove = displayStatus === "PENDING_APPROVAL";
+  const canUploadProof = displayStatus === "PAID" || displayStatus === "APPROVED" || displayStatus === "PAYMENT_IN_PROGRESS";
   const proofUrl =
     resolveStoredMediaUrl(invoice.proof_of_payment_url) ||
     resolveStoredMediaUrl(invoice.proof_of_payment);
+  const timelineEvents = timelineQuery.data?.events ?? [];
 
   return (
     <div className="space-y-5">
@@ -478,6 +543,46 @@ function InvoiceDetailPanel({
         </div>
       ) : null}
 
+      {canApprove ? (
+        <div className="rounded-2xl border border-amber-200/70 bg-amber-50/40 p-4 space-y-3">
+          <div className="text-xs font-bold uppercase tracking-widest text-amber-900">
+            {t("staff.requests.invoice_payguard", { defaultValue: "PayGuard approval" })}
+          </div>
+          <Textarea
+            value={approvalNote}
+            onChange={(e) => setApprovalNote(e.target.value)}
+            placeholder={t("staff.requests.invoice_approval_note", { defaultValue: "Optional note for approver or requester…" })}
+            rows={2}
+            className="text-sm"
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              onClick={() => approvalMutation.mutate("approve")}
+              disabled={approvalMutation.isPending}
+            >
+              {t("staff.requests.invoice_approve", { defaultValue: "Approve" })}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => approvalMutation.mutate("request_info")}
+              disabled={approvalMutation.isPending}
+            >
+              {t("staff.requests.invoice_request_info", { defaultValue: "Request info" })}
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => approvalMutation.mutate("reject")}
+              disabled={approvalMutation.isPending}
+            >
+              {t("staff.requests.invoice_reject", { defaultValue: "Reject" })}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       {displayStatus === "PAID" ? (
         <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/40 p-4 space-y-1 text-sm">
           <div className="text-xs font-bold uppercase tracking-widest text-emerald-800 mb-2">
@@ -519,11 +624,89 @@ function InvoiceDetailPanel({
         </div>
       ) : null}
 
-      {canMarkPaid ? (
-        <Button onClick={onMarkPaid} disabled={isUpdating} className="w-full sm:w-auto">
-          {isUpdating ? t("staff.requests.updating") : t("staff.requests.mark_paid")}
-        </Button>
+      {canUploadProof ? (
+        <div className="rounded-2xl border border-border/40 bg-background p-4 space-y-3">
+          <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            {t("staff.requests.invoice_upload_proof", { defaultValue: "Upload proof of payment" })}
+          </div>
+          <input
+            ref={proofInputRef}
+            type="file"
+            accept="image/*,.pdf"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) proofMutation.mutate(file);
+              e.target.value = "";
+            }}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={proofMutation.isPending}
+            onClick={() => proofInputRef.current?.click()}
+          >
+            {proofMutation.isPending
+              ? t("staff.requests.updating")
+              : t("staff.requests.invoice_choose_proof", { defaultValue: "Choose file" })}
+          </Button>
+        </div>
       ) : null}
+
+      {canMarkPaid ? (
+        <div className="rounded-2xl border border-border/40 bg-background p-4 space-y-3">
+          <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            {t("staff.requests.invoice_record_payment", { defaultValue: "Record payment" })}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Input
+              type="date"
+              value={paidOn}
+              onChange={(e) => setPaidOn(e.target.value)}
+              placeholder={t("staff.requests.invoice_paid_on", { defaultValue: "Paid on" })}
+            />
+            <Input
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              placeholder={t("staff.requests.invoice_payment_method", { defaultValue: "Method (e.g. BANK_TRANSFER)" })}
+            />
+            <Input
+              value={paymentReference}
+              onChange={(e) => setPaymentReference(e.target.value)}
+              placeholder={t("staff.requests.invoice_payment_ref", { defaultValue: "Reference #" })}
+            />
+          </div>
+          <Button onClick={() => markPaidMutation.mutate()} disabled={markPaidMutation.isPending} className="w-full sm:w-auto">
+            {markPaidMutation.isPending ? t("staff.requests.updating") : t("staff.requests.mark_paid")}
+          </Button>
+        </div>
+      ) : null}
+
+      <div className="rounded-2xl border border-border/40 bg-background p-4">
+        <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
+          <Clock className="w-3.5 h-3.5" />
+          {t("staff.requests.invoice_timeline", { defaultValue: "Activity timeline" })}
+        </div>
+        {timelineQuery.isLoading ? (
+          <p className="text-sm text-muted-foreground">{t("staff.requests.loading")}</p>
+        ) : timelineEvents.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("staff.requests.invoice_timeline_empty", { defaultValue: "No activity recorded yet." })}
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {timelineEvents.map((ev) => (
+              <li key={ev.id} className="text-sm border-l-2 border-emerald-200 pl-3">
+                <div className="text-[11px] text-muted-foreground tabular-nums">
+                  {ev.at ? new Date(ev.at).toLocaleString() : "—"}
+                  {ev.actor ? ` · ${ev.actor}` : ""}
+                </div>
+                <div className="leading-snug mt-0.5">{ev.summary || ev.event_type}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
@@ -862,21 +1045,6 @@ const StaffRequestsPage: React.FC = () => {
     dashboardTaskQuery.data,
   ]);
 
-  const invoiceMarkPaidMutation = useMutation({
-    mutationFn: () => {
-      if (!selectedId) throw new Error("No invoice selected");
-      return api.markInvoicePaid(selectedId);
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["finance-invoice", selectedId] });
-      await queryClient.invalidateQueries({ queryKey: ["dashboard", "category-tasks"] });
-      toast.success(t("staff.requests.invoice_paid_toast"));
-    },
-    onError: (err: unknown) => {
-      toast.error(err instanceof Error ? err.message : t("staff.requests.invoice_paid_error"));
-    },
-  });
-
   const dashboardStatusMutation = useMutation({
     mutationFn: (nextStatus: DashboardTaskDemandItem["status"]) => {
       if (!selectedId) throw new Error("No task selected");
@@ -1044,12 +1212,7 @@ const StaffRequestsPage: React.FC = () => {
             ) : invoiceQuery.isError || !invoice ? (
               <div className="text-sm text-red-600 py-6">{t("staff.requests.invoice_load_failed")}</div>
             ) : (
-              <InvoiceDetailPanel
-                invoice={invoice}
-                onMarkPaid={() => invoiceMarkPaidMutation.mutate()}
-                isUpdating={invoiceMarkPaidMutation.isPending}
-                t={t}
-              />
+              <InvoiceDetailPanel invoice={invoice} t={t} />
             )}
           </CardContent>
         </Card>

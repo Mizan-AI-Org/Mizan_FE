@@ -271,6 +271,13 @@ export type PlatformWhatsAppConfig = {
   api_version: string;
   miya_whatsapp_enabled: boolean;
   miya_voice_default: boolean;
+  miya_voice_label?: string;
+  miya_fish_reference_id?: string;
+  miya_fish_reference_id_masked?: string;
+  miya_fish_model?: string;
+  miya_voice_speed?: number;
+  miya_openai_fallback_voice?: string;
+  miya_voice_provider?: string;
   access_token_set: boolean;
   access_token_masked: string;
   webhook_callback_url: string;
@@ -420,6 +427,14 @@ export const platformApi = {
       method: "POST",
       body: "{}",
     }),
+  previewMiyaVoice: (text?: string) =>
+    platformFetch<{ success: boolean; mime_type: string; base64: string; voice: Record<string, unknown> }>(
+      "/whatsapp/config/voice-preview/",
+      {
+        method: "POST",
+        body: JSON.stringify(text ? { text } : {}),
+      },
+    ),
   whatsappTemplates: () =>
     platformFetch<{ results: PlatformWhatsAppTemplate[] }>("/whatsapp/templates/"),
   syncWhatsAppTemplates: () =>

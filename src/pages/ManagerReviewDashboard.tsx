@@ -561,7 +561,10 @@ const ManagerReviewDashboard: React.FC = () => {
     for (const [idx, entry] of (detail.photo_evidence || []).entries()) {
       if (!entry || typeof entry !== "object") continue;
       const raw = (entry.storage_key || entry.url || "").trim();
-      const url = resolveMediaUrl(raw) || raw;
+      const url =
+        (entry as { resolved_url?: string }).resolved_url?.trim() ||
+        resolveMediaUrl(raw) ||
+        raw;
       if (url && !items.some((i) => i.url === url)) {
         items.push({
           url,
