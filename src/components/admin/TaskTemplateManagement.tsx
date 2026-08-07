@@ -162,12 +162,15 @@ export default function TaskTemplateManagement() {
       const json = await response.json();
       const arr = (json?.results ?? json) as Record<string, unknown>[];
       return (Array.isArray(arr) ? arr : []).map((s) => {
-        const nested = (s.user as Record<string, unknown>) || {};
-        const id = String(s.id ?? nested.id ?? '');
-        const first = String(s.first_name ?? nested.first_name ?? '');
-        const last = String(s.last_name ?? nested.last_name ?? '');
-        const email = String(s.email ?? nested.email ?? '');
-        const name = `${first} ${last}`.trim() || email || 'Staff member';
+        const nested =
+          (s.user_details as Record<string, unknown>) ||
+          (s.user as Record<string, unknown>) ||
+          {};
+        const id = String(nested.id ?? s.user ?? "");
+        const first = String(nested.first_name ?? s.first_name ?? "");
+        const last = String(nested.last_name ?? s.last_name ?? "");
+        const email = String(nested.email ?? s.email ?? "");
+        const name = `${first} ${last}`.trim() || email || "Staff member";
         return { id, name };
       }).filter((s) => s.id);
     },

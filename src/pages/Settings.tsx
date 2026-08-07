@@ -82,6 +82,7 @@ import { cn } from "@/lib/utils";
 import { API_BASE, api } from "@/lib/api";
 import { CATEGORY_OWNER_GROUPS, mergeLegacyIncidentAssignees } from "@/lib/categoryOwners";
 import { CategoryOwnerPicker } from "@/components/settings/CategoryOwnerPicker";
+import type { StaffPickerRow } from "@/lib/staffPicker";
 import {
   ALL_BUSINESS_VERTICALS,
   parseBusinessVertical,
@@ -145,8 +146,11 @@ export default function Settings() {
     Saturday: { open: "10:00", close: "14:00", isClosed: true },
     Sunday: { open: "10:00", close: "14:00", isClosed: true },
   });
-  const [automaticClockOut, setAutomaticClockOut] = useState(false);
+  const [automaticClockOut, setAutomaticClockOut] = useState(true);
   const [categoryOwners, setCategoryOwners] = useState<Record<string, string[]>>({});
+  const [categoryOwnerDirectory, setCategoryOwnerDirectory] = useState<
+    Record<string, StaffPickerRow>
+  >({});
   const [businessVertical, setBusinessVertical] = useState<BusinessVertical>("RESTAURANT");
   const [customStaffRoles, setCustomStaffRoles] = useState<{ id: string; name: string }[]>([]);
   const [breakDuration, setBreakDuration] = useState(30);
@@ -419,7 +423,7 @@ export default function Settings() {
           : "en"
       );
       setOperatingHours(data.operating_hours || operatingHours);
-      setAutomaticClockOut(data.automatic_clock_out || false);
+      setAutomaticClockOut(data.automatic_clock_out !== false);
       setBreakDuration(data.break_duration || 30);
       setEmailNotifications(data.email_notifications || emailNotifications);
       setPushNotifications(data.push_notifications || pushNotifications);
@@ -464,7 +468,7 @@ export default function Settings() {
           : "en"
       );
       setOperatingHours(data.operating_hours || operatingHours);
-      setAutomaticClockOut(data.automatic_clock_out || false);
+      setAutomaticClockOut(data.automatic_clock_out !== false);
       setBreakDuration(data.break_duration || 30);
       setEmailNotifications(data.email_notifications || emailNotifications);
       setPushNotifications(data.push_notifications || pushNotifications);
@@ -514,8 +518,21 @@ export default function Settings() {
           normalized[k] = Array.isArray(v) ? v.map(String) : v ? [String(v)] : [];
         }
         setCategoryOwners(mergeLegacyIncidentAssignees(normalized, legacyAssignees));
+        const directory: Record<string, StaffPickerRow> = {};
+        for (const [id, row] of Object.entries(ownersRes?.staff_directory || {})) {
+          if (!row || typeof row !== "object") continue;
+          directory[id] = {
+            id: String(row.id || id),
+            first_name: String(row.first_name || ""),
+            last_name: String(row.last_name || ""),
+            email: String(row.email || ""),
+            role: row.role ? String(row.role) : undefined,
+          };
+        }
+        setCategoryOwnerDirectory(directory);
       } catch {
         setCategoryOwners(mergeLegacyIncidentAssignees({}, legacyAssignees));
+        setCategoryOwnerDirectory({});
       }
 
       setGcalConnected(data.google_calendar_connected || false);
@@ -1258,12 +1275,13 @@ export default function Settings() {
                     <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       {t(group.groupKey)}
                     </div>
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       {group.items.map((cat) => (
-                        <div key={cat.key} className="space-y-2 rounded-xl border border-border/50 bg-muted/10 px-3.5 py-3">
+                        <div key={cat.key} className="space-y-2 rounded-xl border border-border/50 bg-muted/10 px-3.5 py-3 min-w-0">
                           <Label className="text-sm font-medium">{t(cat.labelKey)}</Label>
                           <CategoryOwnerPicker
                             selectedIds={categoryOwners[cat.key] || []}
+                            staffDirectory={categoryOwnerDirectory}
                             onChange={(ids) => {
                               setCategoryOwners((prev) => {
                                 if (ids.length === 0) {

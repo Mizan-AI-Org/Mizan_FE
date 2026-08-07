@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   Calendar,
+  ExternalLink,
   FileWarning,
   Loader2,
   Plus,
@@ -25,17 +26,18 @@ import { cn } from "@/lib/utils";
 
 type DocType = { id: string; label: string };
 
-type ComplianceDoc = {
+type TenantUpload = {
   id: string;
   title: string;
-  document_type: string;
-  description?: string;
-  reference_number?: string;
-  expires_at: string | null;
-  days_until_expiry: number | null;
-  urgency: "expired" | "critical" | "soon" | "ok" | "unset";
-  remind_days_before: number;
-  status: string;
+  category?: string;
+  summary?: string;
+  vendor?: string | null;
+  amount?: string | null;
+  currency?: string | null;
+  expiry_date?: string | null;
+  file_url?: string;
+  created_at?: string | null;
+  mime_type?: string;
 };
 
 const urgencyStyles: Record<ComplianceDoc["urgency"], string> = {
@@ -61,11 +63,19 @@ function urgencyLabel(u: ComplianceDoc["urgency"], t: (k: string) => string) {
   }
 }
 
+function saveErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message.trim()) {
+    return err.message;
+  }
+  return fallback;
+}
+
 export default function ComplianceDocumentsSettings() {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [docs, setDocs] = useState<ComplianceDoc[]>([]);
+  const [uploads, setUploads] = useState<TenantUpload[]>([]);
   const [types, setTypes] = useState<DocType[]>([]);
   const [title, setTitle] = useState("");
   const [documentType, setDocumentType] = useState("INSURANCE");
@@ -75,10 +85,29 @@ export default function ComplianceDocumentsSettings() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/payroll/compliance-documents/");
+      const [res, uploadRes] = await Promise.all([
+        api.get("/payroll/compliance-documents/"),
+        api.getDashboardTenantDocuments(30).catch(() => ({ success: false, documents: [], count: 0 })),
+      ]);
       const data = res.data || {};
       setDocs(Array.isArray(data.documents) ? data.documents : []);
       setTypes(Array.isArray(data.document_types) ? data.document_types : []);
+      const udocs = Array.isArray(uploadRes?.documents) ? uploadRes.documents : [];
+      setUploads(
+        udocs.map((d) => ({
+          id: String(d.id ?? ""),
+          title: String(d.title ?? "Document"),
+          category: typeof d.category === "string" ? d.category : undefined,
+          summary: typeof d.summary === "string" ? d.summary : undefined,
+          vendor: typeof d.vendor === "string" ? d.vendor : null,
+          amount: d.amount != null ? String(d.amount) : null,
+          currency: typeof d.currency === "string" ? d.currency : null,
+          expiry_date: typeof d.expiry_date === "string" ? d.expiry_date : null,
+          file_url: typeof d.file_url === "string" ? d.file_url : undefined,
+          created_at: typeof d.created_at === "string" ? d.created_at : null,
+          mime_type: typeof d.mime_type === "string" ? d.mime_type : undefined,
+        })),
+      );
     } catch {
       toast.error(t("settings.compliance.load_error"));
     } finally {
@@ -96,8 +125,8 @@ export default function ComplianceDocumentsSettings() {
       const res = await api.post("/payroll/compliance-documents/seed/");
       toast.success(res.data?.message || t("settings.compliance.seed_ok"));
       await load();
-    } catch {
-      toast.error(t("settings.compliance.save_error"));
+    } catch (err) {
+      toast.error(saveErrorMessage(err, t("settings.compliance.save_error")));
     } finally {
       setSaving(false);
     }
@@ -120,8 +149,8 @@ export default function ComplianceDocumentsSettings() {
       setExpiresAt("");
       toast.success(t("settings.compliance.added"));
       await load();
-    } catch {
-      toast.error(t("settings.compliance.save_error"));
+    } catch (err) {
+      toast.error(saveErrorMessage(err, t("settings.compliance.save_error")));
     } finally {
       setSaving(false);
     }
@@ -134,8 +163,8 @@ export default function ComplianceDocumentsSettings() {
       });
       await load();
       toast.success(t("settings.compliance.updated"));
-    } catch {
-      toast.error(t("settings.compliance.save_error"));
+    } catch (err) {
+      toast.error(saveErrorMessage(err, t("settings.compliance.save_error")));
     }
   };
 
@@ -144,8 +173,8 @@ export default function ComplianceDocumentsSettings() {
       await api.delete(`/payroll/compliance-documents/${id}/`);
       await load();
       toast.success(t("settings.compliance.archived"));
-    } catch {
-      toast.error(t("settings.compliance.save_error"));
+    } catch (err) {
+      toast.error(saveErrorMessage(err, t("settings.compliance.save_error")));
     }
   };
 
@@ -306,6 +335,56 @@ export default function ComplianceDocumentsSettings() {
             ))}
           </ul>
         )}
+
+        <div className="pt-6 border-t border-slate-200 dark:border-slate-700 space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+              Miya uploads
+            </p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              PDFs and photos sent to Miya — structured vendor, amount, and expiry when extracted.
+            </p>
+          </div>
+          {uploads.length === 0 ? (
+            <p className="text-sm text-slate-500 py-4">
+              No Miya uploads yet. Attach a PDF or image in the Miya widget or WhatsApp.
+            </p>
+          ) : (
+            <ul className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              {uploads.map((u) => (
+                <li
+                  key={u.id}
+                  className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">
+                      {u.title}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {[u.category, u.vendor, u.amount ? `${u.amount}${u.currency ? ` ${u.currency}` : ""}` : null, u.expiry_date ? `expires ${u.expiry_date}` : null]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    {u.summary ? (
+                      <p className="text-xs text-slate-400 mt-1 line-clamp-2">{u.summary}</p>
+                    ) : null}
+                  </div>
+                  {u.file_url ? (
+                    <a
+                      href={u.file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:underline shrink-0"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Open
+                    </a>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </SettingsSection>
   );

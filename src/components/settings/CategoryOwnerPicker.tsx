@@ -25,6 +25,8 @@ type Props = {
   onChange: (ids: string[]) => void;
   disabled?: boolean;
   className?: string;
+  /** Pre-resolved names from GET /onboarding/category-owners/ staff_directory */
+  staffDirectory?: Record<string, StaffPickerRow>;
 };
 
 export function CategoryOwnerPicker({
@@ -32,6 +34,7 @@ export function CategoryOwnerPicker({
   onChange,
   disabled = false,
   className,
+  staffDirectory = {},
 }: Props) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
@@ -52,7 +55,11 @@ export function CategoryOwnerPicker({
 
   const resolveQuery = useQuery({
     queryKey: ["staff-picker-resolve", selectedIds.slice().sort().join(",")],
-    queryFn: () => searchStaffPicker({ ids: selectedIds, pageSize: Math.max(selectedIds.length, 1) }),
+    queryFn: () =>
+      searchStaffPicker({
+        ids: selectedIds,
+        pageSize: Math.max(selectedIds.length, 50),
+      }),
     enabled: selectedIds.length > 0,
     staleTime: 120_000,
   });
@@ -70,6 +77,9 @@ export function CategoryOwnerPicker({
 
   const nameById = useMemo(() => {
     const map = new Map<string, StaffPickerRow>();
+    for (const row of Object.values(staffDirectory)) {
+      if (row?.id) map.set(row.id, row);
+    }
     for (const row of resolveQuery.data?.results ?? []) {
       map.set(row.id, row);
     }
@@ -77,7 +87,16 @@ export function CategoryOwnerPicker({
       map.set(row.id, row);
     }
     return map;
-  }, [resolveQuery.data?.results, searchQuery.data?.results]);
+  }, [staffDirectory, resolveQuery.data?.results, searchQuery.data?.results]);
+
+  const labelForId = (id: string) => {
+    const row = nameById.get(id);
+    if (row) return staffPickerDisplayName(row);
+    if (resolveQuery.isLoading || resolveQuery.isFetching) {
+      return t("onboarding.owners.loading_name", "…");
+    }
+    return t("onboarding.owners.unknown_staff", "Team member");
+  };
 
   const toggle = (id: string) => {
     const next = selectedIds.includes(id)
@@ -99,15 +118,14 @@ export function CategoryOwnerPicker({
       {selectedIds.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {selectedIds.map((id) => {
-            const row = nameById.get(id);
-            const label = row ? staffPickerDisplayName(row) : t("onboarding.owners.loading_name", "…");
+            const label = labelForId(id);
             return (
               <Badge
                 key={id}
                 variant="secondary"
-                className="gap-1 pl-2.5 pr-1 py-1 text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800"
+                className="shrink-0 gap-1 pl-2.5 pr-1 py-1 text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800 max-w-full"
               >
-                <span className="max-w-[180px] truncate">{label}</span>
+                <span className="whitespace-normal break-words leading-snug">{label}</span>
                 {!disabled ? (
                   <button
                     type="button"

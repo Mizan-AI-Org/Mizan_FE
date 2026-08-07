@@ -713,7 +713,14 @@ export class BackendService {
     return this.fetchWithError(`/dashboard/tenant-documents/?${params.toString()}`);
   }
 
-  async getCategoryOwners(): Promise<{ success?: boolean; owners: Record<string, string | string[]> }> {
+  async getCategoryOwners(): Promise<{
+    success?: boolean;
+    owners: Record<string, string | string[]>;
+    staff_directory?: Record<
+      string,
+      { id: string; first_name: string; last_name: string; email: string; role?: string }
+    >;
+  }> {
     return this.fetchWithError("/onboarding/category-owners/");
   }
 

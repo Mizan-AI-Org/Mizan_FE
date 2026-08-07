@@ -23,6 +23,20 @@ const ALLOWED_ROLES = [
 
 const VOICE_INPUT_ROLES = new Set(["ADMIN", "SUPER_ADMIN", "MANAGER", "OWNER"]);
 
+const MIYA_LOCATION_KEY = "mizan_miya_location_id";
+const MIYA_LOCATION_NAME_KEY = "mizan_miya_location_name";
+
+function readMiyaEstablishmentContext(): { location_id?: string; location_name?: string } {
+  try {
+    const location_id = localStorage.getItem(MIYA_LOCATION_KEY) || undefined;
+    const location_name = localStorage.getItem(MIYA_LOCATION_NAME_KEY) || undefined;
+    if (!location_id) return {};
+    return { location_id, location_name: location_name || undefined };
+  } catch {
+    return {};
+  }
+}
+
 function playBase64Audio(base64: string, mimeType: string) {
   const audio = new Audio(`data:${mimeType};base64,${base64}`);
   void audio.play();
@@ -150,15 +164,27 @@ export const MiyaWidget: React.FC = () => {
       const applyChatPayload = (data: {
         reply?: string;
         audio?: { base64?: string; mime_type?: string };
+        session_context?: { location_id?: string; location_name?: string };
       }) => {
         const reply = data.reply || "Done.";
         setHistory((prev) => [...prev, { role: "assistant", content: reply }]);
         if (fishAudioConfigured && data.audio?.base64) {
           playBase64Audio(data.audio.base64, data.audio.mime_type || "audio/mpeg");
         }
+        const locId = data.session_context?.location_id;
+        const locName = data.session_context?.location_name;
+        if (locId) {
+          try {
+            localStorage.setItem(MIYA_LOCATION_KEY, locId);
+            if (locName) localStorage.setItem(MIYA_LOCATION_NAME_KEY, locName);
+          } catch {
+            /* ignore */
+          }
+        }
       };
 
       try {
+        const establishment = readMiyaEstablishmentContext();
         const resp = await fetch(`${API_BASE}/miya/chat/`, {
           method: "POST",
           headers: {
@@ -171,6 +197,7 @@ export const MiyaWidget: React.FC = () => {
             voice: fishAudioConfigured,
             restaurant_id: user?.restaurant || user?.restaurant_data?.id || undefined,
             attachment_ids: ids,
+            ...establishment,
           }),
         });
 
@@ -239,6 +266,8 @@ export const MiyaWidget: React.FC = () => {
         form.append("file", file);
         const restaurantId = user?.restaurant || user?.restaurant_data?.id;
         if (restaurantId) form.append("restaurant_id", String(restaurantId));
+        const establishment = readMiyaEstablishmentContext();
+        if (establishment.location_id) form.append("location_id", establishment.location_id);
         const resp = await fetch(`${API_BASE}/miya/attachments/`, {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -299,6 +328,13 @@ export const MiyaWidget: React.FC = () => {
         const restaurantId = user?.restaurant || user?.restaurant_data?.id;
         if (restaurantId) {
           form.append("restaurant_id", String(restaurantId));
+        }
+        const establishment = readMiyaEstablishmentContext();
+        if (establishment.location_id) {
+          form.append("location_id", establishment.location_id);
+        }
+        if (establishment.location_name) {
+          form.append("location_name", establishment.location_name);
         }
 
         const resp = await fetch(`${API_BASE}/miya/voice-chat/`, {

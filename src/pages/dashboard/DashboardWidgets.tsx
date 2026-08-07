@@ -2738,7 +2738,7 @@ function MeetingsRemindersCard({
                 {t("dashboard.meetings_reminders.retry")}
               </Button>
             </div>
-          ) : !data?.connected ? (
+          ) : !data?.connected && items.length === 0 ? (
             data?.configured === false ? (
               <div className="py-4 text-center text-xs text-slate-500 dark:text-slate-400">
                 {t("dashboard.meetings_reminders.not_configured")}

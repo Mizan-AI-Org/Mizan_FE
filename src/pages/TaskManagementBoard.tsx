@@ -63,11 +63,11 @@ interface DailyProgressStaff {
 }
 
 interface StaffMetric {
-  staff_id: string;
+  staff_id: string | null;
   shift_id?: string;
   name: string;
   role: string;
-  shift_status: 'ON_SHIFT' | 'BREAK' | 'OFF_SHIFT';
+  shift_status: 'ON_SHIFT' | 'SCHEDULED' | 'BREAK' | 'OFF_SHIFT';
   current_process: {
     name: string;
     progress: number;
@@ -317,15 +317,18 @@ export default function TaskManagementBoard({
     }
   };
 
+  const onShiftCount = useMemo(
+    () => staffMetrics.filter((s) => s.shift_status === "ON_SHIFT").length,
+    [staffMetrics],
+  );
+  const scheduledCount = useMemo(
+    () => staffMetrics.filter((s) => s.shift_status === "SCHEDULED").length,
+    [staffMetrics],
+  );
+
   /** Live checklist rows from shifts in progress today. */
   const hasShiftLiveProgress = useMemo(
-    () =>
-      staffMetrics.some(
-        (s) =>
-          (s.tasks?.total ?? 0) > 0 ||
-          (s.current_process?.progress ?? 0) > 0 ||
-          Boolean(s.current_process?.name && !/idle|waiting/i.test(s.current_process.name)),
-      ) || staffMetrics.length > 0,
+    () => staffMetrics.length > 0,
     [staffMetrics],
   );
 
@@ -338,7 +341,10 @@ export default function TaskManagementBoard({
       key: "active",
       label: t("live_board.active_ongoing_processes"),
       value: String(activeProcessesCount),
-      subtext: null as string | null,
+      subtext:
+        activeProcessesCount > 0
+          ? t("live_board.active_processes_scheduled", { count: activeProcessesCount })
+          : null,
       change: undefined as number | undefined,
       icon: PlayCircle,
       accent: "text-sky-600 dark:text-sky-400",
@@ -486,10 +492,16 @@ export default function TaskManagementBoard({
                 )}
               />
               {hasShiftLiveProgress
-                ? t("live_board.active_staff", { count: staffMetrics.length })
+                ? onShiftCount > 0
+                  ? t("live_board.active_staff", { count: onShiftCount })
+                  : scheduledCount > 0
+                    ? t("live_board.scheduled_staff", { count: scheduledCount })
+                    : t("live_board.active_staff", { count: 0 })
                 : hasDailyProgress
                   ? t("live_board.staff_with_tasks_today", { count: dailyProgressStaff.length })
-                  : t("live_board.active_staff", { count: 0 })}
+                  : activeProcessesCount > 0
+                    ? t("live_board.scheduled_staff", { count: activeProcessesCount })
+                    : t("live_board.active_staff", { count: 0 })}
               {dailyProgressDate && hasDailyProgress ? (
                 <span className="text-[10px] opacity-80">· {dailyProgressDate}</span>
               ) : null}
@@ -506,7 +518,7 @@ export default function TaskManagementBoard({
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {staffMetrics.map((staff) => (
                 <div
-                  key={`${staff.staff_id}-${staff.shift_id ?? "shift"}`}
+                  key={`${staff.staff_id ?? "unassigned"}-${staff.shift_id ?? "shift"}`}
                   className="p-4 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors"
                 >
                   <div className="flex items-center gap-3 w-full md:w-52 shrink-0">
@@ -527,10 +539,18 @@ export default function TaskManagementBoard({
                         <span
                           className={cn(
                             "font-medium shrink-0",
-                            staff.shift_status === 'ON_SHIFT' ? "text-emerald-600" : "text-amber-600",
+                            staff.shift_status === "ON_SHIFT"
+                              ? "text-emerald-600"
+                              : staff.shift_status === "SCHEDULED"
+                                ? "text-amber-600"
+                                : "text-slate-500",
                           )}
                         >
-                          {staff.shift_status === 'ON_SHIFT' ? t("live_board.on_shift") : staff.shift_status}
+                          {staff.shift_status === "ON_SHIFT"
+                            ? t("live_board.on_shift")
+                            : staff.shift_status === "SCHEDULED"
+                              ? t("live_board.scheduled")
+                              : staff.shift_status}
                         </span>
                       </div>
                     </div>
