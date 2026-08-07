@@ -229,8 +229,8 @@ export default function BranchDetailPage() {
 
             <TabsContent value="today" className="space-y-4">
               <div className="grid gap-4 lg:grid-cols-2">
-                <ShiftsCard shifts={data.shifts_today} />
-                <ClockEventsCard events={data.clock_events_today} />
+                <ShiftsCard shifts={data.shifts_today} t={t} />
+                <ClockEventsCard events={data.clock_events_today} t={t} />
               </div>
               <CashSessionsCard sessions={data.cash_sessions_today} />
             </TabsContent>
@@ -275,6 +275,7 @@ export default function BranchDetailPage() {
                     Object.fromEntries(list.map((s) => [s.id, s])),
                   );
                 }}
+                t={t}
               />
             </TabsContent>
 
@@ -469,6 +470,7 @@ function StaffRosterCard({
   onToggle,
   onMoveOne,
   onSelectAll,
+  t,
 }: {
   staff: BranchStaffMember[];
   summary?: { total: number; home: number; clocked_in_now: number };
@@ -476,6 +478,7 @@ function StaffRosterCard({
   onToggle: (m: BranchStaffMember) => void;
   onMoveOne: (m: BranchStaffMember) => void;
   onSelectAll: (list: BranchStaffMember[]) => void;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   const allSelected =
     staff.length > 0 && staff.every((s) => selectedIds.includes(s.id));
@@ -512,7 +515,10 @@ function StaffRosterCard({
         </div>
 
         {staff.length === 0 ? (
-          <EmptyRow text="No staff assigned to this branch yet." />
+          <EmptyRow
+            text={t("locations_overview.branch.empty_staff")}
+            hint={t("locations_overview.branch.empty_staff_hint")}
+          />
         ) : (
           <ul className="divide-y divide-border">
             {staff.map((m) => {
@@ -745,7 +751,13 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 /* ------------------------- Today's shifts card ------------------------- */
 
-function ShiftsCard({ shifts }: { shifts: ShiftToday[] }) {
+function ShiftsCard({
+  shifts,
+  t,
+}: {
+  shifts: ShiftToday[];
+  t: (key: string, options?: Record<string, unknown>) => string;
+}) {
   return (
     <Card>
       <CardContent className="p-4">
@@ -754,7 +766,10 @@ function ShiftsCard({ shifts }: { shifts: ShiftToday[] }) {
           subtitle={`${shifts.length} scheduled`}
         />
         {shifts.length === 0 ? (
-          <EmptyRow text="No shifts scheduled at this branch today." />
+          <EmptyRow
+            text={t("locations_overview.branch.empty_shifts")}
+            hint={t("locations_overview.branch.empty_shifts_hint")}
+          />
         ) : (
           <ul className="divide-y divide-border">
             {shifts.map((s) => (
@@ -799,7 +814,13 @@ function ShiftStatusBadge({ status }: { status: string }) {
   );
 }
 
-function ClockEventsCard({ events }: { events: ClockEventToday[] }) {
+function ClockEventsCard({
+  events,
+  t,
+}: {
+  events: ClockEventToday[];
+  t: (key: string, options?: Record<string, unknown>) => string;
+}) {
   const mismatchCount = events.filter((e) => e.location_mismatch).length;
   return (
     <Card>
@@ -814,7 +835,10 @@ function ClockEventsCard({ events }: { events: ClockEventToday[] }) {
           subtitleTone={mismatchCount > 0 ? "red" : "neutral"}
         />
         {events.length === 0 ? (
-          <EmptyRow text="No clock-ins or clock-outs at this branch today." />
+          <EmptyRow
+            text={t("locations_overview.branch.empty_clocks")}
+            hint={t("locations_overview.branch.empty_clocks_hint")}
+          />
         ) : (
           <ul className="divide-y divide-border">
             {events.map((ev) => (
@@ -971,10 +995,11 @@ function SectionHeader({
   );
 }
 
-function EmptyRow({ text }: { text: string }) {
+function EmptyRow({ text, hint }: { text: string; hint?: string }) {
   return (
     <div className="rounded-md border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
-      {text}
+      <p>{text}</p>
+      {hint ? <p className="mt-2 text-[11px] leading-relaxed">{hint}</p> : null}
     </div>
   );
 }

@@ -69,6 +69,7 @@ interface StaffOption {
   id: string;
   name: string;
   role?: string;
+  department?: string;
 }
 
 interface TemplateTask {
@@ -260,13 +261,25 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       const json = await response.json();
       const arr = (json?.results ?? json) as Record<string, unknown>[];
       return (Array.isArray(arr) ? arr : []).map((s) => {
-        const nested = (s.user as Record<string, unknown>) || {};
-        const id = String(s.id ?? nested.id ?? "");
-        const first = String(s.first_name ?? nested.first_name ?? "");
-        const last = String(s.last_name ?? nested.last_name ?? "");
-        const email = String(s.email ?? nested.email ?? "");
+        const nested =
+          (s.user_details as Record<string, unknown>) ||
+          (s.user as Record<string, unknown>) ||
+          {};
+        const profile = (nested.profile as Record<string, unknown>) || {};
+        const id = String(nested.id ?? s.user ?? "");
+        const first = String(nested.first_name ?? s.first_name ?? "");
+        const last = String(nested.last_name ?? s.last_name ?? "");
+        const email = String(nested.email ?? s.email ?? "");
         const name = `${first} ${last}`.trim() || email || "Staff member";
-        return { id, name, role: (s.role as string) || undefined } satisfies StaffOption;
+        const department = String(
+          s.department ?? profile.department ?? "",
+        ).trim();
+        return {
+          id,
+          name,
+          role: (nested.role as string) || (s.role as string) || undefined,
+          department: department || undefined,
+        } satisfies StaffOption;
       }).filter((s) => s.id);
     },
   });
@@ -276,6 +289,32 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     staffOptions.forEach((s) => m.set(s.id, s.name));
     return m;
   }, [staffOptions]);
+
+  const departmentGroups = useMemo(() => {
+    const byDept = new Map<string, StaffOption[]>();
+    for (const s of staffOptions) {
+      const key = (s.department || s.role || "General").trim();
+      const bucket = byDept.get(key) || [];
+      bucket.push(s);
+      byDept.set(key, bucket);
+    }
+    return Array.from(byDept.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [staffOptions]);
+
+  const toggleDepartmentAssignees = (department: string) => {
+    const ids = (departmentGroups.find(([d]) => d === department)?.[1] || []).map((s) => s.id);
+    if (!ids.length) return;
+    setFormData((prev) => {
+      const current = new Set(prev.standing_assignees || []);
+      const allSelected = ids.every((id) => current.has(id));
+      if (allSelected) {
+        ids.forEach((id) => current.delete(id));
+      } else {
+        ids.forEach((id) => current.add(id));
+      }
+      return { ...prev, standing_assignees: Array.from(current) };
+    });
+  };
 
   // Search/filter term for tasks within processes
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -1046,11 +1085,31 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
             Who can run this
           </CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Optional. These people get this Yes/No checklist after they clock in with Miya -
-            even if they are not on today&apos;s schedule.
+            Optional. Assign staff or whole departments. Each person runs their own copy —
+            clock in first or say <span className="font-medium">start checklist</span> to Miya anytime.
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          {departmentGroups.length > 1 ? (
+            <div className="flex flex-wrap gap-2">
+              {departmentGroups.map(([dept, members]) => {
+                const ids = members.map((m) => m.id);
+                const allOn = ids.every((id) => (formData.standing_assignees || []).includes(id));
+                return (
+                  <Button
+                    key={dept}
+                    type="button"
+                    variant={allOn ? "secondary" : "outline"}
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => toggleDepartmentAssignees(dept)}
+                  >
+                    {dept} ({members.length})
+                  </Button>
+                );
+              })}
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <Popover>
               <PopoverTrigger asChild>
@@ -1068,31 +1127,38 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
               </PopoverTrigger>
               <PopoverContent className="w-72 p-0 z-[3100]" align="start">
                 <div className="px-3 py-2 border-b text-xs text-muted-foreground">
-                  Clock in → start checklist. No shift required.
+                  Clock in → start checklist, or start checklist directly. No shift required.
                 </div>
                 <div className="max-h-60 overflow-y-auto py-1">
                   {staffOptions.length === 0 ? (
                     <p className="px-3 py-3 text-sm text-muted-foreground">No staff found.</p>
                   ) : (
-                    staffOptions.map((s) => {
-                      const selected = (formData.standing_assignees || []).includes(s.id);
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => toggleStandingAssignee(s.id)}
-                          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors"
-                        >
-                          <span className="min-w-0 truncate">
-                            {s.name}
-                            {s.role ? (
-                              <span className="text-muted-foreground"> · {s.role}</span>
-                            ) : null}
-                          </span>
-                          {selected && <CheckIcon className="h-4 w-4 text-emerald-600 shrink-0" />}
-                        </button>
-                      );
-                    })
+                    departmentGroups.map(([dept, members]) => (
+                      <div key={dept}>
+                        <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          {dept}
+                        </p>
+                        {members.map((s) => {
+                          const selected = (formData.standing_assignees || []).includes(s.id);
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => toggleStandingAssignee(s.id)}
+                              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors"
+                            >
+                              <span className="min-w-0 truncate">
+                                {s.name}
+                                {s.role ? (
+                                  <span className="text-muted-foreground"> · {s.role}</span>
+                                ) : null}
+                              </span>
+                              {selected && <CheckIcon className="h-4 w-4 text-emerald-600 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))
                   )}
                 </div>
               </PopoverContent>

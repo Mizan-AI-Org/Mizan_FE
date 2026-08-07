@@ -1561,6 +1561,38 @@ const OwnersStep: React.FC<{
     );
     const [saving, setSaving] = useState(false);
 
+    const ownersMetaQuery = useQuery({
+        queryKey: ["onboarding-category-owners-meta"],
+        queryFn: async () => {
+            const res = await fetch(`${API_BASE}/onboarding/category-owners/`, {
+                headers: authHeaders(),
+            });
+            if (!res.ok) throw new Error("Failed to load category owners");
+            return res.json() as {
+                staff_directory?: Record<
+                    string,
+                    { id: string; first_name: string; last_name: string; email: string; role?: string }
+                >;
+            };
+        },
+        staleTime: 60_000,
+    });
+
+    const staffDirectory = useMemo(() => {
+        const out: Record<string, import("@/lib/staffPicker").StaffPickerRow> = {};
+        for (const [id, row] of Object.entries(ownersMetaQuery.data?.staff_directory || {})) {
+            if (!row) continue;
+            out[id] = {
+                id: String(row.id || id),
+                first_name: String(row.first_name || ""),
+                last_name: String(row.last_name || ""),
+                email: String(row.email || ""),
+                role: row.role ? String(row.role) : undefined,
+            };
+        }
+        return out;
+    }, [ownersMetaQuery.data?.staff_directory]);
+
     const rosterQuery = useQuery({
         queryKey: ["onboarding-staff-roster-count"],
         queryFn: fetchStaffRosterCount,
@@ -1618,9 +1650,10 @@ const OwnersStep: React.FC<{
                                         <Label className="sm:flex-1 text-sm font-medium pt-1">
                                             {t(cat.labelKey, cat.key)}
                                         </Label>
-                                        <div className="sm:w-[min(320px,100%)] shrink-0">
+                                        <div className="sm:min-w-[240px] sm:flex-1 shrink-0">
                                             <CategoryOwnerPicker
                                                 selectedIds={owners[cat.key] || []}
+                                                staffDirectory={staffDirectory}
                                                 onChange={(ids) => {
                                                     setOwners((prev) => {
                                                         if (ids.length === 0) {
