@@ -50,6 +50,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_BASE, api } from "@/lib/api";
+import { loadStaffPickerOptions, type StaffPickerOption } from "@/lib/staffPicker";
 import { cn } from "@/lib/utils";
 
 /** What happens after Yes / No on a checklist task. */
@@ -63,13 +64,6 @@ interface BranchAction {
   message?: string;
   /** Staff user ids to notify when type === "alert" (empty/omitted = managers) */
   assignees?: string[];
-}
-
-interface StaffOption {
-  id: string;
-  name: string;
-  role?: string;
-  department?: string;
 }
 
 interface TemplateTask {
@@ -250,38 +244,10 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     return [];
   });
 
-  // Staff list for "flag for manager" assignee picker
-  const { data: staffOptions = [] } = useQuery<StaffOption[]>({
+  // Staff list for standing assignees + branch alert pickers
+  const { data: staffOptions = [] } = useQuery<StaffPickerOption[]>({
     queryKey: ["task-template-staff"],
-    queryFn: async () => {
-      const response = await fetch(`${API_BASE}/staff/?page_size=500`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-      });
-      if (!response.ok) throw new Error("Failed to fetch staff");
-      const json = await response.json();
-      const arr = (json?.results ?? json) as Record<string, unknown>[];
-      return (Array.isArray(arr) ? arr : []).map((s) => {
-        const nested =
-          (s.user_details as Record<string, unknown>) ||
-          (s.user as Record<string, unknown>) ||
-          {};
-        const profile = (nested.profile as Record<string, unknown>) || {};
-        const id = String(nested.id ?? s.user ?? "");
-        const first = String(nested.first_name ?? s.first_name ?? "");
-        const last = String(nested.last_name ?? s.last_name ?? "");
-        const email = String(nested.email ?? s.email ?? "");
-        const name = `${first} ${last}`.trim() || email || "Staff member";
-        const department = String(
-          s.department ?? profile.department ?? "",
-        ).trim();
-        return {
-          id,
-          name,
-          role: (nested.role as string) || (s.role as string) || undefined,
-          department: department || undefined,
-        } satisfies StaffOption;
-      }).filter((s) => s.id);
-    },
+    queryFn: () => loadStaffPickerOptions({ pageSize: 500 }),
   });
 
   const staffNameById = useMemo(() => {
@@ -291,7 +257,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
   }, [staffOptions]);
 
   const departmentGroups = useMemo(() => {
-    const byDept = new Map<string, StaffOption[]>();
+    const byDept = new Map<string, StaffPickerOption[]>();
     for (const s of staffOptions) {
       const key = (s.department || s.role || "General").trim();
       const bucket = byDept.get(key) || [];
