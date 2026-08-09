@@ -8,6 +8,14 @@ export type StaffPickerRow = {
   role?: string;
 };
 
+/** Normalised row for assignee pickers (process templates, checklists, …). */
+export type StaffPickerOption = {
+  id: string;
+  name: string;
+  role?: string;
+  department?: string;
+};
+
 function getAuthToken() {
   return localStorage.getItem("access_token") || localStorage.getItem("accessToken") || "";
 }
@@ -52,6 +60,57 @@ export function normalizeStaffPickerRows(data: unknown): StaffPickerRow[] {
     }
   }
   return out;
+}
+
+function departmentFromStaffRow(r: Record<string, unknown>): string | undefined {
+  const profile = r.profile as Record<string, unknown> | undefined;
+  const dept = String(profile?.department ?? r.department ?? "").trim();
+  return dept || undefined;
+}
+
+/** Full roster for pickers — includes all branches and top-level CustomUser ids. */
+export async function loadStaffPickerOptions(
+  opts: { pageSize?: number } = {},
+): Promise<StaffPickerOption[]> {
+  const params = new URLSearchParams({
+    page_size: String(opts.pageSize ?? 500),
+    all_branches: "1",
+  });
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/staff/?${params.toString()}`, {
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to load staff");
+  }
+  const data = await res.json();
+  const rows = normalizeStaffPickerRows(data);
+  const arr: unknown[] = Array.isArray(data)
+    ? data
+    : data && typeof data === "object" && "results" in (data as object)
+      ? ((data as { results?: unknown[] }).results ?? [])
+      : [];
+
+  const deptById = new Map<string, string | undefined>();
+  for (const row of arr) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as Record<string, unknown>;
+    const id = typeof r.id === "string" ? r.id : undefined;
+    if (id) {
+      deptById.set(id, departmentFromStaffRow(r));
+    }
+  }
+
+  return rows.map((s) => ({
+    id: s.id,
+    name: staffPickerDisplayName(s),
+    role: s.role || undefined,
+    department: deptById.get(s.id),
+  }));
 }
 
 export type StaffPickerSearchResult = {

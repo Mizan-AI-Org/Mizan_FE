@@ -55,6 +55,7 @@ import {
 import { toast } from 'sonner';
 import TaskTemplateForm from './TaskTemplateForm';
 import { API_BASE } from "@/lib/api";
+import { loadStaffPickerOptions, type StaffPickerOption } from "@/lib/staffPicker";
 import {
   parseProcessTemplatesFile,
   SAMPLE_JSON_EXPORT,
@@ -151,29 +152,10 @@ export default function TaskTemplateManagement() {
     },
   });
 
-  type StaffOption = { id: string; name: string };
+  type StaffOption = StaffPickerOption;
   const { data: staffOptions = [] } = useQuery<StaffOption[]>({
     queryKey: ['task-template-staff'],
-    queryFn: async () => {
-      const response = await fetch(`${API_BASE}/staff/?page_size=500`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
-      });
-      if (!response.ok) throw new Error('Failed to fetch staff');
-      const json = await response.json();
-      const arr = (json?.results ?? json) as Record<string, unknown>[];
-      return (Array.isArray(arr) ? arr : []).map((s) => {
-        const nested =
-          (s.user_details as Record<string, unknown>) ||
-          (s.user as Record<string, unknown>) ||
-          {};
-        const id = String(nested.id ?? s.user ?? "");
-        const first = String(nested.first_name ?? s.first_name ?? "");
-        const last = String(nested.last_name ?? s.last_name ?? "");
-        const email = String(nested.email ?? s.email ?? "");
-        const name = `${first} ${last}`.trim() || email || "Staff member";
-        return { id, name };
-      }).filter((s) => s.id);
-    },
+    queryFn: () => loadStaffPickerOptions({ pageSize: 500 }),
   });
 
   const builtInTemplates: Array<{
