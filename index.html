@@ -6,21 +6,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <base href="/" />
   <script>
+    // Dark is the default. Applied before paint so there is no light flash,
+    // and only skipped when someone has explicitly chosen light.
     (function () {
-      try {
-        var t = localStorage.getItem("theme");
-        if (t === "dark") document.documentElement.classList.add("dark");
-      } catch (e) {}
+      var t = null;
+      try { t = localStorage.getItem("theme"); } catch (e) {}
+      if (t !== "light") document.documentElement.classList.add("dark");
     })();
   </script>
   <title>Mizan AI - Operations OS</title>
   <meta name="description"
     content="AI-native operating system for business operations. Understand what is happening, decide what matters, and execute work." />
   <meta name="author" content="Mizan AI" />
-  <meta name="theme-color" content="#4FB56C" />
+  <meta name="theme-color" content="#56BC6D" />
 
   <link rel="icon" type="image/svg+xml" href="/mizan-mark.svg" />
-  <link rel="apple-touch-icon" href="/mizan-logo.png" />
+  <link rel="apple-touch-icon" href="/mizan-icon.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

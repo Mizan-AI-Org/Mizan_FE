@@ -624,11 +624,8 @@ export const MiyaWidget: React.FC = () => {
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 bg-ai/40">
           <div className="flex min-w-0 items-center gap-2.5">
             <img src="/miya-avatar.webp" alt="" className="h-8 w-8 rounded-full object-cover" aria-hidden />
-            <div className="min-w-0">
-              <div id="miya-chat-title" className="text-body font-semibold">
-                {t("ai.chat_title")}
-              </div>
-              <p className="truncate text-caption text-muted-foreground">Intelligence · context-aware</p>
+            <div id="miya-chat-title" className="min-w-0 truncate text-body font-semibold">
+              {t("ai.chat_title")}
             </div>
           </div>
           <button

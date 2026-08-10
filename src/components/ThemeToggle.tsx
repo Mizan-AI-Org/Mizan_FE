@@ -2,6 +2,7 @@ import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 
+/** Dark is the default; light only applies when explicitly chosen. */
 function readTheme(): "light" | "dark" {
   try {
     const saved = localStorage.getItem("theme");
@@ -9,7 +10,7 @@ function readTheme(): "light" | "dark" {
   } catch {
     /* ignore */
   }
-  return "light";
+  return "dark";
 }
 
 export const ThemeToggle = () => {

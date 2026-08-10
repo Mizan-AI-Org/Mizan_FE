@@ -43,6 +43,12 @@ export type BranchStaffMember = {
   is_home: boolean;
   clocked_in: boolean;
   hourly_rate: number | null;
+  /** Hours worked at this branch over the last 7 days. */
+  hours_7d?: number;
+  /** Estimated labor cost for those hours (rate x hours). */
+  labor_cost_7d?: number;
+  /** Most recent clock event at this branch (ISO), if any this week. */
+  last_seen?: string | null;
   primary_location?: string | null;
   primary_location_data?: { id: string; name: string } | null;
 };
@@ -74,6 +80,20 @@ export type BranchPerformance = {
   daily: PerformanceDay[];
 };
 
+export type UpcomingDay = {
+  date: string;
+  scheduled: number;
+  staff: number;
+  unassigned: number;
+};
+
+export type BranchUpcoming = {
+  window_days: number;
+  total_scheduled: number;
+  total_unassigned: number;
+  daily: UpcomingDay[];
+};
+
 export type LocationDetailRow = LocationPortfolioRow & {
   address?: string;
   timezone?: string;
@@ -96,8 +116,10 @@ export type LocationDetail = Pick<
     total: number;
     home: number;
     clocked_in_now: number;
+    roles?: { role: string; count: number }[];
   };
   performance: BranchPerformance;
+  upcoming?: BranchUpcoming;
 };
 
 function getAuthToken() {

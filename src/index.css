@@ -43,8 +43,9 @@
     --primary-foreground: 0 0% 100%;
     --primary-muted: 155 28% 96%;
 
-    /* Logo mark green - fixed brand asset colour, does not follow theme */
-    --brand-mark: 140 40% 51%;
+    /* Logo mark green - #56BC6D sampled from the master artwork. Fixed brand
+       asset colour, identical in both themes. */
+    --brand-mark: 133.5 43.2% 53.7%;
 
     --secondary: 150 8% 96%;
     --secondary-foreground: 160 14% 18%;
@@ -183,7 +184,7 @@
     --primary-foreground: 160 20% 8%;
     --primary-muted: 155 18% 14%;
 
-    --brand-mark: 140 44% 56%;
+    --brand-mark: 133.5 43.2% 53.7%;
 
     --secondary: 160 10% 14%;
     --secondary-foreground: 150 10% 96%;
@@ -280,6 +281,12 @@
 
   html {
     font-family: var(--font-family);
+    /* Keeps native scrollbars and form controls in step with the theme. */
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
@@ -425,10 +432,25 @@
   }
 }
 
-.dark input[type="date"]::-webkit-calendar-picker-indicator,
-.dark input[type="time"]::-webkit-calendar-picker-indicator,
-.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.8);
+/* Make the native picker indicator stretch over the entire input so
+   clicking anywhere opens the calendar, not just the tiny icon. The
+   indicator is absolutely positioned over the field; a large negative
+   inset pulls it to cover the full width. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  position: relative;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  opacity: 0;
+  cursor: pointer;
 }
 
 html.lang-changing body {
