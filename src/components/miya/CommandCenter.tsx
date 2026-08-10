@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useLanguage } from "@/hooks/use-language";
 import { askMiya, focusEntityForMiya } from "@/lib/miyaPageContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -107,6 +108,7 @@ const TILE_TONE: Record<TileTone, { wrap: string; value: string }> = {
 
 export function CommandCenter({ className }: { className?: string }) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const query = useQuery({
     queryKey: ["miya", "command-center"],
@@ -140,12 +142,14 @@ export function CommandCenter({ className }: { className?: string }) {
 
   const statusLine = useMemo(() => {
     if (attention.length > 0) {
-      return `Operations need you. ${attention.length} thing${attention.length === 1 ? "" : "s"} require attention.`;
+      return attention.length === 1
+        ? t("command.status_need_you", { count: attention.length })
+        : t("command.status_need_you_plural", { count: attention.length });
     }
     const health = (live.operational_health || "healthy").replace(/_/g, " ");
-    if (health.toLowerCase() === "healthy") return "Operations are stable. Nothing needs you right now.";
-    return `Operational health: ${health}.`;
-  }, [attention.length, live.operational_health]);
+    if (health.toLowerCase() === "healthy") return t("command.status_stable");
+    return t("command.status_health", { health });
+  }, [attention.length, live.operational_health, t]);
 
   /** Deduplicate insights that already appear as attention items. */
   const watchInsights = useMemo(() => {
@@ -171,7 +175,7 @@ export function CommandCenter({ className }: { className?: string }) {
 
   const askAbout = (item: AttentionItem) => {
     askMiya({
-      prompt: item.ask_miya_prompt || miyaPrompts.attention(item.title),
+      prompt: item.ask_miya_prompt || miyaPrompts.attention(item.title, t),
       pageContext: {
         entity_type: item.entity_type,
         entity_id: item.entity_id || item.entity_ids?.[0] || undefined,
@@ -190,35 +194,35 @@ export function CommandCenter({ className }: { className?: string }) {
     valueClass?: string;
   }> = [
     {
-      label: "People working",
+      label: t("command.tile.people_working"),
       value: live.people_working ?? 0,
       icon: Users,
       href: "/dashboard/staff-app",
       tone: (live.people_working ?? 0) > 0 ? "primary" : "neutral",
     },
     {
-      label: "Active work",
+      label: t("command.tile.active_work"),
       value: live.active_processes ?? 0,
       icon: Activity,
       href: "/dashboard/work",
       tone: (live.active_processes ?? 0) > 0 ? "primary" : "neutral",
     },
     {
-      label: "Open incidents",
+      label: t("command.tile.open_incidents"),
       value: live.open_incidents ?? 0,
       icon: AlertTriangle,
       href: "/dashboard/analytics?tab=incidents",
       tone: (live.open_incidents ?? 0) > 0 ? "critical" : "neutral",
     },
     {
-      label: "Pending approvals",
+      label: t("command.tile.pending_approvals"),
       value: live.unresolved_requests ?? 0,
       icon: CircleDot,
       href: "/dashboard/staff-requests?lane=finance",
       tone: (live.unresolved_requests ?? 0) > 0 ? "approval" : "neutral",
     },
     {
-      label: "Operational health",
+      label: t("command.tile.ops_health"),
       value: (live.operational_health || "healthy").replace(/_/g, " "),
       icon: CheckCircle2,
       href: "/dashboard/attention",
@@ -230,16 +234,16 @@ export function CommandCenter({ className }: { className?: string }) {
   const health = healthPill(live.operational_health);
 
   if (query.isLoading && !data) {
-    return <MiyaLoadingState message="Preparing today's briefing…" className={className} />;
+    return <MiyaLoadingState message={t("command.preparing")} className={className} />;
   }
 
   if (query.isError) {
     return (
       <OpsStateBanner
         variant="error"
-        title="Couldn't load Command"
-        description="Miya couldn't prepare the operational briefing."
-        actionLabel="Retry"
+        title={t("command.load_error")}
+        description={t("command.load_error_detail")}
+        actionLabel={t("common.retry")}
         onAction={() => void query.refetch()}
         className={className}
       />
@@ -262,8 +266,8 @@ export function CommandCenter({ className }: { className?: string }) {
         />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-caption-label">Mizan Command</p>
-            <h1 className="mt-1.5 text-display">{briefing.greeting || "Hello."}</h1>
+            <p className="text-caption-label">{t("command.eyebrow")}</p>
+            <h1 className="mt-1.5 text-display">{briefing.greeting || t("command.hello")}</h1>
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
               <span
                 className={cn(
@@ -285,25 +289,25 @@ export function CommandCenter({ className }: { className?: string }) {
             className="shrink-0 gap-1.5 self-start"
             onClick={() => void query.refetch()}
             disabled={query.isFetching}
-            aria-label="Refresh command center"
+            aria-label={t("command.refresh_aria")}
           >
             <RefreshCw className={cn("h-3.5 w-3.5", query.isFetching && "animate-spin")} />
-            Refresh
+            {t("common.refresh")}
           </Button>
         </div>
       </section>
 
       <section
         id="attention"
-        aria-label="Needs you"
+        aria-label={t("command.needs_you")}
         className="scroll-mt-24 os-section"
       >
         <SectionHeader
-          title="Needs you"
-          description="Decisions and interventions only."
+          title={t("command.needs_you")}
+          description={t("command.needs_you_desc")}
           action={
             <Button type="button" size="sm" variant="ghost" onClick={() => navigate("/dashboard/attention")}>
-              All attention
+              {t("command.all_attention")}
               <ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden />
             </Button>
           }
@@ -311,9 +315,9 @@ export function CommandCenter({ className }: { className?: string }) {
 
         {attention.length === 0 ? (
           <EmptyOpsState
-            title="Nothing needs your decision right now."
-            description="Staff progress and routine work continue in the background."
-            askPrompt="What should I check next?"
+            title={t("command.empty_title")}
+            description={t("command.empty_desc")}
+            askPrompt={t("command.empty_ask")}
           />
         ) : (
           <ul className="space-y-3">
@@ -343,8 +347,8 @@ export function CommandCenter({ className }: { className?: string }) {
         )}
       </section>
 
-      <section aria-label="Glance" className="os-section">
-        <SectionHeader title="Glance" description="Where things stand right now." />
+      <section aria-label={t("command.glance")} className="os-section">
+        <SectionHeader title={t("command.glance")} description={t("command.glance_desc")} />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {glance.map((row) => {
             const Icon = row.icon;
@@ -391,20 +395,20 @@ export function CommandCenter({ className }: { className?: string }) {
       </section>
 
       {watchInsights.length > 0 ? (
-        <section aria-label="Watch signals" className="os-section">
-          <SectionHeader title="Watch" description="Signals Miya detected that are not yet decisions." />
+        <section aria-label={t("command.watch")} className="os-section">
+          <SectionHeader title={t("command.watch")} description={t("command.watch_desc")} />
           <ProactiveInsights insights={watchInsights} compact queryKey={["miya", "command-center"]} />
         </section>
       ) : null}
 
       {activity.length > 0 ? (
-        <section id="miya-activity" aria-label="Miya activity" className="scroll-mt-24 os-section">
+        <section id="miya-activity" aria-label={t("command.handled")} className="scroll-mt-24 os-section">
           <SectionHeader
-            title="Handled by Miya"
+            title={t("command.handled")}
             description={
               briefing.handled_count != null
-                ? `${briefing.handled_count} verified outcomes recently.`
-                : "Verified actions only."
+                ? t("command.handled_count", { count: briefing.handled_count })
+                : t("command.handled_default")
             }
           />
           <MiyaActivityTimeline items={activity} compact queryKey={["miya", "command-center"]} />
@@ -412,8 +416,8 @@ export function CommandCenter({ className }: { className?: string }) {
       ) : null}
 
       {signals.length > 0 ? (
-        <section aria-label="Business signals" className="os-section">
-          <SectionHeader title="Business signals" />
+        <section aria-label={t("command.business_signals")} className="os-section">
+          <SectionHeader title={t("command.business_signals")} />
           <ul className="divide-y divide-border/70">
             {signals.map((sig) => (
               <li key={sig.id} className="flex items-start gap-3 py-3">

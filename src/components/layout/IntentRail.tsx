@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
+import { useLanguage } from "@/hooks/use-language";
 import { usePermissions } from "@/hooks/use-permissions";
 import { UserAvatarMenu } from "@/components/layout/UserAvatarMenu";
 import { askMiya } from "@/lib/miyaPageContext";
@@ -21,7 +22,7 @@ import {
 } from "@/components/layout/mizan-nav-icons";
 
 type NavLeaf = {
-  label: string;
+  labelKey: string;
   href: string;
   appId?: string;
   roles?: string[];
@@ -30,7 +31,7 @@ type NavLeaf = {
 };
 type NavGroup = {
   id: string;
-  label: string;
+  labelKey: string;
   icon: React.ComponentType<{ className?: string }>;
   href?: string;
   appId?: string;
@@ -45,60 +46,60 @@ const ICON = "h-[22px] w-[22px]";
 const GROUPS: NavGroup[] = [
   {
     id: "command",
-    label: "Command",
+    labelKey: "nav.command",
     icon: IconCommand,
     href: "/dashboard",
     roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
   },
   {
     id: "attention",
-    label: "Attention",
+    labelKey: "nav.attention",
     icon: IconAttention,
     href: "/dashboard/attention",
     roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
   },
   {
     id: "work",
-    label: "Work",
+    labelKey: "nav.work",
     icon: IconWork,
     href: "/dashboard/work",
     roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
     children: [
-      { label: "Overview", href: "/dashboard/work" },
-      { label: "Live operations", href: "/dashboard/operations-live", appId: "operations_live" },
-      { label: "Tasks", href: "/dashboard/processes-tasks-app", appId: "tasks" },
-      { label: "Incidents", href: "/dashboard/analytics?tab=incidents", appId: "checklists" },
-      { label: "Requests", href: "/dashboard/staff-requests", appId: "staff_requests" },
+      { labelKey: "nav.overview", href: "/dashboard/work" },
+      { labelKey: "nav.work.live_operations", href: "/dashboard/operations-live", appId: "operations_live" },
+      { labelKey: "nav.work.tasks", href: "/dashboard/processes-tasks-app", appId: "tasks" },
+      { labelKey: "nav.work.incidents", href: "/dashboard/analytics?tab=incidents", appId: "checklists" },
+      { labelKey: "nav.work.requests", href: "/dashboard/staff-requests", appId: "staff_requests" },
     ],
   },
   {
     id: "people",
-    label: "People",
+    labelKey: "nav.people",
     icon: IconPeople,
     href: "/dashboard/people",
     roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
     children: [
-      { label: "Overview", href: "/dashboard/people" },
-      { label: "Staff", href: "/dashboard/staff-app", appId: "staff" },
-      { label: "Scheduling", href: "/dashboard/scheduling", appId: "scheduling" },
+      { labelKey: "nav.overview", href: "/dashboard/people" },
+      { labelKey: "nav.people.staff", href: "/dashboard/staff-app", appId: "staff" },
+      { labelKey: "nav.people.scheduling", href: "/dashboard/scheduling", appId: "scheduling" },
     ],
   },
   {
     id: "business",
-    label: "Business",
+    labelKey: "nav.business",
     icon: IconBusiness,
     href: "/dashboard/business",
     roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
     children: [
-      { label: "Overview", href: "/dashboard/business" },
-      { label: "Analytics", href: "/dashboard/reports", appId: "reports" },
-      { label: "Locations", href: "/dashboard/locations-overview", appId: "locations_overview" },
-      { label: "Approvals", href: "/dashboard/staff-requests?lane=finance", appId: "staff_requests" },
+      { labelKey: "nav.overview", href: "/dashboard/business" },
+      { labelKey: "nav.business.analytics", href: "/dashboard/reports", appId: "reports" },
+      { labelKey: "nav.business.locations", href: "/dashboard/locations-overview", appId: "locations_overview" },
+      { labelKey: "nav.business.approvals", href: "/dashboard/staff-requests?lane=finance", appId: "staff_requests" },
     ],
   },
   {
     id: "automation",
-    label: "Automation",
+    labelKey: "nav.automation",
     icon: IconAutomation,
     href: "/dashboard/automation",
     appId: "automations",
@@ -106,27 +107,27 @@ const GROUPS: NavGroup[] = [
   },
   {
     id: "knowledge",
-    label: "Knowledge",
+    labelKey: "nav.knowledge",
     icon: IconKnowledge,
     href: "/dashboard/knowledge",
     roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
   },
   {
     id: "settings",
-    label: "Settings",
+    labelKey: "nav.settings",
     icon: IconSettings,
     href: "/dashboard/settings",
     appId: "settings",
     roles: ["SUPER_ADMIN", "ADMIN", "OWNER"],
     children: [
-      { label: "Profile", href: "/dashboard/settings?tab=profile", matchesBareRoute: true },
-      { label: "General", href: "/dashboard/settings?tab=general" },
-      { label: "Geolocation", href: "/dashboard/settings?tab=location" },
-      { label: "Integrations", href: "/dashboard/settings?tab=integrations" },
-      { label: "Billing", href: "/dashboard/settings?tab=billing" },
-      { label: "Compliance docs", href: "/dashboard/settings?tab=compliance" },
-      { label: "PayGuard", href: "/dashboard/settings?tab=payguard" },
-      { label: "Role permissions", href: "/dashboard/settings/permissions" },
+      { labelKey: "settings.tabs.profile", href: "/dashboard/settings?tab=profile", matchesBareRoute: true },
+      { labelKey: "settings.tabs.general", href: "/dashboard/settings?tab=general" },
+      { labelKey: "settings.tabs.geolocation", href: "/dashboard/settings?tab=location" },
+      { labelKey: "settings.tabs.integrations", href: "/dashboard/settings?tab=integrations" },
+      { labelKey: "settings.tabs.billing", href: "/dashboard/settings?tab=billing" },
+      { labelKey: "settings.tabs.compliance", href: "/dashboard/settings?tab=compliance" },
+      { labelKey: "settings.tabs.payguard", href: "/dashboard/settings?tab=payguard" },
+      { labelKey: "nav.settings.role_permissions", href: "/dashboard/settings/permissions" },
     ],
   },
 ];
@@ -177,8 +178,8 @@ function navItemClass(active: boolean, collapsed: boolean) {
       ? [
           "bg-primary/[0.09] font-medium text-foreground ring-1 ring-inset ring-primary/15",
           "[&>svg:first-of-type]:text-primary",
-          "before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px]",
-          "before:-translate-y-1/2 before:rounded-r-full before:bg-primary before:content-['']",
+          "before:absolute before:inset-inline-start-0 before:top-1/2 before:h-5 before:w-[3px]",
+          "before:-translate-y-1/2 before:rounded-e-full before:bg-primary before:content-['']",
         ]
       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground",
   );
@@ -187,6 +188,7 @@ function navItemClass(active: boolean, collapsed: boolean) {
 export function IntentRail({ className }: { className?: string }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t, isRTL } = useLanguage();
   const { hasRole } = useAuth() as AuthContextType;
   const { canApp } = usePermissions();
   const [collapsed, setCollapsed] = useState(() => {
@@ -233,17 +235,17 @@ export function IntentRail({ className }: { className?: string }) {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-[57px] bottom-0 z-40 hidden lg:flex flex-col border-r border-sidebar-border",
+        "fixed inset-inline-start-0 top-[57px] bottom-0 z-40 hidden lg:flex flex-col border-e border-sidebar-border",
         "app-rail-surface backdrop-blur-md transition-[width] duration-os",
         collapsed ? "w-[72px]" : "w-[232px]",
         className,
       )}
-      aria-label="Primary navigation"
+      aria-label={t("nav.primary")}
     >
       <div className="px-2 pb-2 pt-3">
         <button
           type="button"
-          onClick={() => askMiya({ prompt: miyaPrompts.attention() })}
+          onClick={() => askMiya({ prompt: miyaPrompts.attention(undefined, t) })}
           className={cn(
             "group flex min-h-11 w-full items-center gap-3 rounded-md border border-ai-border px-2.5 py-2.5",
             "bg-gradient-to-br from-ai to-primary-muted text-body font-medium text-ai-foreground",
@@ -252,13 +254,18 @@ export function IntentRail({ className }: { className?: string }) {
           )}
         >
           <IconAskMiya className={cn(ICON, "text-primary")} />
-          {!collapsed ? <span>Ask Miya</span> : <span className="sr-only">Ask Miya</span>}
+          {!collapsed ? (
+            <span>{t("nav.ask_miya")}</span>
+          ) : (
+            <span className="sr-only">{t("nav.ask_miya")}</span>
+          )}
         </button>
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
         {visible.map((group) => {
           const Icon = group.icon;
+          const label = t(group.labelKey);
           const active = group.href
             ? pathMatches(location.pathname, group.href)
             : (group.children || []).some((c) =>
@@ -272,11 +279,11 @@ export function IntentRail({ className }: { className?: string }) {
                 key={group.id}
                 to={group.href || "/dashboard"}
                 end={group.href === "/dashboard"}
-                title={group.label}
+                title={label}
                 className={navItemClass(active, collapsed)}
               >
                 <Icon className={ICON} />
-                {!collapsed ? <span>{group.label}</span> : <span className="sr-only">{group.label}</span>}
+                {!collapsed ? <span>{label}</span> : <span className="sr-only">{label}</span>}
               </NavLink>
             );
           }
@@ -294,34 +301,37 @@ export function IntentRail({ className }: { className?: string }) {
                   setOpenGroups((s) => ({ ...s, [group.id]: !expanded }));
                 }}
                 className={cn(navItemClass(active, collapsed), "w-full")}
-                title={group.label}
+                title={label}
               >
                 <Icon className={ICON} />
                 {!collapsed ? (
                   <>
-                    <span className="flex-1 text-left">{group.label}</span>
+                    <span className="flex-1 text-start">{label}</span>
                     {expanded ? (
                       <ChevronDown className="h-4 w-4 opacity-60" />
+                    ) : isRTL ? (
+                      <ChevronLeft className="h-4 w-4 opacity-60" />
                     ) : (
                       <ChevronRight className="h-4 w-4 opacity-60" />
                     )}
                   </>
                 ) : (
-                  <span className="sr-only">{group.label}</span>
+                  <span className="sr-only">{label}</span>
                 )}
               </button>
               {!collapsed && expanded ? (
-                <div className="ml-4 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-3">
+                <div className="ms-4 mt-0.5 space-y-0.5 border-s border-sidebar-border ps-3">
                   {(group.children || []).map((child) => {
                     const childActive = leafMatches(location.pathname, location.search, child);
+                    const childLabel = t(child.labelKey);
                     return (
                       <button
-                        key={child.href + child.label}
+                        key={child.href + child.labelKey}
                         type="button"
                         onClick={() => navigate(child.href)}
                         className={cn(
                           "flex min-h-10 w-full items-center gap-2 rounded-md px-2 py-2",
-                          "text-left text-body transition-all duration-os",
+                          "text-start text-body transition-all duration-os",
                           childActive
                             ? "bg-primary/[0.08] font-medium text-foreground"
                             : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
@@ -334,7 +344,7 @@ export function IntentRail({ className }: { className?: string }) {
                           )}
                           aria-hidden
                         />
-                        <span className="min-w-0 truncate">{child.label}</span>
+                        <span className="min-w-0 truncate">{childLabel}</span>
                       </button>
                     );
                   })}
@@ -369,19 +379,25 @@ export function IntentRail({ className }: { className?: string }) {
             "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
             collapsed ? "w-10 justify-center px-0" : "w-full",
           )}
-          aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+          aria-label={collapsed ? t("nav.expand") : t("nav.collapse")}
         >
           {collapsed ? (
+            isRTL ? (
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+            ) : (
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            )
+          ) : isRTL ? (
             <ChevronRight className="h-4 w-4" aria-hidden />
           ) : (
             <ChevronLeft className="h-4 w-4" aria-hidden />
           )}
-          {!collapsed ? <span>Collapse</span> : null}
+          {!collapsed ? <span>{t("nav.collapse")}</span> : null}
         </button>
         <UserAvatarMenu
           variant={collapsed ? "icon" : "row"}
           align="start"
-          side="right"
+          side={isRTL ? "left" : "right"}
           className={collapsed ? "" : "w-full"}
         />
       </div>
@@ -392,15 +408,16 @@ export function IntentRail({ className }: { className?: string }) {
 export function MobileIntentDock() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useLanguage();
   const { hasRole } = useAuth() as AuthContextType;
 
   const items = useMemo(() => {
     const candidates = [
-      { label: "Command", href: "/dashboard", icon: IconCommand, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
-      { label: "Attention", href: "/dashboard/attention", icon: IconAttention, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
-      { label: "Work", href: "/dashboard/work", icon: IconWork, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
-      { label: "People", href: "/dashboard/people", icon: IconPeople, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
-      { label: "Business", href: "/dashboard/business", icon: IconBusiness, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
+      { labelKey: "nav.command", href: "/dashboard", icon: IconCommand, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
+      { labelKey: "nav.attention", href: "/dashboard/attention", icon: IconAttention, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
+      { labelKey: "nav.work", href: "/dashboard/work", icon: IconWork, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
+      { labelKey: "nav.people", href: "/dashboard/people", icon: IconPeople, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
+      { labelKey: "nav.business", href: "/dashboard/business", icon: IconBusiness, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
     ];
     return candidates.filter((c) => !c.roles || hasRole(c.roles));
   }, [hasRole]);
@@ -408,16 +425,16 @@ export function MobileIntentDock() {
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
-      aria-label="Mobile navigation"
+      aria-label={t("nav.mobile")}
     >
       <div className="flex items-stretch justify-around px-1 py-1.5">
         <button
           type="button"
-          onClick={() => askMiya({ prompt: miyaPrompts.attention() })}
+          onClick={() => askMiya({ prompt: miyaPrompts.attention(undefined, t) })}
           className="flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-control px-1 py-1.5 text-primary"
         >
           <IconAskMiya className="h-6 w-6" />
-          <span className="truncate text-caption font-semibold">Miya</span>
+          <span className="truncate text-caption font-semibold">{t("ai.chat_title")}</span>
         </button>
         {items.map((item) => {
           const Icon = item.icon;
@@ -433,7 +450,7 @@ export function MobileIntentDock() {
               )}
             >
               <Icon className="h-6 w-6" />
-              <span className="truncate text-caption font-medium">{item.label}</span>
+              <span className="truncate text-caption font-medium">{t(item.labelKey)}</span>
             </button>
           );
         })}

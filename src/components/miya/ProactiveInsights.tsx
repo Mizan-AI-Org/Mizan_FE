@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { MessageSquare } from "lucide-react";
 import { api } from "@/lib/api";
+import { useLanguage } from "@/hooks/use-language";
 import { askMiya, focusEntityForMiya } from "@/lib/miyaPageContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ export function ProactiveInsights({
   queryKey = ["miya", "command-center"],
 }: Props) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const qc = useQueryClient();
 
   const dismiss = useMutation({
@@ -110,8 +112,14 @@ export function ProactiveInsights({
       navigate(action.href);
       return;
     }
+    const what = insight.what || "";
+    const fallbackPrompt = /overdue/i.test(what)
+      ? t("ai.prompt.overdue_tasks")
+      : /incident/i.test(what)
+        ? t("ai.prompt.incidents")
+        : `Help me with this: ${what}`;
     askMiya({
-      prompt: action.ask_miya_prompt || `Help me with: ${insight.what}`,
+      prompt: action.ask_miya_prompt || fallbackPrompt,
       pageContext: {
         route: typeof window !== "undefined" ? window.location.pathname : "/dashboard",
         entity_type: insight.entity_type || insight.domain,
@@ -122,11 +130,11 @@ export function ProactiveInsights({
   };
 
   return (
-    <section aria-label="Proactive insights" className={cn("space-y-3", className)}>
+    <section aria-label={t("os.insights.title")} className={cn("space-y-3", className)}>
       {!compact ? (
         <SectionHeader
-          title="Proactive insights"
-          description="Situations Miya detected before you asked."
+          title={t("os.insights.title")}
+          description={t("os.insights.desc")}
           action={<span className="text-caption tabular-nums">{sorted.length}</span>}
         />
       ) : null}
@@ -149,7 +157,7 @@ export function ProactiveInsights({
 
             {insight.why ? (
               <p className="mt-1.5 text-body text-foreground/85">
-                <span className="font-medium text-foreground">Why: </span>
+                <span className="font-medium text-foreground">{t("os.insights.why")}: </span>
                 {insight.why}
               </p>
             ) : null}
@@ -158,7 +166,7 @@ export function ProactiveInsights({
               <ul className="mt-2 space-y-1">
                 {insight.evidence.slice(0, 4).map((ev, idx) => (
                   <li key={`${insight.id}-ev-${idx}`} className="type-secondary">
-                    · {ev.label || ev.kind || "Evidence"}
+                    · {ev.label || ev.kind || t("os.insights.evidence")}
                   </li>
                 ))}
               </ul>
@@ -166,14 +174,14 @@ export function ProactiveInsights({
 
             {!compact && insight.impact ? (
               <p className="mt-2 text-body text-foreground/85">
-                <span className="font-medium text-foreground">Impact: </span>
+                <span className="font-medium text-foreground">{t("os.insights.impact")}: </span>
                 {insight.impact}
               </p>
             ) : null}
 
             {insight.recommendation ? (
               <p className="mt-2 text-body text-foreground/85">
-                <span className="font-medium text-foreground">Recommendation: </span>
+                <span className="font-medium text-foreground">{t("os.insights.recommendation")}: </span>
                 {insight.recommendation}
               </p>
             ) : null}

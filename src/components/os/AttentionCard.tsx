@@ -2,6 +2,7 @@ import React from "react";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SeverityBadge, severityPanelClass, type SeverityLevel } from "@/components/os/SeverityBadge";
+import { useLanguage } from "@/hooks/use-language";
 import { cn } from "@/lib/utils";
 
 export type AttentionCardModel = {
@@ -28,6 +29,7 @@ type Props = {
 
 /** Attention item: WHAT / WHY / Miya recommends / one primary action. */
 export function AttentionCard({ item, onReview, onAskMiya, className, compact }: Props) {
+  const { t } = useLanguage();
   return (
     <article
       className={cn(
@@ -52,30 +54,34 @@ export function AttentionCard({ item, onReview, onAskMiya, className, compact }:
           ) : null}
           {item.why ? (
             <p className="text-body text-foreground/90">
-              <span className="font-medium text-foreground">Why it matters: </span>
+              <span className="font-medium text-foreground">{t("os.attention.why")} </span>
               {item.why}
             </p>
           ) : null}
           {item.impact && !compact ? (
             <p className="type-secondary">
-              <span className="font-medium text-foreground">Impact: </span>
+              <span className="font-medium text-foreground">{t("os.attention.impact")} </span>
               {item.impact}
             </p>
           ) : null}
           {item.recommendation ? (
             <p className="text-body text-foreground/90">
-              <span className="font-medium text-foreground">Miya recommends: </span>
+              <span className="font-medium text-foreground">{t("os.attention.recommends")} </span>
               {item.recommendation}
             </p>
           ) : null}
-          {item.owner ? <p className="text-caption">Owner: {item.owner}</p> : null}
+          {item.owner ? (
+            <p className="text-caption">
+              {t("os.attention.owner")} {item.owner}
+            </p>
+          ) : null}
         </div>
 
         {onReview || onAskMiya ? (
           <div className="flex shrink-0 flex-col items-stretch gap-2">
             {onReview ? (
               <Button type="button" size="sm" className="justify-center gap-1" onClick={onReview}>
-                {item.reviewLabel || "Review"}
+                {item.reviewLabel || t("os.attention.review")}
                 <ArrowRight className="h-3.5 w-3.5" aria-hidden />
               </Button>
             ) : null}
@@ -87,7 +93,7 @@ export function AttentionCard({ item, onReview, onAskMiya, className, compact }:
                 className="justify-center"
                 onClick={onAskMiya}
               >
-                Ask Miya
+                {t("nav.ask_miya")}
               </Button>
             ) : null}
           </div>

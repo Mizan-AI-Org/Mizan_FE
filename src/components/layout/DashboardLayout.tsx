@@ -95,7 +95,7 @@ const DashboardLayout: React.FC = () => {
         href="#mizan-main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[3000] focus:rounded-control focus:bg-card focus:px-3 focus:py-2 focus:text-body focus:shadow-strong"
       >
-        Skip to main content
+        {t("common.skip_to_content")}
       </a>
       <ImpersonationBanner />
       <header className="app-header-surface sticky top-0 z-[2000] border-b border-border/80 backdrop-blur-md">
@@ -164,8 +164,8 @@ const DashboardLayout: React.FC = () => {
         id="mizan-main"
         className={cn(
           "flex-1 min-w-0 transition-[padding] duration-os",
-          "lg:pl-[var(--mizan-rail-width,232px)]",
-          miyaPanelOpen && "lg:pr-[min(100vw-2rem,420px)]",
+          "lg:ps-[var(--mizan-rail-width,232px)]",
+          miyaPanelOpen && "lg:pe-[min(100vw-2rem,420px)]",
           "pb-20 lg:pb-6",
         )}
       >
