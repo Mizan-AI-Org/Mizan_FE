@@ -348,15 +348,15 @@ export default function ComplianceDocumentsSettings() {
         <div className="pt-6 border-t border-slate-200 dark:border-slate-700 space-y-3">
           <div>
             <p className="text-sm font-semibold text-slate-900 dark:text-white">
-              Miya uploads
+              {t("settings.compliance.miya_uploads_title")}
             </p>
             <p className="text-xs text-slate-500 mt-0.5">
-              PDFs and photos sent to Miya - structured vendor, amount, and expiry when extracted.
+              {t("settings.compliance.miya_uploads_desc")}
             </p>
           </div>
           {uploads.length === 0 ? (
             <p className="text-sm text-slate-500 py-4">
-              No Miya uploads yet. Attach a PDF or image in the Miya widget or WhatsApp.
+              {t("settings.compliance.miya_uploads_empty")}
             </p>
           ) : (
             <ul className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">

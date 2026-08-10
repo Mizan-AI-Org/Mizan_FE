@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useLanguage } from "@/hooks/use-language";
 import { askMiya, focusEntityForMiya, setMiyaPageContext } from "@/lib/miyaPageContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -114,6 +115,19 @@ function moduleAskPrompt(module: WorkspaceModule, title?: string) {
   return `Help me with ${title || module}. What's most important here?`;
 }
 
+/** Rewrite legacy "Help me with: N overdue tasks" prompts into tool-friendly asks. */
+function resolveAskPrompt(prompt?: string, fallbackTitle?: string) {
+  const raw = (prompt || fallbackTitle || "").trim();
+  if (!raw) return moduleAskPrompt("operations");
+  if (/overdue/i.test(raw)) return miyaPrompts.task();
+  if (/incident/i.test(raw)) return miyaPrompts.incident();
+  if (/document|compliance/i.test(raw)) return miyaPrompts.compliance();
+  if (/^help me with:/i.test(raw)) {
+    return `Help me with this: ${raw.replace(/^help me with:\s*/i, "")}`;
+  }
+  return raw;
+}
+
 type Props = {
   module: WorkspaceModule;
   className?: string;
@@ -132,6 +146,7 @@ export function AiNativeWorkspace({
   compact = false,
 }: Props) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   useEffect(() => {
@@ -210,12 +225,12 @@ export function AiNativeWorkspace({
               <span className="font-medium">Miya</span>
               <span className="text-muted-foreground"> · </span>
               {query.isLoading
-                ? "Reviewing this area…"
+                ? t("ai.workspace.reviewing")
                 : attention.length > 0
                   ? attention.length === 1
                     ? "1 item needs attention"
                     : `${attention.length} items need attention`
-                  : data?.summary?.body || data?.summary?.headline || "No urgent signals"}
+                  : data?.summary?.body || data?.summary?.headline || t("ai.workspace.no_urgent")}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -250,7 +265,7 @@ export function AiNativeWorkspace({
               <MiyaLoadingState message="Preparing workspace…" variant="inline" />
             ) : query.isError ? (
               <EmptyOpsState
-                title="Couldn't load module intelligence"
+                title={t("ai.workspace.load_error")}
                 description="Retry when the connection is ready."
                 askPrompt={moduleAskPrompt(module, data?.title)}
                 action={
@@ -262,7 +277,7 @@ export function AiNativeWorkspace({
             ) : (
               <>
                 <div>
-                  <SectionLabel>AI summary</SectionLabel>
+                  <SectionLabel>{t("ai.workspace.ai_summary")}</SectionLabel>
                   <p className="mt-2 text-body leading-relaxed text-foreground">
                     {data?.summary?.body}
                   </p>
@@ -294,7 +309,7 @@ export function AiNativeWorkspace({
                 <div>
                   <div className="mb-2 flex items-center gap-2">
                     <AlertTriangle className="h-3.5 w-3.5 text-high" aria-hidden />
-                    <SectionLabel>Attention</SectionLabel>
+                    <SectionLabel>{t("ai.workspace.attention")}</SectionLabel>
                   </div>
                   {attention.length === 0 ? (
                     <p className="type-secondary text-muted-foreground">
@@ -339,7 +354,7 @@ export function AiNativeWorkspace({
                             className="shrink-0 gap-1"
                             onClick={() =>
                               askMiya({
-                                prompt: item.ask_miya_prompt || item.title,
+                                prompt: resolveAskPrompt(item.ask_miya_prompt, item.title),
                                 pageContext: {
                                   route: item.href,
                                   tab: module,
@@ -353,7 +368,7 @@ export function AiNativeWorkspace({
                             }
                           >
                             <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-                            Ask
+                            {t("ai.workspace.ask")}
                           </Button>
                         </li>
                       ))}
@@ -364,10 +379,10 @@ export function AiNativeWorkspace({
                 <div>
                   <div className="mb-2 flex items-center gap-2">
                     <Zap className="h-3.5 w-3.5 text-primary" aria-hidden />
-                    <SectionLabel>Recommended actions</SectionLabel>
+                    <SectionLabel>{t("ai.workspace.recommended")}</SectionLabel>
                   </div>
                   {recommended.length === 0 ? (
-                    <p className="type-secondary text-muted-foreground">No recommended actions.</p>
+                    <p className="type-secondary text-muted-foreground">{t("ai.workspace.no_recommended")}</p>
                   ) : (
                     <ul className="space-y-2">
                       {recommended.slice(0, compact ? 3 : 5).map((rec) => (
@@ -392,7 +407,7 @@ export function AiNativeWorkspace({
                                 className="gap-1"
                                 onClick={() => navigate(rec.href!)}
                               >
-                                Open <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                                {t("ai.workspace.open")} <ArrowRight className="h-3.5 w-3.5" aria-hidden />
                               </Button>
                             ) : null}
                             <Button
@@ -400,12 +415,12 @@ export function AiNativeWorkspace({
                               size="sm"
                               onClick={() =>
                                 askMiya({
-                                  prompt: rec.ask_miya_prompt || rec.label,
+                                  prompt: resolveAskPrompt(rec.ask_miya_prompt, rec.label),
                                   pageContext: { route: rec.href, tab: module },
                                 })
                               }
                             >
-                              Do with Miya
+                              {t("ai.workspace.do_with_miya")}
                             </Button>
                           </div>
                         </li>
@@ -415,7 +430,7 @@ export function AiNativeWorkspace({
                 </div>
 
                 <div>
-                  <SectionLabel>Natural language commands</SectionLabel>
+                  <SectionLabel>{t("ai.workspace.commands")}</SectionLabel>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {commands.map((cmd) => (
                       <button
@@ -440,7 +455,7 @@ export function AiNativeWorkspace({
                     <div>
                       <div className="mb-2 flex items-center gap-2">
                         <Link2 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                        <SectionLabel>Related entities</SectionLabel>
+                        <SectionLabel>{t("ai.workspace.related")}</SectionLabel>
                       </div>
                       {related.length === 0 ? (
                         <p className="type-secondary text-muted-foreground">
@@ -466,7 +481,7 @@ export function AiNativeWorkspace({
                     <div>
                       <div className="mb-2 flex items-center gap-2">
                         <Clock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                        <SectionLabel>Timeline</SectionLabel>
+                        <SectionLabel>{t("ai.workspace.timeline")}</SectionLabel>
                       </div>
                       {timeline.length === 0 ? (
                         <p className="type-secondary text-muted-foreground">
@@ -494,7 +509,7 @@ export function AiNativeWorkspace({
                 <div>
                   <div className="mb-2 flex items-center gap-2">
                     <Workflow className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                    <SectionLabel>Automation opportunities</SectionLabel>
+                    <SectionLabel>{t("ai.workspace.automations")}</SectionLabel>
                   </div>
                   {automations.length === 0 ? (
                     <p className="type-secondary text-muted-foreground">No automation ideas yet.</p>
@@ -525,7 +540,7 @@ export function AiNativeWorkspace({
                               })
                             }
                           >
-                            Draft with Miya
+                            {t("ai.workspace.draft")}
                           </Button>
                         </li>
                       ))}

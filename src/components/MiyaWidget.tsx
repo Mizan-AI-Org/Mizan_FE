@@ -11,8 +11,20 @@ import { logError } from "@/lib/logging";
 import { cn } from "@/lib/utils";
 import { MiyaContextChip } from "@/components/os";
 
-type ChatTurn = { role: "user" | "assistant"; content: string };
+type ChatTurn = { role: "user" | "assistant"; content: string; at?: number };
 type PendingAttachment = { id: string; title: string };
+
+function formatChatTime(at: number | undefined, locale: string): string {
+  if (!at) return "";
+  try {
+    return new Date(at).toLocaleTimeString(locale, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
 
 const ALLOWED_ROLES = [
   "ADMIN",
@@ -68,7 +80,6 @@ export const MiyaWidget: React.FC = () => {
   const [voiceProcessing, setVoiceProcessing] = useState(false);
   const [enabled, setEnabled] = useState(true);
   const [voiceInputEnabled, setVoiceInputEnabled] = useState(false);
-  const [fishAudioConfigured, setFishAudioConfigured] = useState(false);
   const [attachmentsEnabled, setAttachmentsEnabled] = useState(true);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
@@ -164,7 +175,6 @@ export const MiyaWidget: React.FC = () => {
       .then((data) => {
         setEnabled(Boolean(data.enabled));
         setVoiceInputEnabled(Boolean(data.voice_input_enabled));
-        setFishAudioConfigured(Boolean(data.fish_audio_configured));
         setAttachmentsEnabled(data.attachments_enabled !== false);
       })
       .catch(() => setEnabled(true));
@@ -178,7 +188,7 @@ export const MiyaWidget: React.FC = () => {
   useEffect(() => () => stopMediaTracks(), [stopMediaTracks]);
 
   const appendAssistantError = useCallback((content: string) => {
-    setHistory((prev) => [...prev, { role: "assistant", content }]);
+    setHistory((prev) => [...prev, { role: "assistant", content, at: Date.now() }]);
   }, []);
 
   const sendTextMessage = useCallback(
@@ -201,21 +211,25 @@ export const MiyaWidget: React.FC = () => {
 
       setInput("");
       setPendingAttachments([]);
-      setHistory((prev) => [...prev, { role: "user", content: userMessage + attachmentNote }]);
+      setHistory((prev) => [
+        ...prev,
+        { role: "user", content: userMessage + attachmentNote, at: Date.now() },
+      ]);
       setLoading(true);
 
       const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
       const applyChatPayload = (data: {
         reply?: string;
-        audio?: { base64?: string; mime_type?: string };
         session_context?: { location_id?: string; location_name?: string };
       }) => {
+        // Typed chat stays silent. Voice replies only play when the user
+        // holds the mic (sendVoiceBlob), never from this text path.
         const reply = data.reply || "Done.";
-        setHistory((prev) => [...prev, { role: "assistant", content: reply }]);
-        if (fishAudioConfigured && data.audio?.base64) {
-          playBase64Audio(data.audio.base64, data.audio.mime_type || "audio/mpeg");
-        }
+        setHistory((prev) => [
+          ...prev,
+          { role: "assistant", content: reply, at: Date.now() },
+        ]);
         const locId = data.session_context?.location_id;
         const locName = data.session_context?.location_name;
         if (locId) {
@@ -240,7 +254,7 @@ export const MiyaWidget: React.FC = () => {
           body: JSON.stringify({
             message: userMessage,
             history: historyRef.current.slice(-8),
-            voice: fishAudioConfigured,
+            voice: false,
             restaurant_id: user?.restaurant || user?.restaurant_data?.id || undefined,
             attachment_ids: ids,
             ...establishment,
@@ -301,7 +315,7 @@ export const MiyaWidget: React.FC = () => {
         setLoading(false);
       }
     },
-    [accessToken, appendAssistantError, fishAudioConfigured, loading, pendingAttachments, user, voiceProcessing],
+    [accessToken, appendAssistantError, loading, pendingAttachments, user, voiceProcessing],
   );
 
   const uploadAttachment = useCallback(
@@ -357,10 +371,14 @@ export const MiyaWidget: React.FC = () => {
       }) => {
         const transcript = (data.transcript || "").trim();
         const reply = data.reply || "Done.";
+        const now = Date.now();
         if (transcript) {
-          setHistory((prev) => [...prev, { role: "user", content: transcript }]);
+          setHistory((prev) => [...prev, { role: "user", content: transcript, at: now }]);
         }
-        setHistory((prev) => [...prev, { role: "assistant", content: reply }]);
+        setHistory((prev) => [
+          ...prev,
+          { role: "assistant", content: reply, at: now + 1 },
+        ]);
         if (data.audio?.base64) {
           playBase64Audio(data.audio.base64, data.audio.mime_type || "audio/mpeg");
         }
@@ -399,7 +417,10 @@ export const MiyaWidget: React.FC = () => {
           const taskId = queued.task_id as string | undefined;
           const earlyTranscript = (queued.transcript || "").trim();
           if (earlyTranscript) {
-            setHistory((prev) => [...prev, { role: "user", content: earlyTranscript }]);
+            setHistory((prev) => [
+              ...prev,
+              { role: "user", content: earlyTranscript, at: Date.now() },
+            ]);
           }
           if (!taskId) {
             throw new Error("Miya did not return a task id");
@@ -621,18 +642,40 @@ export const MiyaWidget: React.FC = () => {
           "max-lg:bottom-[56px]",
         )}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 bg-ai/40">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <img src="/miya-avatar.webp" alt="" className="h-8 w-8 rounded-full object-cover" aria-hidden />
-            <div id="miya-chat-title" className="min-w-0 truncate text-body font-semibold">
-              {t("ai.chat_title")}
+        <div className="flex items-center justify-between gap-3 border-b border-border/80 bg-[#075E54] px-3 py-2.5 text-white dark:bg-[#1F2C34]">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-full p-1 text-white/85 hover:bg-white/10 hover:text-white lg:hidden"
+              aria-label={t("ai.chat_close")}
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <img
+              src="/miya-avatar.webp"
+              alt=""
+              className="h-10 w-10 rounded-full object-cover ring-2 ring-white/20"
+              aria-hidden
+            />
+            <div className="min-w-0">
+              <div id="miya-chat-title" className="truncate text-[15px] font-semibold leading-tight">
+                {t("ai.chat_title")}
+              </div>
+              <div className="truncate text-[12px] text-white/75">
+                {busy
+                  ? voiceProcessing
+                    ? t("ai.voice_processing")
+                    : t("ai.chat_thinking")
+                  : t("ai.chat_online")}
+              </div>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Close Miya"
+            className="hidden rounded-full p-1.5 text-white/85 hover:bg-white/10 hover:text-white lg:inline-flex"
+            aria-label={t("ai.chat_close")}
           >
             <X className="h-5 w-5" />
           </button>
@@ -640,26 +683,34 @@ export const MiyaWidget: React.FC = () => {
 
         <div
           className={cn(
-            "flex-1 space-y-3 overflow-y-auto bg-surface-sunken/50 p-4",
+            "miya-chat-wallpaper flex-1 space-y-2 overflow-y-auto px-3 py-3",
             isRTL && "text-right",
           )}
         >
           {(pageContext?.entity_label || pageContext?.entity_type) && (
-            <MiyaContextChip
-              entityType={pageContext.entity_type}
-              entityLabel={pageContext.entity_label || pageContext.entity_type}
-              onClear={() => clearMiyaPageContext()}
-            />
+            <div className="flex justify-center pb-1">
+              <MiyaContextChip
+                entityType={pageContext.entity_type}
+                entityLabel={pageContext.entity_label || pageContext.entity_type}
+                onClear={() => clearMiyaPageContext()}
+              />
+            </div>
           )}
           {history.length === 0 && (
-            <div className="space-y-3 py-6 type-secondary">
-              <p className="text-center text-body text-muted-foreground">{t("ai.chat_greeting")}</p>
+            <div className="mx-auto mt-8 max-w-[85%] space-y-3">
+              <div className="rounded-xl bg-amber-50/95 px-3 py-2 text-center text-[12px] leading-relaxed text-amber-950 shadow-sm dark:bg-amber-950/70 dark:text-amber-50">
+                {t("ai.chat_greeting")}
+              </div>
               <div className="flex flex-wrap justify-center gap-2">
-                {["What needs attention?", "Who is overloaded?", "Give me an ops update"].map((q) => (
+                {[
+                  t("ai.suggest.attention"),
+                  t("ai.suggest.overloaded"),
+                  t("ai.suggest.ops_update"),
+                ].map((q) => (
                   <button
                     key={q}
                     type="button"
-                    className="rounded-control border border-border bg-card px-2.5 py-2 text-caption text-foreground hover:bg-muted"
+                    className="rounded-full border border-border/70 bg-background/90 px-3 py-1.5 text-[12px] text-foreground shadow-sm hover:bg-muted"
                     onClick={() => {
                       setInput(q);
                       window.setTimeout(() => textInputRef.current?.focus(), 0);
@@ -671,34 +722,48 @@ export const MiyaWidget: React.FC = () => {
               </div>
             </div>
           )}
-          {history.map((turn, i) => (
-            <div
-              key={`${turn.role}-${i}`}
-              className={cn(
-                "max-w-[90%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap",
-                turn.role === "user"
-                  ? cn("ml-auto bg-primary text-primary-foreground", isRTL && "mr-auto ml-0")
-                  : "bg-card border border-border text-foreground shadow-sm",
-              )}
-            >
-              {turn.content}
-            </div>
-          ))}
+          {history.map((turn, i) => {
+            const outgoing = turn.role === "user";
+            const time = formatChatTime(turn.at, language);
+            return (
+              <div
+                key={`${turn.role}-${i}-${turn.at || i}`}
+                className={cn(
+                  "miya-bubble",
+                  outgoing ? "miya-bubble-out" : "miya-bubble-in",
+                )}
+              >
+                <div>{turn.content}</div>
+                {time ? (
+                  <div
+                    className={cn(
+                      "miya-bubble-meta",
+                      outgoing ? "text-white/80" : "text-muted-foreground",
+                    )}
+                  >
+                    <span>{time}</span>
+                    {outgoing ? <span aria-hidden>✓</span> : null}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
           {busy && (
-            <div className="text-xs text-muted-foreground animate-pulse">
+            <div className="miya-bubble miya-bubble-in w-fit animate-pulse text-[12px] text-muted-foreground">
               {voiceProcessing ? t("ai.voice_processing") : t("ai.chat_thinking")}
+              <span className="ml-1 tracking-widest">...</span>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="border-t border-border/70 p-3 bg-background">
+        <div className="border-t border-border/60 bg-[#F0F2F5] px-2 py-2 dark:bg-[#1F2C34]">
           {pendingAttachments.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-1.5">
+            <div className="mb-2 flex flex-wrap gap-1.5 px-1">
               {pendingAttachments.map((att) => (
                 <span
                   key={att.id}
-                  className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary"
+                  className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-[11px] text-primary"
                 >
                   {att.title}
                   <button
@@ -720,7 +785,7 @@ export const MiyaWidget: React.FC = () => {
               e.preventDefault();
               void sendTextMessage(input);
             }}
-            className="flex items-end gap-2"
+            className="flex items-end gap-1.5"
           >
             {attachmentsEnabled && (
               <>
@@ -738,77 +803,78 @@ export const MiyaWidget: React.FC = () => {
                   type="button"
                   disabled={busy || uploadingAttachment}
                   onClick={() => fileInputRef.current?.click()}
-                  className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-primary disabled:opacity-50"
-                  aria-label="Attach document"
-                  title="Attach document"
+                  className="mb-0.5 shrink-0 rounded-full p-2 text-muted-foreground hover:bg-black/5 hover:text-foreground disabled:opacity-50 dark:hover:bg-white/10"
+                  aria-label={t("ai.attach_document")}
+                  title={t("ai.attach_document")}
                 >
                   <Paperclip className="h-5 w-5" />
                 </button>
               </>
             )}
-            {canUseVoiceInput && voiceInputEnabled && (
-              <button
-                type="button"
+            <div className="miya-composer min-w-0 flex-1">
+              <label htmlFor="miya-chat-text-input" className="sr-only">
+                {t("ai.chat_placeholder")}
+              </label>
+              <textarea
+                id="miya-chat-text-input"
+                ref={textInputRef}
+                rows={1}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" || e.shiftKey) return;
+                  e.preventDefault();
+                  if (busy || (!input.trim() && pendingAttachments.length === 0)) return;
+                  void sendTextMessage(input);
+                }}
+                placeholder={t("ai.chat_placeholder")}
                 disabled={busy}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  void startRecording();
-                }}
-                onMouseUp={stopRecording}
-                onMouseLeave={() => {
-                  if (recording) stopRecording();
-                }}
-                onTouchStart={(e) => {
-                  e.preventDefault();
-                  void startRecording();
-                }}
-                onTouchEnd={(e) => {
-                  e.preventDefault();
-                  stopRecording();
-                }}
                 className={cn(
-                  "shrink-0 rounded-lg p-2 transition-colors",
-                  recording
-                    ? "bg-red-100 text-red-600 animate-pulse dark:bg-red-950/40"
-                    : "text-muted-foreground hover:bg-muted hover:text-primary",
-                  busy && "opacity-50 pointer-events-none",
+                  "min-w-0 flex-1 overflow-y-auto",
+                  isRTL && "text-right",
                 )}
-                aria-label={recording ? t("ai.voice_recording") : t("ai.voice_hold")}
-                title={t("ai.voice_hold")}
-              >
-                {recording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-              </button>
-            )}
-            <label htmlFor="miya-chat-text-input" className="sr-only">
-              {t("ai.chat_placeholder")}
-            </label>
-            <textarea
-              id="miya-chat-text-input"
-              ref={textInputRef}
-              rows={1}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter" || e.shiftKey) return;
-                e.preventDefault();
-                if (busy || (!input.trim() && pendingAttachments.length === 0)) return;
-                void sendTextMessage(input);
-              }}
-              placeholder={t("ai.chat_placeholder")}
-              disabled={busy}
-              className={cn(
-                "min-w-0 flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm",
-                "max-h-40 overflow-y-auto leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/30",
-                isRTL && "text-right",
+              />
+              {canUseVoiceInput && voiceInputEnabled && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    void startRecording();
+                  }}
+                  onMouseUp={stopRecording}
+                  onMouseLeave={() => {
+                    if (recording) stopRecording();
+                  }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    void startRecording();
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    stopRecording();
+                  }}
+                  className={cn(
+                    "mb-0.5 shrink-0 rounded-full p-2 transition-colors",
+                    recording
+                      ? "bg-red-100 text-red-600 animate-pulse dark:bg-red-950/40"
+                      : "text-muted-foreground hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10",
+                    busy && "pointer-events-none opacity-50",
+                  )}
+                  aria-label={recording ? t("ai.voice_recording") : t("ai.voice_hold")}
+                  title={t("ai.voice_hold")}
+                >
+                  {recording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                </button>
               )}
-            />
+            </div>
             <button
               type="submit"
               disabled={busy || (!input.trim() && pendingAttachments.length === 0)}
-              className="shrink-0 rounded-lg bg-primary p-2 text-primary-foreground disabled:opacity-40 hover:opacity-95"
-              aria-label="Send message"
+              className="miya-send mb-0.5 hover:opacity-95"
+              aria-label={t("ai.send_message")}
             >
-              <Send className="h-5 w-5" />
+              <Send className="h-4 w-4" />
             </button>
           </form>
         </div>
