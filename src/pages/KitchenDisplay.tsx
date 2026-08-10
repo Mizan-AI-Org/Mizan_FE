@@ -6,7 +6,7 @@ import {
 
 export default function KitchenDisplay() {
     return (
-        <div className="min-h-screen bg-gradient-subtle p-4 sm:p-6 lg:p-8">
+        <div className="min-h-screen p-4 sm:p-6 lg:p-8">
             <div className="max-w-7xl mx-auto space-y-6">
                 {/* Coming Soon Banner */}
                 <Card className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 border-orange-200/50 dark:border-orange-800/50 shadow-lg">

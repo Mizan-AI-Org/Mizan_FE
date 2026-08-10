@@ -142,7 +142,7 @@ function channelBadgeClass(ch: StaffCapturedOrderRow["channel"]): string {
     case "TEXT":
       return "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100";
     case "MANUAL":
-      return "border-slate-200 bg-white text-slate-700 dark:border-slate-600 dark:bg-slate-900/60 dark:text-slate-200";
+      return "border-slate-200 bg-card text-slate-700 dark:border-slate-600 dark:text-slate-200";
     default:
       return "";
   }
@@ -194,7 +194,7 @@ function CapturedOrderRow({
   return (
     <li
       className={cn(
-        "rounded-xl border border-slate-200/90 dark:border-slate-700/90 border-l-4 bg-white pl-4 pr-4 py-4 shadow-sm transition-shadow hover:shadow-md dark:bg-slate-900/60",
+        "rounded-xl border border-slate-200/90 dark:border-slate-700/90 border-l-4 bg-card pl-4 pr-4 py-4 shadow-sm transition-shadow hover:shadow-md",
         statusBorderClass(status),
         status === "FULFILLED" && "bg-emerald-50/40 dark:bg-emerald-950/20",
         status === "CANCELLED" && "opacity-[0.92] bg-slate-50/80 dark:bg-slate-900/40",
@@ -667,7 +667,7 @@ export default function TakeOrdersPage() {
   );
 
   return (
-    <div className="min-h-[60vh] bg-gradient-to-b from-slate-100/80 via-slate-50 to-white dark:from-[#0a0d12] dark:via-[#0f1419] dark:to-slate-950 pb-16">
+    <div className="min-h-[60vh] pb-16">
       <div className={`${PAGE_SHELL} py-6 sm:py-8`}>
         <header className="mb-6 lg:mb-8">
           <div className="grid grid-cols-1 gap-3 sm:gap-2 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-4">
@@ -695,7 +695,7 @@ export default function TakeOrdersPage() {
                         setListDateFrom(v);
                         if (listDateTo < v) setListDateTo(v);
                       }}
-                      className="h-8 w-[9.75rem] rounded-md border-slate-200 bg-white px-2 text-[11px] dark:border-slate-600 dark:bg-slate-900/50"
+                      className="h-8 w-[9.75rem] rounded-md border-slate-200 bg-card px-2 text-[11px] dark:border-slate-600"
                       aria-label={t("take_orders.filter_date_from")}
                     />
                     <span className="text-[10px] text-slate-400">-</span>
@@ -712,7 +712,7 @@ export default function TakeOrdersPage() {
                         setListDateTo(v);
                         if (listDateFrom > v) setListDateFrom(v);
                       }}
-                      className="h-8 w-[9.75rem] rounded-md border-slate-200 bg-white px-2 text-[11px] dark:border-slate-600 dark:bg-slate-900/50"
+                      className="h-8 w-[9.75rem] rounded-md border-slate-200 bg-card px-2 text-[11px] dark:border-slate-600"
                       aria-label={t("take_orders.filter_date_to")}
                     />
                   </div>
@@ -732,7 +732,7 @@ export default function TakeOrdersPage() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder={t("take_orders.search_placeholder")}
-                    className="h-8 rounded-md border-slate-200 bg-white py-0 pl-8 pr-2 text-xs dark:border-slate-600 dark:bg-slate-900/50"
+                    className="h-8 rounded-md border-slate-200 bg-card py-0 pl-8 pr-2 text-xs dark:border-slate-600"
                     aria-label={t("take_orders.search_placeholder")}
                   />
                 </div>
@@ -783,7 +783,7 @@ export default function TakeOrdersPage() {
                 "rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
                 stationFilter === s
                   ? "border-emerald-500 bg-emerald-50 text-emerald-800 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-200"
-                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
+                  : "border-slate-200 bg-card text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800",
               )}
             >
               {t(stationLabelKey(s))}
@@ -793,7 +793,7 @@ export default function TakeOrdersPage() {
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-8">
           <div className="min-w-0 xl:col-span-9">
-            <Card className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-md dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+            <Card className="overflow-hidden rounded-2xl border border-slate-200/90 bg-card shadow-md dark:border-slate-800 dark:shadow-none">
               <div className="flex flex-col gap-1 border-b border-slate-100 bg-slate-50/90 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/80 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{t("take_orders.list_heading")}</h2>
                 <Badge variant="secondary" className="w-fit text-xs font-bold tabular-nums">
@@ -883,7 +883,7 @@ export default function TakeOrdersPage() {
                     type="date"
                     value={exportDateFrom}
                     onChange={(e) => setExportDateFrom(e.target.value)}
-                    className="h-7 rounded-md border-slate-200 bg-white px-1.5 text-[11px] dark:border-slate-700 dark:bg-slate-900/50"
+                    className="h-7 rounded-md border-slate-200 bg-card px-1.5 text-[11px] dark:border-slate-700"
                   />
                 </div>
                 <div className="space-y-0.5">
@@ -895,7 +895,7 @@ export default function TakeOrdersPage() {
                     type="date"
                     value={exportDateTo}
                     onChange={(e) => setExportDateTo(e.target.value)}
-                    className="h-7 rounded-md border-slate-200 bg-white px-1.5 text-[11px] dark:border-slate-700 dark:bg-slate-900/50"
+                    className="h-7 rounded-md border-slate-200 bg-card px-1.5 text-[11px] dark:border-slate-700"
                   />
                 </div>
               </div>
@@ -935,7 +935,7 @@ export default function TakeOrdersPage() {
           if (!open) resetForm();
         }}
       >
-        <DialogContent className="gap-0 max-h-[min(90vh,720px)] w-[calc(100vw-1.5rem)] max-w-xl overflow-y-auto rounded-2xl border border-slate-200/90 bg-white p-0 shadow-2xl dark:border-slate-700 dark:bg-slate-950 sm:max-w-xl">
+        <DialogContent className="gap-0 max-h-[min(90vh,720px)] w-[calc(100vw-1.5rem)] max-w-xl overflow-y-auto rounded-2xl border border-slate-200/90 bg-card p-0 shadow-2xl dark:border-slate-700 sm:max-w-xl">
           <form onSubmit={onSubmitManual} className="flex flex-col">
             <DialogHeader className="sr-only">
               <DialogTitle>{editingId ? t("take_orders.edit_title") : t("take_orders.manual_dialog_title")}</DialogTitle>
@@ -956,7 +956,7 @@ export default function TakeOrdersPage() {
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
                       placeholder={t("take_orders.placeholder.customer")}
-                      className="h-10 rounded-lg border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900/50"
+                      className="h-10 rounded-lg border-slate-200 bg-card dark:border-slate-700"
                     />
                   </div>
                   <div className="space-y-2">
@@ -968,7 +968,7 @@ export default function TakeOrdersPage() {
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       placeholder={t("take_orders.placeholder.phone")}
-                      className="h-10 rounded-lg border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900/50"
+                      className="h-10 rounded-lg border-slate-200 bg-card dark:border-slate-700"
                     />
                   </div>
                 </div>
@@ -996,7 +996,7 @@ export default function TakeOrdersPage() {
                       value={tableOrLocation}
                       onChange={(e) => setTableOrLocation(e.target.value)}
                       placeholder={t("take_orders.placeholder.table")}
-                      className="h-10 rounded-lg border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900/50"
+                      className="h-10 rounded-lg border-slate-200 bg-card dark:border-slate-700"
                     />
                   </div>
                 </div>

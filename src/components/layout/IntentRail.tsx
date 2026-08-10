@@ -1,0 +1,445 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { AuthContextType } from "@/contexts/AuthContext.types";
+import { usePermissions } from "@/hooks/use-permissions";
+import { UserAvatarMenu } from "@/components/layout/UserAvatarMenu";
+import { askMiya } from "@/lib/miyaPageContext";
+import { miyaPrompts } from "@/components/miya/AskMiyaButton";
+import { cn } from "@/lib/utils";
+import {
+  IconAskMiya,
+  IconAttention,
+  IconAutomation,
+  IconBusiness,
+  IconCommand,
+  IconKnowledge,
+  IconPeople,
+  IconSettings,
+  IconWork,
+} from "@/components/layout/mizan-nav-icons";
+
+type NavLeaf = {
+  label: string;
+  href: string;
+  appId?: string;
+  roles?: string[];
+  /** Treat as active when the route carries no query of its own (default tab). */
+  matchesBareRoute?: boolean;
+};
+type NavGroup = {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  href?: string;
+  appId?: string;
+  roles?: string[];
+  children?: NavLeaf[];
+};
+
+const RAIL_EXPANDED = 232;
+const RAIL_COLLAPSED = 72;
+const ICON = "h-[22px] w-[22px]";
+
+const GROUPS: NavGroup[] = [
+  {
+    id: "command",
+    label: "Command",
+    icon: IconCommand,
+    href: "/dashboard",
+    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+  },
+  {
+    id: "attention",
+    label: "Attention",
+    icon: IconAttention,
+    href: "/dashboard/attention",
+    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+  },
+  {
+    id: "work",
+    label: "Work",
+    icon: IconWork,
+    href: "/dashboard/work",
+    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+    children: [
+      { label: "Overview", href: "/dashboard/work" },
+      { label: "Live operations", href: "/dashboard/operations-live", appId: "operations_live" },
+      { label: "Tasks", href: "/dashboard/processes-tasks-app", appId: "tasks" },
+      { label: "Incidents", href: "/dashboard/analytics?tab=incidents", appId: "checklists" },
+      { label: "Requests", href: "/dashboard/staff-requests", appId: "staff_requests" },
+    ],
+  },
+  {
+    id: "people",
+    label: "People",
+    icon: IconPeople,
+    href: "/dashboard/people",
+    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+    children: [
+      { label: "Overview", href: "/dashboard/people" },
+      { label: "Staff", href: "/dashboard/staff-app", appId: "staff" },
+      { label: "Scheduling", href: "/dashboard/scheduling", appId: "scheduling" },
+    ],
+  },
+  {
+    id: "business",
+    label: "Business",
+    icon: IconBusiness,
+    href: "/dashboard/business",
+    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+    children: [
+      { label: "Overview", href: "/dashboard/business" },
+      { label: "Analytics", href: "/dashboard/reports", appId: "reports" },
+      { label: "Locations", href: "/dashboard/locations-overview", appId: "locations_overview" },
+      { label: "Approvals", href: "/dashboard/staff-requests?lane=finance", appId: "staff_requests" },
+    ],
+  },
+  {
+    id: "automation",
+    label: "Automation",
+    icon: IconAutomation,
+    href: "/dashboard/automation",
+    appId: "automations",
+    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+  },
+  {
+    id: "knowledge",
+    label: "Knowledge",
+    icon: IconKnowledge,
+    href: "/dashboard/knowledge",
+    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    icon: IconSettings,
+    href: "/dashboard/settings",
+    appId: "settings",
+    roles: ["SUPER_ADMIN", "ADMIN", "OWNER"],
+    children: [
+      { label: "Profile", href: "/dashboard/settings?tab=profile", matchesBareRoute: true },
+      { label: "General", href: "/dashboard/settings?tab=general" },
+      { label: "Geolocation", href: "/dashboard/settings?tab=location" },
+      { label: "Integrations", href: "/dashboard/settings?tab=integrations" },
+      { label: "Billing", href: "/dashboard/settings?tab=billing" },
+      { label: "Compliance docs", href: "/dashboard/settings?tab=compliance" },
+      { label: "PayGuard", href: "/dashboard/settings?tab=payguard" },
+      { label: "Role permissions", href: "/dashboard/settings/permissions" },
+    ],
+  },
+];
+
+function pathMatches(pathname: string, href: string) {
+  const base = href.split("#")[0].split("?")[0];
+  if (base === "/dashboard") return pathname === "/dashboard";
+  return pathname === base || pathname.startsWith(base + "/");
+}
+
+/**
+ * Active check that understands query-scoped destinations such as
+ * `/dashboard/settings?tab=billing`, which all share one pathname.
+ */
+function leafMatches(pathname: string, search: string, leaf: NavLeaf) {
+  const [routePart, queryPart] = leaf.href.split("#")[0].split("?");
+  if (!queryPart) return pathMatches(pathname, routePart);
+  if (pathname !== routePart) return false;
+
+  const current = new URLSearchParams(search);
+  const target = new URLSearchParams(queryPart);
+  let sawAny = false;
+  for (const [key, value] of target.entries()) {
+    sawAny = true;
+    const actual = current.get(key);
+    if (actual == null) return Boolean(leaf.matchesBareRoute);
+    if (actual.toLowerCase() !== value.toLowerCase()) return false;
+  }
+  return sawAny;
+}
+
+function setRailWidthVar(collapsed: boolean) {
+  try {
+    document.documentElement.style.setProperty(
+      "--mizan-rail-width",
+      `${collapsed ? RAIL_COLLAPSED : RAIL_EXPANDED}px`,
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+function navItemClass(active: boolean, collapsed: boolean) {
+  return cn(
+    "group relative flex min-h-11 items-center gap-3 rounded-md px-2.5 py-2.5 text-body transition-all duration-os",
+    collapsed && "justify-center px-0",
+    active
+      ? [
+          "bg-primary/[0.09] font-medium text-foreground ring-1 ring-inset ring-primary/15",
+          "[&>svg:first-of-type]:text-primary",
+          "before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px]",
+          "before:-translate-y-1/2 before:rounded-r-full before:bg-primary before:content-['']",
+        ]
+      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground",
+  );
+}
+
+export function IntentRail({ className }: { className?: string }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { hasRole } = useAuth() as AuthContextType;
+  const { canApp } = usePermissions();
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("mizan-intent-rail-collapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    work: true,
+    people: false,
+    business: false,
+  });
+
+  useEffect(() => {
+    setRailWidthVar(collapsed);
+  }, [collapsed]);
+
+  // Reveal the section you are actually in rather than making people hunt for it.
+  useEffect(() => {
+    const owning = GROUPS.find(
+      (g) => g.children?.length && g.href && pathMatches(location.pathname, g.href),
+    );
+    if (!owning) return;
+    setOpenGroups((state) => (state[owning.id] ? state : { ...state, [owning.id]: true }));
+  }, [location.pathname]);
+
+  const visible = useMemo(() => {
+    return GROUPS.filter((g) => {
+      if (g.roles && !hasRole(g.roles)) return false;
+      if (g.appId && !canApp(g.appId)) return false;
+      return true;
+    }).map((g) => ({
+      ...g,
+      children: g.children?.filter((c) => {
+        if (c.roles && !hasRole(c.roles)) return false;
+        if (c.appId && !canApp(c.appId)) return false;
+        return true;
+      }),
+    }));
+  }, [hasRole, canApp]);
+
+  return (
+    <aside
+      className={cn(
+        "fixed left-0 top-[57px] bottom-0 z-40 hidden lg:flex flex-col border-r border-sidebar-border",
+        "app-rail-surface backdrop-blur-md transition-[width] duration-os",
+        collapsed ? "w-[72px]" : "w-[232px]",
+        className,
+      )}
+      aria-label="Primary navigation"
+    >
+      <div className="px-2 pb-2 pt-3">
+        <button
+          type="button"
+          onClick={() => askMiya({ prompt: miyaPrompts.attention() })}
+          className={cn(
+            "group flex min-h-11 w-full items-center gap-3 rounded-md border border-ai-border px-2.5 py-2.5",
+            "bg-gradient-to-br from-ai to-primary-muted text-body font-medium text-ai-foreground",
+            "shadow-xs transition-all duration-os hover:border-primary/30 hover:shadow-soft",
+            collapsed && "justify-center px-0",
+          )}
+        >
+          <IconAskMiya className={cn(ICON, "text-primary")} />
+          {!collapsed ? <span>Ask Miya</span> : <span className="sr-only">Ask Miya</span>}
+        </button>
+      </div>
+
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
+        {visible.map((group) => {
+          const Icon = group.icon;
+          const active = group.href
+            ? pathMatches(location.pathname, group.href)
+            : (group.children || []).some((c) =>
+                leafMatches(location.pathname, location.search, c),
+              );
+          const expanded = openGroups[group.id] ?? false;
+
+          if (!group.children?.length) {
+            return (
+              <NavLink
+                key={group.id}
+                to={group.href || "/dashboard"}
+                end={group.href === "/dashboard"}
+                title={group.label}
+                className={navItemClass(active, collapsed)}
+              >
+                <Icon className={ICON} />
+                {!collapsed ? <span>{group.label}</span> : <span className="sr-only">{group.label}</span>}
+              </NavLink>
+            );
+          }
+
+          return (
+            <div key={group.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (collapsed) {
+                    navigate(group.href || group.children?.[0]?.href || "/dashboard");
+                    return;
+                  }
+                  if (group.href && !expanded) navigate(group.href);
+                  setOpenGroups((s) => ({ ...s, [group.id]: !expanded }));
+                }}
+                className={cn(navItemClass(active, collapsed), "w-full")}
+                title={group.label}
+              >
+                <Icon className={ICON} />
+                {!collapsed ? (
+                  <>
+                    <span className="flex-1 text-left">{group.label}</span>
+                    {expanded ? (
+                      <ChevronDown className="h-4 w-4 opacity-60" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 opacity-60" />
+                    )}
+                  </>
+                ) : (
+                  <span className="sr-only">{group.label}</span>
+                )}
+              </button>
+              {!collapsed && expanded ? (
+                <div className="ml-4 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-3">
+                  {(group.children || []).map((child) => {
+                    const childActive = leafMatches(location.pathname, location.search, child);
+                    return (
+                      <button
+                        key={child.href + child.label}
+                        type="button"
+                        onClick={() => navigate(child.href)}
+                        className={cn(
+                          "flex min-h-10 w-full items-center gap-2 rounded-md px-2 py-2",
+                          "text-left text-body transition-all duration-os",
+                          childActive
+                            ? "bg-primary/[0.08] font-medium text-foreground"
+                            : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "h-1.5 w-1.5 shrink-0 rounded-full transition-colors duration-os",
+                            childActive ? "bg-primary" : "bg-transparent",
+                          )}
+                          aria-hidden
+                        />
+                        <span className="min-w-0 truncate">{child.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </nav>
+
+      <div
+        className={cn(
+          "mt-auto space-y-1 border-t border-sidebar-border p-2",
+          collapsed && "flex flex-col items-center",
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setCollapsed((v) => {
+              const next = !v;
+              try {
+                localStorage.setItem("mizan-intent-rail-collapsed", next ? "1" : "0");
+              } catch {
+                /* ignore */
+              }
+              return next;
+            });
+          }}
+          className={cn(
+            "flex min-h-10 items-center gap-3 rounded-control px-2.5 text-caption text-muted-foreground",
+            "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            collapsed ? "w-10 justify-center px-0" : "w-full",
+          )}
+          aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+        >
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          ) : (
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+          )}
+          {!collapsed ? <span>Collapse</span> : null}
+        </button>
+        <UserAvatarMenu
+          variant={collapsed ? "icon" : "row"}
+          align="start"
+          side="right"
+          className={collapsed ? "" : "w-full"}
+        />
+      </div>
+    </aside>
+  );
+}
+
+export function MobileIntentDock() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { hasRole } = useAuth() as AuthContextType;
+
+  const items = useMemo(() => {
+    const candidates = [
+      { label: "Command", href: "/dashboard", icon: IconCommand, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
+      { label: "Attention", href: "/dashboard/attention", icon: IconAttention, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
+      { label: "Work", href: "/dashboard/work", icon: IconWork, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
+      { label: "People", href: "/dashboard/people", icon: IconPeople, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
+      { label: "Business", href: "/dashboard/business", icon: IconBusiness, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
+    ];
+    return candidates.filter((c) => !c.roles || hasRole(c.roles));
+  }, [hasRole]);
+
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+      aria-label="Mobile navigation"
+    >
+      <div className="flex items-stretch justify-around px-1 py-1.5">
+        <button
+          type="button"
+          onClick={() => askMiya({ prompt: miyaPrompts.attention() })}
+          className="flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-control px-1 py-1.5 text-primary"
+        >
+          <IconAskMiya className="h-6 w-6" />
+          <span className="truncate text-caption font-semibold">Miya</span>
+        </button>
+        {items.map((item) => {
+          const Icon = item.icon;
+          const active = pathMatches(location.pathname, item.href);
+          return (
+            <button
+              key={item.href}
+              type="button"
+              onClick={() => navigate(item.href)}
+              className={cn(
+                "flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-control px-1 py-1.5",
+                active ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              <Icon className="h-6 w-6" />
+              <span className="truncate text-caption font-medium">{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
+export default IntentRail;

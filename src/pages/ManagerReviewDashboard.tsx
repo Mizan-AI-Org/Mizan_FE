@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
 import { api, API_BASE, resolveMediaUrl, toAbsoluteUrl } from "@/lib/api";
@@ -34,6 +34,9 @@ import { TableSkeleton } from "@/components/skeletons";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { focusEntityForMiya, setMiyaPageContext } from "@/lib/miyaPageContext";
+import { AskMiyaButton, miyaPrompts } from "@/components/miya/AskMiyaButton";
+import { AiNativeWorkspace, type WorkspaceModule } from "@/components/miya/AiNativeWorkspace";
 
 type SubmittedChecklist = {
   id: string;
@@ -119,6 +122,8 @@ type ChecklistExecutionDetail = {
 const ManagerReviewDashboard: React.FC = () => {
   const queryClient = useQueryClient();
   const { t } = useLanguage();
+  const location = useLocation();
+  const showStandaloneWorkspace = location.pathname.includes("/reviews/");
   const [search, setSearch] = useState("");
   const [filterSubmitter, setFilterSubmitter] = useState("");
   const [filterDate, setFilterDate] = useState("");
@@ -492,6 +497,26 @@ const ManagerReviewDashboard: React.FC = () => {
     },
   });
 
+  useEffect(() => {
+    if (!selectedIncident) return;
+    const label =
+      (incidentDetail as { title?: string } | undefined)?.title ||
+      undefined;
+    focusEntityForMiya({
+      entity_type: "incident",
+      entity_id: selectedIncident,
+      entity_label: label,
+      route: "/dashboard/analytics",
+      tab: "incidents",
+    });
+    return () => {
+      setMiyaPageContext({
+        route: "/dashboard/analytics",
+        tab: "incidents",
+      });
+    };
+  }, [selectedIncident, incidentDetail]);
+
   type SafetyIncident = {
     id: string;
     title?: string | null;
@@ -841,6 +866,11 @@ const ManagerReviewDashboard: React.FC = () => {
 
   return (
     <div className={`${PAGE_SHELL} py-6 space-y-5`}>
+      {showStandaloneWorkspace ? (
+        <AiNativeWorkspace
+          module={(activeTab === "incidents" ? "incidents" : "checklists") as WorkspaceModule}
+        />
+      ) : null}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Ops review</h1>
@@ -1196,16 +1226,16 @@ const ManagerReviewDashboard: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-3">
                   <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{t("analytics.kpi_submissions")}</div>
                   <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.totalInRange}</div>
                 </div>
-                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-3">
                   <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{t("analytics.kpi_completion")}</div>
                   <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.completionPctInRange}%</div>
                   <div className="text-[11px] text-muted-foreground mt-1">{t("analytics.completed_count", { completed: trendKpis.completedInRange, total: trendKpis.totalInRange })}</div>
                 </div>
-                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-3">
                   <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{t("analytics.kpi_submitters")}</div>
                   <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.uniqueStaff}</div>
                   <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
@@ -1213,12 +1243,12 @@ const ManagerReviewDashboard: React.FC = () => {
                     {t("analytics.unique_staff")}
                   </div>
                 </div>
-                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-3">
                   <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{t("common.avg_score")}</div>
                   <div className="text-2xl font-bold mt-1 tabular-nums">{trendKpis.avgCompletion ?? "-"}{typeof trendKpis.avgCompletion === 'number' ? "%" : ""}</div>
                   <div className="text-[11px] text-muted-foreground mt-1">{t("analytics.from_checklist_summaries")}</div>
                 </div>
-                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 md:col-span-2">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-3 md:col-span-2">
                   <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3 text-amber-600" />
                     {t("analytics.issue_rate")}
@@ -1229,7 +1259,7 @@ const ManagerReviewDashboard: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+                <div className="lg:col-span-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-3">
                   <div className="h-64">
                     {trendDaily.reduce((a, b) => a + b.count, 0) === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground">
@@ -1269,7 +1299,7 @@ const ManagerReviewDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 space-y-3">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-3 space-y-3">
                   <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("common.top_checklists")}</div>
                   {topTemplates.length === 0 ? (
                     <div className="text-sm text-muted-foreground">-</div>
@@ -1290,7 +1320,7 @@ const ManagerReviewDashboard: React.FC = () => {
               </div>
 
               {topStaff.length > 0 ? (
-                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-3">
                   <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Top submitters</div>
                   <div className="h-44">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1659,7 +1689,7 @@ const ManagerReviewDashboard: React.FC = () => {
                     setIncidentFilters({ ...incidentFilters, severity: e.target.value });
                     setIncidentPage(1);
                   }}
-                  className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 text-sm"
+                  className="border border-slate-200 dark:border-slate-700 bg-card text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 text-sm"
                 >
                   <option value="">All severities</option>
                   <option value="critical">Critical</option>
@@ -1852,6 +1882,19 @@ const ManagerReviewDashboard: React.FC = () => {
                         {incidentDetail.incident_type}
                       </Badge>
                     ) : null}
+                    <AskMiyaButton
+                      prompt={miyaPrompts.incident(incidentDetail.title || "this incident")}
+                      pageContext={{
+                        entity_type: "incident",
+                        entity_id: String(incidentDetail.id || selectedIncident || ""),
+                        entity_label: incidentDetail.title,
+                        route: typeof window !== "undefined" ? window.location.pathname : "/dashboard",
+                        tab: "incidents",
+                      }}
+                      size="sm"
+                      variant="outline"
+                      onClickStopPropagation
+                    />
                     <span className="text-[11px] text-muted-foreground font-mono ml-auto">
                       #{String(incidentDetail.id || "").slice(0, 8)}
                     </span>
@@ -1923,7 +1966,7 @@ const ManagerReviewDashboard: React.FC = () => {
                       <select
                         value={assignTo}
                         onChange={(e) => setAssignTo(e.target.value)}
-                        className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm"
+                        className="flex-1 border border-slate-200 dark:border-slate-700 bg-card rounded-md px-3 py-2 text-sm"
                       >
                         <option value="">Unassigned</option>
                         {(() => {
@@ -2009,7 +2052,7 @@ const ManagerReviewDashboard: React.FC = () => {
                         <select
                           value={updateStatus || incidentDetail.status}
                           onChange={(e) => setUpdateStatus(e.target.value)}
-                          className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm"
+                          className="w-full border border-slate-200 dark:border-slate-700 bg-card rounded-md px-3 py-2 text-sm"
                         >
                           <option value="OPEN">Open</option>
                           <option value="RESOLVED">Resolved</option>

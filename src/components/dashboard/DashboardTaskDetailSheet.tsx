@@ -86,7 +86,7 @@ export function DashboardTaskDetailSheet({
       await invalidateTaskQueries();
       toast.success(
         t("dashboard.task_detail.assignees_saved", {
-          defaultValue: "Assignees saved — staff notified on WhatsApp.",
+          defaultValue: "Assignees saved - staff notified on WhatsApp.",
         }),
       );
     },

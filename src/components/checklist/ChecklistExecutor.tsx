@@ -61,7 +61,7 @@ const SignaturePad: React.FC<{ onSave: (dataUrl: string) => void } & React.HTMLA
 
   return (
     <div {...rest} className={`space-y-2 ${rest.className || ''}`}>
-      <div className="border rounded-md overflow-hidden bg-white max-w-sm">
+      <div className="border rounded-md overflow-hidden bg-card max-w-sm">
         <canvas
           ref={canvasRef}
           width={320}
@@ -454,7 +454,7 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Step Card */}
-        <div className="border rounded-lg p-4 sm:p-5 bg-white shadow-sm">
+        <div className="border rounded-lg p-4 sm:p-5 bg-card shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
               <div className="text-xs font-medium text-muted-foreground mb-1">Step {record.currentIndex + 1} of {template.steps.length}</div>

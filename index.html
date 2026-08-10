@@ -5,10 +5,26 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <base href="/" />
-  <title>Mizan - AI-Powered Restaurant Operations</title>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("theme");
+        if (t === "dark") document.documentElement.classList.add("dark");
+      } catch (e) {}
+    })();
+  </script>
+  <title>Mizan AI - Operations OS</title>
   <meta name="description"
-    content="AI-powered operating system for restaurant operations. Optimize inventory, staff scheduling, and business analytics with intelligent automation." />
-  <meta name="author" content="Mizan Restaurant OS" />
+    content="AI-native operating system for business operations. Understand what is happening, decide what matters, and execute work." />
+  <meta name="author" content="Mizan AI" />
+  <meta name="theme-color" content="#4FB56C" />
+
+  <link rel="icon" type="image/svg+xml" href="/mizan-mark.svg" />
+  <link rel="apple-touch-icon" href="/mizan-logo.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700&family=Noto+Naskh+Arabic:wght@400;600&display=swap" rel="stylesheet" />
 
   <!-- Warm up connections used during first paint to shave ~200–400ms on cold starts -->
   <link rel="preconnect" href="https://api.heymizan.ai" crossorigin />
@@ -19,20 +35,19 @@
   <!-- Start fetching the initial locale file in parallel with JS (i18n useSuspense needs it) -->
   <link rel="preload" href="/locales/en.json" as="fetch" type="application/json" crossorigin />
 
-  <meta property="og:title" content="Mizan - AI Restaurant Operating System" />
+  <meta property="og:title" content="Mizan AI - Operations OS" />
   <meta property="og:description"
-    content="Transform your restaurant operations with AI-powered inventory management, staff scheduling, and predictive analytics." />
+    content="AI-native operating system for business operations. Understand what is happening, decide what matters, and execute work." />
   <meta property="og:type" content="website" />
-  <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+  <meta property="og:image" content="/mizan-logo.png" />
 
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:site" content="@mizan_restaurant" />
 </head>
 
 <body>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
-  <!-- Fish Audio Miya — no external LuaPop script needed -->
+  <!-- Fish Audio Miya - no external LuaPop script needed -->
   <!-- Notifications disabled: Service worker registration removed -->
 </body>
 

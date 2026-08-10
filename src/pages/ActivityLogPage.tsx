@@ -149,7 +149,7 @@ const ActivityLogPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/30">
+        <div className="min-h-screen">
             <div className={`${PAGE_SHELL} py-8 space-y-6`}>
                 <div>
                     <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">

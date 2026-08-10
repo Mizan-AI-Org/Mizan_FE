@@ -115,7 +115,7 @@ export const CameraCaptureModal: React.FC<Props> = ({ open, onClose, onCaptured 
 
   return (
     <div role="dialog" aria-modal="true" aria-label="Clock photo capture" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70">
-      <div className="bg-white rounded-lg shadow-lg w-[92vw] max-w-[720px] p-4">
+      <div className="bg-card rounded-lg shadow-lg w-[92vw] max-w-[720px] p-4">
         <div className="relative">
           {!capturedPreview ? (
             <div className="relative">

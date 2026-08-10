@@ -1,28 +1,81 @@
 import React from "react";
+import { cn } from "@/lib/utils";
 
 type BrandLogoProps = {
   size?: "sm" | "md" | "lg";
   className?: string;
   ariaLabel?: string;
+  /** Show wordmark beside the mark */
+  withWordmark?: boolean;
+  wordmarkClassName?: string;
 };
 
 const sizeMap = {
-  sm: { outer: "w-10 h-10", inner: "w-6 h-6", dot: "w-3 h-3" },
-  md: { outer: "w-12 h-12", inner: "w-6 h-6", dot: "w-3 h-3" },
-  lg: { outer: "w-16 h-16", inner: "w-8 h-8", dot: "w-4 h-4" },
+  sm: { mark: 24, wordmark: "text-[0.95rem]", gap: "gap-2" },
+  md: { mark: 28, wordmark: "text-[1.0625rem]", gap: "gap-2" },
+  lg: { mark: 36, wordmark: "text-[1.375rem]", gap: "gap-2.5" },
 };
 
-const BrandLogo: React.FC<BrandLogoProps> = ({ size = "sm", className, ariaLabel }) => {
+/**
+ * Canonical Mizan mark: green annulus with a concentric green core.
+ * The ring colour is a fixed brand value, so it stays correct on any surface.
+ */
+export function MizanMark({
+  size = 28,
+  className,
+}: {
+  size?: number;
+  className?: string;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={cn("shrink-0 text-[hsl(var(--brand-mark))]", className)}
+      aria-hidden
+    >
+      <circle
+        cx="16"
+        cy="16"
+        r="14.1"
+        stroke="currentColor"
+        strokeWidth="3.8"
+        fill="none"
+      />
+      <circle cx="16" cy="16" r="5.6" fill="currentColor" />
+    </svg>
+  );
+}
+
+const BrandLogo: React.FC<BrandLogoProps> = ({
+  size = "sm",
+  className,
+  ariaLabel,
+  withWordmark = false,
+  wordmarkClassName,
+}) => {
   const s = sizeMap[size];
   return (
-    <div
-      className={`inline-flex items-center justify-center ${s.outer} rounded-full bg-[#00E676] shadow-lg pointer-events-none select-none cursor-default ${className || ""}`}
-      aria-label={ariaLabel || "Mizan AI brand logo"}
+    <span
+      className={cn("inline-flex items-center select-none", s.gap, className)}
+      aria-label={ariaLabel || "Mizan AI"}
     >
-      <div className={`bg-white rounded-full flex items-center justify-center ${s.inner}`}>
-        <div className={`bg-[#00E676] rounded-full ${s.dot}`} />
-      </div>
-    </div>
+      <MizanMark size={s.mark} />
+      {withWordmark ? (
+        <span
+          className={cn(
+            "font-bold tracking-[-0.02em] text-foreground",
+            s.wordmark,
+            wordmarkClassName,
+          )}
+        >
+          Mizan AI
+        </span>
+      ) : null}
+    </span>
   );
 };
 

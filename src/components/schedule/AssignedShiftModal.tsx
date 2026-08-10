@@ -489,7 +489,7 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[700px] bg-white rounded-3xl p-8 max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[700px] bg-card rounded-3xl p-8 max-h-[90vh] overflow-y-auto">
                 <DialogHeader className="pb-2">
                     <DialogTitle className="text-xl font-bold text-[#1F2937]">{shift ? t("schedule.edit_schedule") : t("schedule.create_schedule")}</DialogTitle>
                 </DialogHeader>

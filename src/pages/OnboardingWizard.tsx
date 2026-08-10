@@ -505,7 +505,7 @@ const OnboardingWizard: React.FC = () => {
             <div className="sticky top-0 z-10 shrink-0 backdrop-blur-xl bg-white/80 dark:bg-slate-950/80 border-b border-slate-200/60 dark:border-slate-800/60 shadow-sm">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center gap-4">
                     <div className="flex items-center gap-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                        <div className="flex items-center justify-center h-7 w-7 rounded-full border-[3px] border-emerald-500 bg-white dark:bg-slate-900">
+                        <div className="flex items-center justify-center h-7 w-7 rounded-full border-[3px] border-emerald-500 bg-card">
                             <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                         </div>
                         {t("onboarding.brand", "Mizan setup")}
@@ -1488,7 +1488,7 @@ const PermissionsStep: React.FC<{
                                                     "text-[11px] px-2 py-0.5 rounded-full border transition",
                                                     on
                                                         ? "bg-emerald-500 text-white border-emerald-500"
-                                                        : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400",
+                                                        : "bg-card text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400",
                                                 )}
                                             >
                                                 {t(r.labelKey, r.id)}
@@ -1645,7 +1645,7 @@ const OwnersStep: React.FC<{
                                 {group.items.map((cat) => (
                                     <div
                                         key={cat.key}
-                                        className="flex flex-col gap-2 p-2.5 rounded-lg bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 sm:flex-row sm:items-start sm:gap-3"
+                                        className="flex flex-col gap-2 p-2.5 rounded-lg bg-card border border-slate-200 dark:border-slate-800 sm:flex-row sm:items-start sm:gap-3"
                                     >
                                         <Label className="sm:flex-1 text-sm font-medium pt-1">
                                             {t(cat.labelKey, cat.key)}
@@ -1788,7 +1788,7 @@ const GoogleCalendarStep: React.FC<{
             alreadyDoneBadge={status.steps.google_calendar}
             optional
         >
-            <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-6 bg-white dark:bg-slate-900/40 text-center space-y-4">
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-6 bg-card text-center space-y-4">
                 <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-400 to-blue-600 text-white shadow-md">
                     <CalendarPlus className="h-7 w-7" />
                 </div>

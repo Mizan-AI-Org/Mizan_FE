@@ -131,7 +131,7 @@ function CategoryGroup({
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/60 overflow-hidden">
+    <div className="rounded-xl border border-slate-200 bg-card dark:border-slate-800 overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2">
         <div className="flex flex-col gap-0.5">
           <button
@@ -257,7 +257,7 @@ function CategoryGroup({
               {widgets.map((w) => (
                 <li
                   key={w.id}
-                  className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-900/60"
+                  className="flex items-center gap-2 rounded-lg border border-slate-200 bg-card px-3 py-2 text-sm dark:border-slate-800"
                 >
                   <Sparkles className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                   <div className="flex-1 min-w-0">
@@ -396,7 +396,7 @@ function WidgetRow({
   }, [row.id, row.title, row.icon, row.category_id, rowKeywords]);
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900/60">
+    <div className="rounded-xl border border-slate-200 bg-card p-3 dark:border-slate-800">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="truncate text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
           {t("dashboard.manage.widget_slot")} {row.slot_id.slice(0, 18)}…
@@ -774,7 +774,7 @@ export function ManageDashboardCategoriesDialog({
                   {uncategorized.map((w) => (
                     <li
                       key={w.id}
-                      className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-900/60"
+                      className="flex items-center gap-2 rounded-lg border border-slate-200 bg-card px-3 py-2 text-sm dark:border-slate-800"
                     >
                       <Sparkles className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                       <div className="flex-1 min-w-0">

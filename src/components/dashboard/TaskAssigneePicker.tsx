@@ -25,7 +25,7 @@ type Props = {
   assigneeId?: string | null;
   assigneeName?: string | null;
   onChange?: (assigneeId: string | null) => void;
-  /** Multi-assignee mode — preferred for task detail. */
+  /** Multi-assignee mode - preferred for task detail. */
   assigneeIds?: string[];
   assigneeNames?: Record<string, string>;
   onAssigneesChange?: (assigneeIds: string[]) => void;

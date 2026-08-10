@@ -584,7 +584,7 @@ export default function PaymentApprovalSettings() {
                             "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
                             active
                               ? "border-emerald-600 bg-emerald-600 text-white"
-                              : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200",
+                              : "border-slate-200 bg-card text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:text-slate-200",
                           )}
                         >
                           {code}
@@ -676,7 +676,7 @@ export default function PaymentApprovalSettings() {
                       <div key={tier.id}>
                         <div
                           className={cn(
-                            "rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-950/30",
+                            "rounded-xl border bg-surface-sunken p-4 shadow-sm",
                             accent.ring,
                           )}
                         >
@@ -779,7 +779,7 @@ export default function PaymentApprovalSettings() {
                     min={0}
                     value={previewAmount}
                     onChange={(e) => setPreviewAmount(e.target.value)}
-                    className="h-9 w-[120px] bg-white dark:bg-slate-950"
+                    className="h-9 w-[120px] bg-background"
                     aria-label={t("settings.payguard.preview_amount")}
                   />
                   <span className="text-sm text-slate-600 dark:text-slate-300">{currency}</span>

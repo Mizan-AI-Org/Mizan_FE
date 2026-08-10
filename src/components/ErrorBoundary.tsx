@@ -57,7 +57,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         if (this.state.hasError) {
             const isDev = import.meta.env.DEV;
             return (
-                <div className="flex items-center justify-center min-h-screen bg-gray-100">
+                <div className="flex items-center justify-center min-h-screen p-4">
                     <Card className="w-full max-w-md shadow-lg">
                         <CardHeader>
                             <CardTitle className="text-red-600">Something went wrong.</CardTitle>

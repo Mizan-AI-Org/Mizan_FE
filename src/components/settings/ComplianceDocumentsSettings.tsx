@@ -26,6 +26,15 @@ import { cn } from "@/lib/utils";
 
 type DocType = { id: string; label: string };
 
+type ComplianceDoc = {
+  id: string;
+  title: string;
+  document_type: string;
+  expires_at?: string | null;
+  days_until_expiry?: number | null;
+  urgency: "expired" | "critical" | "soon" | "ok" | "unset";
+};
+
 type TenantUpload = {
   id: string;
   title: string;
@@ -284,7 +293,7 @@ export default function ComplianceDocumentsSettings() {
             {docs.map((doc) => (
               <li
                 key={doc.id}
-                className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900"
+                className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 bg-card"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -342,7 +351,7 @@ export default function ComplianceDocumentsSettings() {
               Miya uploads
             </p>
             <p className="text-xs text-slate-500 mt-0.5">
-              PDFs and photos sent to Miya — structured vendor, amount, and expiry when extracted.
+              PDFs and photos sent to Miya - structured vendor, amount, and expiry when extracted.
             </p>
           </div>
           {uploads.length === 0 ? (
@@ -354,7 +363,7 @@ export default function ComplianceDocumentsSettings() {
               {uploads.map((u) => (
                 <li
                   key={u.id}
-                  className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900"
+                  className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 bg-card"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">

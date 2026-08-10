@@ -188,14 +188,14 @@ export default function SalesAndPrepPage() {
   };
 
   const cardBase =
-    "relative border border-slate-200/60 dark:border-slate-800/80 bg-white dark:bg-slate-900 rounded-2xl ring-1 ring-slate-900/[0.03] dark:ring-white/[0.04] overflow-hidden shadow-[0_1px_2px_0_rgb(15_23_42_/_0.04),0_2px_8px_-2px_rgb(15_23_42_/_0.06)] transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-0.5 hover:border-slate-300/70 dark:hover:border-slate-700 hover:shadow-[0_12px_32px_-12px_rgb(15_23_42_/_0.18),0_4px_12px_-4px_rgb(15_23_42_/_0.08)]";
+    "relative border border-slate-200/60 dark:border-slate-800/80 bg-card rounded-2xl ring-1 ring-slate-900/[0.03] dark:ring-white/[0.04] overflow-hidden shadow-[0_1px_2px_0_rgb(15_23_42_/_0.04),0_2px_8px_-2px_rgb(15_23_42_/_0.06)] transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-0.5 hover:border-slate-300/70 dark:hover:border-slate-700 hover:shadow-[0_12px_32px_-12px_rgb(15_23_42_/_0.18),0_4px_12px_-4px_rgb(15_23_42_/_0.08)]";
 
   const miyaRec = prepList as { miya_recommendation?: { title?: string; body?: string; action_label?: string } } | undefined;
   const isConnectPosPrompt = miyaRec?.miya_recommendation?.action_label?.toLowerCase().includes("connect pos") ?? false;
   const showMiyaCard = miyaRec?.miya_recommendation && !isConnectPosPrompt;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50/80 dark:from-[#0f1419] dark:via-slate-950 dark:to-slate-950/80">
+    <div className="min-h-screen">
       <div className={`${PAGE_SHELL} py-6 md:py-8 space-y-6`}>
         <header className="space-y-1">
           <h1 className="text-2xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
@@ -219,7 +219,7 @@ export default function SalesAndPrepPage() {
                   type="date"
                   value={salesDate}
                   onChange={(e) => setSalesDate(e.target.value)}
-                  className="text-xs px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                  className="text-xs px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-surface-raised text-slate-700 dark:text-slate-300"
                 />
                 <Badge variant="outline" className={todaySales?.connected ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400" : "text-slate-500"}>
                   {todaySales?.connected ? "LIVE" : "POS"}
@@ -372,7 +372,7 @@ export default function SalesAndPrepPage() {
                       setPrepStartDate(v);
                       if (v > prepEndDate) setPrepEndDate(v);
                     }}
-                    className="text-xs px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                    className="text-xs px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-surface-raised text-slate-700 dark:text-slate-300"
                   />
                   <span className="text-slate-400 dark:text-slate-500">-</span>
                   <input
@@ -384,7 +384,7 @@ export default function SalesAndPrepPage() {
                       setPrepEndDate(v);
                       if (v < prepStartDate) setPrepStartDate(v);
                     }}
-                    className="text-xs px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                    className="text-xs px-2 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-surface-raised text-slate-700 dark:text-slate-300"
                   />
                   {prepItems.length > 0 && (
                     <Button variant="ghost" size="sm" onClick={refetchPrepList} className="text-amber-600 hover:text-amber-700">

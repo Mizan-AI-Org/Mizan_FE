@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -10,10 +11,10 @@ import { cn } from "@/lib/utils";
 
 /** Shared field chrome for Settings forms. */
 export const settingsFieldClassName =
-  "h-11 rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950/40 dark:text-slate-100 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30 transition-colors";
+  "h-11 rounded-xl border-slate-200 dark:border-slate-700 bg-background dark:text-slate-100 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30 transition-colors";
 
 export const settingsSelectClassName =
-  "h-11 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950/40 px-3 text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-colors";
+  "h-11 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-background px-3 text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-colors";
 
 type SettingsSectionProps = {
   icon: ReactNode;
@@ -24,6 +25,9 @@ type SettingsSectionProps = {
   children: ReactNode;
   className?: string;
   contentClassName?: string;
+  /** Let people fold the card away once they are done with it. */
+  collapsible?: boolean;
+  defaultOpen?: boolean;
 };
 
 /** Consistent settings card: icon + title + optional description, then body. */
@@ -36,40 +40,72 @@ export function SettingsSection({
   children,
   className,
   contentClassName,
+  collapsible = false,
+  defaultOpen = true,
 }: SettingsSectionProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  const expanded = !collapsible || open;
+
+  const identity = (
+    <>
+      <div
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+          iconClassName,
+        )}
+      >
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <CardTitle className="text-[15px] font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+          {title}
+        </CardTitle>
+        {description ? (
+          <CardDescription className="mt-0.5 text-xs leading-relaxed">
+            {description}
+          </CardDescription>
+        ) : null}
+      </div>
+    </>
+  );
+
   return (
     <Card
       className={cn(
-        "border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm",
+        "border border-slate-200/90 bg-card shadow-sm dark:border-slate-800",
         className,
       )}
     >
-      <CardHeader className="px-5 sm:px-6 pb-3 pt-5">
+      <CardHeader className={cn("px-5 sm:px-6 pt-5", expanded ? "pb-3" : "pb-5")}>
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
-                iconClassName,
-              )}
+          {collapsible ? (
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+              className="group flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
             >
-              {icon}
-            </div>
-            <div className="min-w-0">
-              <CardTitle className="text-[15px] font-semibold tracking-tight text-slate-900 dark:text-slate-50">
-                {title}
-              </CardTitle>
-              {description ? (
-                <CardDescription className="mt-0.5 text-xs leading-relaxed">
-                  {description}
-                </CardDescription>
-              ) : null}
-            </div>
-          </div>
+              {identity}
+              <ChevronDown
+                className={cn(
+                  "ml-auto h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200",
+                  "group-hover:text-slate-600 dark:group-hover:text-slate-300",
+                  open && "rotate-180",
+                )}
+                aria-hidden
+              />
+            </button>
+          ) : (
+            <div className="flex min-w-0 items-center gap-3">{identity}</div>
+          )}
           {actions ? <div className="shrink-0">{actions}</div> : null}
         </div>
       </CardHeader>
-      <CardContent className={cn("space-y-5 px-5 sm:px-6 pb-5 sm:pb-6 pt-0", contentClassName)}>{children}</CardContent>
+      {expanded ? (
+        <CardContent className={cn("space-y-5 px-5 sm:px-6 pb-5 sm:pb-6 pt-0", contentClassName)}>
+          {children}
+        </CardContent>
+      ) : null}
     </Card>
   );
 }
@@ -87,7 +123,7 @@ export function SettingsStickyActions({ children, className, hint }: SettingsSti
     <div
       className={cn(
         "sticky bottom-0 z-20 mt-6 border-t border-slate-200/90 dark:border-slate-800",
-        "bg-gradient-to-t from-slate-50 via-slate-50/95 to-slate-50/80 dark:from-[#0f1419] dark:via-[#0f1419]/95 dark:to-[#0f1419]/80",
+        "bg-gradient-to-t from-background via-background/95 to-background/70",
         "backdrop-blur-md pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
         className,
       )}

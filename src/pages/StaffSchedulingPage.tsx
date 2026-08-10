@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { useLanguage } from "@/hooks/use-language";
+import { AiNativeWorkspace } from "@/components/miya/AiNativeWorkspace";
 
 const StaffSchedulingPage: React.FC = () => {
   const { t } = useLanguage();
@@ -25,6 +26,7 @@ const StaffSchedulingPage: React.FC = () => {
 
   return (
     <div className={`${PAGE_SHELL_PADDED} space-y-6`}>
+      <AiNativeWorkspace module="scheduling" />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">

@@ -1051,7 +1051,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
             Who can run this
           </CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Optional. Assign staff or whole departments. Each person runs their own copy —
+            Optional. Assign staff or whole departments. Each person runs their own copy -
             clock in first or say <span className="font-medium">start checklist</span> to Miya anytime.
           </p>
         </CardHeader>
@@ -1166,7 +1166,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
           {/* Add tasks panel - one at a time or several at once */}
           <div className="rounded-xl border border-teal-200 dark:border-teal-900/50 bg-teal-50/50 dark:bg-teal-950/20 p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="inline-flex rounded-lg border border-teal-200 dark:border-teal-800 bg-white dark:bg-slate-900 p-0.5">
+              <div className="inline-flex rounded-lg border border-teal-200 dark:border-teal-800 bg-card p-0.5">
                 <button
                   type="button"
                   onClick={() => setAddMode("single")}

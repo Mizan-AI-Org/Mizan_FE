@@ -481,7 +481,7 @@ export default function WhatsAppPage() {
                 Miya voice identity
               </h3>
               <p className={opsMuted}>
-                Young female voice (Fish Audio Sarah by default). Cross-lingual on s2.1-pro — speaks
+                Young female voice (Fish Audio Sarah by default). Cross-lingual on s2.1-pro - speaks
                 English, French, Arabic, and Darija from the reply text. Env vars override when fields
                 are empty.
               </p>
@@ -515,7 +515,7 @@ export default function WhatsAppPage() {
                     placeholder="933563129e564b19a115bedd57b7406a"
                   />
                   <p className={opsMuted}>
-                    Browse voices at fish.audio/discover. Provider: {config?.miya_voice_provider || "—"}
+                    Browse voices at fish.audio/discover. Provider: {config?.miya_voice_provider || "-"}
                   </p>
                 </label>
                 <label className="block space-y-1.5">
@@ -561,7 +561,7 @@ export default function WhatsAppPage() {
                   try {
                     await saveMutation.mutateAsync();
                     const res = await platformApi.previewMiyaVoice(
-                      "Hello, I'm Miya — your AI operations companion.",
+                      "Hello, I'm Miya - your AI operations companion.",
                     );
                     if (res.base64) {
                       const audio = new Audio(`data:${res.mime_type};base64,${res.base64}`);
@@ -636,7 +636,7 @@ export default function WhatsAppPage() {
               {canDisconnect && (
                 <button
                   type="button"
-                  className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-rose-200 dark:border-rose-900 bg-white dark:bg-slate-900 px-4 text-sm font-medium text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-50"
+                  className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-rose-200 dark:border-rose-900 bg-card px-4 text-sm font-medium text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-50"
                   disabled={disconnectMutation.isPending}
                   onClick={() => {
                     if (

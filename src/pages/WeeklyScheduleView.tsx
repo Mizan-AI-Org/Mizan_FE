@@ -242,7 +242,7 @@ const WeeklyScheduleView: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto p-6 bg-white rounded-lg shadow-md">
+    <div className="container mx-auto p-6 bg-card rounded-lg shadow-md">
       <h2 className="text-3xl font-bold text-gray-800 mb-6 flex items-center">
         <CalendarDays className="w-8 h-8 mr-3 text-blue-600" />
         Weekly Schedule
@@ -320,7 +320,7 @@ const WeeklyScheduleView: React.FC = () => {
                       }}
                       aria-label={`View details for shift on ${format(new Date(typeof shift.shift_date === 'string' ? shift.shift_date : shift.shift_date), "PPP")}`}
                       aria-haspopup="dialog"
-                      className="w-full text-left bg-white rounded-md shadow-sm p-3 mb-3 border border-gray-200 hover:border-blue-300 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      className="w-full text-left bg-card rounded-md shadow-sm p-3 mb-3 border border-gray-200 hover:border-blue-300 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
                       <p className="font-semibold text-gray-900">
                         {getStaffName(shift) || ""}

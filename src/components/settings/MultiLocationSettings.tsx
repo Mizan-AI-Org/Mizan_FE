@@ -560,7 +560,7 @@ function LocationRow({
   return (
     <AccordionItem
       value={location.id}
-      className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden data-[state=open]:shadow-sm bg-white dark:bg-slate-800/30"
+      className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden data-[state=open]:shadow-sm bg-surface-raised"
     >
       <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-slate-50 dark:hover:bg-slate-800/60 [&[data-state=open]>div>svg.chevron]:rotate-90">
         <div className="flex items-center gap-3 flex-1 text-left">

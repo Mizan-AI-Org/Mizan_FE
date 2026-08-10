@@ -77,6 +77,7 @@ import {
 } from "@/components/settings/SettingsSection";
 import { SettingsNav, type SettingsNavItem } from "@/components/settings/SettingsNav";
 import { SETTINGS_PAGE_SHELL } from "@/lib/page-shell";
+import { AiNativeWorkspace } from "@/components/miya/AiNativeWorkspace";
 import { cn } from "@/lib/utils";
 
 import { API_BASE, api } from "@/lib/api";
@@ -234,6 +235,13 @@ export default function Settings() {
     return (SETTINGS_TABS as readonly string[]).includes(fromUrl) ? fromUrl : "profile";
   })();
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  // Deep links from other screens can change ?tab= while this page stays mounted.
+  useEffect(() => {
+    const fromUrl = (searchParams.get("tab") || "").toLowerCase();
+    if (!fromUrl || !(SETTINGS_TABS as readonly string[]).includes(fromUrl)) return;
+    setActiveTab((current) => (current === fromUrl ? current : fromUrl));
+  }, [searchParams, SETTINGS_TABS]);
 
   const onSettingsTabChange = (next: string) => {
     setActiveTab(next);
@@ -403,6 +411,13 @@ export default function Settings() {
     }
     return items;
   }, [isStaff, t]);
+
+  const activeSection = useMemo(
+    () => settingsNavItems.find((item) => item.id === activeTab),
+    [settingsNavItems, activeTab],
+  );
+  const activeSectionLabel = activeSection?.label || t("settings.title");
+  const activeSectionDescription = activeSection?.description;
 
   const loadCoreSettings = async () => {
     try {
@@ -1040,19 +1055,21 @@ export default function Settings() {
 
   return (
     <div className={`${SETTINGS_PAGE_SHELL} pb-24 lg:pb-8`}>
+      <div className="mb-6">
+        <AiNativeWorkspace module="settings" defaultCollapsed compact />
+      </div>
       <Tabs value={activeTab} onValueChange={onSettingsTabChange} className="space-y-0">
-        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(200px,240px)_minmax(0,1fr)] lg:gap-x-8 xl:gap-x-10 lg:gap-y-4 lg:items-start">
-          {/* Title sits above the content column so it shares the cards' left edge */}
-          <header className="order-1 min-w-0 lg:col-span-2">
-            <h1 className="text-2xl sm:text-[1.75rem] font-bold tracking-tight text-slate-900 dark:text-white">
-              {t("settings.title")}
-            </h1>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-              {t("settings.subtitle")}
+        <div className="flex w-full max-w-5xl flex-col gap-5">
+          <header className="min-w-0">
+            <p className="text-caption-label">{t("settings.title")}</p>
+            <h1 className="mt-1 text-page-title">{activeSectionLabel}</h1>
+            <p className="mt-1.5 max-w-2xl text-body text-muted-foreground">
+              {activeSectionDescription || t("settings.subtitle")}
             </p>
           </header>
 
-          <aside className="order-2 lg:col-start-1 lg:row-start-2 lg:sticky lg:top-20 self-start">
+          {/* Desktop navigation lives in the Intent rail; this is the small-screen fallback. */}
+          <aside className="lg:hidden">
             <SettingsNav
               items={settingsNavItems}
               activeId={activeTab}
@@ -1068,7 +1085,7 @@ export default function Settings() {
             />
           </aside>
 
-          <div className="order-3 min-w-0 space-y-4 lg:col-start-2 lg:row-start-2">
+          <div className="min-w-0 space-y-4">
         <TabsContent value="profile" className="mt-0 space-y-4 focus-visible:outline-none">
           <Suspense fallback={<FormSectionSkeleton fields={5} />}>
             <ProfileSettings />
@@ -1097,6 +1114,8 @@ export default function Settings() {
               iconClassName="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
               title={t("settings.general.restaurant_info.title")}
               description={t("settings.general.restaurant_info.description")}
+              collapsible
+              defaultOpen={false}
             >
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="space-y-2">
@@ -1223,6 +1242,8 @@ export default function Settings() {
               iconClassName="bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
               title={t("settings.general.language_prefs_title")}
               description={t("settings.general.language_prefs_desc")}
+              collapsible
+              defaultOpen={false}
             >
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start">
                   <div className="space-y-2">
@@ -1338,8 +1359,21 @@ export default function Settings() {
                   </Badge>
               }
             >
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] lg:items-start">
-                  <div className="space-y-3 lg:sticky lg:top-24">
+                <div
+                  className={cn(
+                    "grid grid-cols-1 gap-6",
+                    posSettings.pos_provider !== "NONE" &&
+                      "lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] lg:items-start",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "space-y-3",
+                      posSettings.pos_provider !== "NONE"
+                        ? "lg:sticky lg:top-24"
+                        : "max-w-sm",
+                    )}
+                  >
                     <div className="space-y-2">
                       <Label htmlFor="pos-provider" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("pos.provider")}</Label>
                       <select
@@ -1361,14 +1395,13 @@ export default function Settings() {
                         <option value="STRIPE" disabled={posSettings.pos_provider !== "STRIPE"}>Stripe (Coming soon…)</option>
                         <option value="CUSTOM">{t("pos.custom_api") || "Custom API"}</option>
                       </select>
-                    </div>
-                    {posSettings.pos_provider === "NONE" ? (
-                      <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/30 p-4">
-                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                          {t("pos.description")}
+                      {posSettings.pos_provider === "NONE" ? (
+                        <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                          {t("pos.select_provider_first")} Square, Toast, Clover, Lightspeed, and
+                          Custom API are supported.
                         </p>
-                      </div>
-                    ) : null}
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="min-w-0">
@@ -1777,13 +1810,7 @@ export default function Settings() {
                         </>
                       )}
                     </div>
-                  ) : posSettings.pos_provider === "NONE" ? (
-                    <div className="flex min-h-[120px] items-center justify-center rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/40 dark:bg-slate-800/20 px-6 py-8 text-center">
-                      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
-                        {t("pos.select_provider_first")}
-                      </p>
-                    </div>
-                  ) : (
+                  ) : posSettings.pos_provider === "NONE" ? null : (
                     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="space-y-1">
@@ -1911,14 +1938,11 @@ export default function Settings() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/50">
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        {t("settings.gcal.connect_hint") || "Connecting Google Calendar enables Miya to schedule meetings, set reminders, and show upcoming events on your Meetings & Reminders widget."}
-                      </p>
-                    </div>
+                  <div className="flex flex-col items-start gap-3">
+                    <p className="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                      {t("settings.gcal.connect_hint") || "Connecting Google Calendar enables Miya to schedule meetings, set reminders, and show upcoming events on your Meetings & Reminders widget."}
+                    </p>
                     <Button
-                      className="w-full"
                       disabled={gcalConnecting}
                       onClick={async () => {
                         setGcalConnecting(true);

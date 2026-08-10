@@ -136,7 +136,7 @@ export function AutomationLibraryPanel({
             return (
               <article
                 key={tpl.id}
-                className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/80"
+                className="flex flex-col rounded-xl border border-slate-200 bg-card p-4 dark:border-slate-800"
               >
                 <div className="flex gap-3">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">

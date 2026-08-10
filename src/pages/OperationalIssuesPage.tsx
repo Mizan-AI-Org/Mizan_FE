@@ -208,7 +208,7 @@ export default function OperationalIssuesPage() {
   const criticalCount = counts.CRITICAL;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
+    <div className="min-h-screen pb-20">
       {/* Widened max-w-7xl so the ranked list + stat strip breathe on
           desktop; the layout shell already provides the top-level
           "Back to Dashboard" pill, so no in-page back affordance. */}
@@ -514,7 +514,7 @@ function StatCard({
     { border: string; text: string; value: string }
   > = {
     slate: {
-      border: "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900",
+      border: "border-slate-200 dark:border-slate-800 bg-card",
       text: "text-slate-500 dark:text-slate-400",
       value: "text-slate-900 dark:text-white",
     },

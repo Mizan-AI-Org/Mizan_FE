@@ -397,7 +397,7 @@ export default function TaskManagementBoard({
       {/* Compact metrics strip - one composition, less empty card chrome */}
       <section
         aria-label={t("live_board.metrics_label")}
-        className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden"
+        className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card overflow-hidden"
       >
         <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-slate-100 dark:divide-slate-800">
           {metrics.map((metric) => (
@@ -697,7 +697,7 @@ export default function TaskManagementBoard({
             <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
               <div className="relative mb-5">
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-teal-100/80 to-emerald-50/40 dark:from-teal-950/50 dark:to-slate-900 blur-xl" />
-                <div className="relative w-16 h-16 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-sm">
+                <div className="relative w-16 h-16 rounded-2xl bg-surface-raised border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-sm">
                   <User className="w-7 h-7 text-teal-600 dark:text-teal-400" />
                 </div>
               </div>
@@ -786,7 +786,7 @@ export default function TaskManagementBoard({
                       className={cn(
                         "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
                         active
-                          ? "bg-white text-teal-800 shadow-sm dark:bg-slate-900 dark:text-teal-300"
+                          ? "bg-card text-teal-800 shadow-sm dark:text-teal-300"
                           : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white",
                       )}
                     >
@@ -823,7 +823,7 @@ export default function TaskManagementBoard({
                       className={cn(
                         "inline-flex items-center rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
                         active
-                          ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white"
+                          ? "bg-card text-slate-900 shadow-sm dark:text-white"
                           : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white",
                       )}
                     >

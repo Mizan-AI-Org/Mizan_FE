@@ -47,7 +47,7 @@ export default function PlatformAdminLayout() {
     : "Platform operator";
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100/80 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <div className="flex min-h-screen flex-col text-foreground">
       <header className="sticky top-0 z-[2000] bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between gap-4">
