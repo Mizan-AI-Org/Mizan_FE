@@ -500,7 +500,11 @@ const ManagerReviewDashboard: React.FC = () => {
     status?: string | null;
     is_anonymous?: boolean | null;
     reporter_details?: { first_name?: string | null; last_name?: string | null } | null;
-    assigned_to_details?: { first_name?: string | null; last_name?: string | null } | null;
+    assigned_to_details?: {
+      id?: string | null;
+      first_name?: string | null;
+      last_name?: string | null;
+    } | null;
     created_at?: string | null;
     resolution_notes?: string | null;
     incident_type?: string | null;
@@ -599,6 +603,11 @@ const ManagerReviewDashboard: React.FC = () => {
           last_name: typeof x.reporter_details.last_name === "string" ? x.reporter_details.last_name : null,
         } : null,
         assigned_to_details: isRecord(x.assigned_to_details) ? {
+          id: typeof x.assigned_to_details.id === "string"
+            ? x.assigned_to_details.id
+            : x.assigned_to_details.id != null
+              ? String(x.assigned_to_details.id)
+              : null,
           first_name: typeof x.assigned_to_details.first_name === "string" ? x.assigned_to_details.first_name : null,
           last_name: typeof x.assigned_to_details.last_name === "string" ? x.assigned_to_details.last_name : null,
         } : null,
@@ -692,7 +701,10 @@ const ManagerReviewDashboard: React.FC = () => {
         },
         body: JSON.stringify({ status: data.status, resolution_notes: data.resolution_notes })
       });
-      if (!res.ok) throw new Error('Failed to update status');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+        throw new Error(body.error || body.detail || `Failed to update status (${res.status})`);
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -701,15 +713,16 @@ const ManagerReviewDashboard: React.FC = () => {
       setSelectedIncident(null);
       setUpdateStatus('');
       setResolutionNotes('');
+      setAssignTo('');
       toast.success('Incident status updated');
     },
-    onError: () => toast.error('Failed to update incident status'),
+    onError: (err: Error) => toast.error(err.message || 'Failed to update incident status'),
   });
 
   const { data: staffList } = useQuery({
     queryKey: ['staff-members-for-assign'],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/staff/`, {
+      const res = await fetch(`${API_BASE}/staff/?page_size=500&all_branches=1`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
       });
       if (!res.ok) return [];
@@ -718,6 +731,22 @@ const ManagerReviewDashboard: React.FC = () => {
     },
     enabled: !!selectedIncident,
   });
+
+  // Keep assign picker synced to the current default assignee when the detail loads.
+  useEffect(() => {
+    if (!incidentDetail) return;
+    const currentId =
+      (typeof incidentDetail.assigned_to === "string" && incidentDetail.assigned_to) ||
+      (incidentDetail.assigned_to_details &&
+        (typeof incidentDetail.assigned_to_details.id === "string"
+          ? incidentDetail.assigned_to_details.id
+          : incidentDetail.assigned_to_details.id != null
+            ? String(incidentDetail.assigned_to_details.id)
+            : "")) ||
+      "";
+    setAssignTo(currentId);
+    setUpdateStatus(String(incidentDetail.status || "OPEN").toUpperCase());
+  }, [incidentDetail]);
 
   const assignMutation = useMutation({
     mutationFn: async (data: { id: string; assigned_to: string | null }) => {
@@ -729,7 +758,10 @@ const ManagerReviewDashboard: React.FC = () => {
         },
         body: JSON.stringify({ assigned_to: data.assigned_to })
       });
-      if (!res.ok) throw new Error('Failed to assign incident');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+        throw new Error(body.error || body.detail || `Failed to assign (${res.status})`);
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -737,7 +769,7 @@ const ManagerReviewDashboard: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['safety-incident-detail'] });
       toast.success('Incident assigned successfully');
     },
-    onError: () => toast.error('Failed to assign incident'),
+    onError: (err: Error) => toast.error(err.message || 'Failed to assign incident'),
   });
 
   // Live checklist progress (WhatsApp step-by-step) for managers
@@ -1889,25 +1921,41 @@ const ManagerReviewDashboard: React.FC = () => {
                     <div className="text-sm font-semibold">Assign owner</div>
                     <div className="flex flex-col sm:flex-row gap-2">
                       <select
-                        value={assignTo || incidentDetail.assigned_to || ""}
+                        value={assignTo}
                         onChange={(e) => setAssignTo(e.target.value)}
                         className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm"
                       >
                         <option value="">Unassigned</option>
-                        {(staffList || []).map((s: { id: string; first_name?: string; last_name?: string; role?: string }) => (
-                          <option key={s.id} value={s.id}>
-                            {s.first_name} {s.last_name}{s.role ? ` (${s.role})` : ""}
-                          </option>
-                        ))}
+                        {(() => {
+                          const rows = Array.isArray(staffList) ? [...staffList] : [];
+                          const currentId = assignTo;
+                          const currentDetails = incidentDetail.assigned_to_details;
+                          if (
+                            currentId &&
+                            !rows.some((s: { id?: string }) => String(s.id) === String(currentId)) &&
+                            currentDetails
+                          ) {
+                            rows.unshift({
+                              id: currentId,
+                              first_name: currentDetails.first_name || "",
+                              last_name: currentDetails.last_name || "",
+                              role: "Current",
+                            });
+                          }
+                          return rows.map((s: { id: string; first_name?: string; last_name?: string; role?: string }) => (
+                            <option key={s.id} value={String(s.id)}>
+                              {s.first_name} {s.last_name}{s.role ? ` (${s.role})` : ""}
+                            </option>
+                          ));
+                        })()}
                       </select>
                       <Button
                         className="bg-emerald-600 hover:bg-emerald-700 text-white"
                         disabled={assignMutation.isPending}
                         onClick={() => {
-                          const val = assignTo || incidentDetail.assigned_to || "";
                           assignMutation.mutate({
                             id: incidentDetail.id,
-                            assigned_to: val || null,
+                            assigned_to: assignTo || null,
                           });
                         }}
                       >
