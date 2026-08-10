@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +23,7 @@ import { API_BASE, resolveMediaUrl } from "@/lib/api";
 import { AttachmentList, type AttachmentLike } from "@/components/ui/attachment-preview";
 import { useLanguage } from '@/hooks/use-language';
 import { ListSkeleton } from '@/components/skeletons';
+import { focusEntityForMiya, setMiyaPageContext } from '@/lib/miyaPageContext';
 
 
 type SopTask = {
@@ -65,6 +66,24 @@ const SafetyDashboard: React.FC = () => {
   const concernsData = Array.isArray(allConcerns)
     ? allConcerns
     : (allConcerns?.results || []);
+
+  useEffect(() => {
+    if (!selectedIncident) return;
+    const row = (concernsData || []).find((c: any) => String(c.id) === String(selectedIncident));
+    focusEntityForMiya({
+      entity_type: "incident",
+      entity_id: selectedIncident,
+      entity_label: row?.title || undefined,
+      route: "/dashboard/safety",
+      tab: "incidents",
+    });
+    return () => {
+      setMiyaPageContext({
+        route: "/dashboard/safety",
+        tab: "incidents",
+      });
+    };
+  }, [selectedIncident, concernsData]);
 
   const openConcerns = concernsData.filter((c: any) => String(c.status).toUpperCase() === 'OPEN');
 
@@ -305,7 +324,7 @@ const SafetyDashboard: React.FC = () => {
               {/* Open Incidents card already appears in the top grid and adapts responsively */}
 
               <div className="grid grid-cols-1 gap-4">
-                <div className="p-4 bg-white rounded-lg shadow-sm">
+                <div className="p-4 bg-card rounded-lg shadow-sm">
                   <h3 className="text-base font-medium mb-3 flex items-center">
                     <AlertTriangle className="mr-2 h-4 w-4 text-red-600" />
                     {t("safety.dashboard.sections.incidence")}
@@ -313,7 +332,7 @@ const SafetyDashboard: React.FC = () => {
                   <SafetyConcernReporting />
                 </div>
 
-                <div className="p-4 bg-white rounded-lg shadow-sm">
+                <div className="p-4 bg-card rounded-lg shadow-sm">
                   <h3 className="text-base font-medium mb-3 flex items-center">
                     <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
                     {t("safety.dashboard.sections.recognition")}
@@ -321,7 +340,7 @@ const SafetyDashboard: React.FC = () => {
                   <SafetyRecognitionComponent />
                 </div>
 
-                <div className="p-4 bg-white rounded-lg shadow-sm">
+                <div className="p-4 bg-card rounded-lg shadow-sm">
                   <h3 className="text-base font-medium mb-3 flex items-center">
                     <ClipboardList className="mr-2 h-4 w-4 text-blue-600" />
                     {t("safety.dashboard.sections.management")}

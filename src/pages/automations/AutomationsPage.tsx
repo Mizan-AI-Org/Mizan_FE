@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { triggerLabel } from "./automations-i18n";
 import { AutomationLibraryPanel } from "./AutomationLibraryPanel";
 import type { CatalogResponse, TemplateItem } from "./automation-types";
+import { AiNativeWorkspace } from "@/components/miya/AiNativeWorkspace";
 
 type AutomationRow = {
   id: string;
@@ -73,7 +74,7 @@ function AutomationListRow({
     <div
       className={cn(
         "flex items-start gap-4 rounded-xl border border-slate-200 dark:border-slate-800",
-        "bg-white dark:bg-slate-900/80 px-4 py-3",
+        "bg-card px-4 py-3",
       )}
     >
       <div className="h-10 w-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 mt-0.5">
@@ -199,6 +200,7 @@ export default function AutomationsPage() {
 
   return (
     <div className={cn(PAGE_SHELL_BELOW_BACK, "space-y-5 pb-28")}>
+      <AiNativeWorkspace module="automations" />
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0 space-y-1">
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -224,7 +226,7 @@ export default function AutomationsPage() {
         ].map((s) => (
           <div
             key={s.label}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900"
+            className="rounded-xl border border-slate-200 bg-card px-3 py-2 dark:border-slate-800"
           >
             <div className="text-lg font-bold text-slate-900 dark:text-white">{s.value}</div>
             <div className="text-[11px] text-slate-500">{s.label}</div>

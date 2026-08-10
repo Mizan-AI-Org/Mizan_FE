@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Mic, MicOff, Paperclip, Send, X } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, api } from "@/lib/api";
+import { clearMiyaPageContext, getMiyaPageContext, subscribeMiyaPageContext } from "@/lib/miyaPageContext";
 import { logError } from "@/lib/logging";
 import { cn } from "@/lib/utils";
+import { MiyaContextChip } from "@/components/os";
 
 type ChatTurn = { role: "user" | "assistant"; content: string };
 type PendingAttachment = { id: string; title: string };
@@ -22,6 +25,9 @@ const ALLOWED_ROLES = [
 ];
 
 const VOICE_INPUT_ROLES = new Set(["ADMIN", "SUPER_ADMIN", "MANAGER", "OWNER"]);
+
+/** Roles allowed to read the command-center briefing the launcher badge is derived from. */
+const ATTENTION_ROLES = new Set(["ADMIN", "SUPER_ADMIN", "MANAGER", "OWNER"]);
 
 const MIYA_LOCATION_KEY = "mizan_miya_location_id";
 const MIYA_LOCATION_NAME_KEY = "mizan_miya_location_name";
@@ -66,6 +72,7 @@ export const MiyaWidget: React.FC = () => {
   const [attachmentsEnabled, setAttachmentsEnabled] = useState(true);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [pageContext, setPageContext] = useState(() => getMiyaPageContext());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -73,28 +80,67 @@ export const MiyaWidget: React.FC = () => {
   const chunksRef = useRef<Blob[]>([]);
   const historyRef = useRef<ChatTurn[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const textInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLTextAreaElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const launcherButtonRef = useRef<HTMLButtonElement>(null);
 
   const canUseVoiceInput = Boolean(user?.role && VOICE_INPUT_ROLES.has(user.role));
 
+  // Shares its cache key with CommandCenter, so the dashboard pays no extra request.
+  const attentionQuery = useQuery({
+    queryKey: ["miya", "command-center"],
+    queryFn: () =>
+      api.getMiyaCommandCenter() as Promise<{ attention?: Array<{ id: string }> }>,
+    enabled: Boolean(user?.role && ATTENTION_ROLES.has(user.role)) && !hideOnPlatformAdmin,
+    staleTime: 20_000,
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  const attentionCount = attentionQuery.data?.attention?.length ?? 0;
+  const hasAttention = attentionCount > 0;
+
   useEffect(() => {
     historyRef.current = history;
   }, [history]);
+
+  useEffect(() => subscribeMiyaPageContext(setPageContext), []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history, loading, open, voiceProcessing]);
 
+  // Grow the composer with the draft so long prompts stay readable in full.
   useEffect(() => {
-    const openHandler = () => setOpen(true);
+    const el = textInputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [input, open]);
+
+  useEffect(() => {
+    const openHandler = (event: Event) => {
+      setOpen(true);
+      const detail = (event as CustomEvent<{ prompt?: string }>).detail;
+      const prompt = (detail?.prompt || "").trim();
+      if (prompt) {
+        setInput(prompt);
+        window.setTimeout(() => textInputRef.current?.focus(), 0);
+      }
+    };
     window.addEventListener("miya:open", openHandler);
     return () => window.removeEventListener("miya:open", openHandler);
   }, []);
 
-  // Basic dialog semantics: move focus in on open, back to the launcher on
-  // close, and let Escape close it like any other modal.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("miya:panel-state", { detail: { open } }));
+    try {
+      document.documentElement.style.setProperty("--mizan-miya-panel", open ? "420px" : "0px");
+    } catch {
+      /* ignore */
+    }
+  }, [open]);
+
+  // Focus into the docked panel; Escape closes. No modal trap - this is an OS layer.
   useEffect(() => {
     if (open) {
       const focusTimer = window.setTimeout(() => textInputRef.current?.focus(), 0);
@@ -107,7 +153,6 @@ export const MiyaWidget: React.FC = () => {
         document.removeEventListener("keydown", onKeyDown);
       };
     }
-    launcherButtonRef.current?.focus();
   }, [open]);
 
   useEffect(() => {
@@ -185,6 +230,7 @@ export const MiyaWidget: React.FC = () => {
 
       try {
         const establishment = readMiyaEstablishmentContext();
+        const pageContext = getMiyaPageContext();
         const resp = await fetch(`${API_BASE}/miya/chat/`, {
           method: "POST",
           headers: {
@@ -198,6 +244,7 @@ export const MiyaWidget: React.FC = () => {
             restaurant_id: user?.restaurant || user?.restaurant_data?.id || undefined,
             attachment_ids: ids,
             ...establishment,
+            ...(pageContext ? { page_context: pageContext } : {}),
           }),
         });
 
@@ -335,6 +382,10 @@ export const MiyaWidget: React.FC = () => {
         }
         if (establishment.location_name) {
           form.append("location_name", establishment.location_name);
+        }
+        const pageContext = getMiyaPageContext();
+        if (pageContext) {
+          form.append("page_context", JSON.stringify(pageContext));
         }
 
         const resp = await fetch(`${API_BASE}/miya/voice-chat/`, {
@@ -501,224 +552,268 @@ export const MiyaWidget: React.FC = () => {
   const busy = loading || voiceProcessing;
 
   return (
-    <div className={cn("fixed z-[9999]", isRTL ? "left-5" : "right-5")} style={{ bottom: 72 }}>
-      {open && (
-        <div
-          ref={panelRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="miya-chat-title"
+    <>
+      {/* Edge affordance when panel is closed - not a floating chatbot FAB */}
+      {!open ? (
+        <button
+          ref={launcherButtonRef}
+          type="button"
+          onClick={() => setOpen(true)}
           className={cn(
-            "mb-3 w-[min(100vw-2rem,360px)] rounded-2xl border border-emerald-100 bg-white shadow-2xl overflow-hidden flex flex-col dark:border-slate-700 dark:bg-slate-900",
-            "animate-in slide-in-from-bottom-4 duration-300",
+            "fixed z-[9998] bottom-24 hidden lg:flex",
+            "flex-col items-center gap-1.5 rounded-l-lg border border-r-0",
+            "bg-background/90 px-1.5 py-3 shadow-soft backdrop-blur-md",
+            "text-[10px] font-semibold uppercase tracking-[0.12em]",
+            "transition-all duration-os hover:bg-muted hover:text-foreground",
+            hasAttention
+              ? "miya-launcher-attention border-primary/45 text-foreground"
+              : "border-border/70 text-muted-foreground opacity-70 hover:opacity-100",
+            isRTL ? "left-0 rounded-l-none rounded-r-lg border-l-0 border-r" : "right-0",
           )}
-          style={{ height: "min(68vh, 480px)" }}
+          aria-label={
+            hasAttention
+              ? `${t("ai.chat_button")} - ${attentionCount} ${attentionCount === 1 ? "item needs" : "items need"} attention`
+              : t("ai.chat_button")
+          }
+          aria-expanded={false}
         >
-          <div
-            className="flex items-center justify-between px-4 py-3 text-white"
-            style={{ background: "linear-gradient(135deg, #00E676 0%, #00C853 100%)" }}
-          >
-            <div>
-              <div id="miya-chat-title" className="font-bold text-lg">{t("ai.chat_title")}</div>
+          <span className="relative inline-flex">
+            <img
+              src="/miya-avatar.webp"
+              alt=""
+              className={cn(
+                "h-6 w-6 rounded-full object-cover",
+                hasAttention && "ring-2 ring-primary/60",
+              )}
+              aria-hidden
+            />
+            {hasAttention ? (
+              <>
+                <span
+                  className="miya-ping absolute -right-1 -top-1 h-4 w-4 rounded-full bg-primary"
+                  aria-hidden
+                />
+                <span
+                  className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold leading-none text-primary-foreground ring-2 ring-background"
+                  aria-hidden
+                >
+                  {attentionCount > 9 ? "9+" : attentionCount}
+                </span>
+              </>
+            ) : null}
+          </span>
+          <span className="[writing-mode:vertical-rl] rotate-180">Miya</span>
+        </button>
+      ) : null}
+
+      {/* Docked OS panel */}
+      <div
+        ref={panelRef}
+        role="complementary"
+        aria-labelledby="miya-chat-title"
+        aria-hidden={!open}
+        className={cn(
+          "fixed z-[9999] top-[57px] bottom-0 flex flex-col border-border/80 bg-background shadow-strong",
+          "transition-transform duration-300 ease-out",
+          isRTL ? "left-0 border-r" : "right-0 border-l",
+          "w-[min(100vw,420px)]",
+          open ? "translate-x-0" : isRTL ? "-translate-x-full" : "translate-x-full",
+          "max-lg:bottom-[56px]",
+        )}
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 bg-ai/40">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <img src="/miya-avatar.webp" alt="" className="h-8 w-8 rounded-full object-cover" aria-hidden />
+            <div id="miya-chat-title" className="min-w-0 truncate text-body font-semibold">
+              {t("ai.chat_title")}
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="rounded-full p-1 hover:bg-white/20"
-              aria-label="Close Miya chat"
-            >
-              <X className="h-5 w-5" />
-            </button>
           </div>
-
-          <div
-            className={cn(
-              "flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50 dark:bg-slate-950/40",
-              isRTL && "text-right",
-            )}
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Close Miya"
           >
-            {history.length === 0 && (
-              <div className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">
-                {t("ai.chat_greeting")}
-              </div>
-            )}
-            {history.map((turn, i) => (
-              <div
-                key={`${turn.role}-${i}`}
-                className={cn(
-                  "max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap",
-                  turn.role === "user"
-                    ? cn("ml-auto bg-emerald-500 text-white", isRTL && "mr-auto ml-0")
-                    : "bg-white border border-slate-200 text-slate-800 shadow-sm dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100",
-                )}
-              >
-                {turn.content}
-              </div>
-            ))}
-            {busy && (
-              <div className="text-xs text-slate-400 animate-pulse">
-                {voiceProcessing ? t("ai.voice_processing") : t("ai.chat_thinking")}
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
 
-          <div className="border-t border-slate-100 p-3 bg-white dark:border-slate-800 dark:bg-slate-900">
-            {pendingAttachments.length > 0 && (
-              <div className="mb-2 flex flex-wrap gap-1.5">
-                {pendingAttachments.map((att) => (
-                  <span
-                    key={att.id}
-                    className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+        <div
+          className={cn(
+            "flex-1 space-y-3 overflow-y-auto bg-surface-sunken/50 p-4",
+            isRTL && "text-right",
+          )}
+        >
+          {(pageContext?.entity_label || pageContext?.entity_type) && (
+            <MiyaContextChip
+              entityType={pageContext.entity_type}
+              entityLabel={pageContext.entity_label || pageContext.entity_type}
+              onClear={() => clearMiyaPageContext()}
+            />
+          )}
+          {history.length === 0 && (
+            <div className="space-y-3 py-6 type-secondary">
+              <p className="text-center text-body text-muted-foreground">{t("ai.chat_greeting")}</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {["What needs attention?", "Who is overloaded?", "Give me an ops update"].map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    className="rounded-control border border-border bg-card px-2.5 py-2 text-caption text-foreground hover:bg-muted"
+                    onClick={() => {
+                      setInput(q);
+                      window.setTimeout(() => textInputRef.current?.focus(), 0);
+                    }}
                   >
-                    📎 {att.title}
-                    <button
-                      type="button"
-                      className="hover:text-red-600"
-                      onClick={() =>
-                        setPendingAttachments((prev) => prev.filter((p) => p.id !== att.id))
-                      }
-                      aria-label={`Remove ${att.title}`}
-                    >
-                      ×
-                    </button>
-                  </span>
+                    {q}
+                  </button>
                 ))}
               </div>
-            )}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void sendTextMessage(input);
-              }}
-              className="flex items-center gap-2"
+            </div>
+          )}
+          {history.map((turn, i) => (
+            <div
+              key={`${turn.role}-${i}`}
+              className={cn(
+                "max-w-[90%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap",
+                turn.role === "user"
+                  ? cn("ml-auto bg-primary text-primary-foreground", isRTL && "mr-auto ml-0")
+                  : "bg-card border border-border text-foreground shadow-sm",
+              )}
             >
-              {attachmentsEnabled && (
-                <>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) void uploadAttachment(file);
-                    }}
-                  />
+              {turn.content}
+            </div>
+          ))}
+          {busy && (
+            <div className="text-xs text-muted-foreground animate-pulse">
+              {voiceProcessing ? t("ai.voice_processing") : t("ai.chat_thinking")}
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <div className="border-t border-border/70 p-3 bg-background">
+          {pendingAttachments.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {pendingAttachments.map((att) => (
+                <span
+                  key={att.id}
+                  className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary"
+                >
+                  {att.title}
                   <button
                     type="button"
-                    disabled={busy || uploadingAttachment}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="shrink-0 rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-emerald-600 dark:hover:bg-slate-800 dark:hover:text-emerald-400 disabled:opacity-50"
-                    aria-label="Attach document"
-                    title="Attach document"
+                    className="hover:text-destructive"
+                    onClick={() =>
+                      setPendingAttachments((prev) => prev.filter((p) => p.id !== att.id))
+                    }
+                    aria-label={`Remove ${att.title}`}
                   >
-                    <Paperclip className="h-5 w-5" />
+                    ×
                   </button>
-                </>
-              )}
-              {canUseVoiceInput && voiceInputEnabled && (
+                </span>
+              ))}
+            </div>
+          )}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void sendTextMessage(input);
+            }}
+            className="flex items-end gap-2"
+          >
+            {attachmentsEnabled && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void uploadAttachment(file);
+                  }}
+                />
                 <button
                   type="button"
-                  disabled={busy}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    void startRecording();
-                  }}
-                  onMouseUp={stopRecording}
-                  onMouseLeave={() => {
-                    if (recording) stopRecording();
-                  }}
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    void startRecording();
-                  }}
-                  onTouchEnd={(e) => {
-                    e.preventDefault();
-                    stopRecording();
-                  }}
-                  className={cn(
-                    "shrink-0 rounded-xl p-2 transition-colors",
-                    recording
-                      ? "bg-red-100 text-red-600 animate-pulse dark:bg-red-950/40"
-                      : "text-slate-500 hover:bg-slate-100 hover:text-emerald-600 dark:hover:bg-slate-800 dark:hover:text-emerald-400",
-                    busy && "opacity-50 pointer-events-none",
-                  )}
-                  aria-label={recording ? t("ai.voice_recording") : t("ai.voice_hold")}
-                  title={t("ai.voice_hold")}
+                  disabled={busy || uploadingAttachment}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-primary disabled:opacity-50"
+                  aria-label="Attach document"
+                  title="Attach document"
                 >
-                  {recording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                  <Paperclip className="h-5 w-5" />
                 </button>
-              )}
-              <label htmlFor="miya-chat-text-input" className="sr-only">
-                {t("ai.chat_placeholder")}
-              </label>
-              <input
-                id="miya-chat-text-input"
-                ref={textInputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={t("ai.chat_placeholder")}
-                disabled={busy}
-                className={cn(
-                  "min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100",
-                  isRTL && "text-right",
-                )}
-              />
-              <button
-                type="submit"
-                disabled={busy || (!input.trim() && pendingAttachments.length === 0)}
-                className="shrink-0 rounded-xl bg-emerald-500 p-2 text-white disabled:opacity-40 hover:bg-emerald-600"
-                aria-label="Send message"
-              >
-                <Send className="h-5 w-5" />
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      <button
-        ref={launcherButtonRef}
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className={cn(
-          "group flex flex-col items-center gap-1.5 focus:outline-none",
-          "focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-2xl",
-        )}
-        aria-label={open ? t("ai.chat_close") : t("ai.chat_button")}
-        aria-expanded={open}
-        aria-haspopup="dialog"
-      >
-        <div
-          className={cn(
-            "relative h-[88px] w-[88px] overflow-hidden rounded-full shadow-lg transition-transform duration-200",
-            "ring-[3px] ring-emerald-500 ring-offset-2 ring-offset-transparent",
-            "shadow-emerald-500/25 group-hover:scale-[1.04] group-active:scale-[0.98]",
-            open && "ring-emerald-400",
-          )}
-        >
-          <img src="/miya-avatar.webp" alt="" className="h-full w-full object-cover" aria-hidden />
-          {open && (
-            <span className="absolute inset-0 flex items-center justify-center bg-black/35">
-              <X className="h-7 w-7 text-white" strokeWidth={2.5} />
-            </span>
-          )}
-        </div>
-        {!open && (
-          <span
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-semibold text-white shadow-md transition-transform duration-200",
-              "bg-gradient-to-br from-emerald-400 to-emerald-600",
-              "ring-1 ring-white/30 dark:ring-emerald-300/25",
-              "group-hover:scale-[1.03] group-active:scale-[0.98]",
+              </>
             )}
-          >
-            {t("ai.chat_button")}
-          </span>
-        )}
-      </button>
-    </div>
+            {canUseVoiceInput && voiceInputEnabled && (
+              <button
+                type="button"
+                disabled={busy}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  void startRecording();
+                }}
+                onMouseUp={stopRecording}
+                onMouseLeave={() => {
+                  if (recording) stopRecording();
+                }}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  void startRecording();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  stopRecording();
+                }}
+                className={cn(
+                  "shrink-0 rounded-lg p-2 transition-colors",
+                  recording
+                    ? "bg-red-100 text-red-600 animate-pulse dark:bg-red-950/40"
+                    : "text-muted-foreground hover:bg-muted hover:text-primary",
+                  busy && "opacity-50 pointer-events-none",
+                )}
+                aria-label={recording ? t("ai.voice_recording") : t("ai.voice_hold")}
+                title={t("ai.voice_hold")}
+              >
+                {recording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+              </button>
+            )}
+            <label htmlFor="miya-chat-text-input" className="sr-only">
+              {t("ai.chat_placeholder")}
+            </label>
+            <textarea
+              id="miya-chat-text-input"
+              ref={textInputRef}
+              rows={1}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" || e.shiftKey) return;
+                e.preventDefault();
+                if (busy || (!input.trim() && pendingAttachments.length === 0)) return;
+                void sendTextMessage(input);
+              }}
+              placeholder={t("ai.chat_placeholder")}
+              disabled={busy}
+              className={cn(
+                "min-w-0 flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm",
+                "max-h-40 overflow-y-auto leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/30",
+                isRTL && "text-right",
+              )}
+            />
+            <button
+              type="submit"
+              disabled={busy || (!input.trim() && pendingAttachments.length === 0)}
+              className="shrink-0 rounded-lg bg-primary p-2 text-primary-foreground disabled:opacity-40 hover:opacity-95"
+              aria-label="Send message"
+            >
+              <Send className="h-5 w-5" />
+            </button>
+          </form>
+        </div>
+      </div>
+    </>
   );
 };
 

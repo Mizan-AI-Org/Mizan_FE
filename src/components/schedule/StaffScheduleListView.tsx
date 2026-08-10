@@ -92,7 +92,7 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
     if (isLoading) {
         return (
             <div className="space-y-6">
-                <div className="flex items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm sticky top-0 z-10">
+                <div className="flex items-center gap-4 bg-card p-4 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm sticky top-0 z-10">
                     <Skeleton className="h-11 flex-1 rounded-xl" />
                     <Skeleton className="h-5 w-24" />
                 </div>
@@ -103,7 +103,7 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm sticky top-0 z-10">
+            <div className="flex items-center gap-4 bg-card p-4 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm sticky top-0 z-10">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
                     <Input

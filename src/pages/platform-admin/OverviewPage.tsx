@@ -94,7 +94,7 @@ function Kpi({
   sparkColor?: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm">
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
@@ -189,7 +189,7 @@ export default function OverviewPage() {
             Growth, subscriptions, and platform health at a glance
           </p>
         </div>
-        <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-sm">
+        <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-1 shadow-sm">
           {(["weekly", "monthly"] as const).map((key) => (
             <button
               key={key}
@@ -240,7 +240,7 @@ export default function OverviewPage() {
         <Kpi label="Trials ending 7d" value={data.trials_ending_7d} icon={Timer} />
       </div>
 
-      <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-sm">
+      <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-5 sm:p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
             <h3 className="text-base font-semibold text-slate-900 dark:text-white">User & tenant growth</h3>
@@ -358,7 +358,7 @@ export default function OverviewPage() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm">
+        <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Subscription status</h3>
             <Link
@@ -390,7 +390,7 @@ export default function OverviewPage() {
           </ul>
         </section>
 
-        <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm">
+        <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Integration health</h3>
             <Link

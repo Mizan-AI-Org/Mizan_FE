@@ -91,7 +91,7 @@ const CleaningTasks: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/30">
+        <div className="min-h-screen">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
                 <div className="flex items-start justify-between gap-4">
                     <div>

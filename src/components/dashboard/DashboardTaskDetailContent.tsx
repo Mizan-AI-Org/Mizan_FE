@@ -23,6 +23,7 @@ import {
   dashboardTaskStatusLabel,
   resolveStoredMediaUrl,
 } from "@/components/dashboard/dashboard-task-detail-utils";
+import { AskMiyaButton, miyaPrompts } from "@/components/miya/AskMiyaButton";
 
 function initialAssigneeIds(task: DashboardTaskDemandItem): string[] {
   if (task.assignees?.length) {
@@ -143,6 +144,19 @@ export function DashboardTaskDetailContent({
           >
             {String(task.priority || "MEDIUM")}
           </Badge>
+          <AskMiyaButton
+            prompt={miyaPrompts.task(task.title)}
+            pageContext={{
+              entity_type: "task",
+              entity_id: String(task.id),
+              entity_label: task.title,
+              route: typeof window !== "undefined" ? window.location.pathname : "/dashboard",
+              tab: "tasks",
+            }}
+            size="sm"
+            variant="outline"
+            onClickStopPropagation
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

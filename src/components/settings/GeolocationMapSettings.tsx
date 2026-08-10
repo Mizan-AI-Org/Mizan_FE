@@ -508,7 +508,7 @@ export default function GeolocationMapSettings({
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-surface-raised p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("settings.geolocation.geofence_monitoring")}</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">

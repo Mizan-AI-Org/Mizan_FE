@@ -46,6 +46,7 @@ import {
   resolveStoredMediaUrl,
 } from "@/components/dashboard/dashboard-task-detail-utils";
 import { toast } from "sonner";
+import { AiNativeWorkspace } from "@/components/miya/AiNativeWorkspace";
 
 type SearchBy = "staff" | "task" | "category";
 type LaneKey = "pending" | "in_progress" | "completed";
@@ -478,6 +479,7 @@ export default function OperationsLivePage() {
   return (
     <div className="min-h-[calc(100vh-5.5rem)] bg-background">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-5 pb-28 space-y-6">
+        <AiNativeWorkspace module="operations" defaultCollapsed compact />
         <header className="space-y-1">
           <h1 className="text-[2rem] font-bold tracking-tight text-foreground leading-tight">
             {t("operations_live.title")}

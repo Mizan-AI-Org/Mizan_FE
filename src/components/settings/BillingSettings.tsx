@@ -491,7 +491,7 @@ export default function BillingSettings() {
       ) : null}
 
       {/* Compact current status - keeps plan tiers near the top */}
-      <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200/80 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200/80 bg-card px-4 py-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
         {loadingSub ? (
           <div className="flex w-full items-center gap-3">
             <Skeleton className="h-5 w-28" />
@@ -586,7 +586,7 @@ export default function BillingSettings() {
                 className={cn(
                   "relative px-3.5 py-1 text-xs font-medium rounded-full transition-all",
                   interval === opt
-                    ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100"
+                    ? "bg-card text-slate-900 shadow-sm dark:text-slate-100"
                     : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
                 )}
               >

@@ -29,6 +29,12 @@ const TimeClockPage = React.lazy(() => import("./pages/TimeClockPage"));
 const ShiftDetailView = React.lazy(() => import("./pages/ShiftDetailView"));
 
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
+const AttentionPage = React.lazy(() => import("./pages/os/AttentionPage"));
+const WorkHubPage = React.lazy(() => import("./pages/os/WorkHubPage"));
+const PeopleHubPage = React.lazy(() => import("./pages/os/PeopleHubPage"));
+const BusinessHubPage = React.lazy(() => import("./pages/os/BusinessHubPage"));
+const AutomationHubPage = React.lazy(() => import("./pages/os/AutomationHubPage"));
+const KnowledgeHubPage = React.lazy(() => import("./pages/os/KnowledgeHubPage"));
 const LocationsOverview = React.lazy(
   () => import("./pages/LocationsOverview")
 );
@@ -281,6 +287,54 @@ const App = () => {
                   element={
                     <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
                       <Dashboard />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/attention"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                      <AttentionPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/work"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                      <WorkHubPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/people"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                      <PeopleHubPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/business"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                      <BusinessHubPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/automation"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                      <AutomationHubPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/knowledge"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                      <KnowledgeHubPage />
                     </RoleBasedRoute>
                   }
                 />

@@ -124,7 +124,7 @@ const StaffManagement: React.FC = () => {
                 </Button>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="bg-card rounded-lg shadow-md overflow-hidden">
                 <Table>
                     <TableHeader>
                         <TableRow>

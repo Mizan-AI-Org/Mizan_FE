@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
@@ -17,27 +17,16 @@ import {
 import { useAuth } from "../hooks/use-auth";
 import { AuthContextType } from "../contexts/AuthContext.types";
 import {
-  BarChart3,
-  Users,
-  FileText,
-  Settings,
-  ClipboardCheck,
   LayoutGrid,
   Plus,
   Sparkles,
   Sliders,
-  Building2,
-  ChevronLeft,
-  Zap,
   ChevronRight,
-  Search,
-  Loader2,
-  Radio,
+  ChevronDown,
 } from "lucide-react";
+import { CommandCenter } from "@/components/miya/CommandCenter";
 import { useLanguage } from "@/hooks/use-language";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { DashboardSkeleton } from "@/components/skeletons";
@@ -49,7 +38,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { openDashboardTaskSheet } from "@/lib/dashboard-task-sheet";
 import {
   DashboardWidgetById,
   DashboardWidgetId,
@@ -73,7 +61,15 @@ import {
 import { ManageDashboardCategoriesDialog } from "@/pages/dashboard/ManageDashboardCategoriesDialog";
 import { useDashboardCategories } from "@/hooks/use-dashboard-categories";
 import { usePermissions } from "@/hooks/use-permissions";
-import { UserAvatarMenu } from "@/components/layout/UserAvatarMenu";
+
+function SectionChevron({ open }: { open: boolean }) {
+  return open ? (
+    <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
+  ) : (
+    <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
+  );
+}
+
 
 type InsightItem = {
   id?: string;
@@ -83,119 +79,12 @@ type InsightItem = {
   recommended_action?: string;
 };
 
-type AppItem = {
-  name: string;
-  href: string;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  gradient: string;
-  description: string;
-  roles?: string[];
-  comingSoon?: boolean;
-  nameKey?: string;
-  descKey?: string;
-  /** RBAC app id - also filtered by usePermissions().canApp */
-  appId?: string;
-};
-
-const apps: AppItem[] = [
-  {
-    name: "LOCATIONS OVERVIEW",
-    href: "/dashboard/locations-overview",
-    icon: Building2,
-    gradient: "bg-sky-500",
-    description: "Live status across every branch",
-    nameKey: "app.locations_overview",
-    descKey: "app.locations_overview.desc",
-    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
-    appId: "locations_overview",
-  },
-  {
-    name: "OPERATIONS LIVE",
-    href: "/dashboard/operations-live",
-    icon: Radio,
-    gradient: "bg-orange-500",
-    description: "Daily demands, incidents, and tasks in one live feed",
-    nameKey: "app.operations_live",
-    descKey: "app.operations_live.desc",
-    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
-    appId: "operations_live",
-  },
-  {
-    name: "PROCESSES & TASKS",
-    href: "/dashboard/processes-tasks-app",
-    icon: ClipboardCheck,
-    gradient: "bg-teal-500",
-    description: "Create and manage processes and tasks",
-    nameKey: "app.tasks",
-    descKey: "app.tasks.desc",
-    roles: ["SUPER_ADMIN", "ADMIN"],
-    appId: "tasks",
-  },
-  {
-    name: "STAFF",
-    href: "/dashboard/staff-app",
-    icon: Users,
-    gradient: "bg-violet-500",
-    description: "Add and manage staff",
-    nameKey: "app.staff",
-    descKey: "app.staff.desc",
-    roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
-    appId: "staff",
-  },
-  {
-    name: "CHECKLISTS & INCIDENCES",
-    href: "/dashboard/analytics",
-    icon: BarChart3,
-    gradient: "bg-blue-500",
-    description: "View checklists and incident reports",
-    nameKey: "app.analytics",
-    descKey: "app.analytics.desc",
-    roles: ["SUPER_ADMIN", "ADMIN"],
-    appId: "checklists",
-  },
-  {
-    name: "STAFF SCHEDULING",
-    href: "/dashboard/scheduling",
-    icon: FileText,
-    gradient: "bg-emerald-500",
-    description: "Build the weekly schedule and assign shifts",
-    nameKey: "app.scheduling",
-    descKey: "app.scheduling.desc",
-    roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
-    appId: "scheduling",
-  },
-  {
-    name: "AUTOMATIONS",
-    href: "/dashboard/automations",
-    icon: Zap,
-    gradient: "bg-blue-600",
-    description: "WhatsApp workflows that run automatically",
-    nameKey: "app.automations",
-    descKey: "app.automations.desc",
-    roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
-    appId: "automations",
-  },
-  {
-    name: "SETTINGS",
-    href: "/dashboard/settings",
-    icon: Settings,
-    gradient: "bg-amber-500",
-    description: "Configure your system",
-    nameKey: "app.settings",
-    descKey: "app.settings.desc",
-    roles: ["SUPER_ADMIN", "ADMIN"],
-    appId: "settings",
-  },
-];
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const location = useLocation();
-  const { pathname } = location;
   const { user, hasRole, accessToken } = useAuth() as AuthContextType;
   const { t } = useLanguage();
-  const { canApp, canWidget } = usePermissions();
+  const { canWidget } = usePermissions();
   const [showAllInsights, setShowAllInsights] = useState(false);
 
   const { data: todaySales, isLoading: salesLoading, isError: salesError } = useQuery({
@@ -224,13 +113,6 @@ export default function Dashboard() {
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
-
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return t("dashboard.greeting.morning");
-    if (hour < 17) return t("dashboard.greeting.afternoon");
-    return t("dashboard.greeting.evening");
-  }, []);
 
   const noShowsPeriod = (() => {
     const h = new Date().getHours();
@@ -264,7 +146,7 @@ export default function Dashboard() {
   //  - Hover lifts by 1px and intensifies the shadow; `ease-out`
   //    keeps the motion crisp instead of lazy.
   const cardBase =
-    "relative border border-slate-200/60 dark:border-slate-800/80 bg-white dark:bg-slate-900 rounded-2xl ring-1 ring-slate-900/[0.03] dark:ring-white/[0.04] shadow-[0_1px_2px_0_rgb(15_23_42_/_0.04),0_2px_8px_-2px_rgb(15_23_42_/_0.06)] transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-0.5 hover:border-slate-300/70 dark:hover:border-slate-700 hover:shadow-[0_12px_32px_-12px_rgb(15_23_42_/_0.18),0_4px_12px_-4px_rgb(15_23_42_/_0.08)] flex h-full min-h-[200px] flex-col";
+    "relative border border-slate-200/60 dark:border-slate-800/80 bg-card rounded-2xl ring-1 ring-slate-900/[0.03] dark:ring-white/[0.04] shadow-[0_1px_2px_0_rgb(15_23_42_/_0.04),0_2px_8px_-2px_rgb(15_23_42_/_0.06)] transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-0.5 hover:border-slate-300/70 dark:hover:border-slate-700 hover:shadow-[0_12px_32px_-12px_rgb(15_23_42_/_0.18),0_4px_12px_-4px_rgb(15_23_42_/_0.08)] flex h-full min-h-[200px] flex-col";
   const cardHeaderBase = "flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6";
 
   const insights = (summary?.insights?.items || []) as InsightItem[];
@@ -300,61 +182,10 @@ export default function Dashboard() {
   );
 
   const widgetStorageKey = user?.id ? `mizan-dashboard-widget-order:${user.id}` : null;
-  const appsPaneStorageKey = user?.id ? `mizan-apps-pane-collapsed:${user.id}` : "mizan-apps-pane-collapsed";
-  const [appsPaneCollapsed, setAppsPaneCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      const stored = window.localStorage.getItem(appsPaneStorageKey);
-      // Default to collapsed when nothing has been stored yet.
-      return stored === null ? true : stored === "1";
-    } catch {
-      return true;
-    }
-  });
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(appsPaneStorageKey, appsPaneCollapsed ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
-  }, [appsPaneCollapsed, appsPaneStorageKey]);
   const [customizeMode, setCustomizeMode] = useState(false);
   const [addWidgetOpen, setAddWidgetOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
-  const [opsSearch, setOpsSearch] = useState("");
-  const [debouncedOpsSearch, setDebouncedOpsSearch] = useState("");
-  const [opsSearchOpen, setOpsSearchOpen] = useState(false);
-  const opsSearchRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const id = window.setTimeout(() => setDebouncedOpsSearch(opsSearch.trim()), 300);
-    return () => window.clearTimeout(id);
-  }, [opsSearch]);
-
-  useEffect(() => {
-    if (!opsSearchOpen) return;
-    const onPointer = (e: MouseEvent) => {
-      if (!opsSearchRef.current?.contains(e.target as Node)) {
-        setOpsSearchOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpsSearchOpen(false);
-    };
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [opsSearchOpen]);
-
-  const opsSearchQuery = useQuery({
-    queryKey: ["dashboard", "ops-search", debouncedOpsSearch],
-    queryFn: () => api.searchDashboardOps(debouncedOpsSearch),
-    enabled: debouncedOpsSearch.length >= 2,
-    staleTime: 15_000,
-  });
+  const [showModuleWidgets, setShowModuleWidgets] = useState(false);
   const [widgetOrder, setWidgetOrder] = useState<DashboardWidgetSlotId[]>(() => [...DEFAULT_DASHBOARD_WIDGET_ORDER]);
   const [serverLayoutReady, setServerLayoutReady] = useState(false);
   const skipNextPersist = useRef(true);
@@ -612,350 +443,95 @@ export default function Dashboard() {
   }, [criticalCount, isLoading, insights, navigate, t]);
 
   return (
-    <div
-      className={cn(
-        "min-h-screen bg-slate-50 dark:bg-[#0f1419] p-4 md:p-6 lg:p-7 pb-32 lg:pb-10 font-sans antialiased text-slate-900 dark:text-slate-100 transition-[padding] duration-300",
-        appsPaneCollapsed ? "lg:pl-24" : "lg:pl-72",
-      )}
-    >
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen p-4 pb-24 text-foreground md:p-6 lg:p-8 lg:pb-10">
+      <div className="mx-auto max-w-7xl space-y-section">
 
-        {/* Header Section */}
-        <header className="mb-2">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-              {greeting}, {user?.first_name || ""}
-            </h1>
-            <div className="relative w-full sm:w-auto sm:min-w-[240px] sm:max-w-md sm:flex-1" ref={opsSearchRef}>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
-                <Input
-                  value={opsSearch}
-                  onChange={(e) => {
-                    setOpsSearch(e.target.value);
-                    setOpsSearchOpen(true);
-                  }}
-                  onFocus={() => setOpsSearchOpen(true)}
-                  placeholder={t("dashboard.ops_search.placeholder")}
-                  className="h-9 rounded-xl border-slate-200 bg-white pl-9 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900/70"
-                  aria-label={t("dashboard.ops_search.aria")}
-                />
-                {opsSearchQuery.isFetching ? (
-                  <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-slate-400" aria-hidden />
-                ) : null}
-              </div>
-              {opsSearchOpen && debouncedOpsSearch.length >= 2 ? (
-                <div className="absolute left-0 right-0 z-40 mt-1.5 max-h-[min(70vh,420px)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                  {opsSearchQuery.isLoading ? (
-                    <p className="px-3 py-4 text-sm text-slate-500">{t("dashboard.ops_search.searching")}</p>
-                  ) : opsSearchQuery.isError ? (
-                    <p className="px-3 py-4 text-sm text-slate-500">{t("dashboard.ops_search.failed")}</p>
-                  ) : (
-                    (() => {
-                      const staffHits = opsSearchQuery.data?.staff ?? [];
-                      const taskHits = opsSearchQuery.data?.tasks ?? [];
-                      const requestHits = opsSearchQuery.data?.staff_requests ?? [];
-                      const invoiceHits = opsSearchQuery.data?.invoices ?? [];
-                      const incidentHits = opsSearchQuery.data?.incidents ?? [];
-                      const reminderHits = opsSearchQuery.data?.reminders ?? [];
-                      const meetingHits = opsSearchQuery.data?.meetings ?? [];
-                      const empty =
-                        staffHits.length === 0 &&
-                        taskHits.length === 0 &&
-                        requestHits.length === 0 &&
-                        invoiceHits.length === 0 &&
-                        incidentHits.length === 0 &&
-                        reminderHits.length === 0 &&
-                        meetingHits.length === 0;
-                      if (empty) {
-                        return <p className="px-3 py-4 text-sm text-slate-500">{t("dashboard.ops_search.empty")}</p>;
-                      }
-                      const go = (href: string) => {
-                        setOpsSearchOpen(false);
-                        navigate(href);
-                      };
-                      const goTask = (taskId: string, href?: string) => {
-                        setOpsSearchOpen(false);
-                        if (href && href.includes("task=")) {
-                          navigate(href.startsWith("/") ? href : `/${href}`);
-                          return;
-                        }
-                        openDashboardTaskSheet(navigate, location, taskId);
-                      };
-                      return (
-                        <div className="py-1.5">
-                          {staffHits.length > 0 ? (
-                            <div className="px-1.5 pb-1">
-                              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                {t("dashboard.ops_search.section_staff")}
-                              </div>
-                              <ul>
-                                {staffHits.map((s) => (
-                                  <li key={s.id}>
-                                    <button
-                                      type="button"
-                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                                      onClick={() => go("/dashboard/staff-app")}
-                                    >
-                                      <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
-                                        {s.name}
-                                      </span>
-                                      {s.is_absent ? (
-                                        <Badge
-                                          variant="outline"
-                                          className="shrink-0 text-[10px] border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
-                                        >
-                                          {t("dashboard.ops_search.absent")}
-                                        </Badge>
-                                      ) : null}
-                                      <span className="shrink-0 text-[11px] tabular-nums text-slate-500">
-                                        {t("dashboard.ops_search.open_tasks", { count: s.open_tasks?.length ?? 0 })}
-                                      </span>
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          ) : null}
-                          {taskHits.length > 0 ? (
-                            <div className="px-1.5 pb-1">
-                              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                {t("dashboard.ops_search.section_tasks")}
-                              </div>
-                              <ul>
-                                {taskHits.map((task) => (
-                                  <li key={task.id}>
-                                    <button
-                                      type="button"
-                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                                      onClick={() => goTask(task.id, task.href)}
-                                    >
-                                      <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
-                                        {task.title}
-                                      </span>
-                                      <Badge variant="outline" className="shrink-0 text-[10px]">
-                                        {task.status}
-                                      </Badge>
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          ) : null}
-                          {requestHits.length > 0 ? (
-                            <div className="px-1.5 pb-1">
-                              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                {t("dashboard.ops_search.section_staff_requests")}
-                              </div>
-                              <ul>
-                                {requestHits.map((req) => (
-                                  <li key={req.id}>
-                                    <button
-                                      type="button"
-                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                                      onClick={() => go(req.href || `/dashboard/staff-requests/${req.id}`)}
-                                    >
-                                      <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
-                                        {req.subject}
-                                      </span>
-                                      <Badge variant="outline" className="shrink-0 text-[10px]">
-                                        {req.status}
-                                      </Badge>
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          ) : null}
-                          {invoiceHits.length > 0 ? (
-                            <div className="px-1.5 pb-1">
-                              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                {t("dashboard.ops_search.section_invoices", { defaultValue: "Invoices" })}
-                              </div>
-                              <ul>
-                                {invoiceHits.map((inv) => (
-                                  <li key={inv.id}>
-                                    <button
-                                      type="button"
-                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                                      onClick={() => go(inv.href || `/dashboard/finance?invoice=${inv.id}`)}
-                                    >
-                                      <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
-                                        {inv.vendor_name}
-                                        {inv.invoice_number ? ` · ${inv.invoice_number}` : ""}
-                                      </span>
-                                      <Badge variant="outline" className="shrink-0 text-[10px]">
-                                        {inv.status}
-                                      </Badge>
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          ) : null}
-                          {incidentHits.length > 0 ? (
-                            <div className="px-1.5 pb-1">
-                              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                {t("dashboard.ops_search.section_incidents", { defaultValue: "Incidents" })}
-                              </div>
-                              <ul>
-                                {incidentHits.map((inc) => (
-                                  <li key={inc.id}>
-                                    <button
-                                      type="button"
-                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                                      onClick={() =>
-                                        go(inc.href || `/dashboard/staff-requests?kind=incident&id=${inc.id}`)
-                                      }
-                                    >
-                                      <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
-                                        {inc.title}
-                                      </span>
-                                      <Badge variant="outline" className="shrink-0 text-[10px]">
-                                        {inc.status || "OPEN"}
-                                      </Badge>
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          ) : null}
-                          {reminderHits.length > 0 ? (
-                            <div className="px-1.5 pb-1">
-                              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                {t("dashboard.ops_search.section_reminders", { defaultValue: "Reminders" })}
-                              </div>
-                              <ul>
-                                {reminderHits.map((rem) => (
-                                  <li key={rem.id}>
-                                    <button
-                                      type="button"
-                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                                      onClick={() => go(rem.href || "/dashboard")}
-                                    >
-                                      <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
-                                        {rem.title}
-                                      </span>
-                                      <Badge variant="outline" className="shrink-0 text-[10px]">
-                                        {rem.status || "pending"}
-                                      </Badge>
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          ) : null}
-                          {meetingHits.length > 0 ? (
-                            <div className="px-1.5 pb-1">
-                              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                {t("dashboard.ops_search.section_meetings", { defaultValue: "Meetings" })}
-                              </div>
-                              <ul>
-                                {meetingHits.map((m) => (
-                                  <li key={m.id || m.title}>
-                                    <button
-                                      type="button"
-                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                                      onClick={() => {
-                                        if (m.href) {
-                                          window.open(m.href, "_blank", "noopener,noreferrer");
-                                          setOpsSearchOpen(false);
-                                        } else {
-                                          go("/dashboard");
-                                        }
-                                      }}
-                                    >
-                                      <span className="min-w-0 flex-1 truncate font-medium text-slate-900 dark:text-white">
-                                        {m.title}
-                                      </span>
-                                      <Badge variant="outline" className="shrink-0 text-[10px]">
-                                        {m.status || "meeting"}
-                                      </Badge>
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })()
-                  )}
-                </div>
-              ) : null}
-            </div>
-            <div className="flex items-center gap-2">
-              {canCustomizeDashboard && (
-                <>
-                  {customizeMode && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={() => setAddWidgetOpen(true)}
-                    >
-                      <Plus className="h-4 w-4" />
-                      {t("dashboard.customize.add_widget")}
-                    </Button>
-                  )}
-                  {customizeMode && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={() => setManageOpen(true)}
-                    >
-                      <Sliders className="h-4 w-4" />
-                      {t("dashboard.customize.manage")}
-                    </Button>
-                  )}
-                  {customizeMode && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        clearDismissedDefaults(user?.id);
-                        setWidgetOrder([...DEFAULT_DASHBOARD_WIDGET_ORDER]);
-                      }}
-                    >
-                      {t("dashboard.customize.reset")}
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    variant={customizeMode ? "default" : "outline"}
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() => setCustomizeMode((v) => !v)}
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                    {customizeMode ? t("dashboard.customize.done") : t("dashboard.customize.edit")}
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-          <p className="text-slate-600 dark:text-slate-400 text-sm font-medium mt-1">
-            {isLoading
-              ? t("dashboard.status.updating")
-              : attentionNow > 0
-                ? t("dashboard.status.attention_now")
-                : t("dashboard.status.all_clear")}
-          </p>
-          {canCustomizeDashboard && customizeMode && (
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-1">
-              {t("dashboard.customize.hint")}
-            </p>
-          )}
-        </header>
+        {/* Command - primary home. CommandCenter owns the page heading and status line. */}
+        {!isLoading ? <CommandCenter /> : null}
 
         {isLoading ? (
           <DashboardSkeleton statCount={3} contentCards={2} />
         ) : (
           <>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
+              <button
+                type="button"
+                className="flex items-center gap-2 text-left"
+                onClick={() => setShowModuleWidgets((v) => !v)}
+                aria-expanded={showModuleWidgets}
+              >
+                <SectionChevron open={showModuleWidgets} />
+                <div>
+                  <p className="text-caption-label">Optional modules</p>
+                  <p className="type-secondary">
+                    Legacy widget grid - use the Intent rail and Ask Miya for day-to-day work.
+                  </p>
+                </div>
+              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {!showModuleWidgets ? (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setShowModuleWidgets(true)}>
+                    Show
+                  </Button>
+                ) : null}
+                {canCustomizeDashboard && (showModuleWidgets || customizeMode) ? (
+                  <>
+                    {customizeMode && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => setAddWidgetOpen(true)}
+                      >
+                        <Plus className="h-4 w-4" />
+                        {t("dashboard.customize.add_widget")}
+                      </Button>
+                    )}
+                    {customizeMode && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => setManageOpen(true)}
+                      >
+                        <Sliders className="h-4 w-4" />
+                        {t("dashboard.customize.manage")}
+                      </Button>
+                    )}
+                    {customizeMode && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          clearDismissedDefaults(user?.id);
+                          setWidgetOrder([...DEFAULT_DASHBOARD_WIDGET_ORDER]);
+                        }}
+                      >
+                        {t("dashboard.customize.reset")}
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant={customizeMode ? "default" : "ghost"}
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => setCustomizeMode((v) => !v)}
+                    >
+                      <LayoutGrid className="h-4 w-4" />
+                      {customizeMode ? t("dashboard.customize.done") : t("dashboard.customize.edit")}
+                    </Button>
+                  </>
+                ) : null}
+              </div>
+            </div>
+            {canCustomizeDashboard && customizeMode ? (
+              <p className="-mt-3 text-caption text-primary">{t("dashboard.customize.hint")}</p>
+            ) : null}
+            {showModuleWidgets || customizeMode ? (
+            <div className="space-y-6">
             <ManageDashboardCategoriesDialog
               open={manageOpen}
               onOpenChange={setManageOpen}
@@ -992,7 +568,7 @@ export default function Dashboard() {
                                   setAddWidgetOpen(false);
                                 }}
                                 className={cn(
-                                  "group flex gap-3 rounded-2xl border border-slate-200/90 bg-white p-4 text-left shadow-sm transition-all",
+                                  "group flex gap-3 rounded-2xl border border-slate-200/90 bg-card p-4 text-left shadow-sm transition-all",
                                   "hover:border-emerald-300 hover:shadow-md hover:bg-emerald-50/40 dark:border-slate-800 dark:bg-slate-900/80",
                                   "dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
                                 )}
@@ -1034,7 +610,7 @@ export default function Dashboard() {
                                 setAddWidgetOpen(false);
                               }}
                               className={cn(
-                                "group flex gap-3 rounded-2xl border border-violet-200/70 bg-white p-4 text-left shadow-sm transition-all",
+                                "group flex gap-3 rounded-2xl border border-violet-200/70 bg-card p-4 text-left shadow-sm transition-all",
                                 "hover:border-violet-300 hover:shadow-md hover:bg-violet-50/40 dark:border-violet-900/50 dark:bg-slate-900/80",
                                 "dark:hover:border-violet-700 dark:hover:bg-violet-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40",
                               )}
@@ -1070,7 +646,7 @@ export default function Dashboard() {
                               setAddWidgetOpen(false);
                             }}
                             className={cn(
-                              "group flex gap-3 rounded-2xl border border-slate-200/90 bg-white p-4 text-left shadow-sm transition-all",
+                              "group flex gap-3 rounded-2xl border border-slate-200/90 bg-card p-4 text-left shadow-sm transition-all",
                               "hover:border-emerald-300 hover:shadow-md hover:bg-emerald-50/40 dark:border-slate-800 dark:bg-slate-900/80",
                               "dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
                             )}
@@ -1170,190 +746,14 @@ export default function Dashboard() {
                 })}
               </div>
             )}
+            </div>
+            ) : null}
 
           </>
         )}
 
       </div>
 
-      {/* Quick Actions Mobile Dock (horizontal, < lg only) */}
-      <div className="lg:hidden fixed bottom-3 left-3 right-3 z-30">
-        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-white/85 dark:bg-slate-900/70 backdrop-blur shadow-lg px-2 py-2">
-          <div className="flex items-center gap-2 overflow-x-auto">
-            {apps
-              .filter((app) => !app.roles || hasRole(app.roles))
-              .filter((app) => !app.appId || canApp(app.appId))
-              .map((app) => {
-                const label = app.nameKey ? t(app.nameKey) : app.name;
-                return (
-                  <button
-                    key={`m-${app.name}`}
-                    type="button"
-                    onClick={() => navigate(app.href)}
-                    title={label}
-                    aria-label={label}
-                    className="shrink-0 inline-flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors"
-                  >
-                    <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm shadow-black/10", app.gradient)}>
-                      <app.icon className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="text-[10px] font-medium text-slate-700 dark:text-slate-300 max-w-[72px] truncate">
-                      {label}
-                    </div>
-                  </button>
-                );
-              })}
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions Side Pane (collapsible, left, vertical, lg+ only) */}
-      <aside
-        className={cn(
-          "hidden lg:flex fixed left-0 z-30 flex-col",
-          "top-[68px] bottom-3 ml-3",
-          "rounded-2xl border border-slate-200/70 dark:border-slate-800/80",
-          "bg-gradient-to-b from-white/95 via-white/90 to-slate-50/95 dark:from-slate-900/90 dark:via-slate-900/85 dark:to-slate-950/90",
-          "backdrop-blur-xl shadow-[0_10px_40px_-15px_rgba(15,23,42,0.25)] dark:shadow-[0_10px_40px_-15px_rgba(0,0,0,0.55)]",
-          "transition-[width] duration-300 ease-out",
-          appsPaneCollapsed ? "w-[72px]" : "w-64",
-        )}
-        aria-label={t("dashboard.quick_actions.title")}
-      >
-        {/* Header */}
-        <div
-          className={cn(
-            "relative flex items-center gap-2 px-3 pt-4 pb-3",
-            appsPaneCollapsed ? "justify-center" : "justify-between",
-          )}
-        >
-          {!appsPaneCollapsed && (
-            <div className="min-w-0 flex items-center gap-2">
-              <div className="h-7 w-7 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md shadow-emerald-500/30">
-                <Sparkles className="h-3.5 w-3.5 text-white" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-[13px] font-bold tracking-tight text-slate-900 dark:text-white truncate leading-tight">
-                  {t("dashboard.quick_actions.title")}
-                </div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold truncate">
-                  {t("dashboard.quick_actions.subtitle")}
-                </div>
-              </div>
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={() => setAppsPaneCollapsed((v) => !v)}
-            className={cn(
-              "shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-lg",
-              "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white",
-              "hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-all",
-            )}
-            aria-label={appsPaneCollapsed ? t("dashboard.quick_actions.expand") : t("dashboard.quick_actions.collapse")}
-            aria-expanded={!appsPaneCollapsed}
-            title={appsPaneCollapsed ? t("dashboard.quick_actions.expand") : t("dashboard.quick_actions.collapse")}
-          >
-            {appsPaneCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </button>
-        </div>
-
-        <div className="mx-3 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent" />
-
-        {/* Apps */}
-        <nav
-          className={cn(
-            "flex-1 overflow-y-auto py-3 space-y-1",
-            appsPaneCollapsed ? "px-2" : "px-2",
-          )}
-        >
-          {apps
-            .filter((app) => !app.roles || hasRole(app.roles))
-            .filter((app) => !app.appId || canApp(app.appId))
-            .map((app) => {
-              const label = app.nameKey ? t(app.nameKey) : app.name;
-              const desc = app.descKey ? t(app.descKey) : app.description;
-              const isActive = pathname === app.href || pathname.startsWith(app.href + "/");
-              return (
-                <button
-                  key={app.name}
-                  type="button"
-                  onClick={() => navigate(app.href)}
-                  title={appsPaneCollapsed ? label : undefined}
-                  aria-label={label}
-                  aria-current={isActive ? "page" : undefined}
-                  className={cn(
-                    "group relative w-full flex items-center gap-3 rounded-xl transition-all duration-200",
-                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40",
-                    appsPaneCollapsed ? "justify-center px-2 py-2" : "px-2.5 py-2",
-                    isActive
-                      ? "bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800/80 dark:to-slate-800/40 shadow-sm"
-                      : "hover:bg-slate-100/70 dark:hover:bg-slate-800/50",
-                  )}
-                >
-                  {/* Active indicator bar */}
-                  <span
-                    className={cn(
-                      "absolute left-0 top-1/2 -translate-y-1/2 w-1 rounded-r-full transition-all duration-300",
-                      isActive
-                        ? "h-7 bg-gradient-to-b from-emerald-500 to-teal-500 opacity-100"
-                        : "h-0 opacity-0",
-                    )}
-                    aria-hidden
-                  />
-                  <div
-                    className={cn(
-                      "relative w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-                      "shadow-md shadow-black/10 ring-1 ring-white/10",
-                      "transition-transform duration-200 group-hover:scale-[1.06] group-active:scale-95",
-                      app.gradient,
-                    )}
-                  >
-                    <app.icon className="w-5 h-5 text-white drop-shadow-sm" />
-                    {/* Subtle inner gloss */}
-                    <span className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-b from-white/25 to-transparent" aria-hidden />
-                  </div>
-                  {!appsPaneCollapsed && (
-                    <div className="min-w-0 text-left leading-tight">
-                      <div
-                        className={cn(
-                          "text-[14px] font-bold tracking-tight truncate transition-colors",
-                          isActive
-                            ? "text-slate-900 dark:text-white"
-                            : "text-slate-800 dark:text-slate-100 group-hover:text-slate-900 dark:group-hover:text-white",
-                        )}
-                      >
-                        {label}
-                      </div>
-                      <div className="text-[10.5px] text-slate-500 dark:text-slate-400 font-medium line-clamp-1">
-                        {desc}
-                      </div>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-        </nav>
-
-        {/* Footer - user avatar / account menu */}
-        <div
-          className={cn(
-            "mt-auto px-2 pb-3 pt-2",
-            "border-t border-slate-100 dark:border-slate-800/70",
-          )}
-        >
-          <UserAvatarMenu
-            variant={appsPaneCollapsed ? "icon" : "row"}
-            align="start"
-            side="right"
-            className={appsPaneCollapsed ? "mx-auto" : ""}
-          />
-        </div>
-      </aside>
     </div>
   );
 }

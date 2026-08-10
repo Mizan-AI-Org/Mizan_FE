@@ -44,6 +44,8 @@ import {
 import { useStaffInboxLanes, resolveStaffInboxLaneId, type StaffInboxLane } from "@/hooks/use-staff-inbox-lanes";
 import { useLanguage } from "@/hooks/use-language";
 import { PAGE_SHELL, PAGE_SHELL_PADDED } from "@/lib/page-shell";
+import { AiNativeWorkspace, type WorkspaceModule } from "@/components/miya/AiNativeWorkspace";
+import { AskMiyaButton, miyaPrompts } from "@/components/miya/AskMiyaButton";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 import { AttachmentList } from "@/components/ui/attachment-preview";
 import { api, BACKEND_URL } from "@/lib/api";
@@ -499,7 +501,7 @@ function InvoiceDetailPanel({
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">
+          <div className="text-xs font-semibold uppercase tracking-wider text-primary mb-1">
             {t("staff.requests.invoice_eyebrow")}
           </div>
           <h3 className="text-2xl font-bold tracking-tight truncate">{invoice.vendor_name}</h3>
@@ -507,9 +509,28 @@ function InvoiceDetailPanel({
             <p className="text-sm text-muted-foreground mt-1">#{invoice.invoice_number}</p>
           ) : null}
         </div>
-        <Badge variant="outline" className={cn("text-xs font-bold px-3 py-1 uppercase rounded-full", invoiceStatusBadge(displayStatus))}>
-          {invoiceStatusLabel(displayStatus, t)}
-        </Badge>
+        <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
+          <AskMiyaButton
+            prompt={miyaPrompts.invoice(
+              invoice.invoice_number
+                ? `${invoice.vendor_name || "Invoice"} #${invoice.invoice_number}`
+                : invoice.vendor_name || "this invoice",
+            )}
+            pageContext={{
+              entity_type: "invoice",
+              entity_id: String(invoice.id),
+              entity_label: invoice.vendor_name || invoice.invoice_number,
+              route: typeof window !== "undefined" ? window.location.pathname : "/dashboard",
+              tab: "finance",
+            }}
+            size="sm"
+            variant="outline"
+            onClickStopPropagation
+          />
+          <Badge variant="outline" className={cn("text-xs font-bold px-3 py-1 uppercase rounded-full", invoiceStatusBadge(displayStatus))}>
+            {invoiceStatusLabel(displayStatus, t)}
+          </Badge>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 text-sm">
@@ -698,7 +719,7 @@ function InvoiceDetailPanel({
             {timelineEvents.map((ev) => (
               <li key={ev.id} className="text-sm border-l-2 border-emerald-200 pl-3">
                 <div className="text-[11px] text-muted-foreground tabular-nums">
-                  {ev.at ? new Date(ev.at).toLocaleString() : "—"}
+                  {ev.at ? new Date(ev.at).toLocaleString() : "-"}
                   {ev.actor ? ` · ${ev.actor}` : ""}
                 </div>
                 <div className="leading-snug mt-0.5">{ev.summary || ev.event_type}</div>
@@ -1201,6 +1222,12 @@ const StaffRequestsPage: React.FC = () => {
     ? t("staff.requests.tasks_demands_subtitle")
     : activeLane?.page_subtitle ?? null;
 
+  const workspaceModule: WorkspaceModule =
+    activeLaneId === "finance" ||
+    (activeLane?.categories || []).some((c) => String(c).toUpperCase() === "FINANCE")
+      ? "finance"
+      : "operations";
+
   if (isInvoiceDetail && selectedId) {
     const invoice = invoiceQuery.data;
     return (
@@ -1359,6 +1386,13 @@ const StaffRequestsPage: React.FC = () => {
 
   return (
     <div className={PAGE_SHELL_PADDED}>
+      <div className="mb-4">
+        <AiNativeWorkspace
+          module={workspaceModule}
+          compact={workspaceModule === "operations"}
+          defaultCollapsed={workspaceModule === "operations"}
+        />
+      </div>
       <div className="mb-5 space-y-3">
         <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {t("staff.requests.eyebrow")}

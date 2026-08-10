@@ -12,6 +12,7 @@ import TaskTemplates from "./TaskTemplates";
 import { useLanguage } from "@/hooks/use-language";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { cn } from "@/lib/utils";
+import { AiNativeWorkspace } from "@/components/miya/AiNativeWorkspace";
 
 /** Portal target for process actions (New / Import / Pre-Built) - shown on Live Board and Templates. */
 export const PROCESSES_TASKS_HEADER_ACTIONS_ID = "processes-tasks-header-actions";
@@ -32,6 +33,7 @@ export default function ProcessesTasksApp() {
 
     return (
         <div className={`${PAGE_SHELL_PADDED} space-y-5`}>
+            <AiNativeWorkspace module="tasks" />
             <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div className="min-w-0 space-y-1">
                     <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">

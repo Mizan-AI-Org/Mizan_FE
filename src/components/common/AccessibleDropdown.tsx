@@ -69,7 +69,7 @@ export default function AccessibleDropdown({
       </Button>
 
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
           <ul role="listbox" aria-labelledby={id} className="py-1">
             {options.map((option) => (
               <li key={option.value} role="option" aria-selected={value === option.value}>

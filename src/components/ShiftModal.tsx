@@ -273,7 +273,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[700px] bg-white dark:bg-slate-900 rounded-3xl p-6 border-none shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[700px] bg-card rounded-3xl p-6 border-none shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
                 <DialogHeader className="pb-2">
                     <DialogTitle className="text-xl font-bold text-[#1F2937] dark:text-gray-100">
                         {initialShift ? t("schedule.edit_schedule") : t("schedule.create_schedule")}
@@ -338,7 +338,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                                             "w-5 h-5 rounded-md border flex items-center justify-center transition-colors",
                                                             selectedStaffIds.includes(s.id)
                                                                 ? "bg-orange-500 border-orange-500"
-                                                                : "border-orange-200 dark:border-slate-600 bg-white dark:bg-slate-800"
+                                                                : "border-orange-200 dark:border-slate-600 bg-surface-raised"
                                                         )}>
                                                             {selectedStaffIds.includes(s.id) && <Check className="h-3 w-3 text-white" />}
                                                         </div>
@@ -574,7 +574,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                                 "flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-all border",
                                                 isSelected
                                                     ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700 shadow-sm"
-                                                    : "bg-white dark:bg-slate-800 border-transparent hover:bg-gray-50 dark:hover:bg-slate-700 hover:border-gray-200 dark:hover:border-slate-600"
+                                                    : "bg-surface-raised border-transparent hover:bg-gray-50 dark:hover:bg-slate-700 hover:border-gray-200 dark:hover:border-slate-600"
                                             )}
                                             onClick={() => {
                                                 const current = selectedTemplateIds;
@@ -589,7 +589,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                                 "mt-0.5 w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0",
                                                 isSelected
                                                     ? "bg-[#106B4E] border-[#106B4E]"
-                                                    : "border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800"
+                                                    : "border-gray-300 dark:border-slate-600 bg-surface-raised"
                                             )}>
                                                 {isSelected && (
                                                     <Check className="w-2.5 h-2.5 text-white" />

@@ -1266,7 +1266,7 @@ function StaffInboxEnterpriseCard({
             CategoryTasksCard "in progress / done" affordance. */}
         <div className="flex items-center gap-1 shrink-0">
           {pendingCount > 0 ? (
-            <span className="inline-flex h-5 items-center gap-1 rounded-full border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
+            <span className="inline-flex h-5 items-center gap-1 rounded-full border border-slate-200 bg-card px-2 text-[10px] font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
               <span>{t("dashboard.staff_inbox.pending_label")}</span>
               <span className="tabular-nums">{pendingCount}</span>
             </span>
@@ -1999,7 +1999,7 @@ function TasksDemandsCard({
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-colors",
                   active
-                    ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm"
+                    ? "bg-card text-slate-900 dark:text-white shadow-sm"
                     : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
                 )}
               >
@@ -2377,7 +2377,7 @@ function GoogleCalendarSyncHub({
               className={cn(
                 "relative flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold shadow-sm",
                 connected
-                  ? "bg-white text-emerald-700 ring-2 ring-emerald-500/25 dark:bg-slate-900 dark:text-emerald-300"
+                  ? "bg-card text-emerald-700 ring-2 ring-emerald-500/25 dark:text-emerald-300"
                   : "bg-slate-100 text-slate-400 dark:bg-slate-800",
               )}
             >
@@ -4854,7 +4854,7 @@ function CategoryFilterChip({
       ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300"
       : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300";
   const idleCls =
-    "border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400 dark:hover:bg-slate-800/60";
+    "border-slate-200 bg-card text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800/60";
   return (
     <button
       type="button"
@@ -5659,7 +5659,7 @@ function CustomWidgetTasksCard({
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-colors",
                   active
-                    ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm"
+                    ? "bg-card text-slate-900 dark:text-white shadow-sm"
                     : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
                 )}
               >
@@ -6374,7 +6374,7 @@ function StaffMessagesCard({
                   "rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors",
                   audienceMode === mode
                     ? "bg-emerald-600 text-white shadow-sm"
-                    : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-700",
+                    : "bg-card text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-700",
                 )}
               >
                 {t(key)}
@@ -6395,7 +6395,7 @@ function StaffMessagesCard({
                     }}
                     className={cn(
                       "w-full inline-flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-colors",
-                      "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900",
+                      "border-slate-200 dark:border-slate-700 bg-card",
                       "hover:border-emerald-300 dark:hover:border-emerald-700",
                     )}
                   >
@@ -6428,7 +6428,7 @@ function StaffMessagesCard({
                     }}
                     className={cn(
                       "w-full inline-flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-colors",
-                      "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900",
+                      "border-slate-200 dark:border-slate-700 bg-card",
                       "hover:border-emerald-300 dark:hover:border-emerald-700",
                     )}
                   >
@@ -6451,7 +6451,7 @@ function StaffMessagesCard({
               ) : null}
 
               {audienceMode === "tags" ? (
-                <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-2">
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-card px-2 py-2">
                   <StaffTagSelector
                     compact
                     showHelp={false}
@@ -6466,7 +6466,7 @@ function StaffMessagesCard({
               ) : null}
 
               {audienceMode === "department" ? (
-                <div className="space-y-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-2">
+                <div className="space-y-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-card px-2 py-2">
                   <div className="flex gap-1">
                     <input
                       type="text"
@@ -6482,7 +6482,7 @@ function StaffMessagesCard({
                       placeholder={t(
                         "dashboard.staff_messages.department_input_placeholder",
                       )}
-                      className="min-w-0 flex-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                      className="min-w-0 flex-1 rounded-md border border-slate-200 dark:border-slate-700 bg-card px-2 py-1 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-400"
                     />
                     <datalist id="staff-msg-dept-suggestions">
                       {uniqueDepartments.map((d) => (
@@ -6526,7 +6526,7 @@ function StaffMessagesCard({
               ) : null}
 
               {audienceMode === "role" ? (
-                <div className="space-y-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-2">
+                <div className="space-y-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-card px-2 py-2">
                   {uniqueRoles.length === 0 ? (
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       {t("dashboard.staff_messages.no_roles_on_team")}
@@ -6570,7 +6570,7 @@ function StaffMessagesCard({
                 "shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors self-start",
                 priority === "URGENT"
                   ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300"
-                  : "border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400",
+                  : "border-slate-200 bg-card text-slate-500 dark:border-slate-700 dark:text-slate-400",
               )}
               title={t("dashboard.staff_messages.priority_toggle_hint")}
             >
@@ -6588,7 +6588,7 @@ function StaffMessagesCard({
             placeholder={t("dashboard.staff_messages.body_placeholder")}
             rows={2}
             maxLength={2000}
-            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-[12px] resize-none focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-card px-2.5 py-2 text-[12px] resize-none focus:outline-none focus:ring-1 focus:ring-emerald-400"
           />
 
           {/* Templates + Send */}
@@ -6598,7 +6598,7 @@ function StaffMessagesCard({
                 key={tpl.id}
                 type="button"
                 onClick={() => onPickTemplate(tpl)}
-                className="inline-flex items-center rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-300 transition-colors"
+                className="inline-flex items-center rounded-full border border-slate-200 dark:border-slate-700 bg-card px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-300 transition-colors"
                 title={tpl.body}
               >
                 {tpl.label}
@@ -6700,7 +6700,7 @@ function StaffMessagesCard({
         createPortal(
           <div
             id="staff-messages-picker-portal"
-            className="fixed z-[80] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg"
+            className="fixed z-[80] rounded-lg border border-slate-200 dark:border-slate-700 bg-card shadow-lg"
             style={{
               top: dropdownPos.top,
               left: dropdownPos.left,
@@ -6720,7 +6720,7 @@ function StaffMessagesCard({
                   t("dashboard.staff_messages.recipient_search_placeholder") ||
                   "Search staff…"
                 }
-                className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-card px-2 py-1 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-400"
                 autoFocus
               />
             </div>

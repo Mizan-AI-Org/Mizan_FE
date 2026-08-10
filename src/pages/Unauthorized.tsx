@@ -7,8 +7,8 @@ import BrandLogo from "@/components/BrandLogo";
 
 const Unauthorized: React.FC = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-      <Card className="w-full max-w-md shadow-lg border-slate-200">
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <Card className="w-full max-w-md shadow-lg">
         <CardHeader>
           <div className="flex justify-center mb-3">
             <BrandLogo size="sm" />

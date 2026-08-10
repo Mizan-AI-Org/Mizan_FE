@@ -100,7 +100,7 @@ export default function PlatformAdminLogin({ deniedMessage }: Props) {
 
         <form
           onSubmit={handleSubmit}
-          className="rounded-2xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-lg shadow-slate-200/50 dark:shadow-black/40 space-y-5"
+          className="rounded-2xl border border-slate-200/80 dark:border-slate-700 bg-card p-6 sm:p-8 shadow-lg shadow-slate-200/50 dark:shadow-black/40 space-y-5"
         >
           {error ? (
             <div className="rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">

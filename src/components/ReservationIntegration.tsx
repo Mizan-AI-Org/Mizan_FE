@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 type EatNowDiscoverRestaurantRow = { group_id?: string; restaurants?: { id: string }[] };
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  SettingsSection,
+  settingsFieldClassName,
+  settingsSelectClassName,
+} from "@/components/settings/SettingsSection";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -295,31 +300,43 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
     );
   }
 
+  const statusHelp =
+    provider === "EATAPP" ? (
+      <>
+        {t("settings.reservation.status_help_eatapp_prefix")}{" "}
+        <strong className="font-medium text-slate-700 dark:text-slate-300">
+          {t("settings.reservation.status_help_save")}
+        </strong>
+        . {t("settings.reservation.status_help_eatapp_suffix")}
+      </>
+    ) : (
+      t("settings.reservation.status_help_generic")
+    );
+
   return (
-    <Card className="shadow-soft">
-      <CardHeader>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-2">
-            <Globe2 className="w-5 h-5 text-emerald-500 shrink-0" />
-            <CardTitle className="text-lg">{t("settings.reservation.card_title")}</CardTitle>
-          </div>
-          <Badge
-            variant="outline"
-            className={
-              provider === "NONE"
-                ? "shrink-0 border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400"
-                : reservationStatusOk
-                  ? "shrink-0 border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-                  : "shrink-0 border-amber-500 bg-amber-50 text-amber-900 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-200"
-            }
-          >
-            {reservationStatusLabel}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-5 px-5 sm:px-6 pb-5 sm:pb-6">
+    <SettingsSection
+      icon={<Globe2 className="h-5 w-5" />}
+      iconClassName="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+      title={t("settings.reservation.card_title")}
+      description={statusHelp}
+      collapsible
+      actions={
+        <Badge
+          variant="outline"
+          className={
+            provider === "NONE"
+              ? "shrink-0 border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400"
+              : reservationStatusOk
+                ? "shrink-0 border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                : "shrink-0 border-amber-500 bg-amber-50 text-amber-900 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-200"
+          }
+        >
+          {reservationStatusLabel}
+        </Badge>
+      }
+    >
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] lg:items-start">
-          <div className="space-y-3 lg:sticky lg:top-24">
+          <div className="space-y-3">
             <div className="space-y-2">
               <Label htmlFor="reservation-provider" className="text-sm font-medium">
                 {t("settings.reservation.provider_label")}
@@ -328,7 +345,7 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
                 id="reservation-provider"
                 value={provider}
                 onChange={(e) => setProvider(e.target.value as ReservationProvider)}
-                className="h-11 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950/40 px-3 text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                className={settingsSelectClassName}
               >
                 <option value="NONE">{t("settings.reservation.provider_none")}</option>
                 <option value="EATAPP">Eat App (Eat Now)</option>
@@ -344,41 +361,47 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
                 <option value="CUSTOM">{t("settings.reservation.provider_custom")}</option>
               </select>
               {provider === "NONE" && (
-                <p className="text-xs text-muted-foreground">{t("settings.reservation.connect_hint")}</p>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {t("settings.reservation.connect_hint")}
+                </p>
               )}
             </div>
           </div>
 
           <div className="min-w-0 space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="reservation-display-name" className="text-sm font-medium">
-                {t("settings.reservation.display_name")}
-              </Label>
-              <Input
-                id="reservation-display-name"
-                placeholder={t("settings.reservation.display_name_placeholder")}
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">{t("settings.reservation.display_name_help")}</p>
-            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="reservation-display-name" className="text-sm font-medium">
+                  {t("settings.reservation.display_name")}
+                </Label>
+                <Input
+                  id="reservation-display-name"
+                  className={settingsFieldClassName}
+                  placeholder={t("settings.reservation.display_name_placeholder")}
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("settings.reservation.display_name_help")}
+                </p>
+              </div>
 
-            <div className="space-y-1">
-              <Label htmlFor="reservation-widget-url" className="text-sm font-medium">
-                {t("settings.reservation.widget_url_label")}
-              </Label>
-              <Input
-                id="reservation-widget-url"
-                placeholder="https://..."
-                value={widgetUrl}
-                onChange={(e) => setWidgetUrl(e.target.value)}
-              />
+              <div className="space-y-1.5">
+                <Label htmlFor="reservation-widget-url" className="text-sm font-medium">
+                  {t("settings.reservation.widget_url_label")}
+                </Label>
+                <Input
+                  id="reservation-widget-url"
+                  className={settingsFieldClassName}
+                  placeholder="https://..."
+                  value={widgetUrl}
+                  onChange={(e) => setWidgetUrl(e.target.value)}
+                />
+              </div>
             </div>
 
             {provider === "EATAPP" && (
-              <div className="rounded-xl border border-slate-200/90 dark:border-slate-700/90 bg-white dark:bg-slate-950/30 p-4 sm:p-5 space-y-4">
+              <div className="rounded-xl border border-slate-200/90 dark:border-slate-700/90 bg-surface-sunken p-4 sm:p-5 space-y-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2 min-w-0">
                     <Plug className="h-4 w-4 text-emerald-600 shrink-0" aria-hidden />
@@ -552,77 +575,41 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
               </div>
             )}
           </div>
+        </div>
 
-          <div className="space-y-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Plug className="w-4 h-4 text-emerald-500" />
-                <span className="text-sm font-medium">{t("settings.reservation.connection_status")}</span>
-              </div>
-              <Badge
-                variant="outline"
-                className={
-                  provider === "NONE"
-                    ? "border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400"
-                    : reservationStatusOk
-                      ? "border-emerald-400 text-emerald-800 dark:border-emerald-700 dark:text-emerald-300"
-                      : "border-amber-500 text-amber-900 dark:border-amber-600 dark:text-amber-200"
-                }
-              >
-                {reservationStatusLabel}
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground leading-snug">
-              {provider === "EATAPP" ? (
+        <div className="flex flex-col gap-2 border-t border-slate-200/80 pt-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={handleSave} disabled={saving || schemaVersion === null}>
+              {saving ? (
                 <>
-                  {t("settings.reservation.status_help_eatapp_prefix")}{" "}
-                  <strong className="font-medium text-slate-700 dark:text-slate-300">
-                    {t("settings.reservation.status_help_save")}
-                  </strong>
-                  . {t("settings.reservation.status_help_eatapp_suffix")}
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {t("settings.reservation.saving")}
                 </>
               ) : (
-                <>{t("settings.reservation.status_help_generic")}</>
+                <>
+                  <Globe2 className="w-4 h-4 mr-2" />
+                  {t("settings.reservation.save_configuration")}
+                </>
               )}
-            </p>
-            <div className="flex flex-col gap-2 pt-2">
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button onClick={handleSave} disabled={saving || schemaVersion === null} className="flex-1">
-                  {saving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      {t("settings.reservation.saving")}
-                    </>
-                  ) : (
-                    <>
-                      <Globe2 className="w-4 h-4 mr-2" />
-                      {t("settings.reservation.save_configuration")}
-                    </>
-                  )}
-                </Button>
-                <Button type="button" variant="outline" disabled={!widgetUrl} onClick={handleTestLink} className="flex-1">
-                  <LinkIcon className="w-4 h-4 mr-2" />
-                  {t("settings.reservation.open_booking_link")}
-                </Button>
-              </div>
-              {canDisconnectReservation && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
-                  onClick={() => setDisconnectOpen(true)}
-                  disabled={disconnecting}
-                >
-                  <Unplug className="w-4 h-4 mr-2 shrink-0" />
-                  {t("settings.reservation.disconnect")}
-                </Button>
-              )}
-            </div>
+            </Button>
+            <Button type="button" variant="outline" disabled={!widgetUrl} onClick={handleTestLink}>
+              <LinkIcon className="w-4 h-4 mr-2" />
+              {t("settings.reservation.open_booking_link")}
+            </Button>
           </div>
+          {canDisconnectReservation && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-950/40"
+              onClick={() => setDisconnectOpen(true)}
+              disabled={disconnecting}
+            >
+              <Unplug className="w-4 h-4 mr-2 shrink-0" />
+              {t("settings.reservation.disconnect")}
+            </Button>
+          )}
         </div>
-          </div>
-        </div>
-      </CardContent>
 
       <AlertDialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
         <AlertDialogContent>
@@ -644,6 +631,6 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </SettingsSection>
   );
 }

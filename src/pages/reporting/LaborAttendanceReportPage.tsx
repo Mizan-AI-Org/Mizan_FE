@@ -140,7 +140,7 @@ const LaborAttendanceReportPage: React.FC = () => {
   const varianceNum = typeof summary?.total_variance === "number" ? summary.total_variance : parseFloat(String(summary?.total_variance ?? 0));
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/30">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
         {/* Page header */}
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
@@ -223,7 +223,7 @@ const LaborAttendanceReportPage: React.FC = () => {
               <div className="space-y-4 py-4">
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                   {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/50 p-4">
+                    <div key={i} className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-card p-4">
                       <Skeleton className="h-3 w-24 mb-2" />
                       <Skeleton className="h-7 w-16" />
                     </div>
@@ -247,7 +247,7 @@ const LaborAttendanceReportPage: React.FC = () => {
                   ].map(({ label, value, className }) => (
                     <div
                       key={label}
-                      className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/50 p-4"
+                      className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-card p-4"
                     >
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
                       <p className={`mt-1 text-xl font-semibold tabular-nums ${className}`}>{value}</p>

@@ -82,7 +82,7 @@ export default function InventoryManagement() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 font-sans antialiased text-slate-900 pt-4 pb-8">
+        <div className="min-h-screen pb-8 pt-4 font-sans text-foreground antialiased">
             <div className={`${PAGE_SHELL} py-6 md:py-8 space-y-6`}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
                     <div>
@@ -93,7 +93,7 @@ export default function InventoryManagement() {
 
                 {/* Inventory KPIs */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <Card className="border-slate-100 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all">
+                    <Card className="border-slate-100 shadow-sm bg-card rounded-2xl hover:shadow-md transition-all">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 px-6 pt-6">
                             <p className="text-xs font-black uppercase tracking-widest text-slate-400">Total Value</p>
                             <DollarSign className="h-4 w-4 text-slate-300" />
@@ -104,7 +104,7 @@ export default function InventoryManagement() {
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-100 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all">
+                    <Card className="border-slate-100 shadow-sm bg-card rounded-2xl hover:shadow-md transition-all">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 px-6 pt-6">
                             <p className="text-xs font-black uppercase tracking-widest text-slate-400">Food Waste Cost</p>
                             <BarChart3 className="h-4 w-4 text-slate-300" />
@@ -115,7 +115,7 @@ export default function InventoryManagement() {
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-100 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all">
+                    <Card className="border-slate-100 shadow-sm bg-card rounded-2xl hover:shadow-md transition-all">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 px-6 pt-6">
                             <p className="text-xs font-black uppercase tracking-widest text-slate-400">Lost Revenue</p>
                             <TrendingDown className="h-4 w-4 text-slate-300" />
@@ -136,7 +136,7 @@ export default function InventoryManagement() {
                             onClick={showComingSoon}
                             className="block w-full text-left rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
                         >
-                            <Card className="border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-1 bg-white flex items-center justify-between p-7 rounded-2xl group cursor-pointer border-l-4 border-l-transparent hover:border-l-indigo-600">
+                            <Card className="border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-1 bg-card flex items-center justify-between p-7 rounded-2xl group cursor-pointer border-l-4 border-l-transparent hover:border-l-indigo-600">
                                 <div className="flex items-center gap-6">
                                     <div className={cn("w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center transition-transform duration-500 group-hover:scale-110", section.color)}>
                                         <section.icon className="w-7 h-7" />

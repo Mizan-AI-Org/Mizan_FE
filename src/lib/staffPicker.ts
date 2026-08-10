@@ -68,7 +68,7 @@ function departmentFromStaffRow(r: Record<string, unknown>): string | undefined 
   return dept || undefined;
 }
 
-/** Full roster for pickers — includes all branches and top-level CustomUser ids. */
+/** Full roster for pickers - includes all branches and top-level CustomUser ids. */
 export async function loadStaffPickerOptions(
   opts: { pageSize?: number } = {},
 ): Promise<StaffPickerOption[]> {

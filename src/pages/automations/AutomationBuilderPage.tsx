@@ -44,7 +44,7 @@ const CANVAS_BG =
   "bg-slate-50/90 dark:bg-slate-950/30 [background-image:radial-gradient(circle,rgb(148_163_184/0.28)_1px,transparent_1px)] dark:[background-image:radial-gradient(circle,rgb(71_85_105/0.45)_1px,transparent_1px)] [background-size:24px_24px]";
 
 const NODE_CARD =
-  "rounded-xl border border-slate-200/90 dark:border-slate-700/90 bg-white dark:bg-slate-900 shadow-sm";
+  "rounded-xl border border-slate-200/90 dark:border-slate-700/90 bg-card shadow-sm";
 
 const CONNECTOR = "w-px h-8 bg-slate-300 dark:bg-slate-600 mx-auto";
 
@@ -200,7 +200,7 @@ export default function AutomationBuilderPage() {
   return (
     <div className={cn(AUTOMATION_BUILDER_SHELL, "space-y-4")}>
       {/* Compact toolbar */}
-      <div className="flex flex-col gap-3 rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 rounded-xl border border-slate-200/90 bg-card p-3 shadow-sm dark:border-slate-800 sm:flex-row sm:items-center">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Button variant="ghost" size="icon" className="shrink-0" asChild>
             <Link to="/dashboard/automations" aria-label={t("automations.builder.back_automations")}>
@@ -386,7 +386,7 @@ export default function AutomationBuilderPage() {
 
       {/* Meta below canvas */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-xl border border-slate-200 bg-card p-4 dark:border-slate-800">
           <h3 className="mb-2 text-sm font-semibold text-slate-900 dark:text-white">
             {t("automations.builder.variables_title")}
           </h3>
@@ -399,7 +399,7 @@ export default function AutomationBuilderPage() {
             ))}
           </ul>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-xl border border-slate-200 bg-card p-4 dark:border-slate-800">
           <Label htmlFor="automation-description">{t("automations.builder.description_label")}</Label>
           <Textarea
             id="automation-description"

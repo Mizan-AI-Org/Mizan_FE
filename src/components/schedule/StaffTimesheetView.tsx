@@ -38,8 +38,8 @@ function StaffTimesheetViewSkeleton() {
     { role: "CHEF", staffCount: 2 },
   ];
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0 bg-white dark:bg-slate-900 z-20">
+    <div className="bg-card rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0 bg-card z-20">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
             <Skeleton className="h-8 w-8 rounded-lg" />
@@ -210,8 +210,8 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
   }
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0 bg-white dark:bg-slate-900 z-20">
+    <div className="bg-card rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden max-h-[85vh]">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0 bg-card z-20">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
             <UIButton variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => navigateWeek("prev")}>

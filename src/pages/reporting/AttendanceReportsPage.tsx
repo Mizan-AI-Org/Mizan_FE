@@ -154,7 +154,7 @@ export default function AttendanceReportsPage() {
                 value={reportDate}
                 max={format(new Date(), "yyyy-MM-dd")}
                 onChange={(e) => setReportDate(e.target.value)}
-                className="h-9 w-[155px] bg-white dark:bg-slate-950"
+                className="h-9 w-[155px] bg-background"
               />
               <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => refetch()}>
                 <Radio className="h-3.5 w-3.5" />

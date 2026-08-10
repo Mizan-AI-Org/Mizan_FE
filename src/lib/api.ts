@@ -1436,6 +1436,87 @@ export class BackendService {
     return this.fetchWithError("/dashboard/action-center/");
   }
 
+  async getMiyaCommandCenter(params?: { period?: string; restaurant_id?: string }) {
+    const qs = new URLSearchParams();
+    if (params?.period) qs.set("period", params.period);
+    if (params?.restaurant_id) qs.set("restaurant_id", params.restaurant_id);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return this.fetchWithError(`/miya/command-center/${suffix}`);
+  }
+
+  async getMiyaAttention(params?: { period?: string; restaurant_id?: string }) {
+    const qs = new URLSearchParams();
+    if (params?.period) qs.set("period", params.period);
+    if (params?.restaurant_id) qs.set("restaurant_id", params.restaurant_id);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return this.fetchWithError(`/miya/attention/${suffix}`);
+  }
+
+  async getMiyaModuleWorkspace(module: string, params?: { restaurant_id?: string }) {
+    const qs = new URLSearchParams();
+    qs.set("module", module);
+    if (params?.restaurant_id) qs.set("restaurant_id", params.restaurant_id);
+    return this.fetchWithError(`/miya/workspace/?${qs.toString()}`);
+  }
+
+  async getMiyaInsights(params?: { restaurant_id?: string; limit?: number; mark_notified?: boolean }) {
+    const qs = new URLSearchParams();
+    if (params?.restaurant_id) qs.set("restaurant_id", params.restaurant_id);
+    if (params?.limit != null) qs.set("limit", String(params.limit));
+    if (params?.mark_notified) qs.set("mark_notified", "1");
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return this.fetchWithError(`/miya/insights/${suffix}`);
+  }
+
+  async dismissMiyaInsight(fingerprint: string, params?: { restaurant_id?: string }) {
+    return this.fetchWithError(`/miya/insights/dismiss/`, {
+      method: "POST",
+      body: JSON.stringify({
+        fingerprint,
+        restaurant_id: params?.restaurant_id,
+      }),
+    });
+  }
+
+  async snoozeMiyaInsight(fingerprint: string, params?: { restaurant_id?: string; hours?: number }) {
+    return this.fetchWithError(`/miya/insights/snooze/`, {
+      method: "POST",
+      body: JSON.stringify({
+        fingerprint,
+        restaurant_id: params?.restaurant_id,
+        hours: params?.hours ?? 6,
+      }),
+    });
+  }
+
+  async getMiyaActivity(params?: {
+    restaurant_id?: string;
+    limit?: number;
+    hours?: number;
+    entity_type?: string;
+    entity_id?: string;
+  }) {
+    const qs = new URLSearchParams();
+    if (params?.restaurant_id) qs.set("restaurant_id", params.restaurant_id);
+    if (params?.limit != null) qs.set("limit", String(params.limit));
+    if (params?.hours != null) qs.set("hours", String(params.hours));
+    if (params?.entity_type) qs.set("entity_type", params.entity_type);
+    if (params?.entity_id) qs.set("entity_id", params.entity_id);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return this.fetchWithError(`/miya/activity/${suffix}`);
+  }
+
+  async getMiyaActivityDetail(eventId: string) {
+    return this.fetchWithError(`/miya/activity/${eventId}/`);
+  }
+
+  async undoMiyaActivity(eventId: string, params?: { restaurant_id?: string }) {
+    return this.fetchWithError(`/miya/activity/${eventId}/undo/`, {
+      method: "POST",
+      body: JSON.stringify({ restaurant_id: params?.restaurant_id }),
+    });
+  }
+
   async managerClockIn(
     staffId: string,
     payload: { reason: string; shift_id?: string }

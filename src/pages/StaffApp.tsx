@@ -81,6 +81,8 @@ import {
 } from "lucide-react";
 import { API_BASE, BACKEND_URL, BackendService, api } from "@/lib/api";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
+import { AiNativeWorkspace } from "@/components/miya/AiNativeWorkspace";
+import { AskMiyaButton, miyaPrompts } from "@/components/miya/AskMiyaButton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
@@ -482,7 +484,7 @@ const PaginationControls: React.FC<{
 
     return (
         <div className="flex items-center justify-center py-10 mt-6">
-            <div className="flex items-center gap-3 bg-white dark:bg-slate-900 px-5 py-2.5 rounded-full border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300">
+            <div className="flex items-center gap-3 bg-card px-5 py-2.5 rounded-full border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300">
                 {showPaginationNumbers && (
                     <>
                         <button
@@ -818,7 +820,7 @@ const PresenceTab: React.FC = () => {
         <div className="space-y-6">
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <Card className="border-slate-100 dark:border-slate-800 bg-card">
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
@@ -831,7 +833,7 @@ const PresenceTab: React.FC = () => {
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <Card className="border-slate-100 dark:border-slate-800 bg-card">
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
@@ -844,7 +846,7 @@ const PresenceTab: React.FC = () => {
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <Card className="border-slate-100 dark:border-slate-800 bg-card">
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
@@ -857,7 +859,7 @@ const PresenceTab: React.FC = () => {
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <Card className="border-slate-100 dark:border-slate-800 bg-card">
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-9 rounded-xl bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center">
@@ -873,7 +875,7 @@ const PresenceTab: React.FC = () => {
             </div>
 
             {/* Live Staff List */}
-            <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+            <Card className="border-slate-100 dark:border-slate-800 bg-card">
                 <CardHeader>
                     <CardTitle className="text-slate-900 dark:text-white">{t("staff.presence.title")}</CardTitle>
                     <CardDescription className="text-slate-500 dark:text-slate-400">{t("staff.presence.subtitle")}</CardDescription>
@@ -983,7 +985,7 @@ const PresenceTab: React.FC = () => {
                                         <div>
                                             <Label className="text-slate-500 dark:text-slate-400 text-xs">{t("staff.assign_shift_optional")}</Label>
                                             <select
-                                                className="mt-1 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
+                                                className="mt-1 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-card px-3 py-2 text-sm"
                                                 value={overrideShiftId}
                                                 onChange={(e) => setOverrideShiftId(e.target.value)}
                                             >
@@ -1380,7 +1382,7 @@ const TeamTab: React.FC = () => {
         return (
             <div className={STAFF_MODAL_OVERLAY}>
                 <div className={STAFF_MODAL_OVERLAY_INNER}>
-                    <Card className={cn(STAFF_MODAL_SHELL, "bg-white dark:bg-slate-900")}>
+                    <Card className={cn(STAFF_MODAL_SHELL, "bg-card")}>
                         <CardHeader className="shrink-0 pt-5 pb-2 px-6 sm:px-8 flex flex-row items-center justify-between gap-4">
                             <CardTitle className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Staff Profile</CardTitle>
                             <Button
@@ -1410,6 +1412,19 @@ const TeamTab: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                            <AskMiyaButton
+                                prompt={miyaPrompts.staff(`${selectedMember.first_name} ${selectedMember.last_name}`.trim())}
+                                pageContext={{
+                                    entity_type: "staff",
+                                    entity_id: String(selectedMember.id),
+                                    entity_label: `${selectedMember.first_name} ${selectedMember.last_name}`.trim(),
+                                    route: typeof window !== "undefined" ? window.location.pathname : "/dashboard",
+                                    tab: "staff",
+                                }}
+                                size="sm"
+                                variant="outline"
+                                onClickStopPropagation
+                            />
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -1575,7 +1590,7 @@ const TeamTab: React.FC = () => {
                                 {selectedMember.profile?.promotion_history && selectedMember.profile.promotion_history.length > 0 ? (
                                     selectedMember.profile.promotion_history.map((p, i) => (
                                         <div key={i} className="flex items-start gap-3 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
-                                            <div className="bg-white dark:bg-slate-900 p-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
+                                            <div className="bg-card p-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
                                                 <Briefcase className="w-4 h-4 text-emerald-500" />
                                             </div>
                                             <div>
@@ -1603,7 +1618,7 @@ const TeamTab: React.FC = () => {
                                 documents.map((doc, idx) => (
                                     <div key={idx} className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 transition-all hover:bg-slate-100/80 dark:hover:bg-slate-800/80 hover:shadow-sm">
                                         <div className="flex items-center gap-3 overflow-hidden">
-                                            <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm border border-slate-200 dark:border-slate-700">
+                                            <div className="w-7 h-7 rounded-lg bg-card flex items-center justify-center shadow-sm border border-slate-200 dark:border-slate-700">
                                                 <FileText className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" />
                                             </div>
                                             <span className="text-xs font-bold text-slate-600 dark:text-slate-200 truncate">{doc.title}</span>
@@ -1809,7 +1824,7 @@ const TeamTab: React.FC = () => {
         return (
             <div className={STAFF_MODAL_OVERLAY}>
                 <div className={STAFF_MODAL_OVERLAY_INNER}>
-                    <Card className={cn(STAFF_MODAL_SHELL, "bg-white dark:bg-slate-900")}>
+                    <Card className={cn(STAFF_MODAL_SHELL, "bg-card")}>
                         <CardHeader className="shrink-0 pt-5 pb-1 px-5 sm:px-6 flex flex-row items-center justify-between gap-4">
                             <div className="min-w-0">
                                 <CardTitle className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Edit Staff Profile</CardTitle>
@@ -1997,7 +2012,7 @@ const TeamTab: React.FC = () => {
                                 <div className="space-y-3">
                                     {promotions.length > 0 ? promotions.map((p, i) => (
                                         <div key={i} className="flex items-start gap-3 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
-                                            <div className="bg-white dark:bg-slate-900 p-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
+                                            <div className="bg-card p-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
                                                 <Briefcase className="w-4 h-4 text-emerald-500" />
                                             </div>
                                             <div className="flex-1">
@@ -2060,7 +2075,7 @@ const TeamTab: React.FC = () => {
                                         documents.map((doc, idx) => (
                                             <div key={idx} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 transition-all hover:bg-slate-100/80 dark:hover:bg-slate-800/80">
                                                 <div className="flex items-center gap-3 overflow-hidden">
-                                                    <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm border border-slate-200 dark:border-slate-700">
+                                                    <div className="w-8 h-8 rounded-lg bg-card flex items-center justify-center shadow-sm border border-slate-200 dark:border-slate-700">
                                                         <FileText className="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
                                                     </div>
                                                     <div className="flex flex-col">
@@ -2492,7 +2507,7 @@ const TeamTab: React.FC = () => {
                 open={isInviteModalOpen}
                 onOpenChange={(open) => setIsInviteModalOpen(open)}
             >
-                <DialogContent className="sm:max-w-3xl w-[calc(100vw-2rem)] max-h-[90vh] flex flex-col gap-0 p-0 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 overflow-hidden">
+                <DialogContent className="sm:max-w-3xl w-[calc(100vw-2rem)] max-h-[90vh] flex flex-col gap-0 p-0 bg-card border-slate-200 dark:border-slate-800 overflow-hidden">
                     <DialogHeader className="flex-none px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
                         <DialogTitle className="text-slate-900 dark:text-white">
                             {t("staff.invite.title")}
@@ -2505,7 +2520,7 @@ const TeamTab: React.FC = () => {
                                 <button
                                     onClick={() => setIsBulkMode(false)}
                                     className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${!isBulkMode
-                                        ? "bg-white dark:bg-slate-700 text-emerald-600 shadow-sm"
+                                        ? "bg-surface-raised text-emerald-600 shadow-sm"
                                         : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
                                         }`}
                                 >
@@ -2518,7 +2533,7 @@ const TeamTab: React.FC = () => {
                                         // If the user changes method, they should download the matching template.
                                     }}
                                     className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${isBulkMode
-                                        ? "bg-white dark:bg-slate-700 text-emerald-600 shadow-sm"
+                                        ? "bg-surface-raised text-emerald-600 shadow-sm"
                                         : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
                                         }`}
                                 >
@@ -2538,7 +2553,7 @@ const TeamTab: React.FC = () => {
                                     }
                                 }}
                                 className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${inviteMethod === "email"
-                                    ? "bg-white dark:bg-slate-700 text-emerald-600 shadow-sm"
+                                    ? "bg-surface-raised text-emerald-600 shadow-sm"
                                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
                                     }`}
                             >
@@ -2554,7 +2569,7 @@ const TeamTab: React.FC = () => {
                                     }
                                 }}
                                 className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${inviteMethod === "whatsapp"
-                                    ? "bg-white dark:bg-slate-700 text-emerald-600 shadow-sm"
+                                    ? "bg-surface-raised text-emerald-600 shadow-sm"
                                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
                                     }`}
                             >
@@ -2568,24 +2583,24 @@ const TeamTab: React.FC = () => {
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("staff.invite.first_name")}</label>
-                                        <Input value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} placeholder="Hamza" className="bg-white dark:bg-slate-800" />
+                                        <Input value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} placeholder="Hamza" className="bg-surface-raised" />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("staff.invite.last_name")}</label>
-                                        <Input value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} placeholder="Yassine" className="bg-white dark:bg-slate-800" />
+                                        <Input value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} placeholder="Yassine" className="bg-surface-raised" />
                                     </div>
                                 </div>
 
                                 {inviteMethod === "email" ? (
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("staff.invite.email_address")} <span className="text-red-500">*</span></label>
-                                        <Input value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="john.doe@example.com" className="bg-white dark:bg-slate-800" />
+                                        <Input value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="john.doe@example.com" className="bg-surface-raised" />
                                         <p className="text-xs text-slate-500">{t("staff.invite.email_hint")}</p>
                                     </div>
                                 ) : (
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("staff.invite.whatsapp_number")} <span className="text-red-500">*</span></label>
-                                        <Input value={formData.phone_number} onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })} placeholder="212774567890" className="bg-white dark:bg-slate-800" />
+                                        <Input value={formData.phone_number} onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })} placeholder="212774567890" className="bg-surface-raised" />
                                         <p className="text-xs text-slate-500">{t("staff.invite.whatsapp_hint")}</p>
                                     </div>
                                 )}
@@ -2598,7 +2613,7 @@ const TeamTab: React.FC = () => {
                                     <select
                                         value={formData.role}
                                         onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                        className="w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                        className="w-full rounded-md border border-slate-200 dark:border-slate-800 bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                     >
                                         {inviteRoleGroups.map((g) => (
                                             <optgroup key={g.groupLabelKey} label={t(g.groupLabelKey)}>
@@ -2622,7 +2637,7 @@ const TeamTab: React.FC = () => {
                                 </div>
 
                                 {multiLocation && (
-                                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm">
+                                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-card shadow-sm">
                                         <div className="flex items-start gap-3 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-br from-emerald-50/60 to-transparent dark:from-emerald-900/10 px-4 py-3">
                                             <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400">
                                                 <MapPin className="h-4 w-4" />
@@ -2647,7 +2662,7 @@ const TeamTab: React.FC = () => {
                                                 <select
                                                     value={primaryLocation}
                                                     onChange={(e) => setPrimaryLocation(e.target.value)}
-                                                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
+                                                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-surface-raised px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
                                                 >
                                                     {tenantLocations.map((loc) => (
                                                         <option key={loc.id} value={loc.id}>
@@ -2703,7 +2718,7 @@ const TeamTab: React.FC = () => {
                                                                 className={`group flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition ${
                                                                     checked
                                                                         ? "border-emerald-500/60 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-500/40"
-                                                                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:bg-slate-800"
+                                                                        : "border-slate-200 bg-surface-raised hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
                                                                 }`}
                                                             >
                                                                 <input
@@ -2771,7 +2786,7 @@ const TeamTab: React.FC = () => {
                                                                     className={`group flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition ${
                                                                         checked
                                                                             ? "border-amber-500/60 bg-white dark:bg-amber-900/10 dark:border-amber-500/50"
-                                                                            : "border-amber-200/60 bg-white hover:border-amber-300 dark:border-amber-800/40 dark:bg-slate-800/40 dark:hover:bg-slate-800"
+                                                                            : "border-amber-200/60 bg-surface-raised hover:border-amber-300 dark:border-amber-800/40 dark:hover:bg-slate-800"
                                                                     }`}
                                                                 >
                                                                     <input
@@ -2833,7 +2848,7 @@ const TeamTab: React.FC = () => {
                                 </button>
 
                                 {multiLocation && (
-                                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm">
+                                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-card shadow-sm">
                                         <div className="flex items-start gap-3 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-br from-emerald-50/60 to-transparent dark:from-emerald-900/10 px-4 py-3">
                                             <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400">
                                                 <MapPin className="h-4 w-4" />
@@ -2851,7 +2866,7 @@ const TeamTab: React.FC = () => {
                                             <select
                                                 value={primaryLocation}
                                                 onChange={(e) => setPrimaryLocation(e.target.value)}
-                                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
+                                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-surface-raised px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
                                             >
                                                 {tenantLocations.map((loc) => (
                                                     <option key={loc.id} value={loc.id}>
@@ -2876,7 +2891,7 @@ const TeamTab: React.FC = () => {
                             </div>
                         )}
                     </div>
-                    <div className="flex-none border-t border-slate-100 dark:border-slate-800 px-6 py-4 bg-white dark:bg-slate-900">
+                    <div className="flex-none border-t border-slate-100 dark:border-slate-800 px-6 py-4 bg-card">
                         <Button
                             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
                             onClick={handleInvite}
@@ -2940,7 +2955,7 @@ const TeamTab: React.FC = () => {
                         <Input
                             readOnly
                             value={lastInviteLink}
-                            className="font-mono text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 flex-1 min-w-0"
+                            className="font-mono text-sm bg-surface-raised border-slate-200 dark:border-slate-700 flex-1 min-w-0"
                         />
                         <Button
                             size="sm"
@@ -2986,7 +3001,7 @@ const TeamTab: React.FC = () => {
             )}
 
             {/* Search & Actions */}
-            <div className="flex w-full flex-wrap items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3">
+            <div className="flex w-full flex-wrap items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-card p-3">
                 <div className="relative flex-1 min-w-[200px] sm:max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
@@ -3004,7 +3019,7 @@ const TeamTab: React.FC = () => {
                             setStaffPage(1);
                             clearSelection();
                         }}
-                        className="h-10 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-700 dark:text-slate-200"
+                        className="h-10 rounded-md border border-slate-200 dark:border-slate-700 bg-card px-3 text-sm text-slate-700 dark:text-slate-200"
                         aria-label="From branch"
                     >
                         <option value="all">All branches</option>
@@ -3021,7 +3036,7 @@ const TeamTab: React.FC = () => {
                         className={cn(
                             "p-1.5 rounded-md transition-all",
                             viewMode === 'grid'
-                                ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm"
+                                ? "bg-surface-raised text-indigo-600 shadow-sm"
                                 : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                         )}
                         title={t("common.grid_view")}
@@ -3033,7 +3048,7 @@ const TeamTab: React.FC = () => {
                         className={cn(
                             "p-1.5 rounded-md transition-all",
                             viewMode === 'list'
-                                ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm"
+                                ? "bg-surface-raised text-indigo-600 shadow-sm"
                                 : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                         )}
                         title={t("common.list_view")}
@@ -3079,7 +3094,7 @@ const TeamTab: React.FC = () => {
             ) : null}
 
             {/* Staff Directory */}
-            <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+            <Card className="border-slate-100 dark:border-slate-800 bg-card">
                 <CardContent className="pt-6">
                     {isLoading ? (
                         viewMode === 'list' ? (
@@ -3189,7 +3204,7 @@ const TeamTab: React.FC = () => {
                                             <Card
                                                 key={member.id}
                                                 className={cn(
-                                                    "group relative border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-lg transition-all duration-300 overflow-hidden rounded-2xl",
+                                                    "group relative border-slate-100 dark:border-slate-800 bg-card hover:shadow-lg transition-all duration-300 overflow-hidden rounded-2xl",
                                                     isSelected && "ring-2 ring-emerald-500 border-emerald-300",
                                                 )}
                                             >
@@ -3329,7 +3344,7 @@ const TeamTab: React.FC = () => {
             </Card>
 
             {/* Pending Invitations */}
-            <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+            <Card className="border-slate-100 dark:border-slate-800 bg-card">
                 <CardHeader>
                     <CardTitle className="text-slate-900 dark:text-white">{t("staff.pending.title")}</CardTitle>
                     <CardDescription className="text-slate-500 dark:text-slate-400">{t("staff.pending.subtitle")}</CardDescription>
@@ -3487,7 +3502,7 @@ const AttendanceTab: React.FC = () => {
         <div className="space-y-8">
             {/* 1. Top Summary Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                <Card className="border-slate-100 dark:border-slate-800 bg-card shadow-sm">
                     <CardContent className="pt-6 relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-4 opacity-5">
                             <UserCheck className="w-24 h-24 text-emerald-600" />
@@ -3508,7 +3523,7 @@ const AttendanceTab: React.FC = () => {
                     </CardContent>
                 </Card>
 
-                <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                <Card className="border-slate-100 dark:border-slate-800 bg-card shadow-sm">
                     <CardContent className="pt-6 relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-4 opacity-5">
                             <Clock className="w-24 h-24 text-amber-500" />
@@ -3529,7 +3544,7 @@ const AttendanceTab: React.FC = () => {
                     </CardContent>
                 </Card>
 
-                <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                <Card className="border-slate-100 dark:border-slate-800 bg-card shadow-sm">
                     <CardContent className="pt-6 relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-4 opacity-5">
                             <XCircle className="w-24 h-24 text-red-500" />
@@ -3550,7 +3565,7 @@ const AttendanceTab: React.FC = () => {
                     </CardContent>
                 </Card>
 
-                <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                <Card className="border-slate-100 dark:border-slate-800 bg-card shadow-sm">
                     <CardContent className="pt-6 relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-4 opacity-5">
                             <Coffee className="w-24 h-24 text-blue-500" />
@@ -3586,7 +3601,7 @@ const AttendanceTab: React.FC = () => {
                                 placeholder={t("staff.attendance.search_placeholder")}
                                 value={liveSearch}
                                 onChange={(e) => { setLiveSearch(e.target.value); setLivePage(1); }}
-                                className="pl-9 h-10 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                                className="pl-9 h-10 bg-card border-slate-200 dark:border-slate-700"
                             />
                         </div>
                         <div className="flex items-center justify-between gap-2 flex-wrap text-xs text-slate-500 dark:text-slate-400">
@@ -3597,7 +3612,7 @@ const AttendanceTab: React.FC = () => {
                                     id="live-page-size"
                                     value={livePageSize}
                                     onChange={(e) => { setLivePageSize(Number(e.target.value)); setLivePage(1); }}
-                                    className="h-8 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs px-2"
+                                    className="h-8 rounded-md border border-slate-200 dark:border-slate-700 bg-card text-slate-900 dark:text-white text-xs px-2"
                                 >
                                     {[25, 50, 100].map((n) => (
                                         <option key={n} value={n}>{n}</option>
@@ -3606,7 +3621,7 @@ const AttendanceTab: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1 min-h-[320px] flex flex-col">
+                    <div className="bg-card rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1 min-h-[320px] flex flex-col">
                         <div className="overflow-auto flex-1">
                         <Table>
                             <TableHeader>
@@ -3739,7 +3754,7 @@ const AttendanceTab: React.FC = () => {
                         <Activity className="w-5 h-5 text-slate-500" />
                         {t("staff.attendance.events")}
                     </h3>
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-0 overflow-hidden flex-1">
+                    <div className="bg-card rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-0 overflow-hidden flex-1">
                         <div className="h-full overflow-y-auto p-4 space-y-0 min-h-[400px]">
                             {recentActivity.length === 0 ? (
                                 <div className="text-center py-8">
@@ -3817,25 +3832,25 @@ const TasksTab: React.FC = () => {
         <div className="space-y-6">
             {/* Task Summary */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <Card className="border-slate-100 dark:border-slate-800 bg-card">
                     <CardContent className="pt-6 text-center">
                         <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">Total Tasks</p>
                     </CardContent>
                 </Card>
-                <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <Card className="border-slate-100 dark:border-slate-800 bg-card">
                     <CardContent className="pt-6 text-center">
                         <p className="text-2xl font-bold text-emerald-600">{stats.completed}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">Completed</p>
                     </CardContent>
                 </Card>
-                <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <Card className="border-slate-100 dark:border-slate-800 bg-card">
                     <CardContent className="pt-6 text-center">
                         <p className="text-2xl font-bold text-blue-600">{stats.inProgress}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">In Progress</p>
                     </CardContent>
                 </Card>
-                <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <Card className="border-slate-100 dark:border-slate-800 bg-card">
                     <CardContent className="pt-6 text-center">
                         <p className="text-2xl font-bold text-red-600">{stats.overdue}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">Overdue</p>
@@ -3852,7 +3867,7 @@ const TasksTab: React.FC = () => {
             </div>
 
             {/* Task List */}
-            <Card className="border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+            <Card className="border-slate-100 dark:border-slate-800 bg-card">
                 <CardHeader>
                     <CardTitle className="text-slate-900 dark:text-white">Today's Tasks</CardTitle>
                 </CardHeader>
@@ -4118,7 +4133,7 @@ const InsightsTab: React.FC = () => {
                                 <p className="text-xs text-slate-500 italic py-4">{t("staff.insights.no_signals")}</p>
                             ) : (
                                 signals.map((sig, idx: number) => (
-                                    <div key={idx} className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                                    <div key={idx} className="flex items-center gap-3 p-3 bg-surface-raised rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
                                         <div className={cn("w-2 h-2 rounded-full", sig.color === 'emerald' ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]")} />
                                         <p className="text-xs text-slate-600 dark:text-slate-300" dangerouslySetInnerHTML={{ __html: sig.text }} />
                                     </div>
@@ -4283,6 +4298,7 @@ export default function StaffApp() {
 
     return (
         <div className={`${PAGE_SHELL_PADDED} space-y-6`}>
+            <AiNativeWorkspace module="staff" />
             <header className="space-y-1">
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{t("staff.page.title")}</h1>
                 <p className="text-slate-500 dark:text-slate-400 text-sm">
@@ -4291,7 +4307,7 @@ export default function StaffApp() {
             </header>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-6">
-                <TabsList className={`w-full grid h-auto ${showRequestsTab ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-2 sm:grid-cols-4"} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl`}>
+                <TabsList className={`w-full grid h-auto ${showRequestsTab ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-2 sm:grid-cols-4"} bg-card border border-slate-200 dark:border-slate-800 p-1 rounded-xl`}>
                     <TabsTrigger value="team" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
                         <Users className="w-4 h-4 mr-2 shrink-0" />
                         {t("staff.tabs.team")}

@@ -16,8 +16,9 @@ import {
 } from "lucide-react";
 import {
   Bar,
-  BarChart,
   CartesianGrid,
+  ComposedChart,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -37,6 +38,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useLocationDetail } from "@/hooks/use-location-detail";
 import type {
   BranchStaffMember,
+  BranchUpcoming,
   CashSessionToday,
   ClockEventToday,
   ShiftToday,
@@ -233,6 +235,7 @@ export default function BranchDetailPage() {
                 <ClockEventsCard events={data.clock_events_today} t={t} />
               </div>
               <CashSessionsCard sessions={data.cash_sessions_today} />
+              <UpcomingCoverageCard upcoming={data.upcoming} language={language} />
             </TabsContent>
 
             <TabsContent value="staff" className="space-y-4">
@@ -335,7 +338,7 @@ function KpiStrip({
       : String(metrics.no_shows_today);
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
+    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
       <Tile
         icon={<Users className="h-4 w-4" />}
         label={t("locations_overview.branch.team")}
@@ -377,6 +380,27 @@ function KpiStrip({
         label={t("locations_overview.stat.mismatches")}
         value={String(metrics.location_mismatches_today)}
         tone={metrics.location_mismatches_today > 0 ? "red" : "neutral"}
+      />
+      <Tile
+        icon={<AlertTriangle className="h-4 w-4" />}
+        label="Unfilled shifts"
+        value={String(metrics.shift_gaps_today)}
+        subtitle="Today"
+        tone={metrics.shift_gaps_today > 0 ? "amber" : "neutral"}
+      />
+      <Tile
+        icon={<ArrowRightLeft className="h-4 w-4" />}
+        label="Pending swaps"
+        value={String(metrics.pending_swap_requests)}
+        subtitle="Awaiting approval"
+        tone={metrics.pending_swap_requests > 0 ? "amber" : "neutral"}
+      />
+      <Tile
+        icon={<Wallet className="h-4 w-4" />}
+        label="Cash variance"
+        value={formatPortfolioMoney(metrics.cash_variance_today, language)}
+        subtitle="Today, all sessions"
+        tone={metrics.cash_variance_today !== 0 ? "red" : "neutral"}
       />
       <Tile
         icon={<Wallet className="h-4 w-4" />}
@@ -473,7 +497,12 @@ function StaffRosterCard({
   t,
 }: {
   staff: BranchStaffMember[];
-  summary?: { total: number; home: number; clocked_in_now: number };
+  summary?: {
+    total: number;
+    home: number;
+    clocked_in_now: number;
+    roles?: { role: string; count: number }[];
+  };
   selectedIds: string[];
   onToggle: (m: BranchStaffMember) => void;
   onMoveOne: (m: BranchStaffMember) => void;
@@ -513,6 +542,16 @@ function StaffRosterCard({
             </Button>
           ) : null}
         </div>
+
+        {summary?.roles?.length ? (
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {summary.roles.map((r) => (
+              <Badge key={r.role} variant="outline" className="text-[10px] font-normal">
+                {r.role} · {r.count}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
 
         {staff.length === 0 ? (
           <EmptyRow
@@ -555,6 +594,21 @@ function StaffRosterCard({
                     <div className="truncate text-xs text-muted-foreground">
                       {m.role_display || m.role}
                       {m.phone ? ` · ${m.phone}` : m.email ? ` · ${m.email}` : ""}
+                      {m.hourly_rate != null ? ` · ${formatMoney(m.hourly_rate)}/h` : ""}
+                      {m.last_seen
+                        ? ` · last seen ${formatDay(m.last_seen)}`
+                        : ""}
+                    </div>
+                  </div>
+                  <div className="hidden shrink-0 text-right sm:block">
+                    <div className="text-sm font-medium tabular-nums">
+                      {(m.hours_7d ?? 0) > 0 ? `${m.hours_7d}h` : "0h"}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      7d
+                      {(m.labor_cost_7d ?? 0) > 0
+                        ? ` · ${formatMoney(m.labor_cost_7d ?? 0)}`
+                        : ""}
                     </div>
                   </div>
                   <Button
@@ -594,6 +648,19 @@ function PerformanceSection({
     label: d.date.slice(5), // MM-DD
   }));
 
+  const activeDays = chartData.filter(
+    (d) => d.scheduled > 0 || d.hours_worked > 0 || d.labor_cost > 0,
+  ).length;
+  const avgLabor = activeDays > 0 ? s30.labor_cost / activeDays : 0;
+  const avgHours = activeDays > 0 ? s30.hours_worked / activeDays : 0;
+  const busiest = chartData.reduce<
+    (typeof chartData)[number] | null
+  >((best, d) => (d.labor_cost > (best?.labor_cost ?? 0) ? d : best), null);
+  const attendanceDelta =
+    s7.attendance_pct !== null && s30.attendance_pct !== null
+      ? s7.attendance_pct - s30.attendance_pct
+      : null;
+
   return (
     <>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -632,7 +699,16 @@ function PerformanceSection({
           icon={<ClipboardCheck className="h-4 w-4" />}
           label="Attendance (7d)"
           value={s7.attendance_pct === null ? "-" : `${s7.attendance_pct}%`}
-          subtitle={`${s7.completed_shifts}/${s7.scheduled_shifts} shifts`}
+          subtitle={
+            attendanceDelta === null
+              ? `${s7.completed_shifts}/${s7.scheduled_shifts} shifts`
+              : `${s7.completed_shifts}/${s7.scheduled_shifts} shifts · ${
+                  attendanceDelta >= 0 ? "+" : ""
+                }${attendanceDelta}pt vs 30d`
+          }
+          tone={
+            attendanceDelta !== null && attendanceDelta < 0 ? "amber" : "neutral"
+          }
         />
         <Tile
           icon={<DollarSign className="h-4 w-4" />}
@@ -647,43 +723,154 @@ function PerformanceSection({
         />
       </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <SectionHeader
-            title="Daily activity"
-            subtitle="Last 30 days · labor cost"
-          />
-          {chartData.length === 0 ? (
-            <EmptyRow text="No activity in this window." />
-          ) : (
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 10 }}
-                    interval="preserveStartEnd"
-                    minTickGap={24}
-                  />
-                  <YAxis tick={{ fontSize: 10 }} width={40} />
-                  <Tooltip
-                    formatter={(value: number, name: string) => {
-                      if (name === "labor_cost") return [formatMoney(value), "Labor"];
-                      if (name === "no_shows") return [value, "No-shows"];
-                      if (name === "scheduled") return [value, "Scheduled"];
-                      return [value, name];
-                    }}
-                    labelFormatter={(label) => `Day ${label}`}
-                  />
-                  <Bar dataKey="labor_cost" fill="#10b981" radius={[3, 3, 0, 0]} name="labor_cost" />
-                  <Bar dataKey="no_shows" fill="#ef4444" radius={[3, 3, 0, 0]} name="no_shows" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Tile
+          icon={<DollarSign className="h-4 w-4" />}
+          label="Avg labor / active day"
+          value={formatMoney(avgLabor)}
+          subtitle={`${activeDays} active days in window`}
+        />
+        <Tile
+          icon={<Clock className="h-4 w-4" />}
+          label="Avg hours / active day"
+          value={`${Math.round(avgHours * 10) / 10}h`}
+        />
+        <Tile
+          icon={<DollarSign className="h-4 w-4" />}
+          label="Busiest day"
+          value={busiest && busiest.labor_cost > 0 ? busiest.label : "-"}
+          subtitle={
+            busiest && busiest.labor_cost > 0
+              ? `${formatMoney(busiest.labor_cost)} · ${busiest.hours_worked}h`
+              : "No labor recorded"
+          }
+        />
+        <Tile
+          icon={<ClipboardCheck className="h-4 w-4" />}
+          label="Completed shifts (30d)"
+          value={String(s30.completed_shifts)}
+          subtitle={`of ${s30.scheduled_shifts} scheduled`}
+        />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardContent className="p-4">
+            <SectionHeader
+              title="Labor"
+              subtitle="Last 30 days · cost and hours"
+            />
+            {chartData.length === 0 ? (
+              <EmptyRow text="No activity in this window." />
+            ) : (
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart
+                    data={chartData}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10 }}
+                      interval="preserveStartEnd"
+                      minTickGap={24}
+                    />
+                    <YAxis yAxisId="cost" tick={{ fontSize: 10 }} width={44} />
+                    <YAxis
+                      yAxisId="hours"
+                      orientation="right"
+                      tick={{ fontSize: 10 }}
+                      width={32}
+                    />
+                    <Tooltip
+                      formatter={(value: number, name: string) => {
+                        if (name === "labor_cost") return [formatMoney(value), "Labor"];
+                        if (name === "hours_worked") return [`${value}h`, "Hours"];
+                        return [value, name];
+                      }}
+                    />
+                    <Bar
+                      yAxisId="cost"
+                      dataKey="labor_cost"
+                      fill="#10b981"
+                      radius={[3, 3, 0, 0]}
+                      name="labor_cost"
+                    />
+                    <Line
+                      yAxisId="hours"
+                      type="monotone"
+                      dataKey="hours_worked"
+                      stroke="#0ea5e9"
+                      strokeWidth={1.5}
+                      dot={false}
+                      name="hours_worked"
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <SectionHeader
+              title="Attendance"
+              subtitle="Last 30 days · scheduled vs completed"
+            />
+            {chartData.length === 0 ? (
+              <EmptyRow text="No activity in this window." />
+            ) : (
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart
+                    data={chartData}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10 }}
+                      interval="preserveStartEnd"
+                      minTickGap={24}
+                    />
+                    <YAxis tick={{ fontSize: 10 }} width={32} allowDecimals={false} />
+                    <Tooltip
+                      formatter={(value: number, name: string) => {
+                        if (name === "scheduled") return [value, "Scheduled"];
+                        if (name === "completed") return [value, "Completed"];
+                        if (name === "no_shows") return [value, "No-shows"];
+                        if (name === "mismatches") return [value, "Mismatches"];
+                        return [value, name];
+                      }}
+                    />
+                    <Bar
+                      dataKey="scheduled"
+                      fill="#94a3b8"
+                      fillOpacity={0.45}
+                      radius={[3, 3, 0, 0]}
+                      name="scheduled"
+                    />
+                    <Bar
+                      dataKey="completed"
+                      fill="#10b981"
+                      radius={[3, 3, 0, 0]}
+                      name="completed"
+                    />
+                    <Bar
+                      dataKey="no_shows"
+                      fill="#ef4444"
+                      radius={[3, 3, 0, 0]}
+                      name="no_shows"
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </>
   );
 }
@@ -735,6 +922,18 @@ function BranchProfileCard({
             }
           />
         </dl>
+        {location.latitude != null && location.longitude != null ? (
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={`https://maps.google.com/?q=${location.latitude},${location.longitude}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <MapPin className="mr-1.5 h-3.5 w-3.5" />
+              Open in Maps
+            </a>
+          </Button>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -886,6 +1085,7 @@ function CashSessionsCard({ sessions }: { sessions: CashSessionToday[] }) {
                 <th className="py-2 pr-4 font-medium">Staff</th>
                 <th className="py-2 pr-4 font-medium">Status</th>
                 <th className="py-2 pr-4 font-medium">Opening</th>
+                <th className="py-2 pr-4 font-medium">Expected</th>
                 <th className="py-2 pr-4 font-medium">Counted</th>
                 <th className="py-2 pr-4 font-medium">Variance</th>
               </tr>
@@ -910,6 +1110,11 @@ function CashSessionsCard({ sessions }: { sessions: CashSessionToday[] }) {
                       : "-"}
                   </td>
                   <td className="py-2 pr-4">
+                    {cs.expected_cash !== null
+                      ? formatMoney(cs.expected_cash)
+                      : "-"}
+                  </td>
+                  <td className="py-2 pr-4">
                     {cs.counted_cash !== null
                       ? formatMoney(cs.counted_cash)
                       : "-"}
@@ -929,6 +1134,75 @@ function CashSessionsCard({ sessions }: { sessions: CashSessionToday[] }) {
             </tbody>
           </table>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function UpcomingCoverageCard({
+  upcoming,
+  language,
+}: {
+  upcoming: BranchUpcoming | undefined;
+  language: string;
+}) {
+  if (!upcoming || upcoming.daily.length === 0) return null;
+  const max = Math.max(1, ...upcoming.daily.map((d) => d.scheduled));
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <SectionHeader
+          title={`Next ${upcoming.window_days} days`}
+          subtitle={
+            upcoming.total_unassigned > 0
+              ? `${upcoming.total_scheduled} shifts scheduled · ${upcoming.total_unassigned} unassigned`
+              : `${upcoming.total_scheduled} shifts scheduled`
+          }
+          subtitleTone={upcoming.total_unassigned > 0 ? "red" : "neutral"}
+        />
+        {upcoming.total_scheduled === 0 ? (
+          <EmptyRow
+            text="Nothing scheduled yet for the coming week."
+            hint="Open the schedule to plan shifts for this branch."
+          />
+        ) : (
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-7">
+            {upcoming.daily.map((d) => {
+              const date = new Date(`${d.date}T00:00:00`);
+              const hole = d.scheduled === 0 || d.unassigned > 0;
+              return (
+                <li
+                  key={d.date}
+                  className={cn(
+                    "rounded-lg border border-border p-2.5",
+                    hole && "border-amber-500/40 bg-amber-500/5",
+                  )}
+                >
+                  <div className="text-xs text-muted-foreground">
+                    {date.toLocaleDateString(language, {
+                      weekday: "short",
+                      day: "numeric",
+                    })}
+                  </div>
+                  <div className="mt-1 text-lg font-semibold tracking-tight">
+                    {d.scheduled}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {d.scheduled === 0
+                      ? "No shifts"
+                      : `${d.staff} staff${d.unassigned > 0 ? ` · ${d.unassigned} open` : ""}`}
+                  </div>
+                  <div className="mt-2 h-1 rounded-full bg-muted">
+                    <div
+                      className="h-1 rounded-full bg-emerald-500"
+                      style={{ width: `${Math.round((d.scheduled / max) * 100)}%` }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </CardContent>
     </Card>
   );
@@ -1059,6 +1333,16 @@ function formatMoney(amount: number): string {
   const rounded = abs >= 100 ? Math.round(abs) : Math.round(abs * 100) / 100;
   const sign = amount < 0 ? "−" : "";
   return `${sign}${rounded.toLocaleString()} MAD`;
+}
+
+function formatDay(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (d.toDateString() === new Date().toDateString()) return formatTime(iso);
+    return d.toLocaleDateString([], { month: "short", day: "numeric" });
+  } catch {
+    return "";
+  }
 }
 
 function formatTime(iso: string): string {
