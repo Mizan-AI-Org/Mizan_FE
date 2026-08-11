@@ -1,14 +1,14 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   AlertTriangle,
-  ArrowRight,
   ArrowUpRight,
   CheckCircle2,
   CircleDot,
   RefreshCw,
+  Sparkles,
   Users,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -19,35 +19,20 @@ import { Button } from "@/components/ui/button";
 import { ProactiveInsights, type ProactiveInsight } from "@/components/miya/ProactiveInsights";
 import { MiyaActivityTimeline, type MiyaActivityItem } from "@/components/miya/MiyaActivityTimeline";
 import { miyaPrompts } from "@/components/miya/AskMiyaButton";
+import { AttentionPriorityCard } from "@/components/miya/AttentionPriorityCard";
+import { AttentionClusterCard } from "@/components/miya/AttentionClusterCard";
+import type {
+  AttentionBoard,
+  AttentionBoardItem,
+  AttentionLane,
+} from "@/components/miya/attentionBoardTypes";
 import {
-  AttentionCard,
   EmptyOpsState,
   MiyaLoadingState,
   OpsStateBanner,
   SectionHeader,
   SeverityBadge,
 } from "@/components/os";
-
-type AttentionItem = {
-  id: string;
-  category: string;
-  severity: string;
-  title: string;
-  detail?: string;
-  why_it_matters?: string;
-  count?: number;
-  entity_type?: string;
-  entity_id?: string | null;
-  entity_ids?: string[];
-  owner?: string | null;
-  recommended_action?: {
-    label?: string;
-    href?: string;
-    tool_hint?: string;
-    handle_hint?: string;
-  };
-  ask_miya_prompt?: string;
-};
 
 type CommandCenterPayload = {
   generated_at?: string;
@@ -60,7 +45,8 @@ type CommandCenterPayload = {
     handled_count?: number;
     cta_label?: string;
   };
-  attention?: AttentionItem[];
+  attention?: AttentionBoardItem[];
+  attention_board?: AttentionBoard;
   proactive_insights?: ProactiveInsight[];
   live_operations?: {
     people_working?: number;
@@ -78,6 +64,8 @@ type CommandCenterPayload = {
     severity?: string;
   }>;
 };
+
+type FilterId = AttentionLane | "all";
 
 function healthClass(health: string | undefined) {
   const h = (health || "healthy").toLowerCase();
@@ -106,9 +94,51 @@ const TILE_TONE: Record<TileTone, { wrap: string; value: string }> = {
   approval: { wrap: "bg-approval-muted text-approval", value: "text-foreground" },
 };
 
+function fallbackBoard(attention: AttentionBoardItem[], insights: ProactiveInsight[]): AttentionBoard {
+  const needs = attention.filter((a) => {
+    const sev = String(a.severity || "").toUpperCase();
+    return sev === "CRITICAL" || a.category === "pending_approvals" || a.category === "payment_issues";
+  });
+  const waiting = attention.filter((a) => a.category === "blocked_tasks");
+  const today = attention.filter((a) => !needs.includes(a) && !waiting.includes(a));
+  const watchTitles = new Set(attention.map((a) => (a.title || "").toLowerCase().slice(0, 48)));
+  const watching = insights
+    .filter((i) => !watchTitles.has((i.what || "").toLowerCase().slice(0, 48)))
+    .slice(0, 6)
+    .map((i) => ({
+      id: `watch:${i.id || i.what}`,
+      category: String(i.domain || "ops"),
+      severity: String(i.level || "WATCH"),
+      title: i.what || "",
+      why_it_matters: i.why,
+      lane: "watching" as const,
+      recommended_action: { label: i.recommendation || "Review", href: "/dashboard" },
+    }));
+  return {
+    summary: {
+      signals_detected: attention.length + watching.length,
+      needs_me: needs.length,
+      today: today.length,
+      handling: 0,
+      waiting: waiting.length,
+      watching: watching.length,
+      clear: needs.length === 0,
+    },
+    next_actions: needs.slice(0, 3),
+    needs_me: needs.slice(0, 10),
+    today: today.slice(0, 10),
+    handling: [],
+    waiting: waiting.slice(0, 8),
+    watching,
+    clusters: [],
+    scale: attention.length <= 3 ? "few" : attention.length <= 10 ? "moderate" : "busy",
+  };
+}
+
 export function CommandCenter({ className }: { className?: string }) {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const [filter, setFilter] = useState<FilterId>("all");
 
   const query = useQuery({
     queryKey: ["miya", "command-center"],
@@ -125,6 +155,16 @@ export function CommandCenter({ className }: { className?: string }) {
   const live = data?.live_operations || {};
   const briefing = data?.briefing || {};
 
+  const board = useMemo(
+    () => data?.attention_board || fallbackBoard(attention, insights),
+    [data?.attention_board, attention, insights],
+  );
+  const summary = board.summary;
+  const scale = board.scale || "few";
+  const showClusters = scale === "moderate" || scale === "busy" || scale === "heavy" || scale === "extreme";
+  const showBucketsExpanded = scale === "few" || scale === "moderate" || filter !== "all";
+  const showGlance = scale !== "extreme";
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const scrollIfNeeded = () => {
@@ -132,32 +172,15 @@ export function CommandCenter({ className }: { className?: string }) {
       if (!id) return;
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     };
-    const t = window.setTimeout(scrollIfNeeded, 120);
+    const timer = window.setTimeout(scrollIfNeeded, 120);
     window.addEventListener("hashchange", scrollIfNeeded);
     return () => {
-      window.clearTimeout(t);
+      window.clearTimeout(timer);
       window.removeEventListener("hashchange", scrollIfNeeded);
     };
   }, [query.dataUpdatedAt]);
 
-  const statusLine = useMemo(() => {
-    if (attention.length > 0) {
-      return attention.length === 1
-        ? t("command.status_need_you", { count: attention.length })
-        : t("command.status_need_you_plural", { count: attention.length });
-    }
-    const health = (live.operational_health || "healthy").replace(/_/g, " ");
-    if (health.toLowerCase() === "healthy") return t("command.status_stable");
-    return t("command.status_health", { health });
-  }, [attention.length, live.operational_health, t]);
-
-  /** Deduplicate insights that already appear as attention items. */
-  const watchInsights = useMemo(() => {
-    const titles = new Set(attention.map((a) => (a.title || "").toLowerCase().slice(0, 48)));
-    return insights.filter((i) => !titles.has((i.what || "").toLowerCase().slice(0, 48))).slice(0, 2);
-  }, [attention, insights]);
-
-  const openAttentionItem = (item: AttentionItem) => {
+  const openItem = (item: AttentionBoardItem) => {
     const entityId = item.entity_id || item.entity_ids?.[0];
     if (item.entity_type && entityId) {
       focusEntityForMiya({
@@ -170,10 +193,9 @@ export function CommandCenter({ className }: { className?: string }) {
     }
     const href = item.recommended_action?.href;
     if (href) navigate(href);
-    else navigate("/dashboard/attention");
   };
 
-  const askAbout = (item: AttentionItem) => {
+  const askAbout = (item: AttentionBoardItem) => {
     askMiya({
       prompt: item.ask_miya_prompt || miyaPrompts.attention(item.title, t),
       pageContext: {
@@ -182,6 +204,13 @@ export function CommandCenter({ className }: { className?: string }) {
         entity_label: item.title,
         route: item.recommended_action?.href,
       },
+    });
+  };
+
+  const briefMe = () => {
+    askMiya({
+      prompt: t("attention.brief_prompt"),
+      pageContext: { route: "/dashboard" },
     });
   };
 
@@ -223,15 +252,43 @@ export function CommandCenter({ className }: { className?: string }) {
     },
     {
       label: t("command.tile.ops_health"),
-      value: (live.operational_health || "healthy").replace(/_/g, " "),
+      value: t(`health.${(live.operational_health || "healthy").toLowerCase()}`),
       icon: CheckCircle2,
-      href: "/dashboard/attention",
+      href: "#attention",
       tone: "neutral",
       valueClass: cn("text-[1.25rem]", healthClass(live.operational_health)),
     },
   ];
 
   const health = healthPill(live.operational_health);
+
+  const filters: Array<{ id: FilterId; label: string; count: number }> = [
+    { id: "all", label: t("attention.filter.all"), count: summary.signals_detected },
+    { id: "needs_me", label: t("attention.filter.needs_me"), count: summary.needs_me },
+    { id: "today", label: t("attention.filter.today"), count: summary.today },
+    { id: "handling", label: t("attention.filter.handling"), count: summary.handling },
+    { id: "waiting", label: t("attention.filter.waiting"), count: summary.waiting },
+    { id: "watching", label: t("attention.filter.watching"), count: summary.watching },
+  ];
+
+  const renderItemList = (items: AttentionBoardItem[], opts?: { quiet?: boolean; cap?: number }) => {
+    const capped = items.slice(0, opts?.cap ?? items.length);
+    if (capped.length === 0) return null;
+    return (
+      <ul className="space-y-2">
+        {capped.map((item) => (
+          <li key={item.id}>
+            <AttentionPriorityCard
+              item={item}
+              quiet={opts?.quiet}
+              onReview={() => openItem(item)}
+              onAskMiya={() => askAbout(item)}
+            />
+          </li>
+        ))}
+      </ul>
+    );
+  };
 
   if (query.isLoading && !data) {
     return <MiyaLoadingState message={t("command.preparing")} className={className} />;
@@ -252,8 +309,9 @@ export function CommandCenter({ className }: { className?: string }) {
 
   return (
     <div className={cn("space-y-section", className)}>
+      {/* Header + operational summary */}
       <section
-        aria-label="Operational status"
+        aria-label={t("attention.aria.header")}
         className="relative overflow-hidden rounded-panel border border-border/70 bg-card px-5 py-5 shadow-xs sm:px-6 sm:py-6"
       >
         <div
@@ -266,142 +324,289 @@ export function CommandCenter({ className }: { className?: string }) {
         />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-caption-label">{t("command.eyebrow")}</p>
+            <p className="text-caption-label">{t("attention.eyebrow")}</p>
             <h1 className="mt-1.5 text-display">{briefing.greeting || t("command.hello")}</h1>
-            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <span
-                className={cn(
-                  "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1",
-                  "text-caption font-medium capitalize",
-                  health.wrap,
-                )}
-              >
-                <span className={cn("h-1.5 w-1.5 rounded-full", health.dot)} aria-hidden />
-                {(live.operational_health || "healthy").replace(/_/g, " ")}
-              </span>
-              <p className="max-w-2xl text-body text-muted-foreground">{statusLine}</p>
-            </div>
+
+            {summary.clear ? (
+              <div className="mt-4 max-w-xl space-y-1">
+                <p className="text-section-title text-primary">{t("attention.clear.title")}</p>
+                <p className="text-body text-muted-foreground">{t("attention.clear.desc")}</p>
+                {summary.signals_detected > 0 ? (
+                  <p className="text-body text-muted-foreground">
+                    {t("attention.clear.monitoring", { count: summary.signals_detected })}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                <p className="text-body text-muted-foreground">
+                  {t("attention.signals_detected", { count: summary.signals_detected })}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <SummaryChip tone="critical" label={t("attention.chip.now")} count={summary.needs_me} />
+                  <SummaryChip tone="high" label={t("attention.chip.today")} count={summary.today} />
+                  <SummaryChip tone="primary" label={t("attention.chip.handled")} count={summary.handling} />
+                  <SummaryChip tone="muted" label={t("attention.chip.waiting")} count={summary.waiting} />
+                </div>
+              </div>
+            )}
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="shrink-0 gap-1.5 self-start"
-            onClick={() => void query.refetch()}
-            disabled={query.isFetching}
-            aria-label={t("command.refresh_aria")}
-          >
-            <RefreshCw className={cn("h-3.5 w-3.5", query.isFetching && "animate-spin")} />
-            {t("common.refresh")}
-          </Button>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Button type="button" size="sm" variant="ai" className="gap-1.5" onClick={briefMe}>
+              <Sparkles className="h-3.5 w-3.5" aria-hidden />
+              {t("attention.brief_me")}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => void query.refetch()}
+              disabled={query.isFetching}
+              aria-label={t("command.refresh_aria")}
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", query.isFetching && "animate-spin")} />
+              {t("common.refresh")}
+            </Button>
+          </div>
         </div>
+
+        {!summary.clear ? (
+          <div className="relative mt-4 flex items-center gap-2">
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1",
+                "text-caption font-medium capitalize",
+                health.wrap,
+              )}
+            >
+              <span className={cn("h-1.5 w-1.5 rounded-full", health.dot)} aria-hidden />
+              {t(`health.${(live.operational_health || "healthy").toLowerCase()}`)}
+            </span>
+          </div>
+        ) : null}
       </section>
 
-      <section
-        id="attention"
-        aria-label={t("command.needs_you")}
-        className="scroll-mt-24 os-section"
-      >
-        <SectionHeader
-          title={t("command.needs_you")}
-          description={t("command.needs_you_desc")}
-          action={
-            <Button type="button" size="sm" variant="ghost" onClick={() => navigate("/dashboard/attention")}>
-              {t("command.all_attention")}
-              <ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden />
-            </Button>
-          }
-        />
+      {/* Compact filter bar */}
+      <nav aria-label={t("attention.aria.filters")} className="flex flex-wrap gap-1.5">
+        {filters.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setFilter(f.id)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-caption transition-colors",
+              filter === f.id
+                ? "border-primary/40 bg-primary/10 text-foreground"
+                : "border-border/70 bg-card text-muted-foreground hover:border-border hover:text-foreground",
+            )}
+          >
+            {f.label}
+            <span className="tabular-nums opacity-70">{f.count}</span>
+          </button>
+        ))}
+      </nav>
 
-        {attention.length === 0 ? (
-          <EmptyOpsState
-            title={t("command.empty_title")}
-            description={t("command.empty_desc")}
-            askPrompt={t("command.empty_ask")}
+      {/* Your next 5 minutes */}
+      {(filter === "all" || filter === "needs_me") && board.next_actions.length > 0 ? (
+        <section id="attention" aria-label={t("attention.next5.title")} className="scroll-mt-24 os-section">
+          <SectionHeader
+            title={t("attention.next5.title")}
+            description={t("attention.next5.desc")}
           />
-        ) : (
-          <ul className="space-y-3">
-            {attention.slice(0, 5).map((item) => (
-              <li key={item.id}>
-                <AttentionCard
-                  item={{
-                    id: item.id,
-                    severity: item.severity,
-                    category: item.category,
-                    title: item.title,
-                    detail: item.detail,
-                    why: item.why_it_matters,
-                    recommendation: item.recommended_action?.label
-                      ? item.recommended_action.label
-                      : undefined,
-                    owner: item.owner,
-                    reviewLabel: item.recommended_action?.label || "Review",
-                    askPrompt: item.ask_miya_prompt,
+          {renderItemList(board.next_actions, { cap: 3 })}
+        </section>
+      ) : null}
+
+      {/* Clear state when nothing needs the manager */}
+      {summary.clear && filter === "all" ? (
+        <section aria-label={t("attention.clear.title")} className="os-section">
+          <EmptyOpsState
+            title={t("attention.clear.title")}
+            description={t("attention.clear.empty_desc")}
+            askPrompt={t("attention.clear.ask")}
+          />
+        </section>
+      ) : null}
+
+      {/* Operational clusters for scale */}
+      {(filter === "all" || filter === "needs_me" || filter === "today") &&
+      showClusters &&
+      board.clusters.length > 0 ? (
+        <section aria-label={t("attention.clusters.title")} className="os-section">
+          <SectionHeader
+            title={t("attention.clusters.title")}
+            description={t("attention.clusters.desc")}
+          />
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {board.clusters.map((cluster) => (
+              <li key={cluster.id}>
+                <AttentionClusterCard
+                  cluster={cluster}
+                  onReview={() => {
+                    if (cluster.href) navigate(cluster.href);
                   }}
-                  onReview={() => openAttentionItem(item)}
-                  onAskMiya={() => askAbout(item)}
                 />
               </li>
             ))}
           </ul>
-        )}
-      </section>
-
-      <section aria-label={t("command.glance")} className="os-section">
-        <SectionHeader title={t("command.glance")} description={t("command.glance_desc")} />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {glance.map((row) => {
-            const Icon = row.icon;
-            const tone = TILE_TONE[row.tone];
-            return (
-              <button
-                key={row.label}
-                type="button"
-                onClick={() => navigate(row.href)}
-                className={cn(
-                  "group rounded-panel border border-border/70 bg-card p-3.5 text-left",
-                  "transition-all duration-os hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-soft",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                )}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span
-                    className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
-                      tone.wrap,
-                    )}
-                  >
-                    <Icon className="h-4 w-4" aria-hidden />
-                  </span>
-                  <ArrowUpRight
-                    className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity duration-os group-hover:opacity-100"
-                    aria-hidden
-                  />
-                </div>
-                <p
-                  className={cn(
-                    "mt-3 text-[1.625rem] font-semibold capitalize leading-none tabular-nums",
-                    tone.value,
-                    row.valueClass,
-                  )}
-                >
-                  {row.value}
-                </p>
-                <p className="mt-1.5 text-caption text-muted-foreground">{row.label}</p>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {watchInsights.length > 0 ? (
-        <section aria-label={t("command.watch")} className="os-section">
-          <SectionHeader title={t("command.watch")} description={t("command.watch_desc")} />
-          <ProactiveInsights insights={watchInsights} compact queryKey={["miya", "command-center"]} />
         </section>
       ) : null}
 
-      {activity.length > 0 ? (
+      {/* Needs me (beyond next 5) */}
+      {(filter === "all" || filter === "needs_me") &&
+      showBucketsExpanded &&
+      board.needs_me.length > board.next_actions.length ? (
+        <section aria-label={t("attention.lane.needs_me")} className="os-section">
+          <SectionHeader
+            title={t("attention.lane.needs_me")}
+            description={t("attention.lane.needs_me_desc")}
+          />
+          {renderItemList(board.needs_me.slice(board.next_actions.length), {
+            cap: scale === "busy" || scale === "heavy" || scale === "extreme" ? 3 : 8,
+          })}
+        </section>
+      ) : null}
+
+      {filter === "needs_me" && board.needs_me.length === 0 ? (
+        <EmptyOpsState title={t("attention.empty.needs_me")} description={t("attention.clear.desc")} />
+      ) : null}
+
+      {/* Today */}
+      {(filter === "all" || filter === "today") &&
+      showBucketsExpanded &&
+      board.today.length > 0 &&
+      scale !== "extreme" ? (
+        <section aria-label={t("attention.lane.today")} className="os-section">
+          <SectionHeader
+            title={t("attention.lane.today")}
+            description={t("attention.lane.today_desc")}
+          />
+          {renderItemList(board.today, {
+            cap: scale === "busy" || scale === "heavy" ? 4 : 8,
+          })}
+        </section>
+      ) : null}
+
+      {filter === "today" && board.today.length === 0 ? (
+        <EmptyOpsState title={t("attention.empty.today")} />
+      ) : null}
+
+      {/* Miya is handling */}
+      {(filter === "all" || filter === "handling") && board.handling.length > 0 ? (
+        <section
+          id="miya-handling"
+          aria-label={t("attention.lane.handling")}
+          className="scroll-mt-24 os-section"
+        >
+          <SectionHeader
+            title={t("attention.lane.handling")}
+            description={t("attention.lane.handling_desc")}
+          />
+          {renderItemList(board.handling, { quiet: true, cap: 8 })}
+        </section>
+      ) : null}
+
+      {filter === "handling" && board.handling.length === 0 ? (
+        <EmptyOpsState title={t("attention.empty.handling")} />
+      ) : null}
+
+      {/* Waiting */}
+      {(filter === "all" || filter === "waiting") && board.waiting.length > 0 ? (
+        <section aria-label={t("attention.lane.waiting")} className="os-section">
+          <SectionHeader
+            title={t("attention.lane.waiting")}
+            description={
+              board.waiting_breakdown
+                ? t("attention.waiting.breakdown", {
+                    staff: board.waiting_breakdown.staff ?? 0,
+                    suppliers: board.waiting_breakdown.suppliers ?? 0,
+                    hr: board.waiting_breakdown.hr ?? 0,
+                  })
+                : t("attention.lane.waiting_desc")
+            }
+          />
+          {renderItemList(board.waiting, { quiet: true, cap: 8 })}
+        </section>
+      ) : null}
+
+      {filter === "waiting" && board.waiting.length === 0 ? (
+        <EmptyOpsState title={t("attention.empty.waiting")} />
+      ) : null}
+
+      {/* Watching */}
+      {(filter === "all" || filter === "watching") && board.watching.length > 0 && scale !== "extreme" ? (
+        <section aria-label={t("attention.lane.watching")} className="os-section">
+          <SectionHeader
+            title={t("attention.lane.watching")}
+            description={t("attention.lane.watching_desc")}
+          />
+          {renderItemList(board.watching, { quiet: true, cap: 6 })}
+        </section>
+      ) : null}
+
+      {filter === "watching" && board.watching.length === 0 ? (
+        <EmptyOpsState title={t("attention.empty.watching")} />
+      ) : null}
+
+      {/* Glance KPIs */}
+      {filter === "all" && showGlance ? (
+        <section aria-label={t("command.glance")} className="os-section">
+          <SectionHeader title={t("command.glance")} description={t("command.glance_desc")} />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {glance.map((row) => {
+              const Icon = row.icon;
+              const tone = TILE_TONE[row.tone];
+              return (
+                <button
+                  key={row.label}
+                  type="button"
+                  onClick={() => {
+                    if (row.href.startsWith("#")) {
+                      document.getElementById(row.href.slice(1))?.scrollIntoView({ behavior: "smooth" });
+                    } else {
+                      navigate(row.href);
+                    }
+                  }}
+                  className={cn(
+                    "group rounded-panel border border-border/70 bg-card p-3.5 text-left",
+                    "transition-all duration-os hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-soft",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span
+                      className={cn(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
+                        tone.wrap,
+                      )}
+                    >
+                      <Icon className="h-4 w-4" aria-hidden />
+                    </span>
+                    <ArrowUpRight
+                      className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity duration-os group-hover:opacity-100"
+                      aria-hidden
+                    />
+                  </div>
+                  <p
+                    className={cn(
+                      "mt-3 text-[1.625rem] font-semibold capitalize leading-none tabular-nums",
+                      tone.value,
+                      row.valueClass,
+                    )}
+                  >
+                    {row.value}
+                  </p>
+                  <p className="mt-1.5 text-caption text-muted-foreground">{row.label}</p>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {/* Verified Miya activity (audit) */}
+      {filter === "all" && activity.length > 0 && scale !== "extreme" ? (
         <section id="miya-activity" aria-label={t("command.handled")} className="scroll-mt-24 os-section">
           <SectionHeader
             title={t("command.handled")}
@@ -415,7 +620,7 @@ export function CommandCenter({ className }: { className?: string }) {
         </section>
       ) : null}
 
-      {signals.length > 0 ? (
+      {filter === "all" && signals.length > 0 && (scale === "few" || scale === "moderate") ? (
         <section aria-label={t("command.business_signals")} className="os-section">
           <SectionHeader title={t("command.business_signals")} />
           <ul className="divide-y divide-border/70">
@@ -431,7 +636,45 @@ export function CommandCenter({ className }: { className?: string }) {
           </ul>
         </section>
       ) : null}
+
+      {/* Keep proactive insights available when board watching is empty but insights exist */}
+      {filter === "all" && board.watching.length === 0 && insights.length > 0 && scale === "few" ? (
+        <section aria-label={t("command.watch")} className="os-section">
+          <SectionHeader title={t("command.watch")} description={t("command.watch_desc")} />
+          <ProactiveInsights insights={insights.slice(0, 2)} compact queryKey={["miya", "command-center"]} />
+        </section>
+      ) : null}
     </div>
+  );
+}
+
+function SummaryChip({
+  tone,
+  label,
+  count,
+}: {
+  tone: "critical" | "high" | "primary" | "muted";
+  label: string;
+  count: number;
+}) {
+  const toneClass =
+    tone === "critical"
+      ? "border-critical-border bg-critical-muted text-critical"
+      : tone === "high"
+        ? "border-high-border bg-high-muted text-high-foreground"
+        : tone === "primary"
+          ? "border-primary/25 bg-primary/10 text-primary"
+          : "border-border bg-muted text-muted-foreground";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-caption font-medium",
+        toneClass,
+      )}
+    >
+      <span className="tabular-nums font-semibold">{count}</span>
+      {label}
+    </span>
   );
 }
 

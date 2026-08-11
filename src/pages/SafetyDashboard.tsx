@@ -448,8 +448,10 @@ const SafetyDashboard: React.FC = () => {
                     }
                     for (const [idx, entry] of (detail.photo_evidence || []).entries()) {
                       if (!entry || typeof entry !== "object") continue;
+                      const resolved =
+                        (entry as { resolved_url?: string }).resolved_url?.trim() || "";
                       const raw = (entry.storage_key || entry.url || "").trim();
-                      const url = resolveMediaUrl(raw) || raw;
+                      const url = resolved || resolveMediaUrl(raw) || raw;
                       if (url && !built.some((i) => i.url === url)) {
                         built.push({
                           url,

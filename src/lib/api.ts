@@ -977,10 +977,12 @@ export class BackendService {
       name: string;
       role: string;
       is_absent: boolean;
+      has_process_progress?: boolean;
       total: number;
       done: number;
       open: number;
       pct: number;
+      process_names?: string[];
     }>;
   }> {
     const q = date ? `?date=${encodeURIComponent(date)}` : "";
@@ -1436,10 +1438,13 @@ export class BackendService {
     return this.fetchWithError("/dashboard/action-center/");
   }
 
-  async getMiyaCommandCenter(params?: { period?: string; restaurant_id?: string }) {
+  async getMiyaCommandCenter(params?: { period?: string; restaurant_id?: string; locale?: string }) {
     const qs = new URLSearchParams();
     if (params?.period) qs.set("period", params.period);
     if (params?.restaurant_id) qs.set("restaurant_id", params.restaurant_id);
+    if (params?.locale) qs.set("locale", params.locale);
+    const lang = params?.locale || localStorage.getItem("language") || "en";
+    qs.set("locale", lang);
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     return this.fetchWithError(`/miya/command-center/${suffix}`);
   }

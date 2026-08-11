@@ -279,6 +279,8 @@ export interface DashboardTaskDemandItem {
     proof_submitted_at?: string | null;
     proof_submitted_by_name?: string | null;
     proof_submitter_name?: string | null;
+    attachment_url?: string | null;
+    attachment_label?: string | null;
 }
 
 /** Row in the Operations Live full-page feed. */

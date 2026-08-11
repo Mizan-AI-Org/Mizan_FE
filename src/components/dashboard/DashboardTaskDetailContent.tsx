@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Calendar,
   ChevronDown,
+  Paperclip,
   Sparkles,
 } from "lucide-react";
 import { TaskAssigneePicker } from "@/components/dashboard/TaskAssigneePicker";
@@ -245,6 +246,10 @@ export function DashboardTaskDetailContent({
             })}
           </div>
         ) : null}
+
+        {task.attachment_url ? (
+          <AttachmentPreview url={task.attachment_url} label={task.attachment_label} t={t} />
+        ) : null}
       </div>
 
       <div className="shrink-0 space-y-2 border-t border-border/60 pt-4">
@@ -259,14 +264,14 @@ export function DashboardTaskDetailContent({
             </Button>
           ) : null}
           {secondaryStatuses.length > 0 ? (
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" disabled={isUpdating || isSaving} className="gap-1.5">
                   {t("dashboard.task_detail.more_actions", { defaultValue: "More actions" })}
                   <ChevronDown className="h-4 w-4" aria-hidden />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuContent align="end" className="w-52 z-[4000]">
                 {secondaryStatuses.map((nextStatus) => (
                   <DropdownMenuItem
                     key={nextStatus}
@@ -289,6 +294,49 @@ export function DashboardTaskDetailContent({
           </button>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+const IMAGE_RE = /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i;
+
+function AttachmentPreview({
+  url,
+  label,
+  t,
+}: {
+  url: string;
+  label?: string | null;
+  t: (key: string, options?: Record<string, unknown>) => string;
+}) {
+  const resolved = resolveStoredMediaUrl(url, BACKEND_URL) || url;
+  const isImage = IMAGE_RE.test(resolved) || (label || "").toLowerCase() === "image";
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-background px-3.5 py-3 space-y-2">
+      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+        <Paperclip className="h-3 w-3 shrink-0" aria-hidden />
+        {t("dashboard.task_detail.attachment", { defaultValue: "Attachment" })}
+      </div>
+      {isImage ? (
+        <a href={resolved} target="_blank" rel="noopener noreferrer">
+          <img
+            src={resolved}
+            alt={label || "Attachment"}
+            className="max-h-52 w-full rounded-lg border object-contain bg-muted/20 cursor-pointer hover:opacity-90 transition-opacity"
+          />
+        </a>
+      ) : (
+        <a
+          href={resolved}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+        >
+          <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+          {label || t("dashboard.task_detail.view_attachment", { defaultValue: "View file" })}
+        </a>
+      )}
     </div>
   );
 }

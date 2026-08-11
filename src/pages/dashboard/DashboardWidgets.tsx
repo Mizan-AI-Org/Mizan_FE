@@ -3233,18 +3233,30 @@ function StaffDailyProgressCard({
     return (
       <ul className="space-y-2">
         {rows.map((row) => {
+          const hasProgress = row.has_process_progress !== false;
+          if (!hasProgress) return null;
           const pct = Math.max(0, Math.min(100, Number(row.pct) || 0));
+          const processLabel = row.process_names?.length
+            ? row.process_names.join(", ")
+            : undefined;
           return (
             <li
               key={row.id}
               className="rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <div
-                  className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-900 dark:text-white"
-                  title={row.name}
-                >
-                  {row.name || t("dashboard.staff_daily_progress.fallback_name")}
+                <div className="min-w-0 flex-1">
+                  <div
+                    className="truncate text-[13px] font-medium text-slate-900 dark:text-white"
+                    title={row.name}
+                  >
+                    {row.name || t("dashboard.staff_daily_progress.fallback_name")}
+                  </div>
+                  {processLabel ? (
+                    <div className="truncate text-[11px] text-slate-400 dark:text-slate-500" title={processLabel}>
+                      {processLabel}
+                    </div>
+                  ) : null}
                 </div>
                 {row.is_absent ? (
                   <Badge
@@ -7179,7 +7191,7 @@ export function DashboardWidgetById({
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500 dark:text-slate-400">{t("dashboard.sales.total") || "Revenue"}</span>
-                    <span className="font-bold text-slate-900 dark:text-white">{todaySales?.currency || ""} {(todaySales?.total_sales ?? 0).toLocaleString("en-US", { minimumFractionDigits: 0 })}</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{todaySales?.currency || ""} {(todaySales?.total_sales ?? 0).toLocaleString(locale, { minimumFractionDigits: 0 })}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500 dark:text-slate-400">{t("dashboard.sales.orders") || "Orders"}</span>

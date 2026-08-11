@@ -186,7 +186,7 @@ export function TaskAssigneePicker({
             <ChevronDown className="ml-1.5 h-3.5 w-3.5 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[min(320px,calc(100vw-2rem))] p-0" align="start">
+        <PopoverContent className="w-[min(320px,calc(100vw-2rem))] p-0 z-[4000]" align="start">
           <Command shouldFilter={false} className="rounded-lg border-none">
             <CommandInput
               placeholder={t("common.search_staff", "Search staff...")}

@@ -57,6 +57,10 @@ export function askMiya(opts?: {
     setMiyaPageContext(opts.pageContext);
   }
   try {
+    if (typeof document !== "undefined") {
+      document.documentElement.style.setProperty("--mizan-miya-panel", "420px");
+    }
+    window.dispatchEvent(new CustomEvent("miya:panel-state", { detail: { open: true } }));
     window.dispatchEvent(
       new CustomEvent("miya:open", {
         detail: { prompt: opts?.prompt || "" },

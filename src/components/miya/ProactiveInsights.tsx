@@ -117,7 +117,7 @@ export function ProactiveInsights({
       ? t("ai.prompt.overdue_tasks")
       : /incident/i.test(what)
         ? t("ai.prompt.incidents")
-        : `Help me with this: ${what}`;
+        : t("ai.prompt.help_with", { topic: what });
     askMiya({
       prompt: action.ask_miya_prompt || fallbackPrompt,
       pageContext: {

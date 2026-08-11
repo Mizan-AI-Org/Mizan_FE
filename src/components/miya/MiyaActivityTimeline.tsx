@@ -9,6 +9,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useLanguage } from "@/hooks/use-language";
 import { askMiya, focusEntityForMiya } from "@/lib/miyaPageContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -90,11 +91,14 @@ export function MiyaActivityTimeline({
   compact = false,
   fetchRemote = false,
   queryKey = ["miya", "activity"],
-  title = "Miya activity",
-  subtitle = "Auditable timeline of what Miya did - only verified successes count as done.",
+  title: titleProp,
+  subtitle: subtitleProp,
 }: Props) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const qc = useQueryClient();
+  const title = titleProp || t("activity.title");
+  const subtitle = subtitleProp || t("activity.subtitle");
   const [openId, setOpenId] = useState<string | null>(null);
 
   const remote = useQuery({
@@ -141,19 +145,19 @@ export function MiyaActivityTimeline({
 
   return (
     <section aria-label="Miya activity" className={cn("space-y-3", className)}>
-      <SectionHeader eyebrow="Audit" title={title} description={subtitle} />
+      <SectionHeader eyebrow={t("activity.eyebrow")} title={title} description={subtitle} />
 
       {fetchRemote && remote.isLoading ? (
-        <MiyaLoadingState message="Loading activity…" variant="inline" />
+        <MiyaLoadingState message={t("activity.loading")} variant="inline" />
       ) : items.length === 0 ? (
         <EmptyOpsState
-          title="No recent Miya actions"
-          description="Verified actions will appear here after Miya completes work."
+          title={t("activity.empty_title")}
+          description={t("activity.empty_desc")}
         />
       ) : (
         <ul className="divide-y divide-border/80 overflow-hidden rounded-panel border border-border/80 bg-card">
           {items.slice(0, compact ? 8 : 40).map((ev) => {
-            const line = ev.action || ev.summary || "Miya action";
+            const line = ev.action || ev.summary || t("activity.miya_action");
             const failed = Boolean(ev.failed || ev.result === "failed");
             return (
               <li
@@ -170,7 +174,7 @@ export function MiyaActivityTimeline({
                       {ev.action_verb ? (
                         <span className="text-caption text-muted-foreground">{ev.action_verb}</span>
                       ) : null}
-                      {failed ? <SeverityBadge level="CRITICAL" label="Failed" /> : null}
+                      {failed ? <SeverityBadge level="CRITICAL" label={t("activity.failed")} /> : null}
                     </div>
                     <button
                       type="button"
@@ -189,11 +193,11 @@ export function MiyaActivityTimeline({
                 </div>
                 <div className="flex flex-wrap gap-1">
                   <Button type="button" size="sm" variant="ghost" onClick={() => setOpenId(ev.id)}>
-                    Open
+                    {t("activity.open")}
                   </Button>
                   {ev.href ? (
                     <Button type="button" size="sm" variant="ghost" onClick={() => openEntity(ev)}>
-                      View
+                      {t("common.view")}
                     </Button>
                   ) : null}
                   {ev.can_undo ? (
@@ -206,7 +210,7 @@ export function MiyaActivityTimeline({
                       onClick={() => undo.mutate(ev.id)}
                     >
                       <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-                      Undo
+                      {t("activity.undo")}
                     </Button>
                   ) : null}
                   <Button
@@ -216,7 +220,7 @@ export function MiyaActivityTimeline({
                     className="gap-1"
                     onClick={() =>
                       askMiya({
-                        prompt: ev.ask_miya_prompt || `Explain what you did: ${line}`,
+                        prompt: ev.ask_miya_prompt || t("activity.explain_prompt", { action: line }),
                         pageContext: {
                           entity_type: ev.entity_type,
                           entity_id: ev.entity_id,
@@ -227,7 +231,7 @@ export function MiyaActivityTimeline({
                     }
                   >
                     <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-                    Ask Miya
+                    {t("nav.ask_miya")}
                   </Button>
                 </div>
               </li>
@@ -251,7 +255,7 @@ export function MiyaActivityTimeline({
           />
           <div className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-panel border border-border bg-card p-5 shadow-strong">
             {detailQuery.isLoading && !openItem?.detail ? (
-              <MiyaLoadingState message="Loading detail…" variant="inline" />
+              <MiyaLoadingState message={t("activity.loading_detail")} variant="inline" />
             ) : (
               <>
                 <div className="flex items-start justify-between gap-3">
@@ -264,25 +268,25 @@ export function MiyaActivityTimeline({
                     </h3>
                   </div>
                   <Button type="button" size="sm" variant="ghost" onClick={() => setOpenId(null)}>
-                    Close
+                    {t("common.close")}
                   </Button>
                 </div>
 
                 <dl className="mt-4 space-y-3 text-body">
                   <div>
-                    <dt className="text-caption text-muted-foreground">Why?</dt>
+                    <dt className="text-caption text-muted-foreground">{t("activity.detail.why")}</dt>
                     <dd className="mt-1 type-secondary text-foreground">
                       {openItem?.detail?.why || openItem?.reason || "-"}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-caption text-muted-foreground">Based on what?</dt>
+                    <dt className="text-caption text-muted-foreground">{t("activity.detail.based_on")}</dt>
                     <dd className="mt-1 type-secondary text-foreground">
-                      {openItem?.detail?.based_on || "Operational database + authorize → execute → verify."}
+                      {openItem?.detail?.based_on || t("activity.detail.based_on_default")}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-caption text-muted-foreground">What happened?</dt>
+                    <dt className="text-caption text-muted-foreground">{t("activity.detail.what_happened")}</dt>
                     <dd
                       className={cn(
                         "mt-1 type-secondary",
@@ -296,13 +300,13 @@ export function MiyaActivityTimeline({
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-caption text-muted-foreground">What should I do?</dt>
+                    <dt className="text-caption text-muted-foreground">{t("activity.detail.what_should_i_do")}</dt>
                     <dd className="mt-1 type-secondary text-foreground">
-                      {openItem?.detail?.what_should_i_do || "Open the related record or Ask Miya."}
+                      {openItem?.detail?.what_should_i_do || t("activity.detail.what_should_i_do_default")}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-caption text-muted-foreground">Verification</dt>
+                    <dt className="text-caption text-muted-foreground">{t("activity.detail.verification")}</dt>
                     <dd className="mt-1 text-meta uppercase tracking-wide text-muted-foreground">
                       {openItem?.verification_status || "-"} · {openItem?.result || "-"}
                     </dd>
@@ -311,7 +315,7 @@ export function MiyaActivityTimeline({
 
                 {openItem?.detail?.related_timeline && openItem.detail.related_timeline.length > 0 ? (
                   <div className="mt-4">
-                    <p className="text-caption text-muted-foreground">Related timeline</p>
+                    <p className="text-caption text-muted-foreground">{t("activity.detail.related_timeline")}</p>
                     <ul className="mt-2 space-y-1.5">
                       {openItem.detail.related_timeline.slice(0, 8).map((r) => (
                         <li key={r.id} className="text-meta text-muted-foreground">
@@ -331,12 +335,12 @@ export function MiyaActivityTimeline({
                       onClick={() => openItem && undo.mutate(openItem.id)}
                     >
                       <RotateCcw className="h-4 w-4" aria-hidden />
-                      {openItem.undo_hint || "Undo"}
+                      {openItem.undo_hint || t("activity.undo")}
                     </Button>
                   ) : null}
                   {openItem?.href ? (
                     <Button type="button" variant="outline" onClick={() => openItem && openEntity(openItem)}>
-                      Open record
+                      {t("activity.open_record")}
                     </Button>
                   ) : null}
                   <Button
@@ -347,7 +351,7 @@ export function MiyaActivityTimeline({
                       askMiya({
                         prompt:
                           openItem?.ask_miya_prompt ||
-                          `Explain this activity: ${openItem?.action || openItem?.summary}`,
+                          t("activity.explain_prompt", { action: openItem?.action || openItem?.summary || "" }),
                         pageContext: {
                           entity_type: openItem?.entity_type,
                           entity_id: openItem?.entity_id,
@@ -358,16 +362,16 @@ export function MiyaActivityTimeline({
                     }
                   >
                     <MessageSquare className="h-4 w-4" aria-hidden />
-                    Ask Miya
+                    {t("nav.ask_miya")}
                   </Button>
                 </div>
 
                 {undo.isError ? (
-                  <p className="mt-3 type-secondary text-critical">Undo failed. Nothing was claimed as reversed.</p>
+                  <p className="mt-3 type-secondary text-critical">{t("activity.undo_failed")}</p>
                 ) : null}
                 {undo.isSuccess && !(undo.data as { ok?: boolean })?.ok ? (
                   <p className="mt-3 type-secondary text-critical">
-                    {(undo.data as { message?: string })?.message || "Undo was not verified."}
+                    {(undo.data as { message?: string })?.message || t("activity.undo_not_verified")}
                   </p>
                 ) : null}
               </>

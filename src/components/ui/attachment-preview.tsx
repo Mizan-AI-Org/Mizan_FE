@@ -364,6 +364,7 @@ export function AttachmentPreview({
   className?: string;
 }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const url = attachment.url?.trim();
   if (!url) return null;
   const name = resolveName(attachment, fallbackName);
@@ -371,6 +372,18 @@ export function AttachmentPreview({
   const sizeLabel = formatSize(attachment.size);
 
   if (kind === "image") {
+    if (imgError) {
+      return (
+        <div
+          className={cn(
+            "flex h-32 w-full items-center justify-center rounded-lg border border-dashed border-border bg-muted/40 text-sm text-muted-foreground",
+            className,
+          )}
+        >
+          Photo unavailable
+        </div>
+      );
+    }
     return (
       <>
         <button
@@ -386,6 +399,7 @@ export function AttachmentPreview({
             src={url}
             alt={name}
             loading="lazy"
+            onError={() => setImgError(true)}
             className="h-32 w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
           />
           {/* Overlay caption - subtle gradient + truncated filename + size */}

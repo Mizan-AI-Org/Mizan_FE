@@ -19,6 +19,7 @@ import { clearMiyaPageContext, focusEntityForMiya, setMiyaPageContext } from "@/
 import { IntentRail, MobileIntentDock } from "@/components/layout/IntentRail";
 import { cn } from "@/lib/utils";
 import { isImpersonating } from "@/lib/impersonation";
+import { useMiyaPanelOpen } from "@/hooks/use-miya-panel-open";
 
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -30,7 +31,7 @@ const DashboardLayout: React.FC = () => {
   const { notifications, markAllAsRead, markAsRead } = useNotifications();
   const { t } = useLanguage();
   const viewingAsTenant = isImpersonating();
-  const [miyaPanelOpen, setMiyaPanelOpen] = useState(false);
+  const miyaPanelOpen = useMiyaPanelOpen();
 
   const unreadCount = notifications.filter(n => !n.read).length;
   const [shouldShake, setShouldShake] = useState(false);
@@ -62,15 +63,6 @@ const DashboardLayout: React.FC = () => {
 
   useEffect(() => {
     return () => clearMiyaPageContext();
-  }, []);
-
-  useEffect(() => {
-    const onPanel = (event: Event) => {
-      const detail = (event as CustomEvent<{ open?: boolean }>).detail;
-      setMiyaPanelOpen(Boolean(detail?.open));
-    };
-    window.addEventListener("miya:panel-state", onPanel);
-    return () => window.removeEventListener("miya:panel-state", onPanel);
   }, []);
 
   useEffect(() => {
@@ -175,6 +167,7 @@ const DashboardLayout: React.FC = () => {
       <DashboardTaskDetailSheet
         taskId={taskSheetId}
         open={!!taskSheetId}
+        miyaPanelOpen={miyaPanelOpen}
         onOpenChange={(open) => {
           if (!open) closeDashboardTaskSheet(navigate, location);
         }}
