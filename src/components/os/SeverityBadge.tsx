@@ -1,5 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/hooks/use-language";
 
 export type SeverityLevel =
   | "CRITICAL"
@@ -39,8 +40,10 @@ type Props = {
 
 /** Shared severity chip - color + text (never color-only). */
 export function SeverityBadge({ level, label, className }: Props) {
+  const { t } = useLanguage();
   const tone = normalizeSeverity(level);
-  const text = label || (level ? String(level).replace(/_/g, " ") : "signal");
+  const raw = level ? String(level).toUpperCase() : "";
+  const text = label || t(`severity.${raw}`, { defaultValue: raw.replace(/_/g, " ") || "signal" });
   return (
     <span
       className={cn(

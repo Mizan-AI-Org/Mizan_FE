@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,6 +13,7 @@ import type { DashboardTaskDemandItem } from "@/lib/types";
 import { useLanguage } from "@/hooks/use-language";
 import { DashboardTaskDetailContent } from "@/components/dashboard/DashboardTaskDetailContent";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 function tasksDemandsDetailHref(taskId: string): string {
   return `/dashboard/staff-requests?list=dashboard&task=${taskId}`;
@@ -23,12 +24,14 @@ export function DashboardTaskDetailSheet({
   open,
   onOpenChange,
   widgetTitle,
+  miyaPanelOpen = false,
   queryKeysToInvalidate = [],
 }: {
   taskId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   widgetTitle?: string;
+  miyaPanelOpen?: boolean;
   queryKeysToInvalidate?: readonly (readonly unknown[])[];
 }) {
   const { t } = useLanguage();
@@ -99,11 +102,53 @@ export function DashboardTaskDetailSheet({
     },
   });
 
+  const singleAssigneeMutation = useMutation({
+    mutationFn: (assigneeId: string | null) => {
+      if (!taskId) throw new Error("No task selected");
+      return api.updateDashboardTaskAssignee(taskId, assigneeId);
+    },
+    onSuccess: async (updated) => {
+      queryClient.setQueryData(["dashboard-task-demand", taskId], updated);
+      await invalidateTaskQueries();
+      toast.success(
+        t("dashboard.task_detail.assignees_saved", {
+          defaultValue: "Assignee updated.",
+        }),
+      );
+    },
+    onError: (err: unknown) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : t("dashboard.task_detail.update_failed", { defaultValue: "Could not update task" }),
+      );
+    },
+  });
+
+  useEffect(() => {
+    try {
+      document.documentElement.style.setProperty("--mizan-miya-edge", "44px");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const task = taskQuery.data;
 
+  const sheetRightClass = miyaPanelOpen
+    ? "lg:right-[var(--mizan-miya-panel,420px)]"
+    : "lg:right-[var(--mizan-miya-edge,44px)]";
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col sm:max-w-lg">
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+      <SheetContent
+        side="right"
+        className={cn(
+          "flex w-full flex-col sm:max-w-lg z-[3500] transition-[right] duration-300",
+          sheetRightClass,
+        )}
+        overlayClassName={cn("bg-black/50 pointer-events-auto", sheetRightClass)}
+      >
         <SheetHeader className="shrink-0 space-y-1 pr-8 text-left">
           <SheetTitle className="text-base font-semibold">
             {t("dashboard.task_detail.title", { defaultValue: "Task" })}
@@ -134,8 +179,14 @@ export function DashboardTaskDetailSheet({
                   ? (ids) => saveAssigneesMutation.mutate(ids)
                   : undefined
               }
+              onAssigneeChange={
+                task.kind !== "dashboard" && task.kind !== undefined && task.kind !== "invoice"
+                  ? (id) => singleAssigneeMutation.mutate(id)
+                  : undefined
+              }
               isUpdating={statusMutation.isPending}
               isSaving={saveAssigneesMutation.isPending}
+              isAssigneeUpdating={singleAssigneeMutation.isPending}
               t={t}
               onOpenInbox={() => {
                 onOpenChange(false);

@@ -32,7 +32,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useMiyaPanelOpen } from "@/hooks/use-miya-panel-open";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
@@ -48,7 +56,6 @@ import {
 import { toast } from "sonner";
 import { AiNativeWorkspace } from "@/components/miya/AiNativeWorkspace";
 
-type SearchBy = "staff" | "task" | "category";
 type LaneKey = "pending" | "in_progress" | "completed";
 
 const QUERY_KEY = ["dashboard", "operations-live"] as const;
@@ -387,6 +394,34 @@ function OperationsLiveTable({
   );
 }
 
+function categoryFilterKey(item: OperationsLiveItem): string {
+  const process = item.process_label?.trim();
+  if (process) return `process:${process}`;
+  return String(item.category || "OTHER").toUpperCase();
+}
+
+function matchesCategoryFilter(item: OperationsLiveItem, filter: string): boolean {
+  if (!filter) return true;
+  if (filter.startsWith("process:")) {
+    return item.process_label?.trim() === filter.slice(8);
+  }
+  const cat = String(item.category || "").toUpperCase();
+  if (filter === "INCIDENT") {
+    return cat === "MAINTENANCE" || cat === "INCIDENT" || cat === "SAFETY";
+  }
+  return cat === filter;
+}
+
+function categoryFilterLabel(
+  key: string,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  if (key.startsWith("process:")) return key.slice(8);
+  const mapped = t(`operations_live.category.${key.toLowerCase()}`, { defaultValue: "" });
+  if (mapped) return mapped;
+  return key.replace(/_/g, " ");
+}
+
 export default function OperationsLivePage() {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -395,10 +430,12 @@ export default function OperationsLivePage() {
   const { user } = useAuth() as AuthContextType;
 
   const [search, setSearch] = useState("");
-  const [searchBy, setSearchBy] = useState<SearchBy>("staff");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [staffFilter, setStaffFilter] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [activeDrag, setActiveDrag] = useState<OperationsLiveItem | null>(null);
+  const miyaPanelOpen = useMiyaPanelOpen();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -410,14 +447,12 @@ export default function OperationsLivePage() {
   }, [search]);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: [...QUERY_KEY, debouncedSearch, searchBy],
+    queryKey: [...QUERY_KEY, debouncedSearch],
     queryFn: () =>
       api.getOperationsLive({
         limit: 50,
         q: debouncedSearch || undefined,
-        searchBy,
       }),
-    // WebSocket tasks_invalidate is primary; poll is a safety net.
     refetchInterval: 60_000,
     placeholderData: (prev) => prev,
   });
@@ -451,7 +486,63 @@ export default function OperationsLivePage() {
     return fromUser || t("operations_live.default_restaurant");
   }, [data?.restaurant_name, user, t]);
 
+  const categoryOptions = useMemo(() => {
+    const keys = new Set<string>();
+    const rows = [
+      ...(data?.pending ?? []),
+      ...(data?.in_progress ?? []),
+      ...(data?.completed ?? []),
+    ];
+    for (const row of rows) {
+      keys.add(categoryFilterKey(row));
+    }
+    return Array.from(keys).sort((a, b) =>
+      categoryFilterLabel(a, t).localeCompare(categoryFilterLabel(b, t)),
+    );
+  }, [data, t]);
+
+  const staffOptions = useMemo(() => {
+    const names = new Set<string>();
+    const rows = [
+      ...(data?.pending ?? []),
+      ...(data?.in_progress ?? []),
+      ...(data?.completed ?? []),
+    ];
+    for (const row of rows) {
+      const name = row.to?.name?.trim();
+      if (name) names.add(name);
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [data]);
+
+  const filteredData = useMemo(() => {
+    if (!data || (!categoryFilter && !staffFilter)) return data;
+    const filterLane = (items: OperationsLiveItem[]) =>
+      items.filter((item) => {
+        if (categoryFilter && !matchesCategoryFilter(item, categoryFilter)) return false;
+        if (staffFilter && (item.to?.name?.trim() || "") !== staffFilter) return false;
+        return true;
+      });
+    const pending = filterLane(data.pending ?? []);
+    const in_progress = filterLane(data.in_progress ?? []);
+    const completed = filterLane(data.completed ?? []);
+    return {
+      ...data,
+      pending,
+      in_progress,
+      completed,
+      counts: {
+        pending: pending.length,
+        in_progress: in_progress.length,
+        completed: completed.length,
+      },
+    };
+  }, [data, categoryFilter, staffFilter]);
+
   const openRow = (taskId: string) => {
+    if (miyaPanelOpen && typeof window !== "undefined" && window.innerWidth < 1024) {
+      window.dispatchEvent(new CustomEvent("miya:close"));
+    }
     openDashboardTaskSheet(navigate, location, taskId, { keepPath: true });
   };
 
@@ -489,8 +580,13 @@ export default function OperationsLivePage() {
           </p>
         </header>
 
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-          <div className="relative flex-1">
+        <div
+          className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center"
+          role="toolbar"
+          aria-label={t("operations_live.filters_toolbar")}
+        >
+          {/* Search: 50% on desktop, full width on mobile */}
+          <div className="relative w-full sm:w-1/2">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
@@ -499,29 +595,53 @@ export default function OperationsLivePage() {
               className="h-11 rounded-full border-border bg-card pl-10 pr-4 text-sm shadow-sm placeholder:text-muted-foreground"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              {t("operations_live.search_by")}
-            </span>
-            {(["staff", "task", "category"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                className={cn(
-                  "h-9 rounded-full px-4 text-sm font-medium transition-colors border",
-                  searchBy === mode
-                    ? "bg-foreground text-background border-foreground"
-                    : "bg-card text-foreground border-border hover:bg-muted",
-                )}
-                onClick={() => setSearchBy(mode)}
+
+          {/* Filters: 50% on desktop, full width on mobile */}
+          <div className="flex w-full items-center gap-2 sm:w-1/2">
+            <Select
+              value={categoryFilter || "all"}
+              onValueChange={(value) => setCategoryFilter(value === "all" ? "" : value)}
+            >
+              <SelectTrigger
+                className="h-10 min-w-0 flex-1 rounded-full border-border bg-card text-sm shadow-sm"
+                aria-label={t("operations_live.filter_category")}
               >
-                {t(`operations_live.search_mode.${mode}`)}
-              </button>
-            ))}
+                <SelectValue placeholder={t("operations_live.filter_category_all")} />
+              </SelectTrigger>
+              <SelectContent align="start">
+                <SelectItem value="all">{t("operations_live.filter_category_all")}</SelectItem>
+                {categoryOptions.map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {categoryFilterLabel(key, t)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={staffFilter || "all"}
+              onValueChange={(value) => setStaffFilter(value === "all" ? "" : value)}
+            >
+              <SelectTrigger
+                className="h-10 min-w-0 flex-1 rounded-full border-border bg-card text-sm shadow-sm"
+                aria-label={t("operations_live.filter_staff")}
+              >
+                <SelectValue placeholder={t("operations_live.filter_staff_all")} />
+              </SelectTrigger>
+              <SelectContent align="start">
+                <SelectItem value="all">{t("operations_live.filter_staff_all")}</SelectItem>
+                {staffOptions.map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Button
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-full bg-card"
+              className="h-10 w-10 shrink-0 rounded-full border-border bg-card shadow-sm"
               onClick={() => refetch()}
               disabled={isFetching}
               title={t("common.refresh")}
@@ -550,8 +670,8 @@ export default function OperationsLivePage() {
             <div className="space-y-8">
               <OperationsLiveTable
                 title={t("operations_live.section.new")}
-                count={data?.counts.pending ?? data?.pending.length ?? 0}
-                items={data?.pending ?? []}
+                count={filteredData?.counts.pending ?? filteredData?.pending.length ?? 0}
+                items={filteredData?.pending ?? []}
                 lane="pending"
                 t={t}
                 onOpenRow={openRow}
@@ -562,8 +682,8 @@ export default function OperationsLivePage() {
               />
               <OperationsLiveTable
                 title={t("operations_live.section.in_progress")}
-                count={data?.counts.in_progress ?? data?.in_progress.length ?? 0}
-                items={data?.in_progress ?? []}
+                count={filteredData?.counts.in_progress ?? filteredData?.in_progress.length ?? 0}
+                items={filteredData?.in_progress ?? []}
                 lane="in_progress"
                 t={t}
                 onOpenRow={openRow}
@@ -574,8 +694,8 @@ export default function OperationsLivePage() {
               />
               <OperationsLiveTable
                 title={t("operations_live.section.completed")}
-                count={data?.counts.completed ?? data?.completed.length ?? 0}
-                items={data?.completed ?? []}
+                count={filteredData?.counts.completed ?? filteredData?.completed.length ?? 0}
+                items={filteredData?.completed ?? []}
                 lane="completed"
                 t={t}
                 onOpenRow={openRow}

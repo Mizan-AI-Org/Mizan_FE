@@ -44,7 +44,7 @@ export function AttentionCard({ item, onReview, onAskMiya, className, compact }:
             <SeverityBadge level={item.severity} />
             {item.category ? (
               <span className="text-caption text-muted-foreground">
-                {item.category.replace(/_/g, " ")}
+                {t(`category.${item.category}`)}
               </span>
             ) : null}
           </div>

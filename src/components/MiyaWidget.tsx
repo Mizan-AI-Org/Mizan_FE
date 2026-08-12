@@ -138,14 +138,20 @@ export const MiyaWidget: React.FC = () => {
         window.setTimeout(() => textInputRef.current?.focus(), 0);
       }
     };
+    const closeHandler = () => setOpen(false);
     window.addEventListener("miya:open", openHandler);
-    return () => window.removeEventListener("miya:open", openHandler);
+    window.addEventListener("miya:close", closeHandler);
+    return () => {
+      window.removeEventListener("miya:open", openHandler);
+      window.removeEventListener("miya:close", closeHandler);
+    };
   }, []);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("miya:panel-state", { detail: { open } }));
     try {
       document.documentElement.style.setProperty("--mizan-miya-panel", open ? "420px" : "0px");
+      document.documentElement.style.setProperty("--mizan-miya-edge", "44px");
     } catch {
       /* ignore */
     }
@@ -581,7 +587,7 @@ export const MiyaWidget: React.FC = () => {
           type="button"
           onClick={() => setOpen(true)}
           className={cn(
-            "fixed z-[9998] bottom-24 hidden lg:flex",
+            "fixed z-[10050] bottom-24 hidden lg:flex pointer-events-auto",
             "flex-col items-center gap-1.5 rounded-l-lg border border-r-0",
             "bg-background/90 px-1.5 py-3 shadow-soft backdrop-blur-md",
             "text-[10px] font-semibold uppercase tracking-[0.12em]",
@@ -634,7 +640,7 @@ export const MiyaWidget: React.FC = () => {
         aria-labelledby="miya-chat-title"
         aria-hidden={!open}
         className={cn(
-          "fixed z-[9999] top-[57px] bottom-0 flex flex-col border-border/80 bg-background shadow-strong",
+          "fixed z-[10060] top-[57px] bottom-0 flex flex-col border-border/80 bg-background shadow-strong pointer-events-auto",
           "transition-transform duration-300 ease-out",
           isRTL ? "left-0 border-r" : "right-0 border-l",
           "w-[min(100vw,420px)]",
