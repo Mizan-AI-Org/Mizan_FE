@@ -13,6 +13,7 @@ import {
   type MiyaConversationListItem,
   type MiyaConversationMetrics,
   type MiyaConversationTurn,
+  type MiyaQualityAssessment,
 } from "@/lib/platformApi";
 import OpsPagination from "@/components/platform-admin/OpsPagination";
 import {
@@ -54,6 +55,25 @@ function formatTime(iso?: string | null) {
   });
 }
 
+function channelDisplay(channel?: string, label?: string) {
+  if (label) return label;
+  if (!channel) return "Unknown";
+  if (channel === "proactive_whatsapp") return "Proactive";
+  if (channel === "whatsapp") return "WhatsApp";
+  if (channel === "dashboard") return "Dashboard";
+  return channel.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function channelBadgeClass(channel?: string) {
+  if (channel === "dashboard") {
+    return "bg-blue-500/15 text-blue-700 dark:text-blue-300";
+  }
+  if (channel === "proactive_whatsapp") {
+    return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
+  }
+  return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
+}
+
 function healthBadge(health?: string) {
   if (health === "healthy") return opsBadgeOk;
   if (health === "error") return opsBadgeDanger;
@@ -64,6 +84,166 @@ function healthLabel(health?: string) {
   if (health === "healthy") return "Good";
   if (health === "error") return "Error";
   return "Needs review";
+}
+
+function qualityStatusLabel(status?: string) {
+  if (!status) return "Unknown";
+  if (status === "HEALTHY") return "Healthy";
+  if (status === "NEEDS_REVIEW") return "Needs review";
+  if (status === "CRITICAL") return "Critical";
+  if (status === "FAILED") return "Failed";
+  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function qualityBadgeClass(status?: string) {
+  if (status === "HEALTHY") return opsBadgeOk;
+  if (status === "CRITICAL" || status === "FAILED") return opsBadgeDanger;
+  if (status === "NEEDS_REVIEW") return opsBadgeWarn;
+  return "rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300";
+}
+
+function qualityScoreDisplay(score?: number | null) {
+  if (score == null || Number.isNaN(score)) return "-";
+  return Math.round(score);
+}
+
+function dimensionLabel(dimension: string) {
+  return dimension
+    .toLowerCase()
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+function dimensionStatusIcon(status?: string) {
+  if (status === "PASS") return "✓";
+  if (status === "FAIL") return "✕";
+  if (status === "PARTIAL") return "~";
+  if (status === "NOT_APPLICABLE") return "—";
+  return "?";
+}
+
+function QualityPanel({
+  quality,
+  humanReviews,
+}: {
+  quality?: MiyaQualityAssessment | null;
+  humanReviews?: MiyaConversationTurn["human_reviews"];
+}) {
+  if (!quality) {
+    return (
+      <section className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Quality</p>
+        <p className={cn(opsMuted, "mt-2")}>No quality assessment for this turn.</p>
+      </section>
+    );
+  }
+
+  if (quality.overall_state === "NOT_EVALUATED") {
+    return (
+      <section className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Quality</p>
+        <p className={cn(opsMuted, "mt-2")}>Not evaluated (historical or session-only turn).</p>
+      </section>
+    );
+  }
+
+  const critical = (quality.critical_failure_count || 0) > 0 || quality.overall_status === "CRITICAL";
+  const latestHuman = humanReviews?.[0];
+
+  return (
+    <section className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Quality</p>
+
+      {critical ? (
+        <p className="mt-2 text-sm font-bold text-rose-600 dark:text-rose-400">Critical failure</p>
+      ) : null}
+
+      <div className="mt-2 space-y-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Automated</p>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <p className="text-2xl font-bold text-slate-900 dark:text-white">
+              {qualityScoreDisplay(quality?.overall_score)}
+              <span className="text-sm font-normal text-slate-500"> / 100</span>
+            </p>
+            <span className={qualityBadgeClass(quality?.overall_status)}>
+              {qualityStatusLabel(quality?.overall_status)}
+            </span>
+            {quality?.overall_state ? (
+              <span className={opsMuted}>State: {quality.overall_state}</span>
+            ) : null}
+          </div>
+        </div>
+
+        {latestHuman ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-900/40 dark:bg-amber-950/20">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+              Human review
+            </p>
+            <p className="mt-1 text-sm font-semibold">{latestHuman.status.replace(/_/g, " ")}</p>
+            {latestHuman.failure_category ? (
+              <p className={cn(opsMuted, "text-xs")}>Category: {latestHuman.failure_category}</p>
+            ) : null}
+          </div>
+        ) : (
+          <p className={cn(opsMuted, "text-sm")}>Human review: none</p>
+        )}
+      </div>
+
+      {quality.dimension_scores?.length ? (
+        <div className="mt-4 grid gap-1 sm:grid-cols-2">
+          {quality.dimension_scores.map((dim) => (
+            <div key={dim.dimension} className="flex items-center justify-between gap-2 text-sm">
+              <span>{dimensionLabel(dim.dimension)}</span>
+              <span
+                className={cn(
+                  "font-mono text-xs",
+                  dim.status === "PASS"
+                    ? "text-emerald-600"
+                    : dim.status === "FAIL"
+                      ? "text-rose-600"
+                      : "text-slate-500",
+                )}
+              >
+                {dimensionStatusIcon(dim.status)} {dim.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {quality.failures?.length ? (
+        <div className="mt-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-rose-600">Failures</p>
+          <ul className="mt-2 space-y-1">
+            {quality.failures.map((failure) => (
+              <li key={`${failure.code}-${failure.reason}`} className="text-sm text-rose-700 dark:text-rose-300">
+                <span className="font-medium">{failure.code.replace(/_/g, " ")}</span>
+                <span className={opsMuted}> — {failure.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className={cn(opsMuted, "mt-4")}>Failures: none</p>
+      )}
+
+      {quality.evidence?.length ? (
+        <details className="mt-4">
+          <summary className="cursor-pointer text-sm font-semibold">Evidence</summary>
+          <ul className="mt-2 space-y-1 text-sm">
+            {quality.evidence.map((ev) => (
+              <li key={`${ev.dimension}-${ev.source}`}>
+                <span className="font-medium">{ev.source || "System"}</span>
+                {ev.reason ? <span className={opsMuted}> — {ev.reason}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </section>
+  );
 }
 
 function statusLabel(status?: string) {
@@ -118,12 +298,20 @@ function ConversationRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="truncate font-semibold text-slate-900 dark:text-white">
+              <span
+                className={cn(
+                  "inline-flex rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                  channelBadgeClass(item.channel),
+                )}
+              >
+                {channelDisplay(item.channel, item.channel_label)}
+              </span>
+              <p className="mt-1 truncate font-semibold text-slate-900 dark:text-white">
                 {item.user?.name || "Unknown user"}
               </p>
               <p className={opsMuted}>
-                {item.restaurant?.name || "No tenant"}
-                {item.user?.role ? ` · ${item.user.role}` : ""}
+                {item.user?.role || "Unknown role"}
+                {item.restaurant?.name ? ` · ${item.restaurant.name}` : ""}
               </p>
             </div>
             <span className={opsMuted}>{formatTime(item.last_message_at)}</span>
@@ -131,12 +319,27 @@ function ConversationRow({
           <p className="mt-2 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">
             {item.last_message_preview ? `"${item.last_message_preview}"` : "No preview"}
           </p>
+          {item.quality_failure_preview ? (
+            <p className="mt-1 text-xs text-rose-600 dark:text-rose-300">
+              {item.quality_failure_preview}
+            </p>
+          ) : null}
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-              {item.channel}
-            </span>
             <span className={opsMuted}>{statusLabel(item.status)}</span>
             <span className={healthBadge(item.health)}>{healthLabel(item.health)}</span>
+            {item.has_critical_failure ? (
+              <span className="text-xs font-bold text-rose-600 dark:text-rose-400">Critical failure</span>
+            ) : null}
+            {item.quality_score != null || item.quality_status ? (
+              <span className={qualityBadgeClass(item.quality_status)}>
+                {qualityScoreDisplay(item.quality_score)} {qualityStatusLabel(item.quality_status)}
+              </span>
+            ) : null}
+            {item.session_only ? (
+              <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                Session history only
+              </span>
+            ) : null}
           </div>
         </div>
       </div>
@@ -146,13 +349,39 @@ function ConversationRow({
 
 function TurnInspector({
   turn,
-  onFlag,
+  conversationId,
+  onReview,
+  onReEvaluated,
 }: {
   turn: MiyaConversationTurn;
-  onFlag: (reason: string) => void;
+  conversationId: string;
+  onReview: (payload: {
+    status: string;
+    reason?: string;
+    failure_category?: string;
+    severity?: string;
+  }) => void;
+  onReEvaluated: () => void;
 }) {
   const [showTechnical, setShowTechnical] = useState(false);
+  const [reEvaluating, setReEvaluating] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState("NEEDS_REVIEW");
   const trace = turn.trace || {};
+
+  const handleReEvaluate = async () => {
+    if (!window.confirm(
+      "Re-run Miya's quality evaluator for this turn? This does not execute any operational action.",
+    )) {
+      return;
+    }
+    setReEvaluating(true);
+    try {
+      await platformApi.miyaConversationReEvaluate(conversationId, { turn_id: turn.id });
+      onReEvaluated();
+    } finally {
+      setReEvaluating(false);
+    }
+  };
 
   return (
     <div className="space-y-3 border-t border-slate-200 pt-4 dark:border-slate-700">
@@ -247,6 +476,8 @@ function TurnInspector({
         </section>
       ) : null}
 
+      <QualityPanel quality={turn.quality} humanReviews={turn.human_reviews} />
+
       {turn.is_proactive ? (
         <section className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/20">
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">
@@ -300,13 +531,21 @@ function TurnInspector({
               ["Resolution", trace.resolution_state],
               ["Resolution source", trace.resolution_source],
               ["Operation", trace.operation_mode],
-              ["Authorization", trace.outcome === "denied" ? "DENIED" : "ALLOWED"],
               ["Execution", trace.outcome],
-              ["Verification", trace.verified === false ? "FAILED" : trace.verified ? "VERIFIED" : "-"],
               ["Response mode", trace.response_mode],
               ["Language", trace.language],
               ["Language source", trace.language_source],
               ["Runtime path", turn.runtime_path || trace.runtime_path],
+              ["Goal status", trace.goal_status],
+              ["Goal type", trace.goal_type],
+              ["Goal blockers", trace.goal_blocker_count],
+              ["Readiness", trace.readiness_state],
+              ["Attention count", trace.attention_count],
+              ["Decision source", trace.decision_source],
+              ["Action runtime", trace.action_runtime_used ? "yes" : "-"],
+              ["Authorization", trace.authorization_result || (trace.outcome === "denied" ? "DENIED" : "-")],
+              ["Verification", trace.verification_result || (trace.verified === false ? "FAILED" : trace.verified ? "VERIFIED" : "-")],
+              ["Notification", trace.notification_delivery_status],
               ["Latency", trace.latency_ms || trace.elapsed_ms ? `${trace.latency_ms || trace.elapsed_ms}ms` : "-"],
               ["Tools", (trace.tools_called || trace.tools_selected || []).join(", ") || "-"],
             ].map(([label, value]) => (
@@ -320,12 +559,38 @@ function TurnInspector({
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={opsBtnPrimary} onClick={() => onFlag("correct")}>
-          Mark as correct
+        <button type="button" className={opsBtnPrimary} onClick={() => onReview({ status: "CORRECT" })}>
+          Mark correct
         </button>
-        <button type="button" className={opsBtnGhost} onClick={() => onFlag("wrong_entity")}>
-          Flag for review
+        <select
+          value={reviewStatus}
+          onChange={(e) => setReviewStatus(e.target.value)}
+          className={opsInput}
+        >
+          <option value="NEEDS_REVIEW">Needs review</option>
+          <option value="INCORRECT">Incorrect</option>
+          <option value="PARTIALLY_CORRECT">Partially correct</option>
+          <option value="UNSAFE">Unsafe</option>
+        </select>
+        <button
+          type="button"
+          className={opsBtnGhost}
+          onClick={() =>
+            onReview({
+              status: reviewStatus,
+              reason: "manual_review",
+              failure_category: "entity",
+              severity: "HIGH",
+            })
+          }
+        >
+          Submit human review
         </button>
+        {!turn.session_only ? (
+          <button type="button" className={opsBtnGhost} onClick={handleReEvaluate} disabled={reEvaluating}>
+            {reEvaluating ? "Re-evaluating..." : "Re-evaluate"}
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -353,15 +618,23 @@ function ConversationDetailPanel({
   });
 
   const reviewMutation = useMutation({
-    mutationFn: (payload: { status: "correct" | "flagged"; reason?: string }) =>
+    mutationFn: (payload: {
+      status: string;
+      reason?: string;
+      failure_category?: string;
+      severity?: string;
+    }) =>
       platformApi.miyaConversationQuality(conversationId, {
         status: payload.status,
         reason: payload.reason,
         notes,
         turn_id: selectedTurnId || undefined,
+        failure_category: payload.failure_category,
+        severity: payload.severity,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["platform-miya-conversation", conversationId] });
+      qc.invalidateQueries({ queryKey: ["platform-miya-conversation-turns", conversationId] });
       setNotes("");
     },
   });
@@ -490,12 +763,11 @@ function ConversationDetailPanel({
             {selectedTurn ? (
               <TurnInspector
                 turn={selectedTurn}
-                onFlag={(reason) =>
-                  reviewMutation.mutate({
-                    status: reason === "correct" ? "correct" : "flagged",
-                    reason,
-                  })
-                }
+                conversationId={conversationId}
+                onReview={(payload) => reviewMutation.mutate(payload)}
+                onReEvaluated={() => {
+                  qc.invalidateQueries({ queryKey: ["platform-miya-conversation-turns", conversationId] });
+                }}
               />
             ) : (
               <p className={opsMuted}>Select a message to inspect Miya behavior.</p>
@@ -522,6 +794,8 @@ export default function MiyaConversationsPage() {
   const [role, setRole] = useState("");
   const [status, setStatus] = useState("");
   const [health, setHealth] = useState("");
+  const [quality, setQuality] = useState("");
+  const [failureCategory, setFailureCategory] = useState("");
   const [datePreset, setDatePreset] = useState<DatePreset>("today");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -544,6 +818,8 @@ export default function MiyaConversationsPage() {
       role,
       status,
       health,
+      quality,
+      failureCategory,
       datePreset,
     ],
     queryFn: () =>
@@ -555,6 +831,8 @@ export default function MiyaConversationsPage() {
         ...(role ? { role } : {}),
         ...(status ? { status } : {}),
         ...(health ? { health } : {}),
+        ...(quality ? { quality } : {}),
+        ...(failureCategory ? { failure_category: failureCategory } : {}),
         date: datePreset,
       }),
   });
@@ -616,6 +894,74 @@ export default function MiyaConversationsPage() {
         />
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <MetricCard label="WhatsApp" value={metrics?.whatsapp_conversations ?? "-"} />
+        <MetricCard label="Dashboard" value={metrics?.dashboard_conversations ?? "-"} />
+        <MetricCard label="Proactive" value={metrics?.proactive_conversations ?? "-"} />
+        <MetricCard label="Staff" value={metrics?.staff_conversations ?? "-"} />
+        <MetricCard label="Managers" value={metrics?.manager_conversations ?? "-"} />
+        <MetricCard label="Miya actions" value={metrics?.miya_actions ?? "-"} />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {[
+          { label: "Critical", value: "CRITICAL" },
+          { label: "Needs review", value: "NEEDS_REVIEW" },
+          { label: "Unreviewed", value: "UNREVIEWED" },
+          { label: "Healthy", value: "HEALTHY" },
+        ].map((chip) => (
+          <button
+            key={chip.value}
+            type="button"
+            className={cn(
+              opsBtnGhost,
+              quality === chip.value && "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/20",
+            )}
+            onClick={() => {
+              setPage(1);
+              setQuality(quality === chip.value ? "" : chip.value);
+            }}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <MetricCard
+          label="Overall quality"
+          value={
+            metrics?.overall_quality_score != null
+              ? qualityScoreDisplay(metrics.overall_quality_score)
+              : "Insufficient data"
+          }
+        />
+        <MetricCard label="Pass turns" value={metrics?.correct_turns ?? "Insufficient data"} />
+        <MetricCard label="Partial turns" value={metrics?.partial_turns ?? "Insufficient data"} />
+        <MetricCard label="Unknown turns" value={metrics?.unknown_turns ?? "Insufficient data"} />
+        <MetricCard
+          label="Quality coverage"
+          value={metrics?.quality_coverage?.label ?? "Insufficient data"}
+          hint={metrics?.quality_coverage?.warning ? "Coverage below 100%" : undefined}
+        />
+      </div>
+
+      {metrics?.failure_sources?.length ? (
+        <div className={cn(opsCard, "p-4")}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+            Failure sources
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {metrics.failure_sources.map((src) => (
+              <div key={src.category} className="text-sm">
+                <span className="font-medium capitalize">{src.category}</span>
+                <span className={opsMuted}> — {src.pct}% ({src.count})</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <form
         className="flex flex-wrap gap-2"
         onSubmit={(e) => {
@@ -644,7 +990,7 @@ export default function MiyaConversationsPage() {
           <option value="">All channels</option>
           {(filtersQuery.data?.channels || []).map((ch) => (
             <option key={ch} value={ch}>
-              {ch}
+              {channelDisplay(ch)}
             </option>
           ))}
         </select>
@@ -686,10 +1032,42 @@ export default function MiyaConversationsPage() {
           }}
           className={opsInput}
         >
-          <option value="">All quality</option>
+          <option value="">All health</option>
           <option value="healthy">Good</option>
           <option value="needs_review">Needs review</option>
           <option value="error">Error</option>
+        </select>
+        <select
+          value={quality}
+          onChange={(e) => {
+            setPage(1);
+            setQuality(e.target.value);
+          }}
+          className={opsInput}
+        >
+          <option value="">All quality</option>
+          {(filtersQuery.data?.quality || ["HEALTHY", "NEEDS_REVIEW", "CRITICAL", "FAILED", "UNREVIEWED"]).map(
+            (qStatus) => (
+              <option key={qStatus} value={qStatus}>
+                {qualityStatusLabel(qStatus)}
+              </option>
+            ),
+          )}
+        </select>
+        <select
+          value={failureCategory}
+          onChange={(e) => {
+            setPage(1);
+            setFailureCategory(e.target.value);
+          }}
+          className={opsInput}
+        >
+          <option value="">All failure categories</option>
+          {(filtersQuery.data?.failure_categories || []).map((cat) => (
+            <option key={cat} value={cat}>
+              {cat.replace(/_/g, " ")}
+            </option>
+          ))}
         </select>
         <button type="submit" className={opsBtnPrimary}>
           Search
@@ -733,7 +1111,9 @@ export default function MiyaConversationsPage() {
             <div className="p-8 text-center">
               <p className="font-medium text-slate-900 dark:text-white">No conversations found</p>
               <p className={cn(opsMuted, "mt-1")}>
-                Try widening the date range or clearing filters.
+                {submitted || channel || role || status || health || quality || failureCategory
+                  ? "No persisted Miya turns match the current search and filters. Try widening the date range or clearing filters."
+                  : "No persisted Miya conversations for this date range yet. Turns appear here after WhatsApp, dashboard, or proactive Miya activity."}
               </p>
             </div>
           )}

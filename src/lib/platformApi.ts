@@ -336,6 +336,44 @@ export type MiyaConversationMetrics = {
   errors: number;
   avg_response_time_ms: number;
   avg_response_time_label: string;
+  whatsapp_conversations?: number;
+  dashboard_conversations?: number;
+  proactive_conversations?: number;
+  staff_conversations?: number;
+  manager_conversations?: number;
+  admin_conversations?: number;
+  miya_actions?: number;
+  miya_errors?: number;
+  fallback_turns?: number;
+  overall_quality_score?: number | null;
+  correct_turns?: number;
+  partial_turns?: number;
+  unknown_turns?: number;
+  not_evaluated_turns?: number;
+  failed_quality_turns?: number;
+  critical_failures?: number;
+  quality_needs_review?: number;
+  execution_success_rate?: number | null;
+  verification_success_rate?: number | null;
+  entity_resolution_success_rate?: number | null;
+  response_consistency_rate?: number | null;
+  follow_up_success_rate?: number | null;
+  failure_sources?: Array<{ category: string; count: number; pct: number }>;
+  quality_coverage?: {
+    rate: number | null;
+    label: string;
+    assessed: number;
+    eligible: number;
+    warning?: boolean;
+  };
+  quality_monitoring?: {
+    evaluation_success_count: number;
+    evaluation_failure_count: number;
+    unknown_count: number;
+    turns_without_quality: number;
+    avg_evaluation_latency_ms: number;
+    evaluator_version: string;
+  };
 };
 
 export type MiyaConversationUser = {
@@ -351,18 +389,70 @@ export type MiyaConversationRestaurant = {
   name: string;
 };
 
+export type MiyaQualityAssessment = {
+  overall_score: number;
+  overall_status: string;
+  confidence?: number;
+  dimension_scores?: Array<{
+    dimension: string;
+    status: string;
+    score: number;
+    confidence?: number;
+  }>;
+  evidence?: Array<{
+    dimension: string;
+    status: string;
+    confidence?: number;
+    source?: string;
+    reason?: string;
+  }>;
+  failures?: Array<{
+    code: string;
+    severity: string;
+    category: string;
+    reason: string;
+    source?: string;
+  }>;
+  warnings?: string[];
+  outcome?: string;
+  review_required?: boolean;
+  critical_failure_count?: number;
+  overall_state?: string;
+  assessment_version?: string;
+  evaluation_error?: string;
+  evaluation_reason?: string;
+  evaluated_at?: string;
+  previous_assessments?: Array<Record<string, unknown>>;
+};
+
+export type MiyaHumanReview = {
+  id: string;
+  status: string;
+  reason?: string;
+  failure_category?: string;
+  severity?: string;
+  notes?: string;
+  created_at: string;
+};
+
 export type MiyaConversationListItem = {
   id: string;
   conversation_id: string;
   user: MiyaConversationUser | null;
   restaurant: MiyaConversationRestaurant | null;
   channel: string;
+  channel_label?: string;
   last_message_preview: string;
   last_message_at: string | null;
   started_at: string | null;
   status: string;
   health: string;
   turn_count: number;
+  quality_score?: number | null;
+  quality_status?: string;
+  quality_failure_preview?: string;
+  quality_state?: string;
+  has_critical_failure?: boolean;
   session_only?: boolean;
 };
 
@@ -401,6 +491,11 @@ export type MiyaConversationTurn = {
   }>;
   health?: string;
   review_signals?: Array<{ level: string; code: string; label: string }>;
+  quality?: MiyaQualityAssessment | null;
+  quality_score?: number | null;
+  quality_status?: string;
+  quality_state?: string;
+  human_reviews?: MiyaHumanReview[];
   trace?: Record<string, unknown>;
   focus_snapshot?: Record<string, unknown>;
   conversation_status?: string;
@@ -446,6 +541,8 @@ export type MiyaConversationFilters = {
   roles: string[];
   statuses: string[];
   health: string[];
+  quality?: string[];
+  failure_categories?: string[];
   date_presets: string[];
 };
 
@@ -593,13 +690,40 @@ export const platformApi = {
   },
   miyaConversationQuality: (
     id: string,
-    body: { status: "correct" | "flagged"; reason?: string; notes?: string; turn_id?: string },
+    body: {
+      status: string;
+      reason?: string;
+      notes?: string;
+      turn_id?: string;
+      failure_category?: string;
+      severity?: string;
+    },
   ) =>
-    platformFetch<{ id: string; status: string; reason: string; notes: string; created_at: string }>(
-      `/miya/conversations/${encodeURIComponent(id)}/quality/`,
-      {
-        method: "POST",
-        body: JSON.stringify(body),
-      },
-    ),
+    platformFetch<{
+      id: string;
+      status: string;
+      reason: string;
+      notes: string;
+      failure_category?: string;
+      severity?: string;
+      created_at: string;
+    }>(`/miya/conversations/${encodeURIComponent(id)}/quality/`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  miyaConversationReEvaluate: (
+    conversationId: string,
+    body: { turn_id: string },
+  ) =>
+    platformFetch<{
+      turn_id: string;
+      conversation_id: string;
+      previous: Record<string, unknown>;
+      current: Record<string, unknown>;
+      evaluator_version: string;
+      assessment: Record<string, unknown>;
+    }>(`/miya/conversations/${encodeURIComponent(conversationId)}/quality/re-evaluate/`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };
