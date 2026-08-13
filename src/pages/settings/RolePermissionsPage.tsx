@@ -285,7 +285,7 @@ export default function RolePermissionsPage() {
                 className="h-4 w-4 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
               />
               <span className="text-[13px] font-medium text-slate-800 dark:text-slate-100 leading-snug truncate">
-                {entry.label}
+                {t(`rbac.feature.${entry.id}`, { defaultValue: entry.label })}
               </span>
             </label>
           );

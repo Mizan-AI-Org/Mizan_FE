@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
+import { useLanguage } from "@/hooks/use-language";
 import { API_BASE } from "@/lib/api";
 import { getMiyaPageContext, askMiya, subscribeMiyaPageContext } from "@/lib/miyaPageContext";
 import { cn } from "@/lib/utils";
@@ -78,6 +79,7 @@ type Props = {
 
 export function MiyaCommandBar({ className = "", inputClassName = "" }: Props) {
   const { user, accessToken } = useAuth() as AuthContextType;
+  const { t } = useLanguage();
   const location = useLocation();
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -294,13 +296,13 @@ export function MiyaCommandBar({ className = "", inputClassName = "" }: Props) {
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Ask Miya anything…"
+          placeholder={t("ai.chat_placeholder")}
           className={cn(
             "h-11 w-full rounded-panel border border-border bg-card pl-9 pr-16 text-body shadow-soft outline-none",
             "placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/20",
             inputClassName,
           )}
-          aria-label="Ask Miya anything"
+          aria-label={t("ai.chat_placeholder")}
           aria-haspopup="dialog"
           autoComplete="off"
         />

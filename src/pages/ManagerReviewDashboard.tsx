@@ -873,9 +873,9 @@ const ManagerReviewDashboard: React.FC = () => {
       ) : null}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Ops review</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("ops.review.title")}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Checklist submissions and safety incidents - review, assign, resolve.
+            {t("ops.review.desc")}
           </p>
         </div>
         <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 p-1 gap-1">
@@ -890,7 +890,7 @@ const ManagerReviewDashboard: React.FC = () => {
             )}
           >
             <ClipboardCheck className="h-4 w-4" />
-            Checklists
+            {t("ops.review.tab.checklists")}
             <span className={cn(
               "rounded-full px-1.5 py-0.5 text-[10px] tabular-nums",
               activeTab === "submitted" ? "bg-white/20" : "bg-slate-200 dark:bg-slate-700",
@@ -911,7 +911,7 @@ const ManagerReviewDashboard: React.FC = () => {
             )}
           >
             <ShieldAlert className="h-4 w-4" />
-            Incidents
+            {t("ops.review.tab.incidents")}
             <span className={cn(
               "rounded-full px-1.5 py-0.5 text-[10px] tabular-nums",
               activeTab === "incidents" ? "bg-white/20" : incidentKpis.open > 0 ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200" : "bg-slate-200 dark:bg-slate-700",
@@ -1608,49 +1608,49 @@ const ManagerReviewDashboard: React.FC = () => {
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Card>
               <CardContent className="p-4">
-                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Open</div>
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{t("ops.review.kpi.open")}</div>
                 <div className={cn("mt-1 text-2xl font-semibold tabular-nums", incidentKpis.open > 0 && "text-amber-600")}>
                   {incidentKpis.open}
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">Needs attention</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{t("ops.review.kpi.needs_attention")}</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Critical / high</div>
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{t("ops.review.kpi.critical_high")}</div>
                 <div className={cn("mt-1 text-2xl font-semibold tabular-nums", incidentKpis.critical > 0 && "text-red-600")}>
                   {incidentKpis.critical}
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">Among open</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{t("ops.review.kpi.among_open")}</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Unassigned</div>
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{t("ops.review.kpi.unassigned")}</div>
                 <div className="mt-1 text-2xl font-semibold tabular-nums">{incidentKpis.unassigned}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Open with no owner</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{t("ops.review.kpi.no_owner")}</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Resolved (7d)</div>
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{t("ops.review.kpi.resolved_7d")}</div>
                 <div className="mt-1 text-2xl font-semibold tabular-nums text-emerald-600">{incidentKpis.resolved7}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">{incidentKpis.total} total filed</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{t("ops.review.kpi.total_filed", { count: incidentKpis.total })}</div>
               </CardContent>
             </Card>
           </div>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Reported incidents</CardTitle>
+              <CardTitle className="text-base">{t("ops.review.incidents.title")}</CardTitle>
               <CardDescription>
-                Safety and service reports from staff - assign and close them here.
+                {t("ops.review.incidents.desc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-2">
                 <Input
-                  placeholder="Search title or location…"
+                  placeholder={t("ops.review.incidents.search")}
                   value={incidentFilters.search}
                   onChange={(e) => {
                     setIncidentFilters({ ...incidentFilters, search: e.target.value });
@@ -1660,10 +1660,10 @@ const ManagerReviewDashboard: React.FC = () => {
                 />
                 <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 gap-0.5">
                   {[
-                    { value: "open", label: "Open" },
-                    { value: "", label: "All" },
-                    { value: "resolved", label: "Resolved" },
-                    { value: "dismissed", label: "Dismissed" },
+                    { value: "open", label: t("status.OPEN") },
+                    { value: "", label: t("common.all") },
+                    { value: "resolved", label: t("status.RESOLVED") },
+                    { value: "dismissed", label: t("status.DISMISSED", { defaultValue: t("common.dismissed", { defaultValue: "Dismissed" }) }) },
                   ].map((opt) => (
                     <button
                       key={opt.value || "all"}
@@ -1691,11 +1691,11 @@ const ManagerReviewDashboard: React.FC = () => {
                   }}
                   className="border border-slate-200 dark:border-slate-700 bg-card text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 text-sm"
                 >
-                  <option value="">All severities</option>
-                  <option value="critical">Critical</option>
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
+                  <option value="">{t("ops.review.incidents.all_severities")}</option>
+                  <option value="critical">{t("severity.CRITICAL")}</option>
+                  <option value="high">{t("severity.HIGH")}</option>
+                  <option value="medium">{t("severity.MEDIUM")}</option>
+                  <option value="low">{t("severity.LOW")}</option>
                 </select>
               </div>
 
@@ -1716,12 +1716,12 @@ const ManagerReviewDashboard: React.FC = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Incident</TableHead>
-                        <TableHead>Severity</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Owner</TableHead>
-                        <TableHead>Reported</TableHead>
-                        <TableHead className="w-[52px] text-center">Photos</TableHead>
+                        <TableHead>{t("ops.review.col.incident")}</TableHead>
+                        <TableHead>{t("ops.review.col.severity")}</TableHead>
+                        <TableHead>{t("ops.review.col.status")}</TableHead>
+                        <TableHead>{t("ops.review.col.owner")}</TableHead>
+                        <TableHead>{t("ops.review.col.reported")}</TableHead>
+                        <TableHead className="w-[52px] text-center">{t("ops.review.col.photos")}</TableHead>
                         <TableHead className="w-[90px]" />
                       </TableRow>
                     </TableHeader>
@@ -1764,7 +1764,7 @@ const ManagerReviewDashboard: React.FC = () => {
                               ? `${incident.assigned_to_details.first_name ?? ""} ${incident.assigned_to_details.last_name ?? ""}`.trim()
                               : (
                                 <span className="text-amber-700 dark:text-amber-400 text-xs font-medium">
-                                  Unassigned
+                                  {t("ops.review.kpi.unassigned")}
                                 </span>
                               )}
                             <div className="text-[11px] text-muted-foreground">
@@ -1800,7 +1800,7 @@ const ManagerReviewDashboard: React.FC = () => {
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Button size="sm" variant="outline" onClick={() => setSelectedIncident(incident.id)}>
-                              Open
+                              {t("common.open")}
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -1968,7 +1968,7 @@ const ManagerReviewDashboard: React.FC = () => {
                         onChange={(e) => setAssignTo(e.target.value)}
                         className="flex-1 border border-slate-200 dark:border-slate-700 bg-card rounded-md px-3 py-2 text-sm"
                       >
-                        <option value="">Unassigned</option>
+                        <option value="">{t("ops.review.kpi.unassigned")}</option>
                         {(() => {
                           const rows = Array.isArray(staffList) ? [...staffList] : [];
                           const currentId = assignTo;
@@ -2054,9 +2054,9 @@ const ManagerReviewDashboard: React.FC = () => {
                           onChange={(e) => setUpdateStatus(e.target.value)}
                           className="w-full border border-slate-200 dark:border-slate-700 bg-card rounded-md px-3 py-2 text-sm"
                         >
-                          <option value="OPEN">Open</option>
-                          <option value="RESOLVED">Resolved</option>
-                          <option value="DISMISSED">Dismissed</option>
+                          <option value="OPEN">{t("status.OPEN")}</option>
+                          <option value="RESOLVED">{t("status.RESOLVED")}</option>
+                          <option value="DISMISSED">{t("status.DISMISSED")}</option>
                         </select>
                       </div>
                     </div>

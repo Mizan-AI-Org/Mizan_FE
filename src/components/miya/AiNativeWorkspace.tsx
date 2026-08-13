@@ -228,8 +228,8 @@ export function AiNativeWorkspace({
                 ? t("ai.workspace.reviewing")
                 : attention.length > 0
                   ? attention.length === 1
-                    ? "1 item needs attention"
-                    : `${attention.length} items need attention`
+                    ? t("ai.workspace.items_need_attention", { count: attention.length })
+                    : t("ai.workspace.items_need_attention_plural", { count: attention.length })
                   : data?.summary?.body || data?.summary?.headline || t("ai.workspace.no_urgent")}
             </p>
           </div>

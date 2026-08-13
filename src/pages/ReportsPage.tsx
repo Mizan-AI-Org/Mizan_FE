@@ -32,10 +32,10 @@ interface Report {
 }
 
 const ReportTypes = [
-  { value: "SALES_SUMMARY", label: "Sales Summary" },
-  { value: "ATTENDANCE_OVERVIEW", label: "Attendance Overview" },
-  { value: "INVENTORY_STATUS", label: "Inventory Status" },
-  { value: "SHIFT_PERFORMANCE", label: "Shift Performance" },
+  { value: "SALES_SUMMARY", labelKey: "reports.type.sales_summary" },
+  { value: "ATTENDANCE_OVERVIEW", labelKey: "reports.type.attendance_overview" },
+  { value: "INVENTORY_STATUS", labelKey: "reports.type.inventory_status" },
+  { value: "SHIFT_PERFORMANCE", labelKey: "reports.type.shift_performance" },
 ];
 
 const ReportsPage: React.FC = () => {
@@ -217,7 +217,7 @@ const ReportsPage: React.FC = () => {
                 <SelectContent>
                   {ReportTypes.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
-                      {type.label}
+                      {t(type.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -274,8 +274,10 @@ const ReportsPage: React.FC = () => {
                 >
                   <div>
                     <p className="text-card-title">
-                      {ReportTypes.find((type) => type.value === report.report_type)?.label ||
-                        report.report_type}
+                      {(() => {
+                        const key = ReportTypes.find((type) => type.value === report.report_type)?.labelKey;
+                        return key ? t(key) : report.report_type;
+                      })()}
                     </p>
                     <p className="mt-1 type-secondary">
                       {t("reportsPage.generated_by")} {report.generated_by_info.first_name}{" "}
@@ -298,10 +300,10 @@ const ReportsPage: React.FC = () => {
         <DialogContent className="z-[3100] max-h-[90vh] overflow-y-auto sm:max-w-[800px]">
           <DialogHeader>
             <DialogTitle>
-              {(ReportTypes.find((type) => type.value === viewingReport?.report_type)?.label ||
-                viewingReport?.report_type) +
-                " - " +
-                t("reportsPage.detail_title_suffix")}
+              {(() => {
+                const key = ReportTypes.find((type) => type.value === viewingReport?.report_type)?.labelKey;
+                return (key ? t(key) : viewingReport?.report_type) + " - " + t("reportsPage.detail_title_suffix");
+              })()}
             </DialogTitle>
           </DialogHeader>
           <div className="rounded-control border border-border bg-muted/40 p-4">

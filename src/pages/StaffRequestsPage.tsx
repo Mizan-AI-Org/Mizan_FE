@@ -1215,12 +1215,25 @@ const StaffRequestsPage: React.FC = () => {
     </div>
   );
 
+  const laneTitle = (laneId?: string | null, fallback?: string | null) =>
+    laneId
+      ? t(`staff.requests.lane.${laneId}.title`, { defaultValue: fallback || laneId })
+      : fallback || t("staff.requests.all_requests");
+  const laneSubtitle = (laneId?: string | null, fallback?: string | null) =>
+    laneId
+      ? t(`staff.requests.lane.${laneId}.subtitle`, { defaultValue: fallback || "" })
+      : fallback || null;
+  const laneLabel = (laneId?: string | null, fallback?: string | null) =>
+    laneId
+      ? t(`staff.requests.lane.${laneId}.label`, { defaultValue: fallback || laneId })
+      : fallback || "";
+
   const pageTitle = dashboardListMode
     ? t("staff.requests.tasks_demands_title")
-    : activeLane?.page_title ?? t("staff.requests.all_requests");
+    : laneTitle(activeLaneId, activeLane?.page_title);
   const pageSubtitle = dashboardListMode
     ? t("staff.requests.tasks_demands_subtitle")
-    : activeLane?.page_subtitle ?? null;
+    : laneSubtitle(activeLaneId, activeLane?.page_subtitle) || null;
 
   const workspaceModule: WorkspaceModule =
     activeLaneId === "finance" ||
@@ -1509,7 +1522,7 @@ const StaffRequestsPage: React.FC = () => {
                     )}
                   >
                     <span className="opacity-80">{getLaneIcon(lane)}</span>
-                    <span>{lane.label}</span>
+                    <span>{laneLabel(lane.lane_id, lane.label)}</span>
                     {count > 0 && (
                       <Badge
                         variant="secondary"

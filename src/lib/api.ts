@@ -1457,10 +1457,12 @@ export class BackendService {
     return this.fetchWithError(`/miya/attention/${suffix}`);
   }
 
-  async getMiyaModuleWorkspace(module: string, params?: { restaurant_id?: string }) {
+  async getMiyaModuleWorkspace(module: string, params?: { restaurant_id?: string; locale?: string }) {
     const qs = new URLSearchParams();
     qs.set("module", module);
     if (params?.restaurant_id) qs.set("restaurant_id", params.restaurant_id);
+    const lang = params?.locale || (typeof localStorage !== "undefined" ? localStorage.getItem("language") : null) || "en";
+    qs.set("locale", lang);
     return this.fetchWithError(`/miya/workspace/?${qs.toString()}`);
   }
 

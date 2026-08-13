@@ -1,29 +1,31 @@
 import React from "react";
 import { Workflow, Zap } from "lucide-react";
 import { OsHubPage } from "@/pages/os/OsHubPage";
+import { useLanguage } from "@/hooks/use-language";
 
 export default function AutomationHubPage() {
+  const { t } = useLanguage();
   return (
     <OsHubPage
-      eyebrow="Automation"
-      title="What Miya automates"
-      description="See enabled workflows and the operational work Miya handles without you."
-      askPrompt="What has Miya automated in the last 7 days?"
+      eyebrow={t("hub.automation.eyebrow")}
+      title={t("hub.automation.title")}
+      description={t("hub.automation.desc")}
+      askPrompt={t("hub.automation.ask")}
       workspaceModule="automations"
       links={[
         {
-          label: "Workflows",
-          description: "Incident routing, reminders, escalations, and custom automations.",
+          label: t("hub.automation.workflows"),
+          description: t("hub.automation.workflows_desc"),
           href: "/dashboard/automations",
           icon: Workflow,
-          askPrompt: "List enabled automations and what they did recently.",
+          askPrompt: t("hub.automation.workflows_ask"),
         },
         {
-          label: "Miya activity",
-          description: "Verified actions Miya performed today.",
+          label: t("hub.automation.activity"),
+          description: t("hub.automation.activity_desc"),
           href: "/dashboard#miya-activity",
           icon: Zap,
-          askPrompt: "Show me what Miya has done today.",
+          askPrompt: t("hub.automation.activity_ask"),
         },
       ]}
     />
