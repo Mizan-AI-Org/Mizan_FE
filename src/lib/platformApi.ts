@@ -329,6 +329,126 @@ export type PlatformWhatsAppTestResult = {
   config?: PlatformWhatsAppConfig;
 };
 
+export type MiyaConversationMetrics = {
+  conversations_today: number;
+  active_now: number;
+  needs_review: number;
+  errors: number;
+  avg_response_time_ms: number;
+  avg_response_time_label: string;
+};
+
+export type MiyaConversationUser = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+};
+
+export type MiyaConversationRestaurant = {
+  id: string;
+  name: string;
+};
+
+export type MiyaConversationListItem = {
+  id: string;
+  conversation_id: string;
+  user: MiyaConversationUser | null;
+  restaurant: MiyaConversationRestaurant | null;
+  channel: string;
+  last_message_preview: string;
+  last_message_at: string | null;
+  started_at: string | null;
+  status: string;
+  health: string;
+  turn_count: number;
+  session_only?: boolean;
+};
+
+export type MiyaConversationTurn = {
+  id: string;
+  message_id: string;
+  role?: string;
+  user_message?: string;
+  miya_reply?: string;
+  content?: string;
+  created_at: string;
+  is_proactive: boolean;
+  proactive_meta?: Record<string, unknown>;
+  attachments?: Array<{
+    id: string;
+    title?: string;
+    mime_type?: string;
+    url?: string;
+    category?: string;
+  }>;
+  understanding?: {
+    summary?: string;
+    entity?: { type?: string; id?: string; label?: string };
+    action?: string;
+    target?: string;
+    resolution_state?: string;
+    action_pipeline?: Array<{ stage: string; detail?: string }>;
+    proactive_pipeline?: Array<{ stage: string; detail?: string }>;
+  };
+  actions?: Array<{
+    tool: string;
+    label: string;
+    success: boolean;
+    verified?: boolean;
+    reason?: string;
+  }>;
+  health?: string;
+  review_signals?: Array<{ level: string; code: string; label: string }>;
+  trace?: Record<string, unknown>;
+  focus_snapshot?: Record<string, unknown>;
+  conversation_status?: string;
+  runtime_path?: string;
+  session_only?: boolean;
+};
+
+export type MiyaConversationDetail = {
+  id: string;
+  conversation_id: string;
+  user: MiyaConversationUser | null;
+  restaurant: MiyaConversationRestaurant | null;
+  channel: string;
+  started_at: string;
+  last_message_at: string;
+  status: string;
+  health: string;
+  context: {
+    active_entity?: { type?: string; id?: string; label?: string };
+    recent_entities?: Array<{ type?: string; id?: string; label?: string }>;
+    working_set?: unknown[];
+    last_actionable_entity?: Record<string, unknown>;
+    last_action?: Record<string, unknown>;
+    language?: string;
+    language_source?: string;
+    proactive_focus?: Record<string, unknown>;
+    conversation_state?: string;
+  };
+  reviews: Array<{
+    id: string;
+    status: string;
+    reason: string;
+    notes: string;
+    created_at: string;
+    reviewer_id?: string | null;
+  }>;
+  turn_count: number;
+  session_only?: boolean;
+};
+
+export type MiyaConversationFilters = {
+  channels: string[];
+  roles: string[];
+  statuses: string[];
+  health: string[];
+  date_presets: string[];
+};
+
 export const platformApi = {
   me: () => platformFetch<PlatformMe>("/me/"),
   overview: () => platformFetch<PlatformOverview>("/overview/"),
@@ -449,4 +569,37 @@ export const platformApi = {
     }),
   deleteWhatsAppTemplate: (id: string) =>
     platformFetch<void>(`/whatsapp/templates/${id}/`, { method: "DELETE" }),
+  miyaConversationMetrics: (params?: Record<string, string>) => {
+    const qs = new URLSearchParams(params || {}).toString();
+    return platformFetch<MiyaConversationMetrics>(
+      `/miya/conversations/metrics/${qs ? `?${qs}` : ""}`,
+    );
+  },
+  miyaConversationFilters: () =>
+    platformFetch<MiyaConversationFilters>("/miya/conversations/filters/"),
+  miyaConversations: (params?: Record<string, string>) => {
+    const qs = new URLSearchParams(params || {}).toString();
+    return platformFetch<Paginated<MiyaConversationListItem>>(
+      `/miya/conversations/${qs ? `?${qs}` : ""}`,
+    );
+  },
+  miyaConversation: (id: string) =>
+    platformFetch<MiyaConversationDetail>(`/miya/conversations/${encodeURIComponent(id)}/`),
+  miyaConversationTurns: (id: string, params?: Record<string, string>) => {
+    const qs = new URLSearchParams(params || {}).toString();
+    return platformFetch<Paginated<MiyaConversationTurn>>(
+      `/miya/conversations/${encodeURIComponent(id)}/turns/${qs ? `?${qs}` : ""}`,
+    );
+  },
+  miyaConversationQuality: (
+    id: string,
+    body: { status: "correct" | "flagged"; reason?: string; notes?: string; turn_id?: string },
+  ) =>
+    platformFetch<{ id: string; status: string; reason: string; notes: string; created_at: string }>(
+      `/miya/conversations/${encodeURIComponent(id)}/quality/`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+    ),
 };

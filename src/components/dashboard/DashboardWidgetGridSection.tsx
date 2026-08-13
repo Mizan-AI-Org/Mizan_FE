@@ -366,9 +366,9 @@ export function DashboardWidgetGridSection() {
         >
           <SectionChevron open={showWidgets} />
           <div>
-            <p className="text-caption-label">Widgets</p>
+            <p className="text-caption-label">{t("widgets.page.title")}</p>
             <p className="type-secondary">
-              Your operational dashboards and everyday business views.
+              {t("widgets.page.desc")}
             </p>
           </div>
         </button>

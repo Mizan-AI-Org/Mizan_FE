@@ -2,43 +2,45 @@ import React from "react";
 import { BarChart3, Building2, ClipboardCheck, Wallet } from "lucide-react";
 import { OsHubPage } from "@/pages/os/OsHubPage";
 import { miyaPrompts } from "@/components/miya/AskMiyaButton";
+import { useLanguage } from "@/hooks/use-language";
 
 export default function BusinessHubPage() {
+  const { t } = useLanguage();
   return (
     <OsHubPage
-      eyebrow="Business"
-      title="How the business is performing"
-      description="Insights first - operations, finance, staffing, compliance, and risk."
-      askPrompt="What's my biggest operational risk right now?"
+      eyebrow={t("hub.business.eyebrow")}
+      title={t("hub.business.title")}
+      description={t("hub.business.desc")}
+      askPrompt={t("hub.business.ask")}
       workspaceModule="analytics"
       links={[
         {
-          label: "Analytics",
-          description: "Operational performance and trends worth acting on.",
+          label: t("hub.business.analytics"),
+          description: t("hub.business.analytics_desc"),
           href: "/dashboard/reports",
           icon: BarChart3,
-          askPrompt: "Summarize business performance for me.",
+          askPrompt: t("hub.business.analytics_ask"),
         },
         {
-          label: "Locations",
-          description: "Multi-branch health and exceptions.",
+          label: t("hub.business.locations"),
+          description: t("hub.business.locations_desc"),
           href: "/dashboard/locations-overview",
           icon: Building2,
-          askPrompt: "Which locations need attention?",
+          askPrompt: t("hub.business.locations_ask"),
         },
         {
-          label: "Checklists & quality",
-          description: "Execution quality and recurring misses.",
+          label: t("hub.business.checklists"),
+          description: t("hub.business.checklists_desc"),
           href: "/dashboard/analytics?tab=submitted",
           icon: ClipboardCheck,
-          askPrompt: "Which checklists are failing or overdue?",
+          askPrompt: t("hub.business.checklists_ask"),
         },
         {
-          label: "Approvals & finance",
-          description: "Invoices and decisions waiting on you.",
+          label: t("hub.business.approvals"),
+          description: t("hub.business.approvals_desc"),
           href: "/dashboard/staff-requests?lane=finance",
           icon: Wallet,
-          askPrompt: miyaPrompts.invoice(),
+          askPrompt: miyaPrompts.invoice(undefined, t),
         },
       ]}
     />

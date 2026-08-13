@@ -44,6 +44,7 @@ async function main() {
       ["/admin", "Overview"],
       ["/admin/tenants", "Tenants"],
       ["/admin/users", "Users"],
+      ["/admin/miya-conversations", "Miya's Conversations"],
       ["/admin/operators", "Operators"],
       ["/admin/billing", "Billing"],
       ["/admin/health", "System health"],

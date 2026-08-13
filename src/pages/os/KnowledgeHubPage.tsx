@@ -2,36 +2,38 @@ import React from "react";
 import { BookOpen, FileText, Settings } from "lucide-react";
 import { OsHubPage } from "@/pages/os/OsHubPage";
 import { miyaPrompts } from "@/components/miya/AskMiyaButton";
+import { useLanguage } from "@/hooks/use-language";
 
 export default function KnowledgeHubPage() {
+  const { t } = useLanguage();
   return (
     <OsHubPage
-      eyebrow="Knowledge"
-      title="Business memory"
-      description="Policies, SOPs, and documents that improve Miya's decisions."
-      askPrompt="What knowledge should I update so Miya decides better?"
+      eyebrow={t("hub.knowledge.eyebrow")}
+      title={t("hub.knowledge.title")}
+      description={t("hub.knowledge.desc")}
+      askPrompt={t("hub.knowledge.ask")}
       workspaceModule="settings"
       links={[
         {
-          label: "Policies & configuration",
-          description: "Business rules Miya uses for routing and approvals.",
+          label: t("hub.knowledge.policies"),
+          description: t("hub.knowledge.policies_desc"),
           href: "/dashboard/settings?tab=general",
           icon: Settings,
-          askPrompt: "Summarize my routing and approval policies.",
+          askPrompt: t("hub.knowledge.policies_ask"),
         },
         {
-          label: "Compliance documents",
-          description: "Licenses, insurance, and documents that expire.",
+          label: t("hub.knowledge.compliance"),
+          description: t("hub.knowledge.compliance_desc"),
           href: "/dashboard/settings?tab=compliance",
           icon: FileText,
-          askPrompt: miyaPrompts.compliance(),
+          askPrompt: miyaPrompts.compliance(t),
         },
         {
-          label: "Ask Miya about knowledge",
-          description: "Query SOPs and stored business context in natural language.",
+          label: t("hub.knowledge.ask_miya"),
+          description: t("hub.knowledge.ask_miya_desc"),
           icon: BookOpen,
           opensMiya: true,
-          askPrompt: "What business knowledge do you have about this restaurant?",
+          askPrompt: t("hub.knowledge.ask_miya_prompt"),
         },
       ]}
     />

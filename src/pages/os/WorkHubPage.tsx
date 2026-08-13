@@ -2,43 +2,45 @@ import React from "react";
 import { AlertTriangle, Briefcase, ClipboardList, Radio } from "lucide-react";
 import { OsHubPage } from "@/pages/os/OsHubPage";
 import { miyaPrompts } from "@/components/miya/AskMiyaButton";
+import { useLanguage } from "@/hooks/use-language";
 
 export default function WorkHubPage() {
+  const { t } = useLanguage();
   return (
     <OsHubPage
-      eyebrow="Work"
-      title="What work is happening"
-      description="Active operations across live ops, tasks, incidents, and requests - without hunting modules."
-      askPrompt="What work is active, blocked, or overdue right now?"
+      eyebrow={t("hub.work.eyebrow")}
+      title={t("hub.work.title")}
+      description={t("hub.work.desc")}
+      askPrompt={t("hub.work.ask")}
       workspaceModule="operations"
       links={[
         {
-          label: "Live operations",
-          description: "Daily demands, incidents, and tasks in one live feed.",
+          label: t("hub.work.live_ops"),
+          description: t("hub.work.live_ops_desc"),
           href: "/dashboard/operations-live",
           icon: Radio,
-          askPrompt: "What's happening in live operations?",
+          askPrompt: t("hub.work.live_ops_ask"),
         },
         {
-          label: "Tasks",
-          description: "Active, blocked, overdue, and upcoming work.",
+          label: t("hub.work.tasks"),
+          description: t("hub.work.tasks_desc"),
           href: "/dashboard/processes-tasks-app",
           icon: ClipboardList,
-          askPrompt: miyaPrompts.task(),
+          askPrompt: miyaPrompts.task(undefined, t),
         },
         {
-          label: "Incidents",
-          description: "Open operational incidents with owners and impact.",
+          label: t("hub.work.incidents"),
+          description: t("hub.work.incidents_desc"),
           href: "/dashboard/analytics?tab=incidents",
           icon: AlertTriangle,
-          askPrompt: miyaPrompts.incident(),
+          askPrompt: miyaPrompts.incident(undefined, t),
         },
         {
-          label: "Requests",
-          description: "Staff and operational requests waiting on someone.",
+          label: t("hub.work.requests"),
+          description: t("hub.work.requests_desc"),
           href: "/dashboard/staff-requests",
           icon: Briefcase,
-          askPrompt: "Show unresolved requests and who owns them.",
+          askPrompt: t("hub.work.requests_ask"),
         },
       ]}
     />
