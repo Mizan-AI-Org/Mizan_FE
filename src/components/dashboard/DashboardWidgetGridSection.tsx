@@ -375,7 +375,7 @@ export function DashboardWidgetGridSection() {
         <div className="flex flex-wrap items-center gap-2">
           {!showWidgets ? (
             <Button type="button" variant="ghost" size="sm" onClick={() => setShowWidgets(true)}>
-              Show
+              {t("widgets.page.show")}
             </Button>
           ) : null}
           {canCustomizeDashboard && (showWidgets || customizeMode) ? (

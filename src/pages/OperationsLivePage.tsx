@@ -13,6 +13,8 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import {
+  ChevronLeft,
+  ChevronRight,
   FileText,
   GripVertical,
   Image as ImageIcon,
@@ -59,12 +61,77 @@ import { AiNativeWorkspace } from "@/components/miya/AiNativeWorkspace";
 type LaneKey = "pending" | "in_progress" | "completed";
 
 const QUERY_KEY = ["dashboard", "operations-live"] as const;
+const PAGE_SIZE = 15;
 
 const LANE_STATUS: Record<LaneKey, OperationsLiveItem["status"]> = {
   pending: "PENDING",
   in_progress: "IN_PROGRESS",
   completed: "COMPLETED",
 };
+
+const ROLE_I18N: Record<string, string> = {
+  "super admin": "operations_live.role.super_admin",
+  admin: "operations_live.role.admin",
+  owner: "operations_live.role.owner",
+  manager: "operations_live.role.manager",
+  supervisor: "operations_live.role.supervisor",
+  chef: "operations_live.role.chef",
+  waiter: "operations_live.role.waiter",
+  cashier: "operations_live.role.cashier",
+  kitchen: "operations_live.role.kitchen",
+  cleaner: "operations_live.role.cleaner",
+  delivery: "operations_live.role.delivery",
+  staff: "operations_live.role.staff",
+  receptionist: "operations_live.role.receptionist",
+};
+
+function localizeAgeLabel(
+  label: string | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  const raw = (label || "").trim();
+  if (!raw || raw === "-") return "-";
+  const lower = raw.toLowerCase();
+  if (lower === "just now") return t("operations_live.rel.just_now");
+  if (lower === "yesterday") return t("operations_live.rel.yesterday");
+  let m = lower.match(/^(\d+)\s*m\s*ago$/);
+  if (m) return t("operations_live.rel.minutes", { count: Number(m[1]) });
+  m = lower.match(/^(\d+)\s*h\s*ago$/);
+  if (m) return t("operations_live.rel.hours", { count: Number(m[1]) });
+  m = lower.match(/^(\d+)\s*d\s*ago$/);
+  if (m) return t("operations_live.rel.days", { count: Number(m[1]) });
+  m = lower.match(/^(\d+)\s*w\s*ago$/);
+  if (m) return t("operations_live.rel.weeks", { count: Number(m[1]) });
+  m = lower.match(/^(\d+)\s*mo\s*ago$/);
+  if (m) return t("operations_live.rel.months", { count: Number(m[1]) });
+  m = lower.match(/^(\d+)\s*y\s*ago$/);
+  if (m) return t("operations_live.rel.years", { count: Number(m[1]) });
+  return raw;
+}
+
+function localizeRole(
+  role: string | null | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string | null {
+  if (!role) return null;
+  const key = ROLE_I18N[String(role).trim().toLowerCase()];
+  if (key) return t(key);
+  return String(role).toLowerCase();
+}
+
+function formatPerson(
+  person: { name?: string; role?: string | null } | null | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  if (!person?.name) return "-";
+  const name =
+    person.name === "Me" || person.name === "Staff"
+      ? t(person.name === "Me" ? "operations_live.person.me" : "operations_live.person.staff")
+      : person.name;
+  const role = localizeRole(person.role, t);
+  if (!role || person.name === "Me") return name;
+  return `${name} (${role})`;
+}
 
 function laneForStatus(status: string | undefined): LaneKey {
   const s = String(status || "").toUpperCase();
@@ -108,14 +175,6 @@ function displayStatusLabel(
   if (status === "in_progress") return t("operations_live.status.in_progress");
   if (status === "completed") return t("operations_live.status.completed");
   return t("operations_live.status.pending");
-}
-
-function formatPerson(
-  person?: { name?: string; role?: string | null } | null,
-): string {
-  if (!person?.name) return "-";
-  if (person.name === "Me" || !person.role) return person.name;
-  return `${person.name} (${String(person.role).toLowerCase()})`;
 }
 
 function attachmentCell(
@@ -209,10 +268,18 @@ function OperationsLiveRow({
         </button>
       </td>
       <td className="px-4 py-3.5 text-[13px] text-foreground whitespace-nowrap">
-        {formatPerson(item.from)}
+        {formatPerson(item.from, t)}
       </td>
       <td className="px-4 py-3.5 text-[13px] text-foreground whitespace-nowrap">
-        {item.to?.name || "-"}
+        {item.to?.name
+          ? formatPerson(
+              {
+                name: item.to.is_me ? "Me" : item.to.name,
+                role: item.to.role,
+              },
+              t,
+            )
+          : "-"}
       </td>
       <td className="px-4 py-3.5 whitespace-nowrap">
         <span className="inline-flex rounded-full bg-muted px-2.5 py-0.5 text-[12px] text-muted-foreground">
@@ -237,7 +304,7 @@ function OperationsLiveRow({
         </Badge>
       </td>
       <td className="px-4 py-3.5 text-[13px] text-muted-foreground whitespace-nowrap">
-        {item.age_label || "-"}
+        {localizeAgeLabel(item.age_label, t)}
       </td>
       <td className="px-4 py-3.5 text-[13px] whitespace-nowrap">
         {escalated?.name ? (
@@ -248,7 +315,7 @@ function OperationsLiveRow({
                 : "text-foreground/80",
             )}
           >
-            {formatPerson(escalated)}
+            {formatPerson(escalated, t)}
           </span>
         ) : (
           <span className="text-muted-foreground">-</span>
@@ -332,6 +399,24 @@ function OperationsLiveTable({
   updatingId: string | null;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `lane:${lane}` });
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [items]);
+
+  React.useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const pageItems = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return items.slice(start, start + PAGE_SIZE);
+  }, [items, page]);
+
+  const rangeStart = items.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * PAGE_SIZE, items.length);
 
   return (
     <section className="space-y-2.5">
@@ -364,7 +449,7 @@ function OperationsLiveTable({
               </tr>
             </thead>
             <tbody>
-              {items.length === 0 ? (
+              {pageItems.length === 0 ? (
                 <tr>
                   <td
                     colSpan={10}
@@ -374,7 +459,7 @@ function OperationsLiveTable({
                   </td>
                 </tr>
               ) : (
-                items.map((item) => (
+                pageItems.map((item) => (
                   <OperationsLiveRow
                     key={item.id}
                     item={item}
@@ -389,6 +474,46 @@ function OperationsLiveTable({
             </tbody>
           </table>
         </div>
+        {items.length > PAGE_SIZE ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/40 px-3 py-2.5">
+            <p className="text-xs text-muted-foreground">
+              {t("operations_live.pagination.range", {
+                start: rangeStart,
+                end: rangeEnd,
+                total: items.length,
+              })}
+            </p>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1 px-2.5"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                aria-label={t("operations_live.pagination.prev")}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">{t("operations_live.pagination.prev")}</span>
+              </Button>
+              <span className="min-w-[5.5rem] text-center text-xs tabular-nums text-muted-foreground">
+                {t("operations_live.pagination.page", { page, pages: totalPages })}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1 px-2.5"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                aria-label={t("operations_live.pagination.next")}
+              >
+                <span className="hidden sm:inline">{t("operations_live.pagination.next")}</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );
@@ -450,7 +575,7 @@ export default function OperationsLivePage() {
     queryKey: [...QUERY_KEY, debouncedSearch],
     queryFn: () =>
       api.getOperationsLive({
-        limit: 50,
+        limit: 100,
         q: debouncedSearch || undefined,
       }),
     refetchInterval: 60_000,
