@@ -229,6 +229,7 @@ export const MiyaWidget: React.FC = () => {
       const applyChatPayload = (data: {
         reply?: string;
         session_context?: { location_id?: string; location_name?: string };
+        tool_trace?: Array<{ tool?: string; result?: { success?: boolean; verified?: boolean } }>;
       }) => {
         // Typed chat stays silent. Voice replies only play when the user
         // holds the mic (sendVoiceBlob), never from this text path.
@@ -246,6 +247,25 @@ export const MiyaWidget: React.FC = () => {
           } catch {
             /* ignore */
           }
+        }
+        try {
+          const tools = (data.tool_trace || [])
+            .map((t) => String(t?.tool || "").toLowerCase())
+            .filter(Boolean);
+          const mutated = tools.some((t) =>
+            /assign_incident|route_incident|resolve_incident|assign_task|complete_task|update_task|create_task|create_dashboard_task/.test(
+              t,
+            ),
+          );
+          if (mutated) {
+            window.dispatchEvent(
+              new CustomEvent("miya:ops-mutated", {
+                detail: { tools, page_context: getMiyaPageContext() },
+              }),
+            );
+          }
+        } catch {
+          /* ignore */
         }
       };
 
