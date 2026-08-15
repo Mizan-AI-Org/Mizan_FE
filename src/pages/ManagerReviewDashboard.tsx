@@ -2261,15 +2261,41 @@ const ManagerReviewDashboard: React.FC = () => {
                             </div>
                             {sr.notes ? (<div className="mt-2 text-xs">Notes: {sr.notes}</div>) : null}
                             {Array.isArray(sr.evidence) && sr.evidence.length > 0 ? (
-                              <div className="mt-2 text-xs space-y-1">
-                                <div>Evidence:</div>
-                                <ul className="list-disc pl-4">
-                                  {sr.evidence.map((ev: ExecutionEvidence, eidx: number) => (
-                                    <li key={ev.id || eidx} className="break-all">
-                                      {ev.evidence_type || 'FILE'} - {ev.filename || ev.file_path || '-'}
-                                    </li>
-                                  ))}
-                                </ul>
+                              <div className="mt-2 text-xs space-y-2">
+                                <div>Evidence ({sr.evidence.length}):</div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                  {sr.evidence.map((ev: ExecutionEvidence, eidx: number) => {
+                                    const rawUrl = ev.url || ev.file_path || "";
+                                    const abs = resolveMediaUrl(rawUrl) || toAbsoluteUrl(rawUrl) || rawUrl;
+                                    const isImage =
+                                      /\.(jpe?g|png|gif|webp|heic)(\?|$)/i.test(rawUrl) ||
+                                      String((ev as { mime_type?: string }).mime_type || "")
+                                        .toLowerCase()
+                                        .startsWith("image/") ||
+                                      String(ev.evidence_type || "").toUpperCase() === "PHOTO";
+                                    return (
+                                      <div
+                                        key={ev.id || eidx}
+                                        className="rounded border bg-muted/20 overflow-hidden"
+                                      >
+                                        {isImage && abs ? (
+                                          <a href={abs} target="_blank" rel="noreferrer">
+                                            <img
+                                              src={abs}
+                                              alt={ev.caption || ev.filename || `Evidence ${eidx + 1}`}
+                                              className="h-28 w-full object-cover"
+                                              loading="lazy"
+                                            />
+                                          </a>
+                                        ) : (
+                                          <div className="p-2 break-all">
+                                            {ev.evidence_type || "FILE"} - {ev.filename || rawUrl || "-"}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             ) : null}
                           </div>
