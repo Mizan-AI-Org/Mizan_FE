@@ -64,8 +64,31 @@ export const miyaPrompts = {
     if (lower.includes("incident")) {
       return tr(t, "ai.prompt.incidents", "Show unresolved incidents and recommend next actions.");
     }
-    if (lower.includes("document") || lower.includes("compliance")) {
+    if (
+      lower.includes("document") ||
+      lower.includes("compliance") ||
+      lower.includes("registration") ||
+      lower.includes("permit") ||
+      lower.includes("license") ||
+      lower.includes("licence") ||
+      lower.includes("insurance") ||
+      lower.includes("extinguisher")
+    ) {
       return tr(t, "ai.prompt.compliance", "What compliance items need attention?");
+    }
+    if (lower.includes("checklist")) {
+      return tr(
+        t,
+        "ai.prompt.checklists",
+        "Which checklists are incomplete and who should finish them?",
+      );
+    }
+    if (lower.includes("meeting")) {
+      return tr(
+        t,
+        "ai.prompt.meetings",
+        "What meetings are coming up and what should I prepare?",
+      );
     }
     return tr(
       t,

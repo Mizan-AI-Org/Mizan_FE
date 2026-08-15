@@ -105,15 +105,23 @@ function fallbackBoard(attention: AttentionBoardItem[], insights: ProactiveInsig
   const watching = insights
     .filter((i) => !watchTitles.has((i.what || "").toLowerCase().slice(0, 48)))
     .slice(0, 6)
-    .map((i) => ({
-      id: `watch:${i.id || i.what}`,
-      category: String(i.domain || "ops"),
-      severity: String(i.level || "WATCH"),
-      title: i.what || "",
-      why_it_matters: i.why,
-      lane: "watching" as const,
-      recommended_action: { label: i.recommendation || "Review", href: "/dashboard" },
-    }));
+    .map((i) => {
+      const askFromAction =
+        (i.actions || []).find((a) => a.ask_miya_prompt)?.ask_miya_prompt ||
+        (i.actions || []).find((a) => a.kind === "ask_miya")?.ask_miya_prompt;
+      return {
+        id: `watch:${i.id || i.what}`,
+        category: String(i.domain || "ops"),
+        severity: String(i.level || "WATCH"),
+        title: i.what || "",
+        why_it_matters: i.why,
+        lane: "watching" as const,
+        entity_type: i.entity_type,
+        entity_ids: i.entity_ids,
+        recommended_action: { label: i.recommendation || "Review", href: "/dashboard" },
+        ask_miya_prompt: askFromAction || undefined,
+      };
+    });
   return {
     summary: {
       signals_detected: attention.length + watching.length,
@@ -196,8 +204,13 @@ export function CommandCenter({ className }: { className?: string }) {
   };
 
   const askAbout = (item: AttentionBoardItem) => {
+    const raw = item.ask_miya_prompt || "";
+    const prompt =
+      raw && !/^help me with this:/i.test(raw)
+        ? raw
+        : miyaPrompts.attention(item.title, t);
     askMiya({
-      prompt: item.ask_miya_prompt || miyaPrompts.attention(item.title, t),
+      prompt,
       pageContext: {
         entity_type: item.entity_type,
         entity_id: item.entity_id || item.entity_ids?.[0] || undefined,
