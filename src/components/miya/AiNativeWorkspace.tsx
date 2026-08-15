@@ -120,10 +120,25 @@ function resolveAskPrompt(prompt?: string, fallbackTitle?: string) {
   const raw = (prompt || fallbackTitle || "").trim();
   if (!raw) return moduleAskPrompt("operations");
   if (/overdue/i.test(raw)) return miyaPrompts.task();
-  if (/incident/i.test(raw)) return miyaPrompts.incident();
-  if (/document|compliance/i.test(raw)) return miyaPrompts.compliance();
-  if (/^help me with:/i.test(raw)) {
-    return `Help me with this: ${raw.replace(/^help me with:\s*/i, "")}`;
+  if (/unresolved\s+incidents?|open\s+incidents?|\bincident/i.test(raw)) {
+    return miyaPrompts.incident();
+  }
+  if (
+    /document|compliance|registration|permit|license|licence|insurance|extinguisher/i.test(
+      raw,
+    )
+  ) {
+    return miyaPrompts.compliance();
+  }
+  if (/checklist/i.test(raw)) {
+    return miyaPrompts.attention(raw.includes(":") ? raw.split(":").slice(1).join(":").trim() || raw : raw);
+  }
+  if (/meeting/i.test(raw)) {
+    return miyaPrompts.attention(raw);
+  }
+  if (/^help me with(?: this)?(?: attention item)?:/i.test(raw)) {
+    const topic = raw.replace(/^help me with(?: this)?(?: attention item)?:\s*/i, "").trim();
+    return resolveAskPrompt(topic, topic);
   }
   return raw;
 }
