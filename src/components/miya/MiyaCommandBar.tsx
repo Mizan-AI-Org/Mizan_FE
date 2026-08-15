@@ -19,6 +19,7 @@ import { getMiyaPageContext, askMiya, subscribeMiyaPageContext } from "@/lib/miy
 import { cn } from "@/lib/utils";
 import { ActionPreview, type ActionPreviewModel } from "@/components/miya/ActionPreview";
 import { commandKindLabel } from "@/components/miya/commandBarUtils";
+import { MiyaMessageBody } from "@/components/miya/MiyaMessageBody";
 
 const RECENT_KEY = "mizan_miya_command_recent_v1";
 const MIYA_LOCATION_KEY = "mizan_miya_location_id";
@@ -344,8 +345,8 @@ export function MiyaCommandBar({ className = "", inputClassName = "" }: Props) {
                 />
               ) : null}
               {result.reply ? (
-                <div className="rounded-panel bg-ai-surface px-3 py-3 text-body leading-relaxed text-foreground whitespace-pre-wrap">
-                  {result.reply}
+                <div className="rounded-panel bg-ai-surface px-3 py-3 text-body leading-relaxed text-foreground">
+                  <MiyaMessageBody content={result.reply} />
                 </div>
               ) : null}
               <div className="flex flex-wrap gap-2">
