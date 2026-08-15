@@ -498,7 +498,13 @@ const ManagerReviewDashboard: React.FC = () => {
   });
 
   useEffect(() => {
-    if (!selectedIncident) return;
+    if (!selectedIncident) {
+      setMiyaPageContext({
+        route: "/dashboard/analytics",
+        tab: "incidents",
+      });
+      return;
+    }
     const label =
       (incidentDetail as { title?: string } | undefined)?.title ||
       undefined;
@@ -509,13 +515,18 @@ const ManagerReviewDashboard: React.FC = () => {
       route: "/dashboard/analytics",
       tab: "incidents",
     });
-    return () => {
-      setMiyaPageContext({
-        route: "/dashboard/analytics",
-        tab: "incidents",
-      });
-    };
+    // Do not clear entity_id on cleanup: incidentDetail refetches were wiping focus
+    // mid-chat and causing "assign it Younes" to hit the wrong entity.
   }, [selectedIncident, incidentDetail]);
+
+  useEffect(() => {
+    const onMutated = () => {
+      queryClient.invalidateQueries({ queryKey: ["safety-incidents"] });
+      queryClient.invalidateQueries({ queryKey: ["safety-incident-detail"] });
+    };
+    window.addEventListener("miya:ops-mutated", onMutated);
+    return () => window.removeEventListener("miya:ops-mutated", onMutated);
+  }, [queryClient]);
 
   type SafetyIncident = {
     id: string;
