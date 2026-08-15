@@ -10,6 +10,7 @@ import { clearMiyaPageContext, getMiyaPageContext, subscribeMiyaPageContext } fr
 import { logError } from "@/lib/logging";
 import { cn } from "@/lib/utils";
 import { MiyaContextChip } from "@/components/os";
+import { MiyaMessageBody } from "@/components/miya/MiyaMessageBody";
 
 type ChatTurn = { role: "user" | "assistant"; content: string; at?: number };
 type PendingAttachment = { id: string; title: string };
@@ -739,7 +740,9 @@ export const MiyaWidget: React.FC = () => {
                   outgoing ? "miya-bubble-out" : "miya-bubble-in",
                 )}
               >
-                <div>{turn.content}</div>
+                <div>
+                  {outgoing ? turn.content : <MiyaMessageBody content={turn.content} />}
+                </div>
                 {time ? (
                   <div
                     className={cn(
