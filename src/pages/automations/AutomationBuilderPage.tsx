@@ -1,15 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import {
-  AlertCircle,
-  ArrowDown,
-  ArrowLeft,
-  ArrowUp,
-  Loader2,
-  Plus,
-  Zap,
-} from "lucide-react";
+import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { AuthContextType } from "@/contexts/AuthContext.types";
@@ -20,18 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { actionLabel, triggerLabel } from "./automations-i18n";
 import { ActionLibrarySheet } from "./ActionLibrarySheet";
-import { AutomationStepEditor } from "./AutomationStepEditor";
+import { AutomationFlowCanvas } from "./AutomationFlowCanvas";
 import {
   STEP_DEFAULTS,
   normalizeAutomationSteps,
@@ -39,14 +23,6 @@ import {
   type CatalogItem,
   type CatalogResponse,
 } from "./automation-types";
-
-const CANVAS_BG =
-  "bg-slate-50/90 dark:bg-slate-950/30 [background-image:radial-gradient(circle,rgb(148_163_184/0.28)_1px,transparent_1px)] dark:[background-image:radial-gradient(circle,rgb(71_85_105/0.45)_1px,transparent_1px)] [background-size:24px_24px]";
-
-const NODE_CARD =
-  "rounded-xl border border-slate-200/90 dark:border-slate-700/90 bg-card shadow-sm";
-
-const CONNECTOR = "w-px h-8 bg-slate-300 dark:bg-slate-600 mx-auto";
 
 export default function AutomationBuilderPage() {
   const { id } = useParams<{ id: string }>();
@@ -164,19 +140,19 @@ export default function AutomationBuilderPage() {
     onError: () => toast.error(t("automations.toast.save_error")),
   });
 
-  const addStep = (type: string) => {
+  const addStep = useCallback((type: string) => {
     setSteps((s) => [...s, { type, config: { ...(STEP_DEFAULTS[type] || {}) } }]);
-  };
+  }, []);
 
-  const updateStep = (index: number, config: Record<string, unknown>) => {
+  const updateStep = useCallback((index: number, config: Record<string, unknown>) => {
     setSteps((prev) => prev.map((st, i) => (i === index ? { ...st, config } : st)));
-  };
+  }, []);
 
-  const removeStep = (index: number) => {
+  const removeStep = useCallback((index: number) => {
     setSteps((prev) => prev.filter((_, i) => i !== index));
-  };
+  }, []);
 
-  const moveStep = (index: number, dir: -1 | 1) => {
+  const moveStep = useCallback((index: number, dir: -1 | 1) => {
     setSteps((prev) => {
       const next = [...prev];
       const target = index + dir;
@@ -184,7 +160,9 @@ export default function AutomationBuilderPage() {
       [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
-  };
+  }, []);
+
+  const openLibrary = useCallback(() => setLibraryOpen(true), []);
 
   if (!isNew && isLoading) {
     return (
@@ -250,138 +228,23 @@ export default function AutomationBuilderPage() {
         </div>
       )}
 
-      {/* Full-width canvas */}
-      <div
-        className={cn(
-          "relative -mx-4 min-h-[min(72vh,820px)] overflow-hidden border-y border-slate-200/80 dark:border-slate-800 sm:-mx-6 lg:-mx-8",
-          CANVAS_BG,
-        )}
-      >
-        <div className="mx-auto flex w-full max-w-3xl flex-col px-6 py-10 sm:px-10 sm:py-12 lg:max-w-4xl">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-            {t("automations.builder.trigger_label")}
-          </p>
-          <div className={cn("w-full p-5 ring-1 ring-emerald-500/20", NODE_CARD)}>
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10">
-                <Zap className="h-5 w-5 text-emerald-600" />
-              </div>
-              <Select value={triggerType} onValueChange={setTriggerType}>
-                <SelectTrigger className="flex-1 h-11">
-                  <SelectValue placeholder={t("automations.builder.choose_trigger")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {triggers.map((tr) => (
-                    <SelectItem key={tr.id} value={tr.id}>
-                      {triggerLabel(t, tr.id, tr.label)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {triggerType === "keyword_match" && (
-              <>
-                <Input
-                  placeholder={t("automations.builder.keywords_placeholder")}
-                  value={keywords}
-                  onChange={(e) => setKeywords(e.target.value)}
-                  className="mb-2"
-                />
-                <p className="text-xs text-slate-500">{t("automations.builder.keywords_hint")}</p>
-              </>
-            )}
-            {triggerType === "tag_added" && (
-              <Input
-                placeholder={t("automations.builder.tag_placeholder")}
-                value={triggerTag}
-                onChange={(e) => setTriggerTag(e.target.value)}
-              />
-            )}
-            {triggerType === "time_based" && (
-              <p className="text-xs text-slate-500">{t("automations.builder.time_based_hint")}</p>
-            )}
-          </div>
-
-          <div className={CONNECTOR} />
-          <Button
-            type="button"
-            variant="outline"
-            size="default"
-            className="mx-auto gap-2 rounded-full px-5"
-            onClick={() => setLibraryOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            {t("automations.builder.add_from_library")}
-          </Button>
-
-          {steps.map((step, index) => {
-            const stepLabel = actionLabel(t, step.type, catalog?.actions?.[step.type]);
-            return (
-              <React.Fragment key={`${step.type}-${index}`}>
-                <div className={CONNECTOR} />
-                <div className={cn("group relative w-full p-5", NODE_CARD)}>
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                      {index + 1}. {stepLabel}
-                    </span>
-                    <div className="flex items-center gap-0.5">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        disabled={index === 0}
-                        onClick={() => moveStep(index, -1)}
-                        aria-label={t("automations.builder.move_up")}
-                      >
-                        <ArrowUp className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        disabled={index === steps.length - 1}
-                        onClick={() => moveStep(index, 1)}
-                        aria-label={t("automations.builder.move_down")}
-                      >
-                        <ArrowDown className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs text-slate-500"
-                        onClick={() => removeStep(index)}
-                      >
-                        {t("automations.builder.remove")}
-                      </Button>
-                    </div>
-                  </div>
-                  <AutomationStepEditor
-                    step={step}
-                    onChange={(config) => updateStep(index, config)}
-                  />
-                </div>
-              </React.Fragment>
-            );
-          })}
-
-          {steps.length > 0 && (
-            <>
-              <div className={CONNECTOR} />
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-11"
-                onClick={() => setLibraryOpen(true)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {t("automations.builder.add_action_placeholder")}
-              </Button>
-            </>
-          )}
-        </div>
+      {/* React Flow canvas */}
+      <div className="relative -mx-4 h-[min(72vh,820px)] overflow-hidden border-y border-slate-200/80 bg-slate-50/90 dark:border-slate-800 dark:bg-slate-950/30 sm:-mx-6 lg:-mx-8">
+        <AutomationFlowCanvas
+          triggerType={triggerType}
+          keywords={keywords}
+          triggerTag={triggerTag}
+          triggers={triggers}
+          steps={steps}
+          actionLabels={catalog?.actions || {}}
+          onTriggerTypeChange={setTriggerType}
+          onKeywordsChange={setKeywords}
+          onTriggerTagChange={setTriggerTag}
+          onUpdateStep={updateStep}
+          onRemoveStep={removeStep}
+          onMoveStep={moveStep}
+          onOpenLibrary={openLibrary}
+        />
       </div>
 
       {/* Meta below canvas */}
