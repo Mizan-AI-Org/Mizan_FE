@@ -48,9 +48,14 @@ export default function PlatformAdminLayout() {
     ? "Platform superuser"
     : "Platform operator";
 
+  const signedInName =
+    [me?.first_name, me?.last_name].filter(Boolean).join(" ") ||
+    me?.email?.split("@")[0] ||
+    "Operator";
+
   return (
-    <div className="flex min-h-screen flex-col text-foreground">
-      <header className="sticky top-0 z-[2000] bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 shadow-sm">
+    <div className="flex h-dvh max-h-dvh flex-col overflow-hidden text-foreground">
+      <header className="z-[2000] shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between gap-4">
             <button
@@ -83,9 +88,9 @@ export default function PlatformAdminLayout() {
         </div>
       </header>
 
-      <div className="flex flex-1 min-h-0">
-        <aside className="w-[15.5rem] shrink-0 flex flex-col border-r border-slate-200 bg-white text-slate-900 shadow-[4px_0_24px_-12px_rgba(15,23,42,0.12)] dark:border-slate-800 dark:bg-gradient-to-b dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 dark:text-slate-100 dark:shadow-[4px_0_24px_-12px_rgba(15,23,42,0.45)]">
-          <nav className="flex-1 p-3 pt-4 space-y-1.5 overflow-auto">
+      <div className="flex min-h-0 flex-1">
+        <aside className="flex w-[15.5rem] shrink-0 flex-col border-r border-slate-200 bg-white text-slate-900 shadow-[4px_0_24px_-12px_rgba(15,23,42,0.12)] dark:border-slate-800 dark:bg-gradient-to-b dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 dark:text-slate-100 dark:shadow-[4px_0_24px_-12px_rgba(15,23,42,0.45)]">
+          <nav className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-3 pt-4">
             {NAV.map(({ to, end, label, icon: Icon }) => (
               <NavLink
                 key={to}
@@ -108,20 +113,21 @@ export default function PlatformAdminLayout() {
             ))}
           </nav>
 
-          <div className="mt-auto border-t border-slate-200 p-4 dark:border-white/10">
+          <div className="shrink-0 border-t border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/80">
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
               Signed in
             </p>
-            <p className="mt-1 text-sm font-semibold text-slate-900 truncate dark:text-white">
-              {[me?.first_name, me?.last_name].filter(Boolean).join(" ") ||
-                me?.email?.split("@")[0] ||
-                "Operator"}
+            <p className="mt-1 truncate text-sm font-semibold text-slate-900 dark:text-white">
+              {signedInName}
             </p>
-            <p className="text-xs text-slate-500 truncate dark:text-slate-400">{me?.email}</p>
+            <p className="truncate text-xs text-slate-500 dark:text-slate-400">{me?.email}</p>
+            <p className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+              {roleSubtitle}
+            </p>
           </div>
         </aside>
 
-        <main className="flex-1 min-w-0 overflow-auto relative">
+        <main className="relative min-w-0 flex-1 overflow-auto">
           <div
             className="pointer-events-none absolute inset-0 opacity-60 dark:opacity-40"
             style={{
