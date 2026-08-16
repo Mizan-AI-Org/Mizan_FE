@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ChevronDown,
   Loader2,
   MessageSquare,
   RefreshCw,
@@ -31,8 +32,87 @@ import {
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
+const LONG_MESSAGE_CHARS = 280;
+const LONG_MESSAGE_LINES = 5;
 
 type DatePreset = "today" | "yesterday" | "last_7_days" | "last_30_days";
+
+const ADMIN_ROLE_RANK: Record<string, number> = {
+  SUPER_ADMIN: 0,
+  ADMIN: 1,
+  OWNER: 2,
+  MANAGER: 3,
+};
+
+function roleInboxRank(role?: string | null) {
+  if (!role) return 100;
+  return ADMIN_ROLE_RANK[role.toUpperCase()] ?? 50;
+}
+
+function isElevatedRole(role?: string | null) {
+  return roleInboxRank(role) <= 3;
+}
+
+function turnTimestamp(iso?: string | null) {
+  if (!iso) return 0;
+  const t = new Date(iso).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
+function CollapsibleMessageText({
+  text,
+  className,
+  collapsedLines = LONG_MESSAGE_LINES,
+}: {
+  text: string;
+  className?: string;
+  collapsedLines?: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const content = (text || "").trim();
+  const lineCount = content ? content.split(/\n/).length : 0;
+  const isLong = content.length > LONG_MESSAGE_CHARS || lineCount > collapsedLines;
+
+  if (!content) return null;
+
+  return (
+    <div className={cn("min-w-0", className)}>
+      <p
+        className={cn(
+          "whitespace-pre-wrap break-words text-slate-800 dark:text-slate-100",
+        )}
+        style={
+          isLong && !expanded
+            ? {
+                display: "-webkit-box",
+                WebkitLineClamp: collapsedLines,
+                WebkitBoxOrient: "vertical" as const,
+                overflow: "hidden",
+              }
+            : undefined
+        }
+      >
+        {content}
+      </p>
+      {isLong ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((v) => !v);
+          }}
+          className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+          aria-expanded={expanded}
+        >
+          <ChevronDown
+            className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")}
+          />
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 function initials(name?: string | null) {
   const parts = (name || "?").trim().split(/\s+/).filter(Boolean);
@@ -119,7 +199,7 @@ function dimensionStatusIcon(status?: string) {
   if (status === "PASS") return "✓";
   if (status === "FAIL") return "✕";
   if (status === "PARTIAL") return "~";
-  if (status === "NOT_APPLICABLE") return "—";
+  if (status === "NOT_APPLICABLE") return "-";
   return "?";
 }
 
@@ -220,7 +300,7 @@ function QualityPanel({
             {quality.failures.map((failure) => (
               <li key={`${failure.code}-${failure.reason}`} className="text-sm text-rose-700 dark:text-rose-300">
                 <span className="font-medium">{failure.code.replace(/_/g, " ")}</span>
-                <span className={opsMuted}> — {failure.reason}</span>
+                <span className={opsMuted}>: {failure.reason}</span>
               </li>
             ))}
           </ul>
@@ -236,7 +316,7 @@ function QualityPanel({
             {quality.evidence.map((ev) => (
               <li key={`${ev.dimension}-${ev.source}`}>
                 <span className="font-medium">{ev.source || "System"}</span>
-                {ev.reason ? <span className={opsMuted}> — {ev.reason}</span> : null}
+                {ev.reason ? <span className={opsMuted}>: {ev.reason}</span> : null}
               </li>
             ))}
           </ul>
@@ -313,6 +393,11 @@ function ConversationRow({
                 {item.user?.role || "Unknown role"}
                 {item.restaurant?.name ? ` · ${item.restaurant.name}` : ""}
               </p>
+              {isElevatedRole(item.user?.role) ? (
+                <span className="mt-1 inline-flex rounded bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+                  Admin / manager
+                </span>
+              ) : null}
             </div>
             <span className={opsMuted}>{formatTime(item.last_message_at)}</span>
           </div>
@@ -390,7 +475,9 @@ function TurnInspector({
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
             User asked
           </p>
-          <p className="mt-1 text-sm text-slate-800 dark:text-slate-100">"{turn.user_message}"</p>
+          <div className="mt-1 text-sm">
+            <CollapsibleMessageText text={turn.user_message} />
+          </div>
         </section>
       ) : null}
 
@@ -402,7 +489,7 @@ function TurnInspector({
           <p className="mt-1 text-sm">{turn.understanding.summary}</p>
           {turn.understanding.entity?.label ? (
             <p className={cn(opsMuted, "mt-2")}>
-              Entity: {turn.understanding.entity.type || "item"} — {turn.understanding.entity.label}
+              Entity: {turn.understanding.entity.type || "item"}: {turn.understanding.entity.label}
             </p>
           ) : null}
         </section>
@@ -418,7 +505,7 @@ function TurnInspector({
               <li key={stage.stage} className="text-sm">
                 <span className="font-medium">{stage.stage.replace(/_/g, " ")}</span>
                 {stage.detail ? (
-                  <span className={opsMuted}> — {stage.detail}</span>
+                  <span className={opsMuted}>: {stage.detail}</span>
                 ) : null}
               </li>
             ))}
@@ -436,7 +523,7 @@ function TurnInspector({
               <li key={stage.stage} className="text-sm">
                 <span className="font-medium">{stage.stage.replace(/_/g, " ")}</span>
                 {stage.detail ? (
-                  <span className={opsMuted}> — {stage.detail}</span>
+                  <span className={opsMuted}>: {stage.detail}</span>
                 ) : null}
               </li>
             ))}
@@ -457,7 +544,7 @@ function TurnInspector({
                 </span>{" "}
                 {action.label}
                 {action.reason ? (
-                  <span className={opsMuted}> — {action.reason}</span>
+                  <span className={opsMuted}>: {action.reason}</span>
                 ) : null}
               </li>
             ))}
@@ -470,9 +557,9 @@ function TurnInspector({
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
             Miya replied
           </p>
-          <p className="mt-1 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-slate-800 dark:text-slate-100">
-            "{turn.miya_reply}"
-          </p>
+          <div className="mt-1 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm">
+            <CollapsibleMessageText text={turn.miya_reply} />
+          </div>
         </section>
       ) : null}
 
@@ -649,24 +736,27 @@ function ConversationDetailPanel({
   });
 
   const detail = detailQuery.data as MiyaConversationDetail | undefined;
-  const turns = turnsQuery.data?.results || [];
+  const turnsNewestFirst = useMemo(() => {
+    const turns = turnsQuery.data?.results || [];
+    return [...turns].sort((a, b) => turnTimestamp(b.created_at) - turnTimestamp(a.created_at));
+  }, [turnsQuery.data?.results]);
   const selectedTurn =
-    turns.find((t) => t.id === selectedTurnId) || turns[turns.length - 1] || null;
+    turnsNewestFirst.find((t) => t.id === selectedTurnId) || turnsNewestFirst[0] || null;
 
   return (
-    <div className={cn(opsCard, "flex h-full min-h-[32rem] flex-col overflow-hidden")}>
-      <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 dark:border-slate-700">
-        <div>
+    <div className={cn(opsCard, "flex h-full min-h-[36rem] flex-col overflow-hidden")}>
+      <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+        <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
             Miya conversation
           </p>
-          <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">
+          <h3 className="mt-1 truncate text-lg font-bold text-slate-900 dark:text-white">
             {detail?.user?.name || "Conversation"}
           </h3>
-          <p className={opsMuted}>
+          <p className={cn(opsMuted, "truncate")}>
             {detail?.restaurant?.name || "No tenant"}
             {detail?.user?.role ? ` · ${detail.user.role}` : ""}
-            {detail?.channel ? ` · ${detail.channel}` : ""}
+            {detail?.channel ? ` · ${channelDisplay(detail.channel)}` : ""}
           </p>
         </div>
         <button type="button" onClick={onClose} className={opsBtnGhost} aria-label="Close detail">
@@ -700,20 +790,35 @@ function ConversationDetailPanel({
               </div>
             </div>
 
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                Messages
+              </p>
+              <p className={opsMuted}>Newest first</p>
+            </div>
+
             <div className="space-y-3">
-              {turns.map((turn) => {
+              {turnsNewestFirst.map((turn) => {
                 const isUser = Boolean(turn.user_message) && !turn.is_proactive;
                 const isSelected = selectedTurn?.id === turn.id;
+                const body = turn.user_message || turn.miya_reply || turn.content || "";
                 return (
-                  <button
+                  <div
                     key={turn.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setSelectedTurnId(turn.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedTurnId(turn.id);
+                      }
+                    }}
                     className={cn(
-                      "block w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                      "block w-full cursor-pointer rounded-lg border px-3 py-2 text-left text-sm transition-colors",
                       isSelected
                         ? "border-emerald-400 bg-emerald-50/60 dark:bg-emerald-950/20"
-                        : "border-slate-200 dark:border-slate-700",
+                        : "border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600",
                     )}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -722,13 +827,13 @@ function ConversationDetailPanel({
                       </span>
                       <span className={opsMuted}>{formatTime(turn.created_at)}</span>
                     </div>
-                    <p className="mt-1 text-slate-800 dark:text-slate-100">
-                      {turn.user_message || turn.miya_reply || turn.content}
-                    </p>
-                  </button>
+                    <div className="mt-1">
+                      <CollapsibleMessageText text={body} />
+                    </div>
+                  </div>
                 );
               })}
-              {!turns.length ? (
+              {!turnsNewestFirst.length ? (
                 <p className={opsMuted}>No messages in this conversation yet.</p>
               ) : null}
             </div>
@@ -744,7 +849,7 @@ function ConversationDetailPanel({
                   {detail.context.active_entity?.label ? (
                     <p>
                       <span className={opsMuted}>Active entity: </span>
-                      {detail.context.active_entity.type} — {detail.context.active_entity.label}
+                      {detail.context.active_entity.type}: {detail.context.active_entity.label}
                     </p>
                   ) : null}
                   {detail.context.recent_entities?.length ? (
@@ -753,7 +858,7 @@ function ConversationDetailPanel({
                       <ul className="mt-1 space-y-1">
                         {detail.context.recent_entities.map((ent, idx) => (
                           <li key={`${ent.id || idx}`}>
-                            {ent.type} — {ent.label}
+                            {ent.type}: {ent.label}
                           </li>
                         ))}
                       </ul>
@@ -807,6 +912,7 @@ export default function MiyaConversationsPage() {
   const [failureCategory, setFailureCategory] = useState("");
   const [datePreset, setDatePreset] = useState<DatePreset>("today");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [metricsOpen, setMetricsOpen] = useState(false);
 
   const filtersQuery = useQuery({
     queryKey: ["platform-miya-conversation-filters"],
@@ -847,7 +953,14 @@ export default function MiyaConversationsPage() {
   });
 
   const metrics = metricsQuery.data as MiyaConversationMetrics | undefined;
-  const conversations = listQuery.data?.results || [];
+  const conversations = useMemo(() => {
+    const rows = listQuery.data?.results || [];
+    return [...rows].sort((a, b) => {
+      const roleDiff = roleInboxRank(a.user?.role) - roleInboxRank(b.user?.role);
+      if (roleDiff !== 0) return roleDiff;
+      return turnTimestamp(b.last_message_at) - turnTimestamp(a.last_message_at);
+    });
+  }, [listQuery.data?.results]);
 
   const selectedConversation = useMemo(
     () => conversations.find((c) => c.id === selectedId) || null,
@@ -892,84 +1005,106 @@ export default function MiyaConversationsPage() {
         </div>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard label="Conversations today" value={metrics?.conversations_today ?? "-"} />
-        <MetricCard label="Active now" value={metrics?.active_now ?? "-"} />
-        <MetricCard label="Needs review" value={metrics?.needs_review ?? "-"} />
-        <MetricCard label="Errors" value={metrics?.errors ?? "-"} />
-        <MetricCard
-          label="Avg response time"
-          value={metrics?.avg_response_time_label || "-"}
-        />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-        <MetricCard label="WhatsApp" value={metrics?.whatsapp_conversations ?? "-"} />
-        <MetricCard label="Dashboard" value={metrics?.dashboard_conversations ?? "-"} />
-        <MetricCard label="Proactive" value={metrics?.proactive_conversations ?? "-"} />
-        <MetricCard label="Staff" value={metrics?.staff_conversations ?? "-"} />
-        <MetricCard label="Managers" value={metrics?.manager_conversations ?? "-"} />
-        <MetricCard label="Miya actions" value={metrics?.miya_actions ?? "-"} />
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {[
-          { label: "Critical", value: "CRITICAL" },
-          { label: "Needs review", value: "NEEDS_REVIEW" },
-          { label: "Unreviewed", value: "UNREVIEWED" },
-          { label: "Healthy", value: "HEALTHY" },
-        ].map((chip) => (
-          <button
-            key={chip.value}
-            type="button"
-            className={cn(
-              opsBtnGhost,
-              quality === chip.value && "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/20",
-            )}
-            onClick={() => {
-              setPage(1);
-              setQuality(quality === chip.value ? "" : chip.value);
-            }}
-          >
-            {chip.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard
-          label="Overall quality"
-          value={
-            metrics?.overall_quality_score != null
-              ? qualityScoreDisplay(metrics.overall_quality_score)
-              : "Insufficient data"
-          }
-        />
-        <MetricCard label="Pass turns" value={metrics?.correct_turns ?? "Insufficient data"} />
-        <MetricCard label="Partial turns" value={metrics?.partial_turns ?? "Insufficient data"} />
-        <MetricCard label="Unknown turns" value={metrics?.unknown_turns ?? "Insufficient data"} />
-        <MetricCard
-          label="Quality coverage"
-          value={metrics?.quality_coverage?.label ?? "Insufficient data"}
-          hint={metrics?.quality_coverage?.warning ? "Coverage below 100%" : undefined}
-        />
-      </div>
-
-      {metrics?.failure_sources?.length ? (
-        <div className={cn(opsCard, "p-4")}>
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
-            Failure sources
-          </p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {metrics.failure_sources.map((src) => (
-              <div key={src.category} className="text-sm">
-                <span className="font-medium capitalize">{src.category}</span>
-                <span className={opsMuted}> — {src.pct}% ({src.count})</span>
-              </div>
-            ))}
-          </div>
+      <div className={cn(opsCard, "overflow-hidden p-0")}>
+        <div className="grid gap-px bg-slate-200 dark:bg-slate-800 sm:grid-cols-2 xl:grid-cols-5">
+          {[
+            { label: "Conversations", value: metrics?.conversations_today ?? "-" },
+            { label: "Active now", value: metrics?.active_now ?? "-" },
+            { label: "Needs review", value: metrics?.needs_review ?? "-" },
+            { label: "Errors", value: metrics?.errors ?? "-" },
+            { label: "Avg response", value: metrics?.avg_response_time_label || "-" },
+          ].map((m) => (
+            <div key={m.label} className="bg-white px-4 py-3 dark:bg-slate-900">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                {m.label}
+              </p>
+              <p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{m.value}</p>
+            </div>
+          ))}
         </div>
-      ) : null}
+        <button
+          type="button"
+          onClick={() => setMetricsOpen((v) => !v)}
+          className="flex w-full items-center justify-between gap-2 border-t border-slate-200 px-4 py-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800/60"
+          aria-expanded={metricsOpen}
+        >
+          <span>Channel, quality, and failure detail</span>
+          <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", metricsOpen && "rotate-180")} />
+        </button>
+        {metricsOpen ? (
+          <div className="space-y-4 border-t border-slate-200 p-4 dark:border-slate-700">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+              <MetricCard label="WhatsApp" value={metrics?.whatsapp_conversations ?? "-"} />
+              <MetricCard label="Dashboard" value={metrics?.dashboard_conversations ?? "-"} />
+              <MetricCard label="Proactive" value={metrics?.proactive_conversations ?? "-"} />
+              <MetricCard label="Staff" value={metrics?.staff_conversations ?? "-"} />
+              <MetricCard label="Managers" value={metrics?.manager_conversations ?? "-"} />
+              <MetricCard label="Miya actions" value={metrics?.miya_actions ?? "-"} />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "Critical", value: "CRITICAL" },
+                { label: "Needs review", value: "NEEDS_REVIEW" },
+                { label: "Unreviewed", value: "UNREVIEWED" },
+                { label: "Healthy", value: "HEALTHY" },
+              ].map((chip) => (
+                <button
+                  key={chip.value}
+                  type="button"
+                  className={cn(
+                    opsBtnGhost,
+                    quality === chip.value && "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/20",
+                  )}
+                  onClick={() => {
+                    setPage(1);
+                    setQuality(quality === chip.value ? "" : chip.value);
+                  }}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <MetricCard
+                label="Overall quality"
+                value={
+                  metrics?.overall_quality_score != null
+                    ? qualityScoreDisplay(metrics.overall_quality_score)
+                    : "Insufficient data"
+                }
+              />
+              <MetricCard label="Pass turns" value={metrics?.correct_turns ?? "Insufficient data"} />
+              <MetricCard label="Partial turns" value={metrics?.partial_turns ?? "Insufficient data"} />
+              <MetricCard label="Unknown turns" value={metrics?.unknown_turns ?? "Insufficient data"} />
+              <MetricCard
+                label="Quality coverage"
+                value={metrics?.quality_coverage?.label ?? "Insufficient data"}
+                hint={metrics?.quality_coverage?.warning ? "Coverage below 100%" : undefined}
+              />
+            </div>
+
+            {metrics?.failure_sources?.length ? (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  Failure sources
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {metrics.failure_sources.map((src) => (
+                    <div key={src.category} className="text-sm">
+                      <span className="font-medium capitalize">{src.category}</span>
+                      <span className={opsMuted}>
+                        : {src.pct}% ({src.count})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
 
       <form
         className="flex flex-wrap gap-2"
@@ -1096,6 +1231,8 @@ export default function MiyaConversationsPage() {
               {typeof listQuery.data?.count === "number"
                 ? `${listQuery.data.count} conversations`
                 : ""}
+              {" · "}
+              Admins and managers listed first
             </p>
           </div>
 
@@ -1106,7 +1243,7 @@ export default function MiyaConversationsPage() {
           ) : listQuery.error ? (
             <p className="p-4 text-rose-600">{(listQuery.error as Error).message}</p>
           ) : conversations.length ? (
-            <div className="max-h-[calc(100vh-22rem)] overflow-auto">
+            <div className="max-h-[min(70vh,42rem)] overflow-auto">
               {conversations.map((item) => (
                 <ConversationRow
                   key={item.id}
