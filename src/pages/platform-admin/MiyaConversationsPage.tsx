@@ -744,7 +744,7 @@ function ConversationDetailPanel({
     turnsNewestFirst.find((t) => t.id === selectedTurnId) || turnsNewestFirst[0] || null;
 
   return (
-    <div className={cn(opsCard, "flex h-full min-h-[36rem] flex-col overflow-hidden")}>
+    <div className={cn(opsCard, "flex h-full min-h-0 flex-col overflow-hidden")}>
       <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
@@ -955,11 +955,9 @@ export default function MiyaConversationsPage() {
   const metrics = metricsQuery.data as MiyaConversationMetrics | undefined;
   const conversations = useMemo(() => {
     const rows = listQuery.data?.results || [];
-    return [...rows].sort((a, b) => {
-      const roleDiff = roleInboxRank(a.user?.role) - roleInboxRank(b.user?.role);
-      if (roleDiff !== 0) return roleDiff;
-      return turnTimestamp(b.last_message_at) - turnTimestamp(a.last_message_at);
-    });
+    return [...rows].sort(
+      (a, b) => turnTimestamp(b.last_message_at) - turnTimestamp(a.last_message_at),
+    );
   }, [listQuery.data?.results]);
 
   const selectedConversation = useMemo(
@@ -1218,9 +1216,9 @@ export default function MiyaConversationsPage() {
         </button>
       </form>
 
-      <div className="grid gap-4 xl:grid-cols-[24rem_minmax(0,1fr)]">
-        <div className={cn(opsCard, "overflow-hidden")}>
-          <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+      <div className="grid h-[min(72vh,44rem)] min-h-[24rem] items-stretch gap-4 xl:grid-cols-[26rem_minmax(0,1fr)]">
+        <div className={cn(opsCard, "flex h-full min-h-0 flex-col overflow-hidden")}>
+          <div className="shrink-0 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-emerald-600" />
               <p className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -1232,40 +1230,44 @@ export default function MiyaConversationsPage() {
                 ? `${listQuery.data.count} conversations`
                 : ""}
               {" · "}
-              Admins and managers listed first
+              Newest first
             </p>
           </div>
 
-          {listQuery.isLoading ? (
-            <div className="flex h-48 items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-[#00C853]" />
-            </div>
-          ) : listQuery.error ? (
-            <p className="p-4 text-rose-600">{(listQuery.error as Error).message}</p>
-          ) : conversations.length ? (
-            <div className="max-h-[min(70vh,42rem)] overflow-auto">
-              {conversations.map((item) => (
-                <ConversationRow
-                  key={item.id}
-                  item={item}
-                  selected={selectedId === item.id}
-                  onSelect={() => setSelectedId(item.id)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="p-8 text-center">
-              <p className="font-medium text-slate-900 dark:text-white">No conversations found</p>
-              <p className={cn(opsMuted, "mt-1")}>
-                {submitted || channel || role || status || health || quality || failureCategory
-                  ? "No persisted Miya turns match the current search and filters. Try widening the date range or clearing filters."
-                  : "No persisted Miya conversations for this date range yet. Turns appear here after WhatsApp, dashboard, or proactive Miya activity."}
-              </p>
-            </div>
-          )}
+          <div className="flex min-h-0 flex-1 flex-col">
+            {listQuery.isLoading ? (
+              <div className="flex flex-1 items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-[#00C853]" />
+              </div>
+            ) : listQuery.error ? (
+              <p className="p-4 text-rose-600">{(listQuery.error as Error).message}</p>
+            ) : conversations.length ? (
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                {conversations.map((item) => (
+                  <ConversationRow
+                    key={item.id}
+                    item={item}
+                    selected={selectedId === item.id}
+                    onSelect={() => setSelectedId(item.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-1 items-center justify-center p-8 text-center">
+                <div>
+                  <p className="font-medium text-slate-900 dark:text-white">No conversations found</p>
+                  <p className={cn(opsMuted, "mt-1")}>
+                    {submitted || channel || role || status || health || quality || failureCategory
+                      ? "No persisted Miya turns match the current search and filters. Try widening the date range or clearing filters."
+                      : "No persisted Miya conversations for this date range yet. Turns appear here after WhatsApp, dashboard, or proactive Miya activity."}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
 
           {listQuery.data ? (
-            <div className="border-t border-slate-200 p-3 dark:border-slate-700">
+            <div className="mt-auto shrink-0 border-t border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
               <OpsPagination
                 page={page}
                 pageSize={PAGE_SIZE}
@@ -1276,7 +1278,7 @@ export default function MiyaConversationsPage() {
           ) : null}
         </div>
 
-        <div className="min-h-[32rem]">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden">
           {selectedId ? (
             <ConversationDetailPanel
               conversationId={selectedId}
@@ -1286,7 +1288,7 @@ export default function MiyaConversationsPage() {
             <div
               className={cn(
                 opsCard,
-                "flex h-full min-h-[32rem] flex-col items-center justify-center p-8 text-center",
+                "flex h-full min-h-0 flex-1 flex-col items-center justify-center p-8 text-center",
               )}
             >
               <MessageSquare className="h-10 w-10 text-slate-300 dark:text-slate-600" />
