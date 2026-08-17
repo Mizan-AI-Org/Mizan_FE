@@ -799,7 +799,11 @@ function ConversationDetailPanel({
 
             <div className="space-y-3">
               {turnsNewestFirst.map((turn) => {
-                const isUser = Boolean(turn.user_message) && !turn.is_proactive;
+                const isUser = turn.is_proactive
+                  ? false
+                  : turn.role === "user" ||
+                    (Boolean(turn.user_message) && !turn.session_only) ||
+                    (Boolean(turn.user_message) && !turn.miya_reply);
                 const isSelected = selectedTurn?.id === turn.id;
                 const body = turn.user_message || turn.miya_reply || turn.content || "";
                 return (
