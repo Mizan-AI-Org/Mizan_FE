@@ -120,7 +120,15 @@ export function DashboardTaskDetailContent({
             {task.title}
           </h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            {[task.source_label || task.source, assigneeSummary || task.assignee?.name]
+            {[
+              task.source_label || task.source,
+              task.kind === "dashboard" &&
+              String(task.source_label || "")
+                .toLowerCase()
+                .includes("checklist")
+                ? null
+                : assigneeSummary || task.assignee?.name,
+            ]
               .filter(Boolean)
               .join(" · ")}
           </p>
@@ -207,7 +215,7 @@ export function DashboardTaskDetailContent({
               {t("dashboard.tasks_demands.ai_prefix")}
             </div>
             <p className="mt-1 text-sm leading-relaxed text-emerald-950 dark:text-emerald-50">
-              {task.ai_summary}
+              {cleanAiSummary(task.ai_summary)}
             </p>
           </div>
         ) : null}
@@ -247,7 +255,9 @@ export function DashboardTaskDetailContent({
           </div>
         ) : null}
 
-        {task.attachment_url ? (
+        {task.attachment_url &&
+        resolveStoredMediaUrl(task.attachment_url, BACKEND_URL) !==
+          resolveStoredMediaUrl(task.proof_media_url, BACKEND_URL) ? (
           <AttachmentPreview url={task.attachment_url} label={task.attachment_label} t={t} />
         ) : null}
       </div>
@@ -298,7 +308,18 @@ export function DashboardTaskDetailContent({
   );
 }
 
-const IMAGE_RE = /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i;
+const IMAGE_RE = /\.(jpe?g|png|gif|webp|bmp|svg|heic)(\?|$)/i;
+const IMAGE_LABEL_RE = /^(image|picture|photo|proof)$/i;
+
+function cleanAiSummary(raw?: string | null): string {
+  const text = String(raw || "").trim();
+  if (!text) return "";
+  return text
+    .replace(/\s*[·•\-–]?\s*shift_task:[0-9a-fA-F-]+:\w+\s*/gi, "")
+    .replace(/^shift_task:[0-9a-fA-F-]+:\w+$/i, "")
+    .trim()
+    .replace(/^[\s·•\-–]+|[\s·•\-–]+$/g, "");
+}
 
 function AttachmentPreview({
   url,
@@ -310,7 +331,11 @@ function AttachmentPreview({
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   const resolved = resolveStoredMediaUrl(url, BACKEND_URL) || url;
-  const isImage = IMAGE_RE.test(resolved) || (label || "").toLowerCase() === "image";
+  const labelText = (label || "").trim();
+  const isImage =
+    IMAGE_RE.test(resolved) ||
+    IMAGE_LABEL_RE.test(labelText) ||
+    /checklist-evidence|task-proofs|\/proofs?\//i.test(resolved);
 
   return (
     <div className="rounded-xl border border-border/50 bg-background px-3.5 py-3 space-y-2">
@@ -322,7 +347,7 @@ function AttachmentPreview({
         <a href={resolved} target="_blank" rel="noopener noreferrer">
           <img
             src={resolved}
-            alt={label || "Attachment"}
+            alt={labelText || "Attachment"}
             className="max-h-52 w-full rounded-lg border object-contain bg-muted/20 cursor-pointer hover:opacity-90 transition-opacity"
           />
         </a>
@@ -334,7 +359,7 @@ function AttachmentPreview({
           className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
         >
           <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
-          {label || t("dashboard.task_detail.view_attachment", { defaultValue: "View file" })}
+          {labelText || t("dashboard.task_detail.view_attachment", { defaultValue: "View file" })}
         </a>
       )}
     </div>
