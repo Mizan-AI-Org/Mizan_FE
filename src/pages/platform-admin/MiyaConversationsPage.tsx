@@ -29,6 +29,7 @@ import {
   opsSubtitle,
   opsTitle,
 } from "@/components/platform-admin/opsStyles";
+import { conversationTurnBlocks } from "@/lib/miyaConversationTurns";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
@@ -799,13 +800,8 @@ function ConversationDetailPanel({
 
             <div className="space-y-3">
               {turnsNewestFirst.map((turn) => {
-                const isUser = turn.is_proactive
-                  ? false
-                  : turn.role === "user" ||
-                    (Boolean(turn.user_message) && !turn.session_only) ||
-                    (Boolean(turn.user_message) && !turn.miya_reply);
                 const isSelected = selectedTurn?.id === turn.id;
-                const body = turn.user_message || turn.miya_reply || turn.content || "";
+                const blocks = conversationTurnBlocks(turn);
                 return (
                   <div
                     key={turn.id}
@@ -825,14 +821,22 @@ function ConversationDetailPanel({
                         : "border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600",
                     )}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                        {turn.is_proactive ? "Miya · Proactive" : isUser ? "User" : "Miya"}
-                      </span>
-                      <span className={opsMuted}>{formatTime(turn.created_at)}</span>
-                    </div>
-                    <div className="mt-1">
-                      <CollapsibleMessageText text={body} />
+                    <div className="space-y-3">
+                      {blocks.map((block, idx) => (
+                        <div key={`${turn.id}-${block.speaker}-${idx}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                              {turn.is_proactive ? "Miya · Proactive" : block.speaker === "user" ? "User" : "Miya"}
+                            </span>
+                            {idx === 0 ? (
+                              <span className={opsMuted}>{formatTime(turn.created_at)}</span>
+                            ) : null}
+                          </div>
+                          <div className="mt-1">
+                            <CollapsibleMessageText text={block.text} />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 );
