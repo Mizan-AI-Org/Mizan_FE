@@ -460,6 +460,7 @@ export type MiyaConversationTurn = {
   id: string;
   message_id: string;
   role?: string;
+  direction?: "inbound" | "outbound" | "exchange" | string;
   user_message?: string;
   miya_reply?: string;
   content?: string;
