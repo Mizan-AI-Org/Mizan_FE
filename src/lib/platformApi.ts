@@ -727,4 +727,38 @@ export const platformApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  unknownTurns: (params?: Record<string, string>) => {
+    const qs = new URLSearchParams(params || {}).toString();
+    return platformFetch<{
+      count: number;
+      open_count: number;
+      page: number;
+      page_size: number;
+      results: UnknownTurnItem[];
+    }>(`/miya/unknown-turns/${qs ? `?${qs}` : ""}`);
+  },
+  reviewUnknownTurn: (id: string, body: { status: string; notes?: string }) =>
+    platformFetch<UnknownTurnItem>(`/miya/unknown-turns/${encodeURIComponent(id)}/`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+};
+
+export type UnknownTurnItem = {
+  id: string;
+  text: string;
+  kind: string;
+  disposition: string;
+  workflow_id: string;
+  reason: string;
+  status: string;
+  channel: string;
+  role: string;
+  language: string;
+  reply: string;
+  notes: string;
+  created_at: string;
+  reviewed_at: string;
+  restaurant: { id: string; name: string } | null;
+  user: { id: string; email: string; name: string } | null;
 };
