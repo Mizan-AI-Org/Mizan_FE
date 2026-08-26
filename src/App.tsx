@@ -96,6 +96,9 @@ const PlatformAuditPage = React.lazy(
 const PlatformMiyaConversationsPage = React.lazy(
   () => import("./pages/platform-admin/MiyaConversationsPage")
 );
+const PlatformUnknownTurnsPage = React.lazy(
+  () => import("./pages/platform-admin/UnknownTurnsPage")
+);
 const StaffAppsPage = React.lazy(() => import("./pages/StaffAppsPage"));
 const SafetyDashboard = React.lazy(() => import("./pages/SafetyDashboard"));
 const PinLogin = React.lazy(() => import("./components/auth/PinLogin"));
@@ -267,6 +270,10 @@ const App = () => {
                   <Route
                     path="miya-conversations"
                     element={<PlatformMiyaConversationsPage />}
+                  />
+                  <Route
+                    path="unknown-phrases"
+                    element={<PlatformUnknownTurnsPage />}
                   />
                   <Route path="operators" element={<PlatformOperatorsPage />} />
                   <Route path="operators/:id" element={<PlatformOperatorDetailPage />} />
