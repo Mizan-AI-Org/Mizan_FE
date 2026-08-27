@@ -126,7 +126,7 @@ export const DASHBOARD_WIDGET_IDS = [
   "staff_daily_progress",
   "incidents",
   // Category-bucketed widgets backed by /api/dashboard/category-tasks/.
-  // Each one renders the top-N pressing tasks for one Miya-curated lane.
+  // Each one renders the top-N pressing tasks for one curated lane.
   "urgent_top",
   "human_resources",
   "finance",
@@ -134,16 +134,16 @@ export const DASHBOARD_WIDGET_IDS = [
   "operations_tasks",
   // Procurement asks ("buy 6 bottles of vodka") - separate from Finance
   // (paying invoices) and Inventory (stock observations) so the manager
-  // who told Miya "we need to purchase X" sees the request next to
+  // who said "we need to purchase X" sees the request next to
   // other open POs instead of buried in the generic inbox.
   "purchase_orders",
-  // Catch-all lane for anything Miya couldn't slot into a named lane -
+  // Catch-all lane for anything that couldn't be slotted into a named lane -
   // general / miscellaneous requests still get a home on the dashboard.
   "miscellaneous",
   // Admin → Staff WhatsApp messaging surface. Composer + delivery /
   // read receipts feed; routes through the same NotificationService
-  // as Miya's `inform_staff` tool so a structured-form send and a
-  // free-text Miya chat send share one log.
+  // as the `inform_staff` notification path so a structured-form send and a
+  // free-text WhatsApp send share one log.
   "staff_messages",
 ] as const;
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
@@ -276,7 +276,7 @@ export function getWidgetCategory(id: DashboardWidgetId): DashboardWidgetCategor
  *
  * The first row is the manager's "what needs me right now" board:
  * Clock-in (people stuff), Urgent TOP 5 (everything pressing), and the
- * three category lanes Miya routes new work into (Human Resources,
+ * three category lanes that route new work into (Human Resources,
  * Meetings & Reminders, Finance, Maintenance). Below that we keep the
  * legacy operational cards (Insights / Tasks & demands / Staffing /
  * Sales / Operations / Wellbeing) so existing customers don't lose
@@ -362,7 +362,7 @@ function writeDismissedDefaults(userId: string | undefined | null, ids: Iterable
 /**
  * Record that the user has explicitly removed a default widget, so we
  * stop auto-re-adding it on subsequent page loads. No-op for custom
- * (Miya) slot ids - they have their own lifecycle and are never part
+ * custom slot ids - they have their own lifecycle and are never part
  * of the default lane.
  */
 export function markDefaultAsDismissed(
@@ -417,7 +417,7 @@ function isDashboardWidgetId(v: string): v is DashboardWidgetId {
   return (DASHBOARD_WIDGET_IDS as readonly string[]).includes(v);
 }
 
-/** Miya-created tiles use `custom:<uuid>` in saved layout (matches backend CUSTOM_WIDGET_PREFIX). */
+/** custom tiles use `custom:<uuid>` in saved layout (matches backend CUSTOM_WIDGET_PREFIX). */
 export const CUSTOM_WIDGET_PREFIX = "custom:";
 
 export function isCustomWidgetSlotId(s: string): boolean {
@@ -426,14 +426,14 @@ export function isCustomWidgetSlotId(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rest);
 }
 
-/** A slot on the dashboard grid: built-in widget id or a Miya custom tile id. */
+/** A slot on the dashboard grid: built-in widget id or a custom tile id. */
 export type DashboardWidgetSlotId = DashboardWidgetId | (string & {});
 
 /**
- * Render-time alias resolver: when a Miya-created custom tile's title
+ * Render-time alias resolver: when a custom tile's title
  * matches a known operational lane (e.g. "Purchases" → purchase_orders),
  * we render the data-bound built-in widget instead of the static "Ask
- * Miya" placeholder. This is a belt-and-braces fallback alongside the
+ * custom" placeholder. This is a belt-and-braces fallback alongside the
  * backend auto-migration in DashboardCustomWidgetListView - protects
  * tenants whose React Query cache hasn't yet re-fetched after the
  * server-side cleanup ran.
@@ -653,7 +653,7 @@ function resolveWidgetAliasFromText(
 export function resolveCustomWidgetAlias(
   def: DashboardCustomWidgetDef,
 ): DashboardWidgetId | undefined {
-  // Always swap Miya placeholder tiles when the title maps to a data-bound
+  // Always swap placeholder tiles when the title maps to a data-bound
   // lane - even if ensure_link auto-assigned a generic /dashboard/* shortcut.
   return resolveWidgetAliasFromText(def.title, def.subtitle);
 }
@@ -1566,7 +1566,7 @@ function ReservationsDashboardCard({
  *
  * Inbox-style list of the most important tasks for today, bucketed into
  * Pending / In progress / Completed tabs. Each row shows the provenance
- * (WhatsApp group, email sender, Miya AI, …) above the title, the AI
+ * (WhatsApp group, email sender, system, …) above the title, the AI
  * summary as a tinted subline, the assignee avatar + name, a colored
  * status pill, and a row menu that lets the manager flip status in one
  * click. Data comes from GET /api/dashboard/tasks-demands/ (our new
@@ -1581,8 +1581,8 @@ function sourceIcon(src: DashboardTaskDemandItem["source"]): LucideIcon {
       return MessageSquare;
     case "EMAIL":
       return Mail;
-    case "MIYA":
-      return Sparkle;
+    case "AGENT":
+      return Cog;
     case "SYSTEM":
       return Cog;
     default:
@@ -1596,8 +1596,8 @@ function sourcePrefix(src: DashboardTaskDemandItem["source"]): string {
       return "WA";
     case "EMAIL":
       return "Email";
-    case "MIYA":
-      return "Miya";
+    case "AGENT":
+      return "System";
     case "SYSTEM":
       return "System";
     default:
@@ -2061,7 +2061,7 @@ function TasksDemandsCard({
                 // Hide the source chip for generic SYSTEM-sourced rows
                 // (e.g. anything coming from the Scheduling kanban). The
                 // "Scheduling" label adds noise without giving the manager
-                // actionable context; WA / Email / Miya rows still show
+                // actionable context; WA / Email / system rows still show
                 // their provenance because that's where triage matters.
                 const showSource =
                   row.source !== "SYSTEM" && Boolean(row.source_label?.trim() || sourcePrefix(row.source));
@@ -3719,7 +3719,7 @@ function RecentIncidentsCard({
  * (title + assignee + status pill), and a "More v" affordance that
  * deep-links to the relevant page.
  *
- * Miya pre-classifies every incoming task or staff request into a
+ * Incoming items are pre-classified into a task or staff request into a
  * category (HR, FINANCE, MAINTENANCE, MEETING, …) on ingest, so the
  * widgets are pure indexed reads - no LLM round-trip on the dashboard
  * polling path.
@@ -4148,7 +4148,7 @@ function buildInboxRowDetailHref(opts: { lane?: string; priority?: string }) {
       (item.raw_status ? "staff_request" : undefined) ||
       "dashboard";
 
-    // Miya / dashboard.Task rows (Operations, Tasks & Demands, custom tiles)
+    // dashboard.Task rows (Operations, Tasks & Demands, custom tiles)
     // live outside the staff-request inbox - open the task detail pane directly.
     if (kind === "dashboard" || kind === "scheduling") {
       return tasksDemandsDetailHref({ ...item, kind });
@@ -4451,7 +4451,7 @@ function CategoryTasksCard({
 
   const counts = data?.counts ?? { open: 0, in_progress: 0, completed: 0 };
 
-  // New Miya tasks land as Pending (open lane). If the manager left
+  // New tasks land as Pending (open lane). If the manager left
   // "in progress" selected from a prior visit, the card looks empty
   // even though open items exist - snap back to the open lane.
   React.useEffect(() => {
@@ -4888,7 +4888,7 @@ function CategoryFilterChip({
 /** Task row used by every category widget. Renders, in order:
  *
  *   • Title (truncated, hover-tooltipped with the full string)
- *   • Optional ``ai_summary`` line (Miya's one-line gist of the request)
+ *   • Optional ``ai_summary`` line (one-line gist of the request)
  *   • A meta strip: assignee chip · "•" · age label ("12m ago", "yesterday", …)
  *   • A small URGENT chip when ``priority === "URGENT"`` AND the row's pill
  *     isn't already red (so we don't double-stamp OVERDUE rows)
@@ -5293,7 +5293,7 @@ export type DashboardWidgetBundleProps = {
   salesLoading: boolean;
   prepLoading: boolean;
   hasRole: (roles: string[]) => boolean;
-  /** Map slot_id → definition for Miya-created tiles (`custom:<uuid>`). */
+  /** Map slot_id → definition for custom tiles (`custom:<uuid>`). */
   customWidgetsById: Record<string, DashboardCustomWidgetDef>;
 };
 
@@ -5368,81 +5368,6 @@ export function SortableDashboardWidget({
   );
 }
 
-function MiyaCustomDashboardWidgetCard({
-  def,
-  cardBase,
-  cardHeaderBase,
-  t,
-  navigate,
-}: {
-  def: DashboardCustomWidgetDef;
-  cardBase: string;
-  cardHeaderBase: string;
-  t: (key: string) => string;
-  navigate: NavigateFunction;
-}) {
-  const Icon = CUSTOM_WIDGET_ICONS[def.icon] || Sparkles;
-  const link = (def.link_url || "").trim();
-  const isMiyaDeepLink = link.startsWith("miya:");
-  const hasNavigableLink = !!link && !isMiyaDeepLink;
-
-  const askMiya = () => {
-    window.dispatchEvent(new CustomEvent("miya:open"));
-  };
-
-  const open = () => {
-    if (isMiyaDeepLink) {
-      askMiya();
-      return;
-    }
-    if (!hasNavigableLink) {
-      return;
-    }
-    if (/^https?:\/\//i.test(link)) {
-      window.open(link, "_blank", "noopener,noreferrer");
-      return;
-    }
-    const path = link.startsWith("/") ? link : `/${link}`;
-    navigate(path);
-  };
-
-  const showActionButton = hasNavigableLink || isMiyaDeepLink;
-
-  return (
-    <Card className={cn(cardBase, "flex flex-col")}>
-      <CardHeader className={`${cardHeaderBase} pb-2 pt-5`}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800/90 dark:text-slate-300">
-              <Icon className="h-6 w-6" aria-hidden />
-            </div>
-            <div className="min-w-0">
-              <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                {def.title}
-              </CardTitle>
-              {def.subtitle ? (
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">{def.subtitle}</p>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col px-5 pb-4 pt-0">
-        {showActionButton ? (
-          <Button type="button" variant="outline" size="sm" className="mt-1 w-fit gap-1.5" onClick={open}>
-            {isMiyaDeepLink ? t("dashboard.miya_widget.open_chat") : t("dashboard.miya_widget.open")}
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        ) : (
-          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
-            {t("dashboard.miya_widget.no_link")}
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 function CustomWidgetTasksCard({
   def,
   cardBase,
@@ -5468,18 +5393,10 @@ function CustomWidgetTasksCard({
 
   const Icon = CUSTOM_WIDGET_ICONS[def.icon] || ClipboardCheck;
   const link = (def.link_url || "").trim();
-  const isMiyaDeepLink = link.startsWith("miya:");
-  const hasNavigableLink = !!link && !isMiyaDeepLink;
-
-  const askMiya = () => {
-    window.dispatchEvent(new CustomEvent("miya:open"));
-  };
+  const hasNavigableLink =
+    !!link && (link.startsWith("/") || /^https?:\/\//i.test(link));
 
   const openLink = () => {
-    if (isMiyaDeepLink) {
-      askMiya();
-      return;
-    }
     if (!hasNavigableLink) return;
     if (/^https?:\/\//i.test(link)) {
       window.open(link, "_blank", "noopener,noreferrer");
@@ -5611,7 +5528,7 @@ function CustomWidgetTasksCard({
     },
   ];
 
-  const showActionButton = hasNavigableLink || isMiyaDeepLink;
+  const showActionButton = hasNavigableLink;
   const hasAnyTasks =
     tabCounts.pending + tabCounts.in_progress + tabCounts.completed > 0;
 
@@ -5918,14 +5835,12 @@ function CustomWidgetTasksCard({
             className="mt-3 w-fit gap-1.5 self-start"
             onClick={openLink}
           >
-            {isMiyaDeepLink
-              ? t("dashboard.miya_widget.open_chat")
-              : t("dashboard.miya_widget.open")}
+            {t("dashboard.custom_widget.open", { defaultValue: "Open" })}
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>
         ) : !hasAnyTasks && !isLoading ? (
           <p className="mt-3 text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
-            {t("dashboard.miya_widget.no_link")}
+            {t("dashboard.custom_widget.no_link", { defaultValue: "No link set for this card." })}
           </p>
         ) : null}
       </CardContent>
@@ -5948,11 +5863,11 @@ function CustomWidgetTasksCard({
 // Two surfaces in one card:
 //
 // 1. A compact composer at the top: recipient combobox, message body,
-//    optional priority bump, and a row of one-tap templates Miya
+//    optional priority bump, and a row of one-tap templates the system
 //    surfaces ("Urgent call-in", "Shift reminder", …). Goes through
 //    POST /api/dashboard/staff-messages/send/, which dispatches
-//    via the same NotificationService Miya's ``inform_staff`` tool
-//    uses, so a structured form send and a free-text Miya chat send
+//    via the same NotificationService ``inform_staff`` path
+//    uses, so a structured form send and a free-text WhatsApp send
 //    land in the same NotificationLog feed.
 //
 // 2. A scrollable feed of recent outbound WhatsApp messages with
@@ -6867,14 +6782,14 @@ export function DashboardWidgetById({
     if (!def) {
       return (
         <Card className={cardBase}>
-          <CardContent className="p-5 text-sm text-slate-500 dark:text-slate-400">{t("dashboard.miya_widget.loading")}</CardContent>
+          <CardContent className="p-5 text-sm text-slate-500 dark:text-slate-400">{t("dashboard.custom_widget.loading", { defaultValue: "Loading this card…" })}</CardContent>
         </Card>
       );
     }
-    // Render-time alias swap: a Miya-created tile titled "Purchases" /
+    // Render-time alias swap: a custom tile titled "Purchases" /
     // "HR" / "Finance" / "Maintenance" / etc. should render the
     // data-bound built-in widget (live request list) instead of the
-    // static "Ask Miya" placeholder. The backend deletes the
+    // static "Ask custom" placeholder. The backend deletes the
     // placeholder + inserts the built-in into the layout on next read,
     // so this branch is mostly a transitional safety net for cached
     // layouts. Once that propagates we fall through to the regular

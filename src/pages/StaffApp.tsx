@@ -81,8 +81,6 @@ import {
 } from "lucide-react";
 import { API_BASE, BACKEND_URL, BackendService, api } from "@/lib/api";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
-import { AiNativeWorkspace } from "@/components/miya/AiNativeWorkspace";
-import { AskMiyaButton, miyaPrompts } from "@/components/miya/AskMiyaButton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
@@ -232,7 +230,6 @@ function phonesMatch(a: string | null | undefined, b: string | null | undefined)
 }
 
 const STAFF_ACTIVATION_WA_TEXT = "Hi Mizan AI, I am ready to activate my account!";
-const MIYA_CHAT_WA_TEXT = "Hi Miya";
 
 /** Build a wa.me link with a specific prefilled message. */
 function buildWhatsAppMeLink(phoneDigits: string, text: string): string {
@@ -246,13 +243,13 @@ function extractWaMePhone(link: string): string {
     return m?.[1] || "";
 }
 
-function isMiyaChatInviteLink(link: string): boolean {
+function isLegacyAiChatInviteLink(link: string): boolean {
     if (!link) return false;
     try {
         const decoded = decodeURIComponent(link);
-        return /[?&]text=Hi\+?Miya(?:&|$)/i.test(link) || /[?&]text=Hi Miya(?:&|$)/i.test(decoded);
+        return /[?&]text=Hi\+?Agent(?:&|$)/i.test(link) || /[?&]text=Hi Agent(?:&|$)/i.test(decoded);
     } catch {
-        return /text=Hi\+?Miya/i.test(link);
+        return /text=Hi\+?Agent/i.test(link);
     }
 }
 
@@ -270,8 +267,7 @@ function isStaffActivationInviteLink(link: string): boolean {
 }
 
 /**
- * Prefer the ONE-TAP activation wa.me link. Never return the "Hi Miya" chat link
- * for staff invites - rewrite it to the activation phrase if needed.
+ * Prefer the ONE-TAP activation wa.me link. Never return a legacy AI chat invite.
  */
 function pickActivationInviteLink(data: {
     invite_link?: string;
@@ -281,7 +277,7 @@ function pickActivationInviteLink(data: {
     // Prefer short redirect (https://api…/wa) over the long wa.me URL.
     const candidates = [data.invite_short_link, data.invite_link].filter(Boolean) as string[];
     for (const candidate of candidates) {
-        if (isMiyaChatInviteLink(candidate)) continue;
+        if (isLegacyAiChatInviteLink(candidate)) continue;
         if (isStaffActivationInviteLink(candidate) || candidate.includes("/wa")) {
             return candidate;
         }
@@ -292,18 +288,6 @@ function pickActivationInviteLink(data: {
         extractWaMePhone(data.invite_short_link || "") ||
         extractWaMePhone(data.chat_link || "");
     return buildWhatsAppMeLink(phone, STAFF_ACTIVATION_WA_TEXT);
-}
-
-function pickMiyaChatLink(data: {
-    chat_short_link?: string;
-    chat_link?: string;
-    invite_link?: string;
-}): string {
-    const short = (data.chat_short_link || "").trim();
-    if (short.includes("/wa/hi")) return short;
-    if (data.chat_link && isMiyaChatInviteLink(data.chat_link)) return data.chat_link;
-    const phone = extractWaMePhone(data.chat_link || "") || extractWaMePhone(data.invite_link || "");
-    return buildWhatsAppMeLink(phone, MIYA_CHAT_WA_TEXT);
 }
 
 /** ONE-TAP activation pending (StaffActivationRecord) */
@@ -424,7 +408,7 @@ type BulkInviteRow = {
     phone_number?: string;
 };
 
-type MiyaRecommendation = {
+type InsightRecommendation = {
     title: string;
     body: string;
     action_label?: string;
@@ -436,7 +420,7 @@ type StaffInsightsData = {
     attendance_health: { on_time_arrival: number; no_show_rate: number };
     signals: { color: "emerald" | "amber"; text: string }[];
     alerts: { level: "Critical" | "Warning" | string; type?: string; title: string; description?: string }[];
-    miya_recommendation?: MiyaRecommendation | null;
+    agent_recommendation?: InsightRecommendation | null;
 };
 
 // Reusable Pagination Controls Component
@@ -483,34 +467,50 @@ const PaginationControls: React.FC<{
 
 
     return (
-        <div className="flex items-center justify-center py-10 mt-6">
-            <div className="flex items-center gap-3 bg-card px-5 py-2.5 rounded-full border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between py-4 mt-2 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+                {count > 0
+                    ? `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, count)} of ${count}`
+                    : "No results"}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+                {onPageSizeChange && (
+                    <select
+                        value={pageSize}
+                        onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                        disabled={isLoading}
+                        className="h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs text-slate-700 dark:text-slate-200"
+                        aria-label="Items per page"
+                    >
+                        {pageSizeOptions.map((n) => (
+                            <option key={n} value={n}>{n} / page</option>
+                        ))}
+                    </select>
+                )}
                 {showPaginationNumbers && (
-                    <>
+                    <div className="inline-flex items-center gap-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1 py-0.5">
                         <button
                             onClick={() => onPageChange(currentPage - 1)}
                             disabled={currentPage === 1 || isLoading}
                             aria-label={t("common.previous_page")}
-                            title={t("common.previous_page")}
-                            className="p-1 px-2 text-slate-400 hover:text-indigo-600 disabled:opacity-30 transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-emerald-600 disabled:opacity-30 transition-colors rounded-md"
                         >
                             <ChevronLeft className="w-4 h-4" />
                         </button>
-
-                        <div className="flex items-center gap-1.5 px-2">
+                        <div className="flex items-center gap-0.5 px-0.5">
                             {pages.map((p, idx) => (
                                 <React.Fragment key={idx}>
-                                    {p === '...' ? (
-                                        <span className="px-1 text-slate-400 font-medium">...</span>
+                                    {p === "..." ? (
+                                        <span className="px-1 text-slate-400 text-xs">…</span>
                                     ) : (
                                         <button
                                             onClick={() => onPageChange(p as number)}
                                             disabled={isLoading}
                                             className={cn(
-                                                "w-8 h-8 rounded-full text-sm font-semibold transition-all flex items-center justify-center",
+                                                "min-w-8 h-8 rounded-md text-xs font-semibold transition-colors",
                                                 currentPage === p
-                                                    ? "bg-indigo-50 text-indigo-600 border border-indigo-200 shadow-sm"
-                                                    : "text-slate-500 hover:text-indigo-600 hover:bg-white/50 dark:hover:bg-slate-700/50"
+                                                    ? "bg-emerald-600 text-white"
+                                                    : "text-slate-500 hover:text-emerald-600 hover:bg-slate-50 dark:hover:bg-slate-800",
                                             )}
                                         >
                                             {p}
@@ -519,34 +519,14 @@ const PaginationControls: React.FC<{
                                 </React.Fragment>
                             ))}
                         </div>
-
                         <button
                             onClick={() => onPageChange(currentPage + 1)}
                             disabled={currentPage === totalPages || isLoading}
                             aria-label={t("common.next_page")}
-                            title={t("common.next_page")}
-                            className="p-1 px-2 text-slate-400 hover:text-indigo-600 disabled:opacity-30 transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-emerald-600 disabled:opacity-30 transition-colors rounded-md"
                         >
                             <ChevronRight className="w-4 h-4" />
                         </button>
-                    </>
-                )}
-
-                {onPageSizeChange && (
-                    <div className={cn("flex items-center", showPaginationNumbers ? "ml-2 pl-4 border-l border-slate-100 dark:border-slate-800" : "")}>
-                        <div className="relative group">
-                            <select
-                                value={pageSize}
-                                onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                                disabled={isLoading}
-                                className="appearance-none bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full px-4 pr-9 py-1 text-xs font-bold text-slate-600 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer transition-all min-w-[100px]"
-                            >
-                                {pageSizeOptions.map(size => (
-                                    <option key={size} value={size}>{size} / page</option>
-                                ))}
-                            </select>
-                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none transition-transform group-hover:translate-y-[-40%]" />
-                        </div>
                     </div>
                 )}
             </div>
@@ -1038,13 +1018,13 @@ const TeamTab: React.FC = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
     const [lastInviteLink, setLastInviteLinkState] = useState<string | null>(null);
-    /** Always store the activation phrase - never the "Hi Miya" chat link. */
+    /** Always store the activation phrase - never a legacy AI chat invite. */
     const setLastInviteLink = (link: string | null) => {
         if (!link) {
             setLastInviteLinkState(null);
             return;
         }
-        if (isMiyaChatInviteLink(link)) {
+        if (isLegacyAiChatInviteLink(link)) {
             const fixed = buildWhatsAppMeLink(extractWaMePhone(link), STAFF_ACTIVATION_WA_TEXT);
             setLastInviteLinkState(fixed || null);
             return;
@@ -1260,32 +1240,23 @@ const TeamTab: React.FC = () => {
         }
     };
 
-    /** Copy wa.me link - activation invite (ONE-TAP) or Miya chat, depending on preferChat. */
-    const handleCopyMiyaWhatsAppLink = async (
-        preferChat = true,
-    ): Promise<{ link: string; kind: "activation" | "chat" } | null> => {
+    /** Copy the ONE-TAP WhatsApp activation invite. */
+    const handleCopyWhatsAppInviteLink = async (): Promise<{ link: string; kind: "activation" } | null> => {
         try {
             const response = await fetch(`${API_BASE}/staff/activation/invite-link/`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
             });
             if (!response.ok) throw new Error("Failed to get link");
             const data = await response.json().catch(() => ({}));
-            const activationLink = pickActivationInviteLink(data);
-            const chatLink = pickMiyaChatLink(data);
-            const kind: "activation" | "chat" = preferChat ? "chat" : "activation";
-            const link = preferChat ? chatLink : activationLink;
+            const link = pickActivationInviteLink(data);
             if (!link) {
                 toast.error(t("errors.no_invite_link") || "WhatsApp link is not configured.");
                 return null;
             }
             await navigator.clipboard.writeText(link);
-            if (kind === "activation") {
-                setLastInviteLink(link);
-                toast.success(t("toasts.invite_copied"));
-            } else {
-                toast.success(t("toasts.whatsapp_miya_link_copied"));
-            }
-            return { link, kind };
+            setLastInviteLink(link);
+            toast.success(t("toasts.invite_copied"));
+            return { link, kind: "activation" };
         } catch {
             toast.error(t("errors.failed_to_copy") || "Failed to copy WhatsApp link");
             return null;
@@ -1371,9 +1342,8 @@ const TeamTab: React.FC = () => {
             }
             setIsCopyingWaLink(true);
             try {
-                // Always copy the ONE-TAP activation short link from staff profile
-                // (never "Hi Miya" chat) so invites open with the activation phrase.
-                await handleCopyMiyaWhatsAppLink(false);
+                // Always copy the ONE-TAP activation short link from staff profile.
+                await handleCopyWhatsAppInviteLink();
             } finally {
                 setIsCopyingWaLink(false);
             }
@@ -1412,19 +1382,6 @@ const TeamTab: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                            <AskMiyaButton
-                                prompt={miyaPrompts.staff(`${selectedMember.first_name} ${selectedMember.last_name}`.trim())}
-                                pageContext={{
-                                    entity_type: "staff",
-                                    entity_id: String(selectedMember.id),
-                                    entity_label: `${selectedMember.first_name} ${selectedMember.last_name}`.trim(),
-                                    route: typeof window !== "undefined" ? window.location.pathname : "/dashboard",
-                                    tab: "staff",
-                                }}
-                                size="sm"
-                                variant="outline"
-                                onClickStopPropagation
-                            />
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -1874,7 +1831,7 @@ const TeamTab: React.FC = () => {
                                             className={STAFF_MODAL_INPUT}
                                         />
                                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                                            Digits only with country code. Miya uses this to recognize the person on WhatsApp.
+                                            Digits only with country code. This number is used to recognize the person on WhatsApp.
                                         </p>
                                     </div>
                                     <div className="space-y-2">
@@ -2370,7 +2327,7 @@ const TeamTab: React.FC = () => {
                     const token = localStorage.getItem("access_token") || "";
 
                     if (inviteMethod === "whatsapp") {
-                        // ONE-TAP: upload creates profiles (Not activated). Manager shares the link; staff click → message Miya → backend activates account, Miya replies via WhatsApp.
+                        // ONE-TAP: upload creates profiles (Not activated). Manager shares the link; staff click it to activate.
                         const staffList = bulkData.map((r) => ({
                             phone: r.phone_number || "",
                             first_name: r.first_name || "",
@@ -2399,7 +2356,7 @@ const TeamTab: React.FC = () => {
                         if (data.created > 0 && activationLink) {
                             setLastInviteLink(activationLink);
                             handleCloseInviteModal();
-                            toast.success(`${data.created} staff members ready. Copy and share the link-when they click it and message Miya, their account will be activated and Miya will reply via WhatsApp.`);
+                            toast.success(`${data.created} staff members ready. Copy and share the invite link so they can activate their account on WhatsApp.`);
                             refetch();
                             refetchActivationPending();
                         } else {
@@ -2884,7 +2841,7 @@ const TeamTab: React.FC = () => {
                                         <strong>Tip:</strong>{" "}
                                         {inviteMethod === "email"
                                             ? "Use valid email addresses. Roles should match the role codes (MANAGER, CHEF, WAITER, etc.)."
-                                            : <>Use WhatsApp numbers in international format (digits only), e.g. <code>2126XXXXXXXX</code> for Morocco. After upload, copy and share the invite link with staff-when they click it and send the message to Miya, their account is activated and Miya replies via WhatsApp.</>
+                                            : <>Use WhatsApp numbers in international format (digits only), e.g. <code>2126XXXXXXXX</code> for Morocco. After upload, copy and share the invite link with staff so they can activate their account.</>
                                         }
                                     </p>
                                 </div>
@@ -2947,7 +2904,7 @@ const TeamTab: React.FC = () => {
                 }}
             />
 
-            {/* Staff activation link (after ONE-TAP invite - never the "Hi Miya" chat link) */}
+            {/* Staff activation link (after ONE-TAP invite) */}
             {lastInviteLink && isStaffActivationInviteLink(lastInviteLink) && (
                 <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
                     <p className="text-sm font-medium text-slate-700 dark:text-slate-300 shrink-0">{t("staff.invite_link_ready")}</p>
@@ -3036,7 +2993,7 @@ const TeamTab: React.FC = () => {
                         className={cn(
                             "p-1.5 rounded-md transition-all",
                             viewMode === 'grid'
-                                ? "bg-surface-raised text-indigo-600 shadow-sm"
+                                ? "bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm"
                                 : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                         )}
                         title={t("common.grid_view")}
@@ -3048,7 +3005,7 @@ const TeamTab: React.FC = () => {
                         className={cn(
                             "p-1.5 rounded-md transition-all",
                             viewMode === 'list'
-                                ? "bg-surface-raised text-indigo-600 shadow-sm"
+                                ? "bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm"
                                 : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                         )}
                         title={t("common.list_view")}
@@ -3094,7 +3051,7 @@ const TeamTab: React.FC = () => {
             ) : null}
 
             {/* Staff Directory */}
-            <Card className="border-slate-100 dark:border-slate-800 bg-card">
+            <Card className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80">
                 <CardContent className="pt-6">
                     {isLoading ? (
                         viewMode === 'list' ? (
@@ -3200,74 +3157,84 @@ const TeamTab: React.FC = () => {
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                         {filteredStaff.map((member) => {
                                             const isSelected = selectedStaffIds.includes(member.id);
+                                            const initials = (() => {
+                                                const f = (member.first_name || "").trim();
+                                                const l = (member.last_name || "").trim();
+                                                if (f && l) return `${f[0]}${l[0]}`.toUpperCase();
+                                                if (f.length >= 2) return f.slice(0, 2).toUpperCase();
+                                                return (f[0] || "?").toUpperCase();
+                                            })();
                                             return (
                                             <Card
                                                 key={member.id}
                                                 className={cn(
-                                                    "group relative border-slate-100 dark:border-slate-800 bg-card hover:shadow-lg transition-all duration-300 overflow-hidden rounded-2xl",
-                                                    isSelected && "ring-2 ring-emerald-500 border-emerald-300",
+                                                    "group relative flex flex-col overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700/80",
+                                                    "bg-white dark:bg-slate-900/80 hover:border-emerald-500/40 hover:shadow-md dark:hover:shadow-none transition-all duration-200",
+                                                    isSelected && "ring-2 ring-emerald-500 border-emerald-400 dark:border-emerald-600",
                                                 )}
                                             >
                                                 {multiBranch ? (
-                                                    <div className="absolute top-4 left-4 z-30">
+                                                    <div className="absolute top-3 left-3 z-20">
                                                         <Checkbox
                                                             checked={isSelected}
                                                             onCheckedChange={() => toggleStaffSelected(member)}
-                                                            className="bg-white border-slate-300 shadow-sm"
+                                                            className="bg-white/90 dark:bg-slate-800 border-slate-300 dark:border-slate-600 shadow-sm"
                                                             aria-label={`Select ${member.first_name}`}
                                                         />
                                                     </div>
                                                 ) : null}
-                                                <div className="h-24 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center relative overflow-hidden">
-                                                    <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
-                                                    <Avatar className="h-14 w-14 border-2 border-white dark:border-slate-700 shadow-lg transition-transform duration-500 group-hover:scale-105">
-                                                        <AvatarFallback className="text-lg bg-indigo-50 text-indigo-600 font-bold">
-                                                            {member.first_name[0]}{member.last_name[0]}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <div className="absolute inset-0 z-20 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 bg-black/20 backdrop-blur-[2px]">
+                                                <div className="relative h-14 shrink-0 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-800 dark:to-slate-950">
+                                                    <div className="absolute top-2 right-2 z-10 flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
                                                         <Button
-                                                            size="sm"
-                                                            className="h-8 bg-white hover:bg-white text-indigo-600 rounded-lg shadow-sm"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 rounded-md text-white/80 hover:text-white hover:bg-white/15"
                                                             onClick={() => handleViewProfile(member)}
+                                                            title={t("common.view_profile")}
                                                         >
-                                                            <Eye className="w-3.5 h-3.5 mr-1" />
-                                                            View
+                                                            <Eye className="h-3.5 w-3.5" />
                                                         </Button>
                                                         <Button
-                                                            size="sm"
-                                                            className="h-8 bg-white hover:bg-white text-emerald-600 rounded-lg shadow-sm"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 rounded-md text-white/80 hover:text-white hover:bg-white/15"
                                                             onClick={() => handleEditProfile(member)}
+                                                            title={t("common.edit_profile")}
                                                         >
-                                                            <Edit className="w-3.5 h-3.5 mr-1" />
-                                                            Edit
+                                                            <Edit className="h-3.5 w-3.5" />
                                                         </Button>
                                                         {multiBranch ? (
                                                             <Button
-                                                                size="sm"
-                                                                className="h-8 bg-white hover:bg-white text-slate-700 rounded-lg shadow-sm"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7 rounded-md text-white/80 hover:text-white hover:bg-white/15"
                                                                 onClick={() => openMoveDialog([member])}
+                                                                title="Move to branch"
                                                             >
-                                                                <ArrowRightLeft className="w-3.5 h-3.5 mr-1" />
-                                                                Move
+                                                                <ArrowRightLeft className="h-3.5 w-3.5" />
                                                             </Button>
                                                         ) : null}
                                                     </div>
                                                 </div>
-                                                <CardContent className="p-3 text-center">
-                                                    <h3 className="font-bold text-slate-900 dark:text-white truncate">
+                                                <CardContent className="relative flex flex-col items-center px-3 pb-3 pt-0 text-center flex-1">
+                                                    <Avatar className="h-14 w-14 -mt-7 mb-2 border-[3px] border-white dark:border-slate-900 shadow-md shrink-0">
+                                                        <AvatarFallback className="text-base bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-bold">
+                                                            {initials}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                    <h3 className="font-semibold text-sm text-slate-900 dark:text-white truncate w-full">
                                                         {member.first_name} {member.last_name}
                                                     </h3>
-                                                    <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mt-1 mb-2">
+                                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mt-0.5 mb-1.5 truncate w-full">
                                                         {staffRoleLabel(member)}
                                                     </p>
                                                     {multiBranch && member.primary_location_data?.name ? (
-                                                        <p className="flex items-center justify-center gap-1 text-[11px] text-slate-500 mb-2">
+                                                        <p className="flex items-center justify-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 mb-1.5 w-full">
                                                             <MapPin className="w-3 h-3 shrink-0" />
                                                             <span className="truncate">{member.primary_location_data.name}</span>
                                                         </p>
                                                     ) : null}
-                                                    <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-3">
+                                                    <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-2 w-full min-h-[1.25rem]">
                                                         {(() => {
                                                             const email = member.email || "";
                                                             const phone = member.phone || phoneFromWhatsAppEmail(email);
@@ -3305,10 +3272,10 @@ const TeamTab: React.FC = () => {
                                                         })()}
                                                     </div>
                                                     <Badge className={cn(
-                                                        "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest",
+                                                        "text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide mt-auto",
                                                         member.is_active
-                                                            ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-                                                            : "bg-red-50 text-red-600 border-red-100"
+                                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                                                            : "bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900"
                                                     )}>
                                                         {member.is_active ? t("common.active") : t("common.inactive")}
                                                     </Badge>
@@ -3971,24 +3938,21 @@ const InsightsTab: React.FC = () => {
         );
     }
 
-    const { summary, star_performers, attendance_health, signals, alerts, miya_recommendation } = insightsData || {
+    const { summary, star_performers, attendance_health, signals, alerts } = insightsData || {
         summary: { tasks_completed: 0, tasks_trend: 0, team_reliability: 0, active_workers: 0 },
         star_performers: [],
         attendance_health: { on_time_arrival: 0, no_show_rate: 0 },
         signals: [],
         alerts: [],
-        miya_recommendation: null
+        agent_recommendation: null
     };
-
-    const openMiyaChat = () => {
-        window.dispatchEvent(new CustomEvent("miya:open"));
-    };
+    const insightRecommendation = insightsData?.agent_recommendation ?? null;
 
     return (
         <div className="space-y-8 pb-10">
             {/* Top Section: Weekly Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="relative overflow-hidden border-none bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-xl shadow-indigo-100 dark:shadow-none">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="relative overflow-hidden border-none bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/10 dark:shadow-none">
                     <CardContent className="pt-6">
                         <div className="flex justify-between items-start mb-4">
                             <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
@@ -4005,7 +3969,7 @@ const InsightsTab: React.FC = () => {
                     </CardContent>
                 </Card>
 
-                <Card className="relative overflow-hidden border-none bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-xl shadow-emerald-100 dark:shadow-none">
+                <Card className="relative overflow-hidden border-none bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/10 dark:shadow-none">
                     <CardContent className="pt-6">
                         <div className="flex justify-between items-start mb-4">
                             <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
@@ -4022,7 +3986,7 @@ const InsightsTab: React.FC = () => {
                     </CardContent>
                 </Card>
 
-                <Card className="relative overflow-hidden border-none bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-xl shadow-amber-100 dark:shadow-none">
+                <Card className="relative overflow-hidden border-none bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/10 dark:shadow-none">
                     <CardContent className="pt-6">
                         <div className="flex justify-between items-start mb-4">
                             <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
@@ -4040,9 +4004,9 @@ const InsightsTab: React.FC = () => {
             </div>
 
             {/* Middle Section: Performance & Attendance */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Leaderboard */}
-                <Card className="border-slate-100 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl">
+                <Card className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <div>
                             <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -4056,8 +4020,12 @@ const InsightsTab: React.FC = () => {
                     <CardContent className="pt-4">
                         <div className="space-y-5">
                             {star_performers.length === 0 ? (
-                                <div className="py-10 text-center">
-                                    <p className="text-slate-500 text-sm italic">{t("staff.insights.no_task_data")}</p>
+                                <div className="py-12 text-center rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30">
+                                    <Trophy className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{t("staff.insights.no_task_data")}</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
+                                        Task completions will appear here once staff finish assigned work this week.
+                                    </p>
                                 </div>
                             ) : (
                                 star_performers.map((p, i: number) => (
@@ -4104,7 +4072,7 @@ const InsightsTab: React.FC = () => {
                 </Card>
 
                 {/* Attendance Trends */}
-                <Card className="border-slate-100 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl">
+                <Card className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <div>
                             <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -4208,25 +4176,26 @@ const InsightsTab: React.FC = () => {
                                 <Zap className="w-3 h-3" />
                                 {t("staff.insights.ai_recommendation")}
                             </p>
-                            <h3 className="text-xl font-bold text-white mb-2">{miya_recommendation?.title ?? t("staff.insights.optimize_shifts")}</h3>
+                            <h3 className="text-xl font-bold text-white mb-2">{insightRecommendation?.title ?? t("staff.insights.optimize_shifts")}</h3>
                             <p className="text-slate-400 text-sm leading-relaxed">
-                                {miya_recommendation?.body ? (
-                                    <span dangerouslySetInnerHTML={{ __html: miya_recommendation.body.replace(/\*\*(.*?)\*\*/g, "<strong class='text-white font-medium'>$1</strong>") }} />
+                                {insightRecommendation?.body ? (
+                                    <span dangerouslySetInnerHTML={{ __html: insightRecommendation.body.replace(/\*\*(.*?)\*\*/g, "<strong class='text-white font-medium'>$1</strong>") }} />
                                 ) : (
-                                    <>Based on last month's data, reassigning shifts during peak hours and using Miya's clock-in reminders can reduce late arrivals. <strong className="text-white font-medium">Chat with Miya</strong> for a tailored plan.</>
+                                    <>Based on last month's data, reassigning shifts during peak hours and using clock-in reminders can reduce late arrivals.</>
                                 )}
                             </p>
                         </div>
+                        {insightRecommendation?.action_label && !/agent|chat/i.test(insightRecommendation.action_label) ? (
                         <div className="flex flex-shrink-0 gap-3">
                             <Button
                                 type="button"
-                                onClick={openMiyaChat}
                                 variant="outline"
                                 className="bg-emerald-500 hover:bg-emerald-600 border-emerald-400 text-white font-bold rounded-xl px-6 shadow-lg whitespace-nowrap"
                             >
-                                {miya_recommendation?.action_label ?? (t("ai.chat_button") || "Chat with Miya")}
+                                {insightRecommendation.action_label}
                             </Button>
                         </div>
+                        ) : null}
                     </div>
                 </div>
             </div>
@@ -4297,8 +4266,7 @@ export default function StaffApp() {
     };
 
     return (
-        <div className={`${PAGE_SHELL_PADDED} space-y-6`}>
-            <AiNativeWorkspace module="staff" />
+        <div className={`${PAGE_SHELL_PADDED} space-y-6 min-w-0`}>
             <header className="space-y-1">
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{t("staff.page.title")}</h1>
                 <p className="text-slate-500 dark:text-slate-400 text-sm">
@@ -4307,26 +4275,26 @@ export default function StaffApp() {
             </header>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-6">
-                <TabsList className={`w-full grid h-auto ${showRequestsTab ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-2 sm:grid-cols-4"} bg-card border border-slate-200 dark:border-slate-800 p-1 rounded-xl`}>
-                    <TabsTrigger value="team" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
+                <TabsList className={`w-full grid h-auto ${showRequestsTab ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-2 sm:grid-cols-4"} bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 p-1 rounded-xl`}>
+                    <TabsTrigger value="team" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white dark:data-[state=active]:bg-emerald-600 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
                         <Users className="w-4 h-4 mr-2 shrink-0" />
                         {t("staff.tabs.team")}
                     </TabsTrigger>
-                    <TabsTrigger value="presence" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
+                    <TabsTrigger value="presence" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white dark:data-[state=active]:bg-emerald-600 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
                         <UserCheck className="w-4 h-4 mr-2 shrink-0" />
                         {t("staff.tabs.presence")}
                     </TabsTrigger>
-                    <TabsTrigger value="attendance" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
+                    <TabsTrigger value="attendance" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white dark:data-[state=active]:bg-emerald-600 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
                         <Clock className="w-4 h-4 mr-2 shrink-0" />
                         {t("staff.tabs.attendance")}
                     </TabsTrigger>
                     {showRequestsTab && (
-                        <TabsTrigger value="requests" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
+                        <TabsTrigger value="requests" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white dark:data-[state=active]:bg-emerald-600 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
                             <Inbox className="w-4 h-4 mr-2 shrink-0" />
                             {t("staff.tabs.requests")}
                         </TabsTrigger>
                     )}
-                    <TabsTrigger value="insights" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
+                    <TabsTrigger value="insights" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white dark:data-[state=active]:bg-emerald-600 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
                         <TrendingUp className="w-4 h-4 mr-2 shrink-0" />
                         {t("staff.tabs.insights")}
                     </TabsTrigger>

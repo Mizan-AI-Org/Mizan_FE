@@ -56,7 +56,7 @@ const ACTION_ALIASES: Record<string, string> = {
   tag_contact: "add_tag",
 };
 
-/** Coerce legacy / Miya step shapes into { type, config } for the builder. */
+/** Coerce legacy step shapes into { type, config } for the builder. */
 export function normalizeAutomationSteps(steps: unknown[]): AutomationStep[] {
   if (!Array.isArray(steps)) return [];
   return steps.map((raw) => {

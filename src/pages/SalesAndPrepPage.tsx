@@ -190,9 +190,10 @@ export default function SalesAndPrepPage() {
   const cardBase =
     "relative border border-slate-200/60 dark:border-slate-800/80 bg-card rounded-2xl ring-1 ring-slate-900/[0.03] dark:ring-white/[0.04] overflow-hidden shadow-[0_1px_2px_0_rgb(15_23_42_/_0.04),0_2px_8px_-2px_rgb(15_23_42_/_0.06)] transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-0.5 hover:border-slate-300/70 dark:hover:border-slate-700 hover:shadow-[0_12px_32px_-12px_rgb(15_23_42_/_0.18),0_4px_12px_-4px_rgb(15_23_42_/_0.08)]";
 
-  const miyaRec = prepList as { miya_recommendation?: { title?: string; body?: string; action_label?: string } } | undefined;
-  const isConnectPosPrompt = miyaRec?.miya_recommendation?.action_label?.toLowerCase().includes("connect pos") ?? false;
-  const showMiyaCard = miyaRec?.miya_recommendation && !isConnectPosPrompt;
+  const recPayload = prepList as { agent_recommendation?: { title?: string; body?: string; action_label?: string } } | undefined;
+  const rec = recPayload?.agent_recommendation;
+  const isConnectPosPrompt = rec?.action_label?.toLowerCase().includes("connect pos") ?? false;
+  const showRecCard = Boolean(rec && !isConnectPosPrompt);
 
   return (
     <div className="min-h-screen">
@@ -439,28 +440,28 @@ export default function SalesAndPrepPage() {
                           </>
                         )}
                       </Button>
-                      {showMiyaCard && (
+                      {showRecCard && (
                         <div className="mt-4 p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-800/30">
                           <p className="text-xs font-medium text-emerald-800 dark:text-emerald-300 flex items-center gap-2 mb-2">
-                            <Sparkles className="w-4 h-4" /> {miyaRec?.miya_recommendation?.title || "How the prep list works"}
+                            <Sparkles className="w-4 h-4" /> {rec?.title || "How the prep list works"}
                           </p>
                           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                            {miyaRec?.miya_recommendation?.body?.replace(/\*\*(.*?)\*\*/g, "$1") ||
+                            {rec?.body?.replace(/\*\*(.*?)\*\*/g, "$1") ||
                               "Mizan analyzes your sales data from the same day of week over the last 4 weeks, applies a 10% buffer, and maps forecasted portions to ingredients via your recipes."}
                           </p>
-                          {miyaRec?.miya_recommendation?.action_label && (
+                          {rec?.action_label && (
                             <Button
                               variant="outline"
                               size="sm"
                               className="mt-3"
                               onClick={() => {
-                                const label = miyaRec?.miya_recommendation?.action_label;
+                                const label = rec?.action_label;
                                 if (label?.includes("Settings")) navigate("/dashboard/settings");
                                 else if (prepItems.length > 0 && label?.toLowerCase().includes("prep")) setPrepListModalOpen(true);
                                 else navigate("/dashboard");
                               }}
                             >
-                              {miyaRec?.miya_recommendation?.action_label}
+                              {rec?.action_label}
                             </Button>
                           )}
                         </div>
@@ -525,27 +526,27 @@ export default function SalesAndPrepPage() {
                   {(prepList?.shortages?.length ?? 0) > 0 && (
                     <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">⚠ {prepList!.shortages!.length} {t("dashboard.prep.shortages") || "items may need reordering"}</p>
                   )}
-                  {showMiyaCard && miyaRec?.miya_recommendation && (
+                  {showRecCard && rec && (
                     <div className="p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-800/30">
                       <p className="text-xs font-medium text-emerald-800 dark:text-emerald-300 flex items-center gap-2 mb-2">
-                        <Sparkles className="w-4 h-4" /> {miyaRec.miya_recommendation.title}
+                        <Sparkles className="w-4 h-4" /> {rec.title}
                       </p>
                       <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                        {miyaRec.miya_recommendation.body?.replace(/\*\*(.*?)\*\*/g, "$1")}
+                        {rec.body?.replace(/\*\*(.*?)\*\*/g, "$1")}
                       </p>
-                      {miyaRec.miya_recommendation.action_label && (
+                      {rec.action_label && (
                         <Button
                           variant="outline"
                           size="sm"
                           className="mt-3"
                           onClick={() => {
-                            const label = miyaRec.miya_recommendation!.action_label;
+                            const label = rec!.action_label;
                             if (label?.includes("Settings")) navigate("/dashboard/settings");
                             else if (label?.toLowerCase().includes("prep")) setPrepListModalOpen(true);
                             else navigate("/dashboard");
                           }}
                         >
-                          {miyaRec.miya_recommendation.action_label}
+                          {rec.action_label}
                         </Button>
                       )}
                     </div>

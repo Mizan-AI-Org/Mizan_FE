@@ -77,7 +77,6 @@ import {
 } from "@/components/settings/SettingsSection";
 import { SettingsNav, type SettingsNavItem } from "@/components/settings/SettingsNav";
 import { SETTINGS_PAGE_SHELL } from "@/lib/page-shell";
-import { AiNativeWorkspace } from "@/components/miya/AiNativeWorkspace";
 import { cn } from "@/lib/utils";
 
 import { API_BASE, api } from "@/lib/api";
@@ -1055,9 +1054,6 @@ export default function Settings() {
 
   return (
     <div className={`${SETTINGS_PAGE_SHELL} pb-24 lg:pb-8`}>
-      <div className="mb-6">
-        <AiNativeWorkspace module="settings" defaultCollapsed compact />
-      </div>
       <Tabs value={activeTab} onValueChange={onSettingsTabChange} className="space-y-0">
         <div className="flex w-full max-w-5xl flex-col gap-5">
           <header className="min-w-0">
@@ -1287,7 +1283,7 @@ export default function Settings() {
               title={t("onboarding.owners.title", "Who owns what?")}
               description={t(
                 "onboarding.owners.subtitle",
-                "Pick one or more people for each category - Miya routes incidents, requests, and tasks to them automatically.",
+                "Pick one or more people for each category - incidents, requests, and tasks are routed to them automatically.",
               )}
             >
               <div className="space-y-6">
@@ -1897,7 +1893,7 @@ export default function Settings() {
               icon={<Calendar className="h-5 w-5" />}
               iconClassName="bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
               title={t("settings.gcal.title") || "Google Calendar"}
-              description={t("settings.gcal.description") || "Connect Google Calendar to let Miya create meetings, reminders, and see upcoming events."}
+              description={t("settings.gcal.description") || "Connect Google Calendar to create meetings, reminders, and see upcoming events."}
               actions={
                   <Badge
                     variant="outline"
@@ -1940,7 +1936,7 @@ export default function Settings() {
                 ) : (
                   <div className="flex flex-col items-start gap-3">
                     <p className="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                      {t("settings.gcal.connect_hint") || "Connecting Google Calendar enables Miya to schedule meetings, set reminders, and show upcoming events on your Meetings & Reminders widget."}
+                      {t("settings.gcal.connect_hint") || "Connecting Google Calendar enables scheduling meetings, setting reminders, and showing upcoming events on your Meetings & Reminders widget."}
                     </p>
                     <Button
                       disabled={gcalConnecting}
@@ -1990,7 +1986,7 @@ export default function Settings() {
                     {t("settings.gcal.disconnect_title") || "Disconnect Google Calendar?"}
                   </AlertDialogTitle>
                   <AlertDialogDescription className="text-left">
-                    {t("settings.gcal.disconnect_desc") || "Miya will no longer be able to create meetings or reminders, and the Meetings & Reminders widget will show a reconnect prompt. You can reconnect at any time."}
+                    {t("settings.gcal.disconnect_desc") || "The system will no longer be able to create meetings or reminders, and the Meetings & Reminders widget will show a reconnect prompt. You can reconnect at any time."}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

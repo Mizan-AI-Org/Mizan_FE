@@ -6,15 +6,15 @@ type Props = {
   className?: string;
 };
 
-/** Safe subset markdown renderer for Miya chat (headings, lists, bold, italics). */
-export function MiyaMessageBody({ content, className }: Props) {
+/** Safe subset markdown renderer for Agent chat (headings, lists, bold, italics). */
+export function AgentMessageBody({ content, className }: Props) {
   const text = content || "";
   if (!text.trim()) return null;
 
   const blocks = splitBlocks(text);
 
   return (
-    <div className={cn("miya-md space-y-2 text-[13px] leading-relaxed", className)}>
+    <div className={cn("agent-md space-y-2 text-[13px] leading-relaxed", className)}>
       {blocks.map((block, i) => {
         if (block.type === "heading") {
           return (

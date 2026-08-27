@@ -10,25 +10,6 @@ const base = "shrink-0";
 
 /** Custom Mizan OS nav icons - slightly bolder, distinctive silhouettes. */
 
-export function IconAskMiya({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn(base, className)} aria-hidden>
-      <path
-        d="M12 3.2 13.7 8.3l5.1 1.7-5.1 1.7L12 16.8l-1.7-5.1-5.1-1.7 5.1-1.7L12 3.2Z"
-        fill="currentColor"
-        fillOpacity="0.18"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M18.2 14.2 19 16.5l2.3.8-2.3.8-.8 2.3-.8-2.3-2.3-.8 2.3-.8.8-2.3Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
 export function IconCommand({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn(base, className)} aria-hidden>

@@ -16,9 +16,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   Calendar,
-  ChevronDown,
   Download,
-  ExternalLink,
   Eye,
   FileWarning,
   Loader2,
@@ -58,20 +56,6 @@ type ComplianceDoc = {
   has_file?: boolean;
   file_url?: string;
   attachment?: AttachmentInfo | null;
-};
-
-type TenantUpload = {
-  id: string;
-  title: string;
-  category?: string;
-  summary?: string;
-  vendor?: string | null;
-  amount?: string | null;
-  currency?: string | null;
-  expiry_date?: string | null;
-  file_url?: string;
-  created_at?: string | null;
-  mime_type?: string;
 };
 
 const urgencyStyles: Record<ComplianceDoc["urgency"], string> = {
@@ -146,7 +130,6 @@ export default function ComplianceDocumentsSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [docs, setDocs] = useState<ComplianceDoc[]>([]);
-  const [uploads, setUploads] = useState<TenantUpload[]>([]);
   const [types, setTypes] = useState<DocType[]>([]);
   const [title, setTitle] = useState("");
   const [documentType, setDocumentType] = useState("INSURANCE");
@@ -157,35 +140,15 @@ export default function ComplianceDocumentsSettings() {
 
   const [viewerDoc, setViewerDoc] = useState<ComplianceDoc | null>(null);
   const [attachingId, setAttachingId] = useState<string | null>(null);
-  const [miyaUploadsOpen, setMiyaUploadsOpen] = useState(false);
   const attachFileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [res, uploadRes] = await Promise.all([
-        api.get("/payroll/compliance-documents/"),
-        api.getDashboardTenantDocuments(30).catch(() => ({ success: false, documents: [], count: 0 })),
-      ]);
+      const res = await api.get("/payroll/compliance-documents/");
       const data = res.data || {};
       setDocs(Array.isArray(data.documents) ? data.documents : []);
       setTypes(Array.isArray(data.document_types) ? data.document_types : []);
-      const udocs = Array.isArray(uploadRes?.documents) ? uploadRes.documents : [];
-      setUploads(
-        udocs.map((d: Record<string, unknown>) => ({
-          id: String(d.id ?? ""),
-          title: String(d.title ?? "Document"),
-          category: typeof d.category === "string" ? d.category : undefined,
-          summary: typeof d.summary === "string" ? d.summary : undefined,
-          vendor: typeof d.vendor === "string" ? d.vendor : null,
-          amount: d.amount != null ? String(d.amount) : null,
-          currency: typeof d.currency === "string" ? d.currency : null,
-          expiry_date: typeof d.expiry_date === "string" ? d.expiry_date : null,
-          file_url: typeof d.file_url === "string" ? d.file_url : undefined,
-          created_at: typeof d.created_at === "string" ? d.created_at : null,
-          mime_type: typeof d.mime_type === "string" ? d.mime_type : undefined,
-        })),
-      );
     } catch {
       toast.error(t("settings.compliance.load_error"));
     } finally {
@@ -584,77 +547,6 @@ export default function ComplianceDocumentsSettings() {
             ))}
           </ul>
         )}
-
-        {/* Miya uploads section (collapsed by default) */}
-        <div className="pt-6 border-t border-slate-200 dark:border-slate-700 space-y-3">
-          <button
-            type="button"
-            className="w-full flex items-start justify-between gap-3 text-left rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900/40 px-1 py-1 -mx-1"
-            onClick={() => setMiyaUploadsOpen((open) => !open)}
-            aria-expanded={miyaUploadsOpen}
-          >
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                {t("settings.compliance.miya_uploads_title")}
-                {uploads.length > 0 ? (
-                  <span className="ml-2 text-xs font-medium text-slate-500">
-                    ({uploads.length})
-                  </span>
-                ) : null}
-              </p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {t("settings.compliance.miya_uploads_desc")}
-              </p>
-            </div>
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 shrink-0 text-slate-400 mt-1 transition-transform",
-                miyaUploadsOpen && "rotate-180",
-              )}
-            />
-          </button>
-          {miyaUploadsOpen ? (
-            uploads.length === 0 ? (
-              <p className="text-sm text-slate-500 py-4">
-                {t("settings.compliance.miya_uploads_empty")}
-              </p>
-            ) : (
-              <ul className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                {uploads.map((u) => (
-                  <li
-                    key={u.id}
-                    className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 bg-card"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">
-                        {u.title}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {[u.category, u.vendor, u.amount ? `${u.amount}${u.currency ? ` ${u.currency}` : ""}` : null, u.expiry_date ? `expires ${u.expiry_date}` : null]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                      {u.summary ? (
-                        <p className="text-xs text-slate-400 mt-1 line-clamp-2">{u.summary}</p>
-                      ) : null}
-                    </div>
-                    {u.file_url ? (
-                      <a
-                        href={u.file_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:underline shrink-0"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        Open
-                      </a>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )
-          ) : null}
-        </div>
       </div>
 
       {/* Document Viewer Dialog */}

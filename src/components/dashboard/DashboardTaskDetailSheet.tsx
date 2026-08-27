@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,7 +13,6 @@ import type { DashboardTaskDemandItem } from "@/lib/types";
 import { useLanguage } from "@/hooks/use-language";
 import { DashboardTaskDetailContent } from "@/components/dashboard/DashboardTaskDetailContent";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 function tasksDemandsDetailHref(taskId: string): string {
   return `/dashboard/staff-requests?list=dashboard&task=${taskId}`;
@@ -24,14 +23,12 @@ export function DashboardTaskDetailSheet({
   open,
   onOpenChange,
   widgetTitle,
-  miyaPanelOpen = false,
   queryKeysToInvalidate = [],
 }: {
   taskId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   widgetTitle?: string;
-  miyaPanelOpen?: boolean;
   queryKeysToInvalidate?: readonly (readonly unknown[])[];
 }) {
   const { t } = useLanguage();
@@ -125,29 +122,14 @@ export function DashboardTaskDetailSheet({
     },
   });
 
-  useEffect(() => {
-    try {
-      document.documentElement.style.setProperty("--mizan-miya-edge", "44px");
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
   const task = taskQuery.data;
-
-  const sheetRightClass = miyaPanelOpen
-    ? "lg:right-[var(--mizan-miya-panel,420px)]"
-    : "lg:right-[var(--mizan-miya-edge,44px)]";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent
         side="right"
-        className={cn(
-          "flex w-full flex-col sm:max-w-lg z-[3500] transition-[right] duration-300",
-          sheetRightClass,
-        )}
-        overlayClassName={cn("bg-black/50 pointer-events-auto", sheetRightClass)}
+        className="flex w-full flex-col sm:max-w-lg z-[3500]"
+        overlayClassName="bg-black/50 pointer-events-auto"
       >
         <SheetHeader className="shrink-0 space-y-1 pr-8 text-left">
           <SheetTitle className="text-base font-semibold">

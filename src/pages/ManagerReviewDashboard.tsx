@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
 import { api, API_BASE, resolveMediaUrl, toAbsoluteUrl } from "@/lib/api";
@@ -34,9 +34,6 @@ import { TableSkeleton } from "@/components/skeletons";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { focusEntityForMiya, setMiyaPageContext } from "@/lib/miyaPageContext";
-import { AskMiyaButton, miyaPrompts } from "@/components/miya/AskMiyaButton";
-import { AiNativeWorkspace, type WorkspaceModule } from "@/components/miya/AiNativeWorkspace";
 
 type SubmittedChecklist = {
   id: string;
@@ -122,8 +119,6 @@ type ChecklistExecutionDetail = {
 const ManagerReviewDashboard: React.FC = () => {
   const queryClient = useQueryClient();
   const { t } = useLanguage();
-  const location = useLocation();
-  const showStandaloneWorkspace = location.pathname.includes("/reviews/");
   const [search, setSearch] = useState("");
   const [filterSubmitter, setFilterSubmitter] = useState("");
   const [filterDate, setFilterDate] = useState("");
@@ -497,37 +492,6 @@ const ManagerReviewDashboard: React.FC = () => {
     },
   });
 
-  useEffect(() => {
-    if (!selectedIncident) {
-      setMiyaPageContext({
-        route: "/dashboard/analytics",
-        tab: "incidents",
-      });
-      return;
-    }
-    const label =
-      (incidentDetail as { title?: string } | undefined)?.title ||
-      undefined;
-    focusEntityForMiya({
-      entity_type: "incident",
-      entity_id: selectedIncident,
-      entity_label: label,
-      route: "/dashboard/analytics",
-      tab: "incidents",
-    });
-    // Do not clear entity_id on cleanup: incidentDetail refetches were wiping focus
-    // mid-chat and causing "assign it Younes" to hit the wrong entity.
-  }, [selectedIncident, incidentDetail]);
-
-  useEffect(() => {
-    const onMutated = () => {
-      queryClient.invalidateQueries({ queryKey: ["safety-incidents"] });
-      queryClient.invalidateQueries({ queryKey: ["safety-incident-detail"] });
-    };
-    window.addEventListener("miya:ops-mutated", onMutated);
-    return () => window.removeEventListener("miya:ops-mutated", onMutated);
-  }, [queryClient]);
-
   type SafetyIncident = {
     id: string;
     title?: string | null;
@@ -877,11 +841,6 @@ const ManagerReviewDashboard: React.FC = () => {
 
   return (
     <div className={`${PAGE_SHELL} py-6 space-y-5`}>
-      {showStandaloneWorkspace ? (
-        <AiNativeWorkspace
-          module={(activeTab === "incidents" ? "incidents" : "checklists") as WorkspaceModule}
-        />
-      ) : null}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{t("ops.review.title")}</h1>
@@ -1893,19 +1852,6 @@ const ManagerReviewDashboard: React.FC = () => {
                         {incidentDetail.incident_type}
                       </Badge>
                     ) : null}
-                    <AskMiyaButton
-                      prompt={miyaPrompts.incident(incidentDetail.title || "this incident")}
-                      pageContext={{
-                        entity_type: "incident",
-                        entity_id: String(incidentDetail.id || selectedIncident || ""),
-                        entity_label: incidentDetail.title,
-                        route: typeof window !== "undefined" ? window.location.pathname : "/dashboard",
-                        tab: "incidents",
-                      }}
-                      size="sm"
-                      variant="outline"
-                      onClickStopPropagation
-                    />
                     <span className="text-[11px] text-muted-foreground font-mono ml-auto">
                       #{String(incidentDetail.id || "").slice(0, 8)}
                     </span>

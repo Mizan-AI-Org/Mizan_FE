@@ -328,7 +328,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
 
                     {/* Department tags - operational context (KITCHEN /
                         SERVICE / PURCHASES / …). Drives smart task
-                        routing on Miya's side and the tag filter in
+                        routing on WhatsApp and the tag filter in
                         the escalate modal. Sits above the multi-branch
                         block because every tenant uses tags but only a
                         subset uses multi-location. */}

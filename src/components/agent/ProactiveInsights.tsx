@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { MessageSquare } from "lucide-react";
 import { api } from "@/lib/api";
 import { useLanguage } from "@/hooks/use-language";
-import { askMiya, focusEntityForMiya } from "@/lib/miyaPageContext";
+import { askAgent, focusEntityForAgent } from "@/lib/agentPageContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SectionHeader, SeverityBadge, severityPanelClass } from "@/components/os";
@@ -14,7 +14,7 @@ export type ProactiveInsightAction = {
   label: string;
   kind?: string;
   href?: string;
-  ask_miya_prompt?: string;
+  ask_agent_prompt?: string;
   tool_hint?: string;
 };
 
@@ -51,25 +51,25 @@ export function ProactiveInsights({
   insights,
   className,
   compact = false,
-  queryKey = ["miya", "command-center"],
+  queryKey = ["agent", "command-center"],
 }: Props) {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const qc = useQueryClient();
 
   const dismiss = useMutation({
-    mutationFn: (fingerprint: string) => api.dismissMiyaInsight(fingerprint),
+    mutationFn: (fingerprint: string) => api.dismissAgentInsight(fingerprint),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey });
-      void qc.invalidateQueries({ queryKey: ["miya", "insights"] });
+      void qc.invalidateQueries({ queryKey: ["agent", "insights"] });
     },
   });
 
   const snooze = useMutation({
-    mutationFn: (fingerprint: string) => api.snoozeMiyaInsight(fingerprint, { hours: 6 }),
+    mutationFn: (fingerprint: string) => api.snoozeAgentInsight(fingerprint, { hours: 6 }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey });
-      void qc.invalidateQueries({ queryKey: ["miya", "insights"] });
+      void qc.invalidateQueries({ queryKey: ["agent", "insights"] });
     },
   });
 
@@ -102,7 +102,7 @@ export function ProactiveInsights({
     if (kind === "navigate" && action.href) {
       const eid = insight.entity_ids?.[0];
       if (insight.entity_type && eid) {
-        focusEntityForMiya({
+        focusEntityForAgent({
           entity_type: insight.entity_type,
           entity_id: String(eid),
           entity_label: insight.what,
@@ -118,8 +118,8 @@ export function ProactiveInsights({
       : /incident/i.test(what)
         ? t("ai.prompt.incidents")
         : t("ai.prompt.help_with", { topic: what });
-    askMiya({
-      prompt: action.ask_miya_prompt || fallbackPrompt,
+    askAgent({
+      prompt: action.ask_agent_prompt || fallbackPrompt,
       pageContext: {
         route: typeof window !== "undefined" ? window.location.pathname : "/dashboard",
         entity_type: insight.entity_type || insight.domain,
@@ -197,7 +197,7 @@ export function ProactiveInsights({
                   disabled={dismiss.isPending || snooze.isPending}
                   onClick={() => runAction(insight, action)}
                 >
-                  {action.kind === "ask_miya" ? <MessageSquare className="h-3.5 w-3.5" aria-hidden /> : null}
+                  {action.kind === "ask_agent" ? <MessageSquare className="h-3.5 w-3.5" aria-hidden /> : null}
                   {action.label}
                 </Button>
               ))}

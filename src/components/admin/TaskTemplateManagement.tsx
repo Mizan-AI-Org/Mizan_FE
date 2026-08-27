@@ -1,6 +1,8 @@
 import React, { useState, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '@/hooks/use-language';
+import { useAgentPanelOpen } from '@/hooks/use-agent-panel-open';
+import { cn } from '@/lib/utils';
 import { CardGridSkeleton } from '@/components/skeletons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -104,23 +106,24 @@ const templateTypeIcons = {
 };
 
 const priorityColors = {
-  LOW: "bg-blue-100 text-blue-800 border-blue-200",
-  MEDIUM: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  HIGH: "bg-orange-100 text-orange-800 border-orange-200",
-  URGENT: "bg-red-100 text-red-800 border-red-200",
+  LOW: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/50 dark:text-blue-200 dark:border-blue-800",
+  MEDIUM: "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-950/50 dark:text-yellow-200 dark:border-yellow-800",
+  HIGH: "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-950/50 dark:text-orange-200 dark:border-orange-800",
+  URGENT: "bg-red-100 text-red-800 border-red-200 dark:bg-red-950/50 dark:text-red-200 dark:border-red-800",
 };
 
 const frequencyColors = {
-  DAILY: "bg-green-100 text-green-800 border-green-200",
-  WEEKLY: "bg-blue-100 text-blue-800 border-blue-200",
-  MONTHLY: "bg-purple-100 text-purple-800 border-purple-200",
-  QUARTERLY: "bg-indigo-100 text-indigo-800 border-indigo-200",
-  ANNUALLY: "bg-pink-100 text-pink-800 border-pink-200",
-  CUSTOM: "bg-orange-100 text-orange-800 border-orange-200",
+  DAILY: "bg-green-100 text-green-800 border-green-200 dark:bg-green-950/50 dark:text-green-200 dark:border-green-800",
+  WEEKLY: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/50 dark:text-blue-200 dark:border-blue-800",
+  MONTHLY: "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-950/50 dark:text-purple-200 dark:border-purple-800",
+  QUARTERLY: "bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-200 dark:border-indigo-800",
+  ANNUALLY: "bg-pink-100 text-pink-800 border-pink-200 dark:bg-pink-950/50 dark:text-pink-200 dark:border-pink-800",
+  CUSTOM: "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-950/50 dark:text-orange-200 dark:border-orange-800",
 } as const;
 
 export default function TaskTemplateManagement() {
   const { t } = useLanguage();
+  const agentPanelOpen = useAgentPanelOpen();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterFrequency, setFilterFrequency] = useState<string>('all');
@@ -367,7 +370,7 @@ export default function TaskTemplateManagement() {
     },
   });
 
-  // Start process checklist for staff (Live Board / Miya - not Tasks & Demands)
+  // Start process checklist for staff (Live Board - not Tasks & Demands)
   const startProcessMutation = useMutation({
     mutationFn: async ({ templateId, staffIds }: { templateId: string; staffIds: string[] }) => {
       const response = await fetch(`${API_BASE}/scheduling/task-templates/${templateId}/start_process/`, {
@@ -616,7 +619,7 @@ export default function TaskTemplateManagement() {
     <div className="flex flex-wrap items-center gap-2">
       <Dialog open={isProcessModalOpen} onOpenChange={setIsProcessModalOpen}>
         <DialogTrigger asChild>
-          <Button className="premium-button">
+          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
             <Plus className="h-4 w-4 mr-2" />
             {t("processes.new_process")}
           </Button>
@@ -795,10 +798,10 @@ export default function TaskTemplateManagement() {
         )}
 
       {/* Filters and Search */}
-      <Card className="premium-card">
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
+      <Card className="border border-border/60 bg-card shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="min-w-0 flex-1 sm:min-w-[12rem]">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
@@ -852,7 +855,10 @@ export default function TaskTemplateManagement() {
 
       {/* Templates Grid */}
       {isLoading ? (
-        <CardGridSkeleton count={6} columns="grid-cols-1 md:grid-cols-2 lg:grid-cols-3" />
+        <CardGridSkeleton
+          count={agentPanelOpen ? 4 : 6}
+          columns={agentPanelOpen ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"}
+        />
       ) : filteredTemplates.length === 0 ? (
         <Card className="premium-card">
           <CardContent className="text-center py-12">
@@ -873,16 +879,30 @@ export default function TaskTemplateManagement() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div
+          className={cn(
+            "grid items-stretch gap-4 sm:gap-5",
+            agentPanelOpen
+              ? "grid-cols-1 sm:grid-cols-2"
+              : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+          )}
+        >
           {filteredTemplates.map((template) => (
-            <Card key={template.id} className="premium-card hover:shadow-lg transition-shadow">
+            <Card
+              key={template.id}
+              className="flex h-full flex-col border border-border/60 bg-card shadow-sm transition-shadow hover:shadow-md"
+            >
               <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    {templateTypeIcons[template.template_type as keyof typeof templateTypeIcons]}
-                    <CardTitle className="text-lg leading-tight">{template.name}</CardTitle>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-1 items-start gap-2">
+                    <span className="mt-0.5 shrink-0 text-muted-foreground">
+                      {templateTypeIcons[template.template_type as keyof typeof templateTypeIcons]}
+                    </span>
+                    <CardTitle className="min-w-0 text-lg leading-tight line-clamp-2">
+                      {template.name}
+                    </CardTitle>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
                     {template.ai_generated && (
                       <Badge variant="outline" className="text-xs">
                         <Zap className="h-3 w-3 mr-1" />
@@ -898,9 +918,9 @@ export default function TaskTemplateManagement() {
                 </div>
               </CardHeader>
 
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {template.description}
+              <CardContent className="flex flex-1 flex-col space-y-4">
+                <p className="min-h-[2.5rem] text-sm text-muted-foreground line-clamp-2">
+                  {template.description || "\u00A0"}
                 </p>
 
                 <div className="flex flex-wrap gap-2">
@@ -925,45 +945,51 @@ export default function TaskTemplateManagement() {
                   </div>
                 </div>
 
-                <div className="flex gap-2 pt-2">
+                <div className="mt-auto flex items-center gap-2 border-t border-border/50 pt-3">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleEdit(template)}
-                    className="flex-1"
+                    className="h-9 flex-1"
                   >
-                    <Edit className="h-3 w-3 mr-1" />
+                    <Edit className="h-4 w-4 mr-1.5" />
                     {t("processes.edit")}
                   </Button>
 
                   <Button
                     variant="outline"
-                    size="sm"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
                     onClick={() => handleDuplicate(template.id)}
                     disabled={duplicateTemplateMutation.isPending}
+                    title={t("processes.duplicate") || "Duplicate"}
+                    aria-label={t("processes.duplicate") || "Duplicate"}
                   >
-                    <Copy className="h-3 w-3" />
+                    <Copy className="h-4 w-4" />
                   </Button>
 
                   <Button
                     variant="outline"
-                    size="sm"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
                     onClick={() => openStartProcess(template)}
                     disabled={startProcessMutation.isPending}
                     title={t('processes.start_process')}
                     aria-label={t('processes.start_process')}
                   >
-                    <Play className="h-3 w-3" />
+                    <Play className="h-4 w-4" />
                   </Button>
 
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
                         variant="outline"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        title={t("processes.delete_template")}
+                        aria-label={t("processes.delete_template")}
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>

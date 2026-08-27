@@ -9,8 +9,8 @@ type Props = {
   className?: string;
 };
 
-/** Shows which entity Miya is focused on. */
-export function MiyaContextChip({ entityType, entityLabel, onClear, className }: Props) {
+/** Shows which entity Agent is focused on. */
+export function AgentContextChip({ entityType, entityLabel, onClear, className }: Props) {
   if (!entityLabel && !entityType) return null;
   return (
     <div
@@ -29,7 +29,7 @@ export function MiyaContextChip({ entityType, entityLabel, onClear, className }:
           type="button"
           onClick={onClear}
           className="touch-target -mr-1 inline-flex h-6 w-6 items-center justify-center rounded-control hover:bg-background/60"
-          aria-label="Clear Miya context"
+          aria-label="Clear Agent context"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -38,4 +38,4 @@ export function MiyaContextChip({ entityType, entityLabel, onClear, className }:
   );
 }
 
-export default MiyaContextChip;
+export default AgentContextChip;

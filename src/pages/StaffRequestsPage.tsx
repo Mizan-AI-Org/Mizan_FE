@@ -44,8 +44,6 @@ import {
 import { useStaffInboxLanes, resolveStaffInboxLaneId, type StaffInboxLane } from "@/hooks/use-staff-inbox-lanes";
 import { useLanguage } from "@/hooks/use-language";
 import { PAGE_SHELL, PAGE_SHELL_PADDED } from "@/lib/page-shell";
-import { AiNativeWorkspace, type WorkspaceModule } from "@/components/miya/AiNativeWorkspace";
-import { AskMiyaButton, miyaPrompts } from "@/components/miya/AskMiyaButton";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 import { AttachmentList } from "@/components/ui/attachment-preview";
 import { api, BACKEND_URL } from "@/lib/api";
@@ -510,23 +508,6 @@ function InvoiceDetailPanel({
           ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
-          <AskMiyaButton
-            prompt={miyaPrompts.invoice(
-              invoice.invoice_number
-                ? `${invoice.vendor_name || "Invoice"} #${invoice.invoice_number}`
-                : invoice.vendor_name || "this invoice",
-            )}
-            pageContext={{
-              entity_type: "invoice",
-              entity_id: String(invoice.id),
-              entity_label: invoice.vendor_name || invoice.invoice_number,
-              route: typeof window !== "undefined" ? window.location.pathname : "/dashboard",
-              tab: "finance",
-            }}
-            size="sm"
-            variant="outline"
-            onClickStopPropagation
-          />
           <Badge variant="outline" className={cn("text-xs font-bold px-3 py-1 uppercase rounded-full", invoiceStatusBadge(displayStatus))}>
             {invoiceStatusLabel(displayStatus, t)}
           </Badge>
@@ -1235,12 +1216,6 @@ const StaffRequestsPage: React.FC = () => {
     ? t("staff.requests.tasks_demands_subtitle")
     : laneSubtitle(activeLaneId, activeLane?.page_subtitle) || null;
 
-  const workspaceModule: WorkspaceModule =
-    activeLaneId === "finance" ||
-    (activeLane?.categories || []).some((c) => String(c).toUpperCase() === "FINANCE")
-      ? "finance"
-      : "operations";
-
   if (isInvoiceDetail && selectedId) {
     const invoice = invoiceQuery.data;
     return (
@@ -1399,13 +1374,6 @@ const StaffRequestsPage: React.FC = () => {
 
   return (
     <div className={PAGE_SHELL_PADDED}>
-      <div className="mb-4">
-        <AiNativeWorkspace
-          module={workspaceModule}
-          compact={workspaceModule === "operations"}
-          defaultCollapsed={workspaceModule === "operations"}
-        />
-      </div>
       <div className="mb-5 space-y-3">
         <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {t("staff.requests.eyebrow")}
@@ -1982,7 +1950,7 @@ const StaffRequestsPage: React.FC = () => {
                                   c.author_details?.first_name || c.author_details?.last_name
                                     ? `${c.author_details?.first_name || ""} ${c.author_details?.last_name || ""}`.trim()
                                     : c.kind === "system"
-                                      ? t("staff.requests.author_miya")
+                                      ? t("staff.requests.author_system", { defaultValue: "System" })
                                       : t("staff.requests.author_manager");
                                 return (
                                   <div key={c.id} className="relative pl-7 pb-4 last:pb-0">

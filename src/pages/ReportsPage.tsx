@@ -20,8 +20,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { API_BASE } from "@/lib/api";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
-import { AiNativeWorkspace } from "@/components/miya/AiNativeWorkspace";
-import { EmptyOpsState, MiyaLoadingState, SectionHeader } from "@/components/os";
+import { EmptyOpsState, SectionHeader } from "@/components/os";
 
 interface Report {
   id: string;
@@ -117,7 +116,7 @@ const ReportsPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className={PAGE_SHELL_PADDED}>
-        <MiyaLoadingState message="Loading reports…" />
+        <EmptyOpsState title="Loading reports…" />
       </div>
     );
   }
@@ -167,8 +166,7 @@ const ReportsPage: React.FC = () => {
 
   return (
     <div className={PAGE_SHELL_PADDED}>
-      <AiNativeWorkspace module="analytics" defaultCollapsed compact />
-      <div className="mt-6 space-y-section">
+      <div className="space-y-section">
         <SectionHeader
           as="h1"
           eyebrow="Business"

@@ -6,11 +6,18 @@ import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
 import { API_BASE, api } from "@/lib/api";
-import { clearMiyaPageContext, getMiyaPageContext, subscribeMiyaPageContext } from "@/lib/miyaPageContext";
+import { clearAgentPageContext, getAgentPageContext, subscribeAgentPageContext } from "@/lib/agentPageContext";
+import {
+  agentChatHistoryForApi,
+  loadAgentChatHistory,
+  loadAgentThreadId,
+  saveAgentChatHistory,
+  saveAgentThreadId,
+} from "@/lib/agentChatStorage";
 import { logError } from "@/lib/logging";
 import { cn } from "@/lib/utils";
-import { MiyaContextChip } from "@/components/os";
-import { MiyaMessageBody } from "@/components/miya/MiyaMessageBody";
+import { AgentContextChip } from "@/components/os";
+import { AgentMessageBody } from "@/components/agent/AgentMessageBody";
 
 type ChatTurn = { role: "user" | "assistant"; content: string; at?: number };
 type PendingAttachment = { id: string; title: string };
@@ -42,13 +49,13 @@ const VOICE_INPUT_ROLES = new Set(["ADMIN", "SUPER_ADMIN", "MANAGER", "OWNER"]);
 /** Roles allowed to read the command-center briefing the launcher badge is derived from. */
 const ATTENTION_ROLES = new Set(["ADMIN", "SUPER_ADMIN", "MANAGER", "OWNER"]);
 
-const MIYA_LOCATION_KEY = "mizan_miya_location_id";
-const MIYA_LOCATION_NAME_KEY = "mizan_miya_location_name";
+const AGENT_LOCATION_KEY = "mizan_agent_location_id";
+const AGENT_LOCATION_NAME_KEY = "mizan_agent_location_name";
 
-function readMiyaEstablishmentContext(): { location_id?: string; location_name?: string } {
+function readAgentEstablishmentContext(): { location_id?: string; location_name?: string } {
   try {
-    const location_id = localStorage.getItem(MIYA_LOCATION_KEY) || undefined;
-    const location_name = localStorage.getItem(MIYA_LOCATION_NAME_KEY) || undefined;
+    const location_id = localStorage.getItem(AGENT_LOCATION_KEY) || undefined;
+    const location_name = localStorage.getItem(AGENT_LOCATION_NAME_KEY) || undefined;
     if (!location_id) return {};
     return { location_id, location_name: location_name || undefined };
   } catch {
@@ -67,15 +74,28 @@ function pickRecorderMimeType(): string {
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 }
 
-export const MiyaWidget: React.FC = () => {
+export const AgentWidget: React.FC = () => {
   const { user, accessToken } = useAuth() as AuthContextType;
   const { t, isRTL, language } = useLanguage();
   const location = useLocation();
   const hideOnPlatformAdmin = location.pathname.startsWith("/admin");
 
+  const chatUserId = user?.id != null ? String(user.id) : undefined;
+  const chatRestaurantId =
+    user?.restaurant != null
+      ? String(user.restaurant)
+      : user?.restaurant_data?.id != null
+        ? String(user.restaurant_data.id)
+        : undefined;
+
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
-  const [history, setHistory] = useState<ChatTurn[]>([]);
+  const [history, setHistory] = useState<ChatTurn[]>(() =>
+    loadAgentChatHistory(chatUserId, chatRestaurantId),
+  );
+  const [threadId, setThreadId] = useState<string | undefined>(() =>
+    loadAgentThreadId(chatUserId, chatRestaurantId),
+  );
   const [loading, setLoading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [voiceProcessing, setVoiceProcessing] = useState(false);
@@ -84,13 +104,15 @@ export const MiyaWidget: React.FC = () => {
   const [attachmentsEnabled, setAttachmentsEnabled] = useState(true);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
-  const [pageContext, setPageContext] = useState(() => getMiyaPageContext());
+  const [pageContext, setPageContext] = useState(() => getAgentPageContext());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const historyRef = useRef<ChatTurn[]>([]);
+  const threadIdRef = useRef<string | undefined>(threadId);
+  const chatHydratedRef = useRef(Boolean(chatUserId && chatRestaurantId));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textInputRef = useRef<HTMLTextAreaElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -100,9 +122,9 @@ export const MiyaWidget: React.FC = () => {
 
   // Shares its cache key with CommandCenter, so the dashboard pays no extra request.
   const attentionQuery = useQuery({
-    queryKey: ["miya", "command-center"],
+    queryKey: ["agent", "command-center"],
     queryFn: () =>
-      api.getMiyaCommandCenter() as Promise<{ attention?: Array<{ id: string }> }>,
+      api.getAgentCommandCenter() as Promise<{ attention?: Array<{ id: string }> }>,
     enabled: Boolean(user?.role && ATTENTION_ROLES.has(user.role)) && !hideOnPlatformAdmin,
     staleTime: 20_000,
     refetchInterval: 60_000,
@@ -115,7 +137,26 @@ export const MiyaWidget: React.FC = () => {
     historyRef.current = history;
   }, [history]);
 
-  useEffect(() => subscribeMiyaPageContext(setPageContext), []);
+  useEffect(() => {
+    threadIdRef.current = threadId;
+  }, [threadId]);
+
+  useEffect(() => {
+    if (!chatUserId || !chatRestaurantId) {
+      chatHydratedRef.current = false;
+      return;
+    }
+    setHistory(loadAgentChatHistory(chatUserId, chatRestaurantId));
+    setThreadId(loadAgentThreadId(chatUserId, chatRestaurantId));
+    chatHydratedRef.current = true;
+  }, [chatUserId, chatRestaurantId]);
+
+  useEffect(() => {
+    if (!chatUserId || !chatRestaurantId || !chatHydratedRef.current) return;
+    saveAgentChatHistory(chatUserId, chatRestaurantId, history, threadId);
+  }, [history, threadId, chatUserId, chatRestaurantId]);
+
+  useEffect(() => subscribeAgentPageContext(setPageContext), []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -140,19 +181,23 @@ export const MiyaWidget: React.FC = () => {
       }
     };
     const closeHandler = () => setOpen(false);
-    window.addEventListener("miya:open", openHandler);
-    window.addEventListener("miya:close", closeHandler);
+    window.addEventListener("agent:open", openHandler);
+    window.addEventListener("agent:close", closeHandler);
     return () => {
-      window.removeEventListener("miya:open", openHandler);
-      window.removeEventListener("miya:close", closeHandler);
+      window.removeEventListener("agent:open", openHandler);
+      window.removeEventListener("agent:close", closeHandler);
     };
   }, []);
 
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent("miya:panel-state", { detail: { open } }));
+    window.dispatchEvent(new CustomEvent("agent:panel-state", { detail: { open } }));
     try {
-      document.documentElement.style.setProperty("--mizan-miya-panel", open ? "420px" : "0px");
-      document.documentElement.style.setProperty("--mizan-miya-edge", "44px");
+      document.documentElement.style.setProperty("--mizan-agent-panel", open ? "420px" : "0px");
+      document.documentElement.style.setProperty("--mizan-agent-edge", open ? "0px" : "56px");
+      document.documentElement.style.setProperty(
+        "--mizan-agent-inset",
+        open ? "420px" : "56px",
+      );
     } catch {
       /* ignore */
     }
@@ -175,14 +220,14 @@ export const MiyaWidget: React.FC = () => {
 
   useEffect(() => {
     if (!user || !accessToken || hideOnPlatformAdmin) return;
-    fetch(`${API_BASE}/miya/config/`, {
+    fetch(`${API_BASE}/agent/config/`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
       .then((r) => r.json())
       .then((data) => {
-        setEnabled(Boolean(data.enabled));
-        setVoiceInputEnabled(Boolean(data.voice_input_enabled));
-        setAttachmentsEnabled(data.attachments_enabled !== false);
+        setEnabled(data.chat_proxy !== false);
+        setVoiceInputEnabled(false);
+        setAttachmentsEnabled(false);
       })
       .catch(() => setEnabled(true));
   }, [user, accessToken, hideOnPlatformAdmin]);
@@ -228,9 +273,14 @@ export const MiyaWidget: React.FC = () => {
 
       const applyChatPayload = (data: {
         reply?: string;
+        thread_id?: string;
         session_context?: { location_id?: string; location_name?: string };
         tool_trace?: Array<{ tool?: string; result?: { success?: boolean; verified?: boolean } }>;
       }) => {
+        if (data.thread_id) {
+          setThreadId(data.thread_id);
+          saveAgentThreadId(chatUserId, chatRestaurantId, data.thread_id);
+        }
         // Typed chat stays silent. Voice replies only play when the user
         // holds the mic (sendVoiceBlob), never from this text path.
         const reply = data.reply || "Done.";
@@ -242,8 +292,8 @@ export const MiyaWidget: React.FC = () => {
         const locName = data.session_context?.location_name;
         if (locId) {
           try {
-            localStorage.setItem(MIYA_LOCATION_KEY, locId);
-            if (locName) localStorage.setItem(MIYA_LOCATION_NAME_KEY, locName);
+            localStorage.setItem(AGENT_LOCATION_KEY, locId);
+            if (locName) localStorage.setItem(AGENT_LOCATION_NAME_KEY, locName);
           } catch {
             /* ignore */
           }
@@ -259,8 +309,8 @@ export const MiyaWidget: React.FC = () => {
           );
           if (mutated) {
             window.dispatchEvent(
-              new CustomEvent("miya:ops-mutated", {
-                detail: { tools, page_context: getMiyaPageContext() },
+              new CustomEvent("agent:ops-mutated", {
+                detail: { tools, page_context: getAgentPageContext() },
               }),
             );
           }
@@ -270,9 +320,9 @@ export const MiyaWidget: React.FC = () => {
       };
 
       try {
-        const establishment = readMiyaEstablishmentContext();
-        const pageContext = getMiyaPageContext();
-        const resp = await fetch(`${API_BASE}/miya/chat/`, {
+        const establishment = readAgentEstablishmentContext();
+        const pageContext = getAgentPageContext();
+        const resp = await fetch(`${API_BASE}/agent/chat/`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -280,27 +330,27 @@ export const MiyaWidget: React.FC = () => {
           },
           body: JSON.stringify({
             message: userMessage,
-            history: historyRef.current.slice(-8),
-            voice: false,
+            history: agentChatHistoryForApi(historyRef.current),
+            thread_id: threadIdRef.current,
+            async: true,
             restaurant_id: user?.restaurant || user?.restaurant_data?.id || undefined,
-            attachment_ids: ids,
             ...establishment,
             ...(pageContext ? { page_context: pageContext } : {}),
           }),
         });
 
-        if (resp.status === 202) {
-          const queued = await resp.json();
-          const taskId = queued.task_id as string | undefined;
-          if (!taskId) {
-            throw new Error("Miya did not return a task id");
-          }
-
+        const queued = await resp.json();
+        const taskId = queued.task_id as string | undefined;
+        if (queued.status === "complete" && (queued.reply || queued.error)) {
+          applyChatPayload(queued);
+          return;
+        }
+        if (taskId) {
           for (let attempt = 0; attempt < 90; attempt += 1) {
             const delayMs = [400, 600, 800, 1000, 1200, 1500][Math.min(attempt, 5)];
             await sleep(delayMs);
             const statusResp = await fetch(
-              `${API_BASE}/miya/chat/status/?task_id=${encodeURIComponent(taskId)}`,
+              `${API_BASE}/agent/chat/status/${encodeURIComponent(taskId)}/`,
               { headers: { Authorization: `Bearer ${accessToken}` } },
             );
             const statusData = await statusResp.json();
@@ -308,32 +358,31 @@ export const MiyaWidget: React.FC = () => {
               applyChatPayload(statusData);
               return;
             }
-            if (statusData.status === "failed" || !statusResp.ok) {
+            if (statusData.status === "failed" || statusData.error || !statusResp.ok) {
               throw new Error(
-                statusData.error || statusData.reply || `Miya chat failed (${statusResp.status})`,
+                statusData.error || statusData.reply || `Agent chat failed (${statusResp.status})`,
               );
             }
           }
-          throw new Error("Miya is still thinking - try a simpler question or try again.");
+          throw new Error("Agent is still thinking - try a simpler question or try again.");
         }
 
-        const data = await resp.json();
         if (!resp.ok) {
-          throw new Error(data.error || data.detail || `Miya chat failed (${resp.status})`);
+          throw new Error(queued.error || queued.detail || `Agent chat failed (${resp.status})`);
         }
 
-        applyChatPayload(data);
+        applyChatPayload(queued);
       } catch (err) {
-        logError({ feature: "miya-widget", action: "chat" }, err as Error);
+        logError({ feature: "agent-widget", action: "chat" }, err as Error);
         const detail =
           err instanceof Error && err.message
             ? err.message
-            : "Something went wrong talking to Miya.";
+            : "Something went wrong talking to Agent.";
         appendAssistantError(
           detail.includes("OPENAI") || detail.includes("503")
-            ? "Miya is temporarily unavailable. Check that OPENAI_API_KEY is configured on the server."
+            ? "Agent is temporarily unavailable. Check that OPENAI_API_KEY is configured on the server."
             : detail.includes("Failed to fetch")
-              ? "Miya timed out reaching the server. If this persists, ask your admin to confirm Celery workers are running."
+              ? "Agent timed out reaching the server. If this persists, ask your admin to confirm Celery workers are running."
               : detail.length < 200
                 ? detail
                 : "Sorry, I couldn't reach Mizan right now. Try again in a moment.",
@@ -354,9 +403,9 @@ export const MiyaWidget: React.FC = () => {
         form.append("file", file);
         const restaurantId = user?.restaurant || user?.restaurant_data?.id;
         if (restaurantId) form.append("restaurant_id", String(restaurantId));
-        const establishment = readMiyaEstablishmentContext();
+        const establishment = readAgentEstablishmentContext();
         if (establishment.location_id) form.append("location_id", establishment.location_id);
-        const resp = await fetch(`${API_BASE}/miya/attachments/`, {
+        const resp = await fetch(`${API_BASE}/agent/attachments/`, {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}` },
           body: form,
@@ -373,7 +422,7 @@ export const MiyaWidget: React.FC = () => {
           ]);
         }
       } catch (err) {
-        logError({ feature: "miya-widget", action: "attachment-upload" }, err as Error);
+        logError({ feature: "agent-widget", action: "attachment-upload" }, err as Error);
         appendAssistantError("Could not upload that file. Try a PDF or photo under 12 MB.");
       } finally {
         setUploadingAttachment(false);
@@ -413,27 +462,27 @@ export const MiyaWidget: React.FC = () => {
 
       try {
         const form = new FormData();
-        form.append("audio", blob, `miya-voice.${mimeType.includes("ogg") ? "ogg" : "webm"}`);
-        form.append("history", JSON.stringify(historyRef.current.slice(-8)));
+        form.append("audio", blob, `agent-voice.${mimeType.includes("ogg") ? "ogg" : "webm"}`);
+        form.append("history", JSON.stringify(agentChatHistoryForApi(historyRef.current)));
         form.append("voice", "true");
         form.append("language", language || "en");
         const restaurantId = user?.restaurant || user?.restaurant_data?.id;
         if (restaurantId) {
           form.append("restaurant_id", String(restaurantId));
         }
-        const establishment = readMiyaEstablishmentContext();
+        const establishment = readAgentEstablishmentContext();
         if (establishment.location_id) {
           form.append("location_id", establishment.location_id);
         }
         if (establishment.location_name) {
           form.append("location_name", establishment.location_name);
         }
-        const pageContext = getMiyaPageContext();
+        const pageContext = getAgentPageContext();
         if (pageContext) {
           form.append("page_context", JSON.stringify(pageContext));
         }
 
-        const resp = await fetch(`${API_BASE}/miya/voice-chat/`, {
+        const resp = await fetch(`${API_BASE}/agent/voice-chat/`, {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}` },
           body: form,
@@ -450,14 +499,14 @@ export const MiyaWidget: React.FC = () => {
             ]);
           }
           if (!taskId) {
-            throw new Error("Miya did not return a task id");
+            throw new Error("Agent did not return a task id");
           }
 
           for (let attempt = 0; attempt < 90; attempt += 1) {
             const delayMs = [400, 600, 800, 1000, 1200, 1500][Math.min(attempt, 5)];
             await sleep(delayMs);
             const statusResp = await fetch(
-              `${API_BASE}/miya/chat/status/?task_id=${encodeURIComponent(taskId)}`,
+              `${API_BASE}/agent/chat/status/?task_id=${encodeURIComponent(taskId)}`,
               { headers: { Authorization: `Bearer ${accessToken}` } },
             );
             const statusData = await statusResp.json();
@@ -471,11 +520,11 @@ export const MiyaWidget: React.FC = () => {
             }
             if (statusData.status === "failed" || !statusResp.ok) {
               throw new Error(
-                statusData.error || statusData.reply || `Miya voice chat failed (${statusResp.status})`,
+                statusData.error || statusData.reply || `Agent voice chat failed (${statusResp.status})`,
               );
             }
           }
-          throw new Error("Miya is still thinking - try a simpler question or try again.");
+          throw new Error("Agent is still thinking - try a simpler question or try again.");
         }
 
         const data = await resp.json();
@@ -493,7 +542,7 @@ export const MiyaWidget: React.FC = () => {
 
         applyVoicePayload(data);
       } catch (err) {
-        logError({ feature: "miya-widget", action: "voice-chat" }, err as Error);
+        logError({ feature: "agent-widget", action: "voice-chat" }, err as Error);
         const msg = err instanceof Error ? err.message : "";
         if (msg.includes("task") || msg.includes("thinking") || msg.includes("503")) {
           appendAssistantError(msg || t("ai.chat_error"));
@@ -577,7 +626,7 @@ export const MiyaWidget: React.FC = () => {
       recorder.start();
       setRecording(true);
     } catch (err) {
-      logError({ feature: "miya-widget", action: "record-start" }, err as Error);
+      logError({ feature: "agent-widget", action: "record-start" }, err as Error);
       stopMediaTracks();
       appendAssistantError(t("ai.voice_unavailable"));
     }
@@ -601,22 +650,19 @@ export const MiyaWidget: React.FC = () => {
 
   return (
     <>
-      {/* Edge affordance when panel is closed - not a floating chatbot FAB */}
+      {/* Edge launcher — always-visible Agent affordance on desktop */}
       {!open ? (
         <button
           ref={launcherButtonRef}
           type="button"
           onClick={() => setOpen(true)}
           className={cn(
-            "fixed z-[10050] bottom-24 hidden lg:flex pointer-events-auto",
-            "flex-col items-center gap-1.5 rounded-l-lg border border-r-0",
-            "bg-background/90 px-1.5 py-3 shadow-soft backdrop-blur-md",
-            "text-[10px] font-semibold uppercase tracking-[0.12em]",
-            "transition-all duration-os hover:bg-muted hover:text-foreground",
-            hasAttention
-              ? "miya-launcher-attention border-primary/45 text-foreground"
-              : "border-border/70 text-muted-foreground opacity-70 hover:opacity-100",
-            isRTL ? "left-0 rounded-l-none rounded-r-lg border-l-0 border-r" : "right-0",
+            "agent-launcher fixed z-[10050] top-1/2 -translate-y-1/2 hidden lg:flex pointer-events-auto",
+            "flex-col items-center justify-center gap-2 rounded-l-xl border border-r-0 px-2 py-4",
+            "min-w-[3.25rem] shadow-lg transition-all duration-200",
+            "hover:scale-[1.03] hover:shadow-xl active:scale-[0.98]",
+            hasAttention ? "agent-launcher-attention" : "agent-launcher-idle",
+            isRTL ? "left-0 rounded-l-none rounded-r-xl border-l-0 border-r" : "right-0",
           )}
           aria-label={
             hasAttention
@@ -625,32 +671,40 @@ export const MiyaWidget: React.FC = () => {
           }
           aria-expanded={false}
         >
-          <span className="relative inline-flex">
+          <span className="relative inline-flex shrink-0">
             <img
-              src="/miya-avatar.webp"
+              src="/agent-avatar.webp"
               alt=""
               className={cn(
-                "h-6 w-6 rounded-full object-cover",
-                hasAttention && "ring-2 ring-primary/60",
+                "h-10 w-10 rounded-full object-cover ring-2 ring-white/90 shadow-md",
+                hasAttention && "ring-amber-300",
               )}
               aria-hidden
             />
             {hasAttention ? (
               <>
                 <span
-                  className="miya-ping absolute -right-1 -top-1 h-4 w-4 rounded-full bg-primary"
+                  className="agent-ping absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full bg-amber-400"
                   aria-hidden
                 />
                 <span
-                  className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold leading-none text-primary-foreground ring-2 ring-background"
+                  className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-emerald-700"
                   aria-hidden
                 >
                   {attentionCount > 9 ? "9+" : attentionCount}
                 </span>
               </>
-            ) : null}
+            ) : (
+              <span
+                className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-300 ring-2 ring-emerald-700"
+                aria-hidden
+                title={t("ai.chat_online")}
+              />
+            )}
           </span>
-          <span className="[writing-mode:vertical-rl] rotate-180">Miya</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-white leading-none">
+            Agent
+          </span>
         </button>
       ) : null}
 
@@ -658,7 +712,7 @@ export const MiyaWidget: React.FC = () => {
       <div
         ref={panelRef}
         role="complementary"
-        aria-labelledby="miya-chat-title"
+        aria-labelledby="agent-chat-title"
         aria-hidden={!open}
         className={cn(
           "fixed z-[10060] top-[57px] bottom-0 flex flex-col border-border/80 bg-background shadow-strong pointer-events-auto",
@@ -680,13 +734,13 @@ export const MiyaWidget: React.FC = () => {
               <X className="h-5 w-5" />
             </button>
             <img
-              src="/miya-avatar.webp"
+              src="/agent-avatar.webp"
               alt=""
               className="h-10 w-10 rounded-full object-cover ring-2 ring-white/20"
               aria-hidden
             />
             <div className="min-w-0">
-              <div id="miya-chat-title" className="truncate text-[15px] font-semibold leading-tight">
+              <div id="agent-chat-title" className="truncate text-[15px] font-semibold leading-tight">
                 {t("ai.chat_title")}
               </div>
               <div className="truncate text-[12px] text-white/75">
@@ -710,16 +764,16 @@ export const MiyaWidget: React.FC = () => {
 
         <div
           className={cn(
-            "miya-chat-wallpaper flex-1 space-y-2 overflow-y-auto px-3 py-3",
+            "agent-chat-wallpaper flex-1 space-y-2 overflow-y-auto px-3 py-3",
             isRTL && "text-right",
           )}
         >
           {(pageContext?.entity_label || pageContext?.entity_type) && (
             <div className="flex justify-center pb-1">
-              <MiyaContextChip
+              <AgentContextChip
                 entityType={pageContext.entity_type}
                 entityLabel={pageContext.entity_label || pageContext.entity_type}
-                onClear={() => clearMiyaPageContext()}
+                onClear={() => clearAgentPageContext()}
               />
             </div>
           )}
@@ -756,17 +810,17 @@ export const MiyaWidget: React.FC = () => {
               <div
                 key={`${turn.role}-${i}-${turn.at || i}`}
                 className={cn(
-                  "miya-bubble",
-                  outgoing ? "miya-bubble-out" : "miya-bubble-in",
+                  "agent-bubble",
+                  outgoing ? "agent-bubble-out" : "agent-bubble-in",
                 )}
               >
                 <div>
-                  {outgoing ? turn.content : <MiyaMessageBody content={turn.content} />}
+                  {outgoing ? turn.content : <AgentMessageBody content={turn.content} />}
                 </div>
                 {time ? (
                   <div
                     className={cn(
-                      "miya-bubble-meta",
+                      "agent-bubble-meta",
                       outgoing ? "text-white/80" : "text-muted-foreground",
                     )}
                   >
@@ -778,7 +832,7 @@ export const MiyaWidget: React.FC = () => {
             );
           })}
           {busy && (
-            <div className="miya-bubble miya-bubble-in w-fit animate-pulse text-[12px] text-muted-foreground">
+            <div className="agent-bubble agent-bubble-in w-fit animate-pulse text-[12px] text-muted-foreground">
               {voiceProcessing ? t("ai.voice_processing") : t("ai.chat_thinking")}
               <span className="ml-1 tracking-widest">...</span>
             </div>
@@ -840,12 +894,12 @@ export const MiyaWidget: React.FC = () => {
                 </button>
               </>
             )}
-            <div className="miya-composer min-w-0 flex-1">
-              <label htmlFor="miya-chat-text-input" className="sr-only">
+            <div className="agent-composer min-w-0 flex-1">
+              <label htmlFor="agent-chat-text-input" className="sr-only">
                 {t("ai.chat_placeholder")}
               </label>
               <textarea
-                id="miya-chat-text-input"
+                id="agent-chat-text-input"
                 ref={textInputRef}
                 rows={1}
                 value={input}
@@ -900,7 +954,7 @@ export const MiyaWidget: React.FC = () => {
             <button
               type="submit"
               disabled={busy || (!input.trim() && pendingAttachments.length === 0)}
-              className="miya-send mb-0.5 hover:opacity-95"
+              className="agent-send mb-0.5 hover:opacity-95"
               aria-label={t("ai.send_message")}
             >
               <Send className="h-4 w-4" />
@@ -912,4 +966,4 @@ export const MiyaWidget: React.FC = () => {
   );
 };
 
-export default MiyaWidget;
+export default AgentWidget;

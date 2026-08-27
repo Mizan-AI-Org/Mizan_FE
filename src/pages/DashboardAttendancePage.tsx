@@ -255,7 +255,7 @@ export default function DashboardAttendancePage() {
               <AlertDialogTitle>Mark as no-show?</AlertDialogTitle>
               <AlertDialogDescription>
                 {noShowConfirm
-                  ? `This will mark the shift as no-show for ${noShowConfirm.staffName}. You can still message them via Miya to follow up.`
+                  ? `This will mark the shift as no-show for ${noShowConfirm.staffName}. You can still follow up with them on WhatsApp.`
                   : ""}
               </AlertDialogDescription>
             </AlertDialogHeader>

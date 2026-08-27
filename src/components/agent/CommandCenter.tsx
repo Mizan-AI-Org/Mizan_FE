@@ -13,25 +13,26 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useLanguage } from "@/hooks/use-language";
-import { askMiya, focusEntityForMiya } from "@/lib/miyaPageContext";
+import { askAgent, focusEntityForAgent } from "@/lib/agentPageContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ProactiveInsights, type ProactiveInsight } from "@/components/miya/ProactiveInsights";
-import { MiyaActivityTimeline, type MiyaActivityItem } from "@/components/miya/MiyaActivityTimeline";
-import { miyaPrompts } from "@/components/miya/AskMiyaButton";
-import { AttentionPriorityCard } from "@/components/miya/AttentionPriorityCard";
-import { AttentionClusterCard } from "@/components/miya/AttentionClusterCard";
+import { ProactiveInsights, type ProactiveInsight } from "@/components/agent/ProactiveInsights";
+import { AgentActivityTimeline, type AgentActivityItem } from "@/components/agent/AgentActivityTimeline";
+import { agentPrompts } from "@/components/agent/AskAgentButton";
+import { AttentionPriorityCard } from "@/components/agent/AttentionPriorityCard";
+import { AttentionClusterCard } from "@/components/agent/AttentionClusterCard";
 import type {
   AttentionBoard,
   AttentionBoardItem,
   AttentionLane,
-} from "@/components/miya/attentionBoardTypes";
+} from "@/components/agent/attentionBoardTypes";
 import {
   EmptyOpsState,
-  MiyaLoadingState,
+  AgentLoadingState,
   OpsStateBanner,
   SectionHeader,
   SeverityBadge,
+  CommandCollapsibleSection,
 } from "@/components/os";
 
 type CommandCenterPayload = {
@@ -55,7 +56,7 @@ type CommandCenterPayload = {
     unresolved_requests?: number;
     operational_health?: string;
   };
-  miya_activity?: MiyaActivityItem[];
+  agent_activity?: AgentActivityItem[];
   business_signals?: Array<{
     id: string;
     category: string;
@@ -107,8 +108,8 @@ function fallbackBoard(attention: AttentionBoardItem[], insights: ProactiveInsig
     .slice(0, 6)
     .map((i) => {
       const askFromAction =
-        (i.actions || []).find((a) => a.ask_miya_prompt)?.ask_miya_prompt ||
-        (i.actions || []).find((a) => a.kind === "ask_miya")?.ask_miya_prompt;
+        (i.actions || []).find((a) => a.ask_agent_prompt)?.ask_agent_prompt ||
+        (i.actions || []).find((a) => a.kind === "ask_agent")?.ask_agent_prompt;
       return {
         id: `watch:${i.id || i.what}`,
         category: String(i.domain || "ops"),
@@ -119,7 +120,7 @@ function fallbackBoard(attention: AttentionBoardItem[], insights: ProactiveInsig
         entity_type: i.entity_type,
         entity_ids: i.entity_ids,
         recommended_action: { label: i.recommendation || "Review", href: "/dashboard" },
-        ask_miya_prompt: askFromAction || undefined,
+        ask_agent_prompt: askFromAction || undefined,
       };
     });
   return {
@@ -149,8 +150,8 @@ export function CommandCenter({ className }: { className?: string }) {
   const [filter, setFilter] = useState<FilterId>("all");
 
   const query = useQuery({
-    queryKey: ["miya", "command-center"],
-    queryFn: () => api.getMiyaCommandCenter() as Promise<CommandCenterPayload>,
+    queryKey: ["agent", "command-center"],
+    queryFn: () => api.getAgentCommandCenter() as Promise<CommandCenterPayload>,
     refetchInterval: 60_000,
     staleTime: 20_000,
   });
@@ -158,7 +159,7 @@ export function CommandCenter({ className }: { className?: string }) {
   const data = query.data;
   const attention = useMemo(() => data?.attention || [], [data?.attention]);
   const insights = useMemo(() => data?.proactive_insights || [], [data?.proactive_insights]);
-  const activity = data?.miya_activity || [];
+  const activity = data?.agent_activity || [];
   const signals = data?.business_signals || [];
   const live = data?.live_operations || {};
   const briefing = data?.briefing || {};
@@ -191,7 +192,7 @@ export function CommandCenter({ className }: { className?: string }) {
   const openItem = (item: AttentionBoardItem) => {
     const entityId = item.entity_id || item.entity_ids?.[0];
     if (item.entity_type && entityId) {
-      focusEntityForMiya({
+      focusEntityForAgent({
         entity_type: item.entity_type,
         entity_id: String(entityId),
         entity_label: item.title,
@@ -204,12 +205,12 @@ export function CommandCenter({ className }: { className?: string }) {
   };
 
   const askAbout = (item: AttentionBoardItem) => {
-    const raw = item.ask_miya_prompt || "";
+    const raw = item.ask_agent_prompt || "";
     const prompt =
       raw && !/^help me with this:/i.test(raw)
         ? raw
-        : miyaPrompts.attention(item.title, t);
-    askMiya({
+        : agentPrompts.attention(item.title, t);
+    askAgent({
       prompt,
       pageContext: {
         entity_type: item.entity_type,
@@ -221,7 +222,7 @@ export function CommandCenter({ className }: { className?: string }) {
   };
 
   const briefMe = () => {
-    askMiya({
+    askAgent({
       prompt: t("attention.brief_prompt"),
       pageContext: { route: "/dashboard" },
     });
@@ -274,6 +275,14 @@ export function CommandCenter({ className }: { className?: string }) {
   ];
 
   const health = healthPill(live.operational_health);
+  const latestActivity = activity[0];
+  const latestActivityPreview =
+    latestActivity?.action || latestActivity?.summary || undefined;
+  const showClearEmptyState =
+    summary.clear &&
+    filter === "all" &&
+    board.handling.length === 0 &&
+    board.watching.length === 0;
 
   const filters: Array<{ id: FilterId; label: string; count: number }> = [
     { id: "all", label: t("attention.filter.all"), count: summary.signals_detected },
@@ -295,7 +304,7 @@ export function CommandCenter({ className }: { className?: string }) {
               item={item}
               quiet={opts?.quiet}
               onReview={() => openItem(item)}
-              onAskMiya={() => askAbout(item)}
+              onAskAgent={() => askAbout(item)}
             />
           </li>
         ))}
@@ -304,7 +313,7 @@ export function CommandCenter({ className }: { className?: string }) {
   };
 
   if (query.isLoading && !data) {
-    return <MiyaLoadingState message={t("command.preparing")} className={className} />;
+    return <AgentLoadingState message={t("command.preparing")} className={className} />;
   }
 
   if (query.isError) {
@@ -337,12 +346,15 @@ export function CommandCenter({ className }: { className?: string }) {
         />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-caption-label">{t("attention.eyebrow")}</p>
+            <p className="text-caption-label">{t("command.eyebrow")}</p>
             <h1 className="mt-1.5 text-display">{briefing.greeting || t("command.hello")}</h1>
 
             {summary.clear ? (
               <div className="mt-4 max-w-xl space-y-1">
-                <p className="text-section-title text-primary">{t("attention.clear.title")}</p>
+                <p className="flex items-center gap-2 text-section-title text-primary">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
+                  {t("attention.clear.title")}
+                </p>
                 <p className="text-body text-muted-foreground">{t("attention.clear.desc")}</p>
                 {summary.signals_detected > 0 ? (
                   <p className="text-body text-muted-foreground">
@@ -400,18 +412,76 @@ export function CommandCenter({ className }: { className?: string }) {
         ) : null}
       </section>
 
+      {/* Glance KPIs — operational snapshot up front */}
+      {filter === "all" && showGlance ? (
+        <section aria-label={t("command.glance")} className="os-section">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+            {glance.map((row) => {
+              const Icon = row.icon;
+              const tone = TILE_TONE[row.tone];
+              return (
+                <button
+                  key={row.label}
+                  type="button"
+                  onClick={() => {
+                    if (row.href.startsWith("#")) {
+                      document.getElementById(row.href.slice(1))?.scrollIntoView({ behavior: "smooth" });
+                    } else {
+                      navigate(row.href);
+                    }
+                  }}
+                  className={cn(
+                    "group rounded-panel border border-border/70 bg-card p-3 text-left",
+                    "transition-all duration-os hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-soft",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span
+                      className={cn(
+                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
+                        tone.wrap,
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" aria-hidden />
+                    </span>
+                    <ArrowUpRight
+                      className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity duration-os group-hover:opacity-100"
+                      aria-hidden
+                    />
+                  </div>
+                  <p
+                    className={cn(
+                      "mt-2.5 text-[1.375rem] font-semibold capitalize leading-none tabular-nums",
+                      tone.value,
+                      row.valueClass,
+                    )}
+                  >
+                    {row.value}
+                  </p>
+                  <p className="mt-1 text-caption text-muted-foreground">{row.label}</p>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       {/* Compact filter bar */}
-      <nav aria-label={t("attention.aria.filters")} className="flex flex-wrap gap-1.5">
+      <nav
+        aria-label={t("attention.aria.filters")}
+        className="flex flex-wrap gap-1.5 rounded-panel border border-border/60 bg-card/80 p-2 shadow-xs"
+      >
         {filters.map((f) => (
           <button
             key={f.id}
             type="button"
             onClick={() => setFilter(f.id)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-caption transition-colors",
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-caption font-medium transition-colors",
               filter === f.id
-                ? "border-primary/40 bg-primary/10 text-foreground"
-                : "border-border/70 bg-card text-muted-foreground hover:border-border hover:text-foreground",
+                ? "border-primary/50 bg-primary text-primary-foreground shadow-xs"
+                : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
             {f.label}
@@ -419,6 +489,25 @@ export function CommandCenter({ className }: { className?: string }) {
           </button>
         ))}
       </nav>
+
+      {/* Agent is handling — collapsed by default; expands when filter is active */}
+      {(filter === "all" || filter === "handling") && board.handling.length > 0 ? (
+        <CommandCollapsibleSection
+          key={filter === "handling" ? "handling-open" : "handling-collapsed"}
+          id="agent-handling"
+          title={t("attention.lane.handling")}
+          description={t("attention.lane.handling_desc")}
+          count={board.handling.length}
+          defaultOpen={filter === "handling"}
+          preview={board.handling[0]?.title}
+        >
+          {renderItemList(board.handling, { quiet: true, cap: 8 })}
+        </CommandCollapsibleSection>
+      ) : null}
+
+      {filter === "handling" && board.handling.length === 0 ? (
+        <EmptyOpsState title={t("attention.empty.handling")} />
+      ) : null}
 
       {/* Your next 5 minutes */}
       {(filter === "all" || filter === "needs_me") && board.next_actions.length > 0 ? (
@@ -431,13 +520,27 @@ export function CommandCenter({ className }: { className?: string }) {
         </section>
       ) : null}
 
-      {/* Clear state when nothing needs the manager */}
-      {summary.clear && filter === "all" ? (
+      {/* Clear state when nothing needs the manager and no background work to show */}
+      {showClearEmptyState ? (
         <section aria-label={t("attention.clear.title")} className="os-section">
           <EmptyOpsState
             title={t("attention.clear.title")}
             description={t("attention.clear.empty_desc")}
-            askPrompt={t("attention.clear.ask")}
+            action={
+              <Button
+                type="button"
+                size="sm"
+                variant="ai"
+                onClick={() =>
+                  askAgent({
+                    prompt: t("attention.clear.ask"),
+                    pageContext: { route: "/dashboard" },
+                  })
+                }
+              >
+                {t("attention.clear.ask")}
+              </Button>
+            }
           />
         </section>
       ) : null}
@@ -505,25 +608,6 @@ export function CommandCenter({ className }: { className?: string }) {
         <EmptyOpsState title={t("attention.empty.today")} />
       ) : null}
 
-      {/* Miya is handling */}
-      {(filter === "all" || filter === "handling") && board.handling.length > 0 ? (
-        <section
-          id="miya-handling"
-          aria-label={t("attention.lane.handling")}
-          className="scroll-mt-24 os-section"
-        >
-          <SectionHeader
-            title={t("attention.lane.handling")}
-            description={t("attention.lane.handling_desc")}
-          />
-          {renderItemList(board.handling, { quiet: true, cap: 8 })}
-        </section>
-      ) : null}
-
-      {filter === "handling" && board.handling.length === 0 ? (
-        <EmptyOpsState title={t("attention.empty.handling")} />
-      ) : null}
-
       {/* Waiting */}
       {(filter === "all" || filter === "waiting") && board.waiting.length > 0 ? (
         <section aria-label={t("attention.lane.waiting")} className="os-section">
@@ -562,75 +646,27 @@ export function CommandCenter({ className }: { className?: string }) {
         <EmptyOpsState title={t("attention.empty.watching")} />
       ) : null}
 
-      {/* Glance KPIs */}
-      {filter === "all" && showGlance ? (
-        <section aria-label={t("command.glance")} className="os-section">
-          <SectionHeader title={t("command.glance")} description={t("command.glance_desc")} />
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {glance.map((row) => {
-              const Icon = row.icon;
-              const tone = TILE_TONE[row.tone];
-              return (
-                <button
-                  key={row.label}
-                  type="button"
-                  onClick={() => {
-                    if (row.href.startsWith("#")) {
-                      document.getElementById(row.href.slice(1))?.scrollIntoView({ behavior: "smooth" });
-                    } else {
-                      navigate(row.href);
-                    }
-                  }}
-                  className={cn(
-                    "group rounded-panel border border-border/70 bg-card p-3.5 text-left",
-                    "transition-all duration-os hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-soft",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span
-                      className={cn(
-                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
-                        tone.wrap,
-                      )}
-                    >
-                      <Icon className="h-4 w-4" aria-hidden />
-                    </span>
-                    <ArrowUpRight
-                      className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity duration-os group-hover:opacity-100"
-                      aria-hidden
-                    />
-                  </div>
-                  <p
-                    className={cn(
-                      "mt-3 text-[1.625rem] font-semibold capitalize leading-none tabular-nums",
-                      tone.value,
-                      row.valueClass,
-                    )}
-                  >
-                    {row.value}
-                  </p>
-                  <p className="mt-1.5 text-caption text-muted-foreground">{row.label}</p>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
-
-      {/* Verified Miya activity (audit) */}
+      {/* Verified Agent activity (audit) — always collapsed */}
       {filter === "all" && activity.length > 0 && scale !== "extreme" ? (
-        <section id="miya-activity" aria-label={t("command.handled")} className="scroll-mt-24 os-section">
-          <SectionHeader
-            title={t("command.handled")}
-            description={
-              briefing.handled_count != null
-                ? t("command.handled_count", { count: briefing.handled_count })
-                : t("command.handled_default")
-            }
+        <CommandCollapsibleSection
+          id="agent-activity"
+          title={t("activity.title")}
+          description={
+            briefing.handled_count != null
+              ? t("command.handled_count", { count: briefing.handled_count })
+              : t("command.handled_default")
+          }
+          count={activity.length}
+          defaultOpen={false}
+          preview={latestActivityPreview}
+        >
+          <AgentActivityTimeline
+            items={activity}
+            compact
+            embedded
+            queryKey={["agent", "command-center"]}
           />
-          <MiyaActivityTimeline items={activity} compact queryKey={["miya", "command-center"]} />
-        </section>
+        </CommandCollapsibleSection>
       ) : null}
 
       {filter === "all" && signals.length > 0 && (scale === "few" || scale === "moderate") ? (
@@ -654,7 +690,7 @@ export function CommandCenter({ className }: { className?: string }) {
       {filter === "all" && board.watching.length === 0 && insights.length > 0 && scale === "few" ? (
         <section aria-label={t("command.watch")} className="os-section">
           <SectionHeader title={t("command.watch")} description={t("command.watch_desc")} />
-          <ProactiveInsights insights={insights.slice(0, 2)} compact queryKey={["miya", "command-center"]} />
+          <ProactiveInsights insights={insights.slice(0, 2)} compact queryKey={["agent", "command-center"]} />
         </section>
       ) : null}
     </div>

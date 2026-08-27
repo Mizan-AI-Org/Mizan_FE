@@ -35,7 +35,6 @@ export default function AutomationBuilderPage() {
   const untitledLabel = t("automations.builder.untitled");
 
   const [libraryOpen, setLibraryOpen] = useState(false);
-  const [stopMiya, setStopMiya] = useState(false);
 
   const { data: catalog } = useQuery({
     queryKey: ["automations-catalog", accessToken],
@@ -62,7 +61,6 @@ export default function AutomationBuilderPage() {
       setName(existing.name || untitledLabel);
       setDescription(existing.description || "");
       setIsActive(Boolean(existing.is_active));
-      setStopMiya(Boolean(existing.stop_miya_on_match));
       setTriggerType(existing.trigger_type || "new_message_received");
       const cfg = existing.trigger_config || {};
       const kws = (cfg.keywords as string[]) || [];
@@ -122,7 +120,7 @@ export default function AutomationBuilderPage() {
         name: name.trim() || untitledLabel,
         description,
         is_active: isActive,
-        stop_miya_on_match: stopMiya,
+        stop_agent_on_match: false,
         trigger_type: triggerType,
         trigger_config: buildTriggerConfig(),
         steps,
@@ -199,12 +197,6 @@ export default function AutomationBuilderPage() {
           />
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <div className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs dark:border-slate-700">
-            <Label htmlFor="stop-miya" className="text-slate-600 dark:text-slate-300">
-              {t("automations.builder.stop_miya")}
-            </Label>
-            <Switch id="stop-miya" checked={stopMiya} onCheckedChange={setStopMiya} />
-          </div>
           <div className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs dark:border-slate-700">
             <Label htmlFor="active-toggle">{t("automations.builder.active")}</Label>
             <Switch id="active-toggle" checked={isActive} onCheckedChange={setIsActive} />

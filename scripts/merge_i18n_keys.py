@@ -216,8 +216,8 @@ KEYS: dict[str, dict[str, str]] = {
         "ar": "لا نشاط بعد - تظهر الردود وتغييرات الحالة هنا.",
     },
     "staff.requests.author_miya": {
-        "en": "Miya AI",
-        "fr": "Miya AI",
+        "en": "Agent AI",
+        "fr": "Agent AI",
         "ar": "ميا الذكية",
     },
     "staff.requests.author_manager": {
@@ -306,8 +306,8 @@ KEYS: dict[str, dict[str, str]] = {
         "ar": "المهام والطلبات",
     },
     "staff.requests.tasks_demands_subtitle": {
-        "en": "Miya-created and ingested tasks - review, reassign, and close from here.",
-        "fr": "Tâches créées ou ingérées par Miya - revue, réassignation et clôture ici.",
+        "en": "Agent-created and ingested tasks - review, reassign, and close from here.",
+        "fr": "Tâches créées ou ingérées par Agent - revue, réassignation et clôture ici.",
         "ar": "مهام أنشأتها أو استقبلتها ميا - راجع وأعد التعيين وأغلق من هنا.",
     },
     "staff.requests.mark_paid": {

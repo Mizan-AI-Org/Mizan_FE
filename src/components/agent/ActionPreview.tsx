@@ -29,11 +29,11 @@ type Props = {
   className?: string;
 };
 
-/** Structured Miya action card: what / who / result / verification. */
+/** Structured Agent action card: what / who / result / verification. */
 export function ActionPreview({ preview, busy, onConfirm, onCancel, className }: Props) {
   const risk = (preview.risk || "LOW").toUpperCase();
   return (
-    <div className={cn("miya-surface px-4 py-3 shadow-soft", className)} role="region" aria-label="Miya action">
+    <div className={cn("agent-surface px-4 py-3 shadow-soft", className)} role="region" aria-label="Agent action">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-caption">

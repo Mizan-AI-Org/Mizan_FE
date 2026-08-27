@@ -88,7 +88,7 @@ export interface StaffInvitation {
     extra_data?: { phone?: string;[key: string]: any };
 }
 
-/** Staff-captured order log (Miya voice/text or manual form). */
+/** Staff-captured order log (voice, text, or manual form). */
 export type StaffCapturedOrderFulfillmentStatus = "NEW" | "IN_PROGRESS" | "FULFILLED" | "CANCELLED";
 
 export interface StaffCapturedOrderRow {
@@ -164,7 +164,7 @@ export interface Task {
     due_date: string;
     created_at: string;
     updated_at: string;
-    source?: 'MANUAL' | 'WHATSAPP' | 'EMAIL' | 'MIYA' | 'SYSTEM';
+    source?: 'MANUAL' | 'WHATSAPP' | 'EMAIL' | 'AGENT' | 'SYSTEM';
     source_label?: string;
     ai_summary?: string;
 }
@@ -233,7 +233,7 @@ export interface DashboardTaskDemandItem {
     /** Raw staff-request status before widget vocabulary mapping. */
     raw_status?: string;
     due_date: string | null;
-    source: 'MANUAL' | 'WHATSAPP' | 'EMAIL' | 'MIYA' | 'SYSTEM';
+    source: 'MANUAL' | 'WHATSAPP' | 'EMAIL' | 'AGENT' | 'SYSTEM';
     source_label: string;
     ai_summary: string;
     /** Dashboard widget bucket - set by the intent router so HR / Finance /
@@ -442,7 +442,7 @@ export interface DashboardTasksDemandsResponse {
     generated_at: string;
 }
 
-/** Tasks bound to a Miya-created custom dashboard tile. */
+/** Tasks bound to a custom dashboard tile. */
 export interface CustomWidgetTasksResponse {
     widget_id: string;
     title: string;

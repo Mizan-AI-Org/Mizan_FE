@@ -80,7 +80,7 @@ const potentiallyUntranslated = [...enKeys].filter((k) => {
     enVal.length > 15 &&
     enVal === frVal &&
     !enVal.includes("{{") &&
-    !enVal.includes("Miya") &&
+    !enVal.includes("Agent") &&
     !enVal.includes("Mizan") &&
     !enVal.includes("WhatsApp") &&
     !enVal.includes("PayGuard") &&

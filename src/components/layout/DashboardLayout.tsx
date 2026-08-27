@@ -9,17 +9,17 @@ import { UserAvatarMenu } from "@/components/layout/UserAvatarMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import BrandLogo from "@/components/BrandLogo";
 import { useLanguage } from "@/hooks/use-language";
-import { MiyaWidget } from "@/components/MiyaWidget";
+import { AgentWidget } from "@/components/AgentWidget";
 import ImpersonationBanner from "@/components/platform-admin/ImpersonationBanner";
 import { LiveDateTime } from "@/components/LiveDateTime";
-import { MiyaCommandBar } from "@/components/miya/MiyaCommandBar";
+import { AgentCommandBar } from "@/components/agent/AgentCommandBar";
 import { DashboardTaskDetailSheet } from "@/components/dashboard/DashboardTaskDetailSheet";
 import { closeDashboardTaskSheet } from "@/lib/dashboard-task-sheet";
-import { clearMiyaPageContext, focusEntityForMiya, setMiyaPageContext } from "@/lib/miyaPageContext";
+import { clearAgentPageContext, focusEntityForAgent, setAgentPageContext } from "@/lib/agentPageContext";
 import { IntentRail, MobileIntentDock } from "@/components/layout/IntentRail";
 import { cn } from "@/lib/utils";
 import { isImpersonating } from "@/lib/impersonation";
-import { useMiyaPanelOpen } from "@/hooks/use-miya-panel-open";
+import { useAgentPanelOpen } from "@/hooks/use-agent-panel-open";
 
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -31,7 +31,7 @@ const DashboardLayout: React.FC = () => {
   const { notifications, markAllAsRead, markAsRead } = useNotifications();
   const { t } = useLanguage();
   const viewingAsTenant = isImpersonating();
-  const miyaPanelOpen = useMiyaPanelOpen();
+  const agentPanelOpen = useAgentPanelOpen();
 
   const unreadCount = notifications.filter(n => !n.read).length;
   const [shouldShake, setShouldShake] = useState(false);
@@ -39,7 +39,7 @@ const DashboardLayout: React.FC = () => {
 
   useEffect(() => {
     if (taskSheetId) {
-      focusEntityForMiya({
+      focusEntityForAgent({
         entity_type: "task",
         entity_id: taskSheetId,
         entity_label: taskWidgetTitle,
@@ -48,7 +48,7 @@ const DashboardLayout: React.FC = () => {
       return;
     }
     if (incidentFocusId) {
-      focusEntityForMiya({
+      focusEntityForAgent({
         entity_type: "incident",
         entity_id: incidentFocusId,
         route: location.pathname + location.search,
@@ -56,13 +56,13 @@ const DashboardLayout: React.FC = () => {
       });
       return;
     }
-    setMiyaPageContext({
+    setAgentPageContext({
       route: location.pathname + (location.search || ""),
     });
   }, [location.pathname, location.search, taskSheetId, taskWidgetTitle, incidentFocusId]);
 
   useEffect(() => {
-    return () => clearMiyaPageContext();
+    return () => clearAgentPageContext();
   }, []);
 
   useEffect(() => {
@@ -90,7 +90,13 @@ const DashboardLayout: React.FC = () => {
         {t("common.skip_to_content")}
       </a>
       <ImpersonationBanner />
-      <header className="app-header-surface sticky top-0 z-[2000] border-b border-border/80 backdrop-blur-md">
+      <header
+        className={cn(
+          "app-header-surface sticky top-0 z-[2000] border-b border-border/80 backdrop-blur-md transition-[padding] duration-os",
+          agentPanelOpen && "lg:pe-[var(--mizan-agent-panel,0px)]",
+          !agentPanelOpen && "lg:pe-[var(--mizan-agent-edge,0px)]",
+        )}
+      >
         <div className="flex items-center gap-3 px-3 py-2.5 sm:px-4 lg:px-0">
           <button
             type="button"
@@ -106,7 +112,7 @@ const DashboardLayout: React.FC = () => {
           </button>
 
           <div className="mx-auto min-w-0 max-w-2xl flex-1 lg:pr-4">
-            <MiyaCommandBar />
+            <AgentCommandBar />
           </div>
 
           <div className="flex shrink-0 items-center gap-1 pr-1 sm:gap-2 sm:pr-4">
@@ -157,17 +163,17 @@ const DashboardLayout: React.FC = () => {
         className={cn(
           "flex-1 min-w-0 transition-[padding] duration-os",
           "lg:ps-[var(--mizan-rail-width,232px)]",
-          miyaPanelOpen && "lg:pe-[min(100vw-2rem,420px)]",
+          agentPanelOpen && "lg:pe-[var(--mizan-agent-panel,0px)]",
+          !agentPanelOpen && "lg:pe-[var(--mizan-agent-edge,0px)]",
           "pb-20 lg:pb-6",
         )}
       >
         <Outlet />
       </main>
-      <MiyaWidget />
+      <AgentWidget />
       <DashboardTaskDetailSheet
         taskId={taskSheetId}
         open={!!taskSheetId}
-        miyaPanelOpen={miyaPanelOpen}
         onOpenChange={(open) => {
           if (!open) closeDashboardTaskSheet(navigate, location);
         }}

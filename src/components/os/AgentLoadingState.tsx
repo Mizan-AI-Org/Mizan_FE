@@ -10,8 +10,8 @@ type Props = {
   className?: string;
 };
 
-/** Contextual Miya/ops loading - prefer copy + skeleton over bare spinner. */
-export function MiyaLoadingState({
+/** Contextual Agent/ops loading - prefer copy + skeleton over bare spinner. */
+export function AgentLoadingState({
   message = "Reviewing operations…",
   variant = "panel",
   rows = 3,
@@ -52,4 +52,4 @@ export function MiyaLoadingState({
   );
 }
 
-export default MiyaLoadingState;
+export default AgentLoadingState;

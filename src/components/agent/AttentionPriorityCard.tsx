@@ -9,13 +9,13 @@ import type { AttentionBoardItem } from "./attentionBoardTypes";
 type Props = {
   item: AttentionBoardItem;
   onReview?: () => void;
-  onAskMiya?: () => void;
+  onAskAgent?: () => void;
   className?: string;
   quiet?: boolean;
 };
 
 /** Compact operational attention card for the command board. */
-export function AttentionPriorityCard({ item, onReview, onAskMiya, className, quiet }: Props) {
+export function AttentionPriorityCard({ item, onReview, onAskAgent, className, quiet }: Props) {
   const { t } = useLanguage();
   const categoryKey = item.category ? `category.${item.category}` : "";
   const categoryLabel = item.category
@@ -57,7 +57,7 @@ export function AttentionPriorityCard({ item, onReview, onAskMiya, className, qu
           ) : null}
         </div>
 
-        {onReview || onAskMiya ? (
+        {onReview || onAskAgent ? (
           <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:flex-col sm:items-stretch">
             {onReview ? (
               <Button type="button" size="sm" className="justify-center gap-1" onClick={onReview}>
@@ -65,9 +65,9 @@ export function AttentionPriorityCard({ item, onReview, onAskMiya, className, qu
                 <ArrowRight className="h-3.5 w-3.5" aria-hidden />
               </Button>
             ) : null}
-            {onAskMiya ? (
-              <Button type="button" size="sm" variant="ai" className="justify-center" onClick={onAskMiya}>
-                {t("nav.ask_miya")}
+            {onAskAgent ? (
+              <Button type="button" size="sm" variant="ai" className="justify-center" onClick={onAskAgent}>
+                {t("nav.ask_agent")}
               </Button>
             ) : null}
           </div>

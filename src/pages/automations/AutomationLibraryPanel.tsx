@@ -39,7 +39,6 @@ const TEMPLATE_ICONS: Record<string, React.ElementType> = {
   complaint_triage: MessageCircle,
   emergency_alert: AlertTriangle,
   coverage_request: Calendar,
-  miya_handoff: Zap,
 };
 
 type Props = {

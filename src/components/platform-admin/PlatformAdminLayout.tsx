@@ -10,8 +10,6 @@ import {
   ScrollText,
   Shield,
   MessageCircle,
-  MessagesSquare,
-  Inbox,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PlatformMe } from "@/lib/platformApi";
@@ -24,8 +22,6 @@ const NAV = [
   { to: "/admin", end: true, label: "Overview", icon: LayoutDashboard },
   { to: "/admin/tenants", label: "Tenants", icon: Building2 },
   { to: "/admin/users", label: "Users", icon: Users },
-  { to: "/admin/miya-conversations", label: "Miya's Conversations", icon: MessagesSquare },
-  { to: "/admin/unknown-phrases", label: "Unknown phrases", icon: Inbox },
   { to: "/admin/operators", label: "Operators", icon: Shield },
   { to: "/admin/billing", label: "Billing", icon: CreditCard },
   { to: "/admin/whatsapp", label: "WhatsApp", icon: MessageCircle },

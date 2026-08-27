@@ -15,15 +15,15 @@ import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
 import { API_BASE } from "@/lib/api";
-import { getMiyaPageContext, askMiya, subscribeMiyaPageContext } from "@/lib/miyaPageContext";
+import { getAgentPageContext, askAgent, subscribeAgentPageContext } from "@/lib/agentPageContext";
 import { cn } from "@/lib/utils";
-import { ActionPreview, type ActionPreviewModel } from "@/components/miya/ActionPreview";
-import { commandKindLabel } from "@/components/miya/commandBarUtils";
-import { MiyaMessageBody } from "@/components/miya/MiyaMessageBody";
+import { ActionPreview, type ActionPreviewModel } from "@/components/agent/ActionPreview";
+import { commandKindLabel } from "@/components/agent/commandBarUtils";
+import { AgentMessageBody } from "@/components/agent/AgentMessageBody";
 
-const RECENT_KEY = "mizan_miya_command_recent_v1";
-const MIYA_LOCATION_KEY = "mizan_miya_location_id";
-const MIYA_LOCATION_NAME_KEY = "mizan_miya_location_name";
+const RECENT_KEY = "mizan_agent_command_recent_v1";
+const AGENT_LOCATION_KEY = "mizan_agent_location_id";
+const AGENT_LOCATION_NAME_KEY = "mizan_agent_location_name";
 
 type ChatTurn = { role: "user" | "assistant"; content: string };
 
@@ -44,8 +44,8 @@ type Suggestion = { id: string; label: string; prompt: string };
 
 function readEstablishment(): { location_id?: string; location_name?: string } {
   try {
-    const location_id = localStorage.getItem(MIYA_LOCATION_KEY) || undefined;
-    const location_name = localStorage.getItem(MIYA_LOCATION_NAME_KEY) || undefined;
+    const location_id = localStorage.getItem(AGENT_LOCATION_KEY) || undefined;
+    const location_name = localStorage.getItem(AGENT_LOCATION_NAME_KEY) || undefined;
     if (!location_id) return {};
     return { location_id, location_name: location_name || undefined };
   } catch {
@@ -78,7 +78,7 @@ type Props = {
   inputClassName?: string;
 };
 
-export function MiyaCommandBar({ className = "", inputClassName = "" }: Props) {
+export function AgentCommandBar({ className = "", inputClassName = "" }: Props) {
   const { user, accessToken } = useAuth() as AuthContextType;
   const { t } = useLanguage();
   const location = useLocation();
@@ -98,9 +98,9 @@ export function MiyaCommandBar({ className = "", inputClassName = "" }: Props) {
     historyRef.current = history;
   }, [history]);
 
-  const [pageContext, setPageContext] = useState(() => getMiyaPageContext());
+  const [pageContext, setPageContext] = useState(() => getAgentPageContext());
 
-  useEffect(() => subscribeMiyaPageContext(setPageContext), []);
+  useEffect(() => subscribeAgentPageContext(setPageContext), []);
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -201,11 +201,11 @@ export function MiyaCommandBar({ className = "", inputClassName = "" }: Props) {
 
       const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
       const establishment = readEstablishment();
-      const pageCtx = getMiyaPageContext();
+      const pageCtx = getAgentPageContext();
       const pendingPayload = opts?.pending ?? pending;
 
       try {
-        const resp = await fetch(`${API_BASE}/miya/chat/`, {
+        const resp = await fetch(`${API_BASE}/agent/chat/`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -214,24 +214,24 @@ export function MiyaCommandBar({ className = "", inputClassName = "" }: Props) {
           body: JSON.stringify({
             message,
             history: historyRef.current.slice(-8),
-            voice: false,
-            channel: "dashboard",
+            async: true,
             restaurant_id: user?.restaurant || user?.restaurant_data?.id || undefined,
             ...establishment,
             ...(pageCtx ? { page_context: pageCtx } : {}),
-            ...(pendingPayload ? { pending_confirmation: pendingPayload } : {}),
           }),
         });
 
         let data: CommandResult = {};
-        if (resp.status === 202) {
-          const queued = await resp.json();
-          const taskId = queued.task_id as string | undefined;
-          if (!taskId) throw new Error("Miya did not return a task id");
+        const queued = await resp.json();
+        if (queued.status === "complete" && (queued.reply || queued.error)) {
+          data = queued;
+        } else {
+        const taskId = queued.task_id as string | undefined;
+        if (taskId) {
           for (let attempt = 0; attempt < 90; attempt += 1) {
             await sleep([400, 600, 800, 1000, 1200, 1500][Math.min(attempt, 5)]);
             const statusResp = await fetch(
-              `${API_BASE}/miya/chat/status/?task_id=${encodeURIComponent(taskId)}`,
+              `${API_BASE}/agent/chat/status/${encodeURIComponent(taskId)}/`,
               { headers: { Authorization: `Bearer ${accessToken}` } },
             );
             const statusData = await statusResp.json();
@@ -239,18 +239,19 @@ export function MiyaCommandBar({ className = "", inputClassName = "" }: Props) {
               data = statusData;
               break;
             }
-            if (statusData.status === "failed" || !statusResp.ok) {
-              throw new Error(statusData.error || statusData.reply || "Miya failed");
+            if (statusData.status === "failed" || statusData.error || !statusResp.ok) {
+              throw new Error(statusData.error || statusData.reply || "Agent failed");
             }
           }
           if (!data.reply && !data.action_preview) {
-            throw new Error("Miya is still thinking - try again.");
+            throw new Error("Agent is still thinking - try again.");
           }
         } else {
-          data = await resp.json();
+          data = queued;
           if (!resp.ok) {
-            throw new Error((data as { error?: string }).error || `Miya failed (${resp.status})`);
+            throw new Error((data as { error?: string }).error || `Agent failed (${resp.status})`);
           }
+        }
         }
 
         setResult(data);
@@ -265,7 +266,7 @@ export function MiyaCommandBar({ className = "", inputClassName = "" }: Props) {
         }
         setQuery("");
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Something went wrong talking to Miya.";
+        const msg = err instanceof Error ? err.message : "Something went wrong talking to Agent.";
         setResult({ reply: msg, command_kind: "question" });
         setHistory((prev) => [...prev, { role: "assistant", content: msg }]);
       } finally {
@@ -321,7 +322,7 @@ export function MiyaCommandBar({ className = "", inputClassName = "" }: Props) {
         <div
           className="absolute left-0 right-0 z-[60] mt-2 max-h-[min(75vh,560px)] overflow-y-auto rounded-panel border border-border bg-popover text-popover-foreground shadow-strong"
           role="dialog"
-          aria-label="Miya command results"
+          aria-label="Agent command results"
         >
           {result ? (
             <div className="space-y-3 p-3">
@@ -346,7 +347,7 @@ export function MiyaCommandBar({ className = "", inputClassName = "" }: Props) {
               ) : null}
               {result.reply ? (
                 <div className="rounded-panel bg-ai-surface px-3 py-3 text-body leading-relaxed text-foreground">
-                  <MiyaMessageBody content={result.reply} />
+                  <AgentMessageBody content={result.reply} />
                 </div>
               ) : null}
               <div className="flex flex-wrap gap-2">
@@ -363,10 +364,10 @@ export function MiyaCommandBar({ className = "", inputClassName = "" }: Props) {
                 <button
                   type="button"
                   className="inline-flex items-center gap-1 rounded-control px-2 py-1.5 text-meta text-muted-foreground hover:bg-muted"
-                  onClick={() => askMiya({ prompt: query || result.reply || "" })}
+                  onClick={() => askAgent({ prompt: query || result.reply || "" })}
                 >
                   <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-                  Open Miya workspace
+                  Open Agent workspace
                 </button>
               </div>
             </div>
@@ -451,7 +452,7 @@ export function MiyaCommandBar({ className = "", inputClassName = "" }: Props) {
                   >
                     <ArrowRight className="h-4 w-4 text-primary" aria-hidden />
                     <span className="min-w-0 flex-1 truncate">
-                      Ask Miya: <span className="font-medium">{query.trim()}</span>
+                      Ask Agent: <span className="font-medium">{query.trim()}</span>
                     </span>
                   </button>
                 </div>
@@ -488,4 +489,4 @@ function SuggestionRow({ label, onClick }: { label: string; onClick: () => void 
   );
 }
 
-export default MiyaCommandBar;
+export default AgentCommandBar;

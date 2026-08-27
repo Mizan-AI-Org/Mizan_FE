@@ -16,19 +16,17 @@ export type AttentionCardModel = {
   recommendation?: string;
   owner?: string | null;
   reviewLabel?: string;
-  askPrompt?: string;
 };
 
 type Props = {
   item: AttentionCardModel;
   onReview?: () => void;
-  onAskMiya?: () => void;
   className?: string;
   compact?: boolean;
 };
 
-/** Attention item: WHAT / WHY / Miya recommends / one primary action. */
-export function AttentionCard({ item, onReview, onAskMiya, className, compact }: Props) {
+/** Attention item: WHAT / WHY / recommendation / one primary action. */
+export function AttentionCard({ item, onReview, className, compact }: Props) {
   const { t } = useLanguage();
   return (
     <article
@@ -77,25 +75,12 @@ export function AttentionCard({ item, onReview, onAskMiya, className, compact }:
           ) : null}
         </div>
 
-        {onReview || onAskMiya ? (
+        {onReview ? (
           <div className="flex shrink-0 flex-col items-stretch gap-2">
-            {onReview ? (
-              <Button type="button" size="sm" className="justify-center gap-1" onClick={onReview}>
-                {item.reviewLabel || t("os.attention.review")}
-                <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-              </Button>
-            ) : null}
-            {onAskMiya ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="ai"
-                className="justify-center"
-                onClick={onAskMiya}
-              >
-                {t("nav.ask_miya")}
-              </Button>
-            ) : null}
+            <Button type="button" size="sm" className="justify-center gap-1" onClick={onReview}>
+              {item.reviewLabel || t("os.attention.review")}
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+            </Button>
           </div>
         ) : null}
       </div>

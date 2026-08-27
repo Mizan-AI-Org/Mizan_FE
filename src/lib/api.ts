@@ -205,12 +205,19 @@ export function refreshAccessToken(): Promise<string | null> {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh }),
       });
-      if (!response.ok) return null;
+      if (!response.ok) {
+        broadcastAuthExpired();
+        return null;
+      }
       const data = await response.json();
-      if (!data?.access) return null;
+      if (!data?.access) {
+        broadcastAuthExpired();
+        return null;
+      }
       persistTokens(data.access, data.refresh);
       return data.access as string;
     } catch {
+      broadcastAuthExpired();
       return null;
     } finally {
       refreshInFlight = null;
@@ -359,7 +366,7 @@ export class BackendService {
     try {
       const response = await fetch(`${API_BASE}/auth/login/`, {
         method: "POST",
-        headers: this.getHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
       const errorData = response.ok ? null : await response.json().catch(() => ({}));
@@ -620,7 +627,6 @@ export class BackendService {
     });
   }
 
-  /** Miya-created dashboard tiles (referenced in layout as custom:<uuid>). */
   /** Live team attendance for a calendar day (shifts + clock events). Optional date=YYYY-MM-DD (default: today). */
   async getAttendanceDashboard(date?: string): Promise<{
     report_date: string;
@@ -735,7 +741,6 @@ export class BackendService {
     return this.fetchWithError(`/dashboard/tasks-demands/${taskId}/`);
   }
 
-  /** Tasks scoped to one Miya-created custom dashboard tile. */
   async getCustomWidgetTasks(
     widgetId: string,
     limit = 5,
@@ -845,7 +850,7 @@ export class BackendService {
 
   /**
    * Structured "send to staff" composer. Goes through the same
-   * audience pipeline Miya's ``inform_staff`` tool uses, so the
+   * audience pipeline used for staff WhatsApp messages, so the
    * resulting row lands in the recent feed and inherits delivery /
    * read receipt tracking from the same WhatsApp webhook.
    */
@@ -870,7 +875,7 @@ export class BackendService {
    * Category-bucketed tasks for the Human Resources / Finance / Maintenance /
    * Meetings & Reminders / Urgent Top-5 dashboard widgets.
    *
-   * One backend endpoint serves every bucket; Miya pre-classifies each
+   * One backend endpoint serves every bucket; each item is pre-classified
    * task / staff request into a category so the widgets are pure indexed
    * filters rather than client-side scans.
    */
@@ -1235,7 +1240,7 @@ export class BackendService {
     return { saved: Boolean((body as { saved?: boolean }).saved) };
   }
 
-  /** Tenant-wide categories for grouping manager/Miya-created dashboard widgets. */
+  /** Tenant-wide categories for grouping manager-created dashboard widgets. */
   async listDashboardCategories(): Promise<{
     categories: Array<{
       id: string;
@@ -1436,92 +1441,6 @@ export class BackendService {
     timestamp: string;
   }> {
     return this.fetchWithError("/dashboard/action-center/");
-  }
-
-  async getMiyaCommandCenter(params?: { period?: string; restaurant_id?: string; locale?: string }) {
-    const qs = new URLSearchParams();
-    if (params?.period) qs.set("period", params.period);
-    if (params?.restaurant_id) qs.set("restaurant_id", params.restaurant_id);
-    if (params?.locale) qs.set("locale", params.locale);
-    const lang = params?.locale || localStorage.getItem("language") || "en";
-    qs.set("locale", lang);
-    const suffix = qs.toString() ? `?${qs.toString()}` : "";
-    return this.fetchWithError(`/miya/command-center/${suffix}`);
-  }
-
-  async getMiyaAttention(params?: { period?: string; restaurant_id?: string }) {
-    const qs = new URLSearchParams();
-    if (params?.period) qs.set("period", params.period);
-    if (params?.restaurant_id) qs.set("restaurant_id", params.restaurant_id);
-    const suffix = qs.toString() ? `?${qs.toString()}` : "";
-    return this.fetchWithError(`/miya/attention/${suffix}`);
-  }
-
-  async getMiyaModuleWorkspace(module: string, params?: { restaurant_id?: string; locale?: string }) {
-    const qs = new URLSearchParams();
-    qs.set("module", module);
-    if (params?.restaurant_id) qs.set("restaurant_id", params.restaurant_id);
-    const lang = params?.locale || (typeof localStorage !== "undefined" ? localStorage.getItem("language") : null) || "en";
-    qs.set("locale", lang);
-    return this.fetchWithError(`/miya/workspace/?${qs.toString()}`);
-  }
-
-  async getMiyaInsights(params?: { restaurant_id?: string; limit?: number; mark_notified?: boolean }) {
-    const qs = new URLSearchParams();
-    if (params?.restaurant_id) qs.set("restaurant_id", params.restaurant_id);
-    if (params?.limit != null) qs.set("limit", String(params.limit));
-    if (params?.mark_notified) qs.set("mark_notified", "1");
-    const suffix = qs.toString() ? `?${qs.toString()}` : "";
-    return this.fetchWithError(`/miya/insights/${suffix}`);
-  }
-
-  async dismissMiyaInsight(fingerprint: string, params?: { restaurant_id?: string }) {
-    return this.fetchWithError(`/miya/insights/dismiss/`, {
-      method: "POST",
-      body: JSON.stringify({
-        fingerprint,
-        restaurant_id: params?.restaurant_id,
-      }),
-    });
-  }
-
-  async snoozeMiyaInsight(fingerprint: string, params?: { restaurant_id?: string; hours?: number }) {
-    return this.fetchWithError(`/miya/insights/snooze/`, {
-      method: "POST",
-      body: JSON.stringify({
-        fingerprint,
-        restaurant_id: params?.restaurant_id,
-        hours: params?.hours ?? 6,
-      }),
-    });
-  }
-
-  async getMiyaActivity(params?: {
-    restaurant_id?: string;
-    limit?: number;
-    hours?: number;
-    entity_type?: string;
-    entity_id?: string;
-  }) {
-    const qs = new URLSearchParams();
-    if (params?.restaurant_id) qs.set("restaurant_id", params.restaurant_id);
-    if (params?.limit != null) qs.set("limit", String(params.limit));
-    if (params?.hours != null) qs.set("hours", String(params.hours));
-    if (params?.entity_type) qs.set("entity_type", params.entity_type);
-    if (params?.entity_id) qs.set("entity_id", params.entity_id);
-    const suffix = qs.toString() ? `?${qs.toString()}` : "";
-    return this.fetchWithError(`/miya/activity/${suffix}`);
-  }
-
-  async getMiyaActivityDetail(eventId: string) {
-    return this.fetchWithError(`/miya/activity/${eventId}/`);
-  }
-
-  async undoMiyaActivity(eventId: string, params?: { restaurant_id?: string }) {
-    return this.fetchWithError(`/miya/activity/${eventId}/undo/`, {
-      method: "POST",
-      body: JSON.stringify({ restaurant_id: params?.restaurant_id }),
-    });
   }
 
   async managerClockIn(
@@ -3104,7 +3023,7 @@ export class BackendService {
     forecast_algo?: string;
     buffer_mode?: string;
     message_for_user?: string;
-    miya_recommendation?: { title: string; body: string; action_label?: string };
+    agent_recommendation?: { title: string; body: string; action_label?: string };
   }> {
     const search = new URLSearchParams();
     if (startDate && endDate) {
@@ -4936,6 +4855,61 @@ export class BackendService {
       method: "POST",
       body: JSON.stringify({ return_url: returnUrl }),
     });
+  }
+
+  // ---------------------------------------------------------------------
+  // Mizan Agent (Mastra)
+  // ---------------------------------------------------------------------
+  async getAgentConfig(accessToken: string): Promise<{
+    agent_id: string;
+    mastra_public_url: string;
+    chat_proxy: boolean;
+  }> {
+    return this.fetchWithError("/agent/config/", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }
+
+  async sendAgentChat(
+    accessToken: string,
+    body: {
+      message: string;
+      history?: { role: string; content: string }[];
+      async?: boolean;
+      restaurant_id?: string;
+    },
+  ): Promise<{ reply?: string; task_id?: string; status?: string; success?: boolean }> {
+    return this.fetchWithError("/agent/chat/", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async pollAgentChatStatus(
+    accessToken: string,
+    taskId: string,
+  ): Promise<{ status: string; reply?: string; error?: string }> {
+    return this.fetchWithError(`/agent/chat/status/${taskId}/`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }
+
+  async getAgentCommandCenter(params?: {
+    period?: string;
+    restaurant_id?: string;
+    locale?: string;
+  }): Promise<Record<string, unknown>> {
+    const qs = new URLSearchParams();
+    if (params?.period) qs.set("period", params.period);
+    if (params?.restaurant_id) qs.set("restaurant_id", params.restaurant_id);
+    if (params?.locale) qs.set("locale", params.locale);
+    const query = qs.toString();
+    const path = query ? `/agent/command-center/?${query}` : "/agent/command-center/";
+    return this.fetchWithError(path);
   }
 }
 export const api = new BackendService();

@@ -524,7 +524,7 @@ export default function PaymentApprovalSettings() {
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
                     2
                   </span>
-                  {t("settings.payguard.step_miya")}
+                  {t("settings.payguard.step_notify")}
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
@@ -540,7 +540,7 @@ export default function PaymentApprovalSettings() {
               <div className="grid gap-3 sm:grid-cols-3">
                 {[
                   { n: 1, text: t("settings.payguard.step_submit") },
-                  { n: 2, text: t("settings.payguard.step_miya"), icon: MessageCircle },
+                  { n: 2, text: t("settings.payguard.step_notify"), icon: MessageCircle },
                   { n: 3, text: t("settings.payguard.step_pay") },
                 ].map(({ n, text, icon: Icon }) => (
                   <div

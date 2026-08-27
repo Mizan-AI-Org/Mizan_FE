@@ -218,6 +218,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         if (isJson && rawText) {
           try {
             const parsed = JSON.parse(rawText);
+            if (parsed.code === "platform_ops_use_admin_login") {
+              throw new Error(
+                "Platform operator accounts sign in at /admin only. This page is for restaurant staff and managers.",
+              );
+            }
             errorMsg =
               parsed.message || parsed.error || `Login failed (${response.status})`;
           } catch (e) {

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { CommandCenter } from "@/components/miya/CommandCenter";
+import { CommandCenter } from "@/components/agent/CommandCenter";
 import { useLanguage } from "@/hooks/use-language";
 import { api } from "@/lib/api";
 import { toast } from "sonner";

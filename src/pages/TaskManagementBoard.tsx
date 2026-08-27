@@ -735,7 +735,7 @@ export default function TaskManagementBoard({
                 ].map((step, i) => (
                   <li
                     key={i}
-                    className="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 px-3 py-3"
+                    className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 px-3 py-3"
                   >
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-400">
                       {t("live_board.step_n", { n: i + 1 })}
@@ -786,7 +786,7 @@ export default function TaskManagementBoard({
                       className={cn(
                         "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
                         active
-                          ? "bg-card text-teal-800 shadow-sm dark:text-teal-300"
+                          ? "bg-teal-600 text-white shadow-sm"
                           : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white",
                       )}
                     >
@@ -795,7 +795,7 @@ export default function TaskManagementBoard({
                       <span
                         className={cn(
                           "tabular-nums text-[10px] font-semibold",
-                          active ? "text-teal-700 dark:text-teal-400" : "text-slate-400",
+                          active ? "text-white/90" : "text-slate-400",
                         )}
                       >
                         {opt.count}
@@ -823,7 +823,7 @@ export default function TaskManagementBoard({
                       className={cn(
                         "inline-flex items-center rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
                         active
-                          ? "bg-card text-slate-900 shadow-sm dark:text-white"
+                          ? "bg-teal-600 text-white shadow-sm"
                           : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white",
                       )}
                     >
@@ -850,7 +850,7 @@ export default function TaskManagementBoard({
               </h3>
               <p className="text-sm text-slate-500 max-w-sm mb-4">
                 {t("live_board.no_tasks_desc") ??
-                  "Create a task from the Scheduling board or ask Miya to assign one."}
+                  "Create a task from the Scheduling board or assign one to staff."}
               </p>
               <Button
                 type="button"

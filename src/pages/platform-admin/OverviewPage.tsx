@@ -402,10 +402,6 @@ export default function OverviewPage() {
           </div>
           <div className="space-y-2">
             <HealthDot ok={data.health.whatsapp_configured} label="WhatsApp" />
-            <HealthDot
-              ok={data.health.miya_whatsapp_enabled ?? data.health.lua_webhook_configured}
-              label="Miya WhatsApp"
-            />
             <p className="pt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
               Payment providers are per tenant / country - see{" "}
               <Link to="/admin/health" className="font-semibold text-emerald-700 dark:text-emerald-400 hover:underline">

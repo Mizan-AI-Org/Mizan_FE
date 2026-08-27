@@ -1,6 +1,6 @@
 import React from "react";
 import { Sparkles } from "lucide-react";
-import { askMiya, type MiyaPageContext } from "@/lib/miyaPageContext";
+import { askAgent, type AgentPageContext } from "@/lib/agentPageContext";
 import { useLanguage } from "@/hooks/use-language";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,7 @@ type Translate = (key: string, options?: Record<string, string | number>) => str
 type Props = {
   /** Contextual prompt - never a generic chatbot opener when object context exists. */
   prompt: string;
-  pageContext?: MiyaPageContext | null;
+  pageContext?: AgentPageContext | null;
   label?: string;
   className?: string;
   size?: "sm" | "default" | "lg" | "icon";
@@ -18,8 +18,8 @@ type Props = {
   onClickStopPropagation?: boolean;
 };
 
-/** Contextual Ask Miya - subtle AI treatment by default (not a primary green CTA). */
-export function AskMiyaButton({
+/** Contextual Ask Agent - subtle AI treatment by default (not a primary green CTA). */
+export function AskAgentButton({
   prompt,
   pageContext,
   label,
@@ -29,7 +29,7 @@ export function AskMiyaButton({
   onClickStopPropagation = false,
 }: Props) {
   const { t } = useLanguage();
-  const resolvedLabel = label || t("dashboard.miya_widget.ask_miya") || t("nav.ask_miya");
+  const resolvedLabel = label || t("dashboard.agent_widget.ask_agent") || t("nav.ask_agent");
   return (
     <Button
       type="button"
@@ -38,7 +38,7 @@ export function AskMiyaButton({
       className={cn("gap-1.5", className)}
       onClick={(e) => {
         if (onClickStopPropagation) e.stopPropagation();
-        askMiya({ prompt, pageContext });
+        askAgent({ prompt, pageContext });
       }}
     >
       <Sparkles className="h-3.5 w-3.5" aria-hidden />
@@ -54,7 +54,7 @@ function tr(t: Translate | undefined, key: string, fallback: string, options?: R
 }
 
 /** Helpers for object-specific prompts (pass `t` for locale-aware copy). */
-export const miyaPrompts = {
+export const agentPrompts = {
   attention: (title?: string, t?: Translate) => {
     if (!title) return tr(t, "ai.prompt.attention", "What needs my attention right now?");
     const lower = title.toLowerCase();
@@ -148,7 +148,7 @@ export const miyaPrompts = {
   focusToday: (t?: Translate) =>
     tr(t, "ai.prompt.focus_today", "What should I focus on today?"),
   activity: (t?: Translate) =>
-    tr(t, "ai.prompt.activity_today", "Show me what Miya has done today."),
+    tr(t, "ai.prompt.activity_today", "Show me what Agent has done today."),
 };
 
-export default AskMiyaButton;
+export default AskAgentButton;

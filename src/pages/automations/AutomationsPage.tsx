@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import { triggerLabel } from "./automations-i18n";
 import { AutomationLibraryPanel } from "./AutomationLibraryPanel";
 import type { CatalogResponse, TemplateItem } from "./automation-types";
-import { AiNativeWorkspace } from "@/components/miya/AiNativeWorkspace";
 
 type AutomationRow = {
   id: string;
@@ -200,7 +199,6 @@ export default function AutomationsPage() {
 
   return (
     <div className={cn(PAGE_SHELL_BELOW_BACK, "space-y-5 pb-28")}>
-      <AiNativeWorkspace module="automations" />
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0 space-y-1">
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">

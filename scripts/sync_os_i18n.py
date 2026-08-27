@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sync OS / Miya / nav i18n keys into en/fr/ar and fill en-only gaps."""
+"""Sync OS / Agent / nav i18n keys into en/fr/ar and fill en-only gaps."""
 from __future__ import annotations
 
 import json
@@ -10,8 +10,8 @@ ROOT = Path(__file__).resolve().parents[1] / "public" / "locales"
 KEYS: dict[str, dict[str, str]] = {
     # --- Missing from all locales (used in code) ---
     "ai.chat_error": {
-        "en": "Something went wrong talking to Miya.",
-        "fr": "Une erreur s'est produite en parlant à Miya.",
+        "en": "Something went wrong talking to Agent.",
+        "fr": "Une erreur s'est produite en parlant à Agent.",
         "ar": "حدث خطأ أثناء التحدث مع ميا.",
     },
     "ai.chat_online": {"en": "Online", "fr": "En ligne", "ar": "متصلة"},
@@ -274,7 +274,7 @@ KEYS: dict[str, dict[str, str]] = {
         "ar": "رفع إثبات الدفع",
     },
     # --- Navigation ---
-    "nav.ask_miya": {"en": "Ask Miya", "fr": "Demander à Miya", "ar": "اسأل ميا"},
+    "nav.ask_agent": {"en": "Ask Agent", "fr": "Demander à Agent", "ar": "اسأل ميا"},
     "nav.command": {"en": "Command", "fr": "Commande", "ar": "القيادة"},
     "nav.attention": {"en": "Attention", "fr": "Attention", "ar": "الانتباه"},
     "nav.work": {"en": "Work", "fr": "Travail", "ar": "العمل"},
@@ -318,7 +318,7 @@ KEYS: dict[str, dict[str, str]] = {
         "fr": "Navigation mobile",
         "ar": "تنقل الجوال",
     },
-    # --- Ask Miya prompts ---
+    # --- Ask Agent prompts ---
     "ai.prompt.attention": {
         "en": "What needs my attention right now?",
         "fr": "Qu'est-ce qui demande mon attention maintenant ?",
@@ -385,8 +385,8 @@ KEYS: dict[str, dict[str, str]] = {
         "ar": "على ماذا أركّز اليوم؟",
     },
     "ai.prompt.activity_today": {
-        "en": "Show me what Miya has done today.",
-        "fr": "Montre-moi ce que Miya a fait aujourd'hui.",
+        "en": "Show me what Agent has done today.",
+        "fr": "Montre-moi ce que Agent a fait aujourd'hui.",
         "ar": "أرني ما فعلته ميا اليوم.",
     },
     # --- Command Center / attention ---
@@ -410,13 +410,13 @@ KEYS: dict[str, dict[str, str]] = {
     },
     "command.watch": {"en": "Watch", "fr": "Surveillance", "ar": "مراقبة"},
     "command.watch_desc": {
-        "en": "Signals Miya detected that are not yet decisions.",
-        "fr": "Signaux détectés par Miya qui ne sont pas encore des décisions.",
+        "en": "Signals Agent detected that are not yet decisions.",
+        "fr": "Signaux détectés par Agent qui ne sont pas encore des décisions.",
         "ar": "إشارات رصدتها ميا وليست قرارات بعد.",
     },
     "command.handled": {
-        "en": "Handled by Miya",
-        "fr": "Traité par Miya",
+        "en": "Handled by Agent",
+        "fr": "Traité par Agent",
         "ar": "عالجتها ميا",
     },
     "command.business_signals": {
@@ -435,8 +435,8 @@ KEYS: dict[str, dict[str, str]] = {
         "ar": "تعذر تحميل القيادة",
     },
     "command.load_error_detail": {
-        "en": "Miya couldn't prepare the operational briefing.",
-        "fr": "Miya n'a pas pu préparer le briefing opérationnel.",
+        "en": "Agent couldn't prepare the operational briefing.",
+        "fr": "Agent n'a pas pu préparer le briefing opérationnel.",
         "ar": "لم تتمكن ميا من إعداد الإحاطة التشغيلية.",
     },
     "command.tile.people_working": {
@@ -471,8 +471,8 @@ KEYS: dict[str, dict[str, str]] = {
     },
     "os.attention.impact": {"en": "Impact:", "fr": "Impact :", "ar": "الأثر:"},
     "os.attention.recommends": {
-        "en": "Miya recommends:",
-        "fr": "Miya recommande :",
+        "en": "Agent recommends:",
+        "fr": "Agent recommande :",
         "ar": "توصي ميا:",
     },
     "os.attention.owner": {"en": "Owner:", "fr": "Responsable :", "ar": "المالك:"},
@@ -483,8 +483,8 @@ KEYS: dict[str, dict[str, str]] = {
         "ar": "رؤى استباقية",
     },
     "os.insights.desc": {
-        "en": "Situations Miya detected before you asked.",
-        "fr": "Situations détectées par Miya avant que vous demandiez.",
+        "en": "Situations Agent detected before you asked.",
+        "fr": "Situations détectées par Agent avant que vous demandiez.",
         "ar": "مواقف رصدتها ميا قبل أن تسأل.",
     },
     "os.insights.why": {"en": "Why", "fr": "Pourquoi", "ar": "لماذا"},
@@ -523,9 +523,9 @@ KEYS: dict[str, dict[str, str]] = {
         "fr": "Actions recommandées",
         "ar": "إجراءات موصى بها",
     },
-    "ai.workspace.do_with_miya": {
-        "en": "Do with Miya",
-        "fr": "Faire avec Miya",
+    "ai.workspace.do_with_agent": {
+        "en": "Do with Agent",
+        "fr": "Faire avec Agent",
         "ar": "نفّذ مع ميا",
     },
     "ai.workspace.ask": {"en": "Ask", "fr": "Demander", "ar": "اسأل"},
@@ -547,8 +547,8 @@ KEYS: dict[str, dict[str, str]] = {
         "ar": "فرص الأتمتة",
     },
     "ai.workspace.draft": {
-        "en": "Draft with Miya",
-        "fr": "Rédiger avec Miya",
+        "en": "Draft with Agent",
+        "fr": "Rédiger avec Agent",
         "ar": "مسودة مع ميا",
     },
     "ai.workspace.no_attention": {
@@ -562,8 +562,8 @@ KEYS: dict[str, dict[str, str]] = {
         "ar": "لا إجراءات موصى بها.",
     },
     "ai.workspace.load_error": {
-        "en": "Couldn't load Miya workspace for this area.",
-        "fr": "Impossible de charger l'espace Miya pour cette zone.",
+        "en": "Couldn't load Agent workspace for this area.",
+        "fr": "Impossible de charger l'espace Agent pour cette zone.",
         "ar": "تعذر تحميل مساحة ميا لهذه المنطقة.",
     },
     # --- Branch detail extras ---
@@ -739,20 +739,20 @@ KEYS: dict[str, dict[str, str]] = {
         "fr": "Équipe de la branche",
         "ar": "فريق الفرع",
     },
-    # --- Compliance Miya uploads ---
+    # --- Compliance Agent uploads ---
     "settings.compliance.miya_uploads_title": {
-        "en": "Miya uploads",
-        "fr": "Fichiers Miya",
+        "en": "Agent uploads",
+        "fr": "Fichiers Agent",
         "ar": "رفع ميا",
     },
     "settings.compliance.miya_uploads_desc": {
-        "en": "Documents attached in the Miya widget or WhatsApp appear here.",
-        "fr": "Les documents joints dans Miya ou WhatsApp apparaissent ici.",
+        "en": "Documents attached in the Agent widget or WhatsApp appear here.",
+        "fr": "Les documents joints dans Agent ou WhatsApp apparaissent ici.",
         "ar": "المستندات المرفقة من واجهة ميا أو واتساب تظهر هنا.",
     },
     "settings.compliance.miya_uploads_empty": {
-        "en": "No Miya uploads yet. Attach a PDF or image in the Miya widget or WhatsApp.",
-        "fr": "Aucun fichier Miya pour l'instant. Joignez un PDF ou une image dans Miya ou WhatsApp.",
+        "en": "No Agent uploads yet. Attach a PDF or image in the Agent widget or WhatsApp.",
+        "fr": "Aucun fichier Agent pour l'instant. Joignez un PDF ou une image dans Agent ou WhatsApp.",
         "ar": "لا مرفقات من ميا بعد. أرفق PDF أو صورة من واجهة ميا أو واتساب.",
     },
     "settings.tabs.permissions": {

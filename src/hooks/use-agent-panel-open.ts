@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-/** Tracks whether the docked Miya panel is open (via miya:panel-state events). */
-export function useMiyaPanelOpen(): boolean {
+/** Tracks whether the docked Agent panel is open (via agent:panel-state events). */
+export function useAgentPanelOpen(): boolean {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -9,8 +9,8 @@ export function useMiyaPanelOpen(): boolean {
       const detail = (event as CustomEvent<{ open?: boolean }>).detail;
       setOpen(Boolean(detail?.open));
     };
-    window.addEventListener("miya:panel-state", onPanel);
-    return () => window.removeEventListener("miya:panel-state", onPanel);
+    window.addEventListener("agent:panel-state", onPanel);
+    return () => window.removeEventListener("agent:panel-state", onPanel);
   }, []);
 
   return open;

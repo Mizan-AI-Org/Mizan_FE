@@ -21,7 +21,7 @@ export type AttentionBoardItem = {
     tool_hint?: string;
     handle_hint?: string;
   };
-  ask_miya_prompt?: string;
+  ask_agent_prompt?: string;
 };
 
 export type AttentionCluster = {

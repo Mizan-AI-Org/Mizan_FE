@@ -74,7 +74,7 @@ interface TemplateTask {
   priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   estimated_duration?: number;
   response_type?: "yes_no" | "check";
-  /** After Yes, Miya asks staff to send a photo as proof before continuing */
+  /** After Yes, staff are asked to send a photo as proof before continuing */
   requires_photo?: boolean;
   verification_type?: "NONE" | "PHOTO";
   verification_required?: boolean;
@@ -1052,7 +1052,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
           </CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
             Optional. Assign staff or whole departments. Each person runs their own copy -
-            clock in first or say <span className="font-medium">start checklist</span> to Miya anytime.
+            clock in first or say <span className="font-medium">start checklist</span> anytime.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -1443,7 +1443,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                                         <div className="min-w-0">
                                           <p className="text-sm font-medium">Ask for photo after Yes</p>
                                           <p className="text-xs text-muted-foreground">
-                                            Miya will ask for a photo as proof, then continue to the next task.
+                                            Staff will be asked for a photo as proof, then continue to the next task.
                                           </p>
                                         </div>
                                       </div>

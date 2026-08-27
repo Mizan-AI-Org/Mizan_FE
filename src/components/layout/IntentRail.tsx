@@ -6,11 +6,8 @@ import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
 import { usePermissions } from "@/hooks/use-permissions";
 import { UserAvatarMenu } from "@/components/layout/UserAvatarMenu";
-import { askMiya } from "@/lib/miyaPageContext";
-import { miyaPrompts } from "@/components/miya/AskMiyaButton";
 import { cn } from "@/lib/utils";
 import {
-  IconAskMiya,
   IconAttention,
   IconAutomation,
   IconBusiness,
@@ -242,27 +239,7 @@ export function IntentRail({ className }: { className?: string }) {
       )}
       aria-label={t("nav.primary")}
     >
-      <div className="px-2 pb-2 pt-3">
-        <button
-          type="button"
-          onClick={() => askMiya({ prompt: miyaPrompts.attention(undefined, t) })}
-          className={cn(
-            "group flex min-h-11 w-full items-center gap-3 rounded-md border border-ai-border px-2.5 py-2.5",
-            "bg-gradient-to-br from-ai to-primary-muted text-body font-medium text-ai-foreground",
-            "shadow-xs transition-all duration-os hover:border-primary/30 hover:shadow-soft",
-            collapsed && "justify-center px-0",
-          )}
-        >
-          <IconAskMiya className={cn(ICON, "text-primary")} />
-          {!collapsed ? (
-            <span>{t("nav.ask_miya")}</span>
-          ) : (
-            <span className="sr-only">{t("nav.ask_miya")}</span>
-          )}
-        </button>
-      </div>
-
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3 pt-3">
         {visible.map((group) => {
           const Icon = group.icon;
           const label = t(group.labelKey);
@@ -428,14 +405,6 @@ export function MobileIntentDock() {
       aria-label={t("nav.mobile")}
     >
       <div className="flex items-stretch justify-around px-1 py-1.5">
-        <button
-          type="button"
-          onClick={() => askMiya({ prompt: miyaPrompts.attention(undefined, t) })}
-          className="flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-control px-1 py-1.5 text-primary"
-        >
-          <IconAskMiya className="h-6 w-6" />
-          <span className="truncate text-caption font-semibold">{t("ai.chat_title")}</span>
-        </button>
         {items.map((item) => {
           const Icon = item.icon;
           const active = pathMatches(location.pathname, item.href);

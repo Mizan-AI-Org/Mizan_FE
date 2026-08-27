@@ -931,7 +931,7 @@ const WelcomeStep: React.FC<{
                         title={t("onboarding.welcome.b4_title", "Assign owners")}
                         desc={t(
                             "onboarding.welcome.b4_desc",
-                            "Tell Miya who handles each type of issue or request.",
+                            "Tell the system who handles each type of issue or request.",
                         )}
                     />
                 </div>
@@ -1619,7 +1619,7 @@ const OwnersStep: React.FC<{
             title={t("onboarding.owners.title", "Who owns what?")}
             subtitle={t(
                 "onboarding.owners.subtitle",
-                "Pick one or more people for each category - Miya routes incidents, requests, and tasks to them automatically.",
+                "Pick one or more people for each category - incidents, requests, and tasks are routed to them automatically.",
             )}
             alreadyDoneBadge={status.steps.category_owners}
         >
@@ -1860,7 +1860,7 @@ const DoneStep: React.FC<{
                 <p className="text-base sm:text-lg text-slate-500 dark:text-slate-400 leading-relaxed">
                     {t(
                         "onboarding.done.subtitle",
-                        "{{restaurant}} is ready. Miya is listening on WhatsApp and your dashboard is live.",
+                        "{{restaurant}} is ready. WhatsApp is connected and your dashboard is live.",
                         { restaurant: restaurantName || t("onboarding.done.your_business", "Your business") },
                     )}
                 </p>

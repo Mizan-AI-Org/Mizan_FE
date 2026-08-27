@@ -1,6 +1,6 @@
 # Mizan Frontend
 
-Web client for **Mizan AI** - a restaurant operations platform covering scheduling, staff, attendance, POS, checklists, multi-location reporting, and the **Miya** AI assistant. Built with Vite, React 18, TypeScript, Tailwind CSS, shadcn/Radix, and TanStack Query.
+Web client for **Mizan AI** - a restaurant operations platform covering scheduling, staff, attendance, POS, checklists, and multi-location reporting. Built with Vite, React 18, TypeScript, Tailwind CSS, shadcn/Radix, and TanStack Query.
 
 ---
 
@@ -42,7 +42,6 @@ Web client for **Mizan AI** - a restaurant operations platform covering scheduli
 | **Notifications** | `sonner` (toasts), Firebase Cloud Messaging (push) |
 | **PDF / CSV** | `jspdf`, `jspdf-autotable`, `xlsx` |
 | **Realtime** | WebSocket → backend Django Channels |
-| **AI assistant** | Miya widget + Mastra Cloud |
 | **Testing** | Vitest + Testing Library + jsdom |
 | **Linting** | ESLint 9 (`typescript-eslint`, `react-hooks`, `jsx-a11y`) |
 
@@ -89,7 +88,7 @@ mizan-frontend/
 │   │
 │   ├── i18n/                 # i18next bootstrap + language switching
 │   ├── config/               # Static config (roles by vertical, etc.)
-│   ├── integrations/         # 3rd-party adapters (Firebase, Mastra, …)
+│   ├── integrations/         # 3rd-party adapters (Firebase, …)
 │   ├── services/             # Service-level wrappers around api.ts
 │   ├── types/                # Shared TypeScript types
 │   └── utils/                # Pure utility functions
