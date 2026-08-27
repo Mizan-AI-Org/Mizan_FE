@@ -93,6 +93,9 @@ const PlatformWhatsAppPage = React.lazy(
 const PlatformAuditPage = React.lazy(
   () => import("./pages/platform-admin/AuditPage")
 );
+const PlatformAgentConversationsPage = React.lazy(
+  () => import("./pages/platform-admin/AgentConversationsPage")
+);
 const StaffAppsPage = React.lazy(() => import("./pages/StaffAppsPage"));
 const SafetyDashboard = React.lazy(() => import("./pages/SafetyDashboard"));
 const PinLogin = React.lazy(() => import("./components/auth/PinLogin"));
@@ -267,6 +270,11 @@ const App = () => {
                   <Route path="whatsapp" element={<PlatformWhatsAppPage />} />
                   <Route path="health" element={<PlatformHealthPage />} />
                   <Route path="audit" element={<PlatformAuditPage />} />
+                  <Route path="agent-conversations" element={<PlatformAgentConversationsPage />} />
+                  <Route
+                    path="miya-conversations"
+                    element={<Navigate to="/admin/agent-conversations" replace />}
+                  />
                 </Route>
               </Route>
 
