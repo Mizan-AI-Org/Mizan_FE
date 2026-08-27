@@ -32,7 +32,7 @@ export default function BusinessHubPage() {
         {
           label: t("hub.business.approvals"),
           description: t("hub.business.approvals_desc"),
-          href: "/dashboard/staff-requests?lane=finance",
+          href: "/dashboard/staff-requests?list=finance",
           icon: Wallet,
         },
       ]}

@@ -1,3 +1,5 @@
+import { syncAgentPanelLayout } from "@/lib/agentPanelLayout";
+
 /**
  * Agent page/object focus - sent with every chat turn so Agent binds pronouns
  * and bare actions to the entity the user is looking at.
@@ -57,11 +59,7 @@ export function askAgent(opts?: {
     setAgentPageContext(opts.pageContext);
   }
   try {
-    if (typeof document !== "undefined") {
-      document.documentElement.style.setProperty("--mizan-agent-panel", "420px");
-      document.documentElement.style.setProperty("--mizan-agent-edge", "0px");
-      document.documentElement.style.setProperty("--mizan-agent-inset", "420px");
-    }
+    syncAgentPanelLayout(true);
     window.dispatchEvent(new CustomEvent("agent:panel-state", { detail: { open: true } }));
     window.dispatchEvent(
       new CustomEvent("agent:open", {

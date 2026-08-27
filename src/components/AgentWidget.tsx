@@ -15,6 +15,7 @@ import {
   saveAgentThreadId,
 } from "@/lib/agentChatStorage";
 import { logError } from "@/lib/logging";
+import { syncAgentPanelLayout } from "@/lib/agentPanelLayout";
 import { cn } from "@/lib/utils";
 import { AgentContextChip } from "@/components/os";
 import { AgentMessageBody } from "@/components/agent/AgentMessageBody";
@@ -190,17 +191,8 @@ export const AgentWidget: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    syncAgentPanelLayout(open);
     window.dispatchEvent(new CustomEvent("agent:panel-state", { detail: { open } }));
-    try {
-      document.documentElement.style.setProperty("--mizan-agent-panel", open ? "420px" : "0px");
-      document.documentElement.style.setProperty("--mizan-agent-edge", open ? "0px" : "56px");
-      document.documentElement.style.setProperty(
-        "--mizan-agent-inset",
-        open ? "420px" : "56px",
-      );
-    } catch {
-      /* ignore */
-    }
   }, [open]);
 
   // Focus into the docked panel; Escape closes. No modal trap - this is an OS layer.

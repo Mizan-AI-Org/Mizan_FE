@@ -650,29 +650,29 @@ export const platformApi = {
   deleteWhatsAppTemplate: (id: string) =>
     platformFetch<void>(`/whatsapp/templates/${id}/`, { method: "DELETE" }),
 
-  miyaConversationMetrics: (params?: Record<string, string>) => {
+  agentConversationMetrics: (params?: Record<string, string>) => {
     const qs = new URLSearchParams(params || {}).toString();
     return platformFetch<MiyaConversationMetrics>(
-      `/miya/conversations/metrics/${qs ? `?${qs}` : ""}`,
+      `/agent/conversations/metrics/${qs ? `?${qs}` : ""}`,
     );
   },
-  miyaConversationFilters: () =>
-    platformFetch<MiyaConversationFilters>("/miya/conversations/filters/"),
-  miyaConversations: (params?: Record<string, string>) => {
+  agentConversationFilters: () =>
+    platformFetch<MiyaConversationFilters>("/agent/conversations/filters/"),
+  agentConversations: (params?: Record<string, string>) => {
     const qs = new URLSearchParams(params || {}).toString();
     return platformFetch<Paginated<MiyaConversationListItem>>(
-      `/miya/conversations/${qs ? `?${qs}` : ""}`,
+      `/agent/conversations/${qs ? `?${qs}` : ""}`,
     );
   },
-  miyaConversation: (id: string) =>
-    platformFetch<MiyaConversationDetail>(`/miya/conversations/${encodeURIComponent(id)}/`),
-  miyaConversationTurns: (id: string, params?: Record<string, string>) => {
+  agentConversation: (id: string) =>
+    platformFetch<MiyaConversationDetail>(`/agent/conversations/${encodeURIComponent(id)}/`),
+  agentConversationTurns: (id: string, params?: Record<string, string>) => {
     const qs = new URLSearchParams(params || {}).toString();
     return platformFetch<Paginated<MiyaConversationTurn>>(
-      `/miya/conversations/${encodeURIComponent(id)}/turns/${qs ? `?${qs}` : ""}`,
+      `/agent/conversations/${encodeURIComponent(id)}/turns/${qs ? `?${qs}` : ""}`,
     );
   },
-  miyaConversationQuality: (
+  agentConversationQuality: (
     id: string,
     body: {
       status: string;
@@ -691,13 +691,13 @@ export const platformApi = {
       failure_category?: string;
       severity?: string;
       created_at: string;
-    }>(`/miya/conversations/${encodeURIComponent(id)}/quality/`, {
+    }>(`/agent/conversations/${encodeURIComponent(id)}/quality/`, {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  miyaConversationReEvaluate: (id: string, body?: { turn_id?: string }) =>
+  agentConversationReEvaluate: (id: string, body?: { turn_id?: string }) =>
     platformFetch<{ ok: boolean; turn_id?: string; quality?: MiyaQualityAssessment }>(
-      `/miya/conversations/${encodeURIComponent(id)}/quality/re-evaluate/`,
+      `/agent/conversations/${encodeURIComponent(id)}/quality/re-evaluate/`,
       { method: "POST", body: JSON.stringify(body || {}) },
     ),
 

@@ -291,6 +291,7 @@ async function apiPost<T>(path: string, body?: any): Promise<T> {
 
 type DetailKind = "staff_request" | "dashboard" | "scheduling" | "invoice";
 type TasksDemandsTab = "pending" | "in_progress" | "completed";
+type FinanceListFilter = "all" | "overdue" | "pending_approval";
 
 type StaffRequestsDeepLink = {
   lane: string | null;
@@ -299,6 +300,7 @@ type StaffRequestsDeepLink = {
   kind: string | null;
   list: string | null;
   priority: string | null;
+  filter: string | null;
 };
 
 function captureStaffRequestsDeepLink(
@@ -311,6 +313,7 @@ function captureStaffRequestsDeepLink(
     kind: searchParams.get("kind"),
     list: searchParams.get("list"),
     priority: searchParams.get("priority"),
+    filter: searchParams.get("filter"),
   };
 }
 
@@ -325,7 +328,15 @@ function stripStaffRequestsDeepLink(
   next.delete("kind");
   next.delete("list");
   next.delete("id");
+  next.delete("filter");
   return next;
+}
+
+function resolveFinanceListFilter(raw: string | null | undefined): FinanceListFilter {
+  const f = (raw || "").trim().toLowerCase();
+  if (f === "overdue") return "overdue";
+  if (f === "pending_approval" || f === "approvals" || f === "approval") return "pending_approval";
+  return "all";
 }
 
 function tasksDemandsDetailKind(row: Pick<DashboardTaskDemandItem, "kind">): DetailKind {
@@ -781,6 +792,13 @@ const StaffRequestsPage: React.FC = () => {
     return searchParams.get("list") === "dashboard";
   })();
 
+  const initialFinanceListMode = (() => {
+    if (searchParams.get("task") || searchParams.get("id") || params.id) return false;
+    return searchParams.get("list") === "finance";
+  })();
+
+  const initialFinanceFilter = resolveFinanceListFilter(searchParams.get("filter"));
+
   // Dashboard tasks open in the layout right pane (?task=), not a full-page route.
   useEffect(() => {
     if (!params.id) return;
@@ -818,6 +836,8 @@ const StaffRequestsPage: React.FC = () => {
   const [activeLaneId, setActiveLaneId] = useState<string | null>(null);
   const [detailKind, setDetailKind] = useState<DetailKind>(initialDetailKind);
   const [dashboardListMode, setDashboardListMode] = useState(initialDashboardListMode);
+  const [financeListMode, setFinanceListMode] = useState(initialFinanceListMode);
+  const [financeFilter, setFinanceFilter] = useState<FinanceListFilter>(initialFinanceFilter);
   const [demandsTab, setDemandsTab] = useState<TasksDemandsTab>("pending");
   const [activePriority, setActivePriority] = useState<string>(initialPriorityFilter);
   const [search, setSearch] = useState("");
@@ -864,6 +884,12 @@ const StaffRequestsPage: React.FC = () => {
     }
     if (dl.list === "dashboard" && !searchParams.get("id")) {
       setDashboardListMode(true);
+      setFinanceListMode(false);
+    }
+    if (dl.list === "finance" && !searchParams.get("id")) {
+      setFinanceListMode(true);
+      setDashboardListMode(false);
+      setFinanceFilter(resolveFinanceListFilter(dl.filter));
     }
 
     deepLinkAppliedRef.current = true;
@@ -1108,6 +1134,27 @@ const StaffRequestsPage: React.FC = () => {
     refetchOnWindowFocus: false,
   });
 
+  const financeCategoryQuery = useQuery({
+    queryKey: ["dashboard", "category-tasks", "finance", 50],
+    queryFn: () => api.getDashboardCategoryTasks("finance", 50),
+    enabled: financeListMode && financeFilter === "all",
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const financeInvoicesQuery = useQuery({
+    queryKey: ["finance-invoices-list", financeFilter],
+    queryFn: async (): Promise<Invoice[]> => {
+      if (financeFilter === "overdue") {
+        return (await api.listInvoices({ overdue: true })).results;
+      }
+      return (await api.listInvoices({ status: "PENDING_APPROVAL" })).results;
+    },
+    enabled: financeListMode && financeFilter !== "all",
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
   const demandCounts = tasksDemandsQuery.data?.counts ?? {
     pending: 0,
     in_progress: 0,
@@ -1209,12 +1256,68 @@ const StaffRequestsPage: React.FC = () => {
       ? t(`staff.requests.lane.${laneId}.label`, { defaultValue: fallback || laneId })
       : fallback || "";
 
-  const pageTitle = dashboardListMode
-    ? t("staff.requests.tasks_demands_title")
-    : laneTitle(activeLaneId, activeLane?.page_title);
-  const pageSubtitle = dashboardListMode
-    ? t("staff.requests.tasks_demands_subtitle")
-    : laneSubtitle(activeLaneId, activeLane?.page_subtitle) || null;
+  const pageTitle = financeListMode
+    ? laneTitle("finance", t("staff.requests.lane.finance.title", { defaultValue: "Finance" }))
+    : dashboardListMode
+      ? t("staff.requests.tasks_demands_title")
+      : laneTitle(activeLaneId, activeLane?.page_title);
+  const pageSubtitle = financeListMode
+    ? financeFilter === "overdue"
+      ? t("staff.requests.finance_subtitle_overdue", {
+          defaultValue: "Overdue invoices and bills that need payment.",
+        })
+      : financeFilter === "pending_approval"
+        ? t("staff.requests.finance_subtitle_approvals", {
+            defaultValue: "Invoices waiting for your approval before payment.",
+          })
+        : laneSubtitle("finance", t("staff.requests.lane.finance.subtitle", {
+            defaultValue: "Invoices, bills, and money-out requests.",
+          }))
+    : dashboardListMode
+      ? t("staff.requests.tasks_demands_subtitle")
+      : laneSubtitle(activeLaneId, activeLane?.page_subtitle) || null;
+
+  const financeCategoryRows = useMemo(() => {
+    const items = financeCategoryQuery.data?.items ?? [];
+    if (!debouncedSearch) return items;
+    const q = debouncedSearch.toLowerCase();
+    return items.filter(
+      (row) =>
+        row.title.toLowerCase().includes(q) ||
+        (row.description || "").toLowerCase().includes(q) ||
+        (row.assignee?.name || "").toLowerCase().includes(q),
+    );
+  }, [financeCategoryQuery.data?.items, debouncedSearch]);
+
+  const financeInvoiceRows = useMemo(() => {
+    const rows = financeInvoicesQuery.data ?? [];
+    if (!debouncedSearch) return rows;
+    const q = debouncedSearch.toLowerCase();
+    return rows.filter(
+      (inv) =>
+        inv.vendor_name.toLowerCase().includes(q) ||
+        (inv.invoice_number || "").toLowerCase().includes(q) ||
+        (inv.notes || "").toLowerCase().includes(q),
+    );
+  }, [financeInvoicesQuery.data, debouncedSearch]);
+
+  const onFinanceFilterChange = (next: FinanceListFilter) => {
+    setFinanceFilter(next);
+    setSearch("");
+  };
+
+  const openFinanceCategoryRow = (row: DashboardTaskDemandItem) => {
+    const kind = row.kind || "dashboard";
+    if (kind === "invoice") {
+      navigate(`/dashboard/staff-requests/${row.id}?kind=invoice`);
+      return;
+    }
+    if (kind === "staff_request") {
+      onSelect(row.id);
+      return;
+    }
+    onSelectDashboardTask(row);
+  };
 
   if (isInvoiceDetail && selectedId) {
     const invoice = invoiceQuery.data;
@@ -1228,6 +1331,161 @@ const StaffRequestsPage: React.FC = () => {
               <div className="text-sm text-red-600 py-6">{t("staff.requests.invoice_load_failed")}</div>
             ) : (
               <InvoiceDetailPanel invoice={invoice} t={t} />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (financeListMode) {
+    const financeTabs: { id: FinanceListFilter; label: string }[] = [
+      { id: "all", label: t("staff.requests.finance_filter_all", { defaultValue: "All open" }) },
+      { id: "overdue", label: t("staff.requests.finance_filter_overdue", { defaultValue: "Overdue" }) },
+      {
+        id: "pending_approval",
+        label: t("staff.requests.finance_filter_approvals", { defaultValue: "Pending approval" }),
+      },
+    ];
+    const financeLoading =
+      financeFilter === "all" ? financeCategoryQuery.isLoading : financeInvoicesQuery.isLoading;
+    const financeError =
+      financeFilter === "all" ? financeCategoryQuery.isError : financeInvoicesQuery.isError;
+    const financeCount =
+      financeFilter === "all" ? financeCategoryRows.length : financeInvoiceRows.length;
+
+    return (
+      <div className={`${PAGE_SHELL} py-6`}>
+        <div className="mb-4 space-y-2">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{pageTitle}</h2>
+          {pageSubtitle ? (
+            <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">{pageSubtitle}</p>
+          ) : null}
+        </div>
+
+        <div className="rounded-2xl border border-border/60 bg-muted/30 p-3 sm:p-4 space-y-3 mb-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap gap-1 rounded-xl border border-border/50 bg-background/80 p-1.5">
+              {financeTabs.map((tab) => {
+                const active = financeFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => onFinanceFilterChange(tab.id)}
+                    className={cn(
+                      "rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold transition-colors",
+                      active
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex gap-2 w-full lg:w-72 lg:shrink-0">
+              <Input
+                placeholder={t("staff.requests.search_placeholder")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-10 rounded-xl bg-background"
+              />
+              {search ? (
+                <Button variant="outline" className="h-10 rounded-xl shrink-0" onClick={() => setSearch("")}>
+                  {t("staff.requests.clear")}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader className="pb-3 border-b border-border/50">
+            <CardTitle className="text-sm font-semibold tracking-tight">
+              {t("staff.requests.finance_inbox", { defaultValue: "Finance inbox" })}
+              <span className="ml-2 font-normal text-muted-foreground">
+                {financeLoading ? "…" : financeCount}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {financeLoading ? (
+              <div className="text-sm text-muted-foreground py-6">{t("staff.requests.loading")}</div>
+            ) : financeError ? (
+              <div className="text-sm text-red-600 py-6">{t("staff.requests.load_failed")}</div>
+            ) : financeCount === 0 ? (
+              <div className="flex min-h-[240px] flex-col items-center justify-center text-center px-6 py-10">
+                <Wallet className="h-8 w-8 text-muted-foreground mb-3" />
+                <div className="text-sm font-medium">{t("staff.requests.finance_empty_title", { defaultValue: "Nothing here" })}</div>
+                <div className="mt-1 max-w-sm text-xs text-muted-foreground">
+                  {financeFilter === "overdue"
+                    ? t("staff.requests.finance_empty_overdue", { defaultValue: "No overdue invoices right now." })
+                    : financeFilter === "pending_approval"
+                      ? t("staff.requests.finance_empty_approvals", {
+                          defaultValue: "No invoices waiting for approval.",
+                        })
+                      : t("staff.requests.finance_empty_all", {
+                          defaultValue: "No open finance items right now.",
+                        })}
+                </div>
+              </div>
+            ) : financeFilter === "all" ? (
+              <div className="space-y-2">
+                {financeCategoryRows.map((row) => (
+                  <button
+                    key={`${row.kind || "row"}-${row.id}`}
+                    type="button"
+                    onClick={() => openFinanceCategoryRow(row)}
+                    className="w-full text-left rounded-xl border p-4 transition-all hover:border-primary/40 hover:bg-muted/30"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                          {row.source_label || row.kind || t("staff.requests.finance_item", { defaultValue: "Finance" })}
+                        </div>
+                        <div className="font-semibold text-sm truncate">{row.title}</div>
+                        {row.description ? (
+                          <div className="text-xs text-muted-foreground mt-1 truncate">{row.description}</div>
+                        ) : null}
+                      </div>
+                      {row.pill_status ? (
+                        <Badge variant="outline" className="text-[10px] uppercase shrink-0">
+                          {row.pill_status}
+                        </Badge>
+                      ) : null}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {financeInvoiceRows.map((inv) => (
+                  <button
+                    key={inv.id}
+                    type="button"
+                    onClick={() => navigate(`/dashboard/staff-requests/${inv.id}?kind=invoice`)}
+                    className="w-full text-left rounded-xl border p-4 transition-all hover:border-primary/40 hover:bg-muted/30"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-sm truncate">{inv.vendor_name}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {inv.amount} {inv.currency}
+                          {inv.due_date ? ` · due ${new Date(inv.due_date).toLocaleDateString()}` : ""}
+                        </div>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={cn("text-[10px] uppercase shrink-0", invoiceStatusBadge(inv.lifecycle_status || inv.status))}
+                      >
+                        {invoiceStatusLabel(inv.lifecycle_status || inv.status, t)}
+                      </Badge>
+                    </div>
+                  </button>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>

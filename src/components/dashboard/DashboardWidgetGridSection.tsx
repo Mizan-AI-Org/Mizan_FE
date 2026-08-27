@@ -34,6 +34,7 @@ import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useDashboardCategories } from "@/hooks/use-dashboard-categories";
+import { useAgentPanelOpen } from "@/hooks/use-agent-panel-open";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -143,6 +144,10 @@ export function DashboardWidgetGridSection() {
   const cardHeaderBase = "flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6";
 
   const canCustomizeDashboard = hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]);
+  const agentPanelOpen = useAgentPanelOpen();
+  const widgetGridCols = agentPanelOpen
+    ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6 items-stretch auto-rows-[minmax(200px,auto)]"
+    : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch auto-rows-[minmax(200px,auto)]";
 
   const { data: customWidgetsPayload } = useQuery({
     queryKey: ["dashboard-custom-widgets", accessToken],
@@ -607,7 +612,7 @@ export function DashboardWidgetGridSection() {
           {canCustomizeDashboard ? (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={widgetOrder} strategy={rectSortingStrategy}>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch auto-rows-[minmax(200px,auto)]">
+                <div className={widgetGridCols}>
                   {displayOrder.length === 0 ? (
                     <div className="lg:col-span-3 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 px-6 py-12 text-center">
                       <p className="text-sm text-slate-600 dark:text-slate-400">{t("dashboard.customize.empty")}</p>
@@ -642,7 +647,7 @@ export function DashboardWidgetGridSection() {
               </SortableContext>
             </DndContext>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch auto-rows-[minmax(200px,auto)]">
+            <div className={widgetGridCols}>
               {displayOrder.map((wid, index) => {
                 const colSpan = index === 0 && wid === "insights" ? "lg:col-span-2" : "lg:col-span-1";
                 return (

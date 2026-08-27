@@ -171,6 +171,19 @@
     --surface-raised: 0 0% 100%;
   }
 
+  /* Docked Agent panel: reserve horizontal space for header + main on desktop */
+  @media (min-width: 1024px) {
+    html[data-agent-panel-open="true"] .mizan-app-header,
+    html[data-agent-panel-open="true"] .mizan-app-main {
+      padding-inline-end: var(--mizan-agent-panel, 420px);
+    }
+
+    html:not([data-agent-panel-open="true"]) .mizan-app-header,
+    html:not([data-agent-panel-open="true"]) .mizan-app-main {
+      padding-inline-end: var(--mizan-agent-edge, 56px);
+    }
+  }
+
   .dark {
     --background: 160 14% 8%;
     --foreground: 150 10% 96%;

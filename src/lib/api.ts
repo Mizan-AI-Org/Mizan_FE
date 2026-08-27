@@ -1059,7 +1059,7 @@ export class BackendService {
    */
   async listInvoices(
     opts: {
-      status?: "OPEN" | "PAID" | "VOIDED" | "DRAFT" | "ALL";
+      status?: "OPEN" | "PAID" | "VOIDED" | "DRAFT" | "PENDING_APPROVAL" | "ALL";
       vendor?: string;
       overdue?: boolean;
       due_within?: number;
