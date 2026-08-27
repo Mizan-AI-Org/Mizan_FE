@@ -28,9 +28,9 @@ import type {
   AttentionBoardItem,
   AttentionLane,
 } from "@/components/agent/attentionBoardTypes";
+import { CommandCenterSkeleton } from "@/components/agent/CommandCenterSkeleton";
 import {
   EmptyOpsState,
-  AgentLoadingState,
   OpsStateBanner,
   SectionHeader,
   SeverityBadge,
@@ -324,7 +324,7 @@ export function CommandCenter({ className }: { className?: string }) {
   };
 
   if (query.isLoading && !data) {
-    return <AgentLoadingState message={t("command.preparing")} className={className} />;
+    return <CommandCenterSkeleton message={t("command.preparing")} className={className} />;
   }
 
   if (query.isError) {
