@@ -91,7 +91,7 @@ const GROUPS: NavGroup[] = [
       { labelKey: "nav.overview", href: "/dashboard/business" },
       { labelKey: "nav.business.analytics", href: "/dashboard/reports", appId: "reports" },
       { labelKey: "nav.business.locations", href: "/dashboard/locations-overview", appId: "locations_overview" },
-      { labelKey: "nav.business.approvals", href: "/dashboard/staff-requests?lane=finance", appId: "staff_requests" },
+      { labelKey: "nav.business.approvals", href: "/dashboard/staff-requests?list=finance&filter=pending_approval", appId: "staff_requests" },
     ],
   },
   {

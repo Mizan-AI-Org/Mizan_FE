@@ -7767,7 +7767,7 @@ export function DashboardWidgetById({
           icon={Wallet}
           tone="emerald"
           // Finance widget aggregates vendor/AP invoices (FINANCE only).
-          moreHref="/dashboard/staff-requests?lane=finance"
+          moreHref="/dashboard/staff-requests?list=finance"
           rowDetailHref={buildInboxRowDetailHref({ lane: "finance" })}
         />
       );

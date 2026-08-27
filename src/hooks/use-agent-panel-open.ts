@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import { readAgentPanelOpen } from "@/lib/agentPanelLayout";
 
 /** Tracks whether the docked Agent panel is open (via agent:panel-state events). */
 export function useAgentPanelOpen(): boolean {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => readAgentPanelOpen());
 
   useEffect(() => {
     const onPanel = (event: Event) => {

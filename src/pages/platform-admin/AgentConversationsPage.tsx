@@ -36,7 +36,7 @@ const PAGE_SIZE = 20;
 const LONG_MESSAGE_CHARS = 280;
 const LONG_MESSAGE_LINES = 5;
 
-type DatePreset = "today" | "yesterday" | "last_7_days" | "last_30_days";
+type DatePreset = "today" | "yesterday" | "last_7_days" | "last_30_days" | "all";
 
 const ADMIN_ROLE_RANK: Record<string, number> = {
   SUPER_ADMIN: 0,
@@ -462,7 +462,7 @@ function TurnInspector({
     }
     setReEvaluating(true);
     try {
-      await platformApi.miyaConversationReEvaluate(conversationId, { turn_id: turn.id });
+      await platformApi.agentConversationReEvaluate(conversationId, { turn_id: turn.id });
       onReEvaluated();
     } finally {
       setReEvaluating(false);
@@ -705,13 +705,13 @@ function ConversationDetailPanel({
   const [notes, setNotes] = useState("");
 
   const detailQuery = useQuery({
-    queryKey: ["platform-miya-conversation", conversationId],
-    queryFn: () => platformApi.miyaConversation(conversationId),
+    queryKey: ["platform-agent-conversation", conversationId],
+    queryFn: () => platformApi.agentConversation(conversationId),
   });
 
   const turnsQuery = useQuery({
-    queryKey: ["platform-miya-conversation-turns", conversationId],
-    queryFn: () => platformApi.miyaConversationTurns(conversationId, { page_size: "100" }),
+    queryKey: ["platform-agent-conversation-turns", conversationId],
+    queryFn: () => platformApi.agentConversationTurns(conversationId, { page_size: "100" }),
   });
 
   const reviewMutation = useMutation({
@@ -721,7 +721,7 @@ function ConversationDetailPanel({
       failure_category?: string;
       severity?: string;
     }) =>
-      platformApi.miyaConversationQuality(conversationId, {
+      platformApi.agentConversationQuality(conversationId, {
         status: payload.status,
         reason: payload.reason,
         notes,
@@ -730,8 +730,8 @@ function ConversationDetailPanel({
         severity: payload.severity,
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["platform-miya-conversation", conversationId] });
-      qc.invalidateQueries({ queryKey: ["platform-miya-conversation-turns", conversationId] });
+      qc.invalidateQueries({ queryKey: ["platform-agent-conversation", conversationId] });
+      qc.invalidateQueries({ queryKey: ["platform-agent-conversation-turns", conversationId] });
       setNotes("");
     },
   });
@@ -888,7 +888,7 @@ function ConversationDetailPanel({
                 conversationId={conversationId}
                 onReview={(payload) => reviewMutation.mutate(payload)}
                 onReEvaluated={() => {
-                  qc.invalidateQueries({ queryKey: ["platform-miya-conversation-turns", conversationId] });
+                  qc.invalidateQueries({ queryKey: ["platform-agent-conversation-turns", conversationId] });
                 }}
               />
             ) : (
@@ -918,23 +918,23 @@ export default function AgentConversationsPage() {
   const [health, setHealth] = useState("");
   const [quality, setQuality] = useState("");
   const [failureCategory, setFailureCategory] = useState("");
-  const [datePreset, setDatePreset] = useState<DatePreset>("today");
+  const [datePreset, setDatePreset] = useState<DatePreset>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [metricsOpen, setMetricsOpen] = useState(false);
 
   const filtersQuery = useQuery({
-    queryKey: ["platform-miya-conversation-filters"],
-    queryFn: () => platformApi.miyaConversationFilters(),
+    queryKey: ["platform-agent-conversation-filters"],
+    queryFn: () => platformApi.agentConversationFilters(),
   });
 
   const metricsQuery = useQuery({
-    queryKey: ["platform-miya-conversation-metrics", datePreset],
-    queryFn: () => platformApi.miyaConversationMetrics({ date: datePreset }),
+    queryKey: ["platform-agent-conversation-metrics", datePreset],
+    queryFn: () => platformApi.agentConversationMetrics({ date: datePreset }),
   });
 
   const listQuery = useQuery({
     queryKey: [
-      "platform-miya-conversations",
+      "platform-agent-conversations",
       submitted,
       page,
       channel,
@@ -946,7 +946,7 @@ export default function AgentConversationsPage() {
       datePreset,
     ],
     queryFn: () =>
-      platformApi.miyaConversations({
+      platformApi.agentConversations({
         ...(submitted ? { q: submitted } : {}),
         page: String(page),
         page_size: String(PAGE_SIZE),
@@ -977,9 +977,9 @@ export default function AgentConversationsPage() {
     <div className="space-y-6 p-6 sm:p-8 max-w-[90rem]">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className={opsTitle}>Agent Conversations</h2>
+          <h2 className={opsTitle}>Agent Conversation</h2>
           <p className={opsSubtitle}>
-            Monitor how Agent interacts with users across WhatsApp and Mizan.
+            Monitor every Agent interaction across WhatsApp, dashboard, and proactive outreach.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -992,6 +992,7 @@ export default function AgentConversationsPage() {
             className={opsInput}
             aria-label="Date range"
           >
+            <option value="all">All time</option>
             <option value="today">Today</option>
             <option value="yesterday">Yesterday</option>
             <option value="last_7_days">Last 7 days</option>

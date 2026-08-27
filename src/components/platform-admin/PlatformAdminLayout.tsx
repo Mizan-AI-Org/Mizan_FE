@@ -25,7 +25,7 @@ const NAV = [
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/operators", label: "Operators", icon: Shield },
   { to: "/admin/billing", label: "Billing", icon: CreditCard },
-  { to: "/admin/agent-conversations", label: "Agent inbox", icon: Bot },
+  { to: "/admin/agent-conversations", label: "Agent Conversation", icon: Bot },
   { to: "/admin/whatsapp", label: "WhatsApp", icon: MessageCircle },
   { to: "/admin/health", label: "Health", icon: HeartPulse },
   { to: "/admin/audit", label: "Audit", icon: ScrollText },

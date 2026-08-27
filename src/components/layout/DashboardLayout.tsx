@@ -82,7 +82,7 @@ const DashboardLayout: React.FC = () => {
   }, [unreadCount]);
 
   return (
-    <div className={cn("flex min-h-screen flex-col", viewingAsTenant && "pt-10")}>
+    <div className={cn("mizan-app-shell flex min-h-screen flex-col", viewingAsTenant && "pt-10")}>
       <a
         href="#mizan-main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[3000] focus:rounded-control focus:bg-card focus:px-3 focus:py-2 focus:text-body focus:shadow-strong"
@@ -92,7 +92,7 @@ const DashboardLayout: React.FC = () => {
       <ImpersonationBanner />
       <header
         className={cn(
-          "app-header-surface sticky top-0 z-[2000] border-b border-border/80 backdrop-blur-md transition-[padding] duration-os",
+          "mizan-app-header app-header-surface sticky top-0 z-[2000] border-b border-border/80 backdrop-blur-md transition-[padding] duration-os",
           agentPanelOpen && "lg:pe-[var(--mizan-agent-panel,0px)]",
           !agentPanelOpen && "lg:pe-[var(--mizan-agent-edge,0px)]",
         )}
@@ -161,7 +161,7 @@ const DashboardLayout: React.FC = () => {
       <main
         id="mizan-main"
         className={cn(
-          "flex-1 min-w-0 transition-[padding] duration-os",
+          "mizan-app-main flex-1 min-w-0 transition-[padding] duration-os",
           "lg:ps-[var(--mizan-rail-width,232px)]",
           agentPanelOpen && "lg:pe-[var(--mizan-agent-panel,0px)]",
           !agentPanelOpen && "lg:pe-[var(--mizan-agent-edge,0px)]",

@@ -12,6 +12,8 @@ import {
   Users,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
+import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
 import { askAgent, focusEntityForAgent } from "@/lib/agentPageContext";
 import { cn } from "@/lib/utils";
@@ -67,6 +69,8 @@ type CommandCenterPayload = {
 };
 
 type FilterId = AttentionLane | "all";
+
+const COMMAND_CENTER_ROLES = new Set(["ADMIN", "SUPER_ADMIN", "MANAGER", "OWNER"]);
 
 function healthClass(health: string | undefined) {
   const h = (health || "healthy").toLowerCase();
@@ -147,13 +151,20 @@ function fallbackBoard(attention: AttentionBoardItem[], insights: ProactiveInsig
 export function CommandCenter({ className }: { className?: string }) {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { user, accessToken } = useAuth() as AuthContextType;
   const [filter, setFilter] = useState<FilterId>("all");
+
+  const canLoadBriefing = Boolean(
+    accessToken && user?.role && COMMAND_CENTER_ROLES.has(user.role),
+  );
 
   const query = useQuery({
     queryKey: ["agent", "command-center"],
     queryFn: () => api.getAgentCommandCenter() as Promise<CommandCenterPayload>,
+    enabled: canLoadBriefing,
     refetchInterval: 60_000,
     staleTime: 20_000,
+    retry: 2,
   });
 
   const data = query.data;
@@ -261,7 +272,7 @@ export function CommandCenter({ className }: { className?: string }) {
       label: t("command.tile.pending_approvals"),
       value: live.unresolved_requests ?? 0,
       icon: CircleDot,
-      href: "/dashboard/staff-requests?lane=finance",
+      href: "/dashboard/staff-requests?list=finance",
       tone: (live.unresolved_requests ?? 0) > 0 ? "approval" : "neutral",
     },
     {

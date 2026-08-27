@@ -58,7 +58,7 @@ export default function Dashboard() {
   }, [criticalCount, isLoading, insights, navigate, t]);
 
   return (
-    <div className="min-h-screen p-4 pb-24 text-foreground md:p-6 lg:p-8 lg:pb-10">
+    <div className="min-h-screen min-w-0 max-w-full p-4 pb-24 text-foreground md:p-6 lg:p-8 lg:pb-10">
       <div className="mx-auto max-w-7xl space-y-section">
 
         {!isLoading ? <CommandCenter /> : null}

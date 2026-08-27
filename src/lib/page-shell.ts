@@ -1,6 +1,6 @@
 /** Shared page content width - matches DashboardLayout Back button shell. */
 export const PAGE_SHELL =
-  "mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8";
+  "mx-auto w-full min-w-0 max-w-7xl px-4 sm:px-6 lg:px-8";
 
 /** Settings uses a wider canvas so forms and integration panels breathe on large screens. */
 export const SETTINGS_PAGE_SHELL =
