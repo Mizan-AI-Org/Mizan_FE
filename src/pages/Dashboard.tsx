@@ -2,10 +2,10 @@ import React, { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { CommandCenter } from "@/components/agent/CommandCenter";
+import { CommandCenterSkeleton } from "@/components/agent/CommandCenterSkeleton";
 import { useLanguage } from "@/hooks/use-language";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { DashboardSkeleton } from "@/components/skeletons";
 import { getActionRoute } from "@/pages/dashboard/DashboardWidgets";
 
 type InsightItem = {
@@ -61,11 +61,7 @@ export default function Dashboard() {
     <div className="min-h-screen min-w-0 max-w-full p-4 pb-24 text-foreground md:p-6 lg:p-8 lg:pb-10">
       <div className="mx-auto max-w-7xl space-y-section">
 
-        {!isLoading ? <CommandCenter /> : null}
-
-        {isLoading ? (
-          <DashboardSkeleton statCount={3} contentCards={2} />
-        ) : null}
+        {isLoading ? <CommandCenterSkeleton message={t("command.preparing")} /> : <CommandCenter />}
 
       </div>
 

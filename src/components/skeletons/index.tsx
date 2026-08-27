@@ -222,6 +222,8 @@ export function BlockSkeleton({ className }: { className?: string }) {
   );
 }
 
+export { CommandCenterSkeleton } from "@/components/agent/CommandCenterSkeleton";
+
 /**
  * Full-page loading skeleton for lazy routes (Suspense fallback).
  * Mimics a typical dashboard page: container, optional tabs, card + table/content.
