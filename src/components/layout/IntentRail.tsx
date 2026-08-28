@@ -7,6 +7,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { usePermissions } from "@/hooks/use-permissions";
 import { UserAvatarMenu } from "@/components/layout/UserAvatarMenu";
 import { cn } from "@/lib/utils";
+import { OPERATIONAL_COMMAND_ROLES } from "@/lib/operationalCommandRoles";
 import {
   IconAttention,
   IconAutomation,
@@ -46,21 +47,21 @@ const GROUPS: NavGroup[] = [
     labelKey: "nav.command",
     icon: IconCommand,
     href: "/dashboard",
-    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+    roles: [...OPERATIONAL_COMMAND_ROLES],
   },
   {
     id: "attention",
     labelKey: "nav.attention",
     icon: IconAttention,
     href: "/dashboard/attention",
-    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+    roles: [...OPERATIONAL_COMMAND_ROLES],
   },
   {
     id: "work",
     labelKey: "nav.work",
     icon: IconWork,
     href: "/dashboard/work",
-    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+    roles: [...OPERATIONAL_COMMAND_ROLES],
     children: [
       { labelKey: "nav.overview", href: "/dashboard/work" },
       { labelKey: "nav.work.live_operations", href: "/dashboard/operations-live", appId: "operations_live" },
@@ -74,7 +75,7 @@ const GROUPS: NavGroup[] = [
     labelKey: "nav.people",
     icon: IconPeople,
     href: "/dashboard/people",
-    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+    roles: [...OPERATIONAL_COMMAND_ROLES],
     children: [
       { labelKey: "nav.overview", href: "/dashboard/people" },
       { labelKey: "nav.people.staff", href: "/dashboard/staff-app", appId: "staff" },
@@ -390,10 +391,10 @@ export function MobileIntentDock() {
 
   const items = useMemo(() => {
     const candidates = [
-      { labelKey: "nav.command", href: "/dashboard", icon: IconCommand, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
-      { labelKey: "nav.attention", href: "/dashboard/attention", icon: IconAttention, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
-      { labelKey: "nav.work", href: "/dashboard/work", icon: IconWork, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
-      { labelKey: "nav.people", href: "/dashboard/people", icon: IconPeople, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
+      { labelKey: "nav.command", href: "/dashboard", icon: IconCommand, roles: [...OPERATIONAL_COMMAND_ROLES] },
+      { labelKey: "nav.attention", href: "/dashboard/attention", icon: IconAttention, roles: [...OPERATIONAL_COMMAND_ROLES] },
+      { labelKey: "nav.work", href: "/dashboard/work", icon: IconWork, roles: [...OPERATIONAL_COMMAND_ROLES] },
+      { labelKey: "nav.people", href: "/dashboard/people", icon: IconPeople, roles: [...OPERATIONAL_COMMAND_ROLES] },
       { labelKey: "nav.business", href: "/dashboard/business", icon: IconBusiness, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
     ];
     return candidates.filter((c) => !c.roles || hasRole(c.roles));

@@ -18,7 +18,7 @@ import { logError } from "@/lib/logging";
 import { syncAgentPanelLayout } from "@/lib/agentPanelLayout";
 import { cn } from "@/lib/utils";
 import { AgentContextChip } from "@/components/os";
-import { AgentMessageBody } from "@/components/agent/AgentMessageBody";
+import { OPERATIONAL_COMMAND_ROLES } from "@/lib/operationalCommandRoles";
 
 type ChatTurn = { role: "user" | "assistant"; content: string; at?: number };
 type PendingAttachment = { id: string; title: string };
@@ -35,20 +35,12 @@ function formatChatTime(at: number | undefined, locale: string): string {
   }
 }
 
-const ALLOWED_ROLES = [
-  "ADMIN",
-  "SUPER_ADMIN",
-  "MANAGER",
-  "OWNER",
-  "WAITER",
-  "CASHIER",
-  "CHEF",
-];
+const ALLOWED_ROLES = [...OPERATIONAL_COMMAND_ROLES, "WAITER", "CASHIER", "CHEF"];
 
-const VOICE_INPUT_ROLES = new Set(["ADMIN", "SUPER_ADMIN", "MANAGER", "OWNER"]);
+const VOICE_INPUT_ROLES = new Set<string>(OPERATIONAL_COMMAND_ROLES);
 
 /** Roles allowed to read the command-center briefing the launcher badge is derived from. */
-const ATTENTION_ROLES = new Set(["ADMIN", "SUPER_ADMIN", "MANAGER", "OWNER"]);
+const ATTENTION_ROLES = new Set<string>(OPERATIONAL_COMMAND_ROLES);
 
 const AGENT_LOCATION_KEY = "mizan_agent_location_id";
 const AGENT_LOCATION_NAME_KEY = "mizan_agent_location_name";

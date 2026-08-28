@@ -28,6 +28,7 @@ import type {
   AttentionBoardItem,
   AttentionLane,
 } from "@/components/agent/attentionBoardTypes";
+import { OPERATIONAL_COMMAND_ROLES, hasOperationalCommandRole } from "@/lib/operationalCommandRoles";
 import { CommandCenterSkeleton } from "@/components/agent/CommandCenterSkeleton";
 import {
   EmptyOpsState,
@@ -69,8 +70,6 @@ type CommandCenterPayload = {
 };
 
 type FilterId = AttentionLane | "all";
-
-const COMMAND_CENTER_ROLES = new Set(["ADMIN", "SUPER_ADMIN", "MANAGER", "OWNER"]);
 
 function healthClass(health: string | undefined) {
   const h = (health || "healthy").toLowerCase();
@@ -155,7 +154,7 @@ export function CommandCenter({ className }: { className?: string }) {
   const [filter, setFilter] = useState<FilterId>("all");
 
   const canLoadBriefing = Boolean(
-    accessToken && user?.role && COMMAND_CENTER_ROLES.has(user.role),
+    accessToken && user?.role && hasOperationalCommandRole(user.role),
   );
 
   const query = useQuery({

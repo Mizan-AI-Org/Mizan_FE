@@ -12,6 +12,7 @@ import OnboardingGate from "./components/OnboardingGate";
 import { useIdleTimeout } from "./hooks/use-idle-timeout";
 import React, { useEffect, useState } from "react";
 import OfflineWarning from "./components/OfflineWarning";
+import { OPERATIONAL_COMMAND_ROLES } from "./lib/operationalCommandRoles";
 import { PageLoadingSkeleton } from "./components/skeletons";
 // All route components are lazy-loaded below. Keep the top-level module graph
 // tiny so the initial JS chunk can paint the shell + skeleton immediately.
@@ -293,7 +294,7 @@ const App = () => {
                 <Route
                   path="dashboard"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <Dashboard />
                     </RoleBasedRoute>
                   }
@@ -301,7 +302,7 @@ const App = () => {
                 <Route
                   path="dashboard/attention"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <AttentionPage />
                     </RoleBasedRoute>
                   }
@@ -309,7 +310,7 @@ const App = () => {
                 <Route
                   path="dashboard/work"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <WorkHubPage />
                     </RoleBasedRoute>
                   }
@@ -317,7 +318,7 @@ const App = () => {
                 <Route
                   path="dashboard/people"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <PeopleHubPage />
                     </RoleBasedRoute>
                   }
@@ -325,7 +326,7 @@ const App = () => {
                 <Route
                   path="dashboard/business"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <BusinessHubPage />
                     </RoleBasedRoute>
                   }
@@ -333,7 +334,7 @@ const App = () => {
                 <Route
                   path="dashboard/automation"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <AutomationHubPage />
                     </RoleBasedRoute>
                   }
@@ -341,7 +342,7 @@ const App = () => {
                 <Route
                   path="dashboard/knowledge"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <KnowledgeHubPage />
                     </RoleBasedRoute>
                   }
@@ -350,7 +351,7 @@ const App = () => {
                   path="dashboard/take-orders"
                   element={
                     <RoleBasedRoute
-                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}
+                      allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}
                     >
                       <TakeOrdersPage />
                     </RoleBasedRoute>
@@ -361,10 +362,7 @@ const App = () => {
                   element={
                     <RoleBasedRoute
                       allowedRoles={[
-                        "SUPER_ADMIN",
-                        "ADMIN",
-                        "OWNER",
-                        "MANAGER",
+                        ...OPERATIONAL_COMMAND_ROLES,
                       ]}
                     >
                       <LocationsOverview />
@@ -376,10 +374,7 @@ const App = () => {
                   element={
                     <RoleBasedRoute
                       allowedRoles={[
-                        "SUPER_ADMIN",
-                        "ADMIN",
-                        "OWNER",
-                        "MANAGER",
+                        ...OPERATIONAL_COMMAND_ROLES,
                       ]}
                     >
                       <OperationsLivePage />
@@ -391,10 +386,7 @@ const App = () => {
                   element={
                     <RoleBasedRoute
                       allowedRoles={[
-                        "SUPER_ADMIN",
-                        "ADMIN",
-                        "OWNER",
-                        "MANAGER",
+                        ...OPERATIONAL_COMMAND_ROLES,
                       ]}
                     >
                       <BranchDetailPage />
@@ -430,7 +422,7 @@ const App = () => {
                 <Route
                   path="dashboard/inventory/items"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <InventoryItemsPage />
                     </RoleBasedRoute>
                   }
@@ -438,7 +430,7 @@ const App = () => {
                 <Route
                   path="dashboard/inventory/suppliers"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <SuppliersPage />
                     </RoleBasedRoute>
                   }
@@ -446,7 +438,7 @@ const App = () => {
                 <Route
                   path="dashboard/inventory/purchase-orders"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <PurchaseOrdersPage />
                     </RoleBasedRoute>
                   }
@@ -503,7 +495,7 @@ const App = () => {
                 <Route
                   path="dashboard/staff-app"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <StaffApp />
                     </RoleBasedRoute>
                   }
@@ -520,7 +512,7 @@ const App = () => {
                   path="dashboard/announcements"
                   element={
                     <RoleBasedRoute
-                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                      allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}
                     >
                       <StaffAnnouncements />
                     </RoleBasedRoute>
@@ -536,7 +528,7 @@ const App = () => {
                   path="dashboard/auto-schedule"
                   element={
                     <RoleBasedRoute
-                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                      allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}
                     >
                       <AutoSchedule />
                     </RoleBasedRoute>
@@ -546,7 +538,7 @@ const App = () => {
                   path="dashboard/timesheets"
                   element={
                     <RoleBasedRoute
-                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                      allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}
                     >
                       <Timesheets />
                     </RoleBasedRoute>
@@ -555,7 +547,7 @@ const App = () => {
                 <Route
                   path="dashboard/automations"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <AutomationsPage />
                     </RoleBasedRoute>
                   }
@@ -563,7 +555,7 @@ const App = () => {
                 <Route
                   path="dashboard/automations/:id"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <AutomationBuilderPage />
                     </RoleBasedRoute>
                   }
@@ -596,7 +588,7 @@ const App = () => {
                   path="dashboard/operational-issues"
                   element={
                     <RoleBasedRoute
-                      allowedRoles={["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"]}
+                      allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}
                     >
                       <React.Suspense fallback={<PageLoadingSkeleton />}>
                         <OperationalIssuesPage />
@@ -626,7 +618,7 @@ const App = () => {
                   path="dashboard/scheduling"
                   element={
                     <RoleBasedRoute
-                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                      allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}
                     >
                       <React.Suspense fallback={<PageLoadingSkeleton />}>
                         <StaffSchedulingPage />
@@ -638,7 +630,7 @@ const App = () => {
                   path="dashboard/scheduling/analytics"
                   element={
                     <RoleBasedRoute
-                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                      allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}
                     >
                       <React.Suspense fallback={<PageLoadingSkeleton />}>
                         <SchedulingAnalytics />
@@ -649,7 +641,7 @@ const App = () => {
                 <Route
                   path="dashboard/reviews/checklists"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <ManagerReviewDashboard />
                     </RoleBasedRoute>
                   }
@@ -657,7 +649,7 @@ const App = () => {
                 <Route
                   path="dashboard/emergency-availability"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <AdminEmergencyAvailability />
                     </RoleBasedRoute>
                   }
@@ -666,7 +658,7 @@ const App = () => {
                   path="dashboard/reports"
                   element={
                     <RoleBasedRoute
-                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                      allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}
                     >
                       <ReportsPage />
                     </RoleBasedRoute>
@@ -683,7 +675,7 @@ const App = () => {
                 <Route
                   path="dashboard/sales-and-prep"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <SalesAndPrepPage />
                     </RoleBasedRoute>
                   }
@@ -691,7 +683,7 @@ const App = () => {
                 <Route
                   path="dashboard/reservations"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <ReservationsPage />
                     </RoleBasedRoute>
                   }
@@ -700,7 +692,7 @@ const App = () => {
                   path="dashboard/attendance"
                   element={
                     <RoleBasedRoute
-                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                      allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}
                     >
                       <React.Suspense fallback={<PageLoadingSkeleton />}>
                         <DashboardAttendancePage />
@@ -711,7 +703,7 @@ const App = () => {
                 <Route
                   path="dashboard/reports/attendance"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <AttendanceReportsPage />
                     </RoleBasedRoute>
                   }
@@ -727,7 +719,7 @@ const App = () => {
                 <Route
                   path="dashboard/reports/labor-attendance"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <LaborAttendanceReportPage />
                     </RoleBasedRoute>
                   }
@@ -751,7 +743,7 @@ const App = () => {
                 <Route
                   path="dashboard/staff-requests"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <StaffRequestsPage />
                     </RoleBasedRoute>
                   }
@@ -759,7 +751,7 @@ const App = () => {
                 <Route
                   path="dashboard/staff-requests/:id"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]}>
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <StaffRequestsPage />
                     </RoleBasedRoute>
                   }
@@ -792,7 +784,7 @@ const App = () => {
                   path="dashboard/activity-log"
                   element={
                     <RoleBasedRoute
-                      allowedRoles={["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"]}
+                      allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}
                     >
                       <ActivityLogPage />
                     </RoleBasedRoute>
@@ -810,7 +802,7 @@ const App = () => {
                   path="supervisor"
                   element={
                     <RoleBasedRoute
-                      allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}
+                      allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}
                     >
                       <SupervisorDashboard />
                     </RoleBasedRoute>
