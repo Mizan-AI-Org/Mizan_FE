@@ -18,6 +18,7 @@ import { logError } from "@/lib/logging";
 import { syncAgentPanelLayout } from "@/lib/agentPanelLayout";
 import { cn } from "@/lib/utils";
 import { AgentContextChip } from "@/components/os";
+import { AgentMessageBody } from "@/components/agent/AgentMessageBody";
 import { OPERATIONAL_COMMAND_ROLES } from "@/lib/operationalCommandRoles";
 
 type ChatTurn = { role: "user" | "assistant"; content: string; at?: number };
