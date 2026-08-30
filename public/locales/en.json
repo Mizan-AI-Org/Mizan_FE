@@ -3918,5 +3918,8 @@
   "generic.toast.type_at_least_one_task_one_per_line": "Type at least one task (one per line)",
   "generic.toast.prep_list_regenerated": "Prep list regenerated",
   "generic.toast.geolock_zone_captured": "Geolock zone captured.",
-  "generic.toast.failed_to_load_your_submissions": "Failed to load your submissions"
+  "generic.toast.failed_to_load_your_submissions": "Failed to load your submissions",
+  "activity.detail": "Activity detail",
+  "activity.close_detail": "Close activity detail",
+  "activity.default_actor": "Agent"
 }

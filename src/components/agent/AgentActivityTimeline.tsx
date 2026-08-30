@@ -253,12 +253,12 @@ export function AgentActivityTimeline({
       className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
-      aria-label="Activity detail"
+      aria-label={t("activity.detail")}
     >
       <button
         type="button"
         className="absolute inset-0 bg-foreground/40"
-        aria-label="Close activity detail"
+        aria-label={t("activity.close_detail")}
         onClick={() => setOpenId(null)}
       />
       <div className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-panel border border-border bg-card p-5 shadow-strong">
@@ -269,7 +269,7 @@ export function AgentActivityTimeline({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-caption text-muted-foreground">
-                  {openItem?.actor || "Agent"} · {formatTime(openItem?.timestamp || openItem?.created_at)}
+                  {openItem?.actor || t("activity.default_actor")} · {formatTime(openItem?.timestamp || openItem?.created_at)}
                 </p>
                 <h3 className="mt-1 text-page-title text-foreground">
                   {openItem?.detail?.what || openItem?.action || openItem?.summary}

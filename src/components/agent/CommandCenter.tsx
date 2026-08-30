@@ -149,7 +149,7 @@ function fallbackBoard(attention: AttentionBoardItem[], insights: ProactiveInsig
 
 export function CommandCenter({ className }: { className?: string }) {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user, accessToken } = useAuth() as AuthContextType;
   const [filter, setFilter] = useState<FilterId>("all");
 
@@ -159,7 +159,7 @@ export function CommandCenter({ className }: { className?: string }) {
 
   const query = useQuery({
     queryKey: ["agent", "command-center"],
-    queryFn: () => api.getAgentCommandCenter() as Promise<CommandCenterPayload>,
+    queryFn: () => api.getAgentCommandCenter({ locale: language }) as Promise<CommandCenterPayload>,
     enabled: canLoadBriefing,
     refetchInterval: 60_000,
     staleTime: 20_000,
