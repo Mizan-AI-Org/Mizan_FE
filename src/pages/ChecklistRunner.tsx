@@ -10,6 +10,7 @@ import { logError, logInfo } from "@/lib/logging";
 import { api } from "@/lib/api";
 import { API_BASE } from "@/lib/api";
 
+import { useLanguage } from "@/hooks/use-language";
 // Backend response shapes used for mapping into ChecklistExecutor types
 interface BackendStep {
   id: string;
@@ -331,7 +332,7 @@ const ChecklistRunner: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ["manager-submitted-checklists"] });
       }
 
-      toast.success("Checklist submitted");
+      toast.success(t("generic.toast.checklist_submitted"));
       navigate("/staff-dashboard/my-checklists");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Submission failed";

@@ -172,9 +172,9 @@ export default function WorkflowBuilderPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workflows"] });
       setCreateOpen(false);
-      toast.success("Workflow created");
+      toast.success(t("generic.toast.workflow_created"));
     },
-    onError: () => toast.error("Failed to create workflow"),
+    onError: () => toast.error(t("generic.toast.failed_to_create_workflow")),
   });
 
   const toggleMutation = useMutation({
@@ -189,9 +189,9 @@ export default function WorkflowBuilderPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workflows"] });
-      toast.success("Workflow updated");
+      toast.success(t("generic.toast.workflow_updated"));
     },
-    onError: () => toast.error("Failed to update workflow"),
+    onError: () => toast.error(t("generic.toast.failed_to_update_workflow")),
   });
 
   const deleteMutation = useMutation({
@@ -204,9 +204,9 @@ export default function WorkflowBuilderPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workflows"] });
       setDetailId(null);
-      toast.success("Workflow deleted");
+      toast.success(t("generic.toast.workflow_deleted"));
     },
-    onError: () => toast.error("Failed to delete workflow"),
+    onError: () => toast.error(t("generic.toast.failed_to_delete_workflow")),
   });
 
   const runMutation = useMutation({
@@ -219,9 +219,9 @@ export default function WorkflowBuilderPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workflows"] });
-      toast.success("Workflow started");
+      toast.success(t("generic.toast.workflow_started"));
     },
-    onError: () => toast.error("Failed to run workflow"),
+    onError: () => toast.error(t("generic.toast.failed_to_run_workflow")),
   });
 
   const detailWorkflow = workflows.find((w) => w.id === detailId);

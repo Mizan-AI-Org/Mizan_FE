@@ -1181,7 +1181,7 @@ const TeamTab: React.FC = () => {
 
     const openMoveDialog = (members: StaffMember[]) => {
         if (members.length === 0) {
-            toast.error("Select at least one staff member");
+            toast.error(t("generic.toast.select_at_least_one_staff_member"));
             return;
         }
         setMoveTargets(members);

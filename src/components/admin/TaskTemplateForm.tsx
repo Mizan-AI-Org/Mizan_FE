@@ -53,6 +53,7 @@ import { API_BASE, api } from "@/lib/api";
 import { loadStaffPickerOptions, type StaffPickerOption } from "@/lib/staffPicker";
 import { cn } from "@/lib/utils";
 
+import { useLanguage } from "@/hooks/use-language";
 /** What happens after Yes / No on a checklist task. */
 type BranchActionType = "next" | "goto" | "end" | "alert";
 
@@ -214,6 +215,7 @@ const getPriorityColor = (priority: string) => {
 };
 
 export default function TaskTemplateForm({ template, onSuccess, onCancel }: TaskTemplateFormProps) {
+    const { t } = useLanguage();
   const [formData, setFormData] = useState<TaskTemplate>({
     name: '',
     description: '',
@@ -574,7 +576,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       .map((i) => ({ title: i.title.trim(), description: (i.description || "").trim() }))
       .filter((i) => i.title);
     if (clean.length === 0) {
-      toast.error("Task title is required");
+      toast.error(t("generic.toast.task_title_is_required"));
       return 0;
     }
     const newTasks = clean.map((c) =>
@@ -630,7 +632,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
         return { title: title.trim(), description: rest.join("|").trim() };
       });
     if (items.length === 0) {
-      toast.error("Type at least one task (one per line)");
+      toast.error(t("generic.toast.type_at_least_one_task_one_per_line"));
       return;
     }
     const added = addTasksToTarget(items);

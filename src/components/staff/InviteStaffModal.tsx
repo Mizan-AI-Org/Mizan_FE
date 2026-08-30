@@ -91,13 +91,13 @@ const InviteStaffModal: React.FC<InviteStaffModalProps> = ({ isOpen, onClose, on
 
   const handleInviteStaff = async () => {
     if (!email || !role) {
-      toast.error("Please fill in email and role.");
+      toast.error(t("generic.toast.please_fill_in_email_and_role"));
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      toast.error("Please enter a valid email address.");
+      toast.error(t("generic.toast.please_enter_a_valid_email_address"));
       return;
     }
 
@@ -127,7 +127,7 @@ const InviteStaffModal: React.FC<InviteStaffModalProps> = ({ isOpen, onClose, on
           ? { managed_locations: managedLocations }
           : {}),
       });
-      toast.success("Staff invitation sent successfully!");
+      toast.success(t("generic.toast.staff_invitation_sent_successfully"));
       void queryClient.invalidateQueries({ queryKey: ["billing-entitlements"] });
       onSuccess();
       onClose();
@@ -136,7 +136,7 @@ const InviteStaffModal: React.FC<InviteStaffModalProps> = ({ isOpen, onClose, on
       setAllowedLocations([]);
       setManagedLocations([]);
     } catch (error: any) {
-      const errorMessage = error?.message || error?.error || "Failed to send invitation";
+      const errorMessage = error?.message || error?.error || t("generic.toast.failed_to_send_invitation");
       toast.error(errorMessage);
       console.error("Invitation error:", error);
     } finally {

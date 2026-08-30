@@ -278,11 +278,11 @@ export default function TaskManagementBoard({
   const statusChip = (s: string) => {
     const norm = (s || "").toUpperCase();
     if (norm === "COMPLETED")
-      return { cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300", label: "Done" };
+      return { cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300", label: t("generic.done") };
     if (norm === "IN_PROGRESS")
       return { cls: "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300", label: "In progress" };
     if (norm === "CANCELLED")
-      return { cls: "bg-slate-100 text-slate-500 line-through dark:bg-slate-800 dark:text-slate-400", label: "Cancelled" };
+      return { cls: "bg-slate-100 text-slate-500 line-through dark:bg-slate-800 dark:text-slate-400", label: t("generic.cancelled") };
     return { cls: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300", label: "Not started" };
   };
 
@@ -294,7 +294,7 @@ export default function TaskManagementBoard({
       if (names.length === 1) return names[0];
       if (names.length > 1) return `${names[0]} +${names.length - 1}`;
     }
-    return "Unassigned";
+    return t("generic.unassigned");
   };
 
   const formatDue = (iso: string | null): string => {
@@ -811,7 +811,7 @@ export default function TaskManagementBoard({
               >
                 {([
                   { key: "open" as const, label: t("live_board.status_open") ?? "Open" },
-                  { key: "completed" as const, label: t("live_board.status_completed") ?? "Completed" },
+                  { key: "completed" as const, label: t("live_board.status_completed") ?? t("generic.completed") },
                   { key: "all" as const, label: t("live_board.status_all") ?? "All statuses" },
                 ]).map((opt) => {
                   const active = statusFilter === opt.key;

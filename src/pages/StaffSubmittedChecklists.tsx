@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { logError, logInfo } from "@/lib/logging";
 import { toast } from "sonner";
 
+import { useLanguage } from "@/hooks/use-language";
 type Row = {
   id: string;
   template?: { id: string; name?: string; description?: string } | null;
@@ -38,7 +39,7 @@ const StaffSubmittedChecklists: React.FC = () => {
         return rows;
       } catch (err) {
         logError({ feature: "staff-submissions", action: "load" }, err);
-        toast.error("Failed to load your submissions");
+        toast.error(t("generic.toast.failed_to_load_your_submissions"));
         return [];
       }
     },

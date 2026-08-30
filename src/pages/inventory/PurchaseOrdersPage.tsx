@@ -47,7 +47,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 
+import { useLanguage } from "@/hooks/use-language";
 export default function PurchaseOrdersPage() {
+    const { t } = useLanguage();
     const { accessToken } = useAuth();
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState("");
@@ -102,7 +104,7 @@ export default function PurchaseOrdersPage() {
             );
             Promise.all(itemPromises).then(() => {
                 queryClient.invalidateQueries({ queryKey: ["purchaseOrders"] });
-                toast.success("Purchase order created successfully!");
+                toast.success(t("generic.toast.purchase_order_created_successfully"));
                 setIsCreateDialogOpen(false);
                 setNewOrder({
                     supplier: "",
@@ -128,7 +130,7 @@ export default function PurchaseOrdersPage() {
         mutationFn: ({ id, order }: { id: string; order: Partial<Omit<PurchaseOrder, 'id' | 'restaurant' | 'created_at' | 'updated_at' | 'supplier_info'>> }) => api.updatePurchaseOrder(accessToken!, id, order),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["purchaseOrders"] });
-            toast.success("Purchase order updated successfully!");
+            toast.success(t("generic.toast.purchase_order_updated_successfully"));
             setIsEditDialogOpen(false);
             setSelectedOrder(null);
         },
@@ -141,7 +143,7 @@ export default function PurchaseOrdersPage() {
         mutationFn: (id: string) => api.deletePurchaseOrder(accessToken!, id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["purchaseOrders"] });
-            toast.success("Purchase order deleted successfully!");
+            toast.success(t("generic.toast.purchase_order_deleted_successfully"));
         },
         onError: (err) => {
             toast.error(`Failed to delete purchase order: ${err.message}`);

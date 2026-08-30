@@ -16,6 +16,7 @@ import * as z from 'zod';
 import { API_BASE } from "@/lib/api";
 
 
+import { useLanguage } from "@/hooks/use-language";
 interface Category {
     id: string;
     name: string;
@@ -114,7 +115,7 @@ const ProductManagement: React.FC = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['products'] });
-            toast.success("Product created successfully.");
+            toast.success(t("generic.toast.product_created_successfully"));
             setIsCreateDialogOpen(false);
             form.reset();
         },
@@ -141,7 +142,7 @@ const ProductManagement: React.FC = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['products'] });
-            toast.success("Product updated successfully.");
+            toast.success(t("generic.toast.product_updated_successfully"));
             setIsEditDialogOpen(false);
             setEditingProduct(null);
         },
@@ -165,7 +166,7 @@ const ProductManagement: React.FC = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['products'] });
-            toast.success("Product deleted successfully.");
+            toast.success(t("generic.toast.product_deleted_successfully"));
         },
         onError: (error) => {
             toast.error(error.message || "Failed to delete product.");

@@ -16,6 +16,7 @@ import * as z from 'zod';
 import { API_BASE } from "@/lib/api";
 
 
+import { useLanguage } from "@/hooks/use-language";
 interface Category {
     id: string;
     name: string;
@@ -85,7 +86,7 @@ const CategoryManagement: React.FC = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['categories'] });
-            toast.success("Category created successfully.");
+            toast.success(t("generic.toast.category_created_successfully"));
             setIsCreateDialogOpen(false);
             form.reset();
         },
@@ -112,7 +113,7 @@ const CategoryManagement: React.FC = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['categories'] });
-            toast.success("Category updated successfully.");
+            toast.success(t("generic.toast.category_updated_successfully"));
             setIsEditDialogOpen(false);
             setEditingCategory(null);
         },
@@ -136,7 +137,7 @@ const CategoryManagement: React.FC = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['categories'] });
-            toast.success("Category deleted successfully.");
+            toast.success(t("generic.toast.category_deleted_successfully"));
         },
         onError: (error) => {
             toast.error(error.message || "Failed to delete category.");

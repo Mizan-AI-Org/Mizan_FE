@@ -76,7 +76,7 @@ export default function SalesAndPrepPage() {
       return;
     }
     queryClient.invalidateQueries({ queryKey: ["pos-prep-list", accessToken, prepStartDate, prepEndDate] });
-    toast.success("Prep list regenerated");
+    toast.success(t("generic.toast.prep_list_regenerated"));
   };
 
   type PrepRow = {
@@ -170,7 +170,7 @@ export default function SalesAndPrepPage() {
           prepList?.day_of_week || "",
           "Recommended Prep List"
         );
-        toast.success("Prep list exported as PDF");
+        toast.success(t("generic.toast.prep_list_exported_as_pdf"));
       } else {
         await exportPrepListToExcel(
           prepItems,
@@ -178,10 +178,10 @@ export default function SalesAndPrepPage() {
           prepList?.day_of_week || "",
           "Prep List"
         );
-        toast.success("Prep list exported as Excel");
+        toast.success(t("generic.toast.prep_list_exported_as_excel"));
       }
     } catch (e) {
-      toast.error("Export failed");
+      toast.error(t("generic.toast.export_failed"));
     } finally {
       setExportingPrep(null);
     }

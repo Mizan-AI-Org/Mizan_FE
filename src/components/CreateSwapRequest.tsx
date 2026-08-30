@@ -35,6 +35,7 @@ import { API_BASE } from "@/lib/api";
 
 
 
+import { useLanguage } from "@/hooks/use-language";
 interface AssignedShift {
   id: string;
   shift_date: string;
@@ -152,7 +153,7 @@ const CreateSwapRequest: React.FC<CreateSwapRequestProps> = ({ onSuccess }) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["myShiftSwapRequests"] });
-      toast.success("Shift swap request created successfully.");
+      toast.success(t("generic.toast.shift_swap_request_created_successfully"));
       setIsDialogOpen(false);
       form.reset();
       onSuccess?.();

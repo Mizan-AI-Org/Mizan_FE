@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { API_BASE } from "@/lib/api";
 
 
+import { useLanguage } from "@/hooks/use-language";
 interface ScheduleTemplate {
   id: string;
   name: string;
@@ -83,7 +84,7 @@ export const AutoSchedule: React.FC = () => {
       setScheduleResults(data);
       setShowResults(true);
       queryClient.invalidateQueries({ queryKey: ["schedule"] });
-      toast.success("Schedule created successfully!");
+      toast.success(t("generic.toast.schedule_created_successfully"));
     },
     onError: (err: any) => {
       toast.error(`Error: ${err.message}`);
@@ -94,7 +95,7 @@ export const AutoSchedule: React.FC = () => {
 
   const handleGenerateSchedule = () => {
     if (!selectedTemplate || !weekStart) {
-      toast.error("Please select a template and week start date");
+      toast.error(t("generic.toast.please_select_a_template_and_week_start_date"));
       return;
     }
 

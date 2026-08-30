@@ -237,7 +237,7 @@ export default function ComplianceDocumentsSettings() {
       const formData = new FormData();
       formData.append("file", file);
       await postFormData(`/payroll/compliance-documents/${docId}/attach/`, formData);
-      toast.success("Document attached.");
+      toast.success(t("generic.toast.document_attached"));
       await load();
     } catch (err) {
       toast.error(saveErrorMessage(err, "Failed to attach file."));
@@ -250,7 +250,7 @@ export default function ComplianceDocumentsSettings() {
   const removeFile = async (docId: string) => {
     try {
       await api.post(`/payroll/compliance-documents/${docId}/remove-file/`);
-      toast.success("Attachment removed.");
+      toast.success(t("generic.toast.attachment_removed"));
       await load();
     } catch (err) {
       toast.error(saveErrorMessage(err, "Failed to remove file."));
