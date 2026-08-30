@@ -118,7 +118,7 @@ export const AgentWidget: React.FC = () => {
   const attentionQuery = useQuery({
     queryKey: ["agent", "command-center"],
     queryFn: () =>
-      api.getAgentCommandCenter() as Promise<{ attention?: Array<{ id: string }> }>,
+      api.getAgentCommandCenter({ locale: language }) as Promise<{ attention?: Array<{ id: string }> }>,
     enabled: Boolean(user?.role && ATTENTION_ROLES.has(user.role)) && !hideOnPlatformAdmin,
     staleTime: 20_000,
     refetchInterval: 60_000,
