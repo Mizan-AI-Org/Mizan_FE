@@ -167,6 +167,8 @@ const TakeOrdersPage = React.lazy(() => import("./pages/TakeOrdersPage"));
 const CleaningTasks = React.lazy(() => import("./pages/CleaningTasks"));
 const ActivityLogPage = React.lazy(() => import("./pages/ActivityLogPage"));
 const OnboardingWizard = React.lazy(() => import("./pages/OnboardingWizard"));
+const GuestRequestsPage = React.lazy(() => import("./pages/GuestRequestsPage"));
+const WorkflowBuilderPage = React.lazy(() => import("./pages/WorkflowBuilderPage"));
 
 // Global defaults shared by every useQuery in the app.
 // These defaults are tuned for perceived speed AND server cost on a SaaS
@@ -557,6 +559,22 @@ const App = () => {
                   element={
                     <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <AutomationBuilderPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/guest-requests"
+                  element={
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
+                      <GuestRequestsPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/workflows"
+                  element={
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
+                      <WorkflowBuilderPage />
                     </RoleBasedRoute>
                   }
                 />
