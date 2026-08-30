@@ -6754,7 +6754,6 @@ export function DashboardWidgetById({
   id: string;
   props: DashboardWidgetBundleProps;
 }) {
-    const { t } = useLanguage();
   const {
     t,
     navigate,

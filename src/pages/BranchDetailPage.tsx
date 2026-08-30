@@ -757,7 +757,7 @@ function PerformanceSection({
         <Card>
           <CardContent className="p-4">
             <SectionHeader
-              title=t("generic.labor")
+              title={t("generic.labor")}
               subtitle="Last 30 days · cost and hours"
             />
             {chartData.length === 0 ? (
@@ -816,7 +816,7 @@ function PerformanceSection({
         <Card>
           <CardContent className="p-4">
             <SectionHeader
-              title=t("generic.attendance")
+              title={t("generic.attendance")}
               subtitle="Last 30 days · scheduled vs completed"
             />
             {chartData.length === 0 ? (
@@ -890,7 +890,7 @@ function BranchProfileCard({
   return (
     <Card>
       <CardContent className="space-y-3 p-4">
-        <SectionHeader title=t("generic.branch_profile") />
+        <SectionHeader title={t("generic.branch_profile")} />
         <dl className="grid gap-3 sm:grid-cols-2 text-sm">
           <InfoRow label="Name" value={location.name} />
           <InfoRow
@@ -1075,7 +1075,7 @@ function CashSessionsCard({ sessions }: { sessions: CashSessionToday[] }) {
     <Card>
       <CardContent className="p-4">
         <SectionHeader
-          title=t("generic.cash_sessions")
+          title={t("generic.cash_sessions")}
           subtitle={`${sessions.length} today`}
         />
         <div className="overflow-x-auto">
@@ -1218,7 +1218,7 @@ function ReportLinksCard({
     <Card>
       <CardContent className="p-4">
         <SectionHeader
-          title=t("generic.open_related_pages")
+          title={t("generic.open_related_pages")}
           subtitle="Filtered to this branch where supported"
         />
         <div className="grid gap-2 md:grid-cols-2">

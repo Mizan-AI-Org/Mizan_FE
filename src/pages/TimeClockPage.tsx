@@ -880,7 +880,7 @@ export default function TimeClockPage() {
                             <Button
                                 onClick={handleClockIn}
                                 disabled={isClockedIn || !readyToClockIn || clockInMutation.isPending}
-                                aria-label=t("generic.clock_in")
+                                aria-label={t("generic.clock_in")}
                                 aria-busy={clockInMutation.isPending}
                                 className="h-12 min-h-12 w-full px-6 transition-all duration-200 ease-out bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-base font-semibold rounded-xl shadow-lg"
                             >
@@ -896,7 +896,7 @@ export default function TimeClockPage() {
                             <Button
                                 onClick={handleClockOut}
                                 disabled={!isClockedIn || clockOutMutation.isPending}
-                                aria-label=t("generic.clock_out")
+                                aria-label={t("generic.clock_out")}
                                 aria-busy={clockOutMutation.isPending}
                                 className="h-12 min-h-12 w-full px-6 transition-all duration-200 ease-out bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-base font-semibold rounded-xl shadow-lg"
                             >
