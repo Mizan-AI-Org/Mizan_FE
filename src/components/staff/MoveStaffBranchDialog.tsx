@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { API_BASE } from "@/lib/api";
 import type { BusinessLocationBrief } from "@/hooks/use-business-locations";
 
+import { useLanguage } from "@/hooks/use-language";
 export type MoveStaffTarget = {
   id: string;
   first_name?: string;
@@ -44,6 +45,7 @@ export function MoveStaffBranchDialog({
   locations,
   onMoved,
 }: Props) {
+    const { t } = useLanguage();
   const [destinationId, setDestinationId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -91,7 +93,7 @@ export function MoveStaffBranchDialog({
 
   const handleSubmit = async () => {
     if (!destinationId) {
-      toast.error("Pick a branch");
+      toast.error(t("generic.toast.pick_a_branch"));
       return;
     }
     if (count === 0) return;

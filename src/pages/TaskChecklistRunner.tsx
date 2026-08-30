@@ -15,6 +15,7 @@ import { API_BASE, api } from "@/lib/api";
 
 
 
+import { useLanguage } from "@/hooks/use-language";
 const TaskChecklistRunner: React.FC = () => {
   const { taskId } = useParams();
   const navigate = useNavigate();
@@ -180,7 +181,7 @@ const TaskChecklistRunner: React.FC = () => {
         } catch {/* ignore */ }
       }
 
-      toast.success("Checklist submitted");
+      toast.success(t("generic.toast.checklist_submitted"));
       navigate("/staff-dashboard/safety");
     } catch (e: any) {
       logError({ feature: 'task-checklist-runner', action: 'submit' }, e, { executionId });

@@ -10,6 +10,7 @@ import { AssignedShift } from './WeeklyScheduleView'; // Reuse interface from We
 import { API_BASE } from "@/lib/api";
 
 
+import { useLanguage } from "@/hooks/use-language";
 interface ShiftSwapRequest {
     id: string;
     shift_to_swap: string; // ID of the shift being swapped
@@ -71,7 +72,7 @@ const ManagerSwapRequests: React.FC = () => {
             queryClient.invalidateQueries({ queryKey: ['managerShiftSwapRequests'] });
             queryClient.invalidateQueries({ queryKey: ['myShifts'] }); // Invalidate staff's shifts too
             queryClient.invalidateQueries({ queryKey: ['weeklySchedule'] }); // Invalidate weekly schedule
-            toast.success("Shift swap request updated successfully.");
+            toast.success(t("generic.toast.shift_swap_request_updated_successfully"));
         },
         onError: (error) => {
             toast.error(error.message || "Failed to update shift swap request.");

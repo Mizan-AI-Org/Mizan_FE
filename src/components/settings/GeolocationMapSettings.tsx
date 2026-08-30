@@ -190,7 +190,7 @@ export default function GeolocationMapSettings({
       click: (event) => {
         if (isDrawing) {
           if (!geofenceEnabled) {
-            toast.error("Enable geofence to draw a zone.");
+            toast.error(t("generic.toast.enable_geofence_to_draw_a_zone"));
             return;
           }
           handleAddPolygonPoint(event.latlng.lat, event.latlng.lng);
@@ -214,10 +214,10 @@ export default function GeolocationMapSettings({
   const handleStartStopDrawing = () => {
     if (isDrawing) {
       if (polygonPoints.length < 3) {
-        toast.error("Add at least three points to define a geolock zone.");
+        toast.error(t("generic.toast.add_at_least_three_points_to_define_a_geolock_zone"));
         return;
       }
-      toast.success("Geolock zone captured.");
+      toast.success(t("generic.toast.geolock_zone_captured"));
     } else {
       setPolygonPoints([]);
     }
@@ -226,7 +226,7 @@ export default function GeolocationMapSettings({
 
   const handleClearPolygon = () => {
     setPolygonPoints([]);
-    toast.success("Geolock zone cleared.");
+    toast.success(t("generic.toast.geolock_zone_cleared"));
   };
 
   const searchAddress = useCallback(async () => {
@@ -262,11 +262,11 @@ export default function GeolocationMapSettings({
         setLngInput(newLng.toString());
         toast.success(`Location found: ${result.display_name.substring(0, 50)}...`);
       } else {
-        toast.error("Address not found. Try a more specific address.");
+        toast.error(t("generic.toast.address_not_found_try_a_more_specific_address"));
       }
     } catch (error) {
       console.error("Geocoding error:", error);
-      toast.error("Failed to search address. Please try again.");
+      toast.error(t("generic.toast.failed_to_search_address_please_try_again"));
     } finally {
       setIsSearchingAddress(false);
     }
@@ -469,19 +469,19 @@ export default function GeolocationMapSettings({
       Number.isNaN(parsedLng) ||
       Number.isNaN(radiusMeters)
     ) {
-      toast.error("Please fill in all location fields.");
+      toast.error(t("generic.toast.please_fill_in_all_location_fields"));
       return;
     }
     if (parsedLat < -90 || parsedLat > 90) {
-      toast.error("Latitude must be between -90 and 90.");
+      toast.error(t("generic.toast.latitude_must_be_between_90_and_90"));
       return;
     }
     if (parsedLng < -180 || parsedLng > 180) {
-      toast.error("Longitude must be between -180 and 180.");
+      toast.error(t("generic.toast.longitude_must_be_between_180_and_180"));
       return;
     }
     if (radiusMeters < 5 || radiusMeters > 100) {
-      toast.error("Geofence radius must be between 5 and 100 meters.");
+      toast.error(t("generic.toast.geofence_radius_must_be_between_5_and_100_meters"));
       return;
     }
     setLat(parsedLat);

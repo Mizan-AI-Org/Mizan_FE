@@ -16,6 +16,7 @@ import * as z from 'zod';
 import { API_BASE } from "@/lib/api";
 
 
+import { useLanguage } from "@/hooks/use-language";
 interface Order {
     id: string;
     order_type: string;
@@ -111,7 +112,7 @@ const TableManagement: React.FC = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['tables'] });
-            toast.success("Table created successfully.");
+            toast.success(t("generic.toast.table_created_successfully"));
             setShowCreateDialog(false);
             form.reset();
         },
@@ -138,7 +139,7 @@ const TableManagement: React.FC = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['tables'] });
-            toast.success("Table status updated successfully.");
+            toast.success(t("generic.toast.table_status_updated_successfully"));
         },
         onError: (error) => {
             toast.error(error.message || "Failed to update table status.");
@@ -164,7 +165,7 @@ const TableManagement: React.FC = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['tables'] });
             queryClient.invalidateQueries({ queryKey: ['pendingOrders'] });
-            toast.success("Order assigned to table successfully.");
+            toast.success(t("generic.toast.order_assigned_to_table_successfully"));
             setShowAssignOrderDialog(false);
             setOrderIdToAssign('');
             setSelectedTableId(null);
@@ -191,7 +192,7 @@ const TableManagement: React.FC = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['tables'] });
             queryClient.invalidateQueries({ queryKey: ['pendingOrders'] });
-            toast.success("Order cleared from table successfully.");
+            toast.success(t("generic.toast.order_cleared_from_table_successfully"));
         },
         onError: (error) => {
             toast.error(error.message || "Failed to clear order.");

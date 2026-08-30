@@ -188,7 +188,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
     const handleAddManualTask = () => {
         if (!newTaskTitle.trim()) {
-            toast.error("Task title cannot be empty");
+            toast.error(t("generic.toast.task_title_cannot_be_empty"));
             return;
         }
         const newTask = {

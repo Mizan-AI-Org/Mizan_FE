@@ -10,6 +10,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import type { StaffProfileItem } from "@/lib/types";
 
+import { useLanguage } from "@/hooks/use-language";
 const TEMPLATES = [
   { id: "food-safety-basic", name: "Food Safety - Basic", description: "Daily food safety checklist", role: "STAFF" },
   { id: "opening-checklist", name: "Opening Checklist", description: "Pre-opening checks for the shift", role: "STAFF" },
@@ -30,7 +31,7 @@ const AdminChecklistTemplates: React.FC = () => {
       try {
         const token = accessToken || localStorage.getItem("access_token");
         if (!token) {
-          toast.error("Missing access token. Please log in again.");
+          toast.error(t("generic.toast.missing_access_token_please_log_in_again"));
           return;
         }
         const profiles = await api.getStaffProfiles(token);
@@ -48,7 +49,7 @@ const AdminChecklistTemplates: React.FC = () => {
   const selectedTemplate = useMemo(() => TEMPLATES.find(t => t.id === selectedTemplateId)!, [selectedTemplateId]);
 
   const assignChecklist = async () => {
-    if (!assigneeId) { toast.error("Please choose an assignee"); return; }
+    if (!assigneeId) { toast.error(t("generic.toast.please_choose_an_assignee")); return; }
     try {
       const payload = {
         title: selectedTemplate.name,
@@ -61,12 +62,12 @@ const AdminChecklistTemplates: React.FC = () => {
 
       const token = accessToken || localStorage.getItem("access_token");
       if (!token) {
-        toast.error("Missing access token. Please log in again.");
+        toast.error(t("generic.toast.missing_access_token_please_log_in_again"));
         return;
       }
       const task = await api.createShiftTask(token, payload);
       await api.ensureChecklistForTask(task.id);
-      toast.success("Checklist task assigned and linked");
+      toast.success(t("generic.toast.checklist_task_assigned_and_linked"));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to assign checklist";
       toast.error(msg);

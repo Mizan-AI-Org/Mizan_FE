@@ -40,7 +40,9 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 
+import { useLanguage } from "@/hooks/use-language";
 export default function SuppliersPage() {
+    const { t } = useLanguage();
     const { accessToken } = useAuth();
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState("");
@@ -68,7 +70,7 @@ export default function SuppliersPage() {
         mutationFn: (supplier: Omit<Supplier, 'id' | 'restaurant' | 'created_at' | 'updated_at'>) => api.createSupplier(accessToken!, supplier),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-            toast.success("Supplier created successfully!");
+            toast.success(t("generic.toast.supplier_created_successfully"));
             setIsCreateDialogOpen(false);
             setNewSupplier({
                 name: "",
@@ -88,7 +90,7 @@ export default function SuppliersPage() {
         mutationFn: ({ id, supplier }: { id: string; supplier: Partial<Omit<Supplier, 'id' | 'restaurant' | 'created_at' | 'updated_at'>> }) => api.updateSupplier(accessToken!, id, supplier),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-            toast.success("Supplier updated successfully!");
+            toast.success(t("generic.toast.supplier_updated_successfully"));
             setIsEditDialogOpen(false);
             setSelectedSupplier(null);
         },
@@ -101,7 +103,7 @@ export default function SuppliersPage() {
         mutationFn: (id: string) => api.deleteSupplier(accessToken!, id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-            toast.success("Supplier deleted successfully!");
+            toast.success(t("generic.toast.supplier_deleted_successfully"));
         },
         onError: (err) => {
             toast.error(`Failed to delete supplier: ${err.message}`);

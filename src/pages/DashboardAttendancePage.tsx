@@ -97,7 +97,7 @@ export default function DashboardAttendancePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       setNoShowConfirm(null);
-      toast.success("Shift marked as no-show");
+      toast.success(t("generic.toast.shift_marked_as_no_show"));
     },
     onError: (err: Error) => {
       const msg = err.message || "Failed to mark as no-show";

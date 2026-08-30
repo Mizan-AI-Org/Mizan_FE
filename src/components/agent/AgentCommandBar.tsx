@@ -17,6 +17,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { API_BASE } from "@/lib/api";
 import { getAgentPageContext, askAgent, subscribeAgentPageContext } from "@/lib/agentPageContext";
 import { cn } from "@/lib/utils";
+import { hasOperationalCommandRole } from "@/lib/operationalCommandRoles";
 import { ActionPreview, type ActionPreviewModel } from "@/components/agent/ActionPreview";
 import { commandKindLabel } from "@/components/agent/commandBarUtils";
 import { AgentMessageBody } from "@/components/agent/AgentMessageBody";
@@ -152,8 +153,11 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
       { id: "s2", label: "Are we understaffed tomorrow?", prompt: "Are we understaffed tomorrow?" },
       { id: "s3", label: "Show unresolved incidents", prompt: "Show me unresolved incidents." },
       { id: "s4", label: "What is overdue?", prompt: "What is overdue today?" },
-      { id: "s5", label: "Prepare today's briefing", prompt: "Give me today's operational briefing." },
     ];
+    // Briefing is admin/manager only — hide for normal staff
+    if (hasOperationalCommandRole(user?.role)) {
+      fromState.push({ id: "s5", label: "Prepare today's briefing", prompt: "Give me today's operational briefing." });
+    }
     if (path.includes("staff-requests") || path.includes("finance")) {
       fromState.unshift({
         id: "s-appr",

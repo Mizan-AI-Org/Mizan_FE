@@ -44,7 +44,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 
+import { useLanguage } from "@/hooks/use-language";
 export default function StockAdjustmentsPage() {
+    const { t } = useLanguage();
     const { accessToken } = useAuth();
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState("");
@@ -84,7 +86,7 @@ export default function StockAdjustmentsPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["stockAdjustments"] });
             queryClient.invalidateQueries({ queryKey: ["inventoryItems"] }); // Invalidate inventory items to reflect stock changes
-            toast.success("Stock adjustment created successfully!");
+            toast.success(t("generic.toast.stock_adjustment_created_successfully"));
             setIsCreateDialogOpen(false);
             setNewAdjustment({
                 inventory_item: "",
@@ -104,7 +106,7 @@ export default function StockAdjustmentsPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["stockAdjustments"] });
             queryClient.invalidateQueries({ queryKey: ["inventoryItems"] }); // Invalidate inventory items to reflect stock changes
-            toast.success("Stock adjustment updated successfully!");
+            toast.success(t("generic.toast.stock_adjustment_updated_successfully"));
             setIsEditDialogOpen(false);
             setSelectedAdjustment(null);
         },
@@ -118,7 +120,7 @@ export default function StockAdjustmentsPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["stockAdjustments"] });
             queryClient.invalidateQueries({ queryKey: ["inventoryItems"] }); // Invalidate inventory items to reflect stock changes
-            toast.success("Stock adjustment deleted successfully!");
+            toast.success(t("generic.toast.stock_adjustment_deleted_successfully"));
         },
         onError: (err) => {
             toast.error(`Failed to delete adjustment: ${err.message}`);

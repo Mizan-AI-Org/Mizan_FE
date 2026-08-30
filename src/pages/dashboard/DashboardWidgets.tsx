@@ -102,6 +102,7 @@ import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffReque
 import { StaffTagSelector } from "@/components/staff/StaffTagChips";
 import type { StaffTag } from "@/lib/staff-tags";
 
+import { useLanguage } from "@/hooks/use-language";
 export const DASHBOARD_WIDGET_IDS = [
   "insights",
   "tasks_demands",
@@ -4285,7 +4286,7 @@ function CategoryTasksCard({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey });
       qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
-      toast.success("Marked as validated");
+      toast.success(t("generic.toast.marked_as_validated"));
     },
     onError: (err: unknown) => {
       toast.error(err instanceof Error ? err.message : "Could not validate");

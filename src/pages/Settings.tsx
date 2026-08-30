@@ -443,7 +443,7 @@ export default function Settings() {
       setPushNotifications(data.push_notifications || pushNotifications);
     } catch (error) {
       console.error("Failed to fetch restaurant settings:", error);
-      toast.error("Failed to load restaurant settings.");
+      toast.error(t("generic.toast.failed_to_load_restaurant_settings"));
     }
 
     try {
@@ -945,15 +945,15 @@ export default function Settings() {
   const saveLightSpeed = async () => {
     const line = posSettings.lightspeed_line || "RESTAURANT_K";
     if (!posAPIKey) {
-      toast.error("Access token is required.");
+      toast.error(t("generic.toast.access_token_required"));
       return;
     }
     if (line === "RESTAURANT_K" && !posSettings.pos_merchant_id) {
-      toast.error("Business Location ID is required for Restaurant (K-Series).");
+      toast.error(t("generic.toast.business_location_required"));
       return;
     }
     if (line === "RETAIL_X" && !posSettings.lightspeed_domain_prefix?.trim()) {
-      toast.error("Domain prefix is required for Retail (X-Series), e.g. mystore from mystore.retail.lightspeed.app.");
+      toast.error(t("generic.toast.domain_prefix_is_required_for_retail_x_series_e_g_mystore_from_mystore_retail_lightspeed_app"));
       return;
     }
     setSavingPos(true);
@@ -966,7 +966,7 @@ export default function Settings() {
         lightspeed_line: line,
         lightspeed_domain_prefix: posSettings.lightspeed_domain_prefix,
       });
-      toast.success("Lightspeed saved. Testing connection...");
+      toast.success(t("generic.toast.lightspeed_saved"));
       await testPosConnection();
       await fetchUnifiedSettings();
     } catch (error) {
@@ -979,7 +979,7 @@ export default function Settings() {
 
   const saveCustomApi = async () => {
     if (!posSettings.pos_custom_api_url) {
-      toast.error("Please enter your API base URL.");
+      toast.error(t("generic.toast.api_base_url_required"));
       return;
     }
     setSavingPos(true);
@@ -989,7 +989,7 @@ export default function Settings() {
         pos_custom_api_url: posSettings.pos_custom_api_url,
         pos_custom_api_key: posSettings.pos_custom_api_key || "",
       });
-      toast.success("Custom API saved. Testing connection...");
+      toast.success(t("generic.toast.custom_api_saved"));
       await testPosConnection();
       await fetchUnifiedSettings();
     } catch (error) {

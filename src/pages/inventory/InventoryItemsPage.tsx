@@ -43,7 +43,9 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+import { useLanguage } from "@/hooks/use-language";
 export default function InventoryItemsPage() {
+    const { t } = useLanguage();
     const { accessToken } = useAuth();
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState("");
@@ -84,7 +86,7 @@ export default function InventoryItemsPage() {
         mutationFn: (item: Omit<InventoryItem, 'id' | 'restaurant' | 'created_at' | 'updated_at' | 'supplier_info' | 'inventory_item_info' | 'adjusted_by_info'>) => api.createInventoryItem(accessToken!, item),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["inventoryItems"] });
-            toast.success("Inventory item created successfully!");
+            toast.success(t("generic.toast.inventory_item_created_successfully"));
             setIsCreateDialogOpen(false);
             setNewItem({
                 name: "",
@@ -110,7 +112,7 @@ export default function InventoryItemsPage() {
         mutationFn: ({ id, item }: { id: string; item: Partial<Omit<InventoryItem, 'id' | 'restaurant' | 'created_at' | 'updated_at' | 'supplier_info' | 'inventory_item_info' | 'adjusted_by_info'>> }) => api.updateInventoryItem(accessToken!, id, item),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["inventoryItems"] });
-            toast.success("Inventory item updated successfully!");
+            toast.success(t("generic.toast.inventory_item_updated_successfully"));
             setIsEditDialogOpen(false);
             setSelectedItem(null);
         },
@@ -123,7 +125,7 @@ export default function InventoryItemsPage() {
         mutationFn: (id: string) => api.deleteInventoryItem(accessToken!, id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["inventoryItems"] });
-            toast.success("Inventory item deleted successfully!");
+            toast.success(t("generic.toast.inventory_item_deleted_successfully"));
         },
         onError: (err) => {
             toast.error(`Failed to delete item: ${err.message}`);

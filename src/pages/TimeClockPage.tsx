@@ -16,6 +16,7 @@ import { logError, logInfo } from "@/lib/logging";
 import { enqueueClockPayloadSecure, dequeueAllSecure, initDeviceSecret } from "@/lib/offlineQueue";
 import { API_BASE } from "@/lib/api";
 
+import { useLanguage } from "@/hooks/use-language";
 const PRECISE_ACCURACY_M = 10;
 
 // Narrowing helper for verify-location response without using 'any'
@@ -77,6 +78,7 @@ interface StaffDashboardData {
 }
 
 export default function TimeClockPage() {
+    const { t } = useLanguage();
     const { accessToken, user } = useAuth();
     const queryClient = useQueryClient();
     const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number; accuracy?: number } | null>(null);
@@ -270,7 +272,7 @@ export default function TimeClockPage() {
         onSuccess: (_data: any) => {
             queryClient.invalidateQueries({ queryKey: ["currentSession"] });
             queryClient.invalidateQueries({ queryKey: ["attendanceHistory"] });
-            toast.success("Clocked in successfully!");
+            toast.success(t("generic.toast.clocked_in_successfully"));
             playSuccessTone();
         },
         onError: (err: unknown) => {
@@ -300,11 +302,11 @@ export default function TimeClockPage() {
             console.error("Clock out failed", { error: err });
             // Allow attempt anytime; if server reports no active session, inform without blocking
             if (message.includes("Not clocked in")) {
-                toast.info("No active session to end. If incorrect, refresh and try again.");
+                toast.info(t("generic.toast.no_active_session"));
                 return;
             }
             if (message.includes("GPS accuracy too weak")) {
-                toast.error("GPS too imprecise (>10m). Move to open area or enable precise GPS.");
+                toast.error(t("generic.toast.gps_too_imprecise"));
                 return;
             }
             toast.error(`Failed to clock out: ${message}`);
@@ -315,7 +317,7 @@ export default function TimeClockPage() {
         mutationFn: () => api.startBreak(accessToken!),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["currentSession"] });
-            toast.success("Break started!");
+            toast.success(t("generic.toast.break_started"));
         },
         onError: (err: unknown) => {
             const message = err instanceof Error ? err.message : "Failed to start break";
@@ -327,7 +329,7 @@ export default function TimeClockPage() {
         mutationFn: () => api.endBreak(accessToken!),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["currentSession"] });
-            toast.success("Break ended!");
+            toast.success(t("generic.toast.break_ended"));
         },
         onError: (err: unknown) => {
             const message = err instanceof Error ? err.message : "Failed to end break";
@@ -407,9 +409,9 @@ export default function TimeClockPage() {
             const d = haversineDistance(currentLocation.latitude, currentLocation.longitude, geofence.latitude, geofence.longitude);
             const within = d <= geofence.radius;
             setInRange(within);
-            setLastVerificationMessage(within ? "Within range" : "Outside work zone");
+            setLastVerificationMessage(within ? t("generic.within_range") : t("generic.outside_work_zone"));
         } else if (currentLocation && !geofence) {
-            setLastVerificationMessage("GPS live");
+            setLastVerificationMessage(t("generic.gps_live"));
         }
     }, [currentLocation, geofence]);
 
@@ -437,7 +439,7 @@ export default function TimeClockPage() {
                         .then((res) => {
                             const withinRange = hasWithinRange(res) ? res.within_range : true;
                             // setInRange handled by useEffect
-                            const message = hasWithinRange(res) && res.message ? res.message : withinRange ? "Within range" : "Outside work zone";
+                            const message = hasWithinRange(res) && res.message ? res.message : withinRange ? t("generic.within_range") : t("generic.outside_work_zone");
                             // setLastVerificationMessage handled by useEffect mostly, but backend message is authoritative
                             if (hasWithinRange(res) && res.message) setLastVerificationMessage(res.message);
                             setLocationError(withinRange ? null : message);
@@ -489,7 +491,7 @@ export default function TimeClockPage() {
                         const res = await api.verifyLocation(accessToken, lat, lon);
                         const withinRange = hasWithinRange(res) ? res.within_range : true;
                         // setInRange handled by useEffect
-                        const message = hasWithinRange(res) && res.message ? res.message : withinRange ? "Within range" : "Outside work zone";
+                        const message = hasWithinRange(res) && res.message ? res.message : withinRange ? t("generic.within_range") : t("generic.outside_work_zone");
                         if (hasWithinRange(res) && res.message) setLastVerificationMessage(res.message);
                         setLocationError(withinRange ? null : message);
                     } catch (err: unknown) {
@@ -514,7 +516,7 @@ export default function TimeClockPage() {
     const getUserLocation = () => {
         if (!navigator.geolocation) {
             setLocationError("Geolocation is not supported by your browser.");
-            toast.error("Geolocation not supported.");
+            toast.error(t("generic.toast.geolocation_not_supported"));
             // Try IP location if Geolocation API is missing
             ipLocate();
             return;
@@ -544,7 +546,7 @@ export default function TimeClockPage() {
                         .then((res) => {
                             const withinRange = hasWithinRange(res) ? res.within_range : true;
                             // setInRange handled by useEffect
-                            const message = hasWithinRange(res) && res.message ? res.message : withinRange ? "Within range" : "Outside work zone";
+                            const message = hasWithinRange(res) && res.message ? res.message : withinRange ? t("generic.within_range") : t("generic.outside_work_zone");
                             if (hasWithinRange(res) && res.message) setLastVerificationMessage(res.message);
                             setLocationError(withinRange ? null : message);
                         })
@@ -610,7 +612,7 @@ export default function TimeClockPage() {
 
     const handleClockIn = () => {
         if (!currentLocation) {
-            toast.error("Location not available. Please enable location services.");
+            toast.error(t("generic.toast.location_not_available"));
             getUserLocation();
             return;
         }
@@ -621,14 +623,14 @@ export default function TimeClockPage() {
         // Allow clock-out at any time; backend will decide if an event can be ended
         const acc = currentLocation?.accuracy;
         if (!currentLocation) {
-            toast.info("Clocking out without location. Enable GPS for verification.");
+            toast.info(t("generic.toast.clocking_out_without_location"));
             clockOutMutation.mutate({ method: "manual" });
             return;
         }
         if (typeof acc === "number" && acc <= PRECISE_ACCURACY_M) {
             clockOutMutation.mutate({ latitude: currentLocation.latitude, longitude: currentLocation.longitude, accuracy: acc, method: "manual" });
         } else {
-            toast.info("GPS is imprecise (>10m). Clocking out without location.");
+            toast.info(t("generic.toast.gps_is_imprecise_10m_clocking_out_without_location"));
             clockOutMutation.mutate({ method: "manual" });
         }
     };
@@ -638,7 +640,7 @@ export default function TimeClockPage() {
             setIsVerifyingLocation(true);
             verifyLocationMutation.mutate(currentLocation);
         } else {
-            toast.error("Location not available. Cannot verify.");
+            toast.error(t("generic.toast.location_not_available_cannot_verify"));
             getUserLocation();
         }
     };
@@ -740,7 +742,7 @@ export default function TimeClockPage() {
                 clockInMutation.mutate({ ...coords, photo: photoDataUrl });
             } else {
                 await enqueueClockPayloadSecure({ type: "clock_in", employeeId, latitude: coords?.latitude, longitude: coords?.longitude, accuracy: coords?.accuracy, timestampISO, date: dateStr, photo: photoDataUrl }, deviceSecret);
-                toast.info("Saved clock-in offline. Will sync when online.");
+                toast.info(t("generic.toast.saved_clock_in_offline"));
             }
         }
         setCameraOpen(false);
@@ -823,23 +825,23 @@ export default function TimeClockPage() {
                                         </MapContainer>
                                         {/* Overlay status chip */}
                                         <div className="absolute top-3 left-3 px-3 py-1 rounded-full text-sm font-medium shadow-md" style={{ background: inRange ? "#dcfce7" : "#fee2e2", color: inRange ? "#166534" : "#7f1d1d" }}>
-                                            {geofence ? (inRange ? "Inside range" : "Outside range") : (currentLocation ? "GPS live" : "Waiting for GPS")}
+                                            {geofence ? (inRange ? t("generic.inside_range") : t("generic.outside_range")) : (currentLocation ? t("generic.gps_live") : t("generic.waiting_for_gps"))}
                                         </div>
                                         {/* Permission / Retry controls */}
                                         {(!currentLocation || locationError) && (
                                             <div className="absolute bottom-3 left-3 right-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2 bg-white/80 backdrop-blur-sm border rounded-lg px-3 py-2 text-sm">
-                                                <span className="text-red-700">{locationError ?? (permissionState === "denied" ? "Location permission denied" : "Position update is unavailable")}</span>
+                                                <span className="text-red-700">{locationError ?? (permissionState === "denied" ? t("generic.location_permission_denied") : t("generic.position_update_unavailable"))}</span>
                                                 <div className="flex gap-2">
                                                     <Button size="sm" variant="outline" onClick={getUserLocation}>Retry</Button>
                                                     {permissionState === "denied" && (
-                                                        <Button size="sm" onClick={() => toast.info("Please enable location in your browser settings and reload.")}>How to enable</Button>
+                                                        <Button size="sm" onClick={() => toast.info(t("generic.toast.please_enable_location_in_your_browser_settings_and_reload"))}>How to enable</Button>
                                                     )}
                                                 </div>
                                             </div>
                                         )}
                                     </div>
                                     <div className="p-3 text-center">
-                                        <p className="text-sm text-muted-foreground" aria-live="polite">{lastVerificationMessage ?? (inRange ? "Within range" : "Outside work zone")}</p>
+                                        <p className="text-sm text-muted-foreground" aria-live="polite">{lastVerificationMessage ?? (inRange ? t("generic.within_range") : t("generic.outside_work_zone"))}</p>
                                         {locationSource && (
                                             <p className="text-xs text-muted-foreground mt-1">
                                                 Source: {locationSource}
@@ -878,7 +880,7 @@ export default function TimeClockPage() {
                             <Button
                                 onClick={handleClockIn}
                                 disabled={isClockedIn || !readyToClockIn || clockInMutation.isPending}
-                                aria-label="Clock In"
+                                aria-label={t("generic.clock_in")}
                                 aria-busy={clockInMutation.isPending}
                                 className="h-12 min-h-12 w-full px-6 transition-all duration-200 ease-out bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-base font-semibold rounded-xl shadow-lg"
                             >
@@ -888,13 +890,13 @@ export default function TimeClockPage() {
                                         Clocking In...
                                     </span>
                                 ) : (
-                                    "Clock In"
+                                    t("generic.clock_in")
                                 )}
                             </Button>
                             <Button
                                 onClick={handleClockOut}
                                 disabled={!isClockedIn || clockOutMutation.isPending}
-                                aria-label="Clock Out"
+                                aria-label={t("generic.clock_out")}
                                 aria-busy={clockOutMutation.isPending}
                                 className="h-12 min-h-12 w-full px-6 transition-all duration-200 ease-out bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-base font-semibold rounded-xl shadow-lg"
                             >
@@ -904,7 +906,7 @@ export default function TimeClockPage() {
                                         Clocking Out...
                                     </span>
                                 ) : (
-                                    "Clock Out"
+                                    t("generic.clock_out")
                                 )}
                             </Button>
                         </div>
@@ -948,7 +950,7 @@ export default function TimeClockPage() {
                                             <div className="flex justify-between items-center">
                                                 <p className="font-medium">{formatSafe(clockIn, "PPP")}</p>
                                                 <Badge variant={isCompleted ? "default" : "secondary"}>
-                                                    {isCompleted ? "Completed" : "Ongoing"}
+                                                    {isCompleted ? t("generic.completed") : t("generic.ongoing")}
                                                 </Badge>
                                             </div>
                                             <p className="text-sm text-muted-foreground">Clock In: {formatSafe(clockIn, "p")}</p>
@@ -962,13 +964,13 @@ export default function TimeClockPage() {
                                                 const totalMs = endMs - startMs;
                                                 const hrs = Math.floor(totalMs / 3600000);
                                                 const mins = Math.floor((totalMs % 3600000) / 60000);
-                                                const label = clockOut ? "Duration" : "Duration (ongoing)";
+                                                const label = clockOut ? t("generic.duration") : t("generic.duration_ongoing");
                                                 return (
                                                     <p className="text-sm text-muted-foreground">{label}: {String(hrs).padStart(2, "0")}:{String(mins).padStart(2, "0")}</p>
                                                 );
                                             })()}
                                             {raw.is_break && raw.break_start && (
-                                                <p className="text-sm text-muted-foreground">Break: {formatSafe(raw.break_start, "p")} - {raw.break_end ? formatSafe(raw.break_end, "p") : "Ongoing"}</p>
+                                                <p className="text-sm text-muted-foreground">Break: {formatSafe(raw.break_start, "p")} - {raw.break_end ? formatSafe(raw.break_end, "p") : t("generic.ongoing")}</p>
                                             )}
                                             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
                                                 Location Verified:

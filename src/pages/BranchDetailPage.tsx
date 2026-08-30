@@ -757,7 +757,7 @@ function PerformanceSection({
         <Card>
           <CardContent className="p-4">
             <SectionHeader
-              title="Labor"
+              title={t("generic.labor")}
               subtitle="Last 30 days · cost and hours"
             />
             {chartData.length === 0 ? (
@@ -785,7 +785,7 @@ function PerformanceSection({
                     />
                     <Tooltip
                       formatter={(value: number, name: string) => {
-                        if (name === "labor_cost") return [formatMoney(value), "Labor"];
+                        if (name === "labor_cost") return [formatMoney(value), t("generic.labor")];
                         if (name === "hours_worked") return [`${value}h`, "Hours"];
                         return [value, name];
                       }}
@@ -816,7 +816,7 @@ function PerformanceSection({
         <Card>
           <CardContent className="p-4">
             <SectionHeader
-              title="Attendance"
+              title={t("generic.attendance")}
               subtitle="Last 30 days · scheduled vs completed"
             />
             {chartData.length === 0 ? (
@@ -839,7 +839,7 @@ function PerformanceSection({
                     <Tooltip
                       formatter={(value: number, name: string) => {
                         if (name === "scheduled") return [value, "Scheduled"];
-                        if (name === "completed") return [value, "Completed"];
+                        if (name === "completed") return [value, t("generic.completed")];
                         if (name === "no_shows") return [value, "No-shows"];
                         if (name === "mismatches") return [value, "Mismatches"];
                         return [value, name];
@@ -890,7 +890,7 @@ function BranchProfileCard({
   return (
     <Card>
       <CardContent className="space-y-3 p-4">
-        <SectionHeader title="Branch profile" />
+        <SectionHeader title={t("generic.branch_profile")} />
         <dl className="grid gap-3 sm:grid-cols-2 text-sm">
           <InfoRow label="Name" value={location.name} />
           <InfoRow
@@ -1075,7 +1075,7 @@ function CashSessionsCard({ sessions }: { sessions: CashSessionToday[] }) {
     <Card>
       <CardContent className="p-4">
         <SectionHeader
-          title="Cash sessions"
+          title={t("generic.cash_sessions")}
           subtitle={`${sessions.length} today`}
         />
         <div className="overflow-x-auto">
@@ -1218,7 +1218,7 @@ function ReportLinksCard({
     <Card>
       <CardContent className="p-4">
         <SectionHeader
-          title="Open related pages"
+          title={t("generic.open_related_pages")}
           subtitle="Filtered to this branch where supported"
         />
         <div className="grid gap-2 md:grid-cols-2">

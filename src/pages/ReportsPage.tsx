@@ -84,7 +84,7 @@ const ReportsPage: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reports"] });
-      toast.success("Report generated successfully.");
+      toast.success(t("generic.toast.report_generated_successfully"));
     },
     onError: (err: Error) => {
       toast.error(err.message || "Failed to generate report.");

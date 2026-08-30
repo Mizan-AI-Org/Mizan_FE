@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import Webcam from 'react-webcam';
 import { Camera } from 'lucide-react';
 
+import { useLanguage } from "@/hooks/use-language";
 const PinLogin: React.FC = () => {
     const [pin, setPin] = useState('');
     const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -27,11 +28,11 @@ const PinLogin: React.FC = () => {
                 },
                 (error) => {
                     console.error("Geolocation error:", error);
-                    toast.error("Unable to retrieve your location for verification.");
+                    toast.error(t("generic.toast.unable_to_retrieve_your_location_for_verification"));
                 }
             );
         } else {
-            toast.error("Geolocation is not supported by your browser.");
+            toast.error(t("generic.toast.geolocation_is_not_supported_by_your_browser"));
         }
     }, []);
 
@@ -45,23 +46,23 @@ const PinLogin: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (pin.length !== 4) {
-            toast.error("PIN must be 4 digits.");
+            toast.error(t("generic.toast.pin_must_be_4_digits"));
             return;
         }
 
         if (!imageSrc) {
-            toast.error("Please capture your photo.");
+            toast.error(t("generic.toast.please_capture_your_photo"));
             return;
         }
 
         if (latitude === null || longitude === null) {
-            toast.error("Please allow location access for verification.");
+            toast.error(t("generic.toast.please_allow_location_access_for_verification"));
             return;
         }
 
         try {
             await loginWithPin(pin, null, imageSrc, latitude, longitude);
-            toast.success("Login successful!");
+            toast.success(t("generic.toast.login_successful"));
             navigate('/staff-dashboard'); // Redirect to staff dashboard after successful login
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : "PIN login failed.";

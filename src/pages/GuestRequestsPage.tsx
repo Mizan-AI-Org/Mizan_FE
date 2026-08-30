@@ -75,15 +75,15 @@ const REQUEST_TYPE_CONFIG: Record<
   GuestRequestType,
   { label: string; icon: any; color: string }
 > = {
-  towel: { label: "Towel", icon: Sparkles, color: "text-blue-500" },
-  room_service: { label: "Room Service", icon: ConciergeBell, color: "text-amber-500" },
-  housekeeping: { label: "Housekeeping", icon: Sparkles, color: "text-green-500" },
-  maintenance: { label: "Maintenance", icon: Wrench, color: "text-orange-500" },
-  complaint: { label: "Complaint", icon: AlertTriangle, color: "text-red-500" },
-  amenity: { label: "Amenity", icon: Plus, color: "text-purple-500" },
-  check_in: { label: "Check-in", icon: Bell, color: "text-teal-500" },
-  check_out: { label: "Check-out", icon: CheckCircle2, color: "text-gray-500" },
-  other: { label: "Other", icon: Clock, color: "text-gray-400" },
+  towel: { label: t("generic.towel"), icon: Sparkles, color: "text-blue-500" },
+  room_service: { label: t("generic.room_service"), icon: ConciergeBell, color: "text-amber-500" },
+  housekeeping: { label: t("generic.housekeeping"), icon: Sparkles, color: "text-green-500" },
+  maintenance: { label: t("generic.maintenance"), icon: Wrench, color: "text-orange-500" },
+  complaint: { label: t("generic.complaint"), icon: AlertTriangle, color: "text-red-500" },
+  amenity: { label: t("generic.amenity"), icon: Plus, color: "text-purple-500" },
+  check_in: { label: t("generic.check_in"), icon: Bell, color: "text-teal-500" },
+  check_out: { label: t("generic.check_out"), icon: CheckCircle2, color: "text-gray-500" },
+  other: { label: t("generic.other"), icon: Clock, color: "text-gray-400" },
 };
 
 const PRIORITY_COLORS: Record<GuestRequestPriority, string> = {
@@ -139,9 +139,9 @@ export default function GuestRequestsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["guest-requests"] });
       setCreateOpen(false);
-      toast.success("Guest request created");
+      toast.success(t("generic.toast.guest_request_created"));
     },
-    onError: () => toast.error("Failed to create guest request"),
+    onError: () => toast.error(t("generic.toast.failed_to_create_guest_request")),
   });
 
   const updateMutation = useMutation({
@@ -163,9 +163,9 @@ export default function GuestRequestsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["guest-requests"] });
-      toast.success("Request updated");
+      toast.success(t("generic.toast.request_updated"));
     },
-    onError: () => toast.error("Failed to update request"),
+    onError: () => toast.error(t("generic.toast.failed_to_update_request")),
   });
 
   // ── Derived ────────────────────────────────────────────────────────
@@ -377,7 +377,7 @@ export default function GuestRequestsPage() {
                         updateMutation.mutate({
                           id: detailRequest.id,
                           status: "resolved",
-                          resolution_notes: "Resolved by staff",
+                          resolution_notes: t("generic.mark_resolved"),
                         })
                       }
                     >
@@ -485,10 +485,10 @@ function GuestRequestForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="normal">Normal</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="urgent">Urgent</SelectItem>
+              <SelectItem value="low">{t("generic.low")}</SelectItem>
+              <SelectItem value="normal">{t("generic.normal")}</SelectItem>
+              <SelectItem value="high">{t("generic.high")}</SelectItem>
+              <SelectItem value="urgent">{t("generic.urgent")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
