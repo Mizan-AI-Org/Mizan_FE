@@ -685,20 +685,22 @@ async function parseProcessTemplatesFromXlsx(buffer: ArrayBuffer, fileName: stri
   templates: ImportTemplatePayload[];
   errors: string[];
 }> {
-  const XLSX = await import('xlsx');
-  const workbook = XLSX.read(buffer, { type: 'array' });
-  const sheetName = workbook.SheetNames[0];
-  if (!sheetName) {
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer as ArrayBuffer);
+  const worksheet = workbook.worksheets[0];
+  if (!worksheet) {
     return { templates: [], errors: ['Excel file has no sheets.'] };
   }
-  const sheet = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json<(string | number | boolean | null)[]>(sheet, {
-    header: 1,
-    defval: '',
-    raw: false,
-  }) as string[][];
-  const normalized = rows.map((row) => row.map((cell) => String(cell ?? '').trim()));
-  return parseRowsToTemplates(normalized, fileName);
+  const rows: string[][] = [];
+  worksheet.eachRow((row) => {
+    const rowData: string[] = [];
+    row.eachCell({ includeEmpty: true }, (cell) => {
+      rowData.push(String(cell.value ?? '').trim());
+    });
+    rows.push(rowData);
+  });
+  return parseRowsToTemplates(rows, fileName);
 }
 
 export async function parseProcessTemplatesFile(

@@ -198,7 +198,7 @@ export async function exportTimesheetToExcel(
   const { weekDates, staffByRole, shiftsByStaffByDate } = buildTimesheetMatrix(shifts, staffMembers, currentDate);
   const dateStr = (d: Date) => format(d, "yyyy-MM-dd");
 
-  const XLSX = await import("xlsx");
+  const ExcelJS = await import("exceljs");
 
   const headers = ["Staff / Role", ...weekDates.map((d) => `${format(d, "EEE")} ${format(d, "d")}`)];
   const rows: string[][] = [headers];
@@ -215,10 +215,10 @@ export async function exportTimesheetToExcel(
     });
   });
 
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  const colWidths = [{ wch: 22 }, ...Array(7).fill({ wch: 14 })];
-  ws["!cols"] = colWidths;
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  XLSX.writeFile(wb, `timesheet-${format(weekDates[0], "yyyy-MM-dd")}-${format(weekDates[6], "yyyy-MM-dd")}.xlsx`);
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(sheetName);
+  rows.forEach((row) => ws.addRow(row));
+  ws.getColumn(1).width = 22;
+  for (let i = 2; i <= 8; i++) ws.getColumn(i).width = 14;
+  await wb.xlsx.writeFile(`timesheet-${format(weekDates[0], "yyyy-MM-dd")}-${format(weekDates[6], "yyyy-MM-dd")}.xlsx`);
 }
