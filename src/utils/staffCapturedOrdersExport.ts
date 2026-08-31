@@ -64,25 +64,17 @@ export async function exportStaffCapturedOrdersExcel(
   headers: string[],
   rowValues: (row: StaffCapturedOrderRow) => string[],
 ): Promise<void> {
-  const XLSX = await import("xlsx");
+  const ExcelJS = await import("exceljs");
 
   const body = rows.map((r) => rowValues(r));
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet([[title, rangeSubtitle], [], headers, ...body]);
-  ws["!cols"] = [
-    { wch: 18 },
-    { wch: 36 },
-    { wch: 16 },
-    { wch: 14 },
-    { wch: 16 },
-    { wch: 22 },
-    { wch: 22 },
-    { wch: 14 },
-    { wch: 12 },
-    { wch: 12 },
-    { wch: 16 },
-  ];
+  const wb = new ExcelJS.Workbook();
   const safeSheet = sheetName.slice(0, 31).replace(/[:\\/?*[\]]/g, "_") || "Orders";
-  XLSX.utils.book_append_sheet(wb, ws, safeSheet);
-  XLSX.writeFile(wb, `orders-${fileSlug}.xlsx`);
+  const ws = wb.addWorksheet(safeSheet);
+  ws.addRow([title, rangeSubtitle]);
+  ws.addRow([]);
+  ws.addRow(headers);
+  body.forEach((row) => ws.addRow(row));
+  const colWidths = [18, 36, 16, 14, 16, 22, 22, 14, 12, 12, 16];
+  colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  await wb.xlsx.writeFile(`orders-${fileSlug}.xlsx`);
 }

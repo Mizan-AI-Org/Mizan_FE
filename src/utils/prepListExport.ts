@@ -76,7 +76,7 @@ export async function exportPrepListToExcel(
   dayOfWeek: string,
   sheetName: string = "Prep List"
 ): Promise<void> {
-  const XLSX = await import("xlsx");
+  const ExcelJS = await import("exceljs");
 
   const headers = ["Item", "Qty Needed", "Unit", "In Stock", "Short"];
   const rows = items.map((item) => {
@@ -89,9 +89,16 @@ export async function exportPrepListToExcel(
     return [name, qty, unit, inStock, short];
   });
 
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet([["Prep List", targetDate, dayOfWeek], [], headers, ...rows]);
-  ws["!cols"] = [{ wch: 30 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 10 }];
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  XLSX.writeFile(wb, `prep-list-${targetDate}.xlsx`);
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(sheetName);
+  ws.addRow(["Prep List", targetDate, dayOfWeek]);
+  ws.addRow([]);
+  ws.addRow(headers);
+  rows.forEach((row) => ws.addRow(row));
+  ws.getColumn(1).width = 30;
+  ws.getColumn(2).width = 12;
+  ws.getColumn(3).width = 10;
+  ws.getColumn(4).width = 12;
+  ws.getColumn(5).width = 10;
+  await wb.xlsx.writeFile(`prep-list-${targetDate}.xlsx`);
 }
