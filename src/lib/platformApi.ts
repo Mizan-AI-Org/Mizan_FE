@@ -307,8 +307,6 @@ export type PlatformOverview = {
   health: {
     whatsapp_configured: boolean;
     agent_bridge_configured?: boolean;
-    /** @deprecated Use agent_bridge_configured (heylua.ai canonical name) */
-    mastra_bridge_configured?: boolean;
     /** @deprecated */
     lua_webhook_configured: boolean;
     stripe_configured?: boolean;

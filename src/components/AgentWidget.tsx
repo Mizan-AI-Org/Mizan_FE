@@ -319,6 +319,7 @@ export const AgentWidget: React.FC = () => {
         const pageContext = getAgentPageContext();
         const resp = await fetch(`${API_BASE}/agent/chat/`, {
           method: "POST",
+          signal: AbortSignal.timeout(90_000),
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
@@ -327,7 +328,7 @@ export const AgentWidget: React.FC = () => {
             message: userMessage,
             history: agentChatHistoryForApi(historyRef.current),
             thread_id: threadIdRef.current,
-            async: true,
+            async: false,
             restaurant_id: user?.restaurant || user?.restaurant_data?.id || undefined,
             ...establishment,
             ...(pageContext ? { page_context: pageContext } : {}),
@@ -345,7 +346,7 @@ export const AgentWidget: React.FC = () => {
         }
         if (taskId) {
           for (let attempt = 0; attempt < 90; attempt += 1) {
-            const delayMs = [400, 600, 800, 1000, 1200, 1500][Math.min(attempt, 5)];
+            const delayMs = [150, 200, 250, 350, 500, 750][Math.min(attempt, 5)];
             await sleep(delayMs);
             const statusResp = await fetch(
               `${API_BASE}/agent/chat/status/${encodeURIComponent(taskId)}/`,
@@ -501,7 +502,7 @@ export const AgentWidget: React.FC = () => {
           }
 
           for (let attempt = 0; attempt < 90; attempt += 1) {
-            const delayMs = [400, 600, 800, 1000, 1200, 1500][Math.min(attempt, 5)];
+            const delayMs = [150, 200, 250, 350, 500, 750][Math.min(attempt, 5)];
             await sleep(delayMs);
             const statusResp = await fetch(
               `${API_BASE}/agent/chat/status/?task_id=${encodeURIComponent(taskId)}`,

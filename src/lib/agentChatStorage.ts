@@ -99,7 +99,7 @@ export function clearAgentChatHistory(
   }
 }
 
-export function agentChatHistoryForApi(turns: StoredChatTurn[], limit = 16): Array<{ role: string; content: string }> {
+export function agentChatHistoryForApi(turns: StoredChatTurn[], limit = 8): Array<{ role: string; content: string }> {
   return turns
     .slice(-limit)
     .map((t) => ({ role: t.role, content: t.content }))

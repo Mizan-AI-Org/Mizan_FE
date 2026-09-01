@@ -4863,8 +4863,7 @@ export class BackendService {
   async getAgentConfig(accessToken: string): Promise<{
     agent_id: string;
     agent_public_url: string;
-    /** @deprecated Use agent_public_url (heylua.ai canonical) */
-    mastra_public_url: string;
+    lua_public_url?: string;
     chat_proxy: boolean;
   }> {
     return this.fetchWithError("/agent/config/", {
