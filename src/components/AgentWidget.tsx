@@ -16,7 +16,6 @@ import {
 } from "@/lib/agentChatStorage";
 import { logError } from "@/lib/logging";
 import { syncAgentPanelLayout } from "@/lib/agentPanelLayout";
-import { userFacingAgentMessage } from "@/lib/agentConversationTurns";
 import { cn } from "@/lib/utils";
 import { AgentContextChip } from "@/components/os";
 import { AgentMessageBody } from "@/components/agent/AgentMessageBody";
@@ -67,15 +66,6 @@ function pickRecorderMimeType(): string {
   if (typeof MediaRecorder === "undefined") return "";
   const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
-}
-
-function humanAgentChatError(
-  payload: Record<string, unknown> | undefined,
-  fallback: string,
-): string {
-  const raw =
-    payload?.message_for_user || payload?.error || payload?.detail || fallback;
-  return userFacingAgentMessage(raw, fallback);
 }
 
 export const AgentWidget: React.FC = () => {
@@ -285,7 +275,7 @@ export const AgentWidget: React.FC = () => {
         }
         // Typed chat stays silent. Voice replies only play when the user
         // holds the mic (sendVoiceBlob), never from this text path.
-        const reply = userFacingAgentMessage(data.reply);
+        const reply = data.reply || "Done.";
         setHistory((prev) => [
           ...prev,
           { role: "assistant", content: reply, at: Date.now() },
@@ -368,10 +358,7 @@ export const AgentWidget: React.FC = () => {
             }
             if (statusData.status === "failed" || statusData.error || !statusResp.ok) {
               throw new Error(
-                humanAgentChatError(
-                  statusData as Record<string, unknown>,
-                  `Agent chat failed (${statusResp.status})`,
-                ),
+                statusData.error || statusData.reply || `Agent chat failed (${statusResp.status})`,
               );
             }
           }
@@ -379,9 +366,7 @@ export const AgentWidget: React.FC = () => {
         }
 
         if (!resp.ok) {
-          throw new Error(
-            humanAgentChatError(queued as Record<string, unknown>, `Agent chat failed (${resp.status})`),
-          );
+          throw new Error(queued.error || queued.detail || `Agent chat failed (${resp.status})`);
         }
 
         applyChatPayload(queued);
@@ -392,10 +377,13 @@ export const AgentWidget: React.FC = () => {
             ? err.message
             : "Something went wrong talking to Agent.";
         appendAssistantError(
-          userFacingAgentMessage(
-            detail,
-            "I'm here. What do you need?",
-          ),
+          detail.includes("OPENAI") || detail.includes("503")
+            ? "Agent is temporarily unavailable. Check that OPENAI_API_KEY is configured on the server."
+            : detail.includes("Failed to fetch")
+              ? "Agent timed out reaching the server. If this persists, ask your admin to confirm Celery workers are running."
+              : detail.length < 200
+                ? detail
+                : "Sorry, I couldn't reach Mizan right now. Try again in a moment.",
         );
       } finally {
         setLoading(false);
