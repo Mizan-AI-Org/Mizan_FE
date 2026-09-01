@@ -146,8 +146,8 @@ export default function Settings() {
     Saturday: { open: "10:00", close: "14:00", isClosed: true },
     Sunday: { open: "10:00", close: "14:00", isClosed: true },
   });
-  const [automaticClockOut, setAutomaticClockOut] = useState(true);
-  const [allowChecklistWithoutClockIn, setAllowChecklistWithoutClockIn] = useState(true);
+  const [automaticClockOut, setAutomaticClockOut] = useState(false);
+  const [allowChecklistWithoutClockIn, setAllowChecklistWithoutClockIn] = useState(false);
   const [categoryOwners, setCategoryOwners] = useState<Record<string, string[]>>({});
   const [categoryOwnerDirectory, setCategoryOwnerDirectory] = useState<
     Record<string, StaffPickerRow>
@@ -438,8 +438,8 @@ export default function Settings() {
           : "en"
       );
       setOperatingHours(data.operating_hours || operatingHours);
-      setAutomaticClockOut(data.automatic_clock_out !== false);
-      setAllowChecklistWithoutClockIn(data.allow_checklist_without_clock_in !== false);
+      setAutomaticClockOut(data.automatic_clock_out === true);
+      setAllowChecklistWithoutClockIn(data.allow_checklist_without_clock_in === true);
       setBreakDuration(data.break_duration || 30);
       setEmailNotifications(data.email_notifications || emailNotifications);
       setPushNotifications(data.push_notifications || pushNotifications);
@@ -484,8 +484,8 @@ export default function Settings() {
           : "en"
       );
       setOperatingHours(data.operating_hours || operatingHours);
-      setAutomaticClockOut(data.automatic_clock_out !== false);
-      setAllowChecklistWithoutClockIn(data.allow_checklist_without_clock_in !== false);
+      setAutomaticClockOut(data.automatic_clock_out === true);
+      setAllowChecklistWithoutClockIn(data.allow_checklist_without_clock_in === true);
       setBreakDuration(data.break_duration || 30);
       setEmailNotifications(data.email_notifications || emailNotifications);
       setPushNotifications(data.push_notifications || pushNotifications);
@@ -1243,7 +1243,7 @@ export default function Settings() {
               title={t("settings.general.language_prefs_title")}
               description={t("settings.general.language_prefs_desc")}
               collapsible
-              defaultOpen={false}
+              defaultOpen
             >
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start">
                   <div className="space-y-2">
