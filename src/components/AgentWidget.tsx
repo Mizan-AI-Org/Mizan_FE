@@ -319,7 +319,7 @@ export const AgentWidget: React.FC = () => {
         const pageContext = getAgentPageContext();
         const resp = await fetch(`${API_BASE}/agent/chat/`, {
           method: "POST",
-          signal: AbortSignal.timeout(90_000),
+          signal: AbortSignal.timeout(55_000),
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
@@ -377,11 +377,14 @@ export const AgentWidget: React.FC = () => {
           err instanceof Error && err.message
             ? err.message
             : "Something went wrong talking to Agent.";
+        const timedOut =
+          (err instanceof DOMException && err.name === "TimeoutError") ||
+          /timeout|timed out|aborted/i.test(detail);
         appendAssistantError(
           detail.includes("OPENAI") || detail.includes("503")
             ? "Agent is temporarily unavailable. Check that OPENAI_API_KEY is configured on the server."
-            : detail.includes("Failed to fetch")
-              ? "Agent timed out reaching the server. If this persists, ask your admin to confirm Celery workers are running."
+            : timedOut || detail.includes("Failed to fetch")
+              ? "Agent took too long. Ask again — briefings and floor questions should reply immediately."
               : detail.length < 200
                 ? detail
                 : "Sorry, I couldn't reach Mizan right now. Try again in a moment.",
