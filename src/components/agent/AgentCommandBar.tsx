@@ -16,6 +16,7 @@ import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
 import { API_BASE } from "@/lib/api";
 import { getAgentPageContext, askAgent, subscribeAgentPageContext } from "@/lib/agentPageContext";
+import { userFacingAgentMessage } from "@/lib/agentConversationTurns";
 import { cn } from "@/lib/utils";
 import { hasOperationalCommandRole } from "@/lib/operationalCommandRoles";
 import { ActionPreview, type ActionPreviewModel } from "@/components/agent/ActionPreview";
@@ -33,6 +34,7 @@ type CommandResult = {
   error?: string;
   detail?: string;
   message_for_user?: string;
+  status?: string;
   tool_trace?: unknown[];
   needs_confirmation?: boolean;
   needs_clarification?: boolean;
@@ -255,23 +257,27 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
             }
             if (statusData.status === "failed" || statusData.error || !statusResp.ok) {
               throw new Error(
-                statusData.message_for_user ||
-                  statusData.error ||
-                  statusData.reply ||
-                  "Agent failed",
+                userFacingAgentMessage(
+                  statusData.message_for_user ||
+                    statusData.error ||
+                    statusData.reply ||
+                    "Agent failed",
+                ),
               );
             }
           }
-          if (!data.reply && !data.action_preview) {
-            throw new Error("Agent is still thinking - try again.");
+          if (!data.reply && !data.action_preview && data.status !== "complete") {
+            throw new Error("I'm here. What do you need?");
           }
         } else {
           data = queued;
           if (!resp.ok) {
             throw new Error(
-              (data as { message_for_user?: string; error?: string }).message_for_user ||
-                (data as { error?: string }).error ||
-                `Agent failed (${resp.status})`,
+              userFacingAgentMessage(
+                (data as { message_for_user?: string; error?: string }).message_for_user ||
+                  (data as { error?: string }).error ||
+                  `Agent failed (${resp.status})`,
+              ),
             );
           }
         }
@@ -287,13 +293,15 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
         if (convo && Object.keys(convo).length) {
           conversationContextRef.current = convo;
         }
-        const reply = (data.reply || "").trim();
+        const reply = userFacingAgentMessage(data.reply);
         if (reply) {
           setHistory((prev) => [...prev, { role: "assistant", content: reply }]);
         }
         setQuery("");
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Something went wrong talking to Agent.";
+        const msg = userFacingAgentMessage(
+          err instanceof Error ? err.message : "I'm here. What do you need?",
+        );
         setResult({ reply: msg, command_kind: "question" });
         setHistory((prev) => [...prev, { role: "assistant", content: msg }]);
       } finally {
