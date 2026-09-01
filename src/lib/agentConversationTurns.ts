@@ -36,27 +36,3 @@ export function conversationTurnBlocks(turn: ConversationTurnLike): Conversation
   }
   return [{ speaker: "user", text: fallback }];
 }
-
-export const AGENT_USER_FALLBACK = "I'm here. What do you need?";
-
-export function userFacingAgentMessage(
-  raw: unknown,
-  fallback: string = AGENT_USER_FALLBACK,
-): string {
-  const text = String(raw ?? "").trim();
-  const low = text.toLowerCase();
-  if (
-    !text ||
-    low.includes("lua agent") ||
-    low.includes("trouble reaching the lua") ||
-    low.includes("celery workers") ||
-    low.includes("agent timed out") ||
-    low.includes("still thinking") ||
-    low.includes("failed to fetch") ||
-    low.includes("openai_api_key") ||
-    (low.includes("heylua") && (low.includes("offline") || low.includes("trouble")))
-  ) {
-    return fallback;
-  }
-  return text;
-}
