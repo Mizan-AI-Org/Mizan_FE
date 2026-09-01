@@ -16,6 +16,7 @@ import {
 } from "@/lib/agentChatStorage";
 import { logError } from "@/lib/logging";
 import { syncAgentPanelLayout } from "@/lib/agentPanelLayout";
+import { userFacingAgentMessage } from "@/lib/agentConversationTurns";
 import { cn } from "@/lib/utils";
 import { AgentContextChip } from "@/components/os";
 import { AgentMessageBody } from "@/components/agent/AgentMessageBody";
@@ -74,8 +75,7 @@ function humanAgentChatError(
 ): string {
   const raw =
     payload?.message_for_user || payload?.error || payload?.detail || fallback;
-  const text = String(raw || fallback).trim();
-  return text || fallback;
+  return userFacingAgentMessage(raw, fallback);
 }
 
 export const AgentWidget: React.FC = () => {
@@ -285,7 +285,7 @@ export const AgentWidget: React.FC = () => {
         }
         // Typed chat stays silent. Voice replies only play when the user
         // holds the mic (sendVoiceBlob), never from this text path.
-        const reply = data.reply || "Done.";
+        const reply = userFacingAgentMessage(data.reply);
         setHistory((prev) => [
           ...prev,
           { role: "assistant", content: reply, at: Date.now() },
@@ -392,13 +392,10 @@ export const AgentWidget: React.FC = () => {
             ? err.message
             : "Something went wrong talking to Agent.";
         appendAssistantError(
-          detail.includes("OPENAI") || detail.includes("503")
-            ? "Agent is temporarily unavailable. Check that OPENAI_API_KEY is configured on the server."
-            : detail.includes("Failed to fetch")
-              ? "Agent timed out reaching the server. If this persists, ask your admin to confirm Celery workers are running."
-              : detail.length < 200
-                ? detail
-                : "Sorry, I couldn't reach Mizan right now. Try again in a moment.",
+          userFacingAgentMessage(
+            detail,
+            "I'm here. What do you need?",
+          ),
         );
       } finally {
         setLoading(false);
