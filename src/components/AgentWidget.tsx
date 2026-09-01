@@ -36,7 +36,7 @@ function formatChatTime(at: number | undefined, locale: string): string {
   }
 }
 
-const ALLOWED_ROLES = [...OPERATIONAL_COMMAND_ROLES, "WAITER", "CASHIER", "CHEF"];
+const ALLOWED_ROLES = [...OPERATIONAL_COMMAND_ROLES];
 
 const VOICE_INPUT_ROLES = new Set<string>(OPERATIONAL_COMMAND_ROLES);
 
@@ -99,6 +99,7 @@ export const AgentWidget: React.FC = () => {
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [pageContext, setPageContext] = useState(() => getAgentPageContext());
+  const conversationContextRef = useRef<Record<string, unknown> | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -260,8 +261,14 @@ export const AgentWidget: React.FC = () => {
         reply?: string;
         thread_id?: string;
         session_context?: { location_id?: string; location_name?: string };
+        conversation_context?: Record<string, unknown>;
         tool_trace?: Array<{ tool?: string; result?: { success?: boolean; verified?: boolean } }>;
+        execution_path?: string;
+        capability?: string;
       }) => {
+        if (data.conversation_context && Object.keys(data.conversation_context).length) {
+          conversationContextRef.current = data.conversation_context;
+        }
         if (data.thread_id) {
           setThreadId(data.thread_id);
           saveAgentThreadId(chatUserId, chatRestaurantId, data.thread_id);
@@ -287,11 +294,14 @@ export const AgentWidget: React.FC = () => {
           const tools = (data.tool_trace || [])
             .map((t) => String(t?.tool || "").toLowerCase())
             .filter(Boolean);
-          const mutated = tools.some((t) =>
-            /assign_incident|route_incident|resolve_incident|assign_task|complete_task|update_task|create_task|create_dashboard_task/.test(
-              t,
-            ),
-          );
+          const mutated =
+            tools.some((t) =>
+              /assign_incident|route_incident|resolve_incident|assign_task|complete_task|update_task|create_task|create_dashboard_task/.test(
+                t,
+              ),
+            ) ||
+            Boolean(data.capability) ||
+            String(data.execution_path || "").includes("command_bus");
           if (mutated) {
             window.dispatchEvent(
               new CustomEvent("agent:ops-mutated", {
@@ -321,6 +331,9 @@ export const AgentWidget: React.FC = () => {
             restaurant_id: user?.restaurant || user?.restaurant_data?.id || undefined,
             ...establishment,
             ...(pageContext ? { page_context: pageContext } : {}),
+            ...(conversationContextRef.current
+              ? { conversation_context: conversationContextRef.current }
+              : {}),
           }),
         });
 

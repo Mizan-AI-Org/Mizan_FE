@@ -21,6 +21,29 @@ import { cn } from "@/lib/utils";
 import { isImpersonating } from "@/lib/impersonation";
 import { useAgentPanelOpen } from "@/hooks/use-agent-panel-open";
 
+function agentPageContextFromLocation(pathname: string, search: string): {
+  route: string;
+  tab?: string;
+  entity_type?: string;
+} {
+  const route = pathname + (search || "");
+  const p = pathname.toLowerCase();
+  if (p.includes("operations-live")) return { route, tab: "operations", entity_type: "operations" };
+  if (p.includes("staff-scheduling") || p.includes("/scheduling")) {
+    return { route, tab: "schedule", entity_type: "schedule" };
+  }
+  if (p.includes("staff-request") || p.includes("invoice") || p.includes("finance") || p.includes("payguard")) {
+    return { route, tab: "approvals", entity_type: "approval" };
+  }
+  if (p.includes("guest-request")) return { route, entity_type: "guest_request" };
+  if (p.includes("safety") || p.includes("incident")) return { route, tab: "incidents", entity_type: "incident" };
+  if (p.includes("workflow") || p.includes("automation")) return { route, entity_type: "workflow" };
+  if (p.includes("time-clock") || p.includes("attendance")) return { route, entity_type: "attendance" };
+  if (p.includes("checklist")) return { route, entity_type: "checklist" };
+  if (p.includes("people") || p.includes("staff-app")) return { route, tab: "people", entity_type: "staff" };
+  return { route };
+}
+
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -56,9 +79,7 @@ const DashboardLayout: React.FC = () => {
       });
       return;
     }
-    setAgentPageContext({
-      route: location.pathname + (location.search || ""),
-    });
+    setAgentPageContext(agentPageContextFromLocation(location.pathname, location.search));
   }, [location.pathname, location.search, taskSheetId, taskWidgetTitle, incidentFocusId]);
 
   useEffect(() => {

@@ -4858,10 +4858,12 @@ export class BackendService {
   }
 
   // ---------------------------------------------------------------------
-  // Mizan Agent (Mastra)
+  // Mizan Agent (heylua.ai TypeScript runtime)
   // ---------------------------------------------------------------------
   async getAgentConfig(accessToken: string): Promise<{
     agent_id: string;
+    agent_public_url: string;
+    /** @deprecated Use agent_public_url (heylua.ai canonical) */
     mastra_public_url: string;
     chat_proxy: boolean;
   }> {
@@ -4877,6 +4879,11 @@ export class BackendService {
       history?: { role: string; content: string }[];
       async?: boolean;
       restaurant_id?: string;
+      page_context?: Record<string, unknown> | null;
+      conversation_context?: Record<string, unknown> | null;
+      thread_id?: string;
+      location_id?: string;
+      location_name?: string;
     },
   ): Promise<{ reply?: string; task_id?: string; status?: string; success?: boolean }> {
     return this.fetchWithError("/agent/chat/", {

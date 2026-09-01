@@ -3,7 +3,9 @@ export const OPERATIONAL_COMMAND_ROLES = [
   "SUPER_ADMIN",
   "ADMIN",
   "OWNER",
+  "RESTAURANT_OWNER",
   "MANAGER",
+  "GENERAL_MANAGER",
   "SUPERVISOR",
 ] as const;
 

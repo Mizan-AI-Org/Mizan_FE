@@ -100,6 +100,7 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
   }, [history]);
 
   const [pageContext, setPageContext] = useState(() => getAgentPageContext());
+  const conversationContextRef = useRef<Record<string, unknown> | null>(null);
 
   useEffect(() => subscribeAgentPageContext(setPageContext), []);
 
@@ -222,11 +223,17 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
             restaurant_id: user?.restaurant || user?.restaurant_data?.id || undefined,
             ...establishment,
             ...(pageCtx ? { page_context: pageCtx } : {}),
+            ...(conversationContextRef.current
+              ? { conversation_context: conversationContextRef.current }
+              : {}),
           }),
         });
 
         let data: CommandResult = {};
         const queued = await resp.json();
+        if (queued.conversation_context && typeof queued.conversation_context === "object") {
+          conversationContextRef.current = queued.conversation_context as Record<string, unknown>;
+        }
         if (queued.status === "complete" && (queued.reply || queued.error)) {
           data = queued;
         } else {
@@ -263,6 +270,10 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
           setPending(data.pending_confirmation);
         } else if (!data.needs_confirmation) {
           setPending(null);
+        }
+        const convo = (data as { conversation_context?: Record<string, unknown> }).conversation_context;
+        if (convo && Object.keys(convo).length) {
+          conversationContextRef.current = convo;
         }
         const reply = (data.reply || "").trim();
         if (reply) {
