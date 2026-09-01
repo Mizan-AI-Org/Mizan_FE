@@ -212,6 +212,7 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
       try {
         const resp = await fetch(`${API_BASE}/agent/chat/`, {
           method: "POST",
+          signal: AbortSignal.timeout(90_000),
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
@@ -219,7 +220,7 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
           body: JSON.stringify({
             message,
             history: historyRef.current.slice(-8),
-            async: true,
+            async: false,
             restaurant_id: user?.restaurant || user?.restaurant_data?.id || undefined,
             ...establishment,
             ...(pageCtx ? { page_context: pageCtx } : {}),
@@ -240,7 +241,7 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
         const taskId = queued.task_id as string | undefined;
         if (taskId) {
           for (let attempt = 0; attempt < 90; attempt += 1) {
-            await sleep([400, 600, 800, 1000, 1200, 1500][Math.min(attempt, 5)]);
+            await sleep([150, 200, 250, 350, 500, 750][Math.min(attempt, 5)]);
             const statusResp = await fetch(
               `${API_BASE}/agent/chat/status/${encodeURIComponent(taskId)}/`,
               { headers: { Authorization: `Bearer ${accessToken}` } },
