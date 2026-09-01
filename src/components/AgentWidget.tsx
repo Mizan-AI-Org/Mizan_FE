@@ -68,16 +68,6 @@ function pickRecorderMimeType(): string {
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 }
 
-function humanAgentChatError(
-  payload: Record<string, unknown> | undefined,
-  fallback: string,
-): string {
-  const raw =
-    payload?.message_for_user || payload?.error || payload?.detail || fallback;
-  const text = String(raw || fallback).trim();
-  return text || fallback;
-}
-
 export const AgentWidget: React.FC = () => {
   const { user, accessToken } = useAuth() as AuthContextType;
   const { t, isRTL, language } = useLanguage();
@@ -368,10 +358,7 @@ export const AgentWidget: React.FC = () => {
             }
             if (statusData.status === "failed" || statusData.error || !statusResp.ok) {
               throw new Error(
-                humanAgentChatError(
-                  statusData as Record<string, unknown>,
-                  `Agent chat failed (${statusResp.status})`,
-                ),
+                statusData.error || statusData.reply || `Agent chat failed (${statusResp.status})`,
               );
             }
           }
@@ -379,9 +366,7 @@ export const AgentWidget: React.FC = () => {
         }
 
         if (!resp.ok) {
-          throw new Error(
-            humanAgentChatError(queued as Record<string, unknown>, `Agent chat failed (${resp.status})`),
-          );
+          throw new Error(queued.error || queued.detail || `Agent chat failed (${resp.status})`);
         }
 
         applyChatPayload(queued);

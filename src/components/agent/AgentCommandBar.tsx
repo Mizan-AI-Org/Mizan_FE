@@ -30,9 +30,6 @@ type ChatTurn = { role: "user" | "assistant"; content: string };
 
 type CommandResult = {
   reply?: string;
-  error?: string;
-  detail?: string;
-  message_for_user?: string;
   tool_trace?: unknown[];
   needs_confirmation?: boolean;
   needs_clarification?: boolean;
@@ -254,12 +251,7 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
               break;
             }
             if (statusData.status === "failed" || statusData.error || !statusResp.ok) {
-              throw new Error(
-                statusData.message_for_user ||
-                  statusData.error ||
-                  statusData.reply ||
-                  "Agent failed",
-              );
+              throw new Error(statusData.error || statusData.reply || "Agent failed");
             }
           }
           if (!data.reply && !data.action_preview) {
@@ -268,11 +260,7 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
         } else {
           data = queued;
           if (!resp.ok) {
-            throw new Error(
-              (data as { message_for_user?: string; error?: string }).message_for_user ||
-                (data as { error?: string }).error ||
-                `Agent failed (${resp.status})`,
-            );
+            throw new Error((data as { error?: string }).error || `Agent failed (${resp.status})`);
           }
         }
         }
