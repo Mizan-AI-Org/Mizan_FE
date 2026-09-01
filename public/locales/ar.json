@@ -1846,6 +1846,8 @@
   "settings.general.ai_smart_scheduling_desc": "يقوم الذكاء الاصطناعي بتنظيم جداول عمل الموظفين",
   "settings.general.automatic_clock_out": "تسجيل خروج تلقائي عند انتهاء الوردية",
   "settings.general.automatic_clock_out_desc": "عند التفعيل، يُسجَّل خروج الموظفين تلقائيًا فور انتهاء الوردية المخططة، ويستلمون إشعار واتساب.",
+  "settings.general.allow_checklist_without_clock_in": "بدء قائمة التحقق دون تسجيل الحضور",
+  "settings.general.allow_checklist_without_clock_in_desc": "عند التفعيل يمكن للموظفين بدء قائمة التحقق عبر واتساب أو التطبيق دون تسجيل حضور. عند الإيقاف يُطلب تسجيل الحضور بالموقع أولاً.",
   "settings.general.business_vertical": "Business type",
   "settings.general.business_vertical_construction": "Construction & trades",
   "settings.general.business_vertical_healthcare": "Healthcare & wellness",

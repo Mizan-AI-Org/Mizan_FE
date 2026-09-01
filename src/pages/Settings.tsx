@@ -147,6 +147,7 @@ export default function Settings() {
     Sunday: { open: "10:00", close: "14:00", isClosed: true },
   });
   const [automaticClockOut, setAutomaticClockOut] = useState(true);
+  const [allowChecklistWithoutClockIn, setAllowChecklistWithoutClockIn] = useState(true);
   const [categoryOwners, setCategoryOwners] = useState<Record<string, string[]>>({});
   const [categoryOwnerDirectory, setCategoryOwnerDirectory] = useState<
     Record<string, StaffPickerRow>
@@ -438,6 +439,7 @@ export default function Settings() {
       );
       setOperatingHours(data.operating_hours || operatingHours);
       setAutomaticClockOut(data.automatic_clock_out !== false);
+      setAllowChecklistWithoutClockIn(data.allow_checklist_without_clock_in !== false);
       setBreakDuration(data.break_duration || 30);
       setEmailNotifications(data.email_notifications || emailNotifications);
       setPushNotifications(data.push_notifications || pushNotifications);
@@ -483,6 +485,7 @@ export default function Settings() {
       );
       setOperatingHours(data.operating_hours || operatingHours);
       setAutomaticClockOut(data.automatic_clock_out !== false);
+      setAllowChecklistWithoutClockIn(data.allow_checklist_without_clock_in !== false);
       setBreakDuration(data.break_duration || 30);
       setEmailNotifications(data.email_notifications || emailNotifications);
       setPushNotifications(data.push_notifications || pushNotifications);
@@ -638,6 +641,7 @@ export default function Settings() {
         language,
         operating_hours: operatingHours,
         automatic_clock_out: automaticClockOut,
+        allow_checklist_without_clock_in: allowChecklistWithoutClockIn,
         break_duration: breakDuration,
         email_notifications: emailNotifications,
         push_notifications: pushNotifications,
@@ -1271,6 +1275,22 @@ export default function Settings() {
                       id="automatic-clock-out"
                       checked={automaticClockOut}
                       onCheckedChange={setAutomaticClockOut}
+                      className="data-[state=checked]:bg-emerald-600 shrink-0"
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-4 h-full min-h-[5.5rem]">
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      <Label htmlFor="allow-checklist-without-clock-in" className="cursor-pointer">
+                        {t("settings.general.allow_checklist_without_clock_in")}
+                      </Label>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {t("settings.general.allow_checklist_without_clock_in_desc")}
+                      </p>
+                    </div>
+                    <Switch
+                      id="allow-checklist-without-clock-in"
+                      checked={allowChecklistWithoutClockIn}
+                      onCheckedChange={setAllowChecklistWithoutClockIn}
                       className="data-[state=checked]:bg-emerald-600 shrink-0"
                     />
                   </div>

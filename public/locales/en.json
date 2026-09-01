@@ -1849,6 +1849,8 @@
   "settings.general.ai_smart_scheduling_desc": "AI optimizes staff schedules",
   "settings.general.automatic_clock_out": "Auto clock-out at shift end",
   "settings.general.automatic_clock_out_desc": "When enabled, staff are automatically clocked out immediately when their scheduled shift ends. They receive a WhatsApp notification.",
+  "settings.general.allow_checklist_without_clock_in": "Start checklist without clock-in",
+  "settings.general.allow_checklist_without_clock_in_desc": "When on, staff can run their shift checklist on WhatsApp or in the app without clocking in first. Turn off to require GPS clock-in before the first checklist step.",
   "settings.general.business_vertical": "Business type",
   "settings.general.business_vertical_construction": "Construction & trades",
   "settings.general.business_vertical_healthcare": "Healthcare & wellness",

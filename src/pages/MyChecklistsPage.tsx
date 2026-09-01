@@ -182,6 +182,15 @@ const MyChecklistsPage: React.FC = () => {
   });
 
   const handleShiftTemplateClick = async (template: ShiftTemplate) => {
+    const allowWithoutClockIn = sessionData?.allow_checklist_without_clock_in !== false;
+    if (!allowWithoutClockIn && !sessionData?.is_clocked_in) {
+      toast({
+        title: t("staff.clock_in_required"),
+        description: t("staff.clock_in_required"),
+        variant: "destructive",
+      });
+      return;
+    }
 
 
     if (template.execution_id) {
@@ -460,7 +469,8 @@ const MyChecklistsPage: React.FC = () => {
         {(() => {
           const templateCount = Array.isArray(shiftTemplates) ? shiftTemplates.length : 0;
           const isClockedIn = sessionData?.is_clocked_in;
-          const showDisabled = !loadingSession && !isClockedIn;
+          const allowWithoutClockIn = sessionData?.allow_checklist_without_clock_in !== false;
+          const showDisabled = !loadingSession && !allowWithoutClockIn && !isClockedIn;
 
 
 

@@ -1846,6 +1846,8 @@
   "settings.general.ai_smart_scheduling_desc": "L'IA optimise les horaires du personnel",
   "settings.general.automatic_clock_out": "Dépointage automatique en fin de shift",
   "settings.general.automatic_clock_out_desc": "Si activé, le personnel est dépointé automatiquement dès la fin prévue du shift. Ils reçoivent une notification WhatsApp.",
+  "settings.general.allow_checklist_without_clock_in": "Démarrer la checklist sans pointer",
+  "settings.general.allow_checklist_without_clock_in_desc": "Activé : le personnel peut lancer la checklist WhatsApp ou dans l’app sans pointer. Désactivé : le pointage GPS est exigé avant la première étape.",
   "settings.general.business_vertical": "Type d'activité",
   "settings.general.business_vertical_construction": "BTP & corps de métier",
   "settings.general.business_vertical_healthcare": "Santé & bien-être",
