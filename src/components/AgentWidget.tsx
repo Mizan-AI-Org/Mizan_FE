@@ -384,7 +384,7 @@ export const AgentWidget: React.FC = () => {
           detail.includes("OPENAI") || detail.includes("503")
             ? "Agent is temporarily unavailable. Check that OPENAI_API_KEY is configured on the server."
             : timedOut || detail.includes("Failed to fetch")
-              ? "Agent took too long. Ask again — briefings and floor questions should reply immediately."
+              ? "Agent took too long. Ask again — briefings, incidents, payments, and floor questions should reply immediately."
               : detail.length < 200
                 ? detail
                 : "Sorry, I couldn't reach Mizan right now. Try again in a moment.",
