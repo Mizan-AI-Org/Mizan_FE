@@ -5,43 +5,19 @@ import { Button } from "@/components/ui/button";
 import { useNotifications } from '../../hooks/useNotifications';
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { NotificationDropdownContent } from "@/components/layout/NotificationDropdownContent";
-import { UserAvatarMenu } from "@/components/layout/UserAvatarMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import BrandLogo from "@/components/BrandLogo";
 import { useLanguage } from "@/hooks/use-language";
-import { LuaPopAgentWidget } from "@/components/LuaPopAgentWidget";
 import ImpersonationBanner from "@/components/platform-admin/ImpersonationBanner";
 import { LiveDateTime } from "@/components/LiveDateTime";
-import { AgentCommandBar } from "@/components/agent/AgentCommandBar";
 import { DashboardTaskDetailSheet } from "@/components/dashboard/DashboardTaskDetailSheet";
 import { closeDashboardTaskSheet } from "@/lib/dashboard-task-sheet";
-import { clearAgentPageContext, focusEntityForAgent, setAgentPageContext } from "@/lib/agentPageContext";
 import { IntentRail, MobileIntentDock } from "@/components/layout/IntentRail";
+import { AgentChatPanel } from "@/components/agent/AgentChatPanel";
+import { CommandSearchBar } from "@/components/command/CommandSearchBar";
+import { AgentPanelProvider } from "@/context/AgentPanelContext";
 import { cn } from "@/lib/utils";
 import { isImpersonating } from "@/lib/impersonation";
-
-function agentPageContextFromLocation(pathname: string, search: string): {
-  route: string;
-  tab?: string;
-  entity_type?: string;
-} {
-  const route = pathname + (search || "");
-  const p = pathname.toLowerCase();
-  if (p.includes("operations-live")) return { route, tab: "operations", entity_type: "operations" };
-  if (p.includes("staff-scheduling") || p.includes("/scheduling")) {
-    return { route, tab: "schedule", entity_type: "schedule" };
-  }
-  if (p.includes("staff-request") || p.includes("invoice") || p.includes("finance") || p.includes("payguard")) {
-    return { route, tab: "approvals", entity_type: "approval" };
-  }
-  if (p.includes("guest-request")) return { route, entity_type: "guest_request" };
-  if (p.includes("safety") || p.includes("incident")) return { route, tab: "incidents", entity_type: "incident" };
-  if (p.includes("workflow") || p.includes("automation")) return { route, entity_type: "workflow" };
-  if (p.includes("time-clock") || p.includes("attendance")) return { route, entity_type: "attendance" };
-  if (p.includes("checklist")) return { route, entity_type: "checklist" };
-  if (p.includes("people") || p.includes("staff-app")) return { route, tab: "people", entity_type: "staff" };
-  return { route };
-}
 
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -49,39 +25,12 @@ const DashboardLayout: React.FC = () => {
   const [searchParams] = useSearchParams();
   const taskSheetId = (searchParams.get("task") || "").trim() || null;
   const taskWidgetTitle = (searchParams.get("widget") || "").trim() || undefined;
-  const incidentFocusId = (searchParams.get("incident") || "").trim() || null;
   const { notifications, markAllAsRead, markAsRead } = useNotifications();
   const { t } = useLanguage();
   const viewingAsTenant = isImpersonating();
   const unreadCount = notifications.filter(n => !n.read).length;
   const [shouldShake, setShouldShake] = useState(false);
   const prevUnreadRef = useRef<number>(unreadCount);
-
-  useEffect(() => {
-    if (taskSheetId) {
-      focusEntityForAgent({
-        entity_type: "task",
-        entity_id: taskSheetId,
-        entity_label: taskWidgetTitle,
-        route: location.pathname + location.search,
-      });
-      return;
-    }
-    if (incidentFocusId) {
-      focusEntityForAgent({
-        entity_type: "incident",
-        entity_id: incidentFocusId,
-        route: location.pathname + location.search,
-        tab: "incidents",
-      });
-      return;
-    }
-    setAgentPageContext(agentPageContextFromLocation(location.pathname, location.search));
-  }, [location.pathname, location.search, taskSheetId, taskWidgetTitle, incidentFocusId]);
-
-  useEffect(() => {
-    return () => clearAgentPageContext();
-  }, []);
 
   useEffect(() => {
     if (unreadCount > (prevUnreadRef.current || 0)) {
@@ -100,7 +49,8 @@ const DashboardLayout: React.FC = () => {
   }, [unreadCount]);
 
   return (
-    <div className={cn("mizan-app-shell flex min-h-screen flex-col", viewingAsTenant && "pt-10")}>
+    <AgentPanelProvider>
+    <div className={cn("mizan-app-shell flex h-dvh flex-col overflow-hidden", viewingAsTenant && "pt-10")}>
       <a
         href="#mizan-main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[3000] focus:rounded-control focus:bg-card focus:px-3 focus:py-2 focus:text-body focus:shadow-strong"
@@ -108,8 +58,8 @@ const DashboardLayout: React.FC = () => {
         {t("common.skip_to_content")}
       </a>
       <ImpersonationBanner />
-      <header className="mizan-app-header app-header-surface sticky top-0 z-[2000] border-b border-border/80 backdrop-blur-md">
-        <div className="flex items-center gap-3 px-3 py-2.5 sm:px-4 lg:px-0">
+      <header className="mizan-app-header app-header-surface sticky top-0 z-[2000] w-full shrink-0 border-b border-border/80 backdrop-blur-md">
+        <div className="flex h-[var(--mizan-header-height,3.5625rem)] w-full items-center gap-3 px-3 sm:px-4 lg:pe-4">
           <button
             type="button"
             onClick={() => navigate("/dashboard")}
@@ -123,11 +73,11 @@ const DashboardLayout: React.FC = () => {
             <BrandLogo size="md" withWordmark />
           </button>
 
-          <div className="mx-auto min-w-0 max-w-2xl flex-1 lg:pr-4">
-            <AgentCommandBar />
-          </div>
+          <CommandSearchBar className="min-w-0 max-w-2xl flex-1" />
 
-          <div className="mizan-app-header-actions flex shrink-0 items-center gap-1 pr-1 sm:gap-2 sm:pr-4 text-foreground">
+          <div className="flex-1 lg:hidden" />
+
+          <div className="mizan-app-header-actions ms-auto flex shrink-0 items-center gap-1 sm:gap-2 text-foreground">
             <div className="hidden sm:block">
               <LiveDateTime showTime={false} />
             </div>
@@ -159,35 +109,26 @@ const DashboardLayout: React.FC = () => {
                 />
               </DropdownMenu>
             </div>
-
-            <div className="lg:hidden">
-              <UserAvatarMenu variant="icon" />
-            </div>
           </div>
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="relative flex min-h-0 flex-1">
-            <IntentRail />
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <IntentRail />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:ps-[var(--mizan-rail-width,232px)]">
+          <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
             <main
               id="mizan-main"
-              className={cn(
-                "mizan-app-main flex-1 min-w-0",
-                "lg:ps-[var(--mizan-rail-width,232px)]",
-                "pb-20 lg:pb-6",
-              )}
+              className="mizan-app-main min-h-0 min-w-0 flex-1 overflow-y-auto pb-20 lg:pb-6"
             >
               <Outlet />
             </main>
+            <AgentChatPanel />
           </div>
-
           <MobileIntentDock />
         </div>
-
-        <LuaPopAgentWidget />
       </div>
+
       <DashboardTaskDetailSheet
         taskId={taskSheetId}
         open={!!taskSheetId}
@@ -197,6 +138,7 @@ const DashboardLayout: React.FC = () => {
         widgetTitle={taskWidgetTitle}
       />
     </div>
+    </AgentPanelProvider>
   );
 };
 

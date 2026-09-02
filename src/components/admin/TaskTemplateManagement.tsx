@@ -1,7 +1,6 @@
 import React, { useState, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '@/hooks/use-language';
-import { useAgentPanelOpen } from '@/hooks/use-agent-panel-open';
 import { cn } from '@/lib/utils';
 import { CardGridSkeleton } from '@/components/skeletons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -123,7 +122,6 @@ const frequencyColors = {
 
 export default function TaskTemplateManagement() {
   const { t } = useLanguage();
-  const agentPanelOpen = useAgentPanelOpen();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterFrequency, setFilterFrequency] = useState<string>('all');
@@ -856,8 +854,8 @@ export default function TaskTemplateManagement() {
       {/* Templates Grid */}
       {isLoading ? (
         <CardGridSkeleton
-          count={agentPanelOpen ? 4 : 6}
-          columns={agentPanelOpen ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"}
+          count={6}
+          columns="grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
         />
       ) : filteredTemplates.length === 0 ? (
         <Card className="premium-card">
@@ -881,10 +879,7 @@ export default function TaskTemplateManagement() {
       ) : (
         <div
           className={cn(
-            "grid items-stretch gap-4 sm:gap-5",
-            agentPanelOpen
-              ? "grid-cols-1 sm:grid-cols-2"
-              : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+            "grid items-stretch gap-4 sm:gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
           )}
         >
           {filteredTemplates.map((template) => (

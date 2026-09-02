@@ -233,7 +233,7 @@ export function IntentRail({ className }: { className?: string }) {
   return (
     <aside
       className={cn(
-        "fixed inset-inline-start-0 top-[57px] bottom-0 z-40 hidden lg:flex flex-col border-e border-sidebar-border",
+        "fixed inset-inline-start-0 top-[var(--mizan-header-height,3.5625rem)] bottom-0 z-40 hidden lg:flex flex-col border-e border-sidebar-border",
         "app-rail-surface backdrop-blur-md transition-[width] duration-os",
         collapsed ? "w-[72px]" : "w-[232px]",
         className,

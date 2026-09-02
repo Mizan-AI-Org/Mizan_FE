@@ -34,7 +34,6 @@ import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useDashboardCategories } from "@/hooks/use-dashboard-categories";
-import { useAgentPanelOpen } from "@/hooks/use-agent-panel-open";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -144,10 +143,8 @@ export function DashboardWidgetGridSection() {
   const cardHeaderBase = "flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6";
 
   const canCustomizeDashboard = hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"]);
-  const agentPanelOpen = useAgentPanelOpen();
-  const widgetGridCols = agentPanelOpen
-    ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6 items-stretch auto-rows-[minmax(200px,auto)]"
-    : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch auto-rows-[minmax(200px,auto)]";
+  const widgetGridCols =
+    "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch auto-rows-[minmax(200px,auto)]";
 
   const { data: customWidgetsPayload } = useQuery({
     queryKey: ["dashboard-custom-widgets", accessToken],

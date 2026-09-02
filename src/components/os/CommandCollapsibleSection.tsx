@@ -8,14 +8,14 @@ type Props = {
   title: string;
   description?: string;
   count?: number;
-  /** When false, section starts collapsed. */
   defaultOpen?: boolean;
   preview?: string;
+  variant?: "default" | "agent";
   className?: string;
   children: React.ReactNode;
 };
 
-/** Collapsible command-board section — collapsed by default to keep Command scannable. */
+/** Collapsible command-board section. */
 export function CommandCollapsibleSection({
   id,
   title,
@@ -23,21 +23,30 @@ export function CommandCollapsibleSection({
   count,
   defaultOpen = false,
   preview,
+  variant = "default",
   className,
   children,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen);
+  const isAgent = variant === "agent";
 
   return (
     <section id={id} aria-label={title} className={cn("scroll-mt-24 os-section", className)}>
       <Collapsible open={open} onOpenChange={setOpen}>
-        <div className="overflow-hidden rounded-panel border border-border/70 bg-card shadow-xs">
+        <div
+          className={cn(
+            "overflow-hidden rounded-panel border shadow-xs",
+            isAgent
+              ? "border-ai-border bg-gradient-to-br from-ai/90 to-card"
+              : "border-border/70 bg-card",
+          )}
+        >
           <CollapsibleTrigger asChild>
             <button
               type="button"
               className={cn(
                 "flex w-full items-start justify-between gap-3 px-4 py-3.5 text-left transition-colors",
-                "hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                "hover:bg-muted/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
               )}
               aria-expanded={open}
             >
@@ -45,7 +54,12 @@ export function CommandCollapsibleSection({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-section-title">{title}</span>
                   {count != null && count > 0 ? (
-                    <span className="inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-primary/12 px-2 py-0.5 text-caption font-semibold tabular-nums text-primary">
+                    <span
+                      className={cn(
+                        "inline-flex min-w-[1.5rem] items-center justify-center rounded-full px-2 py-0.5 text-caption font-semibold tabular-nums",
+                        isAgent ? "bg-primary/15 text-primary" : "bg-primary/12 text-primary",
+                      )}
+                    >
                       {count}
                     </span>
                   ) : null}

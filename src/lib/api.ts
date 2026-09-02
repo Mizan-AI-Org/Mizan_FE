@@ -1443,6 +1443,10 @@ export class BackendService {
     return this.fetchWithError("/dashboard/action-center/");
   }
 
+  async getCommandCenter(): Promise<import("@/lib/commandCentre").CommandCentrePayload> {
+    return this.fetchWithError("/dashboard/command-center/");
+  }
+
   async managerClockIn(
     staffId: string,
     payload: { reason: string; shift_id?: string }
@@ -4857,65 +4861,5 @@ export class BackendService {
     });
   }
 
-  // ---------------------------------------------------------------------
-  // Mizan Agent (heylua.ai TypeScript runtime)
-  // ---------------------------------------------------------------------
-  async getAgentConfig(accessToken: string): Promise<{
-    agent_id: string;
-    agent_public_url: string;
-    lua_public_url?: string;
-    chat_proxy: boolean;
-  }> {
-    return this.fetchWithError("/agent/config/", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-  }
-
-  async sendAgentChat(
-    accessToken: string,
-    body: {
-      message: string;
-      history?: { role: string; content: string }[];
-      async?: boolean;
-      restaurant_id?: string;
-      page_context?: Record<string, unknown> | null;
-      conversation_context?: Record<string, unknown> | null;
-      thread_id?: string;
-      location_id?: string;
-      location_name?: string;
-    },
-  ): Promise<{ reply?: string; task_id?: string; status?: string; success?: boolean }> {
-    return this.fetchWithError("/agent/chat/", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-  }
-
-  async pollAgentChatStatus(
-    accessToken: string,
-    taskId: string,
-  ): Promise<{ status: string; reply?: string; error?: string }> {
-    return this.fetchWithError(`/agent/chat/status/${taskId}/`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-  }
-
-  async getAgentCommandCenter(params?: {
-    period?: string;
-    restaurant_id?: string;
-    locale?: string;
-  }): Promise<Record<string, unknown>> {
-    const qs = new URLSearchParams();
-    if (params?.period) qs.set("period", params.period);
-    if (params?.restaurant_id) qs.set("restaurant_id", params.restaurant_id);
-    if (params?.locale) qs.set("locale", params.locale);
-    const query = qs.toString();
-    const path = query ? `/agent/command-center/?${query}` : "/agent/command-center/";
-    return this.fetchWithError(path);
-  }
 }
 export const api = new BackendService();

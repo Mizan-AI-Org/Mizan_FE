@@ -19,6 +19,7 @@ import BrandLogo from "@/components/BrandLogo";
 import { LanguageSelector } from "@/components/LanguangeSelector";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useLanguage } from "@/hooks/use-language";
+import { AgentChatPanel } from "@/components/agent/AgentChatPanel";
 
 // Grid-based staff layout using a top navbar and main content area.
 // Mirrors admin layout spacing and components, while switching to grid navigation.
@@ -134,6 +135,7 @@ const StaffGridLayout: React.FC = () => {
         </div>
         <Outlet context={{ query }} />
       </main>
+      <AgentChatPanel />
     </div>
   );
 };

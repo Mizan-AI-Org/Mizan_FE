@@ -1,4 +1,4 @@
-/** Tenant roles with full operational Command Center access (web Agent + WhatsApp manager ops). */
+/** Tenant roles with full operational dashboard access. */
 export const OPERATIONAL_COMMAND_ROLES = [
   "SUPER_ADMIN",
   "ADMIN",

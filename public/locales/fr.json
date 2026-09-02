@@ -3350,6 +3350,7 @@
   "ai.chat_button": "Discuter avec l'Agent",
   "ai.chat_close": "Fermer le chat Agent",
   "ai.chat_error": "Une erreur est survenue lors de la communication avec l'Agent.",
+  "ai.chat_unavailable": "L'Agent n'est pas disponible pour le moment. Réessayez plus tard.",
   "ai.chat_greeting": "Demandez des informations sur les services, tâches, personnel ou analyses.",
   "ai.chat_welcome": "Bienvenue \"{{name}}\", comment puis-je vous aider aujourd'hui ?",
   "ai.chat_online": "En ligne",
