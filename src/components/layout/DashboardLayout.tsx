@@ -9,7 +9,7 @@ import { UserAvatarMenu } from "@/components/layout/UserAvatarMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import BrandLogo from "@/components/BrandLogo";
 import { useLanguage } from "@/hooks/use-language";
-import { AgentWidget } from "@/components/AgentWidget";
+import { LuaPopAgentWidget } from "@/components/LuaPopAgentWidget";
 import ImpersonationBanner from "@/components/platform-admin/ImpersonationBanner";
 import { LiveDateTime } from "@/components/LiveDateTime";
 import { AgentCommandBar } from "@/components/agent/AgentCommandBar";
@@ -191,7 +191,7 @@ const DashboardLayout: React.FC = () => {
       >
         <Outlet />
       </main>
-      <AgentWidget />
+      <LuaPopAgentWidget />
       <DashboardTaskDetailSheet
         taskId={taskSheetId}
         open={!!taskSheetId}
