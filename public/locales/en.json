@@ -3328,6 +3328,7 @@
   "ai.chat_placeholder": "Ask Agent anything...",
   "ai.chat_title": "Agent",
   "ai.chat_greeting": "Ask about shifts, tasks, staff, or insights.",
+  "ai.chat_welcome": "Welcome \"{{name}}\", How can I help you today?",
   "ai.chat_thinking": "Agent is thinking…",
   "ai.voice_replies": "Voice replies",
   "ai.voice_replies_hint": "Hear Agent's warm female voice via Fish Audio",

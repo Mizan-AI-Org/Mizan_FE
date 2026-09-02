@@ -292,9 +292,22 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
     [accessToken, busy, pending, user],
   );
 
+  const openAgentWithPrompt = useCallback((prompt: string) => {
+    const text = prompt.trim();
+    if (!text) return;
+    setOpen(false);
+    setQuery("");
+    setResult(null);
+    setPending(null);
+    setRecent(pushRecent(text));
+    askAgent({ prompt: text });
+  }, []);
+
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    void runCommand(query);
+    const message = query.trim();
+    if (!message) return;
+    openAgentWithPrompt(message);
   };
 
   const showSurface = open;
@@ -395,10 +408,7 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
                     <SuggestionRow
                       key={r}
                       label={r}
-                      onClick={() => {
-                        setQuery(r);
-                        void runCommand(r);
-                      }}
+                      onClick={() => openAgentWithPrompt(r)}
                     />
                   ))}
                 </SuggestionGroup>
@@ -409,10 +419,7 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
                   <SuggestionRow
                     key={s.id}
                     label={s.label}
-                    onClick={() => {
-                      setQuery(s.prompt);
-                      void runCommand(s.prompt);
-                    }}
+                    onClick={() => openAgentWithPrompt(s.prompt)}
                   />
                 ))}
               </SuggestionGroup>
@@ -421,10 +428,7 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
                 <SuggestionGroup title="Current context">
                   <SuggestionRow
                     label={contextSuggestion.label}
-                    onClick={() => {
-                      setQuery(contextSuggestion.prompt);
-                      void runCommand(contextSuggestion.prompt);
-                    }}
+                    onClick={() => openAgentWithPrompt(contextSuggestion.prompt)}
                   />
                 </SuggestionGroup>
               ) : null}
@@ -445,11 +449,7 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
                         key={q.id}
                         type="button"
                         className="inline-flex items-center gap-1.5 rounded-control border border-border px-2.5 py-1.5 text-meta font-medium text-foreground hover:border-primary/40 hover:bg-ai-surface"
-                        onClick={() => {
-                          setQuery(q.prompt);
-                          setOpen(true);
-                          inputRef.current?.focus();
-                        }}
+                        onClick={() => openAgentWithPrompt(q.prompt)}
                       >
                         <Icon className="h-3.5 w-3.5" />
                         {q.label}
@@ -464,7 +464,7 @@ export function AgentCommandBar({ className = "", inputClassName = "" }: Props) 
                   <button
                     type="button"
                     className="flex w-full items-center gap-2 rounded-control px-2 py-2 text-left text-body hover:bg-muted"
-                    onClick={() => void runCommand(query)}
+                    onClick={() => openAgentWithPrompt(query)}
                   >
                     <ArrowRight className="h-4 w-4 text-primary" aria-hidden />
                     <span className="min-w-0 flex-1 truncate">

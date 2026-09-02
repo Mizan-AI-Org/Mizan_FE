@@ -45,18 +45,18 @@ export const LiveDateTime: React.FC<LiveDateTimeProps> = ({
     };
 
     return (
-        <div className="flex items-center gap-3 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-1.5 whitespace-nowrap">
+        <div className="flex items-center gap-3 text-sm text-foreground bg-muted/70 border border-border/70 rounded-lg px-3 py-1.5 whitespace-nowrap">
             {showDate && (
                 <div className="flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4" />
-                    <span className="font-medium">{formatDate(currentTime)}</span>
+                    <Calendar className="h-4 w-4 text-foreground/85" aria-hidden />
+                    <span className="font-medium text-foreground">{formatDate(currentTime)}</span>
                 </div>
             )}
-            {showDate && showTime && <div className="w-px h-4 bg-border" />}
+            {showDate && showTime && <div className="w-px h-4 bg-border" aria-hidden />}
             {showTime && (
                 <div className="flex items-center gap-1.5">
-                    <Clock className="h-4 w-4" />
-                    <span className="font-mono tabular-nums">{formatTime(currentTime)}</span>
+                    <Clock className="h-4 w-4 text-foreground/85" aria-hidden />
+                    <span className="font-mono tabular-nums text-foreground">{formatTime(currentTime)}</span>
                 </div>
             )}
         </div>

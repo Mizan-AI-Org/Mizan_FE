@@ -6,12 +6,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <base href="/" />
   <script>
-    // Dark is the default. Applied before paint so there is no light flash,
-    // and only skipped when someone has explicitly chosen light.
+    // Follow saved theme, else OS prefers-color-scheme. Applied before paint.
     (function () {
       var t = null;
       try { t = localStorage.getItem("theme"); } catch (e) {}
-      if (t !== "light") document.documentElement.classList.add("dark");
+      var dark =
+        t === "dark" ||
+        (t !== "light" &&
+          window.matchMedia &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches);
+      if (dark) document.documentElement.classList.add("dark");
+      document.documentElement.style.colorScheme = dark ? "dark" : "light";
     })();
   </script>
   <title>Mizan AI - Operations OS</title>

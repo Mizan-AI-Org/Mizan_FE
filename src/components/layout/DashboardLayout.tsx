@@ -19,7 +19,6 @@ import { clearAgentPageContext, focusEntityForAgent, setAgentPageContext } from 
 import { IntentRail, MobileIntentDock } from "@/components/layout/IntentRail";
 import { cn } from "@/lib/utils";
 import { isImpersonating } from "@/lib/impersonation";
-import { useAgentPanelOpen } from "@/hooks/use-agent-panel-open";
 
 function agentPageContextFromLocation(pathname: string, search: string): {
   route: string;
@@ -54,8 +53,6 @@ const DashboardLayout: React.FC = () => {
   const { notifications, markAllAsRead, markAsRead } = useNotifications();
   const { t } = useLanguage();
   const viewingAsTenant = isImpersonating();
-  const agentPanelOpen = useAgentPanelOpen();
-
   const unreadCount = notifications.filter(n => !n.read).length;
   const [shouldShake, setShouldShake] = useState(false);
   const prevUnreadRef = useRef<number>(unreadCount);
@@ -111,13 +108,7 @@ const DashboardLayout: React.FC = () => {
         {t("common.skip_to_content")}
       </a>
       <ImpersonationBanner />
-      <header
-        className={cn(
-          "mizan-app-header app-header-surface sticky top-0 z-[2000] border-b border-border/80 backdrop-blur-md transition-[padding] duration-os",
-          agentPanelOpen && "lg:pe-[var(--mizan-agent-panel,0px)]",
-          !agentPanelOpen && "lg:pe-[var(--mizan-agent-edge,0px)]",
-        )}
-      >
+      <header className="mizan-app-header app-header-surface sticky top-0 z-[2000] border-b border-border/80 backdrop-blur-md">
         <div className="flex items-center gap-3 px-3 py-2.5 sm:px-4 lg:px-0">
           <button
             type="button"
@@ -136,7 +127,7 @@ const DashboardLayout: React.FC = () => {
             <AgentCommandBar />
           </div>
 
-          <div className="flex shrink-0 items-center gap-1 pr-1 sm:gap-2 sm:pr-4">
+          <div className="mizan-app-header-actions flex shrink-0 items-center gap-1 pr-1 sm:gap-2 sm:pr-4 text-foreground">
             <div className="hidden sm:block">
               <LiveDateTime showTime={false} />
             </div>
@@ -148,10 +139,10 @@ const DashboardLayout: React.FC = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`relative ${shouldShake ? "bell-shake" : ""}`}
+                    className={`relative text-foreground hover:bg-muted hover:text-foreground ${shouldShake ? "bell-shake" : ""}`}
                     aria-label={`${t("common.notifications.title")}`}
                   >
-                    <Bell className="h-5 w-5" />
+                    <Bell className="h-5 w-5 text-foreground" aria-hidden />
                     {unreadCount > 0 && (
                       <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-critical text-[10px] text-critical-foreground">
                         {unreadCount}
@@ -176,22 +167,27 @@ const DashboardLayout: React.FC = () => {
         </div>
       </header>
 
-      <IntentRail />
-      <MobileIntentDock />
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="relative flex min-h-0 flex-1">
+            <IntentRail />
+            <main
+              id="mizan-main"
+              className={cn(
+                "mizan-app-main flex-1 min-w-0",
+                "lg:ps-[var(--mizan-rail-width,232px)]",
+                "pb-20 lg:pb-6",
+              )}
+            >
+              <Outlet />
+            </main>
+          </div>
 
-      <main
-        id="mizan-main"
-        className={cn(
-          "mizan-app-main flex-1 min-w-0 transition-[padding] duration-os",
-          "lg:ps-[var(--mizan-rail-width,232px)]",
-          agentPanelOpen && "lg:pe-[var(--mizan-agent-panel,0px)]",
-          !agentPanelOpen && "lg:pe-[var(--mizan-agent-edge,0px)]",
-          "pb-20 lg:pb-6",
-        )}
-      >
-        <Outlet />
-      </main>
-      <LuaPopAgentWidget />
+          <MobileIntentDock />
+        </div>
+
+        <LuaPopAgentWidget />
+      </div>
       <DashboardTaskDetailSheet
         taskId={taskSheetId}
         open={!!taskSheetId}

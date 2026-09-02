@@ -171,16 +171,14 @@
     --surface-raised: 0 0% 100%;
   }
 
-  /* Docked Agent panel: reserve horizontal space for header + main on desktop */
+  /* Agent panel inset for fixed overlays (sheets, toasts) on desktop */
   @media (min-width: 1024px) {
-    html[data-agent-panel-open="true"] .mizan-app-header,
-    html[data-agent-panel-open="true"] .mizan-app-main {
-      padding-inline-end: var(--mizan-agent-panel, 420px);
+    html[data-agent-panel-open="true"] {
+      --mizan-agent-inset: var(--mizan-agent-panel, 420px);
     }
 
-    html:not([data-agent-panel-open="true"]) .mizan-app-header,
-    html:not([data-agent-panel-open="true"]) .mizan-app-main {
-      padding-inline-end: var(--mizan-agent-edge, 56px);
+    html:not([data-agent-panel-open="true"]) {
+      --mizan-agent-inset: var(--mizan-agent-edge, 56px);
     }
   }
 
@@ -724,6 +722,110 @@ html.lang-changing body {
       0 0 0 7px hsl(var(--primary) / 0),
       0 0 26px -4px hsl(var(--primary) / 0.85);
   }
+}
+
+.mizan-agent-dock {
+  --mizan-agent-panel-width: min(100vw, 420px);
+  min-height: 0;
+  z-index: 10060;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  color-scheme: light dark;
+}
+
+.dark .mizan-agent-dock {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.mizan-agent-dock[data-open="true"] {
+  display: flex;
+  flex-direction: column;
+}
+
+.mizan-agent-panel-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  max-width: var(--mizan-agent-panel-width);
+}
+
+.mizan-agent-panel-header {
+  flex-shrink: 0;
+  min-height: 52px;
+}
+
+.mizan-agent-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Desktop: dock sits beside main content, viewport-tall */
+@media (min-width: 1024px) {
+  .mizan-agent-dock[data-open="true"] {
+    width: var(--mizan-agent-panel-width);
+    height: calc(100dvh - var(--mizan-app-header-h, 57px));
+    max-height: calc(100dvh - var(--mizan-app-header-h, 57px));
+    position: sticky;
+    top: var(--mizan-app-header-h, 57px);
+    align-self: flex-start;
+  }
+}
+
+/* Tablet / phone: full-height overlay drawer */
+@media (max-width: 1023px) {
+  .mizan-agent-dock[data-open="true"] {
+    position: fixed;
+    top: var(--mizan-app-header-h, 57px);
+    bottom: var(--mizan-mobile-dock-h, 56px);
+    width: var(--mizan-agent-panel-width);
+    max-width: 100vw;
+  }
+
+  html[data-agent-panel-open="true"] {
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 480px) {
+  .mizan-agent-dock {
+    --mizan-agent-panel-width: 100vw;
+  }
+}
+
+#lua-shadow-root-embedded,
+#lua-shadow-root {
+  display: block;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  width: 100%;
+}
+
+.mizan-luapop-embed,
+#mizan-luapop-embed {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  color-scheme: light dark;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.mizan-luapop-embed .lua-pop-embedded,
+.mizan-luapop-embed .lua-pop-embedded-root {
+  flex: 1 1 auto;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
 }
 
 .agent-launcher {

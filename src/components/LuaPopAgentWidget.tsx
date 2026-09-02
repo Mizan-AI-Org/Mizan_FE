@@ -10,10 +10,13 @@ import { useBusinessVertical } from "@/hooks/use-business-vertical";
 import { API_BASE, api } from "@/lib/api";
 import { logError } from "@/lib/logging";
 import { syncAgentPanelLayout } from "@/lib/agentPanelLayout";
+import { syncLuaPopTheme } from "@/lib/luapopTheme";
+import { useAppTheme } from "@/hooks/use-app-theme";
 import {
   buildLuaPopBaseSessionId,
   buildLuaPopRuntimeContext,
   buildLuaPopSessionId,
+  buildAgentWelcomeMessage,
   prefillLuaPopComposer,
   resolveAgentRestaurantContext,
 } from "@/lib/luapopContext";
@@ -30,6 +33,8 @@ declare global {
 
 const LUA_POP_SCRIPT = "https://lua-ai-global.github.io/lua-pop/lua-pop.umd.js";
 const EMBED_CONTAINER_ID = "mizan-luapop-embed";
+/** Bump when welcome copy changes so LuaPop shows welcomeMessage (not stale history). */
+const AGENT_GREETING_VERSION = "welcome-v2";
 
 const ALLOWED_ROLES = [...OPERATIONAL_COMMAND_ROLES];
 const ATTENTION_ROLES = new Set<string>(OPERATIONAL_COMMAND_ROLES);
@@ -89,6 +94,7 @@ function loadLuaPopScript(): Promise<void> {
 export const LuaPopAgentWidget: React.FC = () => {
   const { user, accessToken } = useAuth() as AuthContextType;
   const { t, isRTL, language } = useLanguage();
+  const appTheme = useAppTheme();
   const businessVerticalQuery = useBusinessVertical();
   const location = useLocation();
   const hideOnPlatformAdmin = location.pathname.startsWith("/admin");
@@ -100,6 +106,7 @@ export const LuaPopAgentWidget: React.FC = () => {
     () => import.meta.env.VITE_LUA_AGENT_ID as string | undefined,
   );
   const [initError, setInitError] = useState<string | null>(null);
+  const [chatReady, setChatReady] = useState(false);
 
   const initializedRef = useRef<string | false>(false);
   const widgetRef = useRef<{ destroy: () => void } | null>(null);
@@ -128,13 +135,16 @@ export const LuaPopAgentWidget: React.FC = () => {
     const openHandler = (event: Event) => {
       setOpen(true);
       const prompt = ((event as CustomEvent<{ prompt?: string }>).detail?.prompt || "").trim();
-      if (prompt) {
-        pendingPromptRef.current = prompt;
+      if (!prompt) return;
+      pendingPromptRef.current = prompt;
+      const delays = [0, 150, 400, 800, 1200, 2000];
+      for (const delay of delays) {
         window.setTimeout(() => {
-          if (!prefillLuaPopComposer(prompt)) {
-            pendingPromptRef.current = prompt;
+          if (!pendingPromptRef.current) return;
+          if (prefillLuaPopComposer(pendingPromptRef.current)) {
+            pendingPromptRef.current = null;
           }
-        }, 400);
+        }, delay);
       }
     };
     const closeHandler = () => setOpen(false);
@@ -172,9 +182,10 @@ export const LuaPopAgentWidget: React.FC = () => {
       }
       widgetRef.current = null;
     }
-    const host = document.querySelector("#lua-shadow-root");
+    const host = document.querySelector("#lua-shadow-root-embedded, #lua-shadow-root");
     if (host) host.remove();
     initializedRef.current = false;
+    setChatReady(false);
   }, []);
 
   useEffect(() => {
@@ -187,8 +198,11 @@ export const LuaPopAgentWidget: React.FC = () => {
     if (!user) return;
 
     const observer = new MutationObserver(() => {
-      const shadowHost = document.querySelector("#lua-shadow-root");
-      if (shadowHost?.shadowRoot) hideSystemContextMessages(shadowHost.shadowRoot);
+      const shadowHost = document.querySelector("#lua-shadow-root-embedded, #lua-shadow-root");
+      if (shadowHost?.shadowRoot) {
+        hideSystemContextMessages(shadowHost.shadowRoot);
+        syncLuaPopTheme(appTheme);
+      }
       const pending = pendingPromptRef.current;
       if (pending && prefillLuaPopComposer(pending)) {
         pendingPromptRef.current = null;
@@ -197,26 +211,36 @@ export const LuaPopAgentWidget: React.FC = () => {
 
     observer.observe(document.body, { childList: true, subtree: true });
     const pollId = window.setInterval(() => {
-      const shadowHost = document.querySelector("#lua-shadow-root");
-      if (shadowHost?.shadowRoot) hideSystemContextMessages(shadowHost.shadowRoot);
+      const shadowHost = document.querySelector("#lua-shadow-root-embedded, #lua-shadow-root");
+      if (shadowHost?.shadowRoot) {
+        hideSystemContextMessages(shadowHost.shadowRoot);
+        syncLuaPopTheme(appTheme);
+      }
     }, 500);
 
     return () => {
       observer.disconnect();
       window.clearInterval(pollId);
     };
-  }, [user]);
+  }, [user, appTheme]);
 
   useEffect(() => {
+    syncLuaPopTheme(appTheme);
+  }, [appTheme, open]);
+
+  useEffect(() => {
+    if (!open) return;
     if (!user || !accessToken || hideOnPlatformAdmin || !enabled) return;
     if (!ALLOWED_ROLES.includes(user.role)) return;
     if (businessVerticalQuery.isPending) return;
     if (!restaurant?.id) {
       setInitError("No workspace linked to this account. Select a tenant or use impersonation.");
+      setChatReady(false);
       return;
     }
     if (!agentId) {
       setInitError("Agent is not configured (missing agent id).");
+      setChatReady(false);
       return;
     }
 
@@ -229,12 +253,17 @@ export const LuaPopAgentWidget: React.FC = () => {
 
         const businessVertical = businessVerticalQuery.data?.businessVertical ?? "RESTAURANT";
         const userFullName = `${user.first_name} ${user.last_name}`.trim() || user.email || "User";
+        const welcomeMessage = buildAgentWelcomeMessage(userFullName, (key, opts) =>
+          t(key, opts as { name: string; defaultValue: string }),
+        );
         const baseSessionId = buildLuaPopBaseSessionId(restaurant.id, user.id);
 
         let loginNonce = sessionStorage.getItem("lua_login_nonce");
-        if (!loginNonce) {
+        const storedGreetingVersion = sessionStorage.getItem("lua_greeting_version");
+        if (!loginNonce || storedGreetingVersion !== AGENT_GREETING_VERSION) {
           loginNonce = Date.now().toString(36);
           sessionStorage.setItem("lua_login_nonce", loginNonce);
+          sessionStorage.setItem("lua_greeting_version", AGENT_GREETING_VERSION);
         }
         const sessionId = buildLuaPopSessionId(restaurant.id, user.id, loginNonce);
         const initMarker = `${sessionId}:${businessVertical}:${language}`;
@@ -253,6 +282,7 @@ export const LuaPopAgentWidget: React.FC = () => {
           displayMode: "embedded",
           embeddedDisplayConfig: {
             targetContainerId: EMBED_CONTAINER_ID,
+            useContainerHeight: true,
           },
 
           metadata: {
@@ -310,17 +340,34 @@ export const LuaPopAgentWidget: React.FC = () => {
 
           chatTitle: t("ai.chat_title") || "Agent",
           chatHeaderSubtitle: {
-            visible: true,
-            brandName: t("common.brand") || "Mizan AI",
+            visible: false,
           },
           chatInputPlaceholder: t("ai.chat_placeholder") || "Ask Agent anything...",
-          welcomeMessage: t("ai.chat_greeting"),
+          welcomeMessage,
           attachmentsEnabled: true,
           microphoneEnabled: true,
         });
 
         initializedRef.current = initMarker;
         setInitError(null);
+        setChatReady(true);
+
+        // Seed HeyLua user profile with tenant + JWT (pop channel often omits init metadata on generate).
+        fetch(`${API_BASE}/agent/luapop-sync/`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            session_id: sessionId,
+            base_session_id: baseSessionId,
+            restaurant_id: restaurant.id,
+            user_id: user.id,
+          }),
+        }).catch((err) => {
+          logError({ feature: "luapop-agent-widget", action: "luapop-sync" }, err as Error);
+        });
 
         const pending = pendingPromptRef.current;
         if (pending) {
@@ -331,6 +378,7 @@ export const LuaPopAgentWidget: React.FC = () => {
       } catch (err) {
         logError({ feature: "luapop-agent-widget", action: "init" }, err as Error);
         setInitError("Could not load Agent chat. Refresh and try again.");
+        setChatReady(false);
       }
     };
 
@@ -339,6 +387,7 @@ export const LuaPopAgentWidget: React.FC = () => {
       cancelled = true;
     };
   }, [
+    open,
     user,
     accessToken,
     hideOnPlatformAdmin,
@@ -356,6 +405,45 @@ export const LuaPopAgentWidget: React.FC = () => {
   ]);
 
   useEffect(() => {
+    if (!open || typeof document === "undefined") return;
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      document.documentElement.style.overflow = "hidden";
+      return () => {
+        document.documentElement.style.overflow = "";
+      };
+    }
+    return undefined;
+  }, [open]);
+
+  useEffect(() => {
+    if (chatReady && open) {
+      syncLuaPopTheme(appTheme);
+    }
+  }, [chatReady, open, appTheme]);
+
+  useEffect(() => {
+    if (!open || !chatReady) return;
+    const pending = pendingPromptRef.current;
+    if (!pending) return;
+    const tryPrefill = () => {
+      if (prefillLuaPopComposer(pending)) {
+        pendingPromptRef.current = null;
+        return true;
+      }
+      return false;
+    };
+    if (tryPrefill()) return;
+    const retryId = window.setInterval(() => {
+      if (tryPrefill()) window.clearInterval(retryId);
+    }, 250);
+    const stopId = window.setTimeout(() => window.clearInterval(retryId), 5000);
+    return () => {
+      window.clearInterval(retryId);
+      window.clearTimeout(stopId);
+    };
+  }, [open, chatReady]);
+
+  useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -368,19 +456,138 @@ export const LuaPopAgentWidget: React.FC = () => {
     return null;
   }
 
+  const launcherButton = (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      className={cn(
+        "agent-launcher flex pointer-events-auto",
+        "flex-col items-center justify-center gap-2 rounded-l-xl border border-r-0 px-2 py-4",
+        "min-w-[3.25rem] shadow-lg transition-all duration-200",
+        "hover:scale-[1.03] hover:shadow-xl active:scale-[0.98]",
+        hasAttention ? "agent-launcher-attention" : "agent-launcher-idle",
+        isRTL ? "rounded-l-none rounded-r-xl border-l-0 border-r" : "",
+      )}
+      aria-label={
+        hasAttention
+          ? `${t("ai.chat_button")} - ${attentionCount} ${attentionCount === 1 ? "item needs" : "items need"} attention`
+          : t("ai.chat_button")
+      }
+      aria-expanded={false}
+    >
+      <span className="relative inline-flex shrink-0">
+        <img
+          src="/agent-avatar.webp"
+          alt=""
+          className={cn(
+            "h-10 w-10 rounded-full object-cover ring-2 ring-white/90 shadow-md",
+            hasAttention && "ring-amber-300",
+          )}
+          aria-hidden
+        />
+        {hasAttention ? (
+          <>
+            <span
+              className="agent-ping absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full bg-amber-400"
+              aria-hidden
+            />
+            <span
+              className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-emerald-700"
+              aria-hidden
+            >
+              {attentionCount > 9 ? "9+" : attentionCount}
+            </span>
+          </>
+        ) : (
+          <span
+            className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-300 ring-2 ring-emerald-700"
+            aria-hidden
+            title={t("ai.chat_online")}
+          />
+        )}
+      </span>
+      <span className="text-[11px] font-bold uppercase tracking-wider text-white leading-none">
+        Agent
+      </span>
+    </button>
+  );
+
+  const panelHeader = (
+    <div className="mizan-agent-panel-header flex shrink-0 items-center gap-3 border-b border-border/80 bg-card px-3 py-2.5 text-foreground">
+      <img
+        src="/agent-avatar.webp"
+        alt=""
+        className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-primary/20"
+        aria-hidden
+      />
+      <div className="min-w-0 flex-1">
+        <div id="agent-chat-title" className="truncate text-[15px] font-semibold leading-tight">
+          {t("ai.chat_title") || "Agent"}
+        </div>
+        <div className="truncate text-[12px] text-muted-foreground">{t("ai.chat_online")}</div>
+      </div>
+      <button
+        type="button"
+        onClick={() => setOpen(false)}
+        className="shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-muted"
+        aria-label={t("ai.chat_close")}
+      >
+        <X className="h-5 w-5" />
+      </button>
+    </div>
+  );
+
+  const panelBody = initError ? (
+    <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">
+      {initError}
+    </div>
+  ) : (
+    <div className="mizan-agent-panel-body relative flex min-h-0 flex-1 flex-col">
+      {!chatReady ? (
+        <div className="absolute inset-0 z-[1] flex items-center justify-center bg-background/80 p-6">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      ) : null}
+      <div
+        id={EMBED_CONTAINER_ID}
+        className={cn(
+          "mizan-luapop-embed flex h-full min-h-0 w-full flex-1 flex-col",
+          "[&_.lua-pop-embedded]:!h-full [&_.lua-pop-embedded]:!max-h-full [&_.lua-pop-embedded-root]:!h-full",
+          !chatReady && "invisible",
+        )}
+      />
+    </div>
+  );
+
+  const desktopLauncherSide = isRTL ? "left-0" : "right-0";
+  const desktopLauncherRadius = isRTL
+    ? "rounded-l-none rounded-r-xl border-l-0 border-r"
+    : "rounded-l-xl border-r-0";
+
   return (
     <>
+      {open ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-[10055] bg-black/20 lg:hidden"
+          aria-label={t("ai.chat_close")}
+          onClick={() => setOpen(false)}
+        />
+      ) : null}
+
+      {/* Desktop: fixed edge tab when collapsed */}
       {!open ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
           className={cn(
             "agent-launcher fixed z-[10050] top-1/2 -translate-y-1/2 hidden lg:flex pointer-events-auto",
-            "flex-col items-center justify-center gap-2 rounded-l-xl border border-r-0 px-2 py-4",
+            "flex-col items-center justify-center gap-2 border px-2 py-4",
             "min-w-[3.25rem] shadow-lg transition-all duration-200",
             "hover:scale-[1.03] hover:shadow-xl active:scale-[0.98]",
             hasAttention ? "agent-launcher-attention" : "agent-launcher-idle",
-            isRTL ? "left-0 rounded-l-none rounded-r-xl border-l-0 border-r" : "right-0",
+            desktopLauncherSide,
+            desktopLauncherRadius,
           )}
           aria-label={
             hasAttention
@@ -426,53 +633,49 @@ export const LuaPopAgentWidget: React.FC = () => {
         </button>
       ) : null}
 
-      <div
+      {/* Agent panel — desktop: in-flow sticky column; mobile/tablet: fixed drawer */}
+      <aside
         role="complementary"
         aria-labelledby="agent-chat-title"
         aria-hidden={!open}
+        data-open={open ? "true" : "false"}
         className={cn(
-          "relative fixed z-[10060] top-[57px] bottom-0 flex flex-col border-border/80 bg-background shadow-strong pointer-events-auto",
-          "transition-transform duration-300 ease-out",
-          isRTL ? "left-0 border-r" : "right-0 border-l",
-          "w-[min(100vw,420px)]",
-          open ? "translate-x-0" : isRTL ? "-translate-x-full" : "translate-x-full",
-          "max-lg:bottom-[56px]",
+          "mizan-agent-dock hidden shrink-0 overflow-hidden border-border/80 bg-background shadow-strong",
+          "transition-[width,transform] duration-300 ease-out lg:flex",
+          open ? "border-s" : "w-0 border-0",
+          isRTL && open && "border-s-0 border-e",
+          !isRTL && open && "border-s",
+          "max-lg:flex",
+          isRTL ? "max-lg:left-0 max-lg:border-r" : "max-lg:right-0 max-lg:border-l",
+          open
+            ? "max-lg:translate-x-0"
+            : isRTL
+              ? "max-lg:-translate-x-full max-lg:pointer-events-none max-lg:hidden"
+              : "max-lg:translate-x-full max-lg:pointer-events-none max-lg:hidden",
         )}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-border/80 bg-[#075E54] px-3 py-2.5 text-white dark:bg-[#1F2C34] lg:hidden">
-          <div id="agent-chat-title" className="truncate text-[15px] font-semibold">
-            {t("ai.chat_title")}
-          </div>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="rounded-full p-1 text-white/85 hover:bg-white/10"
-            aria-label={t("ai.chat_close")}
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {initError ? (
-          <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">
-            {initError}
-          </div>
-        ) : (
-          <div
-            id={EMBED_CONTAINER_ID}
-            className="flex min-h-0 flex-1 flex-col [&_.lua-pop-embedded]:!h-full [&_.lua-pop-embedded]:!max-h-none"
-          />
-        )}
-
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="absolute end-2 top-2 z-10 hidden rounded-full bg-black/20 p-1.5 text-white hover:bg-black/30 lg:inline-flex"
-          aria-label={t("ai.chat_close")}
+        <div
+          className={cn(
+            "mizan-agent-panel-shell",
+            !open && "pointer-events-none invisible max-lg:invisible",
+          )}
         >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
+          {open ? panelHeader : null}
+          {panelBody}
+        </div>
+      </aside>
+
+      {/* Mobile launcher when collapsed */}
+      {!open ? (
+        <div
+          className={cn(
+            "fixed z-[10050] top-1/2 -translate-y-1/2 lg:hidden pointer-events-auto",
+            isRTL ? "left-0" : "right-0",
+          )}
+        >
+          {launcherButton}
+        </div>
+      ) : null}
     </>
   );
 };
