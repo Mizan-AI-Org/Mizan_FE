@@ -257,15 +257,33 @@ export const LuaPopAgentWidget: React.FC = () => {
 
           metadata: {
             restaurantId: restaurant.id,
+            restaurant_id: restaurant.id,
             restaurantName: restaurant.name,
+            restaurant_name: restaurant.name,
             businessVertical,
             userId: user.id,
+            user_id: user.id,
             role: user.role,
             token: accessToken,
             sessionId: baseSessionId,
             language,
             rtl: isRTL,
             channel: "luapop",
+          },
+
+          requestContext: {
+            restaurant_id: restaurant.id,
+            restaurantId: restaurant.id,
+            restaurant_name: restaurant.name,
+            restaurantName: restaurant.name,
+            user_id: user.id,
+            userId: user.id,
+            actingUserId: user.id,
+            role: user.role,
+            channel: "luapop",
+            token: accessToken,
+            tenant_scope: "restaurant",
+            agent_mode: "manager_copilot",
           },
 
           fullName: userFullName,
