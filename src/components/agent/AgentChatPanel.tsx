@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Loader2, Mic, Paperclip, Volume2, X } from "lucide-react";
+import { ArrowUp, Loader2, Mic, Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -17,13 +17,13 @@ import { cn } from "@/lib/utils";
 import { useAgentVoiceInput } from "@/hooks/use-agent-voice-input";
 import {
   isMastraChatEnabled,
+  fetchMastraTranscript,
   loadMastraMessages,
-  loadVoiceRepliesEnabled,
+  loadPendingConfirmation,
   mastraConversationStorageKey,
-  playAgentVoiceReply,
   runMastraChat,
   saveMastraMessages,
-  saveVoiceRepliesEnabled,
+  savePendingConfirmation,
   type MastraChatMessage,
 } from "@/lib/mastraApi";
 
@@ -180,8 +180,6 @@ function ChatComposer({
   onSend,
   voiceSupported,
   voiceState,
-  voiceReplies,
-  onToggleVoiceReplies,
   onVoiceHoldStart,
   onVoiceHoldEnd,
 }: {
@@ -191,8 +189,6 @@ function ChatComposer({
   onSend: () => void;
   voiceSupported: boolean;
   voiceState: "idle" | "recording" | "transcribing";
-  voiceReplies: boolean;
-  onToggleVoiceReplies: () => void;
   onVoiceHoldStart: () => void;
   onVoiceHoldEnd: () => void;
 }) {
@@ -271,21 +267,6 @@ function ChatComposer({
                 <Mic className="h-[18px] w-[18px]" aria-hidden />
               </Button>
             ) : null}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "h-9 w-9 shrink-0",
-                voiceReplies ? "text-primary" : "text-muted-foreground",
-              )}
-              disabled={!voiceSupported}
-              aria-label={t("ai.voice_replies")}
-              title={t("ai.voice_replies_hint")}
-              onClick={onToggleVoiceReplies}
-            >
-              <Volume2 className="h-[18px] w-[18px]" aria-hidden />
-            </Button>
           </div>
           <textarea
             value={input}
@@ -367,8 +348,6 @@ function AgentPanelBody({
   signalBadge,
   voiceSupported,
   voiceState,
-  voiceReplies,
-  onToggleVoiceReplies,
   onVoiceHoldStart,
   onVoiceHoldEnd,
 }: {
@@ -382,8 +361,6 @@ function AgentPanelBody({
   signalBadge: number;
   voiceSupported: boolean;
   voiceState: "idle" | "recording" | "transcribing";
-  voiceReplies: boolean;
-  onToggleVoiceReplies: () => void;
   onVoiceHoldStart: () => void;
   onVoiceHoldEnd: () => void;
 }) {
@@ -398,8 +375,6 @@ function AgentPanelBody({
         onSend={onSend}
         voiceSupported={voiceSupported}
         voiceState={voiceState}
-        voiceReplies={voiceReplies}
-        onToggleVoiceReplies={onToggleVoiceReplies}
         onVoiceHoldStart={onVoiceHoldStart}
         onVoiceHoldEnd={onVoiceHoldEnd}
       />
@@ -459,7 +434,6 @@ export const AgentChatPanel: React.FC = () => {
   const [messages, setMessages] = useState<MastraChatMessage[]>([]);
   const [conversationId, setConversationId] = useState("");
   const [historyReady, setHistoryReady] = useState(false);
-  const [voiceReplies, setVoiceReplies] = useState(() => loadVoiceRepliesEnabled());
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const sendTextRef = useRef<(rawText: string, options?: { fromVoice?: boolean }) => void>(
@@ -493,9 +467,10 @@ export const AgentChatPanel: React.FC = () => {
     }
 
     const key = mastraConversationStorageKey(userId);
+    let storedConv = "";
     try {
-      const stored = window.localStorage.getItem(key);
-      if (stored) setConversationId(stored);
+      storedConv = window.localStorage.getItem(key) || "";
+      if (storedConv) setConversationId(storedConv);
     } catch {
       // ignore
     }
@@ -512,6 +487,18 @@ export const AgentChatPanel: React.FC = () => {
       };
       setMessages([welcome]);
       saveMastraMessages(userId, [welcome]);
+    }
+
+    const convForSync = storedConv;
+    if (convForSync) {
+      void fetchMastraTranscript(convForSync).then((serverRows) => {
+        if (serverRows.length === 0) return;
+        setMessages((prev) => {
+          const local = prev.filter((m) => m.id !== "welcome");
+          if (local.length >= serverRows.length) return prev;
+          return serverRows;
+        });
+      });
     }
     setHistoryReady(true);
   }, [userId, userName, t]);
@@ -572,17 +559,22 @@ export const AgentChatPanel: React.FC = () => {
           }
         }
 
-        const reply =
-          result.success && result.text
-            ? result.text
-            : result.code === "mastra_not_configured"
-              ? t("ai.chat_unavailable", "Agent is not available right now. Try again later.")
-              : result.code === "mastra_unreachable" && import.meta.env.DEV
-                ? t(
-                    "ai.chat_agent_offline_dev",
-                    "Agent service is offline. Start it with: cd agent && npm run dev (port 4111).",
-                  )
-                : result.message || t("ai.chat_error");
+        if (result.pendingConfirmation?.tool && userId) {
+          savePendingConfirmation(userId, convId, result.pendingConfirmation);
+        } else if (userId) {
+          savePendingConfirmation(userId, convId, null);
+        }
+
+        const reply = result.text?.trim()
+          ? result.text
+          : result.code === "mastra_not_configured"
+            ? t("ai.chat_unavailable", "Agent is not available right now. Try again later.")
+            : result.code === "mastra_unreachable" && import.meta.env.DEV
+              ? t(
+                  "ai.chat_agent_offline_dev",
+                  "Agent service is offline. Start it with: cd agent && npm run dev (port 4111).",
+                )
+              : result.message || t("ai.chat_error");
 
         setMessages((prev) => [
           ...prev,
@@ -593,12 +585,6 @@ export const AgentChatPanel: React.FC = () => {
             createdAt: Date.now(),
           },
         ]);
-
-        if (fromVoice && voiceReplies && reply && result.success) {
-          void playAgentVoiceReply(reply).catch(() => {
-            /* optional playback — browser may block without gesture */
-          });
-        }
       } catch {
         setMessages((prev) => [
           ...prev,
@@ -613,7 +599,7 @@ export const AgentChatPanel: React.FC = () => {
         setLoading(false);
       }
     },
-    [conversationId, language, loading, t, userId, voiceReplies],
+    [conversationId, language, loading, t, userId],
   );
 
   sendTextRef.current = (rawText, options) => {
@@ -653,14 +639,6 @@ export const AgentChatPanel: React.FC = () => {
     void releaseHold();
   }, [releaseHold]);
 
-  const handleToggleVoiceReplies = useCallback(() => {
-    setVoiceReplies((prev) => {
-      const next = !prev;
-      saveVoiceRepliesEnabled(next);
-      return next;
-    });
-  }, []);
-
   if (!isMastraChatEnabled()) return null;
 
   const handleClose = () => setOpen(false);
@@ -677,8 +655,6 @@ export const AgentChatPanel: React.FC = () => {
     signalBadge,
     voiceSupported,
     voiceState,
-    voiceReplies,
-    onToggleVoiceReplies: handleToggleVoiceReplies,
     onVoiceHoldStart: () => void handleVoiceHoldStart(),
     onVoiceHoldEnd: () => void handleVoiceHoldEnd(),
   };

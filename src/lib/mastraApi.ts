@@ -8,6 +8,13 @@ export type MastraRunResponse = {
   mode?: string;
   code?: string;
   message?: string;
+  pendingConfirmation?: {
+    tool: string;
+    arguments?: Record<string, unknown>;
+    message?: string;
+  };
+  requires_confirmation?: boolean;
+  verified?: boolean;
 };
 
 export type MastraChatMessage = {
@@ -249,4 +256,64 @@ export async function runMastraChat(body: {
 
 export function mastraConversationStorageKey(userId: string): string {
   return `mizan_mastra_conversation_${userId}`;
+}
+
+export function mastraPendingStorageKey(userId: string, conversationId: string): string {
+  return `mizan_mastra_pending_${userId}_${conversationId}`;
+}
+
+export function loadPendingConfirmation(
+  userId: string,
+  conversationId: string,
+): MastraRunResponse["pendingConfirmation"] | null {
+  try {
+    const raw = window.localStorage.getItem(mastraPendingStorageKey(userId, conversationId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as MastraRunResponse["pendingConfirmation"];
+    return parsed?.tool ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function savePendingConfirmation(
+  userId: string,
+  conversationId: string,
+  pending: MastraRunResponse["pendingConfirmation"] | null | undefined,
+): void {
+  try {
+    const key = mastraPendingStorageKey(userId, conversationId);
+    if (!pending?.tool) {
+      window.localStorage.removeItem(key);
+      return;
+    }
+    window.localStorage.setItem(key, JSON.stringify(pending));
+  } catch {
+    // ignore
+  }
+}
+
+export async function fetchMastraTranscript(
+  conversationId: string,
+): Promise<MastraChatMessage[]> {
+  const response = await fetch(
+    `${API_BASE}/mastra/transcript/?conversationId=${encodeURIComponent(conversationId)}`,
+    { headers: authHeaders(), credentials: "include" },
+  );
+  const data = (await response.json().catch(() => ({}))) as {
+    success?: boolean;
+    messages?: Array<{ role?: string; content?: string }>;
+  };
+  if (!response.ok || !data.success || !Array.isArray(data.messages)) {
+    return [];
+  }
+  const now = Date.now();
+  return data.messages
+    .filter((row) => row.role === "user" || row.role === "assistant")
+    .map((row, index) => ({
+      id: `srv-${index}-${now}`,
+      role: row.role as "user" | "assistant",
+      content: String(row.content || ""),
+      createdAt: now,
+    }));
 }
