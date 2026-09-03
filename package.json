@@ -3,14 +3,17 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "scripts": {
+    "scripts": {
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
-    "optimize:images": "bash scripts/optimize-images.sh"
+    "optimize:images": "bash scripts/optimize-images.sh",
+    "i18n:sync": "python3 scripts/sync_os_i18n.py",
+    "i18n:check": "python3 scripts/ensure_i18n_parity.py",
+    "i18n:audit": "python3 scripts/audit_hardcoded_ui.py"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

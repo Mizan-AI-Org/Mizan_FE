@@ -14,7 +14,78 @@ export type MastraChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  /** Epoch ms — used for timestamps and date dividers */
+  createdAt?: number;
+  /** User spoke via mic — enables voice reply playback */
+  fromVoice?: boolean;
 };
+
+const MAX_STORED_MESSAGES = 200;
+
+function isValidStoredMessage(value: unknown): value is MastraChatMessage {
+  if (!value || typeof value !== "object") return false;
+  const row = value as MastraChatMessage;
+  return (
+    typeof row.id === "string" &&
+    (row.role === "user" || row.role === "assistant") &&
+    typeof row.content === "string"
+  );
+}
+
+export function mastraMessagesStorageKey(userId: string): string {
+  return `mizan_mastra_messages_${userId}`;
+}
+
+export function loadMastraMessages(userId: string): MastraChatMessage[] {
+  try {
+    const raw =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem(mastraMessagesStorageKey(userId))
+        : null;
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isValidStoredMessage).map((msg) => ({
+      ...msg,
+      createdAt: typeof msg.createdAt === "number" ? msg.createdAt : undefined,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export function saveMastraMessages(userId: string, messages: MastraChatMessage[]): void {
+  try {
+    if (typeof window === "undefined") return;
+    const trimmed = messages.slice(-MAX_STORED_MESSAGES);
+    window.localStorage.setItem(mastraMessagesStorageKey(userId), JSON.stringify(trimmed));
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+function authHeadersJson(): Record<string, string> {
+  return authHeaders();
+}
+
+function authHeadersMultipart(): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+  };
+  try {
+    const token =
+      typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null;
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const lang =
+      (typeof window !== "undefined" && window.localStorage.getItem("language")) ||
+      (typeof document !== "undefined" && document.documentElement.lang) ||
+      "en";
+    headers["Accept-Language"] = lang;
+  } catch {
+    // ignore
+  }
+  return headers;
+}
 
 function authHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
@@ -40,6 +111,106 @@ export function isMastraChatEnabled(): boolean {
   const flag = import.meta.env.VITE_MASTRA_CHAT_ENABLED;
   if (flag === undefined || flag === "") return true;
   return String(flag).toLowerCase() !== "false";
+}
+
+export function isAgentVoiceEnabled(): boolean {
+  const flag = import.meta.env.VITE_AGENT_VOICE_ENABLED;
+  if (flag === undefined || flag === "") return true;
+  return String(flag).toLowerCase() !== "false";
+}
+
+export async function transcribeAgentVoice(
+  blob: Blob,
+  locale?: string,
+): Promise<{ success: boolean; text?: string; message?: string; code?: string }> {
+  const form = new FormData();
+  form.append("audio", blob, blob.type.includes("ogg") ? "voice.ogg" : "voice.webm");
+  if (locale) form.append("locale", locale);
+
+  const response = await fetch(`${API_BASE}/mastra/voice/transcribe/`, {
+    method: "POST",
+    headers: authHeadersMultipart(),
+    credentials: "include",
+    body: form,
+  });
+
+  const data = (await response.json().catch(() => ({}))) as {
+    success?: boolean;
+    text?: string;
+    message?: string;
+    code?: string;
+  };
+
+  if (!response.ok) {
+    return {
+      success: false,
+      code: data.code || `http_${response.status}`,
+      message: data.message || "Could not transcribe voice.",
+    };
+  }
+  return { success: true, text: data.text };
+}
+
+export async function synthesizeAgentVoice(
+  text: string,
+): Promise<{ success: boolean; audioBase64?: string; mimeType?: string; message?: string }> {
+  const response = await fetch(`${API_BASE}/mastra/voice/synthesize/`, {
+    method: "POST",
+    headers: authHeadersJson(),
+    credentials: "include",
+    body: JSON.stringify({ text }),
+  });
+
+  const data = (await response.json().catch(() => ({}))) as {
+    success?: boolean;
+    audioBase64?: string;
+    mimeType?: string;
+    message?: string;
+  };
+
+  if (!response.ok) {
+    return { success: false, message: data.message || "Voice reply failed." };
+  }
+  return {
+    success: true,
+    audioBase64: data.audioBase64,
+    mimeType: data.mimeType || "audio/mpeg",
+  };
+}
+
+export async function playAgentVoiceReply(text: string): Promise<void> {
+  const result = await synthesizeAgentVoice(text);
+  if (!result.success || !result.audioBase64) return;
+  const binary = atob(result.audioBase64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: result.mimeType || "audio/mpeg" });
+  const url = URL.createObjectURL(blob);
+  try {
+    const audio = new Audio(url);
+    await audio.play();
+  } finally {
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+}
+
+export function loadVoiceRepliesEnabled(): boolean {
+  try {
+    const raw = window.localStorage.getItem("mizan_agent_voice_replies");
+    if (raw === "0") return false;
+    if (raw === "1") return true;
+  } catch {
+    // ignore
+  }
+  return true;
+}
+
+export function saveVoiceRepliesEnabled(enabled: boolean): void {
+  try {
+    window.localStorage.setItem("mizan_agent_voice_replies", enabled ? "1" : "0");
+  } catch {
+    // ignore
+  }
 }
 
 export async function runMastraChat(body: {

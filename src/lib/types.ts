@@ -298,12 +298,28 @@ export interface OperationsLiveItem extends DashboardTaskDemandItem {
     process_label?: string | null;
 }
 
+export interface OperationsLiveLanePagination {
+    page: number;
+    page_size: number;
+    total: number;
+    total_pages: number;
+}
+
 export interface OperationsLiveResponse {
     restaurant_name: string;
     counts: { pending: number; in_progress: number; completed: number };
     pending: OperationsLiveItem[];
     in_progress: OperationsLiveItem[];
     completed: OperationsLiveItem[];
+    pagination?: {
+        pending: OperationsLiveLanePagination;
+        in_progress: OperationsLiveLanePagination;
+        completed: OperationsLiveLanePagination;
+    };
+    filter_options?: {
+        categories: string[];
+        staff: string[];
+    };
     generated_at: string;
 }
 

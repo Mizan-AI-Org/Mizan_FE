@@ -46,7 +46,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { api, BACKEND_URL } from "@/lib/api";
-import type { OperationsLiveItem } from "@/lib/types";
+import type { OperationsLiveItem, OperationsLiveLanePagination } from "@/lib/types";
 import { openDashboardTaskSheet } from "@/lib/dashboard-task-sheet";
 import {
   dashboardTaskPrimaryAction,
@@ -59,7 +59,14 @@ import { toast } from "sonner";
 type LaneKey = "pending" | "in_progress" | "completed";
 
 const QUERY_KEY = ["dashboard", "operations-live"] as const;
-const PAGE_SIZE = 15;
+export const OPERATIONS_LIVE_PAGE_SIZE = 15;
+
+const DEFAULT_LANE_PAGINATION: OperationsLiveLanePagination = {
+  page: 1,
+  page_size: OPERATIONS_LIVE_PAGE_SIZE,
+  total: 0,
+  total_pages: 1,
+};
 
 const LANE_STATUS: Record<LaneKey, OperationsLiveItem["status"]> = {
   pending: "PENDING",
@@ -175,6 +182,32 @@ function displayStatusLabel(
   return t("operations_live.status.pending");
 }
 
+function operationCell(
+  item: OperationsLiveItem,
+): { title: string; detail: string | null } {
+  const title = (item.title || item.operation || "").trim();
+  const rawDetail = (item.description || "").trim();
+  const detail =
+    rawDetail &&
+    rawDetail !== title &&
+    !rawDetail.toLowerCase().startsWith(title.toLowerCase())
+      ? rawDetail.split("\n")[0].trim()
+      : null;
+  return { title: title || "—", detail };
+}
+
+function OperationDemandCell({ item }: { item: OperationsLiveItem }) {
+  const { title, detail } = operationCell(item);
+  return (
+    <div className="min-w-0">
+      <p className="font-medium text-foreground line-clamp-1">{title}</p>
+      {detail ? (
+        <p className="text-[12px] text-muted-foreground line-clamp-1 mt-0.5">{detail}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function attachmentCell(
   item: OperationsLiveItem,
   t: (key: string, options?: Record<string, unknown>) => string,
@@ -265,6 +298,15 @@ function OperationsLiveRow({
           <GripVertical className="h-3.5 w-3.5" />
         </button>
       </td>
+      <td
+        className="px-4 py-3.5 text-[13px] text-foreground max-w-[280px]"
+        title={(() => {
+          const { title, detail } = operationCell(item);
+          return detail ? `${title} — ${detail}` : title;
+        })()}
+      >
+        <OperationDemandCell item={item} />
+      </td>
       <td className="px-4 py-3.5 text-[13px] text-foreground whitespace-nowrap">
         {formatPerson(item.from, t)}
       </td>
@@ -283,12 +325,6 @@ function OperationsLiveRow({
         <span className="inline-flex rounded-full bg-muted px-2.5 py-0.5 text-[12px] text-muted-foreground">
           {categoryLabel(item, t)}
         </span>
-      </td>
-      <td
-        className="px-4 py-3.5 text-[13px] text-foreground max-w-[280px]"
-        title={item.operation || item.title}
-      >
-        <span className="line-clamp-2">{item.operation || item.title}</span>
       </td>
       <td className="px-4 py-3.5 whitespace-nowrap">
         <Badge
@@ -382,6 +418,8 @@ function OperationsLiveTable({
   count,
   items,
   lane,
+  pagination,
+  onPageChange,
   t,
   onOpenRow,
   onStatusChange,
@@ -391,30 +429,20 @@ function OperationsLiveTable({
   count: number;
   items: OperationsLiveItem[];
   lane: LaneKey;
+  pagination: OperationsLiveLanePagination;
+  onPageChange: (page: number) => void;
   t: (key: string, options?: Record<string, unknown>) => string;
   onOpenRow: (id: string) => void;
   onStatusChange: (id: string, status: OperationsLiveItem["status"]) => void;
   updatingId: string | null;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `lane:${lane}` });
-  const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const page = pagination.page;
+  const totalPages = Math.max(1, pagination.total_pages);
+  const total = pagination.total;
 
-  React.useEffect(() => {
-    setPage(1);
-  }, [items]);
-
-  React.useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
-
-  const pageItems = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return items.slice(start, start + PAGE_SIZE);
-  }, [items, page]);
-
-  const rangeStart = items.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const rangeEnd = Math.min(page * PAGE_SIZE, items.length);
+  const rangeStart = total === 0 ? 0 : (page - 1) * pagination.page_size + 1;
+  const rangeEnd = Math.min(page * pagination.page_size, total);
 
   return (
     <section className="space-y-2.5">
@@ -433,12 +461,12 @@ function OperationsLiveTable({
             <thead>
               <tr className="bg-muted/80 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                 <th className="w-8 px-1 py-2.5" />
-                <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.from")}</th>
-                <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.to")}</th>
-                <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.category")}</th>
                 <th className="px-4 py-2.5 font-semibold min-w-[220px]">
                   {t("operations_live.col.operation")}
                 </th>
+                <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.from")}</th>
+                <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.to")}</th>
+                <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.category")}</th>
                 <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.status")}</th>
                 <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.time")}</th>
                 <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.escalated")}</th>
@@ -447,7 +475,7 @@ function OperationsLiveTable({
               </tr>
             </thead>
             <tbody>
-              {pageItems.length === 0 ? (
+              {items.length === 0 ? (
                 <tr>
                   <td
                     colSpan={10}
@@ -457,7 +485,7 @@ function OperationsLiveTable({
                   </td>
                 </tr>
               ) : (
-                pageItems.map((item) => (
+                items.map((item) => (
                   <OperationsLiveRow
                     key={item.id}
                     item={item}
@@ -472,13 +500,13 @@ function OperationsLiveTable({
             </tbody>
           </table>
         </div>
-        {items.length > PAGE_SIZE ? (
+        {total > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/40 px-3 py-2.5">
             <p className="text-xs text-muted-foreground">
               {t("operations_live.pagination.range", {
                 start: rangeStart,
                 end: rangeEnd,
-                total: items.length,
+                total,
               })}
             </p>
             <div className="flex items-center gap-1">
@@ -488,7 +516,7 @@ function OperationsLiveTable({
                 size="sm"
                 className="h-8 gap-1 px-2.5"
                 disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => onPageChange(Math.max(1, page - 1))}
                 aria-label={t("operations_live.pagination.prev")}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -503,7 +531,7 @@ function OperationsLiveTable({
                 size="sm"
                 className="h-8 gap-1 px-2.5"
                 disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => onPageChange(Math.min(totalPages, page + 1))}
                 aria-label={t("operations_live.pagination.next")}
               >
                 <span className="hidden sm:inline">{t("operations_live.pagination.next")}</span>
@@ -515,24 +543,6 @@ function OperationsLiveTable({
       </div>
     </section>
   );
-}
-
-function categoryFilterKey(item: OperationsLiveItem): string {
-  const process = item.process_label?.trim();
-  if (process) return `process:${process}`;
-  return String(item.category || "OTHER").toUpperCase();
-}
-
-function matchesCategoryFilter(item: OperationsLiveItem, filter: string): boolean {
-  if (!filter) return true;
-  if (filter.startsWith("process:")) {
-    return item.process_label?.trim() === filter.slice(8);
-  }
-  const cat = String(item.category || "").toUpperCase();
-  if (filter === "INCIDENT") {
-    return cat === "MAINTENANCE" || cat === "INCIDENT" || cat === "SAFETY";
-  }
-  return cat === filter;
 }
 
 function categoryFilterLabel(
@@ -556,6 +566,11 @@ export default function OperationsLivePage() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [staffFilter, setStaffFilter] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [lanePages, setLanePages] = useState({
+    pending: 1,
+    in_progress: 1,
+    completed: 1,
+  });
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [activeDrag, setActiveDrag] = useState<OperationsLiveItem | null>(null);
 
@@ -568,11 +583,28 @@ export default function OperationsLivePage() {
     return () => window.clearTimeout(timer);
   }, [search]);
 
+  React.useEffect(() => {
+    setLanePages({ pending: 1, in_progress: 1, completed: 1 });
+  }, [debouncedSearch, categoryFilter, staffFilter]);
+
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: [...QUERY_KEY, debouncedSearch],
+    queryKey: [
+      ...QUERY_KEY,
+      debouncedSearch,
+      categoryFilter,
+      staffFilter,
+      lanePages.pending,
+      lanePages.in_progress,
+      lanePages.completed,
+    ],
     queryFn: () =>
       api.getOperationsLive({
-        limit: 100,
+        pageSize: OPERATIONS_LIVE_PAGE_SIZE,
+        pendingPage: lanePages.pending,
+        inProgressPage: lanePages.in_progress,
+        completedPage: lanePages.completed,
+        category: categoryFilter || undefined,
+        staff: staffFilter || undefined,
         q: debouncedSearch || undefined,
       }),
     refetchInterval: 60_000,
@@ -609,57 +641,30 @@ export default function OperationsLivePage() {
   }, [data?.restaurant_name, user, t]);
 
   const categoryOptions = useMemo(() => {
-    const keys = new Set<string>();
-    const rows = [
-      ...(data?.pending ?? []),
-      ...(data?.in_progress ?? []),
-      ...(data?.completed ?? []),
-    ];
-    for (const row of rows) {
-      keys.add(categoryFilterKey(row));
-    }
-    return Array.from(keys).sort((a, b) =>
-      categoryFilterLabel(a, t).localeCompare(categoryFilterLabel(b, t)),
-    );
-  }, [data, t]);
+    return data?.filter_options?.categories ?? [];
+  }, [data?.filter_options?.categories]);
 
   const staffOptions = useMemo(() => {
-    const names = new Set<string>();
-    const rows = [
-      ...(data?.pending ?? []),
-      ...(data?.in_progress ?? []),
-      ...(data?.completed ?? []),
-    ];
-    for (const row of rows) {
-      const name = row.to?.name?.trim();
-      if (name) names.add(name);
-    }
-    return Array.from(names).sort((a, b) => a.localeCompare(b));
-  }, [data]);
+    return data?.filter_options?.staff ?? [];
+  }, [data?.filter_options?.staff]);
 
-  const filteredData = useMemo(() => {
-    if (!data || (!categoryFilter && !staffFilter)) return data;
-    const filterLane = (items: OperationsLiveItem[]) =>
-      items.filter((item) => {
-        if (categoryFilter && !matchesCategoryFilter(item, categoryFilter)) return false;
-        if (staffFilter && (item.to?.name?.trim() || "") !== staffFilter) return false;
-        return true;
-      });
-    const pending = filterLane(data.pending ?? []);
-    const in_progress = filterLane(data.in_progress ?? []);
-    const completed = filterLane(data.completed ?? []);
-    return {
-      ...data,
-      pending,
-      in_progress,
-      completed,
-      counts: {
-        pending: pending.length,
-        in_progress: in_progress.length,
-        completed: completed.length,
+  const lanePagination = useMemo(
+    () => ({
+      pending: data?.pagination?.pending ?? {
+        ...DEFAULT_LANE_PAGINATION,
+        total: data?.counts.pending ?? 0,
       },
-    };
-  }, [data, categoryFilter, staffFilter]);
+      in_progress: data?.pagination?.in_progress ?? {
+        ...DEFAULT_LANE_PAGINATION,
+        total: data?.counts.in_progress ?? 0,
+      },
+      completed: data?.pagination?.completed ?? {
+        ...DEFAULT_LANE_PAGINATION,
+        total: data?.counts.completed ?? 0,
+      },
+    }),
+    [data],
+  );
 
   const openRow = (taskId: string) => {
     openDashboardTaskSheet(navigate, location, taskId, { keepPath: true });
@@ -788,9 +793,13 @@ export default function OperationsLivePage() {
             <div className="space-y-8">
               <OperationsLiveTable
                 title={t("operations_live.section.new")}
-                count={filteredData?.counts.pending ?? filteredData?.pending.length ?? 0}
-                items={filteredData?.pending ?? []}
+                count={data?.counts.pending ?? 0}
+                items={data?.pending ?? []}
                 lane="pending"
+                pagination={lanePagination.pending}
+                onPageChange={(page) =>
+                  setLanePages((prev) => ({ ...prev, pending: page }))
+                }
                 t={t}
                 onOpenRow={openRow}
                 onStatusChange={(id, status) =>
@@ -800,9 +809,13 @@ export default function OperationsLivePage() {
               />
               <OperationsLiveTable
                 title={t("operations_live.section.in_progress")}
-                count={filteredData?.counts.in_progress ?? filteredData?.in_progress.length ?? 0}
-                items={filteredData?.in_progress ?? []}
+                count={data?.counts.in_progress ?? 0}
+                items={data?.in_progress ?? []}
                 lane="in_progress"
+                pagination={lanePagination.in_progress}
+                onPageChange={(page) =>
+                  setLanePages((prev) => ({ ...prev, in_progress: page }))
+                }
                 t={t}
                 onOpenRow={openRow}
                 onStatusChange={(id, status) =>
@@ -812,9 +825,13 @@ export default function OperationsLivePage() {
               />
               <OperationsLiveTable
                 title={t("operations_live.section.completed")}
-                count={filteredData?.counts.completed ?? filteredData?.completed.length ?? 0}
-                items={filteredData?.completed ?? []}
+                count={data?.counts.completed ?? 0}
+                items={data?.completed ?? []}
                 lane="completed"
+                pagination={lanePagination.completed}
+                onPageChange={(page) =>
+                  setLanePages((prev) => ({ ...prev, completed: page }))
+                }
                 t={t}
                 onOpenRow={openRow}
                 onStatusChange={(id, status) =>
@@ -826,7 +843,7 @@ export default function OperationsLivePage() {
             <DragOverlay>
               {activeDrag ? (
                 <div className="rounded-md border border-border bg-card px-4 py-2 text-sm shadow-lg">
-                  {activeDrag.operation || activeDrag.title}
+                  {operationCell(activeDrag).title}
                 </div>
               ) : null}
             </DragOverlay>

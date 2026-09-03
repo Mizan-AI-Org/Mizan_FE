@@ -1,5 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
+import i18n from "@/i18n";
 
 const AGENT_AVATAR_SRC = "/agent-avatar.webp";
 
@@ -18,13 +19,14 @@ const SIZE: Record<NonNullable<Props["size"]>, string> = {
   xl: "h-14 w-14",
 };
 
-/** Miya — shared agent avatar (public/agent-avatar.webp). */
+/** Shared agent avatar (public/agent-avatar.webp). */
 export function AgentAvatar({
   size = "md",
   className,
   ring = false,
-  alt = "Miya Agent",
+  alt: altProp,
 }: Props) {
+  const alt = altProp ?? i18n.t("ai.agent_name");
   return (
     <img
       src={AGENT_AVATAR_SRC}

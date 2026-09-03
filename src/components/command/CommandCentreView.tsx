@@ -45,16 +45,20 @@ function buildAskPrompt(signal: CommandSignal, t: (k: string, o?: Record<string,
     return t("ai.prompt.compliance");
   }
   const parts = [t("ai.prompt.attention_named", { title: signal.title })];
-  if (signal.category) parts.push(`Category: ${signal.category}.`);
-  if (signal.detail) parts.push(`Context: ${signal.detail}.`);
-  if (signal.recommendation) parts.push(`Mizan recommendation: ${signal.recommendation}.`);
+  if (signal.category) {
+    parts.push(t("command.ask_prompt.category", { category: signal.category }));
+  }
+  if (signal.detail) {
+    parts.push(t("command.ask_prompt.context", { detail: signal.detail }));
+  }
+  if (signal.recommendation) {
+    parts.push(t("command.ask_prompt.recommendation", { recommendation: signal.recommendation }));
+  }
   if (signal.why && signal.why !== signal.recommendation) {
-    parts.push(`Why it matters: ${signal.why}.`);
+    parts.push(t("command.ask_prompt.why", { why: signal.why }));
   }
   parts.push(
-    isWatching
-      ? "This is an Agent watching signal. Verify live Mizan data, explain what it means, then recommend one action you can take for me."
-      : "Use Mizan tools to verify live data first, then give one specific next action you can take for me.",
+    isWatching ? t("command.ask_prompt.watching_tail") : t("command.ask_prompt.action_tail"),
   );
   return parts.join(" ");
 }
@@ -341,7 +345,7 @@ export function CommandCentreView({ className }: { className?: string }) {
 
   return (
     <div className={cn("min-w-0 space-y-6 px-4 py-6 md:px-6 lg:px-8 lg:py-8", className)}>
-      {/* Miya co-pilot strip */}
+      {/* Agent co-pilot strip */}
       <section
         aria-label={t("command.agent_strip_aria")}
         className="flex flex-wrap items-center gap-4 rounded-panel border border-ai-border bg-gradient-to-br from-ai via-ai/40 to-card px-4 py-4 shadow-xs"

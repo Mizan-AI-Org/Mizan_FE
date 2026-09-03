@@ -692,11 +692,23 @@ export class BackendService {
   /** Operations Live - unified daily operations feed. */
   async getOperationsLive(params?: {
     limit?: number;
+    pageSize?: number;
+    pendingPage?: number;
+    inProgressPage?: number;
+    completedPage?: number;
+    category?: string;
+    staff?: string;
     q?: string;
     searchBy?: "staff" | "task" | "category";
   }): Promise<import("@/lib/types").OperationsLiveResponse> {
     const search = new URLSearchParams();
     if (params?.limit) search.set("limit", String(params.limit));
+    if (params?.pageSize) search.set("page_size", String(params.pageSize));
+    if (params?.pendingPage) search.set("pending_page", String(params.pendingPage));
+    if (params?.inProgressPage) search.set("in_progress_page", String(params.inProgressPage));
+    if (params?.completedPage) search.set("completed_page", String(params.completedPage));
+    if (params?.category?.trim()) search.set("category", params.category.trim());
+    if (params?.staff?.trim()) search.set("staff", params.staff.trim());
     if (params?.q?.trim()) search.set("q", params.q.trim());
     if (params?.searchBy) search.set("search_by", params.searchBy);
     const qs = search.toString();

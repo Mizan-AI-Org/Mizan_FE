@@ -13,7 +13,6 @@ import {
   IconAutomation,
   IconBusiness,
   IconCommand,
-  IconKnowledge,
   IconPeople,
   IconSettings,
   IconWork,
@@ -101,13 +100,6 @@ const GROUPS: NavGroup[] = [
     icon: IconAutomation,
     href: "/dashboard/automation",
     appId: "automations",
-    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
-  },
-  {
-    id: "knowledge",
-    labelKey: "nav.knowledge",
-    icon: IconKnowledge,
-    href: "/dashboard/knowledge",
     roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
   },
   {

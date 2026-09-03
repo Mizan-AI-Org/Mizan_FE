@@ -18,8 +18,9 @@ import { CommandSearchBar } from "@/components/command/CommandSearchBar";
 import { AgentPanelProvider } from "@/context/AgentPanelContext";
 import { cn } from "@/lib/utils";
 import { isImpersonating } from "@/lib/impersonation";
+import { useAgentRailGutter } from "@/hooks/use-agent-rail";
 
-const DashboardLayout: React.FC = () => {
+const DashboardLayoutInner: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -28,6 +29,7 @@ const DashboardLayout: React.FC = () => {
   const { notifications, markAllAsRead, markAsRead } = useNotifications();
   const { t } = useLanguage();
   const viewingAsTenant = isImpersonating();
+  const { gutter: agentGutter } = useAgentRailGutter();
   const unreadCount = notifications.filter(n => !n.read).length;
   const [shouldShake, setShouldShake] = useState(false);
   const prevUnreadRef = useRef<number>(unreadCount);
@@ -49,7 +51,6 @@ const DashboardLayout: React.FC = () => {
   }, [unreadCount]);
 
   return (
-    <AgentPanelProvider>
     <div className={cn("mizan-app-shell flex h-dvh flex-col overflow-hidden", viewingAsTenant && "pt-10")}>
       <a
         href="#mizan-main"
@@ -116,15 +117,18 @@ const DashboardLayout: React.FC = () => {
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <IntentRail />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:ps-[var(--mizan-rail-width,232px)]">
-          <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+          <div
+            className="mizan-app-content-gutter flex min-h-0 min-w-0 flex-1 overflow-hidden lg:pe-[var(--mizan-agent-gutter)]"
+            style={{ "--mizan-agent-gutter": agentGutter } as React.CSSProperties}
+          >
             <main
               id="mizan-main"
-              className="mizan-app-main min-h-0 min-w-0 flex-1 overflow-y-auto pb-20 lg:pb-6"
+              className="mizan-app-main min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pb-20 lg:pb-6"
             >
               <Outlet />
             </main>
-            <AgentChatPanel />
           </div>
+          <AgentChatPanel />
           <MobileIntentDock />
         </div>
       </div>
@@ -138,8 +142,13 @@ const DashboardLayout: React.FC = () => {
         widgetTitle={taskWidgetTitle}
       />
     </div>
-    </AgentPanelProvider>
   );
 };
+
+const DashboardLayout: React.FC = () => (
+  <AgentPanelProvider>
+    <DashboardLayoutInner />
+  </AgentPanelProvider>
+);
 
 export default DashboardLayout;

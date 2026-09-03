@@ -35,7 +35,6 @@ const WorkHubPage = React.lazy(() => import("./pages/os/WorkHubPage"));
 const PeopleHubPage = React.lazy(() => import("./pages/os/PeopleHubPage"));
 const BusinessHubPage = React.lazy(() => import("./pages/os/BusinessHubPage"));
 const AutomationHubPage = React.lazy(() => import("./pages/os/AutomationHubPage"));
-const KnowledgeHubPage = React.lazy(() => import("./pages/os/KnowledgeHubPage"));
 const LocationsOverview = React.lazy(
   () => import("./pages/LocationsOverview")
 );
@@ -330,14 +329,6 @@ const App = () => {
                   element={
                     <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <AutomationHubPage />
-                    </RoleBasedRoute>
-                  }
-                />
-                <Route
-                  path="dashboard/knowledge"
-                  element={
-                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
-                      <KnowledgeHubPage />
                     </RoleBasedRoute>
                   }
                 />

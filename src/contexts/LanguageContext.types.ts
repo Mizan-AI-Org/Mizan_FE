@@ -4,7 +4,7 @@ export type Language = 'en' | 'fr' | 'ar';
 export interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string, options?: Record<string, string | number>) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
   isRTL: boolean;
   // Live switching state
   isChanging: boolean;

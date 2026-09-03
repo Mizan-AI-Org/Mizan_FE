@@ -130,7 +130,7 @@ const StaffGridLayout: React.FC = () => {
         {/* Show when not on staff dashboard */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3">
           {window.location.pathname !== '/staff-dashboard' && (
-            <BackLink fallbackPath="/staff-dashboard">Back to Dashboard</BackLink>
+            <BackLink fallbackPath="/staff-dashboard">{t("common.back_to_dashboard")}</BackLink>
           )}
         </div>
         <Outlet context={{ query }} />

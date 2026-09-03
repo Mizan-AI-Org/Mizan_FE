@@ -11,6 +11,7 @@ import { Camera } from 'lucide-react';
 
 import { useLanguage } from "@/hooks/use-language";
 const PinLogin: React.FC = () => {
+    const { t } = useLanguage();
     const [pin, setPin] = useState('');
     const [imageSrc, setImageSrc] = useState<string | null>(null);
     const webcamRef = React.useRef<Webcam>(null);
@@ -34,7 +35,7 @@ const PinLogin: React.FC = () => {
         } else {
             toast.error(t("generic.toast.geolocation_is_not_supported_by_your_browser"));
         }
-    }, []);
+    }, [t]);
 
     const capture = useCallback(() => {
         if (webcamRef.current) {
@@ -65,7 +66,7 @@ const PinLogin: React.FC = () => {
             toast.success(t("generic.toast.login_successful"));
             navigate('/staff-dashboard'); // Redirect to staff dashboard after successful login
         } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : "PIN login failed.";
+            const message = err instanceof Error ? err.message : t("auth.pin.login_failed");
             toast.error(message);
         }
     };
@@ -74,13 +75,13 @@ const PinLogin: React.FC = () => {
         <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-900 to-black p-4">
             <Card className="w-full max-w-md bg-white/5 border-gray-700 shadow-xl backdrop-blur-md">
                 <CardHeader className="text-center">
-                    <CardTitle className="text-3xl font-bold text-white">Staff PIN Login</CardTitle>
-                    <CardDescription className="text-gray-400">Enter your 4-digit PIN and capture your photo.</CardDescription>
+                    <CardTitle className="text-3xl font-bold text-white">{t("auth.pin.title")}</CardTitle>
+                    <CardDescription className="text-gray-400">{t("auth.pin.description")}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid gap-2">
-                            <Label htmlFor="pin" className="text-lg text-gray-300">PIN Code</Label>
+                            <Label htmlFor="pin" className="text-lg text-gray-300">{t("auth.pin.code_label")}</Label>
                             <Input
                                 id="pin"
                                 name="pin"
@@ -94,10 +95,10 @@ const PinLogin: React.FC = () => {
                             />
                         </div>
                         <div className="grid gap-2">
-                            <Label className="text-lg text-gray-300">Facial Verification</Label>
+                            <Label className="text-lg text-gray-300">{t("auth.pin.facial_verification")}</Label>
                             <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-gray-600 bg-gray-800 flex items-center justify-center">
                                 {imageSrc ? (
-                                    <img src={imageSrc} alt="Captured" className="w-full h-full object-cover" />
+                                    <img src={imageSrc} alt={t("auth.pin.captured_alt")} className="w-full h-full object-cover" />
                                 ) : (
                                     <Webcam
                                         audio={false}
@@ -118,7 +119,7 @@ const PinLogin: React.FC = () => {
                             </div>
                         </div>
                         <Button type="submit" className="w-full py-3 text-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-lg transition-colors duration-200">
-                            Login
+                            {t("auth.pin.login_button")}
                         </Button>
                     </form>
                 </CardContent>

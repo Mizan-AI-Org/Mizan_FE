@@ -12,9 +12,9 @@ KEYS: dict[str, dict[str, str]] = {
     "ai.chat_error": {
         "en": "Something went wrong talking to Agent.",
         "fr": "Une erreur s'est produite en parlant à Agent.",
-        "ar": "حدث خطأ أثناء التحدث مع ميا.",
+        "ar": "حدث خطأ أثناء التحدث مع الوكيل.",
     },
-    "ai.chat_online": {"en": "Online", "fr": "En ligne", "ar": "متصلة"},
+    "ai.chat_online": {"en": "Online", "fr": "En ligne", "ar": "متصل"},
     "ai.suggest.attention": {
         "en": "What needs attention?",
         "fr": "Qu'est-ce qui demande mon attention ?",
@@ -42,6 +42,11 @@ KEYS: dict[str, dict[str, str]] = {
         "ar": "تعذر رفع الملف. حاول مرة أخرى.",
     },
     "common.save": {"en": "Save", "fr": "Enregistrer", "ar": "حفظ"},
+    "common.dialog": {
+        "en": "Dialog",
+        "fr": "Boîte de dialogue",
+        "ar": "نافذة حوار",
+    },
     "common.skip_to_content": {
         "en": "Skip to main content",
         "fr": "Aller au contenu principal",
@@ -274,14 +279,13 @@ KEYS: dict[str, dict[str, str]] = {
         "ar": "رفع إثبات الدفع",
     },
     # --- Navigation ---
-    "nav.ask_agent": {"en": "Ask Agent", "fr": "Demander à Agent", "ar": "اسأل ميا"},
+    "nav.ask_agent": {"en": "Ask Agent", "fr": "Demander à Agent", "ar": "اسأل الوكيل"},
     "nav.command": {"en": "Command", "fr": "Commande", "ar": "القيادة"},
     "nav.attention": {"en": "Attention", "fr": "Attention", "ar": "الانتباه"},
     "nav.work": {"en": "Work", "fr": "Travail", "ar": "العمل"},
     "nav.people": {"en": "People", "fr": "Équipe", "ar": "الأشخاص"},
     "nav.business": {"en": "Business", "fr": "Business", "ar": "الأعمال"},
     "nav.automation": {"en": "Automation", "fr": "Automatisation", "ar": "الأتمتة"},
-    "nav.knowledge": {"en": "Knowledge", "fr": "Connaissances", "ar": "المعرفة"},
     "nav.settings": {"en": "Settings", "fr": "Paramètres", "ar": "الإعدادات"},
     "nav.overview": {"en": "Overview", "fr": "Vue d'ensemble", "ar": "نظرة عامة"},
     "nav.work.live_operations": {
@@ -387,7 +391,7 @@ KEYS: dict[str, dict[str, str]] = {
     "ai.prompt.activity_today": {
         "en": "Show me what Agent has done today.",
         "fr": "Montre-moi ce que Agent a fait aujourd'hui.",
-        "ar": "أرني ما فعلته ميا اليوم.",
+        "ar": "أرني ما فعلته الوكيل اليوم.",
     },
     # --- Command Center / attention ---
     "command.eyebrow": {"en": "Mizan Command", "fr": "Commande Mizan", "ar": "قيادة ميزان"},
@@ -412,12 +416,12 @@ KEYS: dict[str, dict[str, str]] = {
     "command.watch_desc": {
         "en": "Signals Agent detected that are not yet decisions.",
         "fr": "Signaux détectés par Agent qui ne sont pas encore des décisions.",
-        "ar": "إشارات رصدتها ميا وليست قرارات بعد.",
+        "ar": "إشارات رصدها الوكيل وليست قرارات بعد.",
     },
     "command.handled": {
         "en": "Handled by Agent",
         "fr": "Traité par Agent",
-        "ar": "عالجتها ميا",
+        "ar": "عالجها الوكيل",
     },
     "command.business_signals": {
         "en": "Business signals",
@@ -437,7 +441,7 @@ KEYS: dict[str, dict[str, str]] = {
     "command.load_error_detail": {
         "en": "Agent couldn't prepare the operational briefing.",
         "fr": "Agent n'a pas pu préparer le briefing opérationnel.",
-        "ar": "لم تتمكن ميا من إعداد الإحاطة التشغيلية.",
+        "ar": "لم يتمكن الوكيل من إعداد الإحاطة التشغيلية.",
     },
     "command.tile.people_working": {
         "en": "People working",
@@ -473,7 +477,7 @@ KEYS: dict[str, dict[str, str]] = {
     "os.attention.recommends": {
         "en": "Agent recommends:",
         "fr": "Agent recommande :",
-        "ar": "توصي ميا:",
+        "ar": "يوصي الوكيل:",
     },
     "os.attention.owner": {"en": "Owner:", "fr": "Responsable :", "ar": "المالك:"},
     "os.attention.review": {"en": "Review", "fr": "Examiner", "ar": "مراجعة"},
@@ -485,7 +489,7 @@ KEYS: dict[str, dict[str, str]] = {
     "os.insights.desc": {
         "en": "Situations Agent detected before you asked.",
         "fr": "Situations détectées par Agent avant que vous demandiez.",
-        "ar": "مواقف رصدتها ميا قبل أن تسأل.",
+        "ar": "مواقف رصدها الوكيل قبل أن تسأل.",
     },
     "os.insights.why": {"en": "Why", "fr": "Pourquoi", "ar": "لماذا"},
     "os.insights.impact": {"en": "Impact", "fr": "Impact", "ar": "الأثر"},
@@ -526,7 +530,7 @@ KEYS: dict[str, dict[str, str]] = {
     "ai.workspace.do_with_agent": {
         "en": "Do with Agent",
         "fr": "Faire avec Agent",
-        "ar": "نفّذ مع ميا",
+        "ar": "نفّذ مع الوكيل",
     },
     "ai.workspace.ask": {"en": "Ask", "fr": "Demander", "ar": "اسأل"},
     "ai.workspace.open": {"en": "Open", "fr": "Ouvrir", "ar": "فتح"},
@@ -549,7 +553,7 @@ KEYS: dict[str, dict[str, str]] = {
     "ai.workspace.draft": {
         "en": "Draft with Agent",
         "fr": "Rédiger avec Agent",
-        "ar": "مسودة مع ميا",
+        "ar": "مسودة مع الوكيل",
     },
     "ai.workspace.no_attention": {
         "en": "No attention items in this area.",
@@ -564,7 +568,7 @@ KEYS: dict[str, dict[str, str]] = {
     "ai.workspace.load_error": {
         "en": "Couldn't load Agent workspace for this area.",
         "fr": "Impossible de charger l'espace Agent pour cette zone.",
-        "ar": "تعذر تحميل مساحة ميا لهذه المنطقة.",
+        "ar": "تعذر تحميل مساحة الوكيل لهذه المنطقة.",
     },
     # --- Branch detail extras ---
     "locations_overview.branch.unfilled_shifts": {
@@ -743,22 +747,268 @@ KEYS: dict[str, dict[str, str]] = {
     "settings.compliance.miya_uploads_title": {
         "en": "Agent uploads",
         "fr": "Fichiers Agent",
-        "ar": "رفع ميا",
+        "ar": "مرفقات الوكيل",
     },
     "settings.compliance.miya_uploads_desc": {
         "en": "Documents attached in the Agent widget or WhatsApp appear here.",
         "fr": "Les documents joints dans Agent ou WhatsApp apparaissent ici.",
-        "ar": "المستندات المرفقة من واجهة ميا أو واتساب تظهر هنا.",
+        "ar": "المستندات المرفقة من واجهة الوكيل أو واتساب تظهر هنا.",
     },
     "settings.compliance.miya_uploads_empty": {
         "en": "No Agent uploads yet. Attach a PDF or image in the Agent widget or WhatsApp.",
         "fr": "Aucun fichier Agent pour l'instant. Joignez un PDF ou une image dans Agent ou WhatsApp.",
-        "ar": "لا مرفقات من ميا بعد. أرفق PDF أو صورة من واجهة ميا أو واتساب.",
+        "ar": "لا مرفقات من الوكيل بعد. أرفق PDF أو صورة من واجهة الوكيل أو واتساب.",
+    },
+    # --- Agent identity + command centre (parity with en.json) ---
+    "ai.agent_name": {"en": "Agent", "fr": "Agent", "ar": "الوكيل"},
+    "ai.chat_today": {"en": "Today", "fr": "Aujourd'hui", "ar": "اليوم"},
+    "ai.chat_yesterday": {"en": "Yesterday", "fr": "Hier", "ar": "أمس"},
+    "command.subtitle": {
+        "en": "{{count}} signals · Agent runs ops with you — only what needs you rises to the top",
+        "fr": "{{count}} signaux · Agent pilote l'ops avec vous — seul l'essentiel remonte",
+        "ar": "{{count}} إشارات · الوكيل يدير العمليات معك — ما يحتاجك فقط يظهر في الأعلى",
+    },
+    "command.agent_strip_aria": {
+        "en": "Agent co-pilot status",
+        "fr": "Statut du copilote Agent",
+        "ar": "حالة مساعد الوكيل",
+    },
+    "command.agent_strip_title": {
+        "en": "Agent is running ops with you",
+        "fr": "Agent pilote l'ops avec vous",
+        "ar": "الوكيل يدير العمليات معك",
+    },
+    "command.agent_strip_desc": {
+        "en": "Live attendance, incidents, tasks, and compliance — Agent handles routine work and surfaces decisions before they become fires.",
+        "fr": "Présences, incidents, tâches et conformité en direct — Agent gère le routinier et remonte les décisions avant qu'elles n'explosent.",
+        "ar": "الحضور المباشر والحوادث والمهام والامتثال — الوكيل يتولى العمل الروتيني ويُبرز القرارات قبل أن تشتعل.",
+    },
+    "command.agent_watching_count": {
+        "en": "Watching {{count}}",
+        "fr": "Surveillance {{count}}",
+        "ar": "مراقبة {{count}}",
+    },
+    "command.agent_handling_count": {
+        "en": "{{count}} in progress",
+        "fr": "{{count}} en cours",
+        "ar": "{{count}} قيد المعالجة",
+    },
+    "command.agent_decide_count": {
+        "en": "{{count}} need you",
+        "fr": "{{count}} vous concernent",
+        "ar": "{{count}} تحتاجك",
+    },
+    "command.agent_suggests": {
+        "en": "Agent suggests:",
+        "fr": "Agent suggère :",
+        "ar": "اقتراح الوكيل:",
+    },
+    "command.decide_clear": {
+        "en": "You're clear for now. Agent is handling the rest and will ping you if something needs you.",
+        "fr": "Vous êtes libre pour l'instant. Agent gère le reste et vous préviendra si besoin.",
+        "ar": "أنت متفرغ الآن. الوكيل يتولى الباقي وسينبهك إذا احتاجك شيء.",
+    },
+    "command.watching_scan_title": {
+        "en": "Scanning your operation",
+        "fr": "Analyse de votre opération",
+        "ar": "مسح عملياتك",
+    },
+    "command.watching_scan_desc": {
+        "en": "Agent watches coverage, compliance, and workload so you don't have to. Suggestions appear here before you need to decide.",
+        "fr": "Agent surveille couverture, conformité et charge pour vous. Les suggestions apparaissent ici avant qu'il faille décider.",
+        "ar": "الوكيل يراقب التغطية والامتثال والعبء عنك. تظهر الاقتراحات هنا قبل أن تحتاج للقرار.",
+    },
+    "command.palette.recent": {"en": "Recent", "fr": "Récent", "ar": "الأخيرة"},
+    "command.palette.suggested": {"en": "Suggested", "fr": "Suggestions", "ar": "مقترحة"},
+    "command.palette.quick_actions": {
+        "en": "Quick actions",
+        "fr": "Actions rapides",
+        "ar": "إجراءات سريعة",
+    },
+    "command.palette.assign": {"en": "Assign", "fr": "Assigner", "ar": "تعيين"},
+    "command.palette.notify": {"en": "Notify", "fr": "Notifier", "ar": "إشعار"},
+    "command.palette.schedule": {"en": "Schedule", "fr": "Planifier", "ar": "جدولة"},
+    "command.palette.create_task": {
+        "en": "Create task",
+        "fr": "Créer une tâche",
+        "ar": "إنشاء مهمة",
+    },
+    "command.palette.assign_prompt": {
+        "en": "Help me assign a task to the right person.",
+        "fr": "Aide-moi à assigner une tâche à la bonne personne.",
+        "ar": "ساعدني في تعيين مهمة للشخص المناسب.",
+    },
+    "command.palette.notify_prompt": {
+        "en": "Send a notification to staff who need an update.",
+        "fr": "Envoie une notification au staff qui a besoin d'une mise à jour.",
+        "ar": "أرسل إشعاراً للموظفين الذين يحتاجون تحديثاً.",
+    },
+    "command.palette.schedule_prompt": {
+        "en": "Help me schedule or adjust a shift.",
+        "fr": "Aide-moi à planifier ou ajuster un shift.",
+        "ar": "ساعدني في جدولة أو تعديل وردية.",
+    },
+    "command.palette.create_task_prompt": {
+        "en": "Create a new operational task for the team.",
+        "fr": "Crée une nouvelle tâche opérationnelle pour l'équipe.",
+        "ar": "أنشئ مهمة تشغيلية جديدة للفريق.",
+    },
+    "command.palette.suggest_incidents": {
+        "en": "Show unresolved incidents",
+        "fr": "Afficher les incidents non résolus",
+        "ar": "عرض الحوادث غير المحلولة",
+    },
+    "command.palette.suggest_briefing": {
+        "en": "Prepare today's briefing",
+        "fr": "Préparer le briefing du jour",
+        "ar": "تحضير ملخص اليوم",
+    },
+    "command.ask_prompt.category": {
+        "en": "Category: {{category}}.",
+        "fr": "Catégorie : {{category}}.",
+        "ar": "الفئة: {{category}}.",
+    },
+    "command.ask_prompt.context": {
+        "en": "Context: {{detail}}.",
+        "fr": "Contexte : {{detail}}.",
+        "ar": "السياق: {{detail}}.",
+    },
+    "command.ask_prompt.recommendation": {
+        "en": "Mizan recommendation: {{recommendation}}.",
+        "fr": "Recommandation Mizan : {{recommendation}}.",
+        "ar": "توصية Mizan: {{recommendation}}.",
+    },
+    "command.ask_prompt.why": {
+        "en": "Why it matters: {{why}}.",
+        "fr": "Pourquoi c'est important : {{why}}.",
+        "ar": "لماذا يهم: {{why}}.",
+    },
+    "command.ask_prompt.watching_tail": {
+        "en": "This is an Agent watching signal. Verify live Mizan data, explain what it means, then recommend one action you can take for me.",
+        "fr": "Signal de surveillance Agent. Vérifie les données Mizan en direct, explique ce que cela signifie, puis recommande une action que tu peux faire pour moi.",
+        "ar": "إشارة مراقبة من الوكيل. تحقق من بيانات Mizan المباشرة، اشرح المعنى، ثم اقترح إجراءاً واحداً يمكنك تنفيذه لي.",
+    },
+    "command.ask_prompt.action_tail": {
+        "en": "Use Mizan tools to verify live data first, then give one specific next action you can take for me.",
+        "fr": "Utilise d'abord les outils Mizan pour vérifier les données en direct, puis donne une prochaine action précise que tu peux faire pour moi.",
+        "ar": "استخدم أدوات Mizan للتحقق من البيانات المباشرة أولاً، ثم قدم إجراءً محدداً واحداً يمكنك تنفيذه لي.",
+    },
+    "attention.needs_decision": {
+        "en": "Needs your decision",
+        "fr": "Nécessite votre décision",
+        "ar": "يحتاج قرارك",
+    },
+    "attention.review_attendance": {
+        "en": "Review attendance",
+        "fr": "Vérifier les présences",
+        "ar": "مراجعة الحضور",
+    },
+    "attention.review_overdue": {
+        "en": "Review overdue work",
+        "fr": "Vérifier le travail en retard",
+        "ar": "مراجعة العمل المتأخر",
+    },
+    "attention.plan_inspection": {
+        "en": "Plan inspection",
+        "fr": "Planifier une inspection",
+        "ar": "تخطيط تفتيش",
+    },
+    "attention.create_reminder": {
+        "en": "Create reminder",
+        "fr": "Créer un rappel",
+        "ar": "إنشاء تذكير",
+    },
+    "attention.cluster.review_named": {
+        "en": "Review {{title}}",
+        "fr": "Examiner {{title}}",
+        "ar": "مراجعة {{title}}",
+    },
+    "attention.no_decision_yet": {
+        "en": "No decision required yet",
+        "fr": "Aucune décision requise pour l'instant",
+        "ar": "لا قرار مطلوب بعد",
     },
     "settings.tabs.permissions": {
         "en": "Role permissions",
         "fr": "Permissions des rôles",
         "ar": "صلاحيات الأدوار",
+    },
+    # --- Error boundary ---
+    "error.boundary.title": {
+        "en": "Something went wrong.",
+        "fr": "Une erreur s'est produite.",
+        "ar": "حدث خطأ ما.",
+    },
+    "error.boundary.description": {
+        "en": "We're sorry for the inconvenience. Please try again later.",
+        "fr": "Désolé pour la gêne occasionnée. Veuillez réessayer plus tard.",
+        "ar": "نعتذر عن الإزعاج. يرجى المحاولة مرة أخرى لاحقاً.",
+    },
+    "error.boundary.reload": {
+        "en": "Reload page",
+        "fr": "Recharger la page",
+        "ar": "إعادة تحميل الصفحة",
+    },
+    "error.boundary.reference": {
+        "en": "Reference: {{id}}",
+        "fr": "Référence : {{id}}",
+        "ar": "المرجع: {{id}}",
+    },
+    "error.boundary.dev_error": {
+        "en": "Error (dev only):",
+        "fr": "Erreur (dev uniquement) :",
+        "ar": "خطأ (للتطوير فقط):",
+    },
+    "error.boundary.component_stack": {
+        "en": "Component stack (dev only)",
+        "fr": "Pile des composants (dev uniquement)",
+        "ar": "مكدس المكونات (للتطوير فقط)",
+    },
+    "error.section.display_glitch": {
+        "en": "{{label}} hit a display glitch.",
+        "fr": "{{label}} a rencontré un problème d'affichage.",
+        "ar": "واجه {{label}} مشكلة في العرض.",
+    },
+    "error.section.this_section": {
+        "en": "This section",
+        "fr": "Cette section",
+        "ar": "هذا القسم",
+    },
+    # --- Staff PIN login ---
+    "auth.pin.title": {
+        "en": "Staff PIN login",
+        "fr": "Connexion PIN personnel",
+        "ar": "تسجيل دخول PIN للموظف",
+    },
+    "auth.pin.description": {
+        "en": "Enter your 4-digit PIN and capture your photo.",
+        "fr": "Entrez votre PIN à 4 chiffres et prenez votre photo.",
+        "ar": "أدخل رمز PIN المكوّن من 4 أرقام والتقط صورتك.",
+    },
+    "auth.pin.code_label": {
+        "en": "PIN code",
+        "fr": "Code PIN",
+        "ar": "رمز PIN",
+    },
+    "auth.pin.facial_verification": {
+        "en": "Facial verification",
+        "fr": "Vérification faciale",
+        "ar": "التحقق بالوجه",
+    },
+    "auth.pin.login_button": {
+        "en": "Log in",
+        "fr": "Se connecter",
+        "ar": "تسجيل الدخول",
+    },
+    "auth.pin.captured_alt": {
+        "en": "Captured photo",
+        "fr": "Photo capturée",
+        "ar": "الصورة الملتقطة",
+    },
+    "auth.pin.login_failed": {
+        "en": "PIN login failed.",
+        "fr": "Échec de la connexion PIN.",
+        "ar": "فشل تسجيل الدخول برمز PIN.",
     },
 }
 

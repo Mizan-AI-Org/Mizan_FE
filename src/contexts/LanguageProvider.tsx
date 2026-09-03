@@ -114,16 +114,24 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  const t = useCallback((key: string, options?: Record<string, string | number>): string => {
-    const opts = options ? { ...options } : {};
-    const result = i18n.t(key, opts);
-    // Ensure robust fallback: if missing or unchanged, use English fallback
-    if (typeof result !== 'string' || result === key || result.trim() === '') {
-      const fallback = i18n.t(key, { ...opts, lng: 'en' });
-      return typeof fallback === 'string' && fallback.trim() !== '' ? fallback : key;
-    }
-    return result;
-  }, []);
+  const t = useCallback(
+    (key: string, options?: Record<string, string | number> | string): string => {
+      const opts =
+        typeof options === "string"
+          ? { defaultValue: options }
+          : options
+            ? { ...options }
+            : {};
+      const result = i18n.t(key, opts);
+      // Ensure robust fallback: if missing or unchanged, use English fallback
+      if (typeof result !== 'string' || result === key || result.trim() === '') {
+        const fallback = i18n.t(key, { ...opts, lng: 'en' });
+        return typeof fallback === 'string' && fallback.trim() !== '' ? fallback : key;
+      }
+      return result;
+    },
+    [],
+  );
 
   // Don't render children until i18n translation resources have loaded;
   // this prevents raw keys like "auth.tagline" from flashing on screen.

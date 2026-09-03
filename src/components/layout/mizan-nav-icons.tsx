@@ -121,29 +121,6 @@ export function IconAutomation({ className }: IconProps) {
   );
 }
 
-export function IconKnowledge({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn(base, className)} aria-hidden>
-      <path
-        d="M5 5.5h5.2A2.8 2.8 0 0 1 13 8.3v11.2c-.9-.7-2.1-1-3.3-1H5V5.5Z"
-        fill="currentColor"
-        fillOpacity="0.12"
-        stroke="currentColor"
-        strokeWidth="1.85"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M19 5.5h-5.2A2.8 2.8 0 0 0 11 8.3v11.2c.9-.7 2.1-1 3.3-1H19V5.5Z"
-        fill="currentColor"
-        fillOpacity="0.08"
-        stroke="currentColor"
-        strokeWidth="1.85"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 export function IconSettings({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn(base, className)} aria-hidden>

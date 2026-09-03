@@ -19,7 +19,7 @@ type Props = {
   links: HubLink[];
 };
 
-/** Shared OS hub for Work / People / Business / Automation / Knowledge */
+/** Shared OS hub for Work / People / Business / Automation */
 export function OsHubPage({
   eyebrow,
   title,

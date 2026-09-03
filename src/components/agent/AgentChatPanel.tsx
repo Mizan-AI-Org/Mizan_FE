@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, Loader2, Mic, Paperclip, Volume2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Sheet,
   SheetContent,
@@ -15,10 +14,16 @@ import { useCommandCentre } from "@/hooks/use-command-centre";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useAgentPanelOptional } from "@/context/AgentPanelContext";
 import { cn } from "@/lib/utils";
+import { useAgentVoiceInput } from "@/hooks/use-agent-voice-input";
 import {
   isMastraChatEnabled,
+  loadMastraMessages,
+  loadVoiceRepliesEnabled,
   mastraConversationStorageKey,
+  playAgentVoiceReply,
   runMastraChat,
+  saveMastraMessages,
+  saveVoiceRepliesEnabled,
   type MastraChatMessage,
 } from "@/lib/mastraApi";
 
@@ -26,63 +31,144 @@ function newMessageId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function formatTime(): string {
-  return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date());
+function formatMessageTime(epochMs?: number): string {
+  const date = epochMs ? new Date(epochMs) : new Date();
+  return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+function formatDateLabel(epochMs: number, t: (key: string, fallback?: string) => string): string {
+  const date = new Date(epochMs);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  if (sameDay(date, today)) return t("ai.chat_today", "Today");
+  if (sameDay(date, yesterday)) return t("ai.chat_yesterday", "Yesterday");
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
+function shouldShowDateDivider(messages: MastraChatMessage[], index: number): boolean {
+  if (index === 0) return true;
+  const prev = messages[index - 1]?.createdAt;
+  const curr = messages[index]?.createdAt;
+  if (!prev || !curr) return index === 0;
+  const prevDay = new Date(prev);
+  const currDay = new Date(curr);
+  return (
+    prevDay.getFullYear() !== currDay.getFullYear() ||
+    prevDay.getMonth() !== currDay.getMonth() ||
+    prevDay.getDate() !== currDay.getDate()
+  );
+}
+
+function TypingIndicator() {
+  const { t } = useLanguage();
+  return (
+    <div className="flex items-end gap-2">
+      <AgentAvatar size="sm" className="mb-0.5 shrink-0" />
+      <div className="mizan-chat-bubble-in flex items-center gap-1 rounded-2xl rounded-bl-md px-4 py-3">
+        <span className="mizan-chat-typing-dot h-2 w-2 rounded-full bg-muted-foreground/50" />
+        <span className="mizan-chat-typing-dot mizan-chat-typing-dot-2 h-2 w-2 rounded-full bg-muted-foreground/50" />
+        <span className="mizan-chat-typing-dot mizan-chat-typing-dot-3 h-2 w-2 rounded-full bg-muted-foreground/50" />
+        <span className="sr-only">{t("ai.chat_thinking")}</span>
+      </div>
+    </div>
+  );
 }
 
 function ChatMessages({
   messages,
   loading,
-  userName,
   scrollRef,
-  showWelcome,
 }: {
   messages: MastraChatMessage[];
   loading: boolean;
-  userName: string;
   scrollRef: React.RefObject<HTMLDivElement | null>;
-  showWelcome?: boolean;
 }) {
   const { t } = useLanguage();
-  const welcomeTime = useMemo(() => formatTime(), []);
 
   return (
-    <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-      {showWelcome && messages.length === 0 ? (
-        <div className="flex gap-2.5">
-          <AgentAvatar size="sm" className="mt-0.5" />
-          <div className="min-w-0 space-y-1">
-            <div className="max-w-[92%] rounded-2xl rounded-tl-sm bg-muted px-3.5 py-2.5 text-sm text-foreground">
-              {t("ai.chat_welcome", { name: userName })}
-            </div>
-            <p className="ps-1 text-caption text-muted-foreground">{welcomeTime}</p>
-          </div>
-        </div>
-      ) : null}
-      {messages.map((msg) =>
-        msg.role === "user" ? (
-          <div
-            key={msg.id}
-            className="ms-auto max-w-[92%] whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-primary px-3.5 py-2.5 text-sm text-primary-foreground"
-          >
-            {msg.content}
-          </div>
-        ) : (
-          <div key={msg.id} className="flex gap-2.5">
-            <AgentAvatar size="sm" className="mt-0.5 shrink-0" />
-            <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tl-sm bg-muted px-3.5 py-2.5 text-sm text-foreground">
-              {msg.content}
-            </div>
-          </div>
-        ),
-      )}
-      {loading ? (
-        <div className="flex items-center gap-2.5 ps-1 text-sm text-muted-foreground">
-          <AgentAvatar size="sm" />
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-          {t("ai.chat_thinking")}
-        </div>
-      ) : null}
+    <div
+      ref={scrollRef}
+      className="mizan-chat-thread min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3"
+    >
+      {messages.map((msg, index) => {
+        const showDate = shouldShowDateDivider(messages, index);
+        const isUser = msg.role === "user";
+        const prevSameRole = index > 0 && messages[index - 1]?.role === msg.role;
+        const nextSameRole =
+          index < messages.length - 1 && messages[index + 1]?.role === msg.role;
+
+        return (
+          <React.Fragment key={msg.id}>
+            {showDate && msg.createdAt ? (
+              <div className="flex justify-center py-2">
+                <span className="rounded-full bg-background/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm">
+                  {formatDateLabel(msg.createdAt, t)}
+                </span>
+              </div>
+            ) : null}
+            {isUser ? (
+              <div
+                className={cn(
+                  "flex justify-end",
+                  prevSameRole ? "mt-0.5" : "mt-2",
+                  nextSameRole ? "mb-0" : "mb-0.5",
+                )}
+              >
+                <div
+                  className={cn(
+                    "mizan-chat-bubble-out relative max-w-[85%] whitespace-pre-wrap break-words px-3 py-1.5 text-[14px] leading-snug text-foreground",
+                    nextSameRole ? "rounded-2xl rounded-br-md" : "rounded-2xl rounded-br-sm",
+                    !prevSameRole && !nextSameRole && "rounded-2xl rounded-br-sm",
+                  )}
+                >
+                  <span className="pe-14">{msg.content}</span>
+                  <span className="absolute bottom-1 end-2 text-[10px] leading-none text-foreground/55">
+                    {formatMessageTime(msg.createdAt)}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div
+                className={cn(
+                  "flex items-end gap-2",
+                  prevSameRole ? "mt-0.5" : "mt-2",
+                  nextSameRole ? "mb-0" : "mb-0.5",
+                )}
+              >
+                {!prevSameRole ? (
+                  <AgentAvatar size="sm" className="mb-0.5 shrink-0" />
+                ) : (
+                  <div className="w-8 shrink-0" aria-hidden />
+                )}
+                <div
+                  className={cn(
+                    "mizan-chat-bubble-in relative max-w-[85%] whitespace-pre-wrap break-words px-3 py-1.5 text-[14px] leading-snug text-foreground",
+                    nextSameRole ? "rounded-2xl rounded-bl-md" : "rounded-2xl rounded-bl-sm",
+                    !prevSameRole && !nextSameRole && "rounded-2xl rounded-bl-sm",
+                  )}
+                >
+                  <span className="pe-14">{msg.content}</span>
+                  <span className="absolute bottom-1 end-2 text-[10px] leading-none text-muted-foreground">
+                    {formatMessageTime(msg.createdAt)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </React.Fragment>
+        );
+      })}
+      {loading ? <TypingIndicator /> : null}
     </div>
   );
 }
@@ -92,29 +178,118 @@ function ChatComposer({
   setInput,
   loading,
   onSend,
+  voiceSupported,
+  voiceState,
+  voiceReplies,
+  onToggleVoiceReplies,
+  onVoiceHoldStart,
+  onVoiceHoldEnd,
 }: {
   input: string;
   setInput: (v: string) => void;
   loading: boolean;
   onSend: () => void;
+  voiceSupported: boolean;
+  voiceState: "idle" | "recording" | "transcribing";
+  voiceReplies: boolean;
+  onToggleVoiceReplies: () => void;
+  onVoiceHoldStart: () => void;
+  onVoiceHoldEnd: () => void;
 }) {
   const { t } = useLanguage();
+  const voiceBusy = voiceState === "recording" || voiceState === "transcribing";
 
   return (
-    <div className="shrink-0 border-t border-border/80 bg-card p-3">
+    <div className="mizan-chat-composer-bar shrink-0 px-3 py-3">
+      {voiceState === "recording" ? (
+        <p className="mb-2 text-center text-xs font-medium text-primary animate-pulse">
+          {t("ai.voice_recording")}
+        </p>
+      ) : null}
+      {voiceState === "transcribing" ? (
+        <p className="mb-2 flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          {t("ai.voice_processing")}
+        </p>
+      ) : null}
       <form
+        className="block"
         onSubmit={(e) => {
           e.preventDefault();
           onSend();
         }}
       >
-        <div className="rounded-panel border border-border/80 bg-muted/20 px-3 py-2">
-          <Textarea
+        <div
+          className={cn(
+            "flex min-h-[3rem] items-center gap-1 rounded-3xl border px-2 py-2 transition-colors",
+            voiceState === "recording"
+              ? "border-primary/50 bg-primary/10"
+              : "border-border/60 bg-muted/30",
+          )}
+        >
+          <div className="flex shrink-0 items-center">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 text-muted-foreground"
+              disabled
+              aria-label={t("ai.attach", { defaultValue: "Attach" })}
+            >
+              <Paperclip className="h-[18px] w-[18px]" aria-hidden />
+            </Button>
+            {voiceSupported ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-9 w-9 shrink-0",
+                  voiceState === "recording"
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:text-primary",
+                )}
+                disabled={loading || voiceBusy}
+                aria-label={t("ai.voice_hold")}
+                title={t("ai.voice_hold")}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  onVoiceHoldStart();
+                }}
+                onPointerUp={(e) => {
+                  e.preventDefault();
+                  onVoiceHoldEnd();
+                }}
+                onPointerLeave={(e) => {
+                  if (voiceState === "recording") onVoiceHoldEnd();
+                }}
+              >
+                <Mic className="h-[18px] w-[18px]" aria-hidden />
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-9 w-9 shrink-0",
+                voiceReplies ? "text-primary" : "text-muted-foreground",
+              )}
+              disabled={!voiceSupported}
+              aria-label={t("ai.voice_replies")}
+              title={t("ai.voice_replies_hint")}
+              onClick={onToggleVoiceReplies}
+            >
+              <Volume2 className="h-[18px] w-[18px]" aria-hidden />
+            </Button>
+          </div>
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={t("ai.chat_placeholder")}
-            rows={2}
-            className="min-h-[44px] resize-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+            rows={1}
+            aria-label={t("ai.chat_placeholder")}
+            className="mizan-chat-input max-h-28 min-h-[2.5rem] min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-2 text-[15px] leading-6 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -122,28 +297,19 @@ function ChatComposer({
               }
             }}
           />
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-0.5">
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" disabled aria-label={t("ai.attach", { defaultValue: "Attach" })}>
-                <Paperclip className="h-4 w-4" aria-hidden />
-              </Button>
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" disabled aria-label={t("ai.voice", { defaultValue: "Voice" })}>
-                <Mic className="h-4 w-4" aria-hidden />
-              </Button>
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" disabled aria-label={t("ai.speak", { defaultValue: "Read aloud" })}>
-                <Volume2 className="h-4 w-4" aria-hidden />
-              </Button>
-            </div>
-            <Button
-              type="submit"
-              size="icon"
-              className="h-9 w-9 shrink-0 rounded-full"
-              disabled={loading || !input.trim()}
-              aria-label={t("ai.send_message")}
-            >
+          <Button
+            type="submit"
+            size="icon"
+            className="h-10 w-10 shrink-0 rounded-full bg-primary hover:bg-primary/90"
+            disabled={loading || voiceBusy || !input.trim()}
+            aria-label={t("ai.send_message")}
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
               <ArrowUp className="h-4 w-4" aria-hidden />
-            </Button>
-          </div>
+            )}
+          </Button>
         </div>
       </form>
     </div>
@@ -153,10 +319,10 @@ function ChatComposer({
 function PanelHeader({ onClose, signalBadge }: { onClose?: () => void; signalBadge?: number }) {
   const { t } = useLanguage();
   return (
-    <header className="flex shrink-0 items-center justify-between border-b border-border/80 px-4 py-3">
+    <header className="flex shrink-0 items-center justify-between border-b border-border/60 bg-primary px-4 py-2.5 text-primary-foreground">
       <div className="flex items-center gap-3">
         <div className="relative">
-          <AgentAvatar size="md" ring />
+          <AgentAvatar size="md" ring className="ring-primary-foreground/30" />
           {signalBadge != null && signalBadge > 0 ? (
             <span className="absolute -end-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-high px-1 text-[10px] font-bold text-high-foreground">
               {signalBadge > 9 ? "9+" : signalBadge}
@@ -164,16 +330,22 @@ function PanelHeader({ onClose, signalBadge }: { onClose?: () => void; signalBad
           ) : null}
         </div>
         <div>
-          <p className="text-sm font-semibold">{t("ai.agent_name", { defaultValue: "Miya" })}</p>
-          <p className="flex items-center gap-1.5 text-caption text-primary">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" aria-hidden />
-            {t("ai.chat_online")}
+          <p className="text-[15px] font-semibold leading-tight">
+            {t("ai.agent_name", { defaultValue: "Agent" })}
           </p>
+          <p className="text-xs text-primary-foreground/80">{t("ai.chat_online")}</p>
         </div>
       </div>
       {onClose ? (
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} aria-label={t("common.close", { defaultValue: "Close" })}>
-          <X className="h-4 w-4" aria-hidden />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 text-primary-foreground hover:bg-primary-foreground/10"
+          onClick={onClose}
+          aria-label={t("common.close", { defaultValue: "Close" })}
+        >
+          <X className="h-5 w-5" aria-hidden />
         </Button>
       ) : null}
     </header>
@@ -183,36 +355,92 @@ function PanelHeader({ onClose, signalBadge }: { onClose?: () => void; signalBad
 function AgentPanelBody({
   messages,
   loading,
-  userName,
   scrollRef,
   input,
   setInput,
   onSend,
   onClose,
   signalBadge,
+  voiceSupported,
+  voiceState,
+  voiceReplies,
+  onToggleVoiceReplies,
+  onVoiceHoldStart,
+  onVoiceHoldEnd,
 }: {
   messages: MastraChatMessage[];
   loading: boolean;
-  userName: string;
   scrollRef: React.RefObject<HTMLDivElement | null>;
   input: string;
   setInput: (v: string) => void;
   onSend: () => void;
   onClose: () => void;
   signalBadge: number;
+  voiceSupported: boolean;
+  voiceState: "idle" | "recording" | "transcribing";
+  voiceReplies: boolean;
+  onToggleVoiceReplies: () => void;
+  onVoiceHoldStart: () => void;
+  onVoiceHoldEnd: () => void;
 }) {
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <PanelHeader onClose={onClose} signalBadge={signalBadge} />
-      <ChatMessages
-        messages={messages}
+      <ChatMessages messages={messages} loading={loading} scrollRef={scrollRef} />
+      <ChatComposer
+        input={input}
+        setInput={setInput}
         loading={loading}
-        userName={userName}
-        scrollRef={scrollRef}
-        showWelcome
+        onSend={onSend}
+        voiceSupported={voiceSupported}
+        voiceState={voiceState}
+        voiceReplies={voiceReplies}
+        onToggleVoiceReplies={onToggleVoiceReplies}
+        onVoiceHoldStart={onVoiceHoldStart}
+        onVoiceHoldEnd={onVoiceHoldEnd}
       />
-      <ChatComposer input={input} setInput={setInput} loading={loading} onSend={onSend} />
-    </>
+    </div>
+  );
+}
+
+function AgentCollapsedRail({
+  onOpen,
+  signalBadge,
+  agentLabel,
+}: {
+  onOpen: () => void;
+  signalBadge: number;
+  agentLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "mizan-agent-rail-tab group relative flex h-full w-full flex-col items-center justify-center gap-4 px-1 py-8",
+        "transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+      )}
+      aria-label={agentLabel}
+      onClick={onOpen}
+    >
+      <div className="relative z-10">
+        <div className="mizan-agent-glow-ring relative rounded-full">
+          <AgentAvatar size="lg" ring className="relative z-[1] ring-primary/40 ring-offset-2" />
+        </div>
+        {signalBadge > 0 ? (
+          <span className="absolute -end-1 -top-1 z-[2] flex h-5 min-w-5 items-center justify-center rounded-full bg-high px-1 text-[10px] font-bold text-high-foreground shadow-md ring-2 ring-background">
+            {signalBadge > 9 ? "9+" : signalBadge}
+          </span>
+        ) : (
+          <span
+            className="absolute bottom-0 end-0 z-[2] h-3 w-3 rounded-full border-2 border-background bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
+            aria-hidden
+          />
+        )}
+      </div>
+      <span className="mizan-agent-tab-label relative z-10 text-[10px] font-bold uppercase text-primary/90 group-hover:text-primary">
+        {agentLabel}
+      </span>
+    </button>
   );
 }
 
@@ -226,7 +454,18 @@ export const AgentChatPanel: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<MastraChatMessage[]>([]);
   const [conversationId, setConversationId] = useState("");
+  const [historyReady, setHistoryReady] = useState(false);
+  const [voiceReplies, setVoiceReplies] = useState(() => loadVoiceRepliesEnabled());
   const scrollRef = useRef<HTMLDivElement>(null);
+  const voiceHoldRef = useRef(false);
+
+  const {
+    voiceState,
+    voiceSupported,
+    startRecording,
+    cancelRecording,
+    finishRecording,
+  } = useAgentVoiceInput(language);
 
   const open = panel?.open ?? localOpen;
   const setOpen = panel?.setOpen ?? setLocalOpen;
@@ -246,16 +485,42 @@ export const AgentChatPanel: React.FC = () => {
     return (user?.email || "").split("@")[0] || "there";
   }, [user]);
 
+  const userId = user?.id ? String(user.id) : "";
+
   useEffect(() => {
-    if (!user?.id) return;
-    const key = mastraConversationStorageKey(String(user.id));
+    if (!userId) {
+      setHistoryReady(false);
+      return;
+    }
+
+    const key = mastraConversationStorageKey(userId);
     try {
       const stored = window.localStorage.getItem(key);
       if (stored) setConversationId(stored);
     } catch {
       // ignore
     }
-  }, [user?.id]);
+
+    const storedMessages = loadMastraMessages(userId);
+    if (storedMessages.length > 0) {
+      setMessages(storedMessages);
+    } else {
+      const welcome: MastraChatMessage = {
+        id: "welcome",
+        role: "assistant",
+        content: t("ai.chat_welcome", { name: userName }),
+        createdAt: Date.now(),
+      };
+      setMessages([welcome]);
+      saveMastraMessages(userId, [welcome]);
+    }
+    setHistoryReady(true);
+  }, [userId, userName, t]);
+
+  useEffect(() => {
+    if (!userId || !historyReady || messages.length === 0) return;
+    saveMastraMessages(userId, messages);
+  }, [messages, userId, historyReady]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -268,58 +533,126 @@ export const AgentChatPanel: React.FC = () => {
     }
   }, [panel?.prefill, panel]);
 
-  const sendMessage = useCallback(async () => {
-    const text = input.trim();
-    if (!text || loading) return;
+  const sendText = useCallback(
+    async (rawText: string, options?: { fromVoice?: boolean }) => {
+      const text = rawText.trim();
+      if (!text || loading) return;
 
-    const userMsg: MastraChatMessage = { id: newMessageId(), role: "user", content: text };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setLoading(true);
+      const fromVoice = !!options?.fromVoice;
+      const userMsg: MastraChatMessage = {
+        id: newMessageId(),
+        role: "user",
+        content: text,
+        createdAt: Date.now(),
+        fromVoice,
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      setInput("");
+      setLoading(true);
 
-    try {
-      const convId =
-        conversationId ||
-        (typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : newMessageId());
+      try {
+        const convId =
+          conversationId ||
+          (typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : newMessageId());
 
-      const result = await runMastraChat({
-        message: text,
-        conversationId: convId,
-        channel: "web",
-        locale: language,
-      });
+        const result = await runMastraChat({
+          message: text,
+          conversationId: convId,
+          channel: "web",
+          locale: language,
+        });
 
-      if (!conversationId && user?.id) {
-        setConversationId(convId);
-        try {
-          window.localStorage.setItem(mastraConversationStorageKey(String(user.id)), convId);
-        } catch {
-          // ignore
+        if (!conversationId && userId) {
+          setConversationId(convId);
+          try {
+            window.localStorage.setItem(mastraConversationStorageKey(userId), convId);
+          } catch {
+            // ignore
+          }
         }
+
+        const reply =
+          result.success && result.text
+            ? result.text
+            : result.code === "mastra_not_configured"
+              ? t("ai.chat_unavailable", "Agent is not available right now. Try again later.")
+              : result.message || t("ai.chat_error");
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: newMessageId(),
+            role: "assistant",
+            content: reply,
+            createdAt: Date.now(),
+          },
+        ]);
+
+        if (fromVoice && voiceReplies && reply && result.success) {
+          void playAgentVoiceReply(reply).catch(() => {
+            /* optional playback */
+          });
+        }
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: newMessageId(),
+            role: "assistant",
+            content: t("ai.chat_error"),
+            createdAt: Date.now(),
+          },
+        ]);
+      } finally {
+        setLoading(false);
       }
+    },
+    [conversationId, language, loading, t, userId, voiceReplies],
+  );
 
-      const reply =
-        result.success && result.text
-          ? result.text
-          : result.code === "mastra_not_configured"
-            ? t("ai.chat_unavailable", "Agent is not available right now. Try again later.")
-            : result.message || t("ai.chat_error");
+  const sendMessage = useCallback(() => {
+    void sendText(input);
+  }, [input, sendText]);
 
+  const handleVoiceHoldStart = useCallback(async () => {
+    if (loading || voiceState !== "idle") return;
+    voiceHoldRef.current = true;
+    const started = await startRecording();
+    if (!started) voiceHoldRef.current = false;
+  }, [loading, startRecording, voiceState]);
+
+  const handleVoiceHoldEnd = useCallback(async () => {
+    if (!voiceHoldRef.current) return;
+    voiceHoldRef.current = false;
+    if (voiceState !== "recording") return;
+    try {
+      const transcript = await finishRecording();
+      if (transcript) void sendText(transcript, { fromVoice: true });
+    } catch (err) {
+      cancelRecording();
+      const msg =
+        err instanceof Error ? err.message : t("ai.voice_transcribe_failed");
       setMessages((prev) => [
         ...prev,
-        { id: newMessageId(), role: "assistant", content: reply },
+        {
+          id: newMessageId(),
+          role: "assistant",
+          content: msg,
+          createdAt: Date.now(),
+        },
       ]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { id: newMessageId(), role: "assistant", content: t("ai.chat_error") },
-      ]);
-    } finally {
-      setLoading(false);
     }
-  }, [conversationId, input, language, loading, t, user?.id]);
+  }, [cancelRecording, finishRecording, sendText, t, voiceState]);
+
+  const handleToggleVoiceReplies = useCallback(() => {
+    setVoiceReplies((prev) => {
+      const next = !prev;
+      saveVoiceRepliesEnabled(next);
+      return next;
+    });
+  }, []);
 
   if (!isMastraChatEnabled()) return null;
 
@@ -329,61 +662,49 @@ export const AgentChatPanel: React.FC = () => {
   const panelBodyProps = {
     messages,
     loading,
-    userName,
     scrollRef,
     input,
     setInput,
     onSend: handleSend,
     onClose: handleClose,
     signalBadge,
+    voiceSupported,
+    voiceState,
+    voiceReplies,
+    onToggleVoiceReplies: handleToggleVoiceReplies,
+    onVoiceHoldStart: () => void handleVoiceHoldStart(),
+    onVoiceHoldEnd: () => void handleVoiceHoldEnd(),
   };
 
   return (
     <>
-      {/* Desktop: in-flow panel when open (shrinks main content) */}
-      {open ? (
+      {isDesktop ? (
         <aside
           className={cn(
-            "hidden min-h-0 w-[var(--mizan-agent-width,24rem)] max-w-[var(--mizan-agent-width,24rem)] shrink-0 flex-col overflow-hidden",
-            "border-s border-border/80 bg-card lg:flex",
+            "mizan-agent-rail fixed end-0 z-[1600] hidden flex-col overflow-hidden border-s border-border/80 bg-card lg:flex",
+            open
+              ? "mizan-agent-rail-open w-[var(--mizan-agent-width)]"
+              : "mizan-agent-rail-tab w-[var(--mizan-agent-tab-width)]",
           )}
           aria-label={t("ai.chat_title")}
         >
-          <AgentPanelBody {...panelBodyProps} />
+          {open ? (
+            <AgentPanelBody {...panelBodyProps} />
+          ) : (
+            <AgentCollapsedRail
+              onOpen={() => setOpen(true)}
+              signalBadge={signalBadge}
+              agentLabel={t("ai.chat_title")}
+            />
+          )}
         </aside>
       ) : null}
 
-      {/* Collapsed trigger — desktop edge tab */}
-      {!open ? (
-        <button
-          type="button"
-          className={cn(
-            "fixed end-0 top-1/2 z-[2500] hidden -translate-y-1/2 flex-col items-center gap-1 lg:flex",
-            "rounded-s-panel border border-e-0 border-border/80 bg-card py-2 ps-1.5 pe-1 shadow-soft",
-          )}
-          aria-label={t("ai.chat_button")}
-          onClick={() => setOpen(true)}
-        >
-          <div className="relative">
-            <AgentAvatar size="lg" ring />
-            {signalBadge > 0 ? (
-              <span className="absolute -end-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-high text-[10px] font-semibold text-high-foreground">
-                {signalBadge > 9 ? "9+" : signalBadge}
-              </span>
-            ) : null}
-          </div>
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-primary">
-            {t("ai.chat_title")}
-          </span>
-        </button>
-      ) : null}
-
-      {/* Mobile: FAB + sheet */}
       <Button
         type="button"
         size="lg"
         className={cn(
-          "fixed bottom-20 end-4 z-[2500] h-14 w-14 overflow-hidden rounded-full p-0 shadow-lg lg:hidden",
+          "mizan-agent-fab-glow fixed bottom-20 end-4 z-[2500] h-14 w-14 overflow-hidden rounded-full border-2 border-primary/30 p-0 lg:hidden",
           open && "hidden",
         )}
         aria-label={t("ai.chat_button")}

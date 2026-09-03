@@ -218,7 +218,7 @@ KEYS: dict[str, dict[str, str]] = {
     "staff.requests.author_miya": {
         "en": "Agent AI",
         "fr": "Agent AI",
-        "ar": "ميا الذكية",
+        "ar": "الوكيل",
     },
     "staff.requests.author_manager": {
         "en": "Manager",
