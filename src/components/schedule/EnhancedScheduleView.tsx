@@ -4,6 +4,7 @@ import { StaffScheduleListView } from "./StaffScheduleListView";
 import { StaffTimesheetView } from "./StaffTimesheetView";
 import ShiftModal from "@/components/ShiftModal";
 import type { Shift, StaffMember, WeeklyScheduleData, BackendShift, TaskPriority } from "@/types/schedule";
+import { displayShiftTitle } from "@/lib/shiftDisplay";
 import { useLanguage } from "@/hooks/use-language";
 import { startOfWeek, endOfWeek, format, addDays, parseISO, addWeeks, addMonths, isBefore, isEqual } from "date-fns";
 import { API_BASE } from "@/lib/api";
@@ -151,7 +152,7 @@ const EnhancedScheduleView: React.FC = () => {
       const firstStaffId = members[0] || shift.staff;
       return {
       id: shift.id,
-      title: (shift.title ?? shift.notes) || "Shift",
+      title: displayShiftTitle(shift),
       start: toHHmm(shift.start_time),
       end: toHHmm(shift.end_time),
       date: shift.shift_date,
