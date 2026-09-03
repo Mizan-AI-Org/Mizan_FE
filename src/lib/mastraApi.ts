@@ -180,7 +180,9 @@ export async function synthesizeAgentVoice(
 
 export async function playAgentVoiceReply(text: string): Promise<void> {
   const result = await synthesizeAgentVoice(text);
-  if (!result.success || !result.audioBase64) return;
+  if (!result.success || !result.audioBase64) {
+    throw new Error(result.message || "Voice reply failed.");
+  }
   const binary = atob(result.audioBase64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
@@ -188,6 +190,7 @@ export async function playAgentVoiceReply(text: string): Promise<void> {
   const url = URL.createObjectURL(blob);
   try {
     const audio = new Audio(url);
+    audio.setAttribute("playsinline", "true");
     await audio.play();
   } finally {
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);

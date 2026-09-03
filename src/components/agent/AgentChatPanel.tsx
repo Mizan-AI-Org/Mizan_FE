@@ -197,7 +197,8 @@ function ChatComposer({
   onVoiceHoldEnd: () => void;
 }) {
   const { t } = useLanguage();
-  const voiceBusy = voiceState === "recording" || voiceState === "transcribing";
+  const micButtonRef = useRef<HTMLButtonElement>(null);
+  const transcribing = voiceState === "transcribing";
 
   return (
     <div className="mizan-chat-composer-bar shrink-0 px-3 py-3">
@@ -240,19 +241,22 @@ function ChatComposer({
             </Button>
             {voiceSupported ? (
               <Button
+                ref={micButtonRef}
                 type="button"
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  "h-9 w-9 shrink-0",
+                  "h-9 w-9 shrink-0 touch-none select-none",
                   voiceState === "recording"
                     ? "bg-primary/15 text-primary"
                     : "text-muted-foreground hover:text-primary",
                 )}
-                disabled={loading || voiceBusy}
+                disabled={loading || transcribing}
+                aria-pressed={voiceState === "recording"}
                 aria-label={t("ai.voice_hold")}
                 title={t("ai.voice_hold")}
                 onPointerDown={(e) => {
+                  if (loading || transcribing) return;
                   e.preventDefault();
                   onVoiceHoldStart();
                 }}
@@ -260,8 +264,8 @@ function ChatComposer({
                   e.preventDefault();
                   onVoiceHoldEnd();
                 }}
-                onPointerLeave={(e) => {
-                  if (voiceState === "recording") onVoiceHoldEnd();
+                onPointerCancel={() => {
+                  onVoiceHoldEnd();
                 }}
               >
                 <Mic className="h-[18px] w-[18px]" aria-hidden />
@@ -301,7 +305,7 @@ function ChatComposer({
             type="submit"
             size="icon"
             className="h-10 w-10 shrink-0 rounded-full bg-primary hover:bg-primary/90"
-            disabled={loading || voiceBusy || !input.trim()}
+            disabled={loading || transcribing || voiceState === "recording" || !input.trim()}
             aria-label={t("ai.send_message")}
           >
             {loading ? (
@@ -457,15 +461,10 @@ export const AgentChatPanel: React.FC = () => {
   const [historyReady, setHistoryReady] = useState(false);
   const [voiceReplies, setVoiceReplies] = useState(() => loadVoiceRepliesEnabled());
   const scrollRef = useRef<HTMLDivElement>(null);
-  const voiceHoldRef = useRef(false);
 
-  const {
-    voiceState,
-    voiceSupported,
-    startRecording,
-    cancelRecording,
-    finishRecording,
-  } = useAgentVoiceInput(language);
+  const sendTextRef = useRef<(rawText: string, options?: { fromVoice?: boolean }) => void>(
+    () => undefined,
+  );
 
   const open = panel?.open ?? localOpen;
   const setOpen = panel?.setOpen ?? setLocalOpen;
@@ -578,7 +577,12 @@ export const AgentChatPanel: React.FC = () => {
             ? result.text
             : result.code === "mastra_not_configured"
               ? t("ai.chat_unavailable", "Agent is not available right now. Try again later.")
-              : result.message || t("ai.chat_error");
+              : result.code === "mastra_unreachable" && import.meta.env.DEV
+                ? t(
+                    "ai.chat_agent_offline_dev",
+                    "Agent service is offline. Start it with: cd agent && npm run dev (port 4111).",
+                  )
+                : result.message || t("ai.chat_error");
 
         setMessages((prev) => [
           ...prev,
@@ -592,7 +596,7 @@ export const AgentChatPanel: React.FC = () => {
 
         if (fromVoice && voiceReplies && reply && result.success) {
           void playAgentVoiceReply(reply).catch(() => {
-            /* optional playback */
+            /* optional playback — browser may block without gesture */
           });
         }
       } catch {
@@ -612,28 +616,18 @@ export const AgentChatPanel: React.FC = () => {
     [conversationId, language, loading, t, userId, voiceReplies],
   );
 
-  const sendMessage = useCallback(() => {
-    void sendText(input);
-  }, [input, sendText]);
+  sendTextRef.current = (rawText, options) => {
+    void sendText(rawText, options);
+  };
 
-  const handleVoiceHoldStart = useCallback(async () => {
-    if (loading || voiceState !== "idle") return;
-    voiceHoldRef.current = true;
-    const started = await startRecording();
-    if (!started) voiceHoldRef.current = false;
-  }, [loading, startRecording, voiceState]);
-
-  const handleVoiceHoldEnd = useCallback(async () => {
-    if (!voiceHoldRef.current) return;
-    voiceHoldRef.current = false;
-    if (voiceState !== "recording") return;
-    try {
-      const transcript = await finishRecording();
-      if (transcript) void sendText(transcript, { fromVoice: true });
-    } catch (err) {
-      cancelRecording();
-      const msg =
-        err instanceof Error ? err.message : t("ai.voice_transcribe_failed");
+  const {
+    voiceState,
+    voiceSupported,
+    pressHold,
+    releaseHold,
+  } = useAgentVoiceInput({
+    onTranscript: (transcript) => sendTextRef.current(transcript, { fromVoice: true }),
+    onError: (msg) => {
       setMessages((prev) => [
         ...prev,
         {
@@ -643,8 +637,21 @@ export const AgentChatPanel: React.FC = () => {
           createdAt: Date.now(),
         },
       ]);
-    }
-  }, [cancelRecording, finishRecording, sendText, t, voiceState]);
+    },
+  });
+
+  const sendMessage = useCallback(() => {
+    void sendText(input);
+  }, [input, sendText]);
+
+  const handleVoiceHoldStart = useCallback(() => {
+    if (loading) return;
+    void pressHold();
+  }, [loading, pressHold]);
+
+  const handleVoiceHoldEnd = useCallback(() => {
+    void releaseHold();
+  }, [releaseHold]);
 
   const handleToggleVoiceReplies = useCallback(() => {
     setVoiceReplies((prev) => {
