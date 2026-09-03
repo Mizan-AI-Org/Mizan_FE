@@ -2211,8 +2211,17 @@ const ManagerReviewDashboard: React.FC = () => {
                                 <div>Evidence ({sr.evidence.length}):</div>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                   {sr.evidence.map((ev: ExecutionEvidence, eidx: number) => {
-                                    const rawUrl = ev.url || ev.file_path || "";
-                                    const abs = resolveMediaUrl(rawUrl) || toAbsoluteUrl(rawUrl) || rawUrl;
+                                    const rawUrl =
+                                      (ev as { resolved_url?: string }).resolved_url?.trim() ||
+                                      ev.url ||
+                                      ev.file_path ||
+                                      "";
+                                    const abs =
+                                      /^https?:\/\//i.test(rawUrl)
+                                        ? rawUrl
+                                        : resolveMediaUrl(rawUrl) ||
+                                          toAbsoluteUrl(rawUrl).href ||
+                                          rawUrl;
                                     const isImage =
                                       /\.(jpe?g|png|gif|webp|heic)(\?|$)/i.test(rawUrl) ||
                                       String((ev as { mime_type?: string }).mime_type || "")
