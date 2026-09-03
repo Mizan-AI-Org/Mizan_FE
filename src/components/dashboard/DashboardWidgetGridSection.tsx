@@ -181,15 +181,67 @@ export function DashboardWidgetGridSection() {
   const [serverLayoutReady, setServerLayoutReady] = useState(false);
   const skipNextPersist = useRef(true);
   const ignoreNextServerPatch = useRef(false);
+  const layoutDirtyRef = useRef(false);
+
+  const markLayoutDirty = useCallback(() => {
+    layoutDirtyRef.current = true;
+  }, []);
+
+  const applyServerWidgetOrder = useCallback(
+    (order: DashboardWidgetSlotId[]) => {
+      const { order: merged, changed } = mergeNewDefaultWidgets(order, user?.id);
+      ignoreNextServerPatch.current = !changed;
+      skipNextPersist.current = true;
+      layoutDirtyRef.current = false;
+      setWidgetOrder(merged);
+      if (widgetStorageKey) {
+        localStorage.setItem(widgetStorageKey, JSON.stringify({ order: merged }));
+      }
+      queueMicrotask(() => {
+        skipNextPersist.current = false;
+        setTimeout(() => {
+          ignoreNextServerPatch.current = false;
+        }, 80);
+      });
+      return merged;
+    },
+    [user?.id, widgetStorageKey],
+  );
+
+  const syncWidgetOrderFromServer = useCallback(async () => {
+    if (!canCustomizeDashboard || !accessToken) return;
+    try {
+      const data = await api.getDashboardWidgetOrder();
+      if (data?.order && Array.isArray(data.order) && data.order.length > 0) {
+        const serverOrder = data.order as DashboardWidgetSlotId[];
+        if (layoutDirtyRef.current) {
+          setWidgetOrder((current) => {
+            const missingCustom = serverOrder.filter(
+              (id) => isCustomWidgetSlotId(id) && !current.includes(id),
+            );
+            if (missingCustom.length === 0) return current;
+            skipNextPersist.current = true;
+            return [...missingCustom, ...current];
+          });
+        } else {
+          applyServerWidgetOrder(serverOrder);
+        }
+      }
+      await queryClient.invalidateQueries({ queryKey: ["dashboard-custom-widgets"] });
+    } catch {
+      /* offline or older backend */
+    }
+  }, [accessToken, applyServerWidgetOrder, canCustomizeDashboard, queryClient]);
 
   useEffect(() => {
     if (!canCustomizeDashboard || !widgetStorageKey) return;
+    // localStorage is a fallback only; server layout wins once fetched below.
     const parsed = parseStoredWidgetOrder(localStorage.getItem(widgetStorageKey));
     if (parsed) {
       const { order: merged } = mergeNewDefaultWidgets(parsed, user?.id);
       setWidgetOrder(merged);
     }
-    skipNextPersist.current = false;
+    skipNextPersist.current = true;
   }, [canCustomizeDashboard, widgetStorageKey, user?.id]);
 
   useEffect(() => {
@@ -203,31 +255,38 @@ export function DashboardWidgetGridSection() {
         const data = await api.getDashboardWidgetOrder();
         if (cancelled) return;
         if (data?.order && Array.isArray(data.order) && data.order.length > 0) {
-          const { order: merged, changed } = mergeNewDefaultWidgets(
-            data.order as DashboardWidgetSlotId[],
-            user?.id,
-          );
-          ignoreNextServerPatch.current = !changed;
-          skipNextPersist.current = true;
-          setWidgetOrder(merged);
-          if (widgetStorageKey) {
-            localStorage.setItem(widgetStorageKey, JSON.stringify({ order: merged }));
-          }
-          queueMicrotask(() => {
-            skipNextPersist.current = false;
-            setTimeout(() => {
-              ignoreNextServerPatch.current = false;
-            }, 80);
-          });
+          applyServerWidgetOrder(data.order as DashboardWidgetSlotId[]);
+        } else {
+          skipNextPersist.current = false;
         }
+        await queryClient.invalidateQueries({ queryKey: ["dashboard-custom-widgets"] });
       } catch {
-        /* offline or older backend */
+        skipNextPersist.current = false;
       } finally {
         if (!cancelled) setServerLayoutReady(true);
       }
     })();
     return () => { cancelled = true; };
-  }, [canCustomizeDashboard, accessToken, widgetStorageKey, user?.id]);
+  }, [accessToken, applyServerWidgetOrder, canCustomizeDashboard, queryClient]);
+
+  useEffect(() => {
+    if (!canCustomizeDashboard || !accessToken) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void syncWidgetOrderFromServer();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    const timer = window.setInterval(() => {
+      void syncWidgetOrderFromServer();
+    }, 30_000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      window.clearInterval(timer);
+    };
+  }, [accessToken, canCustomizeDashboard, syncWidgetOrderFromServer]);
 
   useEffect(() => {
     if (!canCustomizeDashboard || !widgetStorageKey || skipNextPersist.current) return;
@@ -236,11 +295,13 @@ export function DashboardWidgetGridSection() {
 
   useEffect(() => {
     if (!canCustomizeDashboard || !accessToken || !serverLayoutReady) return;
-    if (ignoreNextServerPatch.current) return;
+    if (ignoreNextServerPatch.current || skipNextPersist.current) return;
+    if (!layoutDirtyRef.current) return;
     const timer = setTimeout(() => {
       api
         .patchDashboardWidgetOrder({ order: widgetOrder })
         .then(() => {
+          layoutDirtyRef.current = false;
           queryClient.invalidateQueries({ queryKey: ["staff-inbox-lanes"] });
         })
         .catch(() => {});
@@ -255,13 +316,14 @@ export function DashboardWidgetGridSection() {
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    markLayoutDirty();
     setWidgetOrder((items) => {
       const oldIndex = items.indexOf(String(active.id));
       const newIndex = items.indexOf(String(over.id));
       if (oldIndex < 0 || newIndex < 0) return items;
       return arrayMove(items, oldIndex, newIndex);
     });
-  }, []);
+  }, [markLayoutDirty]);
 
   const hiddenWidgets = useMemo(
     () =>
@@ -417,6 +479,7 @@ export function DashboardWidgetGridSection() {
                   size="sm"
                   onClick={() => {
                     clearDismissedDefaults(user?.id);
+                    markLayoutDirty();
                     setWidgetOrder([...DEFAULT_DASHBOARD_WIDGET_ORDER]);
                   }}
                 >
@@ -476,6 +539,7 @@ export function DashboardWidgetGridSection() {
                               key={wid}
                               type="button"
                               onClick={() => {
+                                markLayoutDirty();
                                 setWidgetOrder((o) => (o.includes(wid) ? o : [wid, ...o]));
                                 setAddWidgetOpen(false);
                               }}
@@ -517,6 +581,7 @@ export function DashboardWidgetGridSection() {
                             key={w.slot_id}
                             type="button"
                             onClick={() => {
+                              markLayoutDirty();
                               setWidgetOrder((o) =>
                                 o.includes(w.slot_id) ? o : [w.slot_id, ...o],
                               );
@@ -555,6 +620,7 @@ export function DashboardWidgetGridSection() {
                           key={w.slot_id}
                           type="button"
                           onClick={() => {
+                            markLayoutDirty();
                             setWidgetOrder((o) => (o.includes(w.slot_id) ? o : [...o, w.slot_id]));
                             setAddWidgetOpen(false);
                           }}
@@ -636,6 +702,7 @@ export function DashboardWidgetGridSection() {
                           colClassName={cn("relative", colSpan)}
                           onRemove={() => {
                             markDefaultAsDismissed(user?.id, wid);
+                            markLayoutDirty();
                             setWidgetOrder((o) => o.filter((x) => x !== wid));
                           }}
                         >
