@@ -14,6 +14,16 @@ KEYS: dict[str, dict[str, str]] = {
         "fr": "Je n'ai pas pu terminer. Réessayez dans un instant.",
         "ar": "لم أتمكن من إكمال ذلك الآن. أعد المحاولة بعد لحظات.",
     },
+    "agent.error": {
+        "en": "I couldn't complete that just now. Try again in a moment.",
+        "fr": "Je n'ai pas pu terminer. Réessayez dans un instant.",
+        "ar": "لم أتمكن من إكمال ذلك الآن. أعد المحاولة بعد لحظات.",
+    },
+    "staff.roles.supervisor": {
+        "en": "Supervisor",
+        "fr": "Superviseur",
+        "ar": "مشرف",
+    },
     "ai.chat_online": {"en": "Online", "fr": "En ligne", "ar": "متصل"},
     "ai.suggest.attention": {
         "en": "What needs attention?",

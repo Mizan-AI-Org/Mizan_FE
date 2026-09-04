@@ -100,6 +100,8 @@ const RESTAURANT_GROUPS: StaffInviteRoleGroup[] = [
     roles: [
       { value: "SUPER_ADMIN", labelKey: "staff.roles.super_admin" },
       { value: "ADMIN", labelKey: "staff.roles.admin" },
+      { value: "OWNER", labelKey: "staff.roles.owner" },
+      { value: "SUPERVISOR", labelKey: "staff.roles.supervisor" },
       { value: "MANAGER", labelKey: "staff.roles.manager" },
     ],
   },
@@ -134,6 +136,8 @@ const RETAIL_GROUPS: StaffInviteRoleGroup[] = [
     roles: [
       { value: "SUPER_ADMIN", labelKey: "staff.roles.super_admin" },
       { value: "ADMIN", labelKey: "staff.roles.admin" },
+      { value: "OWNER", labelKey: "staff.roles.owner" },
+      { value: "SUPERVISOR", labelKey: "staff.roles.supervisor" },
       { value: "MANAGER", labelKey: "staff.roles.retail_store_manager" },
     ],
   },
@@ -168,6 +172,8 @@ const MANUFACTURING_GROUPS: StaffInviteRoleGroup[] = [
     roles: [
       { value: "SUPER_ADMIN", labelKey: "staff.roles.super_admin" },
       { value: "ADMIN", labelKey: "staff.roles.admin" },
+      { value: "OWNER", labelKey: "staff.roles.owner" },
+      { value: "SUPERVISOR", labelKey: "staff.roles.supervisor" },
       { value: "MANAGER", labelKey: "staff.roles.mfg_plant_manager" },
     ],
   },
@@ -202,6 +208,8 @@ const CONSTRUCTION_GROUPS: StaffInviteRoleGroup[] = [
     roles: [
       { value: "SUPER_ADMIN", labelKey: "staff.roles.super_admin" },
       { value: "ADMIN", labelKey: "staff.roles.admin" },
+      { value: "OWNER", labelKey: "staff.roles.owner" },
+      { value: "SUPERVISOR", labelKey: "staff.roles.supervisor" },
       { value: "MANAGER", labelKey: "staff.roles.const_project_manager" },
     ],
   },
@@ -236,6 +244,8 @@ const HEALTHCARE_GROUPS: StaffInviteRoleGroup[] = [
     roles: [
       { value: "SUPER_ADMIN", labelKey: "staff.roles.super_admin" },
       { value: "ADMIN", labelKey: "staff.roles.admin" },
+      { value: "OWNER", labelKey: "staff.roles.owner" },
+      { value: "SUPERVISOR", labelKey: "staff.roles.supervisor" },
       { value: "MANAGER", labelKey: "staff.roles.health_practice_manager" },
     ],
   },
@@ -270,6 +280,8 @@ const HOSPITALITY_GROUPS: StaffInviteRoleGroup[] = [
     roles: [
       { value: "SUPER_ADMIN", labelKey: "staff.roles.super_admin" },
       { value: "ADMIN", labelKey: "staff.roles.admin" },
+      { value: "OWNER", labelKey: "staff.roles.owner" },
+      { value: "SUPERVISOR", labelKey: "staff.roles.supervisor" },
       { value: "MANAGER", labelKey: "staff.roles.hotel_gm" },
     ],
   },
@@ -304,6 +316,8 @@ const SERVICES_GROUPS: StaffInviteRoleGroup[] = [
     roles: [
       { value: "SUPER_ADMIN", labelKey: "staff.roles.super_admin" },
       { value: "ADMIN", labelKey: "staff.roles.admin" },
+      { value: "OWNER", labelKey: "staff.roles.owner" },
+      { value: "SUPERVISOR", labelKey: "staff.roles.supervisor" },
       { value: "MANAGER", labelKey: "staff.roles.svc_ops_lead" },
     ],
   },
@@ -338,6 +352,8 @@ const OTHER_GROUPS: StaffInviteRoleGroup[] = [
     roles: [
       { value: "SUPER_ADMIN", labelKey: "staff.roles.super_admin" },
       { value: "ADMIN", labelKey: "staff.roles.admin" },
+      { value: "OWNER", labelKey: "staff.roles.owner" },
+      { value: "SUPERVISOR", labelKey: "staff.roles.supervisor" },
       { value: "MANAGER", labelKey: "staff.roles.manager" },
     ],
   },
