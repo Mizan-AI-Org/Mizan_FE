@@ -10,9 +10,9 @@ ROOT = Path(__file__).resolve().parents[1] / "public" / "locales"
 KEYS: dict[str, dict[str, str]] = {
     # --- Missing from all locales (used in code) ---
     "ai.chat_error": {
-        "en": "Something went wrong talking to Agent.",
-        "fr": "Une erreur s'est produite en parlant à Agent.",
-        "ar": "حدث خطأ أثناء التحدث مع الوكيل.",
+        "en": "I couldn't complete that just now. Try again in a moment.",
+        "fr": "Je n'ai pas pu terminer. Réessayez dans un instant.",
+        "ar": "لم أتمكن من إكمال ذلك الآن. أعد المحاولة بعد لحظات.",
     },
     "ai.chat_online": {"en": "Online", "fr": "En ligne", "ar": "متصل"},
     "ai.suggest.attention": {

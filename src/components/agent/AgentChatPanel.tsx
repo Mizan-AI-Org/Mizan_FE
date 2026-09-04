@@ -426,6 +426,8 @@ function AgentCollapsedRail({
 export const AgentChatPanel: React.FC = () => {
   const { t, language } = useLanguage();
   const { user } = useAuth();
+  const webAgentRoles = new Set(["MANAGER", "ADMIN", "OWNER", "SUPER_ADMIN", "SUPERVISOR"]);
+  const canUseWebAgent = webAgentRoles.has((user?.role || "").toUpperCase());
   const panel = useAgentPanelOptional();
   const { data: commandData } = useCommandCentre();
   const [localOpen, setLocalOpen] = useState(false);
@@ -574,7 +576,7 @@ export const AgentChatPanel: React.FC = () => {
                   "ai.chat_agent_offline_dev",
                   "Agent service is offline. Start it with: cd agent && npm run dev (port 4111).",
                 )
-              : result.message || t("ai.chat_error");
+              : result.message || t("ai.chat_error", "I couldn't complete that just now. Try again in a moment.");
 
         setMessages((prev) => [
           ...prev,
@@ -591,7 +593,7 @@ export const AgentChatPanel: React.FC = () => {
           {
             id: newMessageId(),
             role: "assistant",
-            content: t("ai.chat_error"),
+            content: t("ai.chat_error", "I couldn't complete that just now. Try again in a moment."),
             createdAt: Date.now(),
           },
         ]);
@@ -658,6 +660,10 @@ export const AgentChatPanel: React.FC = () => {
     onVoiceHoldStart: () => void handleVoiceHoldStart(),
     onVoiceHoldEnd: () => void handleVoiceHoldEnd(),
   };
+
+  if (!canUseWebAgent) {
+    return null;
+  }
 
   return (
     <>

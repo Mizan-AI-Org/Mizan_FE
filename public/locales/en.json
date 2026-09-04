@@ -3329,7 +3329,7 @@
   "ai.voice_unavailable": "Voice input needs Fish Audio or OpenAI STT on the server.",
   "ai.voice_manager_only": "Voice messages are for managers and admins.",
   "ai.voice_transcribe_failed": "Could not understand that. Try again or type your message.",
-  "ai.chat_error": "Something went wrong talking to Agent.",
+  "ai.chat_error": "I couldn't complete that just now. Try again in a moment.",
   "ai.chat_unavailable": "Agent is not available right now. Try again later.",
   "ai.chat_online": "Online",
   "ai.chat_today": "Today",

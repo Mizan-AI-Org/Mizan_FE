@@ -3339,7 +3339,7 @@
   "ai.attach_document": "Joindre un document",
   "ai.chat_button": "Discuter avec l'Agent",
   "ai.chat_close": "Fermer le chat Agent",
-  "ai.chat_error": "Une erreur s'est produite en parlant à Agent.",
+  "ai.chat_error": "Je n'ai pas pu terminer. Réessayez dans un instant.",
   "ai.chat_unavailable": "L'Agent n'est pas disponible pour le moment. Réessayez plus tard.",
   "ai.chat_greeting": "Services, équipe, tâches, incidents — je vérifie les données en direct et je m'occupe de ce que je peux.",
   "ai.chat_welcome": "Bonjour {{name}} — je suis aux côtés de ton opération. Demande ou dis-moi quoi gérer.",
