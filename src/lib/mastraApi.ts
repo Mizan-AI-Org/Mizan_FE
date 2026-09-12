@@ -8,6 +8,7 @@ export type MastraRunResponse = {
   mode?: string;
   code?: string;
   message?: string;
+  message_for_user?: string;
   pendingConfirmation?: {
     tool: string;
     arguments?: Record<string, unknown>;
@@ -245,10 +246,20 @@ export async function runMastraChat(body: {
 
   const data = (await response.json().catch(() => ({}))) as MastraRunResponse;
   if (!response.ok) {
+    const message =
+      data.message?.trim() ||
+      data.message_for_user?.trim() ||
+      (data.code === "mastra_unreachable"
+        ? "The assistant is temporarily unavailable."
+        : data.code === "mastra_timeout"
+          ? "The assistant took too long to respond."
+          : data.code === "mastra_not_configured"
+            ? "Agent is not configured on the server."
+            : undefined);
     return {
       success: false,
       code: data.code || `http_${response.status}`,
-      message: data.message || "Agent request failed.",
+      message: message || "Agent request failed.",
     };
   }
   return data;
