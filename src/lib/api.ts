@@ -777,6 +777,16 @@ export class BackendService {
     );
   }
 
+  async updateDashboardTaskPriority(
+    taskId: string,
+    priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT",
+  ): Promise<DashboardTaskDemandItem> {
+    return this.fetchWithError(
+      `/dashboard/tasks-demands/${taskId}/priority/`,
+      { method: "PATCH", body: JSON.stringify({ priority }) },
+    );
+  }
+
   /**
    * Drag-and-drop endpoint - moves a dashboard row from its current
    * category widget to a different one. ``bucket`` matches the FE's

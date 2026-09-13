@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-    "scripts": {
+  "scripts": {
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
@@ -85,6 +85,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@swc/core": "^1.13.5",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.0",
@@ -116,5 +117,10 @@
     "brace-expansion": ">=2.2.0",
     "rollup": ">=4.53.0",
     "uuid": ">=10.0.0"
+  },
+  "allowScripts": {
+    "@swc/core@1.13.5": true,
+    "esbuild@0.25.11": true,
+    "fsevents@2.3.3": true
   }
 }

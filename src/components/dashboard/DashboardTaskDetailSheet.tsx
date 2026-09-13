@@ -122,6 +122,30 @@ export function DashboardTaskDetailSheet({
     },
   });
 
+  const priorityMutation = useMutation({
+    mutationFn: (priority: string) => {
+      if (!taskId) throw new Error("No task selected");
+      return api.updateDashboardTaskPriority(
+        taskId,
+        priority as "LOW" | "MEDIUM" | "HIGH" | "URGENT",
+      );
+    },
+    onSuccess: async (updated) => {
+      queryClient.setQueryData(["dashboard-task-demand", taskId], updated);
+      await invalidateTaskQueries();
+      toast.success(
+        t("dashboard.task_detail.updated", { defaultValue: "Task updated" }),
+      );
+    },
+    onError: (err: unknown) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : t("dashboard.task_detail.update_failed", { defaultValue: "Could not update task" }),
+      );
+    },
+  });
+
   const task = taskQuery.data;
 
   return (
@@ -156,6 +180,11 @@ export function DashboardTaskDetailSheet({
               task={task}
               widgetTitle={widgetTitle}
               onStatusChange={(nextStatus) => statusMutation.mutate(nextStatus)}
+              onPriorityChange={
+                task.kind === "dashboard" || task.kind === undefined
+                  ? (priority) => priorityMutation.mutate(priority)
+                  : undefined
+              }
               onSaveAssignees={
                 task.kind === "dashboard" || task.kind === undefined
                   ? (ids) => saveAssigneesMutation.mutate(ids)

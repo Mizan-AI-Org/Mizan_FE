@@ -4,6 +4,9 @@ import {
   ChevronDown,
   Paperclip,
   Sparkles,
+  Play,
+  CheckCircle2,
+  ThumbsUp,
 } from "lucide-react";
 import { TaskAssigneePicker } from "@/components/dashboard/TaskAssigneePicker";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { BACKEND_URL } from "@/lib/api";
 import type { DashboardTaskDemandItem } from "@/lib/types";
 import {
+  dashboardTaskPrimaryAction,
   dashboardTaskPriorityBadge,
   dashboardTaskSecondaryStatuses,
   dashboardTaskStatusBadge,
@@ -47,6 +51,7 @@ export function DashboardTaskDetailContent({
   onStatusChange,
   onSaveAssignees,
   onAssigneeChange,
+  onPriorityChange,
   isUpdating,
   isSaving,
   isAssigneeUpdating,
@@ -60,6 +65,8 @@ export function DashboardTaskDetailContent({
   onSaveAssignees?: (assigneeIds: string[]) => void;
   /** Legacy single-assign immediate update (staff inbox). */
   onAssigneeChange?: (assigneeId: string | null) => void;
+  /** Priority change callback. */
+  onPriorityChange?: (priority: string) => void;
   isUpdating: boolean;
   isSaving?: boolean;
   isAssigneeUpdating?: boolean;
@@ -86,7 +93,8 @@ export function DashboardTaskDetailContent({
   }, [task.assignees, task.assignee]);
 
   const hasAssigneeChanges = multiAssignMode && !sameIdSet(pendingIds, savedIds);
-  const secondaryStatuses = dashboardTaskSecondaryStatuses(task.status, null);
+  const primaryAction = dashboardTaskPrimaryAction(task.status, t);
+  const secondaryStatuses = dashboardTaskSecondaryStatuses(task.status, primaryAction?.nextStatus ?? null);
   const dueLabel = task.due_date
     ? new Date(task.due_date).toLocaleDateString(undefined, {
         weekday: "short",
@@ -142,15 +150,56 @@ export function DashboardTaskDetailContent({
           >
             {dashboardTaskStatusLabel(task.status, t)}
           </Badge>
-          <Badge
-            variant="outline"
-            className={cn(
-              "rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase",
-              dashboardTaskPriorityBadge(task.priority),
-            )}
-          >
-            {String(task.priority || "MEDIUM")}
-          </Badge>
+          {onPriorityChange ? (
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase cursor-pointer hover:opacity-80 transition-opacity",
+                    dashboardTaskPriorityBadge(task.priority),
+                  )}
+                  disabled={isUpdating}
+                >
+                  {String(task.priority || "MEDIUM")}
+                  <ChevronDown className="h-3 w-3" aria-hidden />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-36 z-[4000]">
+                {(["LOW", "MEDIUM", "HIGH", "URGENT"] as const).map((p) => (
+                  <DropdownMenuItem
+                    key={p}
+                    onClick={() => onPriorityChange(p)}
+                    className={cn(
+                      "text-xs font-semibold",
+                      p === (task.priority || "MEDIUM").toUpperCase() && "bg-muted",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "inline-block h-2 w-2 rounded-full mr-2",
+                        p === "URGENT" && "bg-red-500",
+                        p === "HIGH" && "bg-amber-500",
+                        p === "MEDIUM" && "bg-blue-500",
+                        p === "LOW" && "bg-slate-400",
+                      )}
+                    />
+                    {p}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Badge
+              variant="outline"
+              className={cn(
+                "rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase",
+                dashboardTaskPriorityBadge(task.priority),
+              )}
+            >
+              {String(task.priority || "MEDIUM")}
+            </Badge>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -249,8 +298,21 @@ export function DashboardTaskDetailContent({
 
       <div className="shrink-0 space-y-2 border-t border-border/60 pt-4">
         <div className="flex flex-wrap items-center gap-2">
+          {primaryAction ? (
+            <Button
+              className="flex-1 sm:flex-none gap-1.5"
+              disabled={isUpdating || isSaving}
+              onClick={() => onStatusChange(primaryAction.nextStatus)}
+            >
+              {primaryAction.nextStatus === "ACCEPTED" && <ThumbsUp className="h-4 w-4" aria-hidden />}
+              {primaryAction.nextStatus === "IN_PROGRESS" && <Play className="h-4 w-4" aria-hidden />}
+              {primaryAction.nextStatus === "COMPLETED" && <CheckCircle2 className="h-4 w-4" aria-hidden />}
+              {primaryAction.label}
+            </Button>
+          ) : null}
           {multiAssignMode ? (
             <Button
+              variant={primaryAction ? "outline" : "default"}
               className="flex-1 sm:flex-none"
               disabled={isUpdating || isSaving || !hasAssigneeChanges}
               onClick={() => onSaveAssignees?.(pendingIds)}
