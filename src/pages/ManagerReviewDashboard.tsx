@@ -30,6 +30,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { RefreshCw, TrendingUp, Users, ClipboardCheck, AlertTriangle, MapPin, User, Calendar, ShieldAlert, Camera, ChevronDown } from "lucide-react";
 import { PAGE_SHELL } from "@/lib/page-shell";
+import { isUnresolvedIncidentStatus } from "@/lib/incidentStatus";
 import { TableSkeleton } from "@/components/skeletons";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -466,11 +467,16 @@ const ManagerReviewDashboard: React.FC = () => {
       .map(([name, count]) => ({ name, count }));
   }, [filtered]);
 
-  // Fetch incidents
+  // Fetch incidents — request a wide page so open counts match Live Ops / agent.
+  // Default DRF PAGE_SIZE=10 of mixed statuses silently drops older open rows.
   const { data: incidents, isLoading: incidentsLoading } = useQuery({
-    queryKey: ['safety-incidents'],
+    queryKey: ['safety-incidents', 'wide'],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/staff/safety-concerns/`, {
+      const qs = new URLSearchParams({
+        ordering: "-created_at",
+        page_size: "200",
+      });
+      const res = await fetch(`${API_BASE}/staff/safety-concerns/?${qs.toString()}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
       });
       if (!res.ok) throw new Error('Failed to fetch incidents');
@@ -618,7 +624,7 @@ const ManagerReviewDashboard: React.FC = () => {
   }, [incidents]);
 
   const incidentKpis = useMemo(() => {
-    const open = incidentList.filter((i) => String(i.status || "").toLowerCase() === "open");
+    const open = incidentList.filter((i) => isUnresolvedIncidentStatus(i.status));
     const critical = open.filter((i) => ["critical", "high"].includes(String(i.severity || "").toLowerCase()));
     const unassigned = open.filter((i) => !i.assigned_to_details);
     const resolved7 = incidentList.filter((i) => {
@@ -637,14 +643,13 @@ const ManagerReviewDashboard: React.FC = () => {
   }, [incidentList]);
 
   const filteredIncidents = useMemo(() => {
-    const OPEN_STATUSES = ['open'];
     return incidentList.filter((inc) => {
       const statusLower = String(inc.status || '').toLowerCase();
       const matchesStatus =
         incidentFilters.status === ''
           ? true
           : incidentFilters.status === 'open'
-            ? OPEN_STATUSES.includes(statusLower)
+            ? isUnresolvedIncidentStatus(inc.status)
             : statusLower === incidentFilters.status.toLowerCase();
       const matchesSeverity = !incidentFilters.severity || String(inc.severity || '').toLowerCase() === incidentFilters.severity.toLowerCase();
       const q = incidentFilters.search.trim().toLowerCase();
@@ -676,6 +681,10 @@ const ManagerReviewDashboard: React.FC = () => {
     const st = (status || '').toLowerCase();
     switch (st) {
       case 'open':
+      case 'acknowledged':
+      case 'in_progress':
+      case 'blocked':
+      case 'waiting':
         return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800';
       case 'resolved':
         return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800';

@@ -20,13 +20,13 @@ export default function WorkHubPage() {
         {
           label: t("hub.work.tasks"),
           description: t("hub.work.tasks_desc"),
-          href: "/dashboard/processes-tasks-app",
+          href: "/dashboard/tasks",
           icon: ClipboardList,
         },
         {
           label: t("hub.work.incidents"),
           description: t("hub.work.incidents_desc"),
-          href: "/dashboard/analytics?tab=incidents",
+          href: "/dashboard/reviews/checklists?tab=incidents",
           icon: AlertTriangle,
         },
         {

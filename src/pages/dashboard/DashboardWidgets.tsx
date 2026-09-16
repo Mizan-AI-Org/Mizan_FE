@@ -96,6 +96,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  isUnresolvedIncidentStatus,
+  UNRESOLVED_INCIDENT_STATUS_QUERY,
+} from "@/lib/incidentStatus";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
@@ -3209,7 +3213,7 @@ function StaffDailyProgressCard({
   const liveStaff = data?.staff ?? [];
 
   const goToProgress = React.useCallback(() => {
-    navigate("/dashboard/processes-tasks-app?tab=board#staff-live-progress");
+    navigate("/dashboard/tasks#staff-live-progress");
   }, [navigate]);
 
   const renderStaffList = (
@@ -3481,8 +3485,7 @@ function formatIncidentRelative(iso: string | null, t: (k: string) => string): s
 
 /** Terminal incident states - resolved/dismissed items belong on analytics, not live widgets. */
 function isOpenIncidentStatus(status: string | null | undefined): boolean {
-  const s = String(status || "").toUpperCase();
-  return s !== "RESOLVED" && s !== "DISMISSED" && s !== "ADDRESSED" && s !== "CLOSED";
+  return isUnresolvedIncidentStatus(status);
 }
 
 function RecentIncidentsCard({
@@ -3503,7 +3506,11 @@ function RecentIncidentsCard({
         localStorage.getItem("access_token") ||
         localStorage.getItem("accessToken") ||
         "";
-      const qs = new URLSearchParams({ status: "OPEN", ordering: "-created_at" });
+      const qs = new URLSearchParams({
+        status: UNRESOLVED_INCIDENT_STATUS_QUERY,
+        ordering: "-created_at",
+        page_size: "50",
+      });
       const res = await fetch(`${API_BASE}/staff/safety-concerns/?${qs.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -3548,7 +3555,7 @@ function RecentIncidentsCard({
   const openCount = items.length;
 
   const goToIncidents = React.useCallback(() => {
-    navigate("/dashboard/analytics?tab=incidents");
+    navigate("/dashboard/reviews/checklists?tab=incidents");
   }, [navigate]);
 
   return (
@@ -7503,7 +7510,7 @@ export function DashboardWidgetById({
             </div>
             <button
               type="button"
-              onClick={() => navigate("/dashboard/processes-tasks-app")}
+              onClick={() => navigate("/dashboard/tasks")}
               className="mt-auto flex items-center gap-1 text-xs font-medium text-orange-600 dark:text-orange-400 hover:underline"
             >
               {t("dashboard.task_execution.open_board")}

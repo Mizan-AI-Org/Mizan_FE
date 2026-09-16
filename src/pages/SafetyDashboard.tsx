@@ -52,9 +52,13 @@ const SafetyDashboard: React.FC = () => {
   const getAuthToken = () => localStorage.getItem('access_token') || localStorage.getItem('accessToken') || '';
 
   const { data: allConcerns, isLoading: concernsLoading } = useQuery({
-    queryKey: ['dashboard-safety-concerns'],
+    queryKey: ['dashboard-safety-concerns', 'wide'],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/staff/safety-concerns/`, {
+      const qs = new URLSearchParams({
+        ordering: "-created_at",
+        page_size: "200",
+      });
+      const res = await fetch(`${API_BASE}/staff/safety-concerns/?${qs.toString()}`, {
         headers: { 'Authorization': `Bearer ${getAuthToken()}` },
       });
       if (!res.ok) throw new Error('Failed to load incidents');

@@ -53,9 +53,13 @@ const SafetyConcernReporting: React.FC = () => {
 
   // Fetch Incidents
   const { data: concerns, isLoading } = useQuery({
-    queryKey: ['safety-concerns'],
+    queryKey: ['safety-concerns', 'wide'],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/staff/safety-concerns/`, {
+      const qs = new URLSearchParams({
+        ordering: "-created_at",
+        page_size: "200",
+      });
+      const response = await fetch(`${API_BASE}/staff/safety-concerns/?${qs.toString()}`, {
         headers: {
           'Authorization': `Bearer ${accessToken || localStorage.getItem('access_token') || ''}`,
           'Content-Type': 'application/json',
@@ -72,11 +76,16 @@ const SafetyConcernReporting: React.FC = () => {
 
   const [page, setPage] = useState(1);
   const pageSize = 10;
-  const totalItems = Array.isArray(concerns) ? concerns.length : 0;
+  const concernList = Array.isArray(concerns)
+    ? concerns
+    : (concerns && Array.isArray((concerns as { results?: unknown }).results)
+        ? (concerns as { results: unknown[] }).results
+        : []);
+  const totalItems = concernList.length;
   const totalPages = totalItems ? Math.ceil(totalItems / pageSize) : 1;
   const startIndex = (page - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const pageConcerns = Array.isArray(concerns) ? concerns.slice(startIndex, endIndex) : [];
+  const pageConcerns = concernList.slice(startIndex, endIndex);
 
   // Create Safety Concern mutation
   const createConcernMutation = useMutation({

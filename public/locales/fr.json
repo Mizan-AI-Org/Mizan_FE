@@ -1237,7 +1237,7 @@
   "operations_live.status_updated": "Statut mis à jour.",
   "operations_live.status_error": "Impossible de mettre à jour le statut.",
   "operations_live.cancelled": "Retiré des Opérations en direct.",
-  "operations_live.category.maintenance": "Incident",
+  "operations_live.category.maintenance": "Maintenance",
   "operations_live.category.incident": "Incident",
   "operations_live.category.safety": "Sécurité",
   "operations_live.category.facilities": "Installations",

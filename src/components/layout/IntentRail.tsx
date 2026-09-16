@@ -64,8 +64,8 @@ const GROUPS: NavGroup[] = [
     children: [
       { labelKey: "nav.overview", href: "/dashboard/work" },
       { labelKey: "nav.work.live_operations", href: "/dashboard/operations-live", appId: "operations_live" },
-      { labelKey: "nav.work.tasks", href: "/dashboard/processes-tasks-app", appId: "tasks" },
-      { labelKey: "nav.work.incidents", href: "/dashboard/analytics?tab=incidents", appId: "checklists" },
+      { labelKey: "nav.work.tasks", href: "/dashboard/tasks", appId: "tasks" },
+      { labelKey: "nav.work.incidents", href: "/dashboard/reviews/checklists?tab=incidents", appId: "checklists" },
       { labelKey: "nav.work.requests", href: "/dashboard/staff-requests", appId: "staff_requests" },
     ],
   },
