@@ -90,6 +90,21 @@ const PlatformWhatsAppPage = React.lazy(
 const PlatformAuditPage = React.lazy(
   () => import("./pages/platform-admin/AuditPage")
 );
+const PlatformAgentTurnsPage = React.lazy(
+  () => import("./pages/platform-admin/AgentTurnsPage")
+);
+const PlatformAgentTurnDetailPage = React.lazy(
+  () => import("./pages/platform-admin/AgentTurnDetailPage")
+);
+const PlatformConversationsPage = React.lazy(
+  () => import("./pages/platform-admin/ConversationsPage")
+);
+const PlatformConversationDetailPage = React.lazy(
+  () => import("./pages/platform-admin/ConversationDetailPage")
+);
+const PlatformAgentQualityPage = React.lazy(
+  () => import("./pages/platform-admin/AgentQualityPage")
+);
 const StaffAppsPage = React.lazy(() => import("./pages/StaffAppsPage"));
 const SafetyDashboard = React.lazy(() => import("./pages/SafetyDashboard"));
 const PinLogin = React.lazy(() => import("./components/auth/PinLogin"));
@@ -266,6 +281,14 @@ const App = () => {
                   <Route path="whatsapp" element={<PlatformWhatsAppPage />} />
                   <Route path="health" element={<PlatformHealthPage />} />
                   <Route path="audit" element={<PlatformAuditPage />} />
+                  <Route path="agent/turns" element={<PlatformAgentTurnsPage />} />
+                  <Route path="agent/turns/:id" element={<PlatformAgentTurnDetailPage />} />
+                  <Route path="agent/conversations" element={<PlatformConversationsPage />} />
+                  <Route
+                    path="agent/conversations/:conversationId"
+                    element={<PlatformConversationDetailPage />}
+                  />
+                  <Route path="agent/quality" element={<PlatformAgentQualityPage />} />
                 </Route>
               </Route>
 

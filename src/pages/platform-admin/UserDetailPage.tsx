@@ -4,14 +4,20 @@ import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom
 import { platformApi, type PlatformMe } from "@/lib/platformApi";
 import { KeyRound, Loader2, Unlock } from "lucide-react";
 import OpsBackNav from "@/components/platform-admin/OpsBackNav";
+import OpsPagination from "@/components/platform-admin/OpsPagination";
 import {
   opsBtnGhost,
   opsBtnPrimary,
   opsCard,
   opsInput,
   opsLink,
+  opsMuted,
   opsPage,
+  opsRow,
   opsSubtitle,
+  opsTableWrap,
+  opsTd,
+  opsTh,
   opsTitle,
 } from "@/components/platform-admin/opsStyles";
 
@@ -26,10 +32,29 @@ export default function UserDetailPage() {
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
 
+  const [activityPage, setActivityPage] = useState(1);
+  const ACTIVITY_PAGE_SIZE = 10;
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["platform-user", id],
     queryFn: () => platformApi.user(id),
     enabled: !!id,
+  });
+
+  const { data: activity } = useQuery({
+    queryKey: ["platform-user-activity", id, activityPage],
+    queryFn: () =>
+      platformApi.userActivity(id, {
+        page: String(activityPage),
+        page_size: String(ACTIVITY_PAGE_SIZE),
+      }),
+    enabled: !!id && !!data && !data.is_platform_operator,
+  });
+
+  const { data: agentTurns } = useQuery({
+    queryKey: ["platform-user-agent-turns", id],
+    queryFn: () => platformApi.userAgentTurns(id, { page_size: "10" }),
+    enabled: !!id && !!data && !data.is_platform_operator,
   });
 
   // Operators belong under /admin/operators - redirect legacy Manage → links.
@@ -275,6 +300,92 @@ export default function UserDetailPage() {
         <Info label="Superuser" value={data.is_superuser ? "Yes" : "No"} />
         <Info label="Created" value={new Date(data.created_at).toLocaleString()} />
       </div>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Recent activity</h3>
+          <Link to="/admin/audit" className={`text-xs ${opsLink}`}>All audit</Link>
+        </div>
+        <div className={opsTableWrap}>
+          <table className="w-full text-left">
+            <thead>
+              <tr>
+                <th className={opsTh}>When</th>
+                <th className={opsTh}>Action</th>
+                <th className={opsTh}>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(activity?.results || []).map((row) => (
+                <tr key={row.id} className={opsRow}>
+                  <td className={`${opsTd} whitespace-nowrap text-xs ${opsMuted}`}>
+                    {new Date(row.timestamp).toLocaleString()}
+                  </td>
+                  <td className={`${opsTd} font-mono text-xs`}>{row.action_type}</td>
+                  <td className={`${opsTd} max-w-md truncate`}>{row.description}</td>
+                </tr>
+              ))}
+              {(activity?.results || []).length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="px-4 py-6 text-center text-slate-500">No activity</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+          {activity && activity.count > ACTIVITY_PAGE_SIZE ? (
+            <OpsPagination
+              page={activityPage}
+              pageSize={ACTIVITY_PAGE_SIZE}
+              total={activity.count}
+              onPageChange={setActivityPage}
+            />
+          ) : null}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Agent conversations</h3>
+          <Link to={`/admin/agent/turns?user_id=${id}`} className={`text-xs ${opsLink}`}>
+            All turns
+          </Link>
+        </div>
+        <div className={opsTableWrap}>
+          <table className="w-full text-left">
+            <thead>
+              <tr>
+                <th className={opsTh}>When</th>
+                <th className={opsTh}>Channel</th>
+                <th className={opsTh}>Message</th>
+                <th className={opsTh}>Intent</th>
+                <th className={opsTh} />
+              </tr>
+            </thead>
+            <tbody>
+              {(agentTurns?.results || []).map((row) => (
+                <tr key={row.id} className={opsRow}>
+                  <td className={`${opsTd} whitespace-nowrap text-xs ${opsMuted}`}>
+                    {new Date(row.created_at).toLocaleString()}
+                  </td>
+                  <td className={`${opsTd} font-mono text-xs`}>{row.channel}</td>
+                  <td className={`${opsTd} max-w-[200px] truncate`}>{row.input_text}</td>
+                  <td className={`${opsTd} font-mono text-xs`}>{row.interpreted_intent || "—"}</td>
+                  <td className={opsTd}>
+                    <Link to={`/admin/agent/turns/${row.id}`} className={opsLink}>View</Link>
+                  </td>
+                </tr>
+              ))}
+              {(agentTurns?.results || []).length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                    No agent turns for this user
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }
