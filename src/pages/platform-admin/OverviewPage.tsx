@@ -11,6 +11,7 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  Bot,
 } from "lucide-react";
 import {
   Area,
@@ -143,6 +144,11 @@ export default function OverviewPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["platform-overview"],
     queryFn: () => platformApi.overview(),
+  });
+
+  const { data: agentMetrics } = useQuery({
+    queryKey: ["platform-agent-metrics", "7"],
+    queryFn: () => platformApi.agentMetrics({ days: "7" }),
   });
 
   const chartData = useMemo(() => {
@@ -388,6 +394,58 @@ export default function OverviewPage() {
               ))
             )}
           </ul>
+        </section>
+
+        <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <Bot className="h-4 w-4 text-emerald-600" />
+              Agent activity (7d)
+            </h3>
+            <Link
+              to="/admin/agent/quality"
+              className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+            >
+              Quality dashboard →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-slate-500 dark:text-slate-400">Turns</p>
+              <p className="text-xl font-bold tabular-nums">{agentMetrics?.turns.total ?? "—"}</p>
+            </div>
+            <div>
+              <p className="text-slate-500 dark:text-slate-400">Success rate</p>
+              <p className="text-xl font-bold tabular-nums">
+                {agentMetrics?.turns.success_rate != null
+                  ? `${(agentMetrics.turns.success_rate * 100).toFixed(0)}%`
+                  : "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-slate-500 dark:text-slate-400">Avg quality</p>
+              <p className="text-xl font-bold tabular-nums">
+                {agentMetrics?.evaluation.avg_quality ?? "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-slate-500 dark:text-slate-400">Avg accuracy</p>
+              <p className="text-xl font-bold tabular-nums">
+                {agentMetrics?.evaluation.avg_accuracy ?? "—"}
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3 text-xs font-semibold">
+            <Link to="/admin/agent/turns" className="text-emerald-700 dark:text-emerald-400 hover:underline">
+              Browse turns
+            </Link>
+            <Link to="/admin/agent/conversations" className="text-emerald-700 dark:text-emerald-400 hover:underline">
+              Conversations
+            </Link>
+            <Link to="/admin/audit" className="text-emerald-700 dark:text-emerald-400 hover:underline">
+              Audit log
+            </Link>
+          </div>
         </section>
 
         <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-5 shadow-sm">

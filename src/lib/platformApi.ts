@@ -15,8 +15,17 @@ async function platformFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const contentType = res.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) {
+    const raw = await res.text().catch(() => "");
+    let hint = "Check that the Django backend is running on port 8000 and has been restarted.";
+    if (res.status === 404) {
+      hint = "Endpoint not found — restart the backend after pulling latest changes.";
+    } else if (res.status >= 500) {
+      hint = "Server error — check Django logs for details.";
+    } else if (raw.includes("ECONNREFUSED") || res.status === 502 || res.status === 503) {
+      hint = "Cannot reach the backend — start it with `python manage.py runserver`.";
+    }
     const err = new Error(
-      "Platform API returned a non-JSON response. Check VITE_BACKEND_URL / API proxy configuration.",
+      `Platform API returned a non-JSON response (${res.status}). ${hint}`,
     ) as Error & { status?: number };
     err.status = res.status;
     throw err;
@@ -250,6 +259,106 @@ export type PlatformAuditRow = {
   user_email: string | null;
   restaurant: string | null;
   restaurant_name: string | null;
+  metadata?: Record<string, unknown>;
+};
+
+export type PlatformAgentTurn = {
+  id: string;
+  created_at: string;
+  restaurant: string;
+  restaurant_name: string;
+  user: string | null;
+  user_email: string | null;
+  channel: string;
+  input_text: string;
+  interpreted_intent: string;
+  confidence_score: number;
+  confidence_level: string;
+  primary_capability: string;
+  execution_success: boolean | null;
+  execution_verified: boolean | null;
+  execution_error_code: string;
+  response_text: string;
+  total_ms: number;
+  conversation_id: string;
+  thread_id: string;
+  deploy_version: string;
+  user_thumbs_up: boolean | null;
+};
+
+export type PlatformAgentTurnDetail = PlatformAgentTurn & {
+  capabilities_selected: string[];
+  interpretation_source: string;
+  interpretation_ms: number;
+  execution_ms: number;
+  token_input: number;
+  token_output: number;
+  estimated_cost_usd: number;
+  request_id: string;
+  run_metadata: Record<string, unknown>;
+  user_feedback_text: string;
+  capability_executions: Array<{
+    id: string;
+    capability_name: string;
+    execution_success: boolean | null;
+    execution_error_code: string;
+    authorization_result: string;
+    total_ms: number;
+    input_parameters: Record<string, unknown>;
+    execution_result: Record<string, unknown>;
+    created_at: string;
+  }>;
+  evaluation?: {
+    quality_score: number;
+    accuracy_score: number;
+    helpfulness_score: number;
+    safety_score: number;
+    verification_rate: number;
+    tools_called: unknown[];
+    tools_succeeded: number;
+    tools_failed: number;
+  };
+};
+
+export type PlatformAgentConversation = {
+  conversation_id: string;
+  restaurant_id: string | null;
+  restaurant_name: string | null;
+  channel: string;
+  turn_count: number;
+  first_at: string;
+  last_at: string;
+  user_id: string | null;
+  user_email: string | null;
+  avg_confidence: number;
+  success_count: number;
+  fail_count: number;
+};
+
+export type PlatformAgentMetrics = {
+  period_days: number;
+  since: string;
+  turns: {
+    total: number;
+    success: number;
+    failed: number;
+    success_rate: number | null;
+    avg_confidence: number;
+    avg_latency_ms: number;
+    thumbs_up: number;
+    thumbs_down: number;
+  };
+  by_channel: Array<{ channel: string; count: number; success: number }>;
+  by_deploy_version: Array<{ deploy_version: string; count: number; success: number }>;
+  top_intents: Array<{ interpreted_intent: string; count: number }>;
+  evaluation: {
+    count: number;
+    avg_quality: number;
+    avg_accuracy: number;
+    avg_helpfulness: number;
+    avg_safety: number;
+    avg_verification_rate: number;
+  };
 };
 
 export type Paginated<T> = {
@@ -386,6 +495,44 @@ export const platformApi = {
   audit: (params?: Record<string, string>) => {
     const qs = new URLSearchParams(params || {}).toString();
     return platformFetch<Paginated<PlatformAuditRow>>(`/audit/${qs ? `?${qs}` : ""}`);
+  },
+  agentTurns: (params?: Record<string, string>) => {
+    const qs = new URLSearchParams(params || {}).toString();
+    return platformFetch<Paginated<PlatformAgentTurn>>(`/agent/turns/${qs ? `?${qs}` : ""}`);
+  },
+  agentTurn: (id: string) => platformFetch<PlatformAgentTurnDetail>(`/agent/turns/${id}/`),
+  agentConversations: (params?: Record<string, string>) => {
+    const qs = new URLSearchParams(params || {}).toString();
+    return platformFetch<Paginated<PlatformAgentConversation>>(
+      `/agent/conversations/${qs ? `?${qs}` : ""}`,
+    );
+  },
+  agentConversation: (conversationId: string, params?: Record<string, string>) => {
+    const qs = new URLSearchParams(params || {}).toString();
+    return platformFetch<{
+      conversation_id: string;
+      restaurant_id: string | null;
+      restaurant_name: string | null;
+      channel: string;
+      turn_count: number;
+      turns: PlatformAgentTurn[];
+    }>(`/agent/conversations/${encodeURIComponent(conversationId)}/${qs ? `?${qs}` : ""}`);
+  },
+  agentMetrics: (params?: Record<string, string>) => {
+    const qs = new URLSearchParams(params || {}).toString();
+    return platformFetch<PlatformAgentMetrics>(`/agent/metrics/${qs ? `?${qs}` : ""}`);
+  },
+  userActivity: (userId: string, params?: Record<string, string>) => {
+    const qs = new URLSearchParams(params || {}).toString();
+    return platformFetch<Paginated<PlatformAuditRow> & { user_id: string; user_email: string }>(
+      `/users/${userId}/activity/${qs ? `?${qs}` : ""}`,
+    );
+  },
+  userAgentTurns: (userId: string, params?: Record<string, string>) => {
+    const qs = new URLSearchParams(params || {}).toString();
+    return platformFetch<Paginated<PlatformAgentTurn>>(
+      `/users/${userId}/agent-turns/${qs ? `?${qs}` : ""}`,
+    );
   },
   impersonate: (restaurantId: string) =>
     platformFetch<{
