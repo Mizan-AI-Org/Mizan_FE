@@ -169,7 +169,6 @@ const ReportsPage: React.FC = () => {
       <div className="space-y-section">
         <SectionHeader
           as="h1"
-          eyebrow="Business"
           title={t("reporting.title")}
           description={t("reporting.description")}
           titleClassName="text-page-title"

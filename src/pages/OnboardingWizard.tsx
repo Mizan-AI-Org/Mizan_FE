@@ -10,12 +10,13 @@
  *
  * Steps:
  *   0. Welcome           - greet by name, show what's coming
- *   1. staff_csv         - upload staff CSV (activation-by-WhatsApp flow)
- *   2. widgets           - pick which dashboard widgets to show
- *   3. widget_permissions - pick which roles can see each widget
- *   4. category_owners   - pick who owns each incident/request/task category
- *   5. google_calendar   - (optional) connect Google Calendar
- *   6. Done              - confetti + "Enjoy Mizan" → /dashboard
+ *   1. industry          - confirm sector + preview the playbook pack
+ *   2. staff_csv         - upload staff CSV (activation-by-WhatsApp flow)
+ *   3. widgets           - pick which dashboard widgets to show
+ *   4. widget_permissions - pick which roles can see each widget
+ *   5. category_owners   - pick who owns each incident/request/task category
+ *   6. google_calendar   - (optional) connect Google Calendar
+ *   7. Done              - confetti + "Enjoy Mizan" → /dashboard
  *
  * Persistence: substantive steps persist via their Save/Continue handlers.
  * Skipping a step records progress where needed (e.g. ``staff_csv`` marked
@@ -33,8 +34,8 @@ import { useTranslation } from "react-i18next";
 import {
     ArrowLeft,
     ArrowRight,
+    Building2,
     CalendarPlus,
-    Check,
     CheckCircle2,
     ChevronRight,
     Circle,
@@ -71,12 +72,20 @@ import {
     WIDGET_ADD_ICONS,
     type DashboardWidgetId,
 } from "@/pages/dashboard/DashboardWidgets";
+import { SectorPicker } from "@/components/onboarding/SectorPicker";
+import { playbooksForVertical } from "@/config/sectorPlaybookPreview";
+import {
+    parseBusinessVertical,
+    SIGNUP_SECTOR_OPTIONS,
+    type BusinessVertical,
+} from "@/config/staffInviteRolesByVertical";
 
 /* -------------------------------------------------------------------------- */
 /*  Types & constants                                                          */
 /* -------------------------------------------------------------------------- */
 
 type BackendStep =
+    | "industry"
     | "staff_csv"
     | "widgets"
     | "widget_permissions"
@@ -87,6 +96,7 @@ type WizardStep = "welcome" | BackendStep | "done";
 
 const WIZARD_ORDER: WizardStep[] = [
     "welcome",
+    "industry",
     "staff_csv",
     "widgets",
     "widget_permissions",
@@ -94,6 +104,12 @@ const WIZARD_ORDER: WizardStep[] = [
     "google_calendar",
     "done",
 ];
+
+interface PlaybookPreviewRow {
+    seed_id: string;
+    name: string;
+    summary?: string;
+}
 
 interface OnboardingStatus {
     restaurant_id: string;
@@ -104,6 +120,9 @@ interface OnboardingStatus {
     required_steps: BackendStep[];
     optional_steps: BackendStep[];
     next_step: BackendStep | null;
+    business_vertical?: BusinessVertical;
+    playbooks?: PlaybookPreviewRow[];
+    suggested_widgets?: string[];
     config: {
         widget_role_visibility: Record<string, string[]>;
         category_owners: Record<string, string | string[]>;
@@ -575,7 +594,7 @@ const OnboardingWizard: React.FC = () => {
                 >
                     {step === "welcome" && (
                         <WelcomeStep
-                            onStart={() => goTo("staff_csv")}
+                            onStart={() => goTo("industry")}
                             userName={user.first_name || user.email || ""}
                             restaurantName={user.restaurant_name || ""}
                             completedAlready={status.completed}
@@ -594,6 +613,24 @@ const OnboardingWizard: React.FC = () => {
                                             ),
                                     );
                                 }
+                            }}
+                        />
+                    )}
+
+                    {step === "industry" && (
+                        <IndustryStep
+                            status={status}
+                            onSaved={async (vertical) => {
+                                await markStepComplete("industry", {
+                                    business_vertical: vertical,
+                                });
+                                await refreshStatus();
+                                goNext();
+                            }}
+                            onSkip={async () => {
+                                await markStepComplete("industry");
+                                await refreshStatus();
+                                goNext();
                             }}
                         />
                     )}
@@ -678,6 +715,7 @@ const OnboardingWizard: React.FC = () => {
                     {step === "done" && (
                         <DoneStep
                             restaurantName={user.restaurant_name || ""}
+                            vertical={parseBusinessVertical(status.business_vertical)}
                             onEnter={async () => {
                                 try {
                                     await syncSessionFromBackend();
@@ -741,11 +779,14 @@ const OnboardingWizard: React.FC = () => {
         await queryClient.invalidateQueries({ queryKey: ["onboarding-status"] });
     }
 
-    async function markStepComplete(s: BackendStep) {
+    async function markStepComplete(
+        s: BackendStep,
+        extra?: Record<string, unknown>,
+    ) {
         const res = await fetch(`${API_BASE}/onboarding/`, {
             method: "POST",
             headers: authHeaders(),
-            body: JSON.stringify({ step: s }),
+            body: JSON.stringify({ step: s, ...(extra || {}) }),
         });
         if (!res.ok) throw new Error("Could not save step.");
         return (await res.json()) as OnboardingStatus;
@@ -823,6 +864,8 @@ const OnboardingWizard: React.FC = () => {
 
 function stepChipFallback(s: string): string {
     switch (s) {
+        case "industry":
+            return "Industry";
         case "staff_csv":
             return "Staff";
         case "widgets":
@@ -903,27 +946,27 @@ const WelcomeStep: React.FC<{
 
                 <div className="grid sm:grid-cols-2 gap-3 sm:gap-4 auto-rows-fr">
                     <WelcomeBullet
-                        icon={FileSpreadsheet}
-                        title={t("onboarding.welcome.b1_title", "Upload your team")}
+                        icon={Building2}
+                        title={t("onboarding.welcome.b1_title", "Confirm your industry")}
                         desc={t(
                             "onboarding.welcome.b1_desc",
+                            "We'll turn on the automations that fit restaurants, shops, sites, and more.",
+                        )}
+                    />
+                    <WelcomeBullet
+                        icon={FileSpreadsheet}
+                        title={t("onboarding.welcome.b2_title", "Upload your team")}
+                        desc={t(
+                            "onboarding.welcome.b2_desc",
                             "A CSV of staff or collaborators - we'll invite them on WhatsApp.",
                         )}
                     />
                     <WelcomeBullet
                         icon={Users}
-                        title={t("onboarding.welcome.b2_title", "Pick your widgets")}
-                        desc={t(
-                            "onboarding.welcome.b2_desc",
-                            "Choose the dashboard cards you care about most.",
-                        )}
-                    />
-                    <WelcomeBullet
-                        icon={ShieldCheck}
-                        title={t("onboarding.welcome.b3_title", "Set permissions")}
+                        title={t("onboarding.welcome.b3_title", "Pick your widgets")}
                         desc={t(
                             "onboarding.welcome.b3_desc",
-                            "Decide which roles can see each widget.",
+                            "Choose the dashboard cards you care about most.",
                         )}
                     />
                     <WelcomeBullet
@@ -959,6 +1002,128 @@ const WelcomeBullet: React.FC<{
         </div>
     </div>
 );
+
+/* -------------------------------------------------------------------------- */
+/*  Step 1: Industry pack                                                     */
+/* -------------------------------------------------------------------------- */
+
+const IndustryStep: React.FC<{
+    status: OnboardingStatus;
+    onSaved: (vertical: BusinessVertical) => Promise<void> | void;
+    onSkip: () => Promise<void> | void;
+}> = ({ status, onSaved, onSkip }) => {
+    const { t } = useTranslation();
+    const [vertical, setVertical] = useState<BusinessVertical>(() =>
+        parseBusinessVertical(status.business_vertical),
+    );
+    const [saving, setSaving] = useState(false);
+
+    const playbooks = useMemo(() => {
+        const local = playbooksForVertical(vertical);
+        if (parseBusinessVertical(status.business_vertical) === vertical && status.playbooks?.length) {
+            return status.playbooks;
+        }
+        return local;
+    }, [vertical, status.business_vertical, status.playbooks]);
+
+    const save = async () => {
+        setSaving(true);
+        try {
+            await onSaved(vertical);
+        } catch (err) {
+            toast.error(
+                err instanceof Error
+                    ? err.message
+                    : t("onboarding.industry.err", "Could not save your industry."),
+            );
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <StepShell
+            icon={<Building2 className="h-6 w-6" />}
+            title={t("onboarding.industry.title", "What kind of business is this?")}
+            subtitle={t(
+                "onboarding.industry.subtitle",
+                "We'll turn on the automations that fit. One tap to confirm — you can change this later in Settings.",
+            )}
+            alreadyDoneBadge={status.steps.industry}
+            optional
+        >
+            <div className="grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] gap-5 lg:gap-6 items-start">
+                <SectorPicker
+                    value={vertical}
+                    onChange={setVertical}
+                    tone="light"
+                    columns={4}
+                    showPreview={false}
+                />
+                <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/80 to-white p-4 sm:p-5 dark:border-emerald-900/40 dark:from-emerald-950/30 dark:to-slate-900/40">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                        {t("onboarding.industry.pack_title", "Your starter automations")}
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                        {t("onboarding.industry.pack_intro", {
+                            defaultValue:
+                                "Miya will watch these for a {{sector}} business. Custom workflows you add later stay untouched.",
+                            sector: t(
+                                SIGNUP_SECTOR_OPTIONS.find((o) => o.value === vertical)?.nameKey
+                                    || "auth.signup.sector.restaurant",
+                            ),
+                        })}
+                    </p>
+                    <ul className="mt-3 space-y-2.5">
+                        {playbooks.map((item) => (
+                            <li key={item.seed_id} className="flex gap-2.5 text-sm">
+                                <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-emerald-500" />
+                                <span>
+                                    <span className="font-medium text-slate-800 dark:text-slate-100">
+                                        {item.name}
+                                    </span>
+                                    <span className="block text-xs text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                                        {t(
+                                            `onboarding.industry.playbook.${item.seed_id}`,
+                                            item.summary || item.name,
+                                        )}
+                                    </span>
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </div>
+
+            <StepActions>
+                <Button
+                    variant="ghost"
+                    type="button"
+                    onClick={() => {
+                        void onSkip();
+                    }}
+                    disabled={saving}
+                >
+                    {t("onboarding.skip_step", "Skip for now")}
+                </Button>
+                <Button
+                    onClick={() => {
+                        void save();
+                    }}
+                    disabled={saving}
+                    className="gap-2 bg-emerald-500 hover:bg-emerald-600"
+                >
+                    {saving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                        <ArrowRight className="h-4 w-4" />
+                    )}
+                    {t("onboarding.industry.cta", "Use these automations")}
+                </Button>
+            </StepActions>
+        </StepShell>
+    );
+};
 
 /* -------------------------------------------------------------------------- */
 /*  Step 1: Staff CSV upload                                                  */
@@ -1233,10 +1398,14 @@ const WidgetsStep: React.FC<{
 }> = ({ status, onSaved, onSkip }) => {
     const { t } = useTranslation();
     const [selected, setSelected] = useState<Set<DashboardWidgetId>>(() => {
-        // Pre-seed with system defaults; if user visited before, we can't
-        // fetch their saved order here without a round-trip, so defaults are
-        // a safe starting point.
-        return new Set(DEFAULT_DASHBOARD_WIDGET_ORDER);
+        const extras = (status.suggested_widgets || []).filter(
+            (id): id is DashboardWidgetId =>
+                (DASHBOARD_WIDGET_IDS as readonly string[]).includes(id),
+        );
+        return new Set<DashboardWidgetId>([
+            ...DEFAULT_DASHBOARD_WIDGET_ORDER,
+            ...extras,
+        ]);
     });
     const [saving, setSaving] = useState(false);
 
@@ -1841,9 +2010,14 @@ const GoogleCalendarStep: React.FC<{
 
 const DoneStep: React.FC<{
     restaurantName: string;
+    vertical: BusinessVertical;
     onEnter: () => void | Promise<void>;
-}> = ({ restaurantName, onEnter }) => {
+}> = ({ restaurantName, vertical, onEnter }) => {
     const { t } = useTranslation();
+    const sectorName = t(
+        SIGNUP_SECTOR_OPTIONS.find((o) => o.value === vertical)?.nameKey
+            || "auth.signup.sector.restaurant",
+    );
 
     return (
         <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-8 sm:gap-10 py-6 relative overflow-hidden">
@@ -1860,8 +2034,13 @@ const DoneStep: React.FC<{
                 <p className="text-base sm:text-lg text-slate-500 dark:text-slate-400 leading-relaxed">
                     {t(
                         "onboarding.done.subtitle",
-                        "{{restaurant}} is ready. WhatsApp is connected and your dashboard is live.",
-                        { restaurant: restaurantName || t("onboarding.done.your_business", "Your business") },
+                        "{{restaurant}} is ready. Your {{sector}} automations are on, WhatsApp is connected, and the dashboard is live.",
+                        {
+                            restaurant:
+                                restaurantName
+                                || t("onboarding.done.your_business", "Your business"),
+                            sector: sectorName,
+                        },
                     )}
                 </p>
             </div>

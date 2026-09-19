@@ -77,96 +77,81 @@ export const RestaurantShowcase: React.FC = () => {
   const currentImage = images[slideIdx];
 
   return (
-    <div className="hidden lg:flex w-1/2 relative overflow-hidden bg-[#0A0D10]">
-      {/* Hero Image Background with Dark Overlay */}
+    <div className="relative hidden min-w-0 flex-1 overflow-hidden bg-[#0A0D10] lg:flex">
       <div className="absolute inset-0">
-        {/* Background Image with Fade Transition */}
         <img
           src={withUnsplashParams(currentImage.url, 1600, 92)}
           srcSet={
             isLocalPublicAsset(currentImage.url)
               ? undefined
               : [
-                `${withUnsplashParams(currentImage.url, 1200, 92)} 1200w`,
-                `${withUnsplashParams(currentImage.url, 1600, 92)} 1600w`,
-                `${withUnsplashParams(currentImage.url, 2200, 92)} 2200w`,
-                `${withUnsplashParams(currentImage.url, 2800, 92)} 2800w`,
-              ].join(", ")
+                  `${withUnsplashParams(currentImage.url, 1200, 92)} 1200w`,
+                  `${withUnsplashParams(currentImage.url, 1600, 92)} 1600w`,
+                  `${withUnsplashParams(currentImage.url, 2200, 92)} 2200w`,
+                  `${withUnsplashParams(currentImage.url, 2800, 92)} 2800w`,
+                ].join(", ")
           }
           sizes="(min-width: 1024px) 50vw, 100vw"
           alt={t(currentImage.altKey)}
-          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+          className="absolute inset-0 h-full w-full object-cover transition-opacity duration-1000"
           loading="eager"
           decoding="async"
         />
 
-        {/* Softer overlays for a lighter, premium feel */}
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/65 via-slate-950/45 to-transparent" />
-
-        {/* Additional overlay for better text contrast */}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/30 to-transparent" />
-
-        {/* Subtle accent elements */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-l from-[#00E676]/10 to-transparent rounded-full mix-blend-multiply filter blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0A0D10]/95 via-[#0A0D10]/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0D10]/90 via-transparent to-[#0A0D10]/30" />
+        <div className="absolute right-0 top-0 h-96 w-96 rounded-full bg-gradient-to-l from-[#00E676]/10 to-transparent mix-blend-screen blur-3xl filter" />
       </div>
 
-      {/* Content */}
-      <div className="relative z-10 flex flex-col justify-between h-screen p-8">
-        {/* Top Section - Marketing Copy */}
-        <div className="flex-1 flex items-center">
+      <div className="relative z-10 flex h-screen flex-col justify-between p-8">
+        <div className="flex flex-1 items-center">
           <div className="max-w-lg">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 leading-tight">
+            <h2 className="mb-6 text-4xl font-bold leading-tight text-white md:text-5xl">
               {headline}
             </h2>
-            <p className="text-lg text-white/80 leading-relaxed">
-              {subheading}
-            </p>
+            <p className="text-lg leading-relaxed text-[#B0BEC5]">{subheading}</p>
           </div>
         </div>
 
-        {/* Bottom Section - Stats */}
         <div className="space-y-8">
-          {/* Statistics Cards */}
           <div className="grid grid-cols-3 gap-4">
             {stats.map((stat, index) => {
               const Icon = stat.icon;
               return (
                 <div
                   key={index}
-                  className="relative rounded-lg p-4 h-24 backdrop-blur-md bg-white/5 border border-[#00E676]/20 hover:border-[#00E676]/40 transition-all group"
+                  className="group relative h-24 rounded-xl border border-white/[0.1] bg-white/[0.06] p-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-md transition-all hover:border-[#00E676]/40"
                 >
-                  {/* Blurred background effect */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#00E676]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-[#00E676]/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 
-                  <div className="relative h-full flex flex-col justify-center space-y-2">
+                  <div className="relative flex h-full flex-col justify-center space-y-2">
                     <div className="flex items-center space-x-2">
                       <Icon className="h-5 w-5 text-[#00E676]" />
                       <span className="text-sm font-semibold text-[#00E676]">
                         {stat.number}
                       </span>
                     </div>
-                    <p className="text-xs text-[#B0BEC5]">{t(stat.labelKey)}</p>
+                    <p className="text-xs text-[#78909C]">{t(stat.labelKey)}</p>
                   </div>
                 </div>
               );
             })}
           </div>
 
-          {/* Image Label */}
           <div className="text-center">
             <p className="text-sm font-semibold text-[#00E676]">{t(currentImage.labelKey)}</p>
           </div>
 
-          {/* Pagination Dots */}
           <div className="flex items-center justify-center space-x-2">
             {images.map((_, index) => (
               <button
                 key={index}
                 onClick={() => setCurrentSlide(index)}
-                className={`transition-all ${currentSlide === index
-                  ? "w-8 h-2 bg-[#00E676] rounded-full"
-                  : "w-2 h-2 bg-[#00E676]/40 rounded-full hover:bg-[#00E676]/60"
-                  }`}
+                className={`transition-all ${
+                  currentSlide === index
+                    ? "h-2 w-8 rounded-full bg-[#00E676] shadow-[0_0_12px_rgba(0,230,118,0.5)]"
+                    : "h-2 w-2 rounded-full bg-white/30 hover:bg-[#00E676]/60"
+                }`}
                 aria-label={t("auth.showcase.aria_goto_slide", { n: index + 1 })}
               />
             ))}

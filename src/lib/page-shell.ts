@@ -6,6 +6,8 @@ export const PAGE_SHELL =
 export const SETTINGS_PAGE_SHELL =
   "mx-auto w-full max-w-[min(100%,90rem)] px-4 sm:px-6 lg:px-8";
 
+export const SETTINGS_PAGE_SHELL_PADDED = `${SETTINGS_PAGE_SHELL} pt-6 pb-24 lg:pb-8`;
+
 export const PAGE_SHELL_PADDED = `${PAGE_SHELL} py-6 pb-28`;
 
 /** Directly below DashboardLayout back row - avoids double top spacing. */

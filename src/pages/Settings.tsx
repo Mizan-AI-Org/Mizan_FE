@@ -76,7 +76,7 @@ import {
   settingsSelectClassName,
 } from "@/components/settings/SettingsSection";
 import { SettingsNav, type SettingsNavItem } from "@/components/settings/SettingsNav";
-import { SETTINGS_PAGE_SHELL } from "@/lib/page-shell";
+import { SETTINGS_PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { cn } from "@/lib/utils";
 
 import { API_BASE, api } from "@/lib/api";
@@ -1057,12 +1057,11 @@ export default function Settings() {
   };
 
   return (
-    <div className={`${SETTINGS_PAGE_SHELL} pb-24 lg:pb-8`}>
+    <div className={SETTINGS_PAGE_SHELL_PADDED}>
       <Tabs value={activeTab} onValueChange={onSettingsTabChange} className="space-y-0">
         <div className="flex w-full max-w-5xl flex-col gap-5">
           <header className="min-w-0">
-            <p className="text-caption-label">{t("settings.title")}</p>
-            <h1 className="mt-1 text-page-title">{activeSectionLabel}</h1>
+            <h1 className="text-page-title">{activeSectionLabel}</h1>
             <p className="mt-1.5 max-w-2xl text-body text-muted-foreground">
               {activeSectionDescription || t("settings.subtitle")}
             </p>

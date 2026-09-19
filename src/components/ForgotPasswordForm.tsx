@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Mail, ArrowLeft, CheckCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { useLanguage } from "@/hooks/use-language";
+import { authFieldClass } from "./AuthAmbientBackground";
 
 interface ForgotPasswordFormProps {
     onBack: () => void;
@@ -104,7 +105,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="pl-10 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] rounded-lg transition-all duration-300 focus:shadow-[0_0_15px_rgba(0,230,118,0.2)] backdrop-blur-sm"
+                            className={`pl-10 h-11 ${authFieldClass}`}
                         />
                     </div>
                 </div>
@@ -112,7 +113,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }
                 {/* Submit Button */}
                 <Button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-[#00E676] to-[#00C853] hover:from-[#00F77B] hover:to-[#00D96B] text-white font-semibold h-11 rounded-lg shadow-lg hover:shadow-[0_0_25px_rgba(0,230,118,0.4)] transition-all duration-300 border border-[#00E676]/30 mt-2"
+                    className="mt-2 h-11 w-full rounded-lg border border-[#00E676]/30 bg-gradient-to-r from-[#00E676] to-[#00C853] font-semibold text-[#0A0D10] shadow-lg transition-all duration-300 hover:from-[#00F77B] hover:to-[#00D96B] hover:shadow-[0_0_25px_rgba(0,230,118,0.4)]"
                     disabled={isLoading}
                 >
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

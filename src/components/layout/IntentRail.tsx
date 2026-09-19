@@ -59,10 +59,9 @@ const GROUPS: NavGroup[] = [
     id: "work",
     labelKey: "nav.work",
     icon: IconWork,
-    href: "/dashboard/work",
+    href: "/dashboard/operations-live",
     roles: [...OPERATIONAL_COMMAND_ROLES],
     children: [
-      { labelKey: "nav.overview", href: "/dashboard/work" },
       { labelKey: "nav.work.live_operations", href: "/dashboard/operations-live", appId: "operations_live" },
       { labelKey: "nav.work.tasks", href: "/dashboard/tasks", appId: "tasks" },
       { labelKey: "nav.work.incidents", href: "/dashboard/reviews/checklists?tab=incidents", appId: "checklists" },
@@ -73,10 +72,9 @@ const GROUPS: NavGroup[] = [
     id: "people",
     labelKey: "nav.people",
     icon: IconPeople,
-    href: "/dashboard/people",
+    href: "/dashboard/staff-app",
     roles: [...OPERATIONAL_COMMAND_ROLES],
     children: [
-      { labelKey: "nav.overview", href: "/dashboard/people" },
       { labelKey: "nav.people.staff", href: "/dashboard/staff-app", appId: "staff" },
       { labelKey: "nav.people.scheduling", href: "/dashboard/scheduling", appId: "scheduling" },
     ],
@@ -85,10 +83,9 @@ const GROUPS: NavGroup[] = [
     id: "business",
     labelKey: "nav.business",
     icon: IconBusiness,
-    href: "/dashboard/business",
+    href: "/dashboard/reports",
     roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
     children: [
-      { labelKey: "nav.overview", href: "/dashboard/business" },
       { labelKey: "nav.business.analytics", href: "/dashboard/reports", appId: "reports" },
       { labelKey: "nav.business.locations", href: "/dashboard/locations-overview", appId: "locations_overview" },
       { labelKey: "nav.business.approvals", href: "/dashboard/staff-requests?list=finance&filter=pending_approval", appId: "staff_requests" },
@@ -126,6 +123,12 @@ function pathMatches(pathname: string, href: string) {
   const base = href.split("#")[0].split("?")[0];
   if (base === "/dashboard") return pathname === "/dashboard";
   return pathname === base || pathname.startsWith(base + "/");
+}
+
+function groupOwnsPath(group: NavGroup, pathname: string, search: string) {
+  if ((group.children || []).some((c) => leafMatches(pathname, search, c))) return true;
+  if (group.href) return pathMatches(pathname, group.href);
+  return false;
 }
 
 /**
@@ -201,7 +204,7 @@ export function IntentRail({ className }: { className?: string }) {
   // Reveal the section you are actually in rather than making people hunt for it.
   useEffect(() => {
     const owning = GROUPS.find(
-      (g) => g.children?.length && g.href && pathMatches(location.pathname, g.href),
+      (g) => g.children?.length && groupOwnsPath(g, location.pathname, location.search),
     );
     if (!owning) return;
     setOpenGroups((state) => (state[owning.id] ? state : { ...state, [owning.id]: true }));
@@ -236,11 +239,7 @@ export function IntentRail({ className }: { className?: string }) {
         {visible.map((group) => {
           const Icon = group.icon;
           const label = t(group.labelKey);
-          const active = group.href
-            ? pathMatches(location.pathname, group.href)
-            : (group.children || []).some((c) =>
-                leafMatches(location.pathname, location.search, c),
-              );
+          const active = groupOwnsPath(group, location.pathname, location.search);
           const expanded = openGroups[group.id] ?? false;
 
           if (!group.children?.length) {
@@ -385,9 +384,9 @@ export function MobileIntentDock() {
     const candidates = [
       { labelKey: "nav.command", href: "/dashboard", icon: IconCommand, roles: [...OPERATIONAL_COMMAND_ROLES] },
       { labelKey: "nav.attention", href: "/dashboard/attention", icon: IconAttention, roles: [...OPERATIONAL_COMMAND_ROLES] },
-      { labelKey: "nav.work", href: "/dashboard/work", icon: IconWork, roles: [...OPERATIONAL_COMMAND_ROLES] },
-      { labelKey: "nav.people", href: "/dashboard/people", icon: IconPeople, roles: [...OPERATIONAL_COMMAND_ROLES] },
-      { labelKey: "nav.business", href: "/dashboard/business", icon: IconBusiness, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
+      { labelKey: "nav.work", href: "/dashboard/operations-live", icon: IconWork, roles: [...OPERATIONAL_COMMAND_ROLES] },
+      { labelKey: "nav.people", href: "/dashboard/staff-app", icon: IconPeople, roles: [...OPERATIONAL_COMMAND_ROLES] },
+      { labelKey: "nav.business", href: "/dashboard/reports", icon: IconBusiness, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
     ];
     return candidates.filter((c) => !c.roles || hasRole(c.roles));
   }, [hasRole]);
@@ -400,7 +399,10 @@ export function MobileIntentDock() {
       <div className="flex items-stretch justify-around px-1 py-1.5">
         {items.map((item) => {
           const Icon = item.icon;
-          const active = pathMatches(location.pathname, item.href);
+          const group = GROUPS.find((g) => g.href === item.href || g.id === item.labelKey.replace("nav.", ""));
+          const active = group
+            ? groupOwnsPath(group, location.pathname, location.search)
+            : pathMatches(location.pathname, item.href);
           return (
             <button
               key={item.href}

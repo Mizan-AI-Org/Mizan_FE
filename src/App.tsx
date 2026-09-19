@@ -31,9 +31,6 @@ const ShiftDetailView = React.lazy(() => import("./pages/ShiftDetailView"));
 
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const AttentionPage = React.lazy(() => import("./pages/os/AttentionPage"));
-const WorkHubPage = React.lazy(() => import("./pages/os/WorkHubPage"));
-const PeopleHubPage = React.lazy(() => import("./pages/os/PeopleHubPage"));
-const BusinessHubPage = React.lazy(() => import("./pages/os/BusinessHubPage"));
 const AutomationHubPage = React.lazy(() => import("./pages/os/AutomationHubPage"));
 const LocationsOverview = React.lazy(
   () => import("./pages/LocationsOverview")
@@ -300,30 +297,9 @@ const App = () => {
                     </RoleBasedRoute>
                   }
                 />
-                <Route
-                  path="dashboard/work"
-                  element={
-                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
-                      <WorkHubPage />
-                    </RoleBasedRoute>
-                  }
-                />
-                <Route
-                  path="dashboard/people"
-                  element={
-                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
-                      <PeopleHubPage />
-                    </RoleBasedRoute>
-                  }
-                />
-                <Route
-                  path="dashboard/business"
-                  element={
-                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
-                      <BusinessHubPage />
-                    </RoleBasedRoute>
-                  }
-                />
+                <Route path="dashboard/work" element={<Navigate to="/dashboard/operations-live" replace />} />
+                <Route path="dashboard/people" element={<Navigate to="/dashboard/staff-app" replace />} />
+                <Route path="dashboard/business" element={<Navigate to="/dashboard/reports" replace />} />
                 <Route
                   path="dashboard/automation"
                   element={

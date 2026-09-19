@@ -13,7 +13,7 @@ export type HubLink = {
 };
 
 type Props = {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   description: string;
   links: HubLink[];

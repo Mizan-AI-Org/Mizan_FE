@@ -13,12 +13,14 @@ import {
   SIGNUP_SECTOR_OPTIONS,
   type BusinessVertical,
 } from "@/config/staffInviteRolesByVertical";
+import { authFieldClass } from "./AuthAmbientBackground";
 
 interface SignUpFormProps {
-  onNavigateToLogin: () => void;
+  /** Kept for invitation flows; auth page uses tab navigation instead. */
+  onNavigateToLogin?: () => void;
 }
 
-export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => {
+export const SignUpForm: React.FC<SignUpFormProps> = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -94,121 +96,128 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
       {error && (
         <Alert
           variant="destructive"
-          className="bg-red-500/10 border-red-500/30 rounded-lg"
+          className="rounded-lg border-red-500/30 bg-red-500/10"
         >
           <AlertDescription className="text-red-200">{error}</AlertDescription>
         </Alert>
       )}
 
-      <div className="space-y-2 mb-6">
+      <div className="mb-6 space-y-2">
         <h2 className="text-2xl font-bold text-white">{t("auth.signup.title")}</h2>
         <p className="text-sm text-[#B0BEC5]">{t("auth.signup.subtitle")}</p>
       </div>
 
       <form onSubmit={handleOwnerSignUp} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="businessName" className="text-white text-sm">
-            {t("auth.signup.restaurant_name")}
-          </Label>
-          <div className="relative">
-            <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#00E676]/60" />
-            <Input
-              id="businessName"
-              name="businessName"
-              placeholder={t("auth.signup.restaurant_placeholder")}
-              required
-              className="pl-9 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
-            />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="businessName" className="text-sm text-white">
+              {t("auth.signup.restaurant_name")}
+            </Label>
+            <div className="group relative">
+              <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00E676]/60 transition-colors group-focus-within:text-[#00E676]" />
+              <Input
+                id="businessName"
+                name="businessName"
+                placeholder={t("auth.signup.restaurant_placeholder")}
+                required
+                className={`h-11 pl-9 text-sm ${authFieldClass}`}
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="space-y-2 pt-1">
-          <Label htmlFor="businessVertical" className="text-white text-sm">
-            {t("auth.signup.sector_label")}
-          </Label>
-          <p id="sector-hint" className="text-[11px] text-[#B0BEC5] leading-snug">
-            {t("auth.signup.sector_hint")}
-          </p>
-          <select
-            id="businessVertical"
-            name="businessVertical"
-            value={sector}
-            onChange={(e) => setSector(e.target.value as BusinessVertical)}
-            aria-describedby="sector-hint"
-            className="w-full h-11 rounded-md border border-white/10 bg-[#0A0D10]/50 px-3 text-sm text-white focus:border-[#00E676] focus:outline-none focus:ring-1 focus:ring-[#00E676]/50"
-          >
-            {SIGNUP_SECTOR_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value} title={t(opt.taglineKey)}>
-                {opt.emoji} {t(opt.nameKey)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="fullName" className="text-white text-sm">
-            {t("auth.signup.owner_full_name")}
-          </Label>
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#00E676]/60" />
-            <Input
-              id="fullName"
-              name="fullName"
-              placeholder={t("auth.signup.name_placeholder")}
-              required
-              className="pl-9 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
-            />
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="businessVertical" className="text-sm text-white">
+              {t("auth.signup.sector_label")}
+            </Label>
+            <p id="sector-hint" className="text-[11px] leading-snug text-[#78909C]">
+              {t("auth.signup.sector_hint")}
+            </p>
+            <select
+              id="businessVertical"
+              name="businessVertical"
+              value={sector}
+              onChange={(e) => setSector(e.target.value as BusinessVertical)}
+              aria-describedby="sector-hint"
+              className={`h-11 w-full px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#00E676]/40 ${authFieldClass}`}
+            >
+              {SIGNUP_SECTOR_OPTIONS.map((opt) => (
+                <option
+                  key={opt.value}
+                  value={opt.value}
+                  title={t(opt.taglineKey)}
+                  className="bg-[#0A0D10] text-white"
+                >
+                  {opt.emoji} {t(opt.nameKey)}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="signup-email" className="text-white text-sm">
-            {t("auth.signup.email")}
-          </Label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#00E676]/60" />
-            <Input
-              id="signup-email"
-              name="email"
-              type="email"
-              placeholder={t("auth.signup.email_placeholder")}
-              required
-              className="pl-9 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
-            />
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="fullName" className="text-sm text-white">
+              {t("auth.signup.owner_full_name")}
+            </Label>
+            <div className="group relative">
+              <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00E676]/60 transition-colors group-focus-within:text-[#00E676]" />
+              <Input
+                id="fullName"
+                name="fullName"
+                placeholder={t("auth.signup.name_placeholder")}
+                required
+                className={`h-11 pl-9 text-sm ${authFieldClass}`}
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="signup-password" className="text-white text-sm">
-            {t("auth.signup.password")}
-          </Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#00E676]/60" />
-            <Input
-              id="signup-password"
-              name="password"
-              type="password"
-              required
-              minLength={6}
-              className="pl-9 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
-            />
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="signup-email" className="text-sm text-white">
+              {t("auth.signup.email")}
+            </Label>
+            <div className="group relative">
+              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00E676]/60 transition-colors group-focus-within:text-[#00E676]" />
+              <Input
+                id="signup-email"
+                name="email"
+                type="email"
+                placeholder={t("auth.signup.email_placeholder")}
+                required
+                className={`h-11 pl-9 text-sm ${authFieldClass}`}
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword" className="text-white text-sm">
-            {t("auth.signup.confirm_password")}
-          </Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#00E676]/60" />
-            <Input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              required
-              minLength={6}
-              className="pl-9 bg-[#0A0D10]/50 border border-white/10 focus:border-[#00E676] text-white placeholder:text-[#B0BEC5] text-sm"
-            />
+          <div className="space-y-2">
+            <Label htmlFor="signup-password" className="text-sm text-white">
+              {t("auth.signup.password")}
+            </Label>
+            <div className="group relative">
+              <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00E676]/60 transition-colors group-focus-within:text-[#00E676]" />
+              <Input
+                id="signup-password"
+                name="password"
+                type="password"
+                required
+                minLength={6}
+                className={`h-11 pl-9 text-sm ${authFieldClass}`}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword" className="text-sm text-white">
+              {t("auth.signup.confirm_password")}
+            </Label>
+            <div className="group relative">
+              <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00E676]/60 transition-colors group-focus-within:text-[#00E676]" />
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                required
+                minLength={6}
+                className={`h-11 pl-9 text-sm ${authFieldClass}`}
+              />
+            </div>
           </div>
         </div>
 
@@ -218,15 +227,15 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
             id="terms"
             checked={termsAccepted}
             onChange={(e) => setTermsAccepted(e.target.checked)}
-            className="mt-1 h-4 w-4 bg-[#0A0D10] border-white/10 rounded cursor-pointer accent-[#00E676]"
+            className="mt-1 h-4 w-4 cursor-pointer rounded border-white/20 bg-black/30 accent-[#00E676]"
           />
-          <label htmlFor="terms" className="text-xs text-[#B0BEC5] cursor-pointer">
+          <label htmlFor="terms" className="cursor-pointer text-xs text-[#B0BEC5]">
             {t("auth.signup.terms")}{" "}
-            <a href="#" className="text-[#00E676] hover:text-[#00C853] transition-colors">
+            <a href="#" className="text-[#00E676] transition-colors hover:text-[#00F77B]">
               {t("auth.signup.terms_link")}
             </a>{" "}
             {t("auth.signup.and")}{" "}
-            <a href="#" className="text-[#00E676] hover:text-[#00C853] transition-colors">
+            <a href="#" className="text-[#00E676] transition-colors hover:text-[#00F77B]">
               {t("auth.signup.privacy_link")}
             </a>
           </label>
@@ -234,31 +243,13 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onNavigateToLogin }) => 
 
         <Button
           type="submit"
-          className="w-full bg-[#00E676] hover:bg-[#00C853] text-white font-semibold h-11 rounded-lg shadow-lg hover:shadow-[#00E676]/50 transition-all mt-4"
+          className="mt-2 h-11 w-full rounded-lg border border-[#00E676]/30 bg-gradient-to-r from-[#00E676] to-[#00C853] font-semibold text-[#0A0D10] shadow-lg transition-all duration-300 hover:from-[#00F77B] hover:to-[#00D96B] hover:shadow-[0_0_25px_rgba(0,230,118,0.4)]"
           disabled={isLoading || !termsAccepted}
         >
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {isLoading ? t("auth.signup.submitting") : t("auth.signup.submit")}
         </Button>
       </form>
-
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-[#00E676]/25" />
-        </div>
-        <div className="relative flex justify-center text-xs">
-          <span className="bg-[#0A0D10]/40 px-3 py-1 text-[#B0BEC5] rounded-full border border-white/10 backdrop-blur-sm">
-            {t("auth.signup.already_have")}
-          </span>
-        </div>
-      </div>
-
-      <Button
-        onClick={onNavigateToLogin}
-        className="w-full border border-[#00E676]/30 text-[#00E676] hover:bg-[#00E676]/10 hover:text-[#00C853] font-semibold h-11 bg-transparent"
-      >
-        {t("auth.actions.sign_in")}
-      </Button>
     </div>
   );
 };

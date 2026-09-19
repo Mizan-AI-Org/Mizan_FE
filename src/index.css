@@ -688,5 +688,41 @@
   .mizan-app-content-gutter {
     transition: padding-inline-end 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   }
+
+  /* Auth page ambient background */
+  @keyframes auth-aurora-drift {
+    0%,
+    100% {
+      transform: translate(0, 0) scale(1);
+      opacity: 0.75;
+    }
+    33% {
+      transform: translate(2%, -2%) scale(1.04);
+      opacity: 1;
+    }
+    66% {
+      transform: translate(-2%, 1%) scale(0.97);
+      opacity: 0.85;
+    }
+  }
+
+  .auth-aurora-orb {
+    animation: auth-aurora-drift 20s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  .auth-aurora-orb-delay {
+    animation-delay: -7s;
+  }
+
+  .auth-aurora-orb-delay-2 {
+    animation-delay: -14s;
+  }
+
+  .auth-noise {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 128px 128px;
+  }
 }
 

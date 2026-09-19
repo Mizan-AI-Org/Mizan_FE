@@ -7,7 +7,6 @@ export default function AutomationHubPage() {
   const { t } = useLanguage();
   return (
     <OsHubPage
-      eyebrow={t("hub.automation.eyebrow")}
       title={t("hub.automation.title")}
       description={t("hub.automation.desc")}
       links={[
