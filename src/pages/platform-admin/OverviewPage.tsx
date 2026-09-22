@@ -263,7 +263,12 @@ export default function OverviewPage() {
             </span>
           </div>
         </div>
-        <div className="h-72 w-full">
+        <div className="h-72 w-full min-w-0">
+          {chartData.length === 0 ? (
+            <p className="flex h-full items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+              No signup history yet.
+            </p>
+          ) : (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
               <defs>
@@ -276,19 +281,17 @@ export default function OverviewPage() {
                   <stop offset="95%" stopColor="#94a3b8" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-slate-200 dark:text-slate-700" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
               <XAxis
                 dataKey="label"
-                tick={{ fill: "currentColor", fontSize: 11 }}
-                className="text-slate-500"
+                tick={{ fill: "#94a3b8", fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
                 interval="preserveStartEnd"
               />
               <YAxis
                 allowDecimals={false}
-                tick={{ fill: "currentColor", fontSize: 11 }}
-                className="text-slate-500"
+                tick={{ fill: "#94a3b8", fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
                 width={40}
@@ -322,26 +325,30 @@ export default function OverviewPage() {
               />
             </AreaChart>
           </ResponsiveContainer>
+          )}
         </div>
 
         <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-5">
           <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">New signups per period</h4>
-          <div className="h-40 w-full">
+          <div className="h-40 w-full min-w-0">
+            {chartData.length === 0 ? (
+              <p className="flex h-full items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+                No signups in this range.
+              </p>
+            ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ left: 0, right: 8, top: 4, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-slate-200 dark:text-slate-700" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                 <XAxis
                   dataKey="label"
-                  tick={{ fill: "currentColor", fontSize: 10 }}
-                  className="text-slate-500"
+                  tick={{ fill: "#94a3b8", fontSize: 10 }}
                   axisLine={false}
                   tickLine={false}
                   interval="preserveStartEnd"
                 />
                 <YAxis
                   allowDecimals={false}
-                  tick={{ fill: "currentColor", fontSize: 10 }}
-                  className="text-slate-500"
+                  tick={{ fill: "#94a3b8", fontSize: 10 }}
                   axisLine={false}
                   tickLine={false}
                   width={28}
@@ -359,6 +366,7 @@ export default function OverviewPage() {
                 <Bar dataKey="tenantsNew" name="New tenants" fill="#94a3b8" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+            )}
           </div>
         </div>
       </section>
