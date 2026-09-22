@@ -40,9 +40,13 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
+import { arSA, enUS, fr } from "date-fns/locale";
 import { Label } from "@/components/ui/label";
+import { useLanguage } from "@/hooks/use-language";
 
 export default function DailySalesReportsPage() {
+    const { t, language } = useLanguage();
+    const dateLocale = language === "fr" ? fr : language === "ar" ? arSA : enUS;
     const { accessToken } = useAuth();
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState("");
@@ -68,7 +72,7 @@ export default function DailySalesReportsPage() {
 
     const sortedAndFilteredReports = (reports || [])
         .filter((report) =>
-            format(new Date(report.date), "PPP").toLowerCase().includes(searchTerm.toLowerCase()) ||
+            format(new Date(report.date), "PPP", { locale: dateLocale }).toLowerCase().includes(searchTerm.toLowerCase()) ||
             report.total_revenue.toString().includes(searchTerm.toLowerCase())
         )
         .sort((a, b) => {
@@ -83,15 +87,22 @@ export default function DailySalesReportsPage() {
             return 0;
         });
 
-    if (isLoading) return <div>Loading daily sales reports...</div>;
-    if (isError) return <div>Error: {error?.message}</div>;
+    if (isLoading) return <div className="p-6">{t("sales.loading")}</div>;
+    if (isError) {
+      return (
+        <div className="space-y-6 p-6">
+          <h1 className="text-3xl font-bold">{t("sales.title")}</h1>
+          <p className="text-muted-foreground">{t("sales.empty")}</p>
+        </div>
+      );
+    }
 
     return (
         <div className="space-y-6 p-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold">Daily Sales Reports</h1>
-                    <p className="text-muted-foreground">View and analyze your restaurant's daily sales performance.</p>
+                    <h1 className="text-3xl font-bold">{t("sales.title")}</h1>
+                    <p className="text-muted-foreground">{t("sales.subtitle")}</p>
                 </div>
             </div>
 
@@ -102,7 +113,7 @@ export default function DailySalesReportsPage() {
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search reports by date or revenue..."
+                                    placeholder={t("sales.search")}
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="pl-10"
@@ -116,31 +127,31 @@ export default function DailySalesReportsPage() {
                             <TableRow>
                                 <TableHead onClick={() => handleSort("date")}>
                                     <div className="flex items-center">
-                                        Date <ArrowUpDown className="ml-2 h-4 w-4" />
+                                        {t("common.date")} <ArrowUpDown className="ml-2 h-4 w-4" />
                                     </div>
                                 </TableHead>
                                 <TableHead onClick={() => handleSort("total_revenue")}>
                                     <div className="flex items-center justify-end">
-                                        Total Revenue <ArrowUpDown className="ml-2 h-4 w-4" />
+                                        {t("sales.col.revenue")} <ArrowUpDown className="ml-2 h-4 w-4" />
                                     </div>
                                 </TableHead>
                                 <TableHead onClick={() => handleSort("total_orders")}>
                                     <div className="flex items-center justify-end">
-                                        Total Orders <ArrowUpDown className="ml-2 h-4 w-4" />
+                                        {t("sales.col.orders")} <ArrowUpDown className="ml-2 h-4 w-4" />
                                     </div>
                                 </TableHead>
                                 <TableHead onClick={() => handleSort("avg_order_value")}>
                                     <div className="flex items-center justify-end">
-                                        Avg Order Value <ArrowUpDown className="ml-2 h-4 w-4" />
+                                        {t("sales.col.avg")} <ArrowUpDown className="ml-2 h-4 w-4" />
                                     </div>
                                 </TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="text-right">{t("common.actions")}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {sortedAndFilteredReports.map((report) => (
+                            {sortedAndFilteredReports.length ? sortedAndFilteredReports.map((report) => (
                                 <TableRow key={report.id}>
-                                    <TableCell className="font-medium">{format(new Date(report.date), "PPP")}</TableCell>
+                                    <TableCell className="font-medium">{format(new Date(report.date), "PPP", { locale: dateLocale })}</TableCell>
                                     <TableCell className="text-right">${report.total_revenue.toFixed(2)}</TableCell>
                                     <TableCell className="text-right">{report.total_orders}</TableCell>
                                     <TableCell className="text-right">${report.avg_order_value.toFixed(2)}</TableCell>
@@ -148,23 +159,29 @@ export default function DailySalesReportsPage() {
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
                                                 <Button variant="ghost" className="h-8 w-8 p-0">
-                                                    <span className="sr-only">Open menu</span>
+                                                    <span className="sr-only">{t("sales.open_menu")}</span>
                                                     <MoreHorizontal className="h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                <DropdownMenuLabel>{t("common.actions")}</DropdownMenuLabel>
                                                 <DropdownMenuItem onClick={() => {
                                                     setSelectedReport(report);
                                                     setIsViewDetailsDialogOpen(true);
                                                 }}>
-                                                    <Eye className="mr-2 h-4 w-4" /> View Details
+                                                    <Eye className="mr-2 h-4 w-4" /> {t("sales.view_details")}
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            )) : (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                                        {t("sales.empty")}
+                                    </TableCell>
+                                </TableRow>
+                            )}
                         </TableBody>
                     </Table>
                 </CardContent>
@@ -174,38 +191,38 @@ export default function DailySalesReportsPage() {
             <Dialog open={isViewDetailsDialogOpen} onOpenChange={setIsViewDetailsDialogOpen}>
                 <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Daily Sales Report Details</DialogTitle>
-                        <DialogDescription>Detailed information for {selectedReport ? format(new Date(selectedReport.date), "PPP") : ""}</DialogDescription>
+                        <DialogTitle>{t("sales.detail_title")}</DialogTitle>
+                        <DialogDescription>{t("sales.detail_for", { date: selectedReport ? format(new Date(selectedReport.date), "PPP", { locale: dateLocale }) : "" })}</DialogDescription>
                     </DialogHeader>
                     {selectedReport && (
                         <div className="grid gap-4 py-4">
                             <div className="flex justify-between items-center">
-                                <Label className="font-semibold">Total Revenue:</Label>
+                                <Label className="font-semibold">{t("sales.col.revenue")}</Label>
                                 <span>${selectedReport.total_revenue.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                                <Label className="font-semibold">Total Orders:</Label>
+                                <Label className="font-semibold">{t("sales.col.orders")}</Label>
                                 <span>{selectedReport.total_orders}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                                <Label className="font-semibold">Average Order Value:</Label>
+                                <Label className="font-semibold">{t("sales.col.avg")}</Label>
                                 <span>${selectedReport.avg_order_value.toFixed(2)}</span>
                             </div>
 
-                            <h3 className="text-lg font-semibold mt-4">Top Selling Items</h3>
+                            <h3 className="text-lg font-semibold mt-4">{t("sales.top_items")}</h3>
                             {selectedReport.top_selling_items && selectedReport.top_selling_items.length > 0 ? (
                                 <ul className="list-disc list-inside ml-4 space-y-1">
                                     {selectedReport.top_selling_items.map((item: any, index: number) => (
-                                        <li key={index}>{item.name} (Qty: {item.quantity}, Revenue: ${item.revenue.toFixed(2)})</li>
+                                        <li key={index}>{item.name} ({t("sales.item_line", { qty: item.quantity, revenue: item.revenue.toFixed(2) })})</li>
                                     ))}
                                 </ul>
                             ) : (
-                                <p className="text-muted-foreground">No top selling items recorded.</p>
+                                <p className="text-muted-foreground">{t("sales.no_top_items")}</p>
                             )}
                         </div>
                     )}
                     <DialogFooter>
-                        <Button onClick={() => setIsViewDetailsDialogOpen(false)}>Close</Button>
+                        <Button onClick={() => setIsViewDetailsDialogOpen(false)}>{t("common.close")}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

@@ -35,10 +35,12 @@ async function platformFetch<T>(path: string, init?: RequestInit): Promise<T> {
     const b = body as {
       error?: string;
       detail?: string | string[];
+      data?: { error?: string };
       [key: string]: unknown;
     };
     let msg =
       b.error ||
+      b.data?.error ||
       (typeof b.message === "string" ? b.message : null) ||
       (typeof b.detail === "string" ? b.detail : null);
     if (!msg && Array.isArray(b.detail)) msg = b.detail.join(" ");
@@ -56,7 +58,44 @@ async function platformFetch<T>(path: string, init?: RequestInit): Promise<T> {
     throw err;
   }
   if (res.status === 204) return undefined as T;
-  return res.json();
+  const json = await res.json();
+  // Backend uses api_envelope({ success, data, error }) — unwrap for callers.
+  if (
+    json &&
+    typeof json === "object" &&
+    "data" in json &&
+    ("success" in json || "error" in json || "metadata" in json)
+  ) {
+    return (json as { data: T }).data;
+  }
+  return json as T;
+}
+
+/** True when the session belongs to a restaurant tenant (not a platform-only ops account). */
+export function isTenantUserSession(user?: {
+  restaurant_id?: string | null;
+  restaurant?: string | null;
+  restaurant_name?: string | null;
+} | null): boolean {
+  if (!user) return false;
+  const rid = user.restaurant_id ?? user.restaurant;
+  if (rid != null && String(rid).trim() !== "") return true;
+  return Boolean(user.restaurant_name && String(user.restaurant_name).trim());
+}
+
+/** Resolve post-login home for a restaurant (tenant) session. */
+export function tenantHomePath(user?: {
+  role?: string;
+  restaurant_data?: { onboarding_completed_at?: string | null } | null;
+  restaurant_id?: string | null;
+  restaurant?: string | null;
+} | null): string {
+  if (!user) return "/auth";
+  const role = String(user.role || "").toUpperCase();
+  const isOwnerLike = ["SUPER_ADMIN", "OWNER", "ADMIN"].includes(role);
+  const done = Boolean(user.restaurant_data?.onboarding_completed_at);
+  if (isOwnerLike && !done) return "/onboarding";
+  return "/dashboard";
 }
 
 export type PlatformMe = {

@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   Clock,
   Eye,
-  Loader2,
   RefreshCw,
   Sparkles,
   Target,
@@ -15,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AgentAvatar } from "@/components/agent/AgentAvatar";
+import { CommandCentreSkeleton } from "@/components/command/CommandCentreSkeleton";
 import { AttentionCard } from "@/components/os/AttentionCard";
 import { CommandCollapsibleSection } from "@/components/os/CommandCollapsibleSection";
 import { SeverityBadge, severityPanelClass } from "@/components/os/SeverityBadge";
@@ -25,6 +25,7 @@ import {
   type CommandCluster,
   type CommandFilterKey,
   type CommandSignal,
+  localizedCommandGreeting,
   severityToBadgeLevel,
   signalsForFilter,
 } from "@/lib/commandCentre";
@@ -303,6 +304,11 @@ export function CommandCentreView({ className }: { className?: string }) {
 
   const filtered = useMemo(() => signalsForFilter(data, filter), [data, filter]);
 
+  const greetingLine = useMemo(
+    () => (data ? localizedCommandGreeting(data, t) : t("command.preparing")),
+    [data, t],
+  );
+
   const reviewSignal = (signal: CommandSignal) => {
     const route = getActionRoute(signal.action_url);
     if (route) navigate(route);
@@ -316,15 +322,7 @@ export function CommandCentreView({ className }: { className?: string }) {
         : t("severity.STABLE", { defaultValue: "Stable" });
 
   if (isLoading) {
-    return (
-      <div className={cn("flex min-h-[40vh] items-center justify-center", className)}>
-        <div className="flex items-center gap-3 text-muted-foreground">
-          <AgentAvatar size="md" />
-          <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-          {t("command.preparing")}
-        </div>
-      </div>
-    );
+    return <CommandCentreSkeleton className={className} />;
   }
 
   if (isError || !data?.success) {
@@ -389,7 +387,7 @@ export function CommandCentreView({ className }: { className?: string }) {
             <p className="text-caption font-semibold uppercase tracking-wider text-primary">
               {t("command.eyebrow")}
             </p>
-            <h1 className="text-page-title">{data.greeting}</h1>
+            <h1 className="text-page-title">{greetingLine}</h1>
             <p className="text-body text-muted-foreground">
               {t("command.subtitle", { count: data.signals_total })}
             </p>
@@ -432,6 +430,37 @@ export function CommandCentreView({ className }: { className?: string }) {
           ) : null}
         </div>
       </header>
+
+      {(data.domain_attention || []).length > 0 ? (
+        <section className="rounded-panel border border-critical-border/60 bg-critical-muted/40 p-4">
+          <h2 className="mb-3 text-section-title">
+            {t("command.business_needs", { count: String(data.domain_attention?.length || 0) })}
+          </h2>
+          <ul className="space-y-2">
+            {(data.domain_attention || []).map((area) => (
+              <li key={area.domain}>
+                <button
+                  type="button"
+                  className="flex w-full items-start justify-between gap-3 rounded-md px-2 py-2 text-start hover:bg-background/70"
+                  onClick={() => navigate(area.href)}
+                >
+                  <span>
+                    <span className="font-medium">
+                      {t(`nav.${area.domain}`, { defaultValue: area.title })}.{" "}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {area.detail_key
+                        ? t(area.detail_key, { ...(area.detail_params || {}), defaultValue: area.detail })
+                        : area.detail}
+                    </span>
+                  </span>
+                  <ArrowRight className="mt-1 h-4 w-4 shrink-0" aria-hidden />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {/* Metrics */}
       <section aria-label={t("command.glance")} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">

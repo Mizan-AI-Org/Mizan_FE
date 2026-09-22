@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, API_BASE } from "@/lib/api";
+import { unwrapEnvelope } from "@/lib/envelope";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,8 +58,8 @@ const AdminEmergencyAvailability: React.FC = () => {
           progress_pct: 100
         }));
       }
-      const data = await res.json();
-      return Array.isArray(data) ? data : (data.results || []);
+      const data = unwrapEnvelope<AvailabilityTask[] | { results?: AvailabilityTask[] }>(await res.json());
+      return Array.isArray(data) ? data : (data?.results || []);
     },
     refetchInterval: 60_000,
     staleTime: 30_000,
@@ -206,9 +207,9 @@ const AdminEmergencyAvailability: React.FC = () => {
             <DialogTitle>Task Details</DialogTitle>
           </DialogHeader>
           <Tabs defaultValue="summary">
-            <TabsList className="grid grid-cols-2 w-full">
-              <TabsTrigger value="summary">Summary</TabsTrigger>
-              <TabsTrigger value="expanded">Expanded</TabsTrigger>
+            <TabsList variant="compact" className="grid grid-cols-2 w-full">
+              <TabsTrigger variant="compact" value="summary">Summary</TabsTrigger>
+              <TabsTrigger variant="compact" value="expanded">Expanded</TabsTrigger>
             </TabsList>
             <TabsContent value="summary" className="space-y-3 mt-3">
               <div className="text-sm text-muted-foreground">Key fields and status</div>

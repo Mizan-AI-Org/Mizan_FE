@@ -38,7 +38,7 @@ export default function AgentQualityPage() {
   });
 
   const successPct =
-    data?.turns.success_rate != null
+    data?.turns?.success_rate != null
       ? `${(data.turns.success_rate * 100).toFixed(1)}%`
       : "—";
 
@@ -78,26 +78,30 @@ export default function AgentQualityPage() {
       ) : data ? (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <ScoreCard label="Total turns" value={data.turns.total} />
+            <ScoreCard label="Total turns" value={data.turns?.total ?? 0} />
             <ScoreCard label="Success rate" value={successPct} />
-            <ScoreCard label="Avg confidence" value={`${(data.turns.avg_confidence * 100).toFixed(0)}%`} />
-            <ScoreCard label="Avg latency" value={data.turns.avg_latency_ms} suffix="ms" />
+            <ScoreCard
+              label="Avg confidence"
+              value={`${((data.turns?.avg_confidence ?? 0) * 100).toFixed(0)}%`}
+            />
+            <ScoreCard label="Avg latency" value={data.turns?.avg_latency_ms ?? 0} suffix="ms" />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <ScoreCard label="Quality score" value={data.evaluation.avg_quality} />
-            <ScoreCard label="Accuracy score" value={data.evaluation.avg_accuracy} />
-            <ScoreCard label="Helpfulness" value={data.evaluation.avg_helpfulness} />
-            <ScoreCard label="Safety" value={data.evaluation.avg_safety} />
+            <ScoreCard label="Quality score" value={data.evaluation?.avg_quality ?? 0} />
+            <ScoreCard label="Accuracy score" value={data.evaluation?.avg_accuracy ?? 0} />
+            <ScoreCard label="Helpfulness" value={data.evaluation?.avg_helpfulness ?? 0} />
+            <ScoreCard label="Safety" value={data.evaluation?.avg_safety ?? 0} />
             <ScoreCard
               label="Verification rate"
-              value={`${(data.evaluation.avg_verification_rate * 100).toFixed(0)}%`}
+              value={`${((data.evaluation?.avg_verification_rate ?? 0) * 100).toFixed(0)}%`}
             />
           </div>
 
           <p className={`text-xs ${opsMuted}`}>
-            Based on {data.evaluation.count} evaluated turns since {new Date(data.since).toLocaleDateString()}.
-            User feedback: {data.turns.thumbs_up} 👍 · {data.turns.thumbs_down} 👎
+            Based on {data.evaluation?.count ?? 0} evaluated turns since{" "}
+            {data.since ? new Date(data.since).toLocaleDateString() : "—"}.
+            User feedback: {data.turns?.thumbs_up ?? 0} 👍 · {data.turns?.thumbs_down ?? 0} 👎
           </p>
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -113,14 +117,14 @@ export default function AgentQualityPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.by_channel.map((row) => (
+                    {(data.by_channel || []).map((row) => (
                       <tr key={row.channel}>
                         <td className={opsTd}>{row.channel}</td>
                         <td className={opsTd}>{row.count}</td>
                         <td className={opsTd}>{row.success}</td>
                       </tr>
                     ))}
-                    {data.by_channel.length === 0 ? (
+                    {(data.by_channel || []).length === 0 ? (
                       <tr>
                         <td colSpan={3} className="px-4 py-6 text-center text-slate-500">No data</td>
                       </tr>
@@ -141,13 +145,13 @@ export default function AgentQualityPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.top_intents.map((row) => (
+                    {(data.top_intents || []).map((row) => (
                       <tr key={row.interpreted_intent}>
                         <td className={`${opsTd} font-mono text-xs`}>{row.interpreted_intent}</td>
                         <td className={opsTd}>{row.count}</td>
                       </tr>
                     ))}
-                    {data.top_intents.length === 0 ? (
+                    {(data.top_intents || []).length === 0 ? (
                       <tr>
                         <td colSpan={2} className="px-4 py-6 text-center text-slate-500">No data</td>
                       </tr>
@@ -158,7 +162,7 @@ export default function AgentQualityPage() {
             </section>
           </div>
 
-          {data.by_deploy_version.length > 0 ? (
+          {(data.by_deploy_version || []).length > 0 ? (
             <section>
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">By deploy version</h3>
               <div className={opsTableWrap}>
@@ -171,7 +175,7 @@ export default function AgentQualityPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.by_deploy_version.map((row) => (
+                    {(data.by_deploy_version || []).map((row) => (
                       <tr key={row.deploy_version}>
                         <td className={`${opsTd} font-mono text-xs`}>{row.deploy_version}</td>
                         <td className={opsTd}>{row.count}</td>

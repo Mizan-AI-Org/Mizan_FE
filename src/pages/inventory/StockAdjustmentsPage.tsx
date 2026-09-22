@@ -63,7 +63,7 @@ export default function StockAdjustmentsPage() {
         adjusted_by: "", // This will be set by the backend based on the authenticated user
     });
 
-    const { data: stockAdjustments, isLoading, isError, error } = useQuery<StockAdjustment[]>({
+    const { data: stockAdjustments, isLoading } = useQuery<StockAdjustment[]>({
         queryKey: ["stockAdjustments", accessToken],
         queryFn: () => api.getStockAdjustments(accessToken!),
         enabled: !!accessToken,
@@ -167,7 +167,7 @@ export default function StockAdjustmentsPage() {
     };
 
     if (isLoading) return <div>Loading stock adjustments...</div>;
-    if (isError) return <div>Error: {error?.message}</div>;
+    if (isLoading) return <div className="p-6 text-muted-foreground">Loading stock adjustments...</div>;
 
     return (
         <div className="space-y-6 p-6">

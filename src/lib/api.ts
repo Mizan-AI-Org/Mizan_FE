@@ -17,6 +17,7 @@ import {
   Task,
   InventoryItem,
   Supplier,
+  SupplierPriceQuote,
   PurchaseOrder,
   PurchaseOrderItem,
   StockAdjustment,
@@ -38,6 +39,49 @@ import {
   CurrentSubscription,
   BillingEntitlements,
 } from "./types"; // Updated import path
+import { unwrapEnvelope } from "./envelope";
+
+export type ProcessRunPayload = {
+  id: string;
+  runId?: string;
+  templateName?: string;
+  status?: string;
+  completed?: boolean;
+  awaitingPhoto?: boolean;
+  prompt?: string;
+  step?: {
+    id: string;
+    title: string;
+    description?: string;
+    index?: number;
+    total?: number;
+    requiresPhotoAfterYes?: boolean;
+  } | null;
+};
+
+/** Checklist endpoints return api_envelope; also accept legacy raw arrays/objects. */
+function unwrapChecklistPayload<T = unknown>(payload: unknown): T {
+  try {
+    return unwrapEnvelope<T>(payload);
+  } catch {
+    return payload as T;
+  }
+}
+
+/** POS/menu list+detail endpoints return api_envelope; accept legacy raw payloads. */
+function unwrapPosPayload<T = unknown>(payload: unknown): T {
+  try {
+    return unwrapEnvelope<T>(payload);
+  } catch {
+    return payload as T;
+  }
+}
+
+function asPosList<T>(payload: unknown): T[] {
+  const data = unwrapPosPayload<unknown>(payload);
+  return Array.isArray(data) ? (data as T[]) : [];
+}
+
 
 // In dev, use relative /api so Vite proxy (vite.config proxy /api -> localhost:8000) is used.
 // In production, also use relative /api to leverage Netlify/Vercel rewrites to api.heymizan.ai.
@@ -87,6 +131,17 @@ export const toAbsoluteUrl = (pathOrUrl: string): URL => {
       : "http://localhost";
   return new URL(pathOrUrl, base);
 };
+
+/** HTML 404/500 pages start with `<` and crash `response.json()`. */
+export function parseJsonSafe(text: string): unknown | null {
+  const trimmed = (text || "").trim();
+  if (!trimmed || trimmed.startsWith("<")) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+}
 
 /** DRF paginated list responses use `{ count, results }`; older code expected a bare array. */
 export function unwrapDrfListResponse<T>(data: unknown): T[] {
@@ -280,9 +335,25 @@ export class BackendService {
     const text = await response.text();
     if (!text) return null;
     try {
-      return JSON.parse(text);
-    } catch {
-      return text;
+      const parsed = JSON.parse(text);
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        "success" in parsed &&
+        "data" in parsed &&
+        !("lanes" in parsed) &&
+        !("tokens" in parsed) &&
+        !("greeting" in parsed)
+      ) {
+        if (parsed.success === false) {
+          throw new Error(parsed.error || "Request failed");
+        }
+        return parsed.data;
+      }
+      return parsed;
+    } catch (error) {
+      if (error instanceof SyntaxError) return text;
+      throw error;
     }
   }
 
@@ -441,10 +512,10 @@ export class BackendService {
 
   async confirmPasswordReset(token: string, newPassword: string): Promise<{ message: string }> {
     try {
-      const response = await fetch(`${API_BASE}/password-reset-confirm/`, {
+      const response = await fetch(`${API_BASE}/password-reset/`, {
         method: "POST",
         headers: this.getHeaders(),
-        body: JSON.stringify({ token, new_password: newPassword }),
+        body: JSON.stringify({ token, password: newPassword }),
       });
 
       // Read raw text first to handle non-JSON responses gracefully
@@ -485,13 +556,7 @@ export class BackendService {
     try {
       // Decide endpoint based on provided credentials
       // Staff flow now requires only a login PIN, no invitation PIN
-      const isStaffFlow = !!pin_code && !password;
-      // Backend routes:
-      // - Staff (PIN flow):       POST /api/staff/accept-invitation/
-      // - Admin/owner (password): POST /api/invitations/accept/
-      const endpoint = isStaffFlow
-        ? `${API_BASE}/staff/accept-invitation/`
-        : `${API_BASE}/invitations/accept/`;
+      const endpoint = `${API_BASE}/staff/invite/accept/`;
 
       const body: Record<string, any> = {
         token,
@@ -567,7 +632,9 @@ export class BackendService {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch user profile");
       }
-      return await response.json();
+      const body = await response.json();
+      const { unwrapUser } = await import("@/lib/envelope");
+      return unwrapUser(body) as User;
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch user profile");
     }
@@ -1469,6 +1536,31 @@ export class BackendService {
     return this.fetchWithError("/dashboard/command-center/");
   }
 
+  async getDomainWorld(domain: string): Promise<{
+    id: string;
+    title: string;
+    kpis: Array<{ label: string; label_key?: string; value: string | number; tone?: string }>;
+    today: Array<{
+      title: string;
+      title_key?: string;
+      title_params?: Record<string, string | number>;
+      detail?: string;
+      detail_key?: string;
+      detail_params?: Record<string, string | number>;
+      href?: string;
+    }>;
+    observations: Array<{
+      text: string;
+      message_key?: string;
+      message_params?: Record<string, string | number>;
+      severity?: string;
+      href?: string;
+    }>;
+    snapshot_7d?: import("./financial-snapshot").FinancialSnapshot7d;
+  }> {
+    return this.fetchWithError(`/domains/${domain}/`);
+  }
+
   async managerClockIn(
     staffId: string,
     payload: { reason: string; shift_id?: string }
@@ -1491,9 +1583,10 @@ export class BackendService {
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch tasks");
+        throw new Error(errorData.message || errorData.error || "Failed to fetch tasks");
       }
-      return await response.json();
+      const payload = await response.json();
+      return Array.isArray(payload) ? payload : payload.data || [];
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch tasks");
     }
@@ -1673,7 +1766,11 @@ export class BackendService {
         throw new Error(msg);
       }
       if (parsedPrimary) {
-        const arr = Array.isArray(parsedPrimary?.results) ? parsedPrimary.results : (Array.isArray(parsedPrimary) ? parsedPrimary : []);
+        const arr = Array.isArray(parsedPrimary?.data)
+          ? parsedPrimary.data
+          : Array.isArray(parsedPrimary?.results)
+            ? parsedPrimary.results
+            : (Array.isArray(parsedPrimary) ? parsedPrimary : []);
         return arr as StaffListItem[];
       }
 
@@ -1983,17 +2080,21 @@ export class BackendService {
 
   async getInventoryItems(accessToken: string): Promise<InventoryItem[]> {
     try {
-      const response = await fetch(`${API_BASE}/inventory/items/`, {
+      const response = await fetch(`${API_BASE}/inventory/`, {
         method: "GET",
         headers: this.getHeaders(accessToken),
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch inventory items");
-      }
-      return await response.json();
-    } catch (error: any) {
-      throw new Error(error.message || "Failed to fetch inventory items");
+      const payload = parseJsonSafe(await response.text());
+      if (!response.ok || !payload) return [];
+      const unwrapped = unwrapEnvelope(payload) as { items?: unknown } | unknown;
+      const rows =
+        unwrapped && typeof unwrapped === "object" && "items" in (unwrapped as object)
+          ? (unwrapped as { items?: unknown }).items
+          : unwrapped;
+      const { mapInventoryItem } = await import("./envelope");
+      return (Array.isArray(rows) ? rows : []).map((row) => mapInventoryItem(row as Record<string, unknown>));
+    } catch {
+      return [];
     }
   }
 
@@ -2030,19 +2131,54 @@ export class BackendService {
     >
   ): Promise<InventoryItem> {
     try {
-      const response = await fetch(`${API_BASE}/inventory/items/`, {
+      const response = await fetch(`${API_BASE}/inventory/`, {
         method: "POST",
         headers: this.getHeaders(accessToken),
-        body: JSON.stringify(itemData),
+        body: JSON.stringify({
+          name: (itemData as { name?: string }).name,
+          unit: (itemData as { unit?: string }).unit,
+          quantity: (itemData as { current_stock?: number }).current_stock,
+          reorderPoint: (itemData as { min_stock_level?: number }).min_stock_level,
+          sku: (itemData as { sku?: string }).sku || "",
+        }),
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create inventory item");
+      const payload = parseJsonSafe(await response.text());
+      if (!response.ok || !payload) {
+        const err = payload as { message?: string; error?: string } | null;
+        throw new Error(err?.message || err?.error || "Failed to create inventory item");
       }
-      return await response.json();
+      const { mapInventoryItem } = await import("./envelope");
+      return mapInventoryItem((unwrapEnvelope(payload) || payload) as Record<string, unknown>);
     } catch (error: any) {
       throw new Error(error.message || "Failed to create inventory item");
     }
+  }
+
+  async bulkImportInventoryItems(
+    accessToken: string,
+    items: Array<{
+      name: string;
+      unit?: string;
+      quantity?: number;
+      current_stock?: number;
+      count?: number;
+      reorderPoint?: number;
+      min_stock_level?: number;
+      sku?: string;
+    }>
+  ): Promise<InventoryItem[]> {
+    const response = await fetch(`${API_BASE}/inventory/`, {
+      method: "POST",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify({ items }),
+    });
+    const payload = parseJsonSafe(await response.text());
+    if (!response.ok || !payload) {
+      throw new Error("Failed to import inventory list");
+    }
+    const data = unwrapEnvelope(payload) as { items?: Record<string, unknown>[] };
+    const { mapInventoryItem } = await import("./envelope");
+    return (data?.items || []).map((row) => mapInventoryItem(row));
   }
 
   async updateInventoryItem(
@@ -2062,16 +2198,24 @@ export class BackendService {
     >
   ): Promise<InventoryItem> {
     try {
-      const response = await fetch(`${API_BASE}/inventory/items/${itemId}/`, {
-        method: "PATCH",
+      const response = await fetch(`${API_BASE}/inventory/`, {
+        method: "POST",
         headers: this.getHeaders(accessToken),
-        body: JSON.stringify(itemData),
+        body: JSON.stringify({
+          id: itemId,
+          name: itemData.name,
+          unit: itemData.unit,
+          quantity: itemData.current_stock,
+          reorderPoint: itemData.min_stock_level,
+          sku: (itemData as { sku?: string }).sku || "",
+        }),
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update inventory item");
+      const payload = parseJsonSafe(await response.text());
+      if (!response.ok || !payload) {
+        throw new Error("Failed to update inventory item");
       }
-      return await response.json();
+      const { mapInventoryItem } = await import("./envelope");
+      return mapInventoryItem((unwrapEnvelope(payload) || payload) as Record<string, unknown>);
     } catch (error: any) {
       throw new Error(error.message || "Failed to update inventory item");
     }
@@ -2102,12 +2246,13 @@ export class BackendService {
         headers: this.getHeaders(accessToken),
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch suppliers");
+        return [];
       }
-      return await response.json();
-    } catch (error: any) {
-      throw new Error(error.message || "Failed to fetch suppliers");
+      const payload = await response.json();
+      const rows = payload.data?.suppliers || payload.results || payload;
+      return Array.isArray(rows) ? rows : [];
+    } catch {
+      return [];
     }
   }
 
@@ -2200,19 +2345,195 @@ export class BackendService {
     }
   }
 
+  async recordSupplierPrice(
+    accessToken: string,
+    supplierId: string,
+    payload: {
+      item_name: string;
+      price: number | string;
+      unit?: string;
+      currency?: string;
+    }
+  ): Promise<SupplierPriceQuote> {
+    const response = await fetch(
+      `${API_BASE}/inventory/suppliers/${supplierId}/prices/`,
+      {
+        method: "POST",
+        headers: this.getHeaders(accessToken),
+        body: JSON.stringify(payload),
+      }
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        (errorData as { message?: string }).message ||
+          "Failed to record supplier price"
+      );
+    }
+    return await response.json();
+  }
+
   async getPurchaseOrders(accessToken: string): Promise<PurchaseOrder[]> {
+    const { orders } = await this.getPurchasing(accessToken);
+    return orders.map((row) => ({
+      id: String(row.id),
+      restaurant: "",
+      supplier: "",
+      supplier_info: { id: "", restaurant: "", name: row.itemName || "Item" },
+      order_date: String(row.createdAt || "").slice(0, 10),
+      expected_delivery_date: undefined,
+      delivery_date: row.receivedAt ? String(row.receivedAt).slice(0, 10) : undefined,
+      status: String(row.status || "ordered").toUpperCase() as PurchaseOrder["status"],
+      total_amount: Number(row.quantity || 0),
+      created_at: String(row.createdAt || ""),
+      updated_at: String(row.receivedAt || row.createdAt || ""),
+    }));
+  }
+
+  async getPurchasing(accessToken: string): Promise<{
+    recommendations: Array<{
+      id: string;
+      name: string;
+      unit?: string;
+      quantity?: number;
+      suggestedQuantity?: number;
+      reason?: string;
+      isLow?: boolean;
+    }>;
+    orders: Array<{
+      id: string;
+      itemId: string;
+      itemName: string;
+      quantity: number;
+      reason: string;
+      status: string;
+      createdAt?: string;
+      receivedAt?: string;
+    }>;
+  }> {
     try {
-      const response = await fetch(`${API_BASE}/inventory/purchase-orders/`, {
+      const response = await fetch(`${API_BASE}/purchasing/`, {
         method: "GET",
         headers: this.getHeaders(accessToken),
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch purchase orders");
-      }
-      return await response.json();
-    } catch (error: any) {
-      throw new Error(error.message || "Failed to fetch purchase orders");
+      const payload = parseJsonSafe(await response.text());
+      if (!response.ok || !payload) return { recommendations: [], orders: [] };
+      const data = unwrapEnvelope(payload) as {
+        recommendations?: Array<Record<string, unknown>>;
+        orders?: Array<Record<string, unknown>>;
+      };
+      return {
+        recommendations: (data?.recommendations || []).map((row) => ({
+          id: String(row.id || ""),
+          name: String(row.name || ""),
+          unit: row.unit ? String(row.unit) : "unit",
+          quantity: Number(row.quantity ?? 0),
+          suggestedQuantity: Number(row.suggestedQuantity ?? 0),
+          reason: String(row.reason || ""),
+          isLow: Boolean(row.isLow),
+        })),
+        orders: (data?.orders || []).map((row) => ({
+          id: String(row.id || ""),
+          itemId: String(row.itemId || ""),
+          itemName: String(row.itemName || ""),
+          quantity: Number(row.quantity ?? 0),
+          reason: String(row.reason || ""),
+          status: String(row.status || "ordered"),
+          createdAt: row.createdAt ? String(row.createdAt) : undefined,
+          receivedAt: row.receivedAt ? String(row.receivedAt) : undefined,
+        })),
+      };
+    } catch {
+      return { recommendations: [], orders: [] };
+    }
+  }
+
+  async createPurchasingOrder(
+    accessToken: string,
+    body: { itemId: string; quantity: number; reason?: string }
+  ): Promise<void> {
+    const response = await fetch(`${API_BASE}/purchasing/`, {
+      method: "POST",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify(body),
+    });
+    const payload = parseJsonSafe(await response.text());
+    if (!response.ok || !payload) {
+      throw new Error("Failed to create purchase order");
+    }
+  }
+
+  async receivePurchaseOrder(accessToken: string, orderId: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/purchasing/${orderId}/receive/`, {
+      method: "POST",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify({}),
+    });
+    const payload = parseJsonSafe(await response.text());
+    if (!response.ok || !payload) {
+      throw new Error("Failed to receive delivery");
+    }
+  }
+
+  async getWasteSummary(
+    accessToken: string,
+    days = 30
+  ): Promise<{
+    days: number;
+    totalQuantity: number;
+    byReason: Record<string, number>;
+    events: Array<{
+      id: string;
+      itemId?: string | null;
+      itemName: string;
+      quantity: number;
+      reason: string;
+      notes?: string;
+      createdAt?: string;
+    }>;
+  }> {
+    const response = await fetch(`${API_BASE}/waste/?days=${days}`, {
+      method: "GET",
+      headers: this.getHeaders(accessToken),
+    });
+    const payload = parseJsonSafe(await response.text());
+    if (!response.ok || !payload) {
+      return { days, totalQuantity: 0, byReason: {}, events: [] };
+    }
+    const data = unwrapEnvelope(payload) as {
+      days?: number;
+      totalQuantity?: number;
+      byReason?: Record<string, number>;
+      events?: Array<Record<string, unknown>>;
+    };
+    return {
+      days: Number(data?.days ?? days),
+      totalQuantity: Number(data?.totalQuantity ?? 0),
+      byReason: data?.byReason || {},
+      events: (data?.events || []).map((row) => ({
+        id: String(row.id || ""),
+        itemId: row.itemId ? String(row.itemId) : null,
+        itemName: String(row.itemName || ""),
+        quantity: Number(row.quantity ?? 0),
+        reason: String(row.reason || "other"),
+        notes: row.notes ? String(row.notes) : "",
+        createdAt: row.createdAt ? String(row.createdAt) : undefined,
+      })),
+    };
+  }
+
+  async recordWaste(
+    accessToken: string,
+    body: { itemId?: string; itemName?: string; quantity: number; reason: string; notes?: string }
+  ): Promise<void> {
+    const response = await fetch(`${API_BASE}/waste/`, {
+      method: "POST",
+      headers: this.getHeaders(accessToken),
+      body: JSON.stringify(body),
+    });
+    const payload = parseJsonSafe(await response.text());
+    if (!response.ok || !payload) {
+      throw new Error("Failed to record waste");
     }
   }
 
@@ -2459,15 +2780,12 @@ export class BackendService {
         method: "GET",
         headers: this.getHeaders(accessToken),
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Failed to fetch stock adjustments"
-        );
-      }
-      return await response.json();
-    } catch (error: any) {
-      throw new Error(error.message || "Failed to fetch stock adjustments");
+      const payload = parseJsonSafe(await response.text());
+      if (!response.ok || !payload) return [];
+      const rows = unwrapDrfListResponse<StockAdjustment>(unwrapEnvelope(payload));
+      return rows;
+    } catch {
+      return [];
     }
   }
 
@@ -2596,7 +2914,7 @@ export class BackendService {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch tables");
       }
-      return await response.json();
+      return asPosList<Table>(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch tables");
     }
@@ -2612,7 +2930,7 @@ export class BackendService {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch table");
       }
-      return await response.json();
+      return unwrapPosPayload<Table>(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch table");
     }
@@ -2632,7 +2950,7 @@ export class BackendService {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to create table");
       }
-      return await response.json();
+      return unwrapPosPayload<Table>(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to create table");
     }
@@ -2655,7 +2973,7 @@ export class BackendService {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to update table");
       }
-      return await response.json();
+      return unwrapPosPayload<Table>(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to update table");
     }
@@ -2686,7 +3004,7 @@ export class BackendService {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch orders");
       }
-      return await response.json();
+      return asPosList<Order>(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch orders");
     }
@@ -2702,7 +3020,7 @@ export class BackendService {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch order");
       }
-      return await response.json();
+      return unwrapPosPayload<Order>(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch order");
     }
@@ -2739,7 +3057,7 @@ export class BackendService {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to create order");
       }
-      return await response.json();
+      return unwrapPosPayload<Order>(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to create order");
     }
@@ -2774,7 +3092,7 @@ export class BackendService {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to update order");
       }
-      return await response.json();
+      return unwrapPosPayload<Order>(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to update order");
     }
@@ -2798,7 +3116,7 @@ export class BackendService {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to update order status");
       }
-      return await response.json();
+      return unwrapPosPayload<Order>(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to update order status");
     }
@@ -2832,7 +3150,7 @@ export class BackendService {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch order items");
       }
-      return await response.json();
+      return asPosList<OrderItem>(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch order items");
     }
@@ -2855,7 +3173,7 @@ export class BackendService {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch order item");
       }
-      return await response.json();
+      return unwrapPosPayload<OrderItem>(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch order item");
     }
@@ -2879,7 +3197,7 @@ export class BackendService {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to create order item");
       }
-      return await response.json();
+      return unwrapPosPayload<OrderItem>(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to create order item");
     }
@@ -2909,7 +3227,7 @@ export class BackendService {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to update order item");
       }
-      return await response.json();
+      return unwrapPosPayload<OrderItem>(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to update order item");
     }
@@ -2939,25 +3257,59 @@ export class BackendService {
 
   // Reporting Management
 
-  async getDailySalesReports(accessToken: string): Promise<DailySalesReport[]> {
+  async getDailySalesReports(_accessToken?: string): Promise<DailySalesReport[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/reporting/sales/daily/?page_size=500`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        }
-      );
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Failed to fetch daily sales reports"
-        );
+      const response = await fetch(`${API_BASE}/sales/`, {
+        method: "GET",
+        headers: this.getHeaders(),
+      });
+      const text = await response.text();
+      if (!response.ok || !text || text.trimStart().startsWith("<")) return [];
+      const parsed = unwrapEnvelope(JSON.parse(text)) as {
+        totalRevenue?: number;
+        sales?: Array<{ id?: string; itemName?: string; quantity?: number; revenue?: number; soldAt?: string }>;
+      };
+      const sales = Array.isArray(parsed) ? parsed : parsed?.sales || [];
+      const byDay: Record<
+        string,
+        { revenue: number; orders: number; items: Record<string, { quantity: number; revenue: number }> }
+      > = {};
+      for (const sale of sales) {
+        const day = String(sale.soldAt || "").slice(0, 10) || new Date().toISOString().slice(0, 10);
+        const bucket = byDay[day] || { revenue: 0, orders: 0, items: {} };
+        const revenue = Number(sale.revenue || 0);
+        const quantity = Number(sale.quantity || 0);
+        bucket.revenue += revenue;
+        bucket.orders += 1;
+        const name = sale.itemName || "Item";
+        bucket.items[name] = bucket.items[name] || { quantity: 0, revenue: 0 };
+        bucket.items[name].quantity += quantity;
+        bucket.items[name].revenue += revenue;
+        byDay[day] = bucket;
       }
-      const data = await response.json();
-      return unwrapDrfListResponse<DailySalesReport>(data);
-    } catch (error: any) {
-      throw new Error(error.message || "Failed to fetch daily sales reports");
+      return Object.entries(byDay).map(([date, bucket]) => ({
+        id: date,
+        restaurant: "",
+        date,
+        total_revenue: bucket.revenue,
+        total_orders: bucket.orders,
+        avg_order_value: bucket.orders ? bucket.revenue / bucket.orders : 0,
+        top_selling_items: Object.entries(bucket.items)
+          .sort((a, b) => b[1].revenue - a[1].revenue)
+          .slice(0, 5)
+          .map(([name, stats]) => ({
+            menu_item_id: name,
+            name,
+            quantity_sold: stats.quantity,
+            total_revenue: stats.revenue,
+            quantity: stats.quantity,
+            revenue: stats.revenue,
+          })),
+        created_at: date,
+        updated_at: date,
+      }));
+    } catch {
+      return [];
     }
   }
 
@@ -3137,15 +3489,36 @@ export class BackendService {
     error?: string;
   }> {
     const search = new URLSearchParams({ start_date: startDate, end_date: endDate });
-    const response = await fetch(`${API_BASE}/settings/reservations/eatnow/?${search}`, {
+    const response = await fetch(`${API_BASE}/reservations/?${search}`, {
       method: "GET",
       headers: this.getHeaders(accessToken),
     });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || data.detail || "Failed to load reservations");
+    const data = parseJsonSafe(await response.text()) as {
+      success?: boolean;
+      reservations?: Array<{
+        id: string;
+        start_time?: string;
+        covers?: number;
+        status?: string;
+        guest_name?: string;
+        phone?: string;
+        email?: string;
+        notes?: string;
+      }>;
+      count?: number;
+      error?: string;
+    } | null;
+    if (!data) {
+      return { success: true, reservations: [], count: 0 };
     }
-    return data;
+    if (!response.ok) {
+      return { success: true, reservations: [], count: 0, error: data.error };
+    }
+    return {
+      success: true,
+      reservations: data.reservations || [],
+      count: data.count ?? (data.reservations || []).length,
+    };
   }
 
   async postEatNowDiscover(
@@ -3157,7 +3530,10 @@ export class BackendService {
       headers: { ...this.getHeaders(accessToken), "Content-Type": "application/json" },
       body: JSON.stringify(body || {}),
     });
-    const data = await response.json();
+    const data = parseJsonSafe(await response.text()) as { success?: boolean; error?: string; detail?: string } | null;
+    if (!data) {
+      throw new Error("Eat Now is not connected. Save your Concierge API key in Settings → Integrations.");
+    }
     if (!response.ok) {
       throw new Error(data.error || data.detail || "Discover failed");
     }
@@ -3173,7 +3549,16 @@ export class BackendService {
       headers: { ...this.getHeaders(accessToken), "Content-Type": "application/json" },
       body: JSON.stringify(body || {}),
     });
-    const data = await response.json();
+    const data = parseJsonSafe(await response.text()) as {
+      success?: boolean;
+      connected?: boolean;
+      message?: string;
+      sample_count?: number;
+      error?: string;
+    } | null;
+    if (!data) {
+      throw new Error("Eat Now is not connected. Save your Concierge API key in Settings → Integrations.");
+    }
     if (!response.ok) {
       throw new Error(data.error || data.message || "Connection test failed");
     }
@@ -3200,7 +3585,18 @@ export class BackendService {
       headers: { ...this.getHeaders(accessToken), "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = await response.json();
+    const data = parseJsonSafe(await response.text()) as {
+      success?: boolean;
+      imported?: number;
+      api_count?: number;
+      start_date?: string;
+      end_date?: string;
+      error?: string;
+      detail?: string;
+    } | null;
+    if (!data) {
+      throw new Error("Eat Now is not connected. Save your Concierge API key in Settings → Integrations.");
+    }
     if (!response.ok) {
       throw new Error(data.error || data.detail || "Failed to import reservations from Eat Now API");
     }
@@ -3223,7 +3619,7 @@ export class BackendService {
         );
       }
       const data = await response.json();
-      return unwrapDrfListResponse<AttendanceReport>(data);
+      return unwrapDrfListResponse<AttendanceReport>(unwrapEnvelope(data));
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch attendance reports");
     }
@@ -3247,31 +3643,51 @@ export class BackendService {
           errorData.message || "Failed to fetch attendance report"
         );
       }
-      return await response.json();
+      return unwrapEnvelope(await response.json()) as AttendanceReport;
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch attendance report");
     }
   }
 
-  async getInventoryReports(accessToken: string): Promise<InventoryReport[]> {
+  async getInventoryReports(_accessToken?: string): Promise<InventoryReport[]> {
     try {
-      const response = await fetch(
-        `${API_BASE}/reporting/inventory/?page_size=500`,
+      const response = await fetch(`${API_BASE}/inventory/`, {
+        method: "GET",
+        headers: this.getHeaders(),
+      });
+      const text = await response.text();
+      if (!response.ok || !text || text.trimStart().startsWith("<")) return [];
+      const items = unwrapDrfListResponse<Record<string, unknown>>(unwrapEnvelope(JSON.parse(text)));
+      if (!items.length) return [];
+      const today = new Date().toISOString().slice(0, 10);
+      const totalValue = items.reduce((sum, item) => {
+        const qty = Number(item.quantity ?? item.current_stock ?? 0);
+        const cost = Number(item.cost_per_unit ?? item.unitCost ?? 0);
+        return sum + qty * cost;
+      }, 0);
+      const low = items
+        .filter((item) => Boolean(item.isLow || item.is_low) || Number(item.quantity ?? 0) <= Number(item.reorderPoint ?? item.reorder_point ?? 0))
+        .map((item) => ({
+          inventory_item_id: String(item.id || ""),
+          name: String(item.name || ""),
+          current_stock: Number(item.quantity ?? item.current_stock ?? 0),
+          min_stock_level: Number(item.reorderPoint ?? item.reorder_point ?? item.min_stock_level ?? 0),
+        }));
+      return [
         {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        }
-      );
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Failed to fetch inventory reports"
-        );
-      }
-      const data = await response.json();
-      return unwrapDrfListResponse<InventoryReport>(data);
-    } catch (error: any) {
-      throw new Error(error.message || "Failed to fetch inventory reports");
+          id: "current",
+          restaurant: "",
+          date: today,
+          total_inventory_value: totalValue,
+          low_stock_items: low,
+          waste_cost: 0,
+          stock_adjustment_summary: [],
+          created_at: today,
+          updated_at: today,
+        },
+      ];
+    } catch {
+      return [];
     }
   }
 
@@ -3364,7 +3780,7 @@ export class BackendService {
         if (ct.includes("application/json")) {
           try {
             const errorData = await response.json();
-            errorMessage = errorData.message || errorMessage;
+            errorMessage = errorData.error || errorData.message || errorData.data?.message || errorMessage;
             console.error("webClockIn error", {
               status: response.status,
               statusText: response.statusText,
@@ -3502,9 +3918,13 @@ export class BackendService {
           return { currentSession: null, is_clocked_in: false };
         }
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to fetch current session");
+        throw new Error(errorData.message || errorData.error || "Failed to fetch current session");
       }
-      const data = await response.json();
+      const raw = await response.json();
+      const data =
+        raw && typeof raw === "object" && "data" in raw && "success" in raw
+          ? (raw as { data: unknown }).data
+          : raw;
       // Normalize various possible backend shapes
       if (data && typeof data === "object") {
         // Preferred shape: { currentSession: ClockEvent | null, is_clocked_in: boolean }
@@ -3534,7 +3954,7 @@ export class BackendService {
     accessToken: string,
     latitude: number,
     longitude: number
-  ): Promise<{ message: string; event: ClockEvent }> {
+  ): Promise<{ message: string; within_range: boolean; event?: ClockEvent }> {
     try {
       const response = await fetch(`${API_BASE}/timeclock/verify-location/`, {
         method: "POST",
@@ -3543,9 +3963,18 @@ export class BackendService {
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to verify location");
+        throw new Error(errorData.message || errorData.error || "Failed to verify location");
       }
-      return await response.json();
+      const raw = await response.json();
+      const data =
+        raw && typeof raw === "object" && "data" in raw && "success" in raw
+          ? (raw as { data: any }).data
+          : raw;
+      return {
+        message: data?.message || "ok",
+        within_range: Boolean(data?.within_range ?? data?.withinRange ?? true),
+        event: data?.event,
+      };
     } catch (error: any) {
       throw new Error(error.message || "Failed to verify location");
     }
@@ -3559,9 +3988,13 @@ export class BackendService {
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch restaurant location");
+        throw new Error(errorData.message || errorData.error || "Failed to fetch restaurant location");
       }
-      return await response.json();
+      const raw = await response.json();
+      if (raw && typeof raw === "object" && "data" in raw && "success" in raw) {
+        return (raw as { data: unknown }).data;
+      }
+      return raw;
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch restaurant location");
     }
@@ -3577,24 +4010,34 @@ export class BackendService {
       qs.set("end_date", params.end_date);
       if (params.user_id) qs.set("user_id", params.user_id);
 
-      const response = await fetch(
-        `${API_BASE}/timeclock/attendance-history/?${qs.toString()}`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        }
-      );
+      const path = params.user_id
+        ? `${API_BASE}/timeclock/attendance-history/${params.user_id}/?${qs.toString()}`
+        : `${API_BASE}/timeclock/attendance-history/?${qs.toString()}`;
+
+      const response = await fetch(path, {
+        method: "GET",
+        headers: this.getHeaders(accessToken),
+      });
       if (!response.ok) {
         let message = "Failed to fetch attendance history";
         try {
           const errorData = await response.json();
-          message = errorData.message || errorData.detail || message;
+          message = errorData.message || errorData.error || errorData.detail || message;
         } catch (_) {
           // ignore parse errors
         }
         throw new Error(message);
       }
-      return await response.json();
+      const raw = await response.json();
+      const data =
+        raw && typeof raw === "object" && "data" in raw && "success" in raw
+          ? (raw as { data: unknown }).data
+          : raw;
+      if (Array.isArray(data)) return data as ClockEvent[];
+      if (data && typeof data === "object" && Array.isArray((data as any).results)) {
+        return (data as any).results as ClockEvent[];
+      }
+      return [];
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch attendance history");
     }
@@ -3845,7 +4288,7 @@ export class BackendService {
         }
         throw new Error(message);
       }
-      return await response.json();
+      return unwrapChecklistPayload(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to create checklist template");
     }
@@ -3870,7 +4313,8 @@ export class BackendService {
         }
         throw new Error(msg);
       }
-      return await response.json();
+      const payload = unwrapChecklistPayload<any>(await response.json());
+      return Array.isArray(payload) ? payload : (payload?.results || payload?.templates || []);
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch checklist templates");
     }
@@ -3894,7 +4338,7 @@ export class BackendService {
         }
         throw new Error(msg);
       }
-      return await response.json();
+      return unwrapChecklistPayload(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to duplicate checklist template");
     }
@@ -3953,7 +4397,7 @@ export class BackendService {
         }
         throw new Error(message);
       }
-      return await response.json();
+      return unwrapChecklistPayload(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to ensure checklist for task");
     }
@@ -3980,7 +4424,7 @@ export class BackendService {
         const err = await response.json();
         throw new Error(err.message || err.detail || "Failed to create checklist execution");
       }
-      return await response.json();
+      return unwrapChecklistPayload(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to create checklist execution");
     }
@@ -4193,10 +4637,83 @@ export class BackendService {
         const err = await response.text();
         throw new Error(`Failed to load checklist execution: ${err}`);
       }
-      return await response.json();
+      return unwrapChecklistPayload(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to load checklist execution");
     }
+  }
+
+  async listProcessRuns(): Promise<{
+    templates: { id: string; name: string; description?: string }[];
+    activeRun?: ProcessRunPayload | null;
+    runs?: ProcessRunPayload[];
+  }> {
+    const response = await fetch(`${API_BASE}/scheduling/process-runs/`, {
+      headers: this.getHeaders(),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to load process runs");
+    }
+    return unwrapEnvelope(await response.json()) as {
+      templates: { id: string; name: string; description?: string }[];
+      activeRun?: ProcessRunPayload | null;
+      runs?: ProcessRunPayload[];
+    };
+  }
+
+  async startProcessRun(templateId: string): Promise<ProcessRunPayload> {
+    const response = await fetch(`${API_BASE}/scheduling/process-runs/`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify({ templateId }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error || "Failed to start process");
+    }
+    return unwrapEnvelope(await response.json()) as ProcessRunPayload;
+  }
+
+  async getProcessRun(runId: string): Promise<ProcessRunPayload> {
+    const response = await fetch(`${API_BASE}/scheduling/process-runs/${runId}/`, {
+      headers: this.getHeaders(),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to load process run");
+    }
+    return unwrapEnvelope(await response.json()) as ProcessRunPayload;
+  }
+
+  async answerProcessStep(runId: string, answer: "yes" | "no"): Promise<ProcessRunPayload> {
+    const response = await fetch(`${API_BASE}/scheduling/process-runs/${runId}/answer/`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify({ answer }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error || "Failed to submit answer");
+    }
+    return unwrapEnvelope(await response.json()) as ProcessRunPayload;
+  }
+
+  async submitProcessPhoto(
+    runId: string,
+    opts: { photoUrl?: string; photoNote?: string },
+  ): Promise<ProcessRunPayload> {
+    const response = await fetch(`${API_BASE}/scheduling/process-runs/${runId}/photo/`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        photoUrl: opts.photoUrl,
+        photoNote: opts.photoNote,
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error || "Failed to submit photo");
+    }
+    return unwrapEnvelope(await response.json()) as ProcessRunPayload;
   }
 
   async startChecklistExecution(executionId: string): Promise<any> {
@@ -4209,7 +4726,7 @@ export class BackendService {
         const err = await response.text();
         throw new Error(`Failed to start checklist: ${err}`);
       }
-      return await response.json();
+      return unwrapChecklistPayload(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to start checklist");
     }
@@ -4232,7 +4749,7 @@ export class BackendService {
         const err = await response.text();
         throw new Error(`Failed to complete checklist: ${err}`);
       }
-      return await response.json();
+      return unwrapChecklistPayload(await response.json());
     } catch (error: any) {
       throw new Error(error.message || "Failed to complete checklist");
     }

@@ -424,7 +424,7 @@ export function DashboardWidgetGridSection() {
   );
 
   return (
-    <section aria-label={t("nav.attention")} className="space-y-4">
+    <section aria-label={t("nav.widget")} className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
         <button
           type="button"

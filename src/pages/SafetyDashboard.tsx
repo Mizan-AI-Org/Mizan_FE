@@ -41,7 +41,7 @@ interface MyTaskItem {
 const SafetyDashboard: React.FC = () => {
   const { user } = useAuth();
   const { t, language } = useLanguage();
-  const isManager = user?.role === 'MANAGER' || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const isManager = user?.role === 'MANAGER' || user?.role === 'ADMIN' || user?.role === 'OWNER' || user?.role === 'SUPER_ADMIN' || user?.role === 'SUPERVISOR';
   const isStaffLevel = !isManager;
   const isMobile = useMediaQuery("(max-width: 768px)");
   const navigate = useNavigate();
@@ -261,7 +261,9 @@ const SafetyDashboard: React.FC = () => {
       </div>
 
       <Tabs defaultValue={isManager ? "procedures" : "incidence"} className="w-full">
-        <TabsList className={`grid ${isMobile ? 'grid-cols-3' : isManager ? 'grid-cols-5' : 'grid-cols-2'} mb-4`}>
+        <TabsList
+          className={`grid w-full gap-3 bg-transparent p-0 ${isMobile ? "grid-cols-3" : isManager ? "grid-cols-5" : "grid-cols-2"}`}
+        >
           {isManager && <TabsTrigger value="procedures">{t("safety.dashboard.tabs.sops")}</TabsTrigger>}
           {isManager && <TabsTrigger value="checklists">{t("safety.dashboard.tabs.checklists")}</TabsTrigger>}
           {isMobile ? (

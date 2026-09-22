@@ -80,8 +80,8 @@ const ShiftDetailView: React.FC = () => {
                     <CardTitle className="flex items-center justify-between">
                         <span>Shift Details</span>
                         {/* Add edit button here for admin/manager roles */}
-                        {(user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') && (
-                            <Button variant="outline" size="sm" onClick={() => alert('Edit functionality coming soon!')}>
+                        {(user?.role === 'SUPER_ADMIN' || user?.role === 'OWNER' || user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
+                            <Button variant="outline" size="sm" onClick={() => navigate('/dashboard/schedule')}>
                                 Edit Shift
                             </Button>
                         )}

@@ -49,7 +49,12 @@ const SupervisorDashboard: React.FC = () => {
             }
             return response.json();
         },
-        enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || user.role === 'MANAGER'),
+        enabled:
+            !!user?.restaurant?.id &&
+            (user.role === 'SUPER_ADMIN' ||
+                user.role === 'OWNER' ||
+                user.role === 'ADMIN' ||
+                user.role === 'MANAGER'),
         refetchInterval: 60_000,
     });
 
@@ -67,7 +72,12 @@ const SupervisorDashboard: React.FC = () => {
             }
             return response.json();
         },
-        enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || user.role === 'MANAGER'),
+        enabled:
+            !!user?.restaurant?.id &&
+            (user.role === 'SUPER_ADMIN' ||
+                user.role === 'OWNER' ||
+                user.role === 'ADMIN' ||
+                user.role === 'MANAGER'),
         refetchInterval: 60_000,
     });
 

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/sheet";
 import { AgentAvatar } from "@/components/agent/AgentAvatar";
 import { useLanguage } from "@/hooks/use-language";
+import { isWebAgentRole } from "@/lib/operationalCommandRoles";
 import { useAuth } from "@/hooks/use-auth";
 import { useCommandCentre } from "@/hooks/use-command-centre";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -31,12 +32,12 @@ function newMessageId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function formatMessageTime(epochMs?: number): string {
+function formatMessageTime(epochMs: number | undefined, locale: string): string {
   const date = epochMs ? new Date(epochMs) : new Date();
-  return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
-function formatDateLabel(epochMs: number, t: (key: string, fallback?: string) => string): string {
+function formatDateLabel(epochMs: number, locale: string, t: (key: string, fallback?: string) => string): string {
   const date = new Date(epochMs);
   const today = new Date();
   const yesterday = new Date();
@@ -49,7 +50,7 @@ function formatDateLabel(epochMs: number, t: (key: string, fallback?: string) =>
 
   if (sameDay(date, today)) return t("ai.chat_today", "Today");
   if (sameDay(date, yesterday)) return t("ai.chat_yesterday", "Yesterday");
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     weekday: "long",
     month: "short",
     day: "numeric",
@@ -94,7 +95,7 @@ function ChatMessages({
   loading: boolean;
   scrollRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   return (
     <div
@@ -113,7 +114,7 @@ function ChatMessages({
             {showDate && msg.createdAt ? (
               <div className="flex justify-center py-2">
                 <span className="rounded-full bg-background/80 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm">
-                  {formatDateLabel(msg.createdAt, t)}
+                  {formatDateLabel(msg.createdAt, language, t)}
                 </span>
               </div>
             ) : null}
@@ -134,7 +135,7 @@ function ChatMessages({
                 >
                   <span className="pe-14">{msg.content}</span>
                   <span className="absolute bottom-1 end-2 text-[10px] leading-none text-foreground/55">
-                    {formatMessageTime(msg.createdAt)}
+                    {formatMessageTime(msg.createdAt, language)}
                   </span>
                 </div>
               </div>
@@ -160,7 +161,7 @@ function ChatMessages({
                 >
                   <span className="pe-14">{msg.content}</span>
                   <span className="absolute bottom-1 end-2 text-[10px] leading-none text-muted-foreground">
-                    {formatMessageTime(msg.createdAt)}
+                    {formatMessageTime(msg.createdAt, language)}
                   </span>
                 </div>
               </div>
@@ -386,10 +387,13 @@ function AgentCollapsedRail({
   onOpen,
   signalBadge,
   agentLabel,
+  isBusy = false,
 }: {
   onOpen: () => void;
   signalBadge: number;
   agentLabel: string;
+  /** Only pulse the glow when the agent is actively working — not as a fake "live task". */
+  isBusy?: boolean;
 }) {
   return (
     <button
@@ -402,7 +406,12 @@ function AgentCollapsedRail({
       onClick={onOpen}
     >
       <div className="relative z-10">
-        <div className="mizan-agent-glow-ring relative rounded-full">
+        <div
+          className={cn(
+            "relative rounded-full",
+            isBusy ? "mizan-agent-glow-ring" : "mizan-agent-glow-ring-idle",
+          )}
+        >
           <AgentAvatar size="lg" ring className="relative z-[1] ring-primary/40 ring-offset-2" />
         </div>
         {signalBadge > 0 ? (
@@ -426,8 +435,7 @@ function AgentCollapsedRail({
 export const AgentChatPanel: React.FC = () => {
   const { t, language } = useLanguage();
   const { user } = useAuth();
-  const webAgentRoles = new Set(["MANAGER", "ADMIN", "OWNER", "SUPER_ADMIN", "SUPERVISOR"]);
-  const canUseWebAgent = webAgentRoles.has((user?.role || "").toUpperCase());
+  const canUseWebAgent = isWebAgentRole(user?.role);
   const panel = useAgentPanelOptional();
   const { data: commandData } = useCommandCentre();
   const [localOpen, setLocalOpen] = useState(false);
@@ -472,9 +480,20 @@ export const AgentChatPanel: React.FC = () => {
     let storedConv = "";
     try {
       storedConv = window.localStorage.getItem(key) || "";
-      if (storedConv) setConversationId(storedConv);
+      if (!storedConv) {
+        storedConv =
+          typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `web-${userId}-${Date.now()}`;
+        window.localStorage.setItem(key, storedConv);
+      }
+      setConversationId(storedConv);
     } catch {
-      // ignore
+      storedConv =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `web-${userId}-${Date.now()}`;
+      setConversationId(storedConv);
     }
 
     const storedMessages = loadMastraMessages(userId);
@@ -504,6 +523,17 @@ export const AgentChatPanel: React.FC = () => {
     }
     setHistoryReady(true);
   }, [userId, userName, t]);
+
+  useEffect(() => {
+    if (!historyReady || !userId) return;
+    const welcome = t("ai.chat_welcome", { name: userName });
+    setMessages((prev) => {
+      if (!prev.some((m) => m.id === "welcome" && m.content !== welcome)) return prev;
+      const next = prev.map((m) => (m.id === "welcome" ? { ...m, content: welcome } : m));
+      saveMastraMessages(userId, next);
+      return next;
+    });
+  }, [historyReady, language, userId, userName, t]);
 
   useEffect(() => {
     if (!userId || !historyReady || messages.length === 0) return;
@@ -670,7 +700,7 @@ export const AgentChatPanel: React.FC = () => {
       {isDesktop ? (
         <aside
           className={cn(
-            "mizan-agent-rail fixed end-0 z-[1600] hidden flex-col overflow-hidden border-s border-border/80 bg-card lg:flex",
+            "mizan-agent-rail mizan-agent-rail-captivate fixed end-0 z-[1600] hidden flex-col overflow-hidden border-s border-border/80 bg-card lg:flex",
             open
               ? "mizan-agent-rail-open w-[var(--mizan-agent-width)]"
               : "mizan-agent-rail-tab w-[var(--mizan-agent-tab-width)]",
@@ -684,6 +714,7 @@ export const AgentChatPanel: React.FC = () => {
               onOpen={() => setOpen(true)}
               signalBadge={signalBadge}
               agentLabel={t("ai.chat_title")}
+              isBusy={loading}
             />
           )}
         </aside>

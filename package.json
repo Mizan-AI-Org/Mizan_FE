@@ -13,7 +13,9 @@
     "optimize:images": "bash scripts/optimize-images.sh",
     "i18n:sync": "python3 scripts/sync_os_i18n.py",
     "i18n:check": "python3 scripts/ensure_i18n_parity.py",
-    "i18n:audit": "python3 scripts/audit_hardcoded_ui.py"
+    "i18n:audit": "python3 scripts/audit_hardcoded_ui.py",
+    "i18n:keys": "node scripts/i18n-audit.mjs",
+    "i18n:verify": "python3 scripts/ensure_i18n_parity.py && node scripts/i18n-audit.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

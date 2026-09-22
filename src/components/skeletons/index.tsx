@@ -227,6 +227,8 @@ export function BlockSkeleton({ className }: { className?: string }) {
  * Mimics a typical dashboard page: container, optional tabs, card + table/content.
  * Use as <Suspense fallback={<PageLoadingSkeleton />}> to avoid blank "Loading..." screen.
  */
+export { CommandCentreSkeleton } from "@/components/command/CommandCentreSkeleton";
+
 export function PageLoadingSkeleton({ className }: { className?: string }) {
   return (
     <div

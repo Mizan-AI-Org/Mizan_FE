@@ -10,5 +10,6 @@ export type { StatusTone } from "./StatusDot";
 export { ExecutionState } from "./ExecutionState";
 export type { ExecutionStateKind } from "./ExecutionState";
 export { OsPage } from "./OsPage";
+export { MizanPageShell } from "./MizanPageShell";
 export { OsListRow } from "./OsListRow";
 export { CommandCollapsibleSection } from "./CommandCollapsibleSection";

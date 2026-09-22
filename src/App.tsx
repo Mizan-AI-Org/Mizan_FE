@@ -12,26 +12,46 @@ import OnboardingGate from "./components/OnboardingGate";
 import { useIdleTimeout } from "./hooks/use-idle-timeout";
 import React, { useEffect, useState } from "react";
 import OfflineWarning from "./components/OfflineWarning";
-import { OPERATIONAL_COMMAND_ROLES } from "./lib/operationalCommandRoles";
+import { ThemeSync } from "./components/ThemeSync";
+import { OPERATIONAL_COMMAND_ROLES, PRIVILEGED_ROLES } from "./lib/operationalCommandRoles";
 import { PageLoadingSkeleton } from "./components/skeletons";
 // All route components are lazy-loaded below. Keep the top-level module graph
 // tiny so the initial JS chunk can paint the shell + skeleton immediately.
 const InventoryItemsPage = React.lazy(() => import("./pages/inventory/InventoryItemsPage"));
+const WastePage = React.lazy(() => import("./pages/inventory/WastePage"));
+const PurchasingPage = React.lazy(() => import("./pages/PurchasingPage"));
+const ApprovalsPage = React.lazy(() => import("./pages/ApprovalsPage"));
 const SuppliersPage = React.lazy(() => import("./pages/inventory/SuppliersPage"));
+const SupplierPricesPage = React.lazy(() => import("./pages/inventory/SupplierPricesPage"));
 const PurchaseOrdersPage = React.lazy(() => import("./pages/inventory/PurchaseOrdersPage"));
 const StockAdjustmentsPage = React.lazy(() => import("./pages/inventory/StockAdjustmentsPage"));
 const DailySalesReportsPage = React.lazy(() => import("./pages/reporting/DailySalesReportsPage"));
+const FinancialMarginsPage = React.lazy(() => import("./pages/financials/FinancialMarginsPage"));
+const FinancialPnLPage = React.lazy(() => import("./pages/financials/FinancialPnLPage"));
 const SalesAndPrepPage = React.lazy(() => import("./pages/SalesAndPrepPage"));
 const ReservationsPage = React.lazy(() => import("./pages/ReservationsPage"));
 const AttendanceReportsPage = React.lazy(() => import("./pages/reporting/AttendanceReportsPage"));
 const InventoryReportsPage = React.lazy(() => import("./pages/reporting/InventoryReportsPage"));
 const LaborAttendanceReportPage = React.lazy(() => import("./pages/reporting/LaborAttendanceReportPage"));
 const TimeClockPage = React.lazy(() => import("./pages/TimeClockPage"));
+const ManagerAttendancePage = React.lazy(() => import("./pages/ManagerAttendancePage"));
 const ShiftDetailView = React.lazy(() => import("./pages/ShiftDetailView"));
 
+const DomainLayout = React.lazy(() =>
+  import("./components/layout/DomainWorld").then((m) => ({ default: m.DomainLayout }))
+);
+const DomainOverviewPage = React.lazy(() =>
+  import("./components/layout/DomainWorld").then((m) => ({ default: m.DomainOverviewPage }))
+);
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const AttentionPage = React.lazy(() => import("./pages/os/AttentionPage"));
 const AutomationHubPage = React.lazy(() => import("./pages/os/AutomationHubPage"));
+const SocialMediaHubPage = React.lazy(() => import("./pages/social/SocialMediaHubPage"));
+const SocialContentDetailPage = React.lazy(() => import("./pages/social/SocialContentDetailPage"));
+const IntelligenceInsightsPage = React.lazy(() => import("./pages/intelligence/IntelligenceInsightsPage"));
+const IntelligenceForecastsPage = React.lazy(() => import("./pages/intelligence/IntelligenceForecastsPage"));
+const IntelligenceRecommendationsPage = React.lazy(() => import("./pages/intelligence/IntelligenceRecommendationsPage"));
+const IntelligenceReportsPage = React.lazy(() => import("./pages/intelligence/IntelligenceReportsPage"));
 const LocationsOverview = React.lazy(
   () => import("./pages/LocationsOverview")
 );
@@ -51,6 +71,7 @@ const FloorManagement = React.lazy(() => import("./pages/FloorManagement"));
 const Auth = React.lazy(() => import("./pages/Auth"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
 const Unauthorized = React.lazy(() => import("./pages/Unauthorized"));
+const StaffWhatsAppOnly = React.lazy(() => import("./pages/StaffWhatsAppOnly"));
 const PlatformAdminGate = React.lazy(
   () => import("./components/platform-admin/PlatformAdminGate")
 );
@@ -122,6 +143,7 @@ const AdvancedSettings = React.lazy(() => import("./pages/Settings"));
 const RolePermissionsPage = React.lazy(() => import("./pages/settings/RolePermissionsPage"));
 const StaffManagement = React.lazy(() => import("./pages/StaffManagement"));
 const StaffRequestsPage = React.lazy(() => import("./pages/StaffRequestsPage"));
+const RedirectToStaffRequests = React.lazy(() => import("./pages/RedirectToStaffRequests"));
 const WeeklyScheduleView = React.lazy(
   () => import("./pages/WeeklyScheduleView")
 );
@@ -159,6 +181,9 @@ const TaskChecklistRunner = React.lazy(
 );
 const StaffMyTasks = React.lazy(() => import("./pages/StaffMyTasks"));
 const MyChecklistsPage = React.lazy(() => import("./pages/MyChecklistsPage"));
+const ProcessConversationalRunner = React.lazy(
+  () => import("./pages/ProcessConversationalRunner"),
+);
 const ChecklistRunner = React.lazy(() => import("./pages/ChecklistRunner"));
 const AdminChecklistTemplates = React.lazy(
   () => import("./pages/AdminChecklistTemplates")
@@ -241,6 +266,7 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeSync />
       <LanguageProvider>
         <TooltipProvider>
           <Toaster />
@@ -255,8 +281,10 @@ const App = () => {
               {/* Public Routes for Login/ Signup*/}
               <Route path="/auth" element={<Auth />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
+              <Route path="/staff-whatsapp" element={<StaffWhatsAppOnly />} />
               <Route path="/staff-login" element={<PinLogin />} />
               <Route path="/accept-invitation" element={<AcceptInvitation />} />
+              <Route path="/invite/:token" element={<AcceptInvitation />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route
                 path="/onboarding"
@@ -320,14 +348,90 @@ const App = () => {
                     </RoleBasedRoute>
                   }
                 />
-                <Route path="dashboard/work" element={<Navigate to="/dashboard/operations-live" replace />} />
-                <Route path="dashboard/people" element={<Navigate to="/dashboard/staff-app" replace />} />
-                <Route path="dashboard/business" element={<Navigate to="/dashboard/reports" replace />} />
+                <Route path="dashboard/work" element={<Navigate to="/dashboard/operations" replace />} />
+                <Route path="dashboard/people" element={<Navigate to="/dashboard/employees" replace />} />
+                <Route path="dashboard/business" element={<Navigate to="/dashboard/financials" replace />} />
+                <Route path="dashboard/operations" element={<DomainLayout domain="operations" />}>
+                  <Route index element={<DomainOverviewPage />} />
+                  <Route path="live" element={<OperationsLivePage />} />
+                  <Route path="tasks" element={<ProcessesTasksApp />} />
+                  <Route path="incidents" element={<ManagerReviewDashboard />} />
+                  <Route path="requests" element={<RedirectToStaffRequests />} />
+                  <Route path="requests/:id" element={<RedirectToStaffRequests />} />
+                </Route>
+                <Route path="dashboard/employees" element={<DomainLayout domain="employees" />}>
+                  <Route index element={<DomainOverviewPage />} />
+                  <Route path="people" element={<StaffApp />} />
+                  <Route path="shifts" element={<StaffSchedulingPage />} />
+                  <Route path="tasks" element={<ProcessesTasksApp />} />
+                  <Route path="attendance" element={<ManagerAttendancePage />} />
+                  <Route path="performance" element={<SchedulingAnalytics />} />
+                  <Route path="requests" element={<RedirectToStaffRequests />} />
+                  <Route path="requests/:id" element={<RedirectToStaffRequests />} />
+                </Route>
+                <Route path="dashboard/products" element={<DomainLayout domain="products" />}>
+                  <Route index element={<DomainOverviewPage />} />
+                  <Route path="catalog" element={<ProductManagement />} />
+                  <Route path="sales" element={<SalesAndPrepPage />} />
+                  <Route path="recipes" element={<MenuManagement />} />
+                  <Route path="inventory" element={<InventoryItemsPage />} />
+                  <Route path="waste" element={<WastePage />} />
+                </Route>
+                <Route path="dashboard/customers" element={<DomainLayout domain="customers" />}>
+                  <Route index element={<DomainOverviewPage />} />
+                  <Route path="list" element={<DomainOverviewPage />} />
+                  <Route path="reservations" element={<ReservationsPage />} />
+                  <Route path="orders" element={<TakeOrdersPage />} />
+                  <Route path="insights" element={<DomainOverviewPage />} />
+                </Route>
+                <Route path="dashboard/suppliers" element={<DomainLayout domain="suppliers" />}>
+                  <Route index element={<DomainOverviewPage />} />
+                  <Route path="directory" element={<SuppliersPage />} />
+                  <Route path="prices" element={<SupplierPricesPage />} />
+                  <Route path="purchasing" element={<PurchasingPage />} />
+                  <Route path="deliveries" element={<PurchaseOrdersPage />} />
+                </Route>
                 <Route
-                  path="dashboard/automation"
+                  path="dashboard/financials"
+                  element={<DomainLayout domain="financials" roles={["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"]} />}
+                >
+                  <Route index element={<DomainOverviewPage />} />
+                  <Route path="revenue" element={<DailySalesReportsPage />} />
+                  <Route path="costs" element={<InventoryReportsPage />} />
+                  <Route path="margins" element={<FinancialMarginsPage />} />
+                  <Route path="pnl" element={<FinancialPnLPage />} />
+                </Route>
+                <Route
+                  path="dashboard/intelligence"
+                  element={<DomainLayout domain="intelligence" roles={["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"]} />}
+                >
+                  <Route index element={<Navigate to="/dashboard/intelligence/insights" replace />} />
+                  <Route path="insights" element={<IntelligenceInsightsPage />} />
+                  <Route path="forecasts" element={<IntelligenceForecastsPage />} />
+                  <Route path="recommendations" element={<IntelligenceRecommendationsPage />} />
+                  <Route path="reports" element={<IntelligenceReportsPage />} />
+                </Route>
+                <Route path="dashboard/automation" element={<Navigate to="/dashboard/social-media" replace />} />
+                <Route
+                  path="dashboard/social-media"
                   element={
-                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
-                      <AutomationHubPage />
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]} appId="social_media">
+                      <SocialMediaHubPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route path="dashboard/social-media/ideas" element={<Navigate to="/dashboard/social-media?tab=plan" replace />} />
+                <Route path="dashboard/social-media/calendar" element={<Navigate to="/dashboard/social-media?tab=schedule" replace />} />
+                <Route path="dashboard/social-media/accounts" element={<Navigate to="/dashboard/social-media?tab=home" replace />} />
+                <Route path="dashboard/social-media/campaigns" element={<Navigate to="/dashboard/social-media?tab=insights" replace />} />
+                <Route path="dashboard/social-media/analytics" element={<Navigate to="/dashboard/social-media?tab=insights" replace />} />
+                <Route path="dashboard/social-media/autopilot" element={<Navigate to="/dashboard/social-media?tab=insights" replace />} />
+                <Route path="dashboard/social-media/content" element={<Navigate to="/dashboard/social-media?tab=posts" replace />} />
+                <Route
+                  path="dashboard/social-media/content/:id"
+                  element={
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]} appId="social_media">
+                      <SocialContentDetailPage />
                     </RoleBasedRoute>
                   }
                 />
@@ -380,7 +484,7 @@ const App = () => {
                 <Route
                   path="dashboard/analytics"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={[...PRIVILEGED_ROLES]}>
                       <AdminDashboard />
                     </RoleBasedRoute>
                   }
@@ -388,9 +492,7 @@ const App = () => {
                 <Route
                   path="dashboard/kitchen"
                   element={
-                    <RoleBasedRoute
-                      allowedRoles={["SUPER_ADMIN", "ADMIN", "CHEF"]}
-                    >
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <KitchenDisplay />
                     </RoleBasedRoute>
                   }
@@ -398,7 +500,7 @@ const App = () => {
                 <Route
                   path="dashboard/inventory"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={[...PRIVILEGED_ROLES]}>
                       <InventoryManagement />
                     </RoleBasedRoute>
                   }
@@ -408,6 +510,22 @@ const App = () => {
                   element={
                     <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <InventoryItemsPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/purchasing"
+                  element={
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
+                      <PurchasingPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/approvals"
+                  element={
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
+                      <ApprovalsPage />
                     </RoleBasedRoute>
                   }
                 />
@@ -430,7 +548,7 @@ const App = () => {
                 <Route
                   path="dashboard/inventory/adjustments"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={[...PRIVILEGED_ROLES]}>
                       <StockAdjustmentsPage />
                     </RoleBasedRoute>
                   }
@@ -438,7 +556,7 @@ const App = () => {
                 <Route
                   path="dashboard/menu"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={[...PRIVILEGED_ROLES]}>
                       <MenuManagement />
                     </RoleBasedRoute>
                   }
@@ -446,7 +564,7 @@ const App = () => {
                 <Route
                   path="dashboard/floors"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={[...PRIVILEGED_ROLES]}>
                       <FloorManagement />
                     </RoleBasedRoute>
                   }
@@ -454,7 +572,7 @@ const App = () => {
                 <Route
                   path="menu"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={[...PRIVILEGED_ROLES]}>
                       <MenuManagement />
                     </RoleBasedRoute>
                   }
@@ -462,19 +580,13 @@ const App = () => {
                 <Route
                   path="dashboard/categories"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={[...PRIVILEGED_ROLES]}>
                       <CategoryManagement />
                     </RoleBasedRoute>
                   }
                 />
-                <Route
-                  path="dashboard/products"
-                  element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
-                      <ProductManagement />
-                    </RoleBasedRoute>
-                  }
-                />
+                {/* Catalog now lives under the Products domain */}
+                <Route path="dashboard/catalog" element={<Navigate to="/dashboard/products/catalog" replace />} />
                 {/* Removed legacy staff route */}
                 <Route
                   path="dashboard/staff-app"
@@ -486,11 +598,7 @@ const App = () => {
                 />
                 <Route
                   path="dashboard/processes-tasks-app"
-                  element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
-                      <ProcessesTasksApp />
-                    </RoleBasedRoute>
-                  }
+                  element={<Navigate to="/dashboard/employees/tasks?tab=templates" replace />}
                 />
                 <Route
                   path="dashboard/announcements"
@@ -599,7 +707,7 @@ const App = () => {
                 <Route
                   path="dashboard/task-templates"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={[...PRIVILEGED_ROLES]}>
                       <React.Suspense fallback={<PageLoadingSkeleton />}>
                         <TaskTemplates />
                       </React.Suspense>
@@ -609,7 +717,7 @@ const App = () => {
                 <Route
                   path="dashboard/checklists/templates"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={[...PRIVILEGED_ROLES]}>
                       <AdminChecklistTemplates />
                     </RoleBasedRoute>
                   }
@@ -667,7 +775,7 @@ const App = () => {
                 <Route
                   path="dashboard/reports/sales/daily"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={[...PRIVILEGED_ROLES]}>
                       <DailySalesReportsPage />
                     </RoleBasedRoute>
                   }
@@ -711,7 +819,7 @@ const App = () => {
                 <Route
                   path="dashboard/reports/inventory"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={[...PRIVILEGED_ROLES]}>
                       <InventoryReportsPage />
                     </RoleBasedRoute>
                   }
@@ -727,7 +835,7 @@ const App = () => {
                 <Route
                   path="dashboard/swap-requests"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={[...PRIVILEGED_ROLES]}>
                       <ManagerSwapRequests />
                     </RoleBasedRoute>
                   }
@@ -735,7 +843,7 @@ const App = () => {
                 <Route
                   path="dashboard/staff-management"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={[...PRIVILEGED_ROLES]}>
                       <StaffManagement />
                     </RoleBasedRoute>
                   }
@@ -759,7 +867,7 @@ const App = () => {
                 <Route
                   path="dashboard/table-management"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={[...PRIVILEGED_ROLES]}>
                       <TableManagement />
                     </RoleBasedRoute>
                   }
@@ -767,15 +875,7 @@ const App = () => {
                 <Route
                   path="dashboard/cleaning"
                   element={
-                    <RoleBasedRoute
-                      allowedRoles={[
-                        "SUPER_ADMIN",
-                        "ADMIN",
-                        "OWNER",
-                        "MANAGER",
-                        "CLEANER",
-                      ]}
-                    >
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <CleaningTasks />
                     </RoleBasedRoute>
                   }
@@ -793,7 +893,7 @@ const App = () => {
                 <Route
                   path="staff-management/:user_id/attendance"
                   element={
-                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN"]}>
+                    <RoleBasedRoute allowedRoles={[...PRIVILEGED_ROLES]}>
                       <AttendanceHistory />
                     </RoleBasedRoute>
                   }
@@ -811,16 +911,7 @@ const App = () => {
                 <Route
                   path="timeclock"
                   element={
-                    <RoleBasedRoute
-                      allowedRoles={[
-                        "SUPER_ADMIN",
-                        "ADMIN",
-                        "CHEF",
-                        "WAITER",
-                        "CLEANER",
-                        "CASHIER",
-                      ]}
-                    >
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <TimeClockPage />
                     </RoleBasedRoute>
                   }
@@ -843,22 +934,15 @@ const App = () => {
                 <Route path="attendance" element={<AttendanceHistory />} />
                 <Route path="safety" element={<SafetyDashboard />} />
                 <Route path="my-checklists" element={<MyChecklistsPage />} />
+                <Route path="process-run" element={<ProcessConversationalRunner />} />
+                <Route path="process-run/:runId" element={<ProcessConversationalRunner />} />
                 <Route path="my-tasks" element={<StaffMyTasks />} />
                 <Route path="staff-checklists" element={<StaffChecklistBoard />} />
                 <Route path="submissions" element={<StaffSubmittedChecklists />} />
                 <Route
                   path="cleaning"
                   element={
-                    <RoleBasedRoute
-                      allowedRoles={[
-                        "SUPER_ADMIN",
-                        "ADMIN",
-                        "OWNER",
-                        "MANAGER",
-                        "CLEANER",
-                        "WAITER",
-                      ]}
-                    >
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <CleaningTasks />
                     </RoleBasedRoute>
                   }
@@ -874,9 +958,7 @@ const App = () => {
                 <Route
                   path="kitchen"
                   element={
-                    <RoleBasedRoute
-                      allowedRoles={["SUPER_ADMIN", "ADMIN", "CHEF"]}
-                    >
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <KitchenDisplay />
                     </RoleBasedRoute>
                   }

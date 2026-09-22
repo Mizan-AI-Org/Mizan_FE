@@ -674,11 +674,11 @@ export function ManageDashboardCategoriesDialog({
         </DialogHeader>
 
         <Tabs defaultValue="categories" className="pt-2">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="categories">
+          <TabsList variant="compact" className="grid w-full grid-cols-2">
+            <TabsTrigger variant="compact" value="categories">
               {t("dashboard.manage.tab_categories")}
             </TabsTrigger>
-            <TabsTrigger value="widgets">
+            <TabsTrigger variant="compact" value="widgets">
               {t("dashboard.manage.tab_widgets")}
             </TabsTrigger>
           </TabsList>

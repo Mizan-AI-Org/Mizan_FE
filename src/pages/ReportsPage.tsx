@@ -18,7 +18,8 @@ import { FileText, BarChart2, Users, Package, Clock, ArrowRight } from "lucide-r
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, unwrapDrfListResponse } from "@/lib/api";
+import { unwrapEnvelope } from "@/lib/envelope";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { EmptyOpsState, SectionHeader } from "@/components/os";
 
@@ -37,7 +38,7 @@ const ReportTypes = [
   { value: "SHIFT_PERFORMANCE", labelKey: "reports.type.shift_performance" },
 ];
 
-const ReportsPage: React.FC = () => {
+export function ReportsWorkspace({ variant = "standalone" }: { variant?: "standalone" | "intelligence" }) {
   const { user } = useAuth();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
@@ -55,8 +56,8 @@ const ReportsPage: React.FC = () => {
           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
       });
-      if (!response.ok) throw new Error("Failed to fetch reports");
-      return response.json();
+      if (!response.ok) return [];
+      return unwrapDrfListResponse<Report>(unwrapEnvelope(await response.json()));
     },
     enabled:
       !!user?.restaurant?.id &&
@@ -113,28 +114,19 @@ const ReportsPage: React.FC = () => {
     }
   };
 
+  const wrap = (node: React.ReactNode) =>
+    variant === "intelligence" ? <>{node}</> : <div className={PAGE_SHELL_PADDED}>{node}</div>;
+
   if (isLoading) {
-    return (
-      <div className={PAGE_SHELL_PADDED}>
-        <EmptyOpsState title="Loading reports…" />
-      </div>
-    );
+    return wrap(<EmptyOpsState title="Loading reports…" />);
   }
 
   if (error) {
-    return (
-      <div className={PAGE_SHELL_PADDED}>
-        <EmptyOpsState title="Couldn't load reports" description={(error as Error).message} />
-      </div>
-    );
+    return wrap(<EmptyOpsState title="Couldn't load reports" description={(error as Error).message} />);
   }
 
   if (!user || !["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"].includes(user.role)) {
-    return (
-      <div className={PAGE_SHELL_PADDED}>
-        <EmptyOpsState title="No access" description="You do not have permission to view this page." />
-      </div>
-    );
+    return wrap(<EmptyOpsState title="No access" description="You do not have permission to view this page." />);
   }
 
   const hubLinks = [
@@ -164,47 +156,50 @@ const ReportsPage: React.FC = () => {
     },
   ];
 
-  return (
-    <div className={PAGE_SHELL_PADDED}>
-      <div className="space-y-section">
+  return wrap(
+    <div className="space-y-8">
+      {variant === "standalone" ? (
         <SectionHeader
           as="h1"
           title={t("reporting.title")}
           description={t("reporting.description")}
           titleClassName="text-page-title"
         />
+      ) : null}
 
-        <section className="os-section">
-          <SectionHeader title={t("reportsPage.hub_section")} />
-          <ul className="divide-y divide-border border-y border-border">
-            {hubLinks.map((item) => (
-              <li key={item.to}>
-                <Link
-                  to={item.to}
-                  className="flex items-start gap-3 py-4 transition-colors hover:bg-muted/50"
-                >
-                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-muted text-foreground">
-                    <item.icon className="h-4 w-4" aria-hidden />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-card-title flex items-center gap-1.5">
-                      {t(item.titleKey)}
-                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                    </p>
-                    <p className="mt-1 text-body text-foreground/80">{t(item.descKey)}</p>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
+      <section>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          {t("reportsPage.hub_section")}
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {hubLinks.map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className="flex items-start gap-3 rounded-xl border bg-card p-4 transition-colors hover:bg-muted/40"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+                <item.icon className="h-5 w-5" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold flex items-center gap-1.5">
+                  {t(item.titleKey)}
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">{t(item.descKey)}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
 
-        <section className="os-section space-y-4">
-          <SectionHeader
-            title={t("reportsPage.generate_title")}
-            description={t("reportsPage.generate_desc")}
-          />
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section className="rounded-xl border bg-card p-5 space-y-4">
+          <div>
+            <h2 className="text-base font-semibold">{t("reportsPage.generate_title")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("reportsPage.generate_desc")}</p>
+          </div>
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="report-type">{t("reportsPage.report_type")}</Label>
               <Select value={selectedReportType} onValueChange={setSelectedReportType}>
@@ -240,6 +235,7 @@ const ReportsPage: React.FC = () => {
             </div>
           </div>
           <Button
+            className="w-full sm:w-auto"
             onClick={() =>
               generateReportMutation.mutate({
                 report_type: selectedReportType,
@@ -255,30 +251,28 @@ const ReportsPage: React.FC = () => {
           </Button>
         </section>
 
-        <section className="os-section">
-          <SectionHeader title={t("reportsPage.generated_list_title")} />
+        <section className="rounded-xl border bg-card p-5">
+          <h2 className="mb-4 text-base font-semibold">{t("reportsPage.generated_list_title")}</h2>
           {reports.length === 0 ? (
             <EmptyOpsState
               title={t("reportsPage.empty")}
-              description="Generate a report above when you need a decision-ready summary."
+              description="Generate a report when you need a decision-ready summary."
             />
           ) : (
-            <ul className="divide-y divide-border border-y border-border">
+            <ul className="max-h-[420px] space-y-2 overflow-y-auto">
               {reports.map((report) => (
                 <li
                   key={report.id}
-                  className="flex flex-wrap items-center justify-between gap-3 py-4"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-3"
                 >
-                  <div>
-                    <p className="text-card-title">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">
                       {(() => {
                         const key = ReportTypes.find((type) => type.value === report.report_type)?.labelKey;
                         return key ? t(key) : report.report_type;
                       })()}
                     </p>
-                    <p className="mt-1 type-secondary">
-                      {t("reportsPage.generated_by")} {report.generated_by_info.first_name}{" "}
-                      {report.generated_by_info.last_name} ·{" "}
+                    <p className="mt-0.5 text-xs text-muted-foreground">
                       {format(new Date(report.generated_at), "PPP p")}
                     </p>
                   </div>
@@ -313,8 +307,10 @@ const ReportsPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </div>,
   );
 };
+
+const ReportsPage: React.FC = () => <ReportsWorkspace variant="standalone" />;
 
 export default ReportsPage;

@@ -29,6 +29,9 @@ export type CommandCluster = {
 export type CommandCentrePayload = {
   success: boolean;
   greeting: string;
+  /** Localized via dashboard.greeting.* when present */
+  greeting_period?: "morning" | "afternoon" | "evening";
+  greeting_name?: string;
   signals_total: number;
   chips: {
     now: number;
@@ -61,7 +64,29 @@ export type CommandCentrePayload = {
     watching: number;
   };
   generated_at?: string;
+  domain_attention?: Array<{
+    domain: string;
+    title: string;
+    detail: string;
+    detail_key?: string;
+    detail_params?: Record<string, string | number>;
+    href: string;
+    severity?: string;
+  }>;
 };
+
+export function localizedCommandGreeting(
+  data: Pick<CommandCentrePayload, "greeting" | "greeting_period" | "greeting_name">,
+  t: (key: string, opts?: Record<string, string | number>) => string,
+): string {
+  const period = data.greeting_period;
+  if (period === "morning" || period === "afternoon" || period === "evening") {
+    const salutation = t(`dashboard.greeting.${period}`);
+    const name = (data.greeting_name || "").trim();
+    return name ? `${salutation}, ${name}.` : `${salutation}.`;
+  }
+  return data.greeting || t("command.hello");
+}
 
 export type CommandFilterKey =
   | "all"

@@ -38,35 +38,40 @@ export default function PlatformAdminLogin({ deniedMessage }: Props) {
       const data = contentType.includes("application/json") && raw ? JSON.parse(raw) : {};
 
       if (!res.ok) {
+        const errBody = data.data || data;
         throw new Error(
-          data.error || data.message || `Login failed (${res.status})`,
+          errBody.error || data.error || data.message || `Login failed (${res.status})`,
         );
       }
 
-      const access = data.tokens?.access || data.access;
-      const refresh = data.tokens?.refresh || data.refresh;
+      const payload = data.data && typeof data.data === "object" ? data.data : data;
+      const access = payload.tokens?.access || payload.access || data.tokens?.access || data.access;
+      const refresh = payload.tokens?.refresh || payload.refresh || data.tokens?.refresh || data.refresh;
+      const user = payload.user || data.user;
       if (!access) throw new Error("Login succeeded but no access token returned");
 
       localStorage.setItem("access_token", access);
       if (refresh) localStorage.setItem("refresh_token", refresh);
-      if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+      if (user) localStorage.setItem("user", JSON.stringify(user));
 
       try {
         const me = await platformApi.me();
         if (!me.is_platform_operator) {
           localStorage.removeItem("access_token");
           localStorage.removeItem("refresh_token");
+          localStorage.removeItem("user");
           throw new Error(
-            "This account is not a platform operator. Restaurant admins cannot access /admin.",
+            "This account is not a platform operator. Restaurant admins cannot access /admin — use /auth instead.",
           );
         }
       } catch (err) {
         const status = (err as Error & { status?: number })?.status;
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
         if (status === 403 || status === 401) {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+          localStorage.removeItem("user");
           throw new Error(
-            "This account is not a platform operator. Restaurant admins cannot access /admin.",
+            "This account is not a platform operator. Restaurant admins cannot access /admin — use /auth instead.",
           );
         }
         throw err;

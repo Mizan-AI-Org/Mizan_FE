@@ -1,87 +1,89 @@
-import { Moon, Sun } from "lucide-react";
+import { Check, Laptop, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  type AppTheme,
+  type ThemePreference,
+  applyThemePreference,
+  getStoredThemePreference,
+  persistThemePreference,
+  resolveEffectiveTheme,
+} from "@/lib/theme";
 
-export type AppTheme = "light" | "dark";
-
-const STORAGE_KEY = "theme";
-
-function systemPrefersDark(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
-
-/** Saved choice wins; otherwise follow OS light/dark preference. */
-export function resolveAppTheme(): AppTheme {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === "dark" || saved === "light") return saved;
-  } catch {
-    /* ignore */
-  }
-  return systemPrefersDark() ? "dark" : "light";
-}
-
-export function applyAppTheme(theme: AppTheme): void {
-  document.documentElement.classList.toggle("dark", theme === "dark");
-  document.documentElement.style.colorScheme = theme;
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) {
-    meta.setAttribute("content", theme === "dark" ? "#0f1a16" : "#56BC6D");
-  }
-}
+export type { AppTheme, ThemePreference };
+export {
+  applyAppTheme,
+  applyThemePreference,
+  getStoredThemePreference,
+  persistThemePreference,
+  resolveAppTheme,
+  resolveEffectiveTheme,
+} from "@/lib/theme";
 
 export const ThemeToggle = () => {
-  const [theme, setTheme] = useState<AppTheme>(() =>
-    typeof document !== "undefined" && document.documentElement.classList.contains("dark")
-      ? "dark"
-      : "light",
+  const { t } = useTranslation();
+  const [preference, setPreference] = useState<ThemePreference>(() =>
+    typeof window !== "undefined" ? getStoredThemePreference() : "light",
   );
+  const effective = resolveEffectiveTheme(preference);
 
   useEffect(() => {
-    const initial = resolveAppTheme();
-    setTheme(initial);
-    applyAppTheme(initial);
-
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const onSystemChange = () => {
-      try {
-        if (localStorage.getItem(STORAGE_KEY)) return;
-      } catch {
-        /* ignore */
-      }
-      const next = media.matches ? "dark" : "light";
-      setTheme(next);
-      applyAppTheme(next);
-    };
-    media.addEventListener("change", onSystemChange);
-    return () => media.removeEventListener("change", onSystemChange);
+    const initial = getStoredThemePreference();
+    setPreference(initial);
+    applyThemePreference(initial);
   }, []);
 
-  const toggleTheme = () => {
-    const newTheme: AppTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    try {
-      localStorage.setItem(STORAGE_KEY, newTheme);
-    } catch {
-      /* ignore */
-    }
-    applyAppTheme(newTheme);
+  const setTheme = (next: ThemePreference) => {
+    setPreference(next);
+    persistThemePreference(next);
+    applyThemePreference(next);
   };
 
+  const TriggerIcon =
+    preference === "system" ? Laptop : effective === "dark" ? Moon : Sun;
+
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={toggleTheme}
-      className="rounded-full text-foreground hover:bg-muted hover:text-foreground"
-      aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-    >
-      {theme === "light" ? (
-        <Moon className="h-5 w-5 text-foreground" aria-hidden />
-      ) : (
-        <Sun className="h-5 w-5 text-foreground" aria-hidden />
-      )}
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-full text-foreground hover:bg-muted hover:text-foreground shrink-0"
+          aria-label={t("common.theme_aria", "Change theme")}
+        >
+          <TriggerIcon className="h-5 w-5 text-foreground" aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[10rem]">
+        {(
+          [
+            { value: "light" as const, label: t("common.theme_light", "Light"), icon: Sun },
+            { value: "dark" as const, label: t("common.theme_dark", "Dark"), icon: Moon },
+            {
+              value: "system" as const,
+              label: t("common.theme_system", "System"),
+              icon: Laptop,
+            },
+          ] as const
+        ).map(({ value, label, icon: Icon }) => (
+          <DropdownMenuItem
+            key={value}
+            onClick={() => setTheme(value)}
+            className="flex items-center gap-2 cursor-pointer"
+          >
+            <Icon className="h-4 w-4 opacity-70" aria-hidden />
+            <span className="flex-1">{label}</span>
+            {preference === value ? <Check className="h-4 w-4 text-emerald-600" /> : null}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };

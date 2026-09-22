@@ -155,12 +155,22 @@ export default function TimeClockPage() {
 
             return;
         }
-        const payload = restaurantLoc.restaurant ?? restaurantLoc;
+        const payload = (restaurantLoc as { restaurant?: RestaurantLocationPayload }).restaurant ?? restaurantLoc;
+        const enabled = payload.geofence_enabled !== false;
+        const configured = Boolean((payload as { configured?: boolean }).configured);
         const lat = payload.latitude;
         const lon = payload.longitude;
-        const rad = (payload.geofence_radius ?? payload.radius ?? 100);
-        if (typeof lat === "number" && typeof lon === "number") {
-            setGeofence({ latitude: lat, longitude: lon, radius: Number(rad) });
+        const rad = payload.geofence_radius ?? payload.radius ?? 100;
+        if (!enabled || !configured) {
+            setGeofence(null);
+            setInRange(true);
+            return;
+        }
+        if (typeof lat === "number" && typeof lon === "number" && (Math.abs(lat) > 1e-6 || Math.abs(lon) > 1e-6)) {
+            setGeofence({ latitude: lat, longitude: lon, radius: Number(rad) || 100 });
+        } else {
+            setGeofence(null);
+            setInRange(true);
         }
     }, [restaurantLoc]);
 
@@ -653,7 +663,7 @@ export default function TimeClockPage() {
     const todaysHours = (() => {
         const todayStr = formatSafe(new Date(), "yyyy-MM-dd");
         let totalMs = 0;
-        (attendanceHistory || []).forEach((ev: any) => {
+        (Array.isArray(attendanceHistory) ? attendanceHistory : []).forEach((ev: any) => {
             const clockIn = ev.clock_in_time || ev.clock_in;
             const clockOut = ev.clock_out_time || ev.clock_out;
             const inDate = clockIn ? formatSafe(clockIn, "yyyy-MM-dd") : null;
@@ -930,7 +940,7 @@ export default function TimeClockPage() {
                 <CardContent>
                     {isLoadingHistory ? (
                         <div>Loading history...</div>
-                    ) : (attendanceHistory && attendanceHistory.length > 0 ? (
+                    ) : (Array.isArray(attendanceHistory) && attendanceHistory.length > 0 ? (
                         <div className={`relative transition-all duration-200 ${timelineCollapsed ? 'max-h-0 overflow-hidden' : 'max-h-80 overflow-y-auto pr-2'}`} aria-expanded={!timelineCollapsed}>
                             <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-muted" />
                             <div className="space-y-4">

@@ -30,10 +30,13 @@ i18n
     returnNull: false,
     returnEmptyString: false,
     saveMissing: false,
-    // Load resources from public folder for smaller bundle
+    // Load resources from public folder for smaller bundle.
+    // Query bump busts stale browser caches after locale updates.
     backend: {
-      loadPath: '/locales/{{lng}}.json',
+      loadPath: '/locales/{{lng}}.json?v=2026-09-22g',
     },
+    // Flat keys contain dots; never treat "." as nesting.
+    nsSeparator: false,
     detection: {
       // Prefer server cookie if present, then localStorage, then browser
       order: ['cookie', 'localStorage', 'navigator', 'htmlTag', 'path', 'querystring'],

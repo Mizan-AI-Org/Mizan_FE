@@ -7,6 +7,7 @@ import { Loader2, Sparkles, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { API_BASE } from '@/lib/api';
+import { unwrapEnvelope } from '@/lib/envelope';
 
 interface Table {
     id: string;
@@ -46,8 +47,17 @@ const CleaningTasks: React.FC = () => {
             if (!res.ok) {
                 throw new Error('Failed to load cleaning queue.');
             }
-            const data = await res.json();
-            return Array.isArray(data) ? data : data.results || [];
+            const raw = await res.json();
+            try {
+                const data = unwrapEnvelope(raw);
+                if (Array.isArray(data)) return data as Table[];
+                if (data && typeof data === 'object' && Array.isArray((data as { results?: unknown }).results)) {
+                    return (data as { results: Table[] }).results;
+                }
+            } catch {
+                /* legacy */
+            }
+            return Array.isArray(raw) ? raw : raw.results || [];
         },
         enabled: canView,
         // Cleaning queue does not need sub-minute freshness - managers

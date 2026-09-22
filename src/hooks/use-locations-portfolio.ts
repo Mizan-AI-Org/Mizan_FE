@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
+import { unwrapEnvelope } from "@/lib/envelope";
 
 export type LocationMetrics = {
   staff_count: number;
@@ -97,7 +98,7 @@ export function useLocationsPortfolio() {
           detail || `Failed to load portfolio summary (HTTP ${res.status})`
         );
       }
-      return (await res.json()) as PortfolioSummary;
+      return unwrapEnvelope<PortfolioSummary>(await res.json());
     },
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,

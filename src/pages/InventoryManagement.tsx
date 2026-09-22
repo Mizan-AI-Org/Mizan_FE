@@ -1,19 +1,14 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
     Package,
-    TrendingUp,
     AlertTriangle,
-    CheckCircle,
     ShoppingCart,
     BarChart3,
-    Calendar,
     ChevronRight,
     Users,
-    Truck,
     DollarSign,
-    TrendingDown
+    TrendingDown,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
@@ -21,12 +16,40 @@ import { useAuth } from "../contexts/AuthContext";
 import { PAGE_SHELL } from "@/lib/page-shell";
 import { DailyKPI } from "../lib/types";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import { useLanguage } from "@/hooks/use-language";
+
+const INVENTORY_SECTIONS = [
+    {
+        title: "Manage Inventory Items",
+        description: "Add, edit, or remove individual stock items.",
+        icon: Package,
+        color: "text-blue-500",
+        href: "/dashboard/inventory/items",
+    },
+    {
+        title: "Suppliers",
+        description: "View and manage your list of suppliers.",
+        icon: Users,
+        color: "text-purple-500",
+        href: "/dashboard/inventory/suppliers",
+    },
+    {
+        title: "Purchase Orders",
+        description: "Create and track incoming purchase orders.",
+        icon: ShoppingCart,
+        color: "text-green-500",
+        href: "/dashboard/inventory/purchase-orders",
+    },
+    {
+        title: "Stock Adjustments",
+        description: "Record waste and other stock-level changes.",
+        icon: AlertTriangle,
+        color: "text-red-500",
+        href: "/dashboard/inventory/adjustments",
+    },
+];
 
 export default function InventoryManagement() {
     const { accessToken } = useAuth();
-    const { t } = useLanguage();
 
     const { data: dailyKpis, isLoading: isLoadingKpis, isError: isErrorKpis } = useQuery<DailyKPI[]>({
         queryKey: ["dailyKpis", accessToken],
@@ -40,46 +63,12 @@ export default function InventoryManagement() {
     const revenueLostToStockouts = kpiRows.reduce((acc, kpi) => acc + (kpi.revenue_lost_to_stockouts || 0), 0);
 
     if (isLoadingKpis) {
-        return <div>Loading Inventory KPIs...</div>;
+        return <div className={`${PAGE_SHELL} py-8`}>Loading inventory KPIs...</div>;
     }
 
     if (isErrorKpis) {
-        return <div>Error loading Inventory KPIs.</div>;
+        return <div className={`${PAGE_SHELL} py-8`}>Could not load inventory KPIs. Open items, suppliers, or purchase orders from the tiles below.</div>;
     }
-
-    const inventorySections = [
-        {
-            title: "Manage Inventory Items",
-            description: "Add, edit, or remove individual stock items.",
-            icon: Package,
-            color: "text-blue-500",
-        },
-        {
-            title: "Suppliers",
-            description: "View and manage your list of suppliers.",
-            icon: Users,
-            color: "text-purple-500",
-        },
-        {
-            title: "Purchase Orders",
-            description: "Create and track incoming purchase orders.",
-            icon: ShoppingCart,
-            color: "text-green-500",
-        },
-        {
-            title: "Stock Adjustments",
-            description: "Record changes in stock levels due to waste, theft, etc.",
-            icon: AlertTriangle,
-            color: "text-red-500",
-        },
-    ];
-
-    const showComingSoon = () => {
-        toast.info(t("inventory_hub.coming_soon.title"), {
-            description: t("inventory_hub.coming_soon.description"),
-            duration: 6000,
-        });
-    };
 
     return (
         <div className="min-h-screen pb-8 pt-4 font-sans text-foreground antialiased">
@@ -91,7 +80,6 @@ export default function InventoryManagement() {
                     </div>
                 </div>
 
-                {/* Inventory KPIs */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <Card className="border-slate-100 shadow-sm bg-card rounded-2xl hover:shadow-md transition-all">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 px-6 pt-6">
@@ -127,13 +115,11 @@ export default function InventoryManagement() {
                     </Card>
                 </div>
 
-                {/* Inventory Sections Navigation */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
-                    {inventorySections.map((section) => (
-                        <button
-                            key={section.title}
-                            type="button"
-                            onClick={showComingSoon}
+                    {INVENTORY_SECTIONS.map((section) => (
+                        <Link
+                            key={section.href}
+                            to={section.href}
                             className="block w-full text-left rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
                         >
                             <Card className="border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-1 bg-card flex items-center justify-between p-7 rounded-2xl group cursor-pointer border-l-4 border-l-transparent hover:border-l-indigo-600">
@@ -148,7 +134,7 @@ export default function InventoryManagement() {
                                 </div>
                                 <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-indigo-600 transition-colors" />
                             </Card>
-                        </button>
+                        </Link>
                     ))}
                 </div>
             </div>

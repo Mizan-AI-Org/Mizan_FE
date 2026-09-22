@@ -43,6 +43,12 @@ export function CommandSearchBar({ className }: { className?: string }) {
     t("ai.prompt.focus_today", { defaultValue: "What should I focus on today?" }),
     t("command.palette.suggest_incidents", { defaultValue: "Show unresolved incidents" }),
     t("command.palette.suggest_briefing", { defaultValue: "Prepare today's briefing" }),
+    t("command.palette.suggest_social_week", {
+      defaultValue: "What's scheduled on social this week?",
+    }),
+    t("command.palette.suggest_social_post", {
+      defaultValue: "Create a post about our new menu.",
+    }),
   ];
 
   const quickActions = [

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { openDashboardTaskSheet } from '@/lib/dashboard-task-sheet';
 import { useQuery } from '@tanstack/react-query';
 import { useLanguage } from '@/hooks/use-language';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -127,6 +128,12 @@ export default function TaskManagementBoard({
 }) {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const openTaskDetail = (taskId: string) => {
+    openDashboardTaskSheet(navigate, location, taskId, { keepPath: true });
+  };
 
   const dailyProgressQuery = useQuery({
     queryKey: ["dashboard", "staff-daily-progress", "live"],
@@ -233,6 +240,18 @@ export default function TaskManagementBoard({
     return () => window.clearTimeout(id);
   }, [isLoading, staffMetrics.length, dailyProgressStaff.length]);
 
+  const taskSheetId = (searchParams.get("task") || "").trim() || null;
+  const prevTaskSheetId = React.useRef<string | null>(null);
+  useEffect(() => {
+    if (prevTaskSheetId.current && !taskSheetId) {
+      void loadAllTasks();
+      void loadLiveBoardMetrics();
+      void loadStaffMetrics();
+    }
+    prevTaskSheetId.current = taskSheetId;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh lists when detail sheet closes
+  }, [taskSheetId]);
+
   const scopeCounts = useMemo(() => {
     const shift = allTasks.filter((t) => !!t.assigned_shift).length;
     const standalone = allTasks.length - shift;
@@ -317,19 +336,36 @@ export default function TaskManagementBoard({
     }
   };
 
+  /** Only staff with assigned tasks that have been started. */
+  const liveProgressStaff = useMemo(() => {
+    return staffMetrics.filter((s) => {
+      const total = s.tasks?.total ?? 0;
+      const completed = s.tasks?.completed ?? 0;
+      const progress = s.current_process?.progress ?? 0;
+      if (total <= 0) return false;
+      // Started = some progress, or at least one completion while work remains, or actively on shift.
+      const started =
+        progress > 0 ||
+        completed > 0 ||
+        s.shift_status === "ON_SHIFT" ||
+        s.shift_status === "BREAK";
+      return started;
+    });
+  }, [staffMetrics]);
+
   const onShiftCount = useMemo(
-    () => staffMetrics.filter((s) => s.shift_status === "ON_SHIFT").length,
-    [staffMetrics],
+    () => liveProgressStaff.filter((s) => s.shift_status === "ON_SHIFT").length,
+    [liveProgressStaff],
   );
   const scheduledCount = useMemo(
-    () => staffMetrics.filter((s) => s.shift_status === "SCHEDULED").length,
-    [staffMetrics],
+    () => liveProgressStaff.filter((s) => s.shift_status === "SCHEDULED").length,
+    [liveProgressStaff],
   );
 
   /** Live checklist rows from shifts in progress today. */
   const hasShiftLiveProgress = useMemo(
-    () => staffMetrics.length > 0,
-    [staffMetrics],
+    () => liveProgressStaff.length > 0,
+    [liveProgressStaff],
   );
 
   const hasDailyProgress = dailyProgressStaff.length > 0;
@@ -369,8 +405,8 @@ export default function TaskManagementBoard({
       subtext: null as string | null,
       change: onTimeChange,
       icon: Clock,
-      accent: "text-teal-700 dark:text-teal-400",
-      iconBg: "bg-teal-50 dark:bg-teal-950/40",
+      accent: "text-primary",
+      iconBg: "bg-primary/10",
       alert: false,
     },
     {
@@ -397,7 +433,7 @@ export default function TaskManagementBoard({
       {/* Compact metrics strip - one composition, less empty card chrome */}
       <section
         aria-label={t("live_board.metrics_label")}
-        className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card overflow-hidden"
+        className="rounded-xl border border-border bg-card overflow-hidden"
       >
         <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-slate-100 dark:divide-slate-800">
           {metrics.map((metric) => (
@@ -425,7 +461,7 @@ export default function TaskManagementBoard({
                       >
                         {metric.value}
                       </p>
-                      {metric.change !== undefined && (
+                      {metric.change !== undefined && metric.change !== 0 && (
                         <span
                           className={cn(
                             "text-xs font-medium tabular-nums",
@@ -456,9 +492,9 @@ export default function TaskManagementBoard({
       {/* Staff Live Progress - deep-linked from dashboard Staff progress widget */}
       <Card
         id="staff-live-progress"
-        className="border border-slate-200 dark:border-slate-700 shadow-none dark:bg-slate-900 flex-1 scroll-mt-24"
+        className="border border-border shadow-none bg-card flex-1 scroll-mt-24"
       >
-        <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4 space-y-0">
+        <CardHeader className="border-b border-border pb-4 space-y-0">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <CardTitle className="text-lg font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
@@ -482,7 +518,7 @@ export default function TaskManagementBoard({
                 "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium shrink-0 self-start",
                 hasAnyProgress
                   ? "border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-300"
-                  : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
+                  : "border-border bg-muted text-muted-foreground",
               )}
             >
               <span
@@ -516,10 +552,10 @@ export default function TaskManagementBoard({
             </div>
           ) : hasShiftLiveProgress ? (
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {staffMetrics.map((staff) => (
+              {liveProgressStaff.map((staff) => (
                 <div
                   key={`${staff.staff_id ?? "unassigned"}-${staff.shift_id ?? "shift"}`}
-                  className="p-4 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 hover:bg-slate-50/60 dark:hover:bg-slate-800/50 transition-colors"
+                  className="p-4 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-3 w-full md:w-52 shrink-0">
                     <Avatar className="h-10 w-10 border border-slate-200 dark:border-slate-700">
@@ -697,7 +733,7 @@ export default function TaskManagementBoard({
             <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
               <div className="relative mb-5">
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-teal-100/80 to-emerald-50/40 dark:from-teal-950/50 dark:to-slate-900 blur-xl" />
-                <div className="relative w-16 h-16 rounded-2xl bg-surface-raised border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-sm">
+                <div className="relative w-16 h-16 rounded-2xl bg-surface-raised border border-border flex items-center justify-center shadow-sm">
                   <User className="w-7 h-7 text-teal-600 dark:text-teal-400" />
                 </div>
               </div>
@@ -735,7 +771,7 @@ export default function TaskManagementBoard({
                 ].map((step, i) => (
                   <li
                     key={i}
-                    className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 px-3 py-3"
+                    className="rounded-lg border border-border bg-muted/50 px-3 py-3"
                   >
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-400">
                       {t("live_board.step_n", { n: i + 1 })}
@@ -752,8 +788,8 @@ export default function TaskManagementBoard({
       </Card>
 
       {/* All Tasks */}
-      <Card className="border border-slate-200 dark:border-slate-700 shadow-none dark:bg-slate-900">
-        <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
+      <Card className="border border-border shadow-none bg-card">
+        <CardHeader className="border-b border-border pb-4">
           <div className="flex flex-col gap-4">
             <div>
               <CardTitle className="text-lg font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
@@ -767,7 +803,7 @@ export default function TaskManagementBoard({
             </div>
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
               <div
-                className="inline-flex flex-wrap items-center gap-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 p-0.5"
+                className="inline-flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-muted/60 p-0.5"
                 role="group"
                 aria-label={t("live_board.scope_all")}
               >
@@ -786,7 +822,7 @@ export default function TaskManagementBoard({
                       className={cn(
                         "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
                         active
-                          ? "bg-teal-600 text-white shadow-sm"
+                          ? "bg-primary text-white shadow-sm"
                           : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white",
                       )}
                     >
@@ -805,7 +841,7 @@ export default function TaskManagementBoard({
                 })}
               </div>
               <div
-                className="inline-flex flex-wrap items-center gap-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 p-0.5"
+                className="inline-flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-muted/60 p-0.5"
                 role="group"
                 aria-label={t("live_board.status_all")}
               >
@@ -823,7 +859,7 @@ export default function TaskManagementBoard({
                       className={cn(
                         "inline-flex items-center rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
                         active
-                          ? "bg-teal-600 text-white shadow-sm"
+                          ? "bg-primary text-white shadow-sm"
                           : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white",
                       )}
                     >
@@ -842,7 +878,7 @@ export default function TaskManagementBoard({
             </div>
           ) : visibleTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
-              <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
+              <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mb-3">
                 <ListChecks className="w-6 h-6 text-slate-400" />
               </div>
               <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1">
@@ -877,11 +913,11 @@ export default function TaskManagementBoard({
                     <div
                       role="button"
                       tabIndex={0}
-                      onClick={() => navigate(`/dashboard/scheduling?task=${task.id}`)}
+                      onClick={() => openTaskDetail(task.id)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          navigate(`/dashboard/scheduling?task=${task.id}`);
+                          openTaskDetail(task.id);
                         }
                       }}
                       className="group flex items-center gap-3 sm:gap-4 px-4 py-3 hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"

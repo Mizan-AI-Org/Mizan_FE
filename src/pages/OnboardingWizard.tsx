@@ -56,6 +56,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import BrandLogo from "@/components/BrandLogo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 
@@ -523,11 +524,16 @@ const OnboardingWizard: React.FC = () => {
             {/* Top bar */}
             <div className="sticky top-0 z-10 shrink-0 backdrop-blur-xl bg-white/80 dark:bg-slate-950/80 border-b border-slate-200/60 dark:border-slate-800/60 shadow-sm">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center gap-4">
-                    <div className="flex items-center gap-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                        <div className="flex items-center justify-center h-7 w-7 rounded-full border-[3px] border-emerald-500 bg-card">
-                            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        </div>
-                        {t("onboarding.brand", "Mizan setup")}
+                    <div className="flex items-center gap-2.5 shrink-0 min-w-0">
+                        <BrandLogo
+                            size="sm"
+                            withWordmark
+                            ariaLabel="Mizan AI"
+                            wordmarkClassName="text-slate-800 dark:text-slate-100"
+                        />
+                        <span className="hidden sm:inline text-xs font-medium text-slate-500 dark:text-slate-400 border-l border-slate-200 dark:border-slate-700 pl-2.5">
+                            {t("onboarding.brand", "Setup")}
+                        </span>
                     </div>
                     <div className="flex-1">
                         <Progress value={progress} className="h-1.5" />
@@ -535,6 +541,7 @@ const OnboardingWizard: React.FC = () => {
                     <div className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap tabular-nums">
                         {t("onboarding.progress_label", { defaultValue: "{{done}} of {{total}}", done: requiredDone, total: requiredTotal })}
                     </div>
+                    <ThemeToggle />
                     <button
                         type="button"
                         className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
@@ -600,9 +607,9 @@ const OnboardingWizard: React.FC = () => {
                             completedAlready={status.completed}
                             onGoToDashboard={async () => {
                                 try {
-                                    await completeOnboardingDismiss();
-                                    await syncSessionFromBackend();
-                                    navigate("/dashboard");
+                                    const completedAt = await completeOnboardingDismiss();
+                                    await syncSessionFromBackend(completedAt);
+                                    navigate("/dashboard", { replace: true });
                                 } catch (e) {
                                     toast.error(
                                         e instanceof Error
@@ -718,11 +725,19 @@ const OnboardingWizard: React.FC = () => {
                             vertical={parseBusinessVertical(status.business_vertical)}
                             onEnter={async () => {
                                 try {
-                                    await syncSessionFromBackend();
-                                } catch {
-                                    /* still allow navigation */
+                                    const completedAt = await completeOnboardingDismiss();
+                                    await syncSessionFromBackend(completedAt);
+                                    navigate("/dashboard", { replace: true });
+                                } catch (e) {
+                                    toast.error(
+                                        e instanceof Error
+                                            ? e.message
+                                            : t(
+                                                  "onboarding.err.dismiss",
+                                                  "Could not continue to the dashboard. Try again.",
+                                              ),
+                                    );
                                 }
-                                navigate("/dashboard");
                             }}
                         />
                     )}
@@ -835,7 +850,7 @@ const OnboardingWizard: React.FC = () => {
         if (!res.ok) throw new Error(t("onboarding.err.gcal"));
     }
 
-    async function completeOnboardingDismiss() {
+    async function completeOnboardingDismiss(): Promise<string | null> {
         const res = await fetch(`${API_BASE}/onboarding/`, {
             method: "POST",
             headers: authHeaders(),
@@ -851,14 +866,35 @@ const OnboardingWizard: React.FC = () => {
                 ),
             );
         }
+        const body = (await res.json().catch(() => ({}))) as {
+            completed_at?: string | null;
+            data?: { completed_at?: string | null };
+        };
         await queryClient.invalidateQueries({ queryKey: ["onboarding-status"] });
+        return body.completed_at ?? body.data?.completed_at ?? null;
     }
 
-    async function syncSessionFromBackend() {
+    async function syncSessionFromBackend(completedAtHint?: string | null) {
         const token = localStorage.getItem("access_token") || "";
         if (!token) return;
         const profile = await api.getUserProfile(token);
-        updateUser(profile as AuthUser);
+        const completedAt =
+            profile.restaurant_data?.onboarding_completed_at ?? completedAtHint ?? null;
+        const nextUser =
+            completedAt && !profile.restaurant_data?.onboarding_completed_at
+                ? {
+                      ...profile,
+                      restaurant_data: {
+                          ...(profile.restaurant_data ?? {
+                              id: String(profile.restaurant_id || profile.restaurant || ""),
+                              name: profile.restaurant_name || "",
+                              address: "",
+                          }),
+                          onboarding_completed_at: completedAt,
+                      },
+                  }
+                : profile;
+        updateUser(nextUser as AuthUser);
     }
 };
 
@@ -1052,12 +1088,12 @@ const IndustryStep: React.FC<{
             alreadyDoneBadge={status.steps.industry}
             optional
         >
-            <div className="grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] gap-5 lg:gap-6 items-start">
+            <div className="grid gap-5 lg:gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] items-start">
                 <SectorPicker
                     value={vertical}
                     onChange={setVertical}
-                    tone="light"
                     columns={4}
+                    gridClass="grid-cols-2 xl:grid-cols-4"
                     showPreview={false}
                 />
                 <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/80 to-white p-4 sm:p-5 dark:border-emerald-900/40 dark:from-emerald-950/30 dark:to-slate-900/40">
@@ -1118,7 +1154,7 @@ const IndustryStep: React.FC<{
                     ) : (
                         <ArrowRight className="h-4 w-4" />
                     )}
-                    {t("onboarding.industry.cta", "Use these automations")}
+                    {t("onboarding.industry.cta", "Continue")}
                 </Button>
             </StepActions>
         </StepShell>

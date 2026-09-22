@@ -22,6 +22,15 @@ export interface LoginResponse {
         access: string;
         refresh: string;
     };
+    code?: string;
+    message?: string;
+    data?: {
+        whatsapp_url?: string;
+        role?: string;
+        email?: string;
+        web_app?: boolean;
+        [key: string]: unknown;
+    };
 }
 
 export interface SignupData {
@@ -631,6 +640,15 @@ export interface InventoryItem {
     updated_at: string;
 }
 
+export interface SupplierPriceQuote {
+    id: string;
+    itemName: string;
+    price: string;
+    unit: string;
+    currency: string;
+    recordedAt?: string | null;
+}
+
 export interface Supplier {
     id: string;
     restaurant: string;
@@ -640,6 +658,7 @@ export interface Supplier {
     phone?: string;
     address?: string;
     lead_time_days?: number;
+    prices?: SupplierPriceQuote[];
     created_at: string;
     updated_at: string;
 }

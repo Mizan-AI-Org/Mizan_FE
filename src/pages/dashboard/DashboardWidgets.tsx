@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { NavigateFunction } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
@@ -2957,8 +2957,8 @@ function MeetingsRemindersCard({
  *
  * Mirrors the product mock: a compact list of the latest 5 arrivals
  * with a tiny status icon on the right (check = on time, red × = late).
- * Whole card is clickable and routes to the Staff app's Attendance tab
- * (``/dashboard/staff-app?tab=attendance``) which renders the full
+ * Whole card is clickable and routes to the manager Attendance page
+ * (``/dashboard/employees/attendance``) which renders the full
  * "Live Attendance List" with per-staff shift / clock-in / status rows.
  */
 function ClockInsCard({
@@ -2989,14 +2989,11 @@ function ClockInsCard({
     typeof navigator !== "undefined" && navigator.language ? navigator.language : "en-US";
 
   const items = data?.items ?? [];
-  const lateToday = data?.counts.late ?? 0;
-  const totalToday = data?.counts.total ?? items.length;
+  const lateToday = data?.counts?.late ?? 0;
+  const totalToday = data?.counts?.total ?? items.length;
 
   const goToAttendance = React.useCallback(() => {
-    // Deep-link straight to the "Live Attendance List" tab inside the
-    // Staff app - that's where the manager can scan the full table of
-    // shifts, clock-ins and statuses for every staff member.
-    navigate("/dashboard/staff-app?tab=attendance");
+    navigate("/dashboard/employees/attendance");
   }, [navigate]);
 
   return (
@@ -4441,21 +4438,29 @@ function CategoryTasksCard({
   );
 
   const toneClasses = CATEGORY_TONE[tone];
-  const openItems: DashboardTaskDemandItem[] = data?.items ?? [];
-  const inProgressItems = useMemo(() => {
-    return openItems.filter((it) => {
-      if (it.status === "IN_PROGRESS") return true;
-      const pill = (it.pill_status || "").toUpperCase();
-      return ["IN_PROGRESS", "ASSIGNED", "WAITING_ON", "ESCALATED"].includes(pill);
-    });
-  }, [openItems]);
+  const activeItems: DashboardTaskDemandItem[] = data?.items ?? [];
+
+  const itemIsInProgress = useCallback((it: DashboardTaskDemandItem) => {
+    if (it.status === "IN_PROGRESS") return true;
+    const pill = (it.pill_status || "").toUpperCase();
+    return ["IN_PROGRESS", "ASSIGNED", "WAITING_ON", "ESCALATED"].includes(pill);
+  }, []);
+
+  const pendingItems = useMemo(
+    () => activeItems.filter((it) => !itemIsInProgress(it)),
+    [activeItems, itemIsInProgress],
+  );
+  const inProgressItems = useMemo(
+    () => activeItems.filter(itemIsInProgress),
+    [activeItems, itemIsInProgress],
+  );
 
   const items: DashboardTaskDemandItem[] = useMemo(() => {
     if (!data) return [];
     if (filter === "done") return data.completed ?? [];
     if (filter === "in_progress") return inProgressItems;
-    return openItems;
-  }, [data, filter, inProgressItems, openItems]);
+    return pendingItems;
+  }, [data, filter, inProgressItems, pendingItems]);
 
   const counts = data?.counts ?? { open: 0, in_progress: 0, completed: 0 };
 
@@ -4470,6 +4475,13 @@ function CategoryTasksCard({
       setFilter("open");
     }
   }, [data, filter, inProgressItems.length]);
+
+  React.useEffect(() => {
+    if (filter !== "open" || !data) return;
+    if (pendingItems.length === 0 && inProgressItems.length > 0) {
+      setFilter("in_progress");
+    }
+  }, [data, filter, pendingItems.length, inProgressItems.length]);
 
   const activeTotal =
     filter === "done"
@@ -4564,8 +4576,8 @@ function CategoryTasksCard({
           </span>
         </div>
       ) : null}
-      <CardHeader className={cardHeaderBase}>
-        <div className="flex items-center gap-2 min-w-0">
+      <CardHeader className={cn(cardHeaderBase, "flex-wrap gap-y-2")}>
+        <div className="flex min-w-0 flex-1 items-start gap-2 basis-[min(100%,12rem)]">
           <div
             className={cn(
               "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
@@ -4575,7 +4587,7 @@ function CategoryTasksCard({
           >
             <Icon className="h-4 w-4" aria-hidden />
           </div>
-          <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+          <CardTitle className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight leading-snug line-clamp-2">
             {t(titleKey)}
           </CardTitle>
         </div>
@@ -4583,7 +4595,7 @@ function CategoryTasksCard({
             "+ in progress" / "Done" affordance on the URGENT card.
             We render it on every card for consistency and so managers
             can flip lanes on any widget without scrolling. */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex flex-wrap items-center justify-end gap-1 shrink-0 ml-auto">
           <CategoryFilterChip
             active={filter === "in_progress"}
             count={counts.in_progress}
@@ -4649,10 +4661,10 @@ function CategoryTasksCard({
                 <Icon className="h-5 w-5" aria-hidden />
               </div>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                {filter === "in_progress" && openItems.length > 0
+                {filter === "in_progress" && pendingItems.length > 0
                   ? t("dashboard.category_tasks.empty_in_progress_with_open", {
                       defaultValue: "{{count}} open items are still pending - nothing marked in progress yet.",
-                      count: openItems.length,
+                      count: pendingItems.length,
                     })
                   : t(
                       filter === "done"
@@ -4660,7 +4672,7 @@ function CategoryTasksCard({
                         : "dashboard.category_tasks.empty_open",
                     )}
               </p>
-              {filter === "in_progress" && openItems.length > 0 ? (
+              {filter === "in_progress" && pendingItems.length > 0 ? (
                 <Button
                   type="button"
                   size="sm"
@@ -4673,7 +4685,7 @@ function CategoryTasksCard({
                 >
                   {t("dashboard.category_tasks.view_all_open", {
                     defaultValue: "View all open ({{count}})",
-                    count: openItems.length,
+                    count: pendingItems.length,
                   })}
                 </Button>
               ) : null}
@@ -5013,7 +5025,7 @@ function CategoryTaskRow({
   return (
     <li
       className={cn(
-        "group/row flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-all",
+        "group/row grid grid-cols-1 gap-2 rounded-lg px-2 py-2 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-all sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center",
         onRowNavigate && "cursor-pointer",
         // Subtle "you can drag this" affordance: a grab cursor on
         // hover so the manager realises the rows are interactive
@@ -5048,10 +5060,10 @@ function CategoryTaskRow({
           : undefined
       }
     >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5 min-w-0">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
           <div
-            className="truncate text-[13px] font-medium text-slate-900 dark:text-white"
+            className="text-[13px] font-medium text-slate-900 dark:text-white line-clamp-2 break-words"
             title={item.title}
           >
             {item.title}
@@ -5124,6 +5136,7 @@ function CategoryTaskRow({
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center justify-end gap-1 sm:max-w-[11rem] md:max-w-none">
       {needsValidation && onValidate && item.kind === "dashboard" ? (
         <button
           type="button"
@@ -5147,7 +5160,7 @@ function CategoryTaskRow({
             onChase();
           }}
           disabled={isPending}
-          className="shrink-0 rounded-md border border-sky-300 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-900 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100 disabled:opacity-50"
+          className="hidden sm:inline-flex shrink-0 rounded-md border border-sky-300 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-900 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100 disabled:opacity-50"
           title={t("dashboard.category_tasks.update_now_title")}
         >
           {t("dashboard.category_tasks.update_now")}
@@ -5196,15 +5209,15 @@ function CategoryTaskRow({
               onClick={stop}
               aria-label={t("dashboard.category_tasks.row_actions")}
               className={cn(
-                "shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-colors hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-600",
+                "shrink-0 inline-flex max-w-[7.5rem] items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-colors hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-600",
                 pill.bg,
                 pill.text,
               )}
               title={t("dashboard.category_tasks.click_pill_to_change")}
             >
-              <span className={cn("inline-block h-1.5 w-1.5 rounded-full", pill.dot)} />
-              {t(`dashboard.category_tasks.pill_${pill.label}`)}
-              <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
+              <span className={cn("inline-block h-1.5 w-1.5 shrink-0 rounded-full", pill.dot)} />
+              <span className="truncate">{t(`dashboard.category_tasks.pill_${pill.label}`)}</span>
+              <ChevronDown className="h-3 w-3 shrink-0 opacity-60" aria-hidden />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" onClick={stop} className="w-48">
@@ -5276,6 +5289,7 @@ function CategoryTaskRow({
           {t(`dashboard.category_tasks.pill_${pill.label}`)}
         </span>
       )}
+      </div>
     </li>
   );
 }

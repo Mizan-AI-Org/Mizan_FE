@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { POS_INTEGRATIONS_HREF } from "@/lib/mizan-domains";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -240,7 +241,7 @@ export default function SalesAndPrepPage() {
                   <BarChart3 className="w-8 h-8 text-slate-400 dark:text-slate-500" />
                 </div>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mb-5">{t("dashboard.sales.error") || "Could not load sales. Try again later."}</p>
-                <Button variant="outline" size="default" onClick={() => navigate("/dashboard/settings")}>
+                <Button variant="outline" size="default" onClick={() => navigate(POS_INTEGRATIONS_HREF)}>
                   {t("common.settings") || "Settings"}
                 </Button>
               </div>
@@ -252,7 +253,7 @@ export default function SalesAndPrepPage() {
                 <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 max-w-[260px] mx-auto leading-relaxed">
                   {todaySales?.error || (t("dashboard.sales.connect_pos") || "Connect your POS in Settings to see sales.")}
                 </p>
-                <Button size="default" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => navigate("/dashboard/settings")}>
+                <Button size="default" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => navigate(POS_INTEGRATIONS_HREF)}>
                   {t("dashboard.sales.connect_pos_cta") || "Connect POS"}
                 </Button>
               </div>
@@ -456,7 +457,7 @@ export default function SalesAndPrepPage() {
                               className="mt-3"
                               onClick={() => {
                                 const label = rec?.action_label;
-                                if (label?.includes("Settings")) navigate("/dashboard/settings");
+                                if (label?.includes("Settings")) navigate(POS_INTEGRATIONS_HREF);
                                 else if (prepItems.length > 0 && label?.toLowerCase().includes("prep")) setPrepListModalOpen(true);
                                 else navigate("/dashboard");
                               }}
@@ -541,7 +542,7 @@ export default function SalesAndPrepPage() {
                           className="mt-3"
                           onClick={() => {
                             const label = rec!.action_label;
-                            if (label?.includes("Settings")) navigate("/dashboard/settings");
+                            if (label?.includes("Settings")) navigate(POS_INTEGRATIONS_HREF);
                             else if (label?.toLowerCase().includes("prep")) setPrepListModalOpen(true);
                             else navigate("/dashboard");
                           }}

@@ -25,6 +25,8 @@ type SettingsSectionProps = {
   children: ReactNode;
   className?: string;
   contentClassName?: string;
+  /** Anchor for deep links (e.g. #pos-integration). */
+  id?: string;
   /** Let people fold the card away once they are done with it. */
   collapsible?: boolean;
   defaultOpen?: boolean;
@@ -40,6 +42,7 @@ export function SettingsSection({
   children,
   className,
   contentClassName,
+  id,
   collapsible = false,
   defaultOpen = true,
 }: SettingsSectionProps) {
@@ -71,8 +74,9 @@ export function SettingsSection({
 
   return (
     <Card
+      id={id}
       className={cn(
-        "border border-slate-200/90 bg-card shadow-sm dark:border-slate-800",
+        "border border-slate-200/90 bg-card shadow-sm dark:border-slate-800 scroll-mt-24",
         className,
       )}
     >

@@ -30,6 +30,22 @@ export type MastraChatMessage = {
 
 const MAX_STORED_MESSAGES = 200;
 
+/** Strip markdown markers and em/en dashes so chat never shows raw * or —. */
+export function sanitizeMiyaText(text: string): string {
+  if (!text) return text;
+  let cleaned = text
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^---+$/gm, "")
+    .replace(/\u2014/g, " - ")
+    .replace(/\u2013/g, " - ")
+    .replace(/`+/g, "")
+    .replace(/\*+/g, "");
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n").replace(/\.([A-Z])/g, ". $1").trim();
+  return cleaned;
+}
+
 function isValidStoredMessage(value: unknown): value is MastraChatMessage {
   if (!value || typeof value !== "object") return false;
   const row = value as MastraChatMessage;
@@ -55,6 +71,8 @@ export function loadMastraMessages(userId: string): MastraChatMessage[] {
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(isValidStoredMessage).map((msg) => ({
       ...msg,
+      content:
+        msg.role === "assistant" ? sanitizeMiyaText(msg.content) : msg.content,
       createdAt: typeof msg.createdAt === "number" ? msg.createdAt : undefined,
     }));
   } catch {
@@ -262,7 +280,11 @@ export async function runMastraChat(body: {
       message: message || "Agent request failed.",
     };
   }
-  return data;
+  return {
+    ...data,
+    text: typeof data.text === "string" ? sanitizeMiyaText(data.text) : data.text,
+    message: typeof data.message === "string" ? sanitizeMiyaText(data.message) : data.message,
+  };
 }
 
 export function mastraConversationStorageKey(userId: string): string {

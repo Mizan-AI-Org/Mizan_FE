@@ -525,9 +525,9 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
           {/* Evidence Panel */}
           <div className="mt-4">
             <Tabs defaultValue="evidence">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="evidence">Evidence</TabsTrigger>
-                <TabsTrigger value="actions">Actions</TabsTrigger>
+              <TabsList variant="compact" className="grid w-full grid-cols-2">
+                <TabsTrigger variant="compact" value="evidence">Evidence</TabsTrigger>
+                <TabsTrigger variant="compact" value="actions">Actions</TabsTrigger>
               </TabsList>
               <TabsContent value="evidence" className="mt-3">
                 <EvidencePanel step={currentStep} evidence={record.stepResponses.find(sr => sr.stepId === currentStep.id)?.evidence || []} onAddEvidence={locked ? () => { } : addEvidence} locked={locked} />

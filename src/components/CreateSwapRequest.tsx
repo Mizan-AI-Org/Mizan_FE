@@ -32,6 +32,20 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { API_BASE } from "@/lib/api";
+import { unwrapEnvelope } from "@/lib/envelope";
+
+function asList(payload: unknown): any[] {
+  const data = unwrapEnvelope(payload);
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    for (const key of ["results", "data", "items"]) {
+      if (Array.isArray(obj[key])) return obj[key] as any[];
+    }
+  }
+  return [];
+}
+
 
 
 
@@ -106,7 +120,7 @@ const CreateSwapRequest: React.FC<CreateSwapRequestProps> = ({ onSuccess }) => {
         },
       });
       if (!response.ok) throw new Error("Failed to fetch my shifts");
-      return response.json();
+      return asList(await response.json());
     },
     enabled: !!user,
   });
@@ -126,7 +140,7 @@ const CreateSwapRequest: React.FC<CreateSwapRequestProps> = ({ onSuccess }) => {
           },
         });
         if (!response.ok) throw new Error("Failed to fetch staff list");
-        return response.json();
+        return asList(await response.json());
       },
       enabled: !!restaurantId,
     }
@@ -149,7 +163,7 @@ const CreateSwapRequest: React.FC<CreateSwapRequestProps> = ({ onSuccess }) => {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to create swap request");
       }
-      return response.json();
+      return asList(await response.json());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["myShiftSwapRequests"] });

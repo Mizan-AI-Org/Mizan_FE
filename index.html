@@ -6,13 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <base href="/" />
   <script>
-    // Follow saved theme, else OS prefers-color-scheme. Applied before paint.
+    // Default to light. Dark only when saved as dark or system + OS prefers dark.
     (function () {
-      var t = null;
-      try { t = localStorage.getItem("theme"); } catch (e) {}
+      var pref = null;
+      try { pref = localStorage.getItem("theme"); } catch (e) {}
+      if (pref !== "light" && pref !== "dark" && pref !== "system") pref = "light";
       var dark =
-        t === "dark" ||
-        (t !== "light" &&
+        pref === "dark" ||
+        (pref === "system" &&
           window.matchMedia &&
           window.matchMedia("(prefers-color-scheme: dark)").matches);
       if (dark) document.documentElement.classList.add("dark");

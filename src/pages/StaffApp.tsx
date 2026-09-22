@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { unwrapEnvelope } from "@/lib/envelope";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -26,7 +27,6 @@ import {
     Clock,
     ClipboardCheck,
     TrendingUp,
-    Inbox,
     Search,
     Coffee,
     LogOut,
@@ -44,7 +44,6 @@ import {
     Shield,
     Key,
     CheckCircle2,
-    XCircle,
     MapPin,
     Briefcase,
     ExternalLink,
@@ -81,13 +80,13 @@ import {
 } from "lucide-react";
 import { API_BASE, BACKEND_URL, BackendService, api } from "@/lib/api";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
+import { normalizeStaffInsights, type StaffInsightsData } from "@/lib/staff-insights";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
 import { format, parseISO } from "date-fns";
-import StaffRequestsTab from "@/components/staff/StaffRequestsTab";
 import DeleteStaffConfirmation from "@/components/staff/DeleteStaffConfirmation";
 import DeactivateStaffConfirmation from "@/components/staff/DeactivateStaffConfirmation";
 import MoveStaffBranchDialog from "@/components/staff/MoveStaffBranchDialog";
@@ -100,6 +99,7 @@ import {
   isRoleAllowedForVertical,
   type BusinessVertical,
 } from "@/config/staffInviteRolesByVertical";
+import { t } from "i18next";
 
 const STAFF_MODAL_INPUT =
     "h-9 rounded-lg bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 font-medium [color-scheme:light] dark:[color-scheme:dark]";
@@ -360,36 +360,6 @@ type StaffDocument = {
     uploaded_at: string;
 };
 
-type AttendanceDashboardSummary = {
-    present: { count: number; percentage: number; total: number };
-    late: { count: number; avg_minutes: number };
-    absent: { count: number; reason: string };
-    on_leave: { count: number; subtitle: string };
-};
-
-type AttendanceListItem = {
-    staff: { id: string; name: string; role?: string | null };
-    shift: { start?: string | null; end?: string | null };
-    clock_in?: string | null;
-    clock_out?: string | null;
-    status: string;
-    late_minutes?: number;
-    signals?: string[];
-};
-
-type AttendanceActivityEvent = {
-    id: string;
-    time: string;
-    staff_name: string;
-    event: string;
-};
-
-type AttendanceDashboardData = {
-    summary?: AttendanceDashboardSummary;
-    attendance_list?: AttendanceListItem[];
-    recent_activity?: AttendanceActivityEvent[];
-};
-
 type ManagerTask = {
     id: string;
     title: string;
@@ -406,21 +376,6 @@ type BulkInviteRow = {
     role: string;
     email?: string;
     phone_number?: string;
-};
-
-type InsightRecommendation = {
-    title: string;
-    body: string;
-    action_label?: string;
-};
-
-type StaffInsightsData = {
-    summary: { tasks_completed: number; tasks_trend: number; team_reliability: number; active_workers: number };
-    star_performers: { name: string; role?: string; tasks: number; score: number }[];
-    attendance_health: { on_time_arrival: number; no_show_rate: number };
-    signals: { color: "emerald" | "amber"; text: string }[];
-    alerts: { level: "Critical" | "Warning" | string; type?: string; title: string; description?: string }[];
-    agent_recommendation?: InsightRecommendation | null;
 };
 
 // Reusable Pagination Controls Component
@@ -479,7 +434,7 @@ const PaginationControls: React.FC<{
                         value={pageSize}
                         onChange={(e) => onPageSizeChange(Number(e.target.value))}
                         disabled={isLoading}
-                        className="h-8 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs text-slate-700 dark:text-slate-200"
+                        className="h-8 rounded-lg border border-border bg-card px-2 text-xs text-foreground"
                         aria-label="Items per page"
                     >
                         {pageSizeOptions.map((n) => (
@@ -488,7 +443,7 @@ const PaginationControls: React.FC<{
                     </select>
                 )}
                 {showPaginationNumbers && (
-                    <div className="inline-flex items-center gap-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1 py-0.5">
+                    <div className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-card px-1 py-0.5">
                         <button
                             onClick={() => onPageChange(currentPage - 1)}
                             disabled={currentPage === 1 || isLoading}
@@ -1101,7 +1056,7 @@ const TeamTab: React.FC = () => {
                 }
                 throw new Error("Failed to fetch staff");
             }
-            return response.json();
+            return unwrapEnvelope(await response.json());
         },
     });
 
@@ -1114,7 +1069,7 @@ const TeamTab: React.FC = () => {
                 },
             });
             if (!response.ok) throw new Error("Failed to fetch invitations");
-            return response.json();
+            return unwrapEnvelope(await response.json());
         },
     });
 
@@ -1127,7 +1082,7 @@ const TeamTab: React.FC = () => {
                 },
             });
             if (!response.ok) throw new Error("Failed to fetch pending activations");
-            return response.json();
+            return unwrapEnvelope(await response.json());
         },
     });
 
@@ -1827,7 +1782,7 @@ const TeamTab: React.FC = () => {
                                         <Input
                                             value={formData.phone}
                                             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                            placeholder="e.g. 2203736808 (country code + number)"
+                                            placeholder="e.g. 212784476751 (country code + number)"
                                             className={STAFF_MODAL_INPUT}
                                         />
                                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -2965,7 +2920,7 @@ const TeamTab: React.FC = () => {
                         placeholder={t("staff.search")}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
+                        className="pl-10 bg-muted/50 border-border"
                     />
                 </div>
                 {multiBranch ? (
@@ -2987,14 +2942,14 @@ const TeamTab: React.FC = () => {
                         ))}
                     </select>
                 ) : null}
-                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                <div className="flex items-center bg-muted p-1 rounded-lg">
                     <button
                         onClick={() => setViewMode('grid')}
                         className={cn(
                             "p-1.5 rounded-md transition-all",
                             viewMode === 'grid'
-                                ? "bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm"
-                                : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                                ? "bg-card text-emerald-600 dark:text-emerald-400 shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
                         )}
                         title={t("common.grid_view")}
                     >
@@ -3005,8 +2960,8 @@ const TeamTab: React.FC = () => {
                         className={cn(
                             "p-1.5 rounded-md transition-all",
                             viewMode === 'list'
-                                ? "bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm"
-                                : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                                ? "bg-card text-emerald-600 dark:text-emerald-400 shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
                         )}
                         title={t("common.list_view")}
                     >
@@ -3051,7 +3006,7 @@ const TeamTab: React.FC = () => {
             ) : null}
 
             {/* Staff Directory */}
-            <Card className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80">
+            <Card className="border border-border bg-card">
                 <CardContent className="pt-6">
                     {isLoading ? (
                         viewMode === 'list' ? (
@@ -3164,121 +3119,129 @@ const TeamTab: React.FC = () => {
                                                 if (f.length >= 2) return f.slice(0, 2).toUpperCase();
                                                 return (f[0] || "?").toUpperCase();
                                             })();
+                                            const contactLine = (() => {
+                                                const email = member.email || "";
+                                                const phone = member.phone || phoneFromWhatsAppEmail(email);
+                                                const isWhatsApp =
+                                                    isWhatsAppActivationEmail(email) ||
+                                                    /^\d+@mizan\.ai$/i.test(email);
+                                                if (isWhatsApp && phone) {
+                                                    return { icon: MessageCircle, text: phone };
+                                                }
+                                                if (email && !isWhatsAppActivationEmail(email)) {
+                                                    return { icon: Mail, text: email };
+                                                }
+                                                if (phone) {
+                                                    return { icon: Phone, text: phone };
+                                                }
+                                                return { icon: Mail, text: t("common.not_provided") };
+                                            })();
+                                            const ContactIcon = contactLine.icon;
                                             return (
                                             <Card
                                                 key={member.id}
                                                 className={cn(
-                                                    "group relative flex flex-col overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700/80",
-                                                    "bg-white dark:bg-slate-900/80 hover:border-emerald-500/40 hover:shadow-md dark:hover:shadow-none transition-all duration-200",
+                                                    "group relative overflow-hidden rounded-2xl border border-border/80 bg-card",
+                                                    "shadow-sm hover:shadow-lg hover:border-emerald-500/30 transition-all duration-200",
                                                     isSelected && "ring-2 ring-emerald-500 border-emerald-400 dark:border-emerald-600",
                                                 )}
                                             >
-                                                {multiBranch ? (
-                                                    <div className="absolute top-3 left-3 z-20">
-                                                        <Checkbox
-                                                            checked={isSelected}
-                                                            onCheckedChange={() => toggleStaffSelected(member)}
-                                                            className="bg-white/90 dark:bg-slate-800 border-slate-300 dark:border-slate-600 shadow-sm"
-                                                            aria-label={`Select ${member.first_name}`}
-                                                        />
-                                                    </div>
-                                                ) : null}
-                                                <div className="relative h-14 shrink-0 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-800 dark:to-slate-950">
-                                                    <div className="absolute top-2 right-2 z-10 flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-7 w-7 rounded-md text-white/80 hover:text-white hover:bg-white/15"
-                                                            onClick={() => handleViewProfile(member)}
-                                                            title={t("common.view_profile")}
-                                                        >
-                                                            <Eye className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-7 w-7 rounded-md text-white/80 hover:text-white hover:bg-white/15"
-                                                            onClick={() => handleEditProfile(member)}
-                                                            title={t("common.edit_profile")}
-                                                        >
-                                                            <Edit className="h-3.5 w-3.5" />
-                                                        </Button>
+                                                <div
+                                                    className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400"
+                                                    aria-hidden
+                                                />
+                                                <CardContent className="p-4">
+                                                    <div className="flex items-start gap-3">
                                                         {multiBranch ? (
+                                                            <div className="pt-1 shrink-0">
+                                                                <Checkbox
+                                                                    checked={isSelected}
+                                                                    onCheckedChange={() => toggleStaffSelected(member)}
+                                                                    className="border-slate-300 dark:border-slate-600"
+                                                                    aria-label={`Select ${member.first_name}`}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                            </div>
+                                                        ) : null}
+                                                        <button
+                                                            type="button"
+                                                            className="flex min-w-0 flex-1 items-start gap-3 text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"
+                                                            onClick={() => handleViewProfile(member)}
+                                                        >
+                                                            <Avatar className="h-12 w-12 shrink-0 ring-2 ring-background shadow-md">
+                                                                <AvatarFallback className="text-sm font-bold bg-gradient-to-br from-emerald-100 to-teal-50 text-emerald-800 dark:from-emerald-950 dark:to-slate-900 dark:text-emerald-200">
+                                                                    {initials}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                            <div className="min-w-0 flex-1 space-y-1.5 pt-0.5">
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <h3 className="font-semibold text-[15px] leading-snug text-slate-900 dark:text-white truncate">
+                                                                        {member.first_name} {member.last_name}
+                                                                    </h3>
+                                                                    <Badge
+                                                                        variant="secondary"
+                                                                        className="shrink-0 capitalize text-[10px] font-medium px-2 py-0 bg-muted/80"
+                                                                    >
+                                                                        {staffRoleLabel(member)}
+                                                                    </Badge>
+                                                                </div>
+                                                                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                                    <ContactIcon className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                                                                    <span className="truncate">{contactLine.text}</span>
+                                                                </p>
+                                                                {multiBranch && member.primary_location_data?.name ? (
+                                                                    <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                                                                        <MapPin className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+                                                                        <span className="truncate">{member.primary_location_data.name}</span>
+                                                                    </p>
+                                                                ) : null}
+                                                                <Badge
+                                                                    className={cn(
+                                                                        "mt-1 text-[10px] font-semibold px-2 py-0 rounded-full uppercase tracking-wide",
+                                                                        member.is_active
+                                                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
+                                                                            : "bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900",
+                                                                    )}
+                                                                >
+                                                                    {member.is_active ? t("common.active") : t("common.inactive")}
+                                                                </Badge>
+                                                            </div>
+                                                        </button>
+                                                        <div
+                                                            className="flex shrink-0 flex-col gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
-                                                                className="h-7 w-7 rounded-md text-white/80 hover:text-white hover:bg-white/15"
-                                                                onClick={() => openMoveDialog([member])}
-                                                                title="Move to branch"
+                                                                className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+                                                                onClick={() => handleViewProfile(member)}
+                                                                title={t("common.view_profile")}
                                                             >
-                                                                <ArrowRightLeft className="h-3.5 w-3.5" />
+                                                                <Eye className="h-4 w-4" />
                                                             </Button>
-                                                        ) : null}
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+                                                                onClick={() => handleEditProfile(member)}
+                                                                title={t("common.edit_profile")}
+                                                            >
+                                                                <Edit className="h-4 w-4" />
+                                                            </Button>
+                                                            {multiBranch ? (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+                                                                    onClick={() => openMoveDialog([member])}
+                                                                    title="Move to branch"
+                                                                >
+                                                                    <ArrowRightLeft className="h-4 w-4" />
+                                                                </Button>
+                                                            ) : null}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <CardContent className="relative flex flex-col items-center px-3 pb-3 pt-0 text-center flex-1">
-                                                    <Avatar className="h-14 w-14 -mt-7 mb-2 border-[3px] border-white dark:border-slate-900 shadow-md shrink-0">
-                                                        <AvatarFallback className="text-base bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-bold">
-                                                            {initials}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <h3 className="font-semibold text-sm text-slate-900 dark:text-white truncate w-full">
-                                                        {member.first_name} {member.last_name}
-                                                    </h3>
-                                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mt-0.5 mb-1.5 truncate w-full">
-                                                        {staffRoleLabel(member)}
-                                                    </p>
-                                                    {multiBranch && member.primary_location_data?.name ? (
-                                                        <p className="flex items-center justify-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 mb-1.5 w-full">
-                                                            <MapPin className="w-3 h-3 shrink-0" />
-                                                            <span className="truncate">{member.primary_location_data.name}</span>
-                                                        </p>
-                                                    ) : null}
-                                                    <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-2 w-full min-h-[1.25rem]">
-                                                        {(() => {
-                                                            const email = member.email || "";
-                                                            const phone = member.phone || phoneFromWhatsAppEmail(email);
-                                                            const isWhatsApp = isWhatsAppActivationEmail(email) || /^\d+@mizan\.ai$/i.test(email);
-                                                            if (isWhatsApp && phone) {
-                                                                return (
-                                                                    <>
-                                                                        <MessageCircle className="w-3 h-3" />
-                                                                        <span className="truncate">{phone}</span>
-                                                                    </>
-                                                                );
-                                                            }
-                                                            if (email && !isWhatsAppActivationEmail(email)) {
-                                                                return (
-                                                                    <>
-                                                                        <Mail className="w-3 h-3" />
-                                                                        <span className="truncate">{email}</span>
-                                                                    </>
-                                                                );
-                                                            }
-                                                            if (phone) {
-                                                                return (
-                                                                    <>
-                                                                        <Phone className="w-3 h-3" />
-                                                                        <span className="truncate">{phone}</span>
-                                                                    </>
-                                                                );
-                                                            }
-                                                            return (
-                                                                <>
-                                                                    <Mail className="w-3 h-3" />
-                                                                    <span className="truncate">{t("common.not_provided")}</span>
-                                                                </>
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                    <Badge className={cn(
-                                                        "text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide mt-auto",
-                                                        member.is_active
-                                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
-                                                            : "bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900"
-                                                    )}>
-                                                        {member.is_active ? t("common.active") : t("common.inactive")}
-                                                    </Badge>
                                                 </CardContent>
                                             </Card>
                                             );
@@ -3295,7 +3258,10 @@ const TeamTab: React.FC = () => {
 
                             <PaginationControls
                                 currentPage={staffPage}
-                                count={staffData?.count || 0}
+                                count={
+                                    staffData?.count ??
+                                    (filteredStaff.length > 0 ? filteredStaff.length : 0)
+                                }
                                 pageSize={staffPageSize}
                                 onPageChange={setStaffPage}
                                 onPageSizeChange={(size) => {
@@ -3418,342 +3384,6 @@ const TeamTab: React.FC = () => {
 
 // Attendance Tab Component
 // Attendance Tab Component
-const AttendanceTab: React.FC = () => {
-    const { logout } = useAuth() as AuthContextType;
-    const { t } = useLanguage();
-    const [liveSearch, setLiveSearch] = useState("");
-    const [livePage, setLivePage] = useState(1);
-    const [livePageSize, setLivePageSize] = useState(25);
-    const { data: dashboardData, isLoading, refetch } = useQuery<AttendanceDashboardData>({
-        queryKey: ["attendance-dashboard"],
-        queryFn: async () => {
-            const response = await fetch(`${API_BASE}/dashboard/analytics/attendance_dashboard/`, {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-                },
-            });
-            if (!response.ok) {
-                if (response.status === 401) logout();
-                throw new Error("Failed to fetch attendance dashboard");
-            }
-            return response.json();
-        },
-        refetchInterval: 60_000,
-    });
-
-    const summary: AttendanceDashboardSummary = dashboardData?.summary || {
-        present: { count: 0, percentage: 0, total: 0 }, // added total to avoid NaN
-        late: { count: 0, avg_minutes: 0 },
-        absent: { count: 0, reason: '' },
-        on_leave: { count: 0, subtitle: '' }
-    };
-
-    const attendanceList: AttendanceListItem[] = dashboardData?.attendance_list || [];
-    const recentActivity: AttendanceActivityEvent[] = dashboardData?.recent_activity || [];
-
-    // Live list: filter by search, then paginate (ready for 100+ staff)
-    const liveSearchLower = (liveSearch || "").trim().toLowerCase();
-    const filteredLiveList = liveSearchLower
-        ? attendanceList.filter(
-            (item) =>
-                item.staff.name?.toLowerCase().includes(liveSearchLower) ||
-                (item.staff.role && item.staff.role.replace(/_/g, " ").toLowerCase().includes(liveSearchLower))
-        )
-        : attendanceList;
-    const totalLive = filteredLiveList.length;
-    const liveFrom = (livePage - 1) * livePageSize;
-    const liveTo = Math.min(liveFrom + livePageSize, totalLive);
-    const paginatedLiveList = filteredLiveList.slice(liveFrom, liveTo);
-
-    return (
-        <div className="space-y-8">
-            {/* 1. Top Summary Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="border-slate-100 dark:border-slate-800 bg-card shadow-sm">
-                    <CardContent className="pt-6 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 opacity-5">
-                            <UserCheck className="w-24 h-24 text-emerald-600" />
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
-                                <UserCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                            </div>
-                            <div>
-                                <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                                    {summary.present.count} <span className="text-lg text-slate-400 font-medium">/ {summary.present.total}</span>
-                                </div>
-                                <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest mt-1">
-                                    {summary.present.percentage}{t("staff.attendance.pct_attendance")}
-                                </p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-slate-100 dark:border-slate-800 bg-card shadow-sm">
-                    <CardContent className="pt-6 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 opacity-5">
-                            <Clock className="w-24 h-24 text-amber-500" />
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
-                                <Clock className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-                            </div>
-                            <div>
-                                <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                                    {summary.late.count} <span className="text-lg text-slate-400 font-medium">{t("staff.attendance.late")}</span>
-                                </div>
-                                <p className="text-xs font-bold text-amber-600 uppercase tracking-widest mt-1">
-                                    {t("staff.attendance.avg_min", { count: summary.late.avg_minutes })}
-                                </p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-slate-100 dark:border-slate-800 bg-card shadow-sm">
-                    <CardContent className="pt-6 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 opacity-5">
-                            <XCircle className="w-24 h-24 text-red-500" />
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
-                                <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
-                            </div>
-                            <div>
-                                <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                                    {summary.absent.count} <span className="text-lg text-slate-400 font-medium">{t("staff.attendance.absent")}</span>
-                                </div>
-                                <p className="text-xs font-bold text-red-600 uppercase tracking-widest mt-1">
-                                    {summary.absent.reason}
-                                </p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-slate-100 dark:border-slate-800 bg-card shadow-sm">
-                    <CardContent className="pt-6 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 opacity-5">
-                            <Coffee className="w-24 h-24 text-blue-500" />
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
-                                <Coffee className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                            </div>
-                            <div>
-                                <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                                    {summary.on_leave.count} <span className="text-lg text-slate-400 font-medium">{t("staff.attendance.on_leave")}</span>
-                                </div>
-                                <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">
-                                    {summary.on_leave.subtitle}
-                                </p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
-                {/* 3. Live Attendance Table - scalable for 100+ staff */}
-                <div className="space-y-4 flex flex-col">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Users className="w-5 h-5 text-slate-500" />
-                        {t("staff.attendance.live_list")}
-                    </h3>
-                    <div className="flex flex-col gap-3">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                            <Input
-                                placeholder={t("staff.attendance.search_placeholder")}
-                                value={liveSearch}
-                                onChange={(e) => { setLiveSearch(e.target.value); setLivePage(1); }}
-                                className="pl-9 h-10 bg-card border-slate-200 dark:border-slate-700"
-                            />
-                        </div>
-                        <div className="flex items-center justify-between gap-2 flex-wrap text-xs text-slate-500 dark:text-slate-400">
-                            <span>{t("staff.attendance.showing", { from: totalLive === 0 ? 0 : liveFrom + 1, to: liveTo, total: totalLive })}</span>
-                            <div className="flex items-center gap-2">
-                                <Label htmlFor="live-page-size" className="text-slate-500 whitespace-nowrap">{t("staff.attendance.page_size")}</Label>
-                                <select
-                                    id="live-page-size"
-                                    value={livePageSize}
-                                    onChange={(e) => { setLivePageSize(Number(e.target.value)); setLivePage(1); }}
-                                    className="h-8 rounded-md border border-slate-200 dark:border-slate-700 bg-card text-slate-900 dark:text-white text-xs px-2"
-                                >
-                                    {[25, 50, 100].map((n) => (
-                                        <option key={n} value={n}>{n}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-card rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1 min-h-[320px] flex flex-col">
-                        <div className="overflow-auto flex-1">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-slate-50/50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800">
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.page.title")}</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider hidden sm:table-cell">{t("staff.invite.role")}</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.shift")}</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.clock_in")}</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.status")}</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {isLoading ? (
-                                    <>
-                                        {Array.from({ length: 6 }).map((_, i) => (
-                                            <TableRow key={i}>
-                                                <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                                                <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </>
-                                ) : attendanceList.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-12">
-                                            <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                                                <Calendar className="w-8 h-8 text-slate-300" />
-                                            </div>
-                                            <p className="text-lg font-bold text-slate-900 dark:text-white">{t("staff.attendance.no_shifts")}</p>
-                                            <p className="text-slate-500 text-sm">{t("staff.attendance.free_day")}</p>
-                                        </TableCell>
-                                    </TableRow>
-                                ) : paginatedLiveList.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8 text-slate-500">
-                                            {t("staff.attendance.search_placeholder")} - no match.
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    paginatedLiveList.map((item) => (
-                                        <TableRow key={item.staff.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors border-slate-100 dark:border-slate-800">
-                                            <TableCell>
-                                                <div className="flex items-center gap-3">
-                                                    <Avatar className="w-9 h-9 border border-slate-100">
-                                                        <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.staff.name}`} />
-                                                        <AvatarFallback>{item.staff.name.substring(0, 2)}</AvatarFallback>
-                                                    </Avatar>
-                                                    <div>
-                                                        <p className="font-bold text-slate-900 dark:text-white text-sm">{item.staff.name}</p>
-                                                        {/* Inline Signals */}
-                                                        {item.signals && item.signals.length > 0 && (
-                                                            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                                                                {item.signals.map((sig: string, idx: number) => (
-                                                                    <span key={idx} className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-medium">
-                                                                        {sig}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="hidden sm:table-cell">
-                                                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider border-slate-200 text-slate-500">
-                                                    {item.staff.role?.replace('_', ' ')}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                                                {item.shift.start ? `${item.shift.start} - ${item.shift.end}` : <span className="text-slate-400 italic">{t("staff.attendance.unscheduled")}</span>}
-                                            </TableCell>
-                                            <TableCell className="text-sm font-bold text-slate-900 dark:text-white">
-                                                {item.clock_in || <span className="text-slate-300">-</span>}
-                                            </TableCell>
-                                            <TableCell>
-                                                {/* Status Badges */}
-                                                {item.status === 'on_time' && (
-                                                    <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none px-2 py-1 gap-1.5 flex w-fit">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                        {t("staff.attendance.on_time")}
-                                                    </Badge>
-                                                )}
-                                                {item.status === 'late' && (
-                                                    <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none px-2 py-1 gap-1.5 flex w-fit">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                                        {t("staff.attendance.late")} ({item.late_minutes}m)
-                                                    </Badge>
-                                                )}
-                                                {item.status === 'absent' && (
-                                                    <Badge className="bg-red-100 text-red-700 hover:bg-red-200 border-none px-2 py-1 gap-1.5 flex w-fit">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                                                        {t("staff.attendance.absent")}
-                                                    </Badge>
-                                                )}
-                                                {(item.status === 'present' || item.status === 'scheduled') && (
-                                                    <Badge variant="outline" className="text-slate-500 border-slate-300">
-                                                        {item.status === 'scheduled' ? t("staff.attendance.scheduled") : t("staff.attendance.present")}
-                                                    </Badge>
-                                                )}
-                                                {(item.status === 'clocked_out') && (
-                                                    <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 border-none px-2 py-1 gap-1.5 flex w-fit">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                                        {t("staff.attendance.shift_over")}
-                                                    </Badge>
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                        </div>
-                        {totalLive > livePageSize && (
-                            <div className="border-t border-slate-100 dark:border-slate-800 p-2 flex justify-center">
-                                <PaginationControls
-                                    currentPage={livePage}
-                                    count={totalLive}
-                                    pageSize={livePageSize}
-                                    onPageChange={setLivePage}
-                                />
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* 4. Attendance Events Feed */}
-                <div className="space-y-4 flex flex-col">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-slate-500" />
-                        {t("staff.attendance.events")}
-                    </h3>
-                    <div className="bg-card rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-0 overflow-hidden flex-1">
-                        <div className="h-full overflow-y-auto p-4 space-y-0 min-h-[400px]">
-                            {recentActivity.length === 0 ? (
-                                <div className="text-center py-8">
-                                    <p className="text-slate-400 text-sm">{t("staff.attendance.no_events")}</p>
-                                </div>
-                            ) : (
-                                recentActivity.map((event, i: number) => (
-                                    <div key={event.id} className="relative pl-6 pb-6 last:pb-0 border-l border-slate-100 dark:border-slate-800">
-                                        <div className={cn(
-                                            "absolute -left-1.5 top-0 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900",
-                                            event.event.includes("In") ? "bg-emerald-500" :
-                                                event.event.includes("Out") ? "bg-slate-400" : "bg-blue-400"
-                                        )} />
-                                        <div className="flex flex-col">
-                                            <span className="text-xs font-bold text-slate-400 mb-0.5">{event.time}</span>
-                                            <p className="text-sm font-medium text-slate-900 dark:text-white">
-                                                <span className="font-bold">{event.staff_name}</span> {event.event.toLowerCase()}
-                                            </p>
-                                            {event.event.includes("Late") && (
-                                                <span className="text-[10px] text-amber-600 font-bold mt-1">{t("staff.attendance.late_arrival")}</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 // Tasks Tab Component
 const TasksTab: React.FC = () => {
@@ -3919,7 +3549,8 @@ const InsightsTab: React.FC = () => {
                 if (response.status === 401) logout();
                 throw new Error("Failed to fetch insights");
             }
-            return response.json();
+            const json = await response.json();
+            return normalizeStaffInsights(json);
         },
         refetchInterval: 60_000,
         refetchOnWindowFocus: true,
@@ -3938,15 +3569,9 @@ const InsightsTab: React.FC = () => {
         );
     }
 
-    const { summary, star_performers, attendance_health, signals, alerts } = insightsData || {
-        summary: { tasks_completed: 0, tasks_trend: 0, team_reliability: 0, active_workers: 0 },
-        star_performers: [],
-        attendance_health: { on_time_arrival: 0, no_show_rate: 0 },
-        signals: [],
-        alerts: [],
-        agent_recommendation: null
-    };
-    const insightRecommendation = insightsData?.agent_recommendation ?? null;
+    const insights = insightsData ?? normalizeStaffInsights(null);
+    const { summary, star_performers, attendance_health, signals, alerts } = insights;
+    const insightRecommendation = insights.agent_recommendation ?? null;
 
     return (
         <div className="space-y-8 pb-10">
@@ -4006,7 +3631,7 @@ const InsightsTab: React.FC = () => {
             {/* Middle Section: Performance & Attendance */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Leaderboard */}
-                <Card className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80">
+                <Card className="border border-border bg-card">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <div>
                             <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -4072,7 +3697,7 @@ const InsightsTab: React.FC = () => {
                 </Card>
 
                 {/* Attendance Trends */}
-                <Card className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80">
+                <Card className="border border-border bg-card">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <div>
                             <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -4228,26 +3853,17 @@ const getDocumentUrl = (path: string) => {
 };
 
 export default function StaffApp() {
-    const { user } = useAuth() as AuthContextType;
     const { t } = useLanguage();
     const [searchParams, setSearchParams] = useSearchParams();
-    const showRequestsTab = Boolean(user?.role && ["SUPER_ADMIN", "ADMIN", "MANAGER", "OWNER"].includes(user.role));
 
-    // Tabs available in this view. We keep this list in one place so the
-    // ?tab= query param can only ever resolve to a tab that actually exists
-    // (otherwise we silently fall back to "team"). This is what lets the
-    // dashboard's Clock-in widget deep-link straight to "Live Attendance".
-    const validTabs = useMemo(() => {
-        const base = ["team", "presence", "attendance", "insights"];
-        return showRequestsTab ? [...base, "requests"] : base;
-    }, [showRequestsTab]);
-
+    // Legacy People tabs: attendance → Attendance page; requests → Staff Inbox.
     const tabFromUrl = searchParams.get("tab");
+
+    const validTabs = useMemo(() => ["team", "presence", "insights"], []);
+
     const initialTab = tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : "team";
     const [activeTab, setActiveTab] = useState(initialTab);
 
-    // Keep state in sync if the URL changes (e.g. user navigates here from
-    // another widget after the page is already mounted, or hits Back/Forward).
     useEffect(() => {
         if (tabFromUrl && validTabs.includes(tabFromUrl) && tabFromUrl !== activeTab) {
             setActiveTab(tabFromUrl);
@@ -4265,6 +3881,13 @@ export default function StaffApp() {
         setSearchParams(params, { replace: true });
     };
 
+    if (tabFromUrl === "attendance") {
+        return <Navigate to="/dashboard/employees/attendance" replace />;
+    }
+    if (tabFromUrl === "requests") {
+        return <Navigate to="/dashboard/staff-requests" replace />;
+    }
+
     return (
         <div className={`${PAGE_SHELL_PADDED} space-y-6 min-w-0`}>
             <header className="space-y-1">
@@ -4275,7 +3898,7 @@ export default function StaffApp() {
             </header>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-6">
-                <TabsList className={`w-full grid h-auto ${showRequestsTab ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-2 sm:grid-cols-4"} bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 p-1 rounded-xl`}>
+                <TabsList className="w-full grid h-auto grid-cols-2 sm:grid-cols-3 bg-muted/80 border border-border p-1 rounded-xl">
                     <TabsTrigger value="team" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white dark:data-[state=active]:bg-emerald-600 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
                         <Users className="w-4 h-4 mr-2 shrink-0" />
                         {t("staff.tabs.team")}
@@ -4284,16 +3907,6 @@ export default function StaffApp() {
                         <UserCheck className="w-4 h-4 mr-2 shrink-0" />
                         {t("staff.tabs.presence")}
                     </TabsTrigger>
-                    <TabsTrigger value="attendance" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white dark:data-[state=active]:bg-emerald-600 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
-                        <Clock className="w-4 h-4 mr-2 shrink-0" />
-                        {t("staff.tabs.attendance")}
-                    </TabsTrigger>
-                    {showRequestsTab && (
-                        <TabsTrigger value="requests" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white dark:data-[state=active]:bg-emerald-600 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
-                            <Inbox className="w-4 h-4 mr-2 shrink-0" />
-                            {t("staff.tabs.requests")}
-                        </TabsTrigger>
-                    )}
                     <TabsTrigger value="insights" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white dark:data-[state=active]:bg-emerald-600 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all">
                         <TrendingUp className="w-4 h-4 mr-2 shrink-0" />
                         {t("staff.tabs.insights")}
@@ -4302,10 +3915,6 @@ export default function StaffApp() {
 
                 <TabsContent value="presence" className="mt-0"><PresenceTab /></TabsContent>
                 <TabsContent value="team" className="mt-0"><TeamTab /></TabsContent>
-                <TabsContent value="attendance" className="mt-0"><AttendanceTab /></TabsContent>
-                {showRequestsTab && (
-                    <TabsContent value="requests" className="mt-0"><StaffRequestsTab /></TabsContent>
-                )}
                 <TabsContent value="insights" className="mt-0"><InsightsTab /></TabsContent>
             </Tabs>
         </div>
