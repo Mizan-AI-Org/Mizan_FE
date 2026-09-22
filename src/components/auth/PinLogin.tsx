@@ -64,7 +64,7 @@ const PinLogin: React.FC = () => {
         try {
             await loginWithPin(pin, null, imageSrc, latitude, longitude);
             toast.success(t("generic.toast.login_successful"));
-            navigate('/staff-dashboard'); // Redirect to staff dashboard after successful login
+            // AuthContext.loginWithPin already navigates (dashboard or /staff-whatsapp).
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : t("auth.pin.login_failed");
             toast.error(message);

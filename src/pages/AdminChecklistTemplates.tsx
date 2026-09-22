@@ -91,10 +91,10 @@ const AdminChecklistTemplates: React.FC = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <Tabs defaultValue="template">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="template">Template</TabsTrigger>
-              <TabsTrigger value="assignee">Assignee</TabsTrigger>
-              <TabsTrigger value="schedule">Schedule</TabsTrigger>
+            <TabsList variant="compact" className="grid w-full grid-cols-3">
+              <TabsTrigger variant="compact" value="template">Template</TabsTrigger>
+              <TabsTrigger variant="compact" value="assignee">Assignee</TabsTrigger>
+              <TabsTrigger variant="compact" value="schedule">Schedule</TabsTrigger>
             </TabsList>
             <TabsContent value="template" className="mt-3">
               <div className="grid gap-3">

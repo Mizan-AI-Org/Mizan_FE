@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Menu } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
@@ -10,22 +10,27 @@ import { cn } from "@/lib/utils";
 import { OPERATIONAL_COMMAND_ROLES } from "@/lib/operationalCommandRoles";
 import {
   IconAttention,
-  IconAutomation,
-  IconBusiness,
+  IconSocial,
   IconCommand,
+  IconCustomers,
+  IconFinancials,
+  IconIntelligence,
   IconPeople,
+  IconProducts,
   IconSettings,
+  IconSuppliers,
   IconWork,
 } from "@/components/layout/mizan-nav-icons";
+import {
+  SOCIAL_MEDIA_SECTIONS,
+  DOMAIN_SECTIONS,
+  SETTINGS_SECTIONS,
+  type DomainId,
+  type DomainNavLeaf,
+} from "@/lib/mizan-domains";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
-type NavLeaf = {
-  labelKey: string;
-  href: string;
-  appId?: string;
-  roles?: string[];
-  /** Treat as active when the route carries no query of its own (default tab). */
-  matchesBareRoute?: boolean;
-};
+type NavLeaf = DomainNavLeaf;
 type NavGroup = {
   id: string;
   labelKey: string;
@@ -40,6 +45,10 @@ const RAIL_EXPANDED = 232;
 const RAIL_COLLAPSED = 72;
 const ICON = "h-[22px] w-[22px]";
 
+function domainLeaves(id: DomainId): NavLeaf[] {
+  return DOMAIN_SECTIONS[id];
+}
+
 const GROUPS: NavGroup[] = [
   {
     id: "command",
@@ -50,54 +59,75 @@ const GROUPS: NavGroup[] = [
   },
   {
     id: "attention",
-    labelKey: "nav.attention",
+    labelKey: "nav.widget",
     icon: IconAttention,
     href: "/dashboard/attention",
     roles: [...OPERATIONAL_COMMAND_ROLES],
   },
   {
-    id: "work",
-    labelKey: "nav.work",
+    id: "operations",
+    labelKey: "nav.operations",
     icon: IconWork,
-    href: "/dashboard/operations-live",
+    href: "/dashboard/operations",
     roles: [...OPERATIONAL_COMMAND_ROLES],
-    children: [
-      { labelKey: "nav.work.live_operations", href: "/dashboard/operations-live", appId: "operations_live" },
-      { labelKey: "nav.work.tasks", href: "/dashboard/tasks", appId: "tasks" },
-      { labelKey: "nav.work.incidents", href: "/dashboard/reviews/checklists?tab=incidents", appId: "checklists" },
-      { labelKey: "nav.work.requests", href: "/dashboard/staff-requests", appId: "staff_requests" },
-    ],
+    children: domainLeaves("operations"),
   },
   {
-    id: "people",
-    labelKey: "nav.people",
+    id: "employees",
+    labelKey: "nav.employees",
     icon: IconPeople,
-    href: "/dashboard/staff-app",
+    href: "/dashboard/employees",
     roles: [...OPERATIONAL_COMMAND_ROLES],
-    children: [
-      { labelKey: "nav.people.staff", href: "/dashboard/staff-app", appId: "staff" },
-      { labelKey: "nav.people.scheduling", href: "/dashboard/scheduling", appId: "scheduling" },
-    ],
+    children: domainLeaves("employees"),
   },
   {
-    id: "business",
-    labelKey: "nav.business",
-    icon: IconBusiness,
-    href: "/dashboard/reports",
-    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
-    children: [
-      { labelKey: "nav.business.analytics", href: "/dashboard/reports", appId: "reports" },
-      { labelKey: "nav.business.locations", href: "/dashboard/locations-overview", appId: "locations_overview" },
-      { labelKey: "nav.business.approvals", href: "/dashboard/staff-requests?list=finance&filter=pending_approval", appId: "staff_requests" },
-    ],
+    id: "products",
+    labelKey: "nav.products",
+    icon: IconProducts,
+    href: "/dashboard/products",
+    roles: [...OPERATIONAL_COMMAND_ROLES],
+    children: domainLeaves("products"),
   },
   {
-    id: "automation",
-    labelKey: "nav.automation",
-    icon: IconAutomation,
-    href: "/dashboard/automation",
-    appId: "automations",
+    id: "customers",
+    labelKey: "nav.customers",
+    icon: IconCustomers,
+    href: "/dashboard/customers",
+    roles: [...OPERATIONAL_COMMAND_ROLES],
+    children: domainLeaves("customers"),
+  },
+  {
+    id: "suppliers",
+    labelKey: "nav.suppliers",
+    icon: IconSuppliers,
+    href: "/dashboard/suppliers",
     roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+    children: domainLeaves("suppliers"),
+  },
+  {
+    id: "financials",
+    labelKey: "nav.financials",
+    icon: IconFinancials,
+    href: "/dashboard/financials",
+    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+    children: domainLeaves("financials"),
+  },
+  {
+    id: "intelligence",
+    labelKey: "nav.intelligence",
+    icon: IconIntelligence,
+    href: "/dashboard/intelligence/insights",
+    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+    children: domainLeaves("intelligence"),
+  },
+  {
+    id: "social_media",
+    labelKey: "nav.social_media",
+    icon: IconSocial,
+    href: "/dashboard/social-media",
+    appId: "social_media",
+    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+    children: SOCIAL_MEDIA_SECTIONS,
   },
   {
     id: "settings",
@@ -106,28 +136,19 @@ const GROUPS: NavGroup[] = [
     href: "/dashboard/settings",
     appId: "settings",
     roles: ["SUPER_ADMIN", "ADMIN", "OWNER"],
-    children: [
-      { labelKey: "settings.tabs.profile", href: "/dashboard/settings?tab=profile", matchesBareRoute: true },
-      { labelKey: "settings.tabs.general", href: "/dashboard/settings?tab=general" },
-      { labelKey: "settings.tabs.geolocation", href: "/dashboard/settings?tab=location" },
-      { labelKey: "settings.tabs.integrations", href: "/dashboard/settings?tab=integrations" },
-      { labelKey: "settings.tabs.billing", href: "/dashboard/settings?tab=billing" },
-      { labelKey: "settings.tabs.compliance", href: "/dashboard/settings?tab=compliance" },
-      { labelKey: "settings.tabs.payguard", href: "/dashboard/settings?tab=payguard" },
-      { labelKey: "nav.settings.role_permissions", href: "/dashboard/settings/permissions" },
-    ],
+    children: SETTINGS_SECTIONS,
   },
 ];
 
-function pathMatches(pathname: string, href: string) {
+function pathMatches(pathname: string, href: string, exact?: boolean) {
   const base = href.split("#")[0].split("?")[0];
-  if (base === "/dashboard") return pathname === "/dashboard";
+  if (exact || base === "/dashboard") return pathname === base;
   return pathname === base || pathname.startsWith(base + "/");
 }
 
 function groupOwnsPath(group: NavGroup, pathname: string, search: string) {
   if ((group.children || []).some((c) => leafMatches(pathname, search, c))) return true;
-  if (group.href) return pathMatches(pathname, group.href);
+  if (group.href) return pathMatches(pathname, group.href, group.href === "/dashboard");
   return false;
 }
 
@@ -137,7 +158,7 @@ function groupOwnsPath(group: NavGroup, pathname: string, search: string) {
  */
 function leafMatches(pathname: string, search: string, leaf: NavLeaf) {
   const [routePart, queryPart] = leaf.href.split("#")[0].split("?");
-  if (!queryPart) return pathMatches(pathname, routePart);
+  if (!queryPart) return pathMatches(pathname, routePart, leaf.exact);
   if (pathname !== routePart) return false;
 
   const current = new URLSearchParams(search);
@@ -191,11 +212,7 @@ export function IntentRail({ className }: { className?: string }) {
       return false;
     }
   });
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    work: true,
-    people: false,
-    business: false,
-  });
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setRailWidthVar(collapsed);
@@ -207,8 +224,20 @@ export function IntentRail({ className }: { className?: string }) {
       (g) => g.children?.length && groupOwnsPath(g, location.pathname, location.search),
     );
     if (!owning) return;
-    setOpenGroups((state) => (state[owning.id] ? state : { ...state, [owning.id]: true }));
-  }, [location.pathname]);
+    setOpenGroups((state) => (state[owning.id] ? state : { [owning.id]: true }));
+  }, [location.pathname, location.search]);
+
+  const toggleGroup = (group: NavGroup, expanded: boolean) => {
+    if (collapsed) {
+      navigate(group.href || group.children?.[0]?.href || "/dashboard");
+      return;
+    }
+    const nextOpen = !expanded;
+    setOpenGroups(nextOpen ? { [group.id]: true } : {});
+    if (nextOpen && group.href && !groupOwnsPath(group, location.pathname, location.search)) {
+      navigate(group.href);
+    }
+  };
 
   const visible = useMemo(() => {
     return GROUPS.filter((g) => {
@@ -261,16 +290,11 @@ export function IntentRail({ className }: { className?: string }) {
             <div key={group.id}>
               <button
                 type="button"
-                onClick={() => {
-                  if (collapsed) {
-                    navigate(group.href || group.children?.[0]?.href || "/dashboard");
-                    return;
-                  }
-                  if (group.href && !expanded) navigate(group.href);
-                  setOpenGroups((s) => ({ ...s, [group.id]: !expanded }));
-                }}
+                onClick={() => toggleGroup(group, expanded)}
                 className={cn(navItemClass(active, collapsed), "w-full")}
                 title={label}
+                aria-expanded={expanded}
+                aria-controls={`nav-group-${group.id}`}
               >
                 <Icon className={ICON} />
                 {!collapsed ? (
@@ -289,7 +313,10 @@ export function IntentRail({ className }: { className?: string }) {
                 )}
               </button>
               {!collapsed && expanded ? (
-                <div className="ms-4 mt-0.5 space-y-0.5 border-s border-sidebar-border ps-3">
+                <div
+                  id={`nav-group-${group.id}`}
+                  className="ms-4 mt-0.5 space-y-0.5 border-s border-sidebar-border ps-3"
+                >
                   {(group.children || []).map((child) => {
                     const childActive = leafMatches(location.pathname, location.search, child);
                     const childLabel = t(child.labelKey);
@@ -377,49 +404,154 @@ export function IntentRail({ className }: { className?: string }) {
 export function MobileIntentDock() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
   const { hasRole } = useAuth() as AuthContextType;
+  const { canApp } = usePermissions();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   const items = useMemo(() => {
     const candidates = [
       { labelKey: "nav.command", href: "/dashboard", icon: IconCommand, roles: [...OPERATIONAL_COMMAND_ROLES] },
-      { labelKey: "nav.attention", href: "/dashboard/attention", icon: IconAttention, roles: [...OPERATIONAL_COMMAND_ROLES] },
-      { labelKey: "nav.work", href: "/dashboard/operations-live", icon: IconWork, roles: [...OPERATIONAL_COMMAND_ROLES] },
-      { labelKey: "nav.people", href: "/dashboard/staff-app", icon: IconPeople, roles: [...OPERATIONAL_COMMAND_ROLES] },
-      { labelKey: "nav.business", href: "/dashboard/reports", icon: IconBusiness, roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"] },
+      { labelKey: "nav.employees", href: "/dashboard/employees", icon: IconPeople, roles: [...OPERATIONAL_COMMAND_ROLES] },
+      { labelKey: "nav.products", href: "/dashboard/products", icon: IconProducts, roles: [...OPERATIONAL_COMMAND_ROLES] },
+      { labelKey: "nav.operations", href: "/dashboard/operations", icon: IconWork, roles: [...OPERATIONAL_COMMAND_ROLES] },
     ];
     return candidates.filter((c) => !c.roles || hasRole(c.roles));
   }, [hasRole]);
 
+  const visible = useMemo(() => {
+    return GROUPS.filter((g) => {
+      if (g.roles && !hasRole(g.roles)) return false;
+      if (g.appId && !canApp(g.appId)) return false;
+      return true;
+    }).map((g) => ({
+      ...g,
+      children: g.children?.filter((c) => {
+        if (c.roles && !hasRole(c.roles)) return false;
+        if (c.appId && !canApp(c.appId)) return false;
+        return true;
+      }),
+    }));
+  }, [hasRole, canApp]);
+
+  useEffect(() => {
+    const owning = GROUPS.find(
+      (g) => g.children?.length && groupOwnsPath(g, location.pathname, location.search),
+    );
+    if (!owning) return;
+    setOpenGroups({ [owning.id]: true });
+  }, [location.pathname, location.search]);
+
   return (
-    <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
-      aria-label={t("nav.mobile")}
-    >
-      <div className="flex items-stretch justify-around px-1 py-1.5">
-        {items.map((item) => {
-          const Icon = item.icon;
-          const group = GROUPS.find((g) => g.href === item.href || g.id === item.labelKey.replace("nav.", ""));
-          const active = group
-            ? groupOwnsPath(group, location.pathname, location.search)
-            : pathMatches(location.pathname, item.href);
-          return (
-            <button
-              key={item.href}
-              type="button"
-              onClick={() => navigate(item.href)}
-              className={cn(
-                "flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-control px-1 py-1.5",
-                active ? "text-primary" : "text-muted-foreground",
-              )}
-            >
-              <Icon className="h-6 w-6" />
-              <span className="truncate text-caption font-medium">{t(item.labelKey)}</span>
-            </button>
-          );
-        })}
-      </div>
-    </nav>
+    <>
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+        aria-label={t("nav.mobile")}
+      >
+        <div className="flex items-stretch justify-around px-1 py-1.5">
+          {items.map((item) => {
+            const Icon = item.icon;
+            const group = GROUPS.find((g) => g.href === item.href || g.id === item.labelKey.replace("nav.", ""));
+            const active = group
+              ? groupOwnsPath(group, location.pathname, location.search)
+              : pathMatches(location.pathname, item.href);
+            return (
+              <button
+                key={item.href}
+                type="button"
+                onClick={() => navigate(item.href)}
+                className={cn(
+                  "flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-control px-1 py-1.5",
+                  active ? "text-primary" : "text-muted-foreground",
+                )}
+              >
+                <Icon className="h-6 w-6" />
+                <span className="truncate text-caption font-medium">{t(item.labelKey)}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            className="flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-control px-1 py-1.5 text-muted-foreground"
+          >
+            <Menu className="h-6 w-6" />
+            <span className="truncate text-caption font-medium">{t("nav.more")}</span>
+          </button>
+        </div>
+      </nav>
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetContent side={isRTL ? "right" : "left"} className="flex flex-col overflow-y-auto p-4">
+          <SheetHeader className="mb-3 text-start">
+            <SheetTitle>{t("nav.primary")}</SheetTitle>
+          </SheetHeader>
+          <nav className="space-y-0.5">
+            {visible.map((group) => {
+              const Icon = group.icon;
+              const label = t(group.labelKey);
+              const active = groupOwnsPath(group, location.pathname, location.search);
+              const expanded = openGroups[group.id] ?? false;
+              if (!group.children?.length) {
+                return (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => {
+                      navigate(group.href || "/dashboard");
+                      setMenuOpen(false);
+                    }}
+                    className={cn(navItemClass(active, false), "w-full")}
+                  >
+                    <Icon className={ICON} />
+                    <span>{label}</span>
+                  </button>
+                );
+              }
+              return (
+                <div key={group.id}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenGroups(expanded ? {} : { [group.id]: true })}
+                    className={cn(navItemClass(active, false), "w-full")}
+                    aria-expanded={expanded}
+                  >
+                    <Icon className={ICON} />
+                    <span className="flex-1 text-start">{label}</span>
+                    {expanded ? <ChevronDown className="h-4 w-4 opacity-60" /> : <ChevronRight className="h-4 w-4 opacity-60" />}
+                  </button>
+                  {expanded ? (
+                    <div className="ms-4 mt-0.5 space-y-0.5 border-s border-sidebar-border ps-3">
+                      {(group.children || []).map((child) => {
+                        const childActive = leafMatches(location.pathname, location.search, child);
+                        return (
+                          <button
+                            key={child.href + child.labelKey}
+                            type="button"
+                            onClick={() => {
+                              navigate(child.href);
+                              setMenuOpen(false);
+                            }}
+                            className={cn(
+                              "flex min-h-10 w-full items-center gap-2 rounded-md px-2 py-2 text-start text-body",
+                              childActive
+                                ? "bg-primary/[0.08] font-medium text-foreground"
+                                : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+                            )}
+                          >
+                            <span className="min-w-0 truncate">{t(child.labelKey)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </nav>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 

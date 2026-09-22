@@ -44,6 +44,8 @@ import {
 import { useStaffInboxLanes, resolveStaffInboxLaneId, type StaffInboxLane } from "@/hooks/use-staff-inbox-lanes";
 import { useLanguage } from "@/hooks/use-language";
 import { PAGE_SHELL, PAGE_SHELL_PADDED } from "@/lib/page-shell";
+import { MizanPageShell } from "@/components/os/MizanPageShell";
+import { HUB_TABS_LIST, HUB_TABS_TRIGGER_GRID, MIZAN_TOOLBAR } from "@/lib/mizan-ui";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 import { AttachmentList } from "@/components/ui/attachment-preview";
 import { api, BACKEND_URL } from "@/lib/api";
@@ -1631,86 +1633,66 @@ const StaffRequestsPage: React.FC = () => {
   }
 
   return (
-    <div className={PAGE_SHELL_PADDED}>
-      <div className="mb-5 space-y-3">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          {t("staff.requests.eyebrow")}
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground min-w-0">
-            {pageTitle}
-          </h2>
-          <Button
-            variant={assignedToMe ? "default" : "outline"}
-            onClick={() => setAssignedToMe((v) => !v)}
-            className="rounded-full shrink-0 h-10 self-start sm:self-center"
-            title={t("staff.requests.assigned_to_me_title")}
-          >
-            <Inbox className="w-4 h-4 mr-2" />
-            {t("staff.requests.assigned_to_me")}
-            {typeof myCountsQuery.data === "number" && myCountsQuery.data > 0 && (
-              <Badge
-                variant="secondary"
-                className="ml-2 h-5 min-w-5 px-1.5 text-[11px] rounded-full"
-              >
-                {myCountsQuery.data}
-              </Badge>
-            )}
-          </Button>
-        </div>
-        {pageSubtitle ? (
-          <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">{pageSubtitle}</p>
-        ) : (
-          <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
-            {t("staff.requests.default_subtitle")}
-          </p>
-        )}
-      </div>
-
+    <MizanPageShell
+      eyebrow={t("staff.requests.eyebrow")}
+      title={pageTitle}
+      description={pageSubtitle || t("staff.requests.default_subtitle")}
+      hero
+      actions={
+        <Button
+          variant={assignedToMe ? "default" : "secondary"}
+          onClick={() => setAssignedToMe((v) => !v)}
+          className="shrink-0 gap-2"
+          title={t("staff.requests.assigned_to_me_title")}
+        >
+          <Inbox className="h-4 w-4" />
+          {t("staff.requests.assigned_to_me")}
+          {typeof myCountsQuery.data === "number" && myCountsQuery.data > 0 && (
+            <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[11px] rounded-full">
+              {myCountsQuery.data}
+            </Badge>
+          )}
+        </Button>
+      }
+    >
       <Tabs value={activeStatus} onValueChange={(v) => onStatusTabChange(v as StaffRequestStatus)}>
-        <div className="rounded-2xl border border-border/60 bg-muted/30 p-3 sm:p-4 space-y-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            <TabsList className="h-auto w-full lg:flex-1 flex flex-wrap justify-start gap-1 bg-background/80 p-1.5 rounded-xl border border-border/50 shadow-sm">
-              {STATUSES.map((s) => {
-                const count = countsQuery.data?.counts?.[s.key];
-                return (
-                  <TabsTrigger
-                    key={s.key}
-                    value={s.key}
-                    className="relative rounded-lg px-3 py-2 text-xs sm:text-sm data-[state=active]:shadow-sm"
-                  >
-                    {t(s.labelKey)}
-                    {count !== undefined && (
-                      <Badge
-                        variant="secondary"
-                        className={cn(
-                          "ml-1.5 h-5 min-w-5 px-1.5 text-[10px] rounded-full font-semibold",
-                          activeStatus === s.key && "bg-primary/15 text-primary",
-                        )}
-                      >
-                        {count}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-            <div className="flex gap-2 w-full lg:w-72 lg:shrink-0">
-              <Input
-                placeholder={t("staff.requests.search_placeholder")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-10 rounded-xl bg-background"
-              />
-              {search ? (
-                <Button variant="outline" className="h-10 rounded-xl shrink-0" onClick={() => setSearch("")}>
-                  {t("staff.requests.clear")}
-                </Button>
-              ) : null}
-            </div>
+        <div className={MIZAN_TOOLBAR}>
+          <TabsList className={cn(HUB_TABS_LIST, "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6")}>
+            {STATUSES.map((s) => {
+              const count = countsQuery.data?.counts?.[s.key];
+              return (
+                <TabsTrigger key={s.key} value={s.key} className={cn(HUB_TABS_TRIGGER_GRID, "gap-1.5 text-xs sm:text-sm")}>
+                  <span>{t(s.labelKey)}</span>
+                  {count !== undefined ? (
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "h-5 min-w-5 px-1.5 text-[10px] rounded-full font-semibold",
+                        activeStatus === s.key && "bg-primary-foreground/20 text-primary-foreground",
+                      )}
+                    >
+                      {count}
+                    </Badge>
+                  ) : null}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+          <div className="flex gap-2 w-full max-w-xl">
+            <Input
+              placeholder={t("staff.requests.search_placeholder")}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-10 rounded-xl bg-background"
+            />
+            {search ? (
+              <Button variant="outline" className="h-10 rounded-xl shrink-0" onClick={() => setSearch("")}>
+                {t("staff.requests.clear")}
+              </Button>
+            ) : null}
           </div>
 
-          <div className="border-t border-border/50 pt-3">
+          <div className="border-t border-border/50 pt-4">
             <div
               className="flex flex-wrap items-center gap-2"
               role="tablist"
@@ -2388,7 +2370,7 @@ const StaffRequestsPage: React.FC = () => {
           );
         }}
       />
-    </div>
+    </MizanPageShell>
   );
 };
 

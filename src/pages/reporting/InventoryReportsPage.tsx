@@ -41,9 +41,14 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
+import { arSA, enUS, fr } from "date-fns/locale";
 import { Label } from "@/components/ui/label";
+import { useLanguage } from "@/hooks/use-language";
 
 export default function InventoryReportsPage() {
+    const { t, language } = useLanguage();
+    const dateLocale = language === "fr" ? fr : language === "ar" ? arSA : enUS;
+    const formatDate = (value: string) => format(new Date(value), "PPP", { locale: dateLocale });
     const { accessToken } = useAuth();
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState("");
@@ -69,7 +74,7 @@ export default function InventoryReportsPage() {
 
     const sortedAndFilteredReports = (reports || [])
         .filter((report) =>
-            format(new Date(report.date), "PPP").toLowerCase().includes(searchTerm.toLowerCase()) ||
+            formatDate(report.date).toLowerCase().includes(searchTerm.toLowerCase()) ||
             report.total_inventory_value.toString().includes(searchTerm.toLowerCase())
         )
         .sort((a, b) => {
@@ -84,15 +89,22 @@ export default function InventoryReportsPage() {
             return 0;
         });
 
-    if (isLoading) return <div>Loading inventory reports...</div>;
-    if (isError) return <div>Error: {error?.message}</div>;
+    if (isLoading) return <div>{t("inventory_reports.loading")}</div>;
+    if (isError) {
+        return (
+            <div className="space-y-6 p-6">
+                <h1 className="text-3xl font-bold">{t("inventory_reports.title")}</h1>
+                <p className="text-muted-foreground">{t("inventory_reports.empty")}</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6 p-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold">Inventory Reports</h1>
-                    <p className="text-muted-foreground">Track and analyze your restaurant's inventory performance.</p>
+                    <h1 className="text-3xl font-bold">{t("inventory_reports.title")}</h1>
+                    <p className="text-muted-foreground">{t("inventory_reports.subtitle")}</p>
                 </div>
             </div>
 
@@ -103,7 +115,7 @@ export default function InventoryReportsPage() {
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search reports by date or value..."
+                                    placeholder={t("inventory_reports.search")}
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="pl-10"
@@ -117,43 +129,43 @@ export default function InventoryReportsPage() {
                             <TableRow>
                                 <TableHead onClick={() => handleSort("date")}>
                                     <div className="flex items-center">
-                                        Date <ArrowUpDown className="ml-2 h-4 w-4" />
+                                        {t("inventory_reports.date")} <ArrowUpDown className="ml-2 h-4 w-4" />
                                     </div>
                                 </TableHead>
                                 <TableHead onClick={() => handleSort("total_inventory_value")}>
                                     <div className="flex items-center justify-end">
-                                        Total Inventory Value <ArrowUpDown className="ml-2 h-4 w-4" />
+                                        {t("inventory_reports.total_value")} <ArrowUpDown className="ml-2 h-4 w-4" />
                                     </div>
                                 </TableHead>
                                 <TableHead onClick={() => handleSort("waste_cost")}>
                                     <div className="flex items-center justify-end">
-                                        Waste Cost <ArrowUpDown className="ml-2 h-4 w-4" />
+                                        {t("inventory_reports.waste_cost")} <ArrowUpDown className="ml-2 h-4 w-4" />
                                     </div>
                                 </TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="text-right">{t("common.actions")}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {sortedAndFilteredReports.map((report) => (
                                 <TableRow key={report.id}>
-                                    <TableCell className="font-medium">{format(new Date(report.date), "PPP")}</TableCell>
+                                    <TableCell className="font-medium">{formatDate(report.date)}</TableCell>
                                     <TableCell className="text-right">${report.total_inventory_value.toFixed(2)}</TableCell>
                                     <TableCell className="text-right">${report.waste_cost.toFixed(2)}</TableCell>
                                     <TableCell className="text-right">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
                                                 <Button variant="ghost" className="h-8 w-8 p-0">
-                                                    <span className="sr-only">Open menu</span>
+                                                    <span className="sr-only">{t("inventory_reports.open_menu")}</span>
                                                     <MoreHorizontal className="h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                <DropdownMenuLabel>{t("common.actions")}</DropdownMenuLabel>
                                                 <DropdownMenuItem onClick={() => {
                                                     setSelectedReport(report);
                                                     setIsViewDetailsDialogOpen(true);
                                                 }}>
-                                                    <Eye className="mr-2 h-4 w-4" /> View Details
+                                                    <Eye className="mr-2 h-4 w-4" /> {t("inventory_reports.view_details")}
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
@@ -169,49 +181,58 @@ export default function InventoryReportsPage() {
             <Dialog open={isViewDetailsDialogOpen} onOpenChange={setIsViewDetailsDialogOpen}>
                 <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Inventory Report Details</DialogTitle>
-                        <DialogDescription>Detailed information for {selectedReport ? format(new Date(selectedReport.date), "PPP") : ""}</DialogDescription>
+                        <DialogTitle>{t("inventory_reports.details_title")}</DialogTitle>
+                        <DialogDescription>{t("inventory_reports.details_for", { date: selectedReport ? formatDate(selectedReport.date) : "" })}</DialogDescription>
                     </DialogHeader>
                     {selectedReport && (
                         <div className="grid gap-4 py-4">
                             <div className="flex justify-between items-center">
-                                <Label className="font-semibold">Total Inventory Value:</Label>
+                                <Label className="font-semibold">{t("inventory_reports.total_value_label")}</Label>
                                 <span>${selectedReport.total_inventory_value.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                                <Label className="font-semibold">Waste Cost:</Label>
+                                <Label className="font-semibold">{t("inventory_reports.waste_cost_label")}</Label>
                                 <span>${selectedReport.waste_cost.toFixed(2)}</span>
                             </div>
 
-                            <h3 className="text-lg font-semibold mt-4">Low Stock Items</h3>
+                            <h3 className="text-lg font-semibold mt-4">{t("inventory_reports.low_stock")}</h3>
                             {selectedReport.low_stock_items && selectedReport.low_stock_items.length > 0 ? (
                                 <ul className="list-disc list-inside ml-4 space-y-1">
                                     {selectedReport.low_stock_items.map((item: any, index: number) => (
                                         <li key={index}>
-                                            {item.name} (Current: {item.current_stock}, Min: {item.min_stock_level})
+                                            {t("inventory_reports.low_stock_line", {
+                                                name: item.name,
+                                                current: item.current_stock,
+                                                min: item.min_stock_level,
+                                            })}
                                         </li>
                                     ))}
                                 </ul>
                             ) : (
-                                <p className="text-muted-foreground">No low stock items recorded.</p>
+                                <p className="text-muted-foreground">{t("inventory_reports.no_low_stock")}</p>
                             )}
 
-                            <h3 className="text-lg font-semibold mt-4">Stock Adjustment Summary</h3>
+                            <h3 className="text-lg font-semibold mt-4">{t("inventory_reports.adjustments")}</h3>
                             {selectedReport.stock_adjustment_summary && selectedReport.stock_adjustment_summary.length > 0 ? (
                                 <ul className="list-disc list-inside ml-4 space-y-1">
                                     {selectedReport.stock_adjustment_summary.map((summary: any, index: number) => (
                                         <li key={index}>
-                                            {summary.item_name} - {summary.adjustment_type}: {summary.quantity} (Reason: {summary.reason})
+                                            {t("inventory_reports.adjustment_line", {
+                                                name: summary.item_name,
+                                                type: summary.adjustment_type,
+                                                quantity: summary.quantity,
+                                                reason: summary.reason,
+                                            })}
                                         </li>
                                     ))}
                                 </ul>
                             ) : (
-                                <p className="text-muted-foreground">No stock adjustments recorded.</p>
+                                <p className="text-muted-foreground">{t("inventory_reports.no_adjustments")}</p>
                             )}
                         </div>
                     )}
                     <DialogFooter>
-                        <Button onClick={() => setIsViewDetailsDialogOpen(false)}>Close</Button>
+                        <Button onClick={() => setIsViewDetailsDialogOpen(false)}>{t("common.close")}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

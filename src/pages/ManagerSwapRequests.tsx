@@ -8,6 +8,20 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { AssignedShift } from './WeeklyScheduleView'; // Reuse interface from WeeklyScheduleView
 import { API_BASE } from "@/lib/api";
+import { unwrapEnvelope } from "@/lib/envelope";
+
+function asList(payload: unknown): any[] {
+  const data = unwrapEnvelope(payload);
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    for (const key of ["results", "data", "items"]) {
+      if (Array.isArray(obj[key])) return obj[key] as any[];
+    }
+  }
+  return [];
+}
+
 
 
 import { useLanguage } from "@/hooks/use-language";
@@ -48,9 +62,9 @@ const ManagerSwapRequests: React.FC = () => {
                 },
             });
             if (!response.ok) throw new Error('Failed to fetch swap requests');
-            return response.json();
+            return asList(await response.json());
         },
-        enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN'),
+        enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'OWNER' || user.role === 'ADMIN'),
         refetchInterval: 60_000,
     });
 
@@ -66,7 +80,7 @@ const ManagerSwapRequests: React.FC = () => {
                 const errorData = await response.json();
                 throw new Error(errorData.error || `Failed to ${action} swap request`);
             }
-            return response.json();
+            return asList(await response.json());
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['managerShiftSwapRequests'] });
@@ -91,7 +105,7 @@ const ManagerSwapRequests: React.FC = () => {
         return <div className="text-center py-8 text-red-500">Error: {error.message}</div>;
     }
 
-    if (!user || (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN')) {
+    if (!user || (user.role !== 'SUPER_ADMIN' && user.role !== 'OWNER' && user.role !== 'ADMIN')) {
         return <div className="text-center py-8 text-gray-500">You do not have permission to view this page.</div>;
     }
 

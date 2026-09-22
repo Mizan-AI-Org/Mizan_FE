@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
+import { MizanPageShell } from "@/components/os/MizanPageShell";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
 import {
@@ -56,16 +56,11 @@ export default function LocationsOverview() {
   }, [data?.locations, language]);
 
   return (
-    <div className={`${PAGE_SHELL_PADDED} space-y-6`}>
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0 space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("app.locations_overview")}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {t("locations_overview.subtitle")}
-          </p>
-        </div>
+    <MizanPageShell
+      title={t("app.locations_overview")}
+      description={t("locations_overview.subtitle")}
+      hero
+      actions={
         <div className="flex items-center gap-3 shrink-0">
           {data?.generated_at && (
             <span className="text-xs text-muted-foreground">
@@ -74,20 +69,13 @@ export default function LocationsOverview() {
               })}
             </span>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-          >
-            <RefreshCw
-              className={cn("mr-2 h-3.5 w-3.5", isFetching && "animate-spin")}
-            />
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={cn("mr-2 h-3.5 w-3.5", isFetching && "animate-spin")} />
             {t("common.refresh")}
           </Button>
         </div>
-      </header>
-
+      }
+    >
       {isError && !isLoading && (
         <Card>
           <CardContent className="flex items-start gap-3 p-4 text-sm text-red-600">
@@ -146,7 +134,7 @@ export default function LocationsOverview() {
           )}
         </>
       ) : null}
-    </div>
+    </MizanPageShell>
   );
 }
 

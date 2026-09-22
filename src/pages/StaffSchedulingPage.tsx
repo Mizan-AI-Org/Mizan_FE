@@ -1,11 +1,13 @@
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Clock } from "lucide-react";
 import EnhancedScheduleView from "@/components/schedule/EnhancedScheduleView";
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
-import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { useLanguage } from "@/hooks/use-language";
+import { MizanPageShell } from "@/components/os/MizanPageShell";
+import { MIZAN_GRID_GAP, MIZAN_SURFACE_CARD } from "@/lib/mizan-ui";
+import { cn } from "@/lib/utils";
+import { unwrapEnvelope } from "@/lib/envelope";
 
 const StaffSchedulingPage: React.FC = () => {
   const { t } = useLanguage();
@@ -19,53 +21,53 @@ const StaffSchedulingPage: React.FC = () => {
       if (!response.ok) {
         return { total_staff: 0, scheduled_shifts: 0 };
       }
-      return await response.json();
+      const json = await response.json();
+      const payload = unwrapEnvelope<{ total_staff?: number; scheduled_shifts?: number }>(json);
+      return {
+        total_staff: payload?.total_staff ?? 0,
+        scheduled_shifts: payload?.scheduled_shifts ?? 0,
+      };
     },
   });
 
   return (
-    <div className={`${PAGE_SHELL_PADDED} space-y-6 min-w-0`}>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Card className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {t("schedule.card_total_staff")}
-            </CardTitle>
-            <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="text-2xl font-bold tabular-nums">
-              {statsLoading ? "…" : stats?.total_staff || 0}
+    <MizanPageShell
+      eyebrow={t("nav.employees")}
+      title={t("schedule.page_title", { defaultValue: "Staff schedule" })}
+      description={t("schedule.page_subtitle", {
+        defaultValue: "Plan shifts, view coverage, and keep the floor staffed.",
+      })}
+      hero
+    >
+      <section className={cn("grid sm:grid-cols-2", MIZAN_GRID_GAP)}>
+        <div className={MIZAN_SURFACE_CARD}>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-caption text-muted-foreground">{t("schedule.card_total_staff")}</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums">{statsLoading ? "…" : stats?.total_staff ?? 0}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("schedule.active_team_members")}</p>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t("schedule.active_team_members")}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {t("schedule.card_scheduled_shifts")}
-            </CardTitle>
-            <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="text-2xl font-bold tabular-nums">
-              {statsLoading ? "…" : stats?.scheduled_shifts || 0}
+            <Calendar className="h-5 w-5 shrink-0 text-primary" />
+          </div>
+        </div>
+        <div className={MIZAN_SURFACE_CARD}>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-caption text-muted-foreground">{t("schedule.card_scheduled_shifts")}</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums">
+                {statsLoading ? "…" : stats?.scheduled_shifts ?? 0}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("common.this_week")}</p>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t("common.this_week")}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+            <Clock className="h-5 w-5 shrink-0 text-primary" />
+          </div>
+        </div>
+      </section>
 
-      <Card className="overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80">
-        <CardContent className="p-0">
-          <EnhancedScheduleView />
-        </CardContent>
-      </Card>
-    </div>
+      <div className={cn(MIZAN_SURFACE_CARD, "overflow-hidden p-0")}>
+        <EnhancedScheduleView />
+      </div>
+    </MizanPageShell>
   );
 };
 

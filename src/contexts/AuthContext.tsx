@@ -7,6 +7,8 @@ import { AuthContextType, User } from "./AuthContext.types";
 import { api, API_BASE, refreshAccessToken } from "../lib/api";
 import i18n from "@/i18n";
 import { clearOnboardingSkipFlags, restaurantOnboardingComplete } from "@/lib/onboarding-gate";
+import { roleAllowed } from "@/lib/operationalCommandRoles";
+import { isTenantUserSession } from "@/lib/platformApi";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -47,17 +49,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const resolvePostLoginPath = useCallback((userData: User) => {
-    const isSupervisor =
-      userData.role === "SUPER_ADMIN" ||
-      userData.role === "ADMIN" ||
-      userData.role === "MANAGER" ||
-      userData.role === "OWNER";
-    if (!isSupervisor) return "/staff-dashboard";
+    const role = String(userData.role || "").toUpperCase();
+    const webRoles = ["SUPER_ADMIN", "OWNER", "ADMIN", "MANAGER", "SUPERVISOR"];
+    if (!webRoles.includes(role)) {
+      return "/staff-whatsapp";
+    }
 
     const isOwnerLike =
-      userData.role === "SUPER_ADMIN" ||
-      userData.role === "ADMIN" ||
-      userData.role === "OWNER";
+      role === "SUPER_ADMIN" || role === "ADMIN" || role === "OWNER";
     if (isOwnerLike && !restaurantOnboardingComplete(userData)) {
       return "/onboarding";
     }
@@ -93,9 +92,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
 
         if (response.ok) {
-          const userData: User = await response.json();
-          // Ops sessions belong on /admin only - never treat them as tenant auth.
-          if (userData.is_platform_operator) {
+          const body = await response.json();
+          const userData = (body.user || body.data || body) as User;
+          // Platform-only ops sessions belong on /admin — not tenant dashboards.
+          if (userData.is_platform_operator === true && !isTenantUserSession(userData)) {
             if (
               location.pathname === "/auth" ||
               location.pathname === "/staff-login" ||
@@ -163,7 +163,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           response = await fetchProfile();
         }
         if (response.ok) {
-          const latest: User = await response.json();
+          const latestBody = await response.json();
+          const latest: User = (latestBody.user || latestBody.data || latestBody) as User;
           const prev = user ? JSON.stringify(user) : null;
           const next = JSON.stringify(latest);
           if (prev !== next) {
@@ -223,9 +224,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 "Platform operator accounts sign in at /admin only. This page is for restaurant staff and managers.",
               );
             }
+            if (parsed.code === "whatsapp_only") {
+              const wa = parsed.data?.whatsapp_url as string | undefined;
+              sessionStorage.setItem(
+                "mizan_whatsapp_only",
+                JSON.stringify({
+                  role: parsed.data?.role,
+                  whatsapp_url: wa,
+                }),
+              );
+              navigate("/staff-whatsapp", {
+                replace: true,
+                state: { role: parsed.data?.role, whatsappUrl: wa },
+              });
+              throw new Error(
+                parsed.error ||
+                  "This role uses WhatsApp only. Open WhatsApp to work with Mizan.",
+              );
+            }
             errorMsg =
               parsed.message || parsed.error || `Login failed (${response.status})`;
           } catch (e) {
+            if (e instanceof Error && (e.message.includes("WhatsApp") || e.message.includes("/admin"))) {
+              throw e;
+            }
             errorMsg = `Login failed (${response.status})`;
           }
         } else {
@@ -234,13 +256,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             errorMsg = "Server error during login. Please try again.";
           else errorMsg = "Backend unreachable or returned a non-JSON error.";
         }
-        // Login failed
 
         throw new Error(errorMsg);
       }
 
       const data = isJson ? JSON.parse(rawText) : {};
-      if (data.user?.is_platform_operator || data.code === "platform_ops_use_admin_login") {
+      if (data.user?.is_platform_operator === true || data.code === "platform_ops_use_admin_login") {
         clearAuth();
         throw new Error(
           "Platform operator accounts sign in at /admin only. This page is for restaurant staff and managers.",
@@ -302,8 +323,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         if (isJson && rawText) {
           try {
             const parsed = JSON.parse(rawText);
+            if (parsed.code === "whatsapp_only") {
+              sessionStorage.setItem(
+                "mizan_whatsapp_only",
+                JSON.stringify({
+                  role: parsed.data?.role,
+                  whatsapp_url: parsed.data?.whatsapp_url,
+                }),
+              );
+              navigate("/staff-whatsapp", {
+                replace: true,
+                state: {
+                  role: parsed.data?.role,
+                  whatsappUrl: parsed.data?.whatsapp_url,
+                },
+              });
+              throw new Error(
+                parsed.error ||
+                  "This role uses WhatsApp only. Open WhatsApp to work with Mizan.",
+              );
+            }
             errorMsg = parsed.message || parsed.error || "PIN login failed";
           } catch (e) {
+            if (e instanceof Error && e.message.includes("WhatsApp")) throw e;
             errorMsg = `PIN login failed (${response.status})`;
           }
         } else {
@@ -312,7 +354,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             errorMsg = "Server error during PIN login. Please try again.";
           else errorMsg = "Backend unreachable or returned a non-JSON error.";
         }
-        // PIN login failed
 
         throw new Error(errorMsg);
       }
@@ -444,6 +485,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       invitation_pin,
       email
     );
+
+    // Staff roles activate on WhatsApp — do not keep a web SPA session.
+    if (
+      data.code === "whatsapp_only" ||
+      (data.user && !["SUPER_ADMIN", "OWNER", "ADMIN", "MANAGER", "SUPERVISOR"].includes(
+        String(data.user.role || "").toUpperCase(),
+      ))
+    ) {
+      clearAuth();
+      const wa =
+        (data as { data?: { whatsapp_url?: string }; whatsapp_url?: string }).data
+          ?.whatsapp_url ||
+        (data as { whatsapp_url?: string }).whatsapp_url;
+      sessionStorage.setItem(
+        "mizan_whatsapp_only",
+        JSON.stringify({ role: data.user?.role, whatsapp_url: wa }),
+      );
+      navigate("/staff-whatsapp", {
+        replace: true,
+        state: { role: data.user?.role, whatsappUrl: wa },
+      });
+      return;
+    }
+
     setUser(data.user);
     localStorage.setItem("user", JSON.stringify(data.user));
     localStorage.setItem("access_token", data.tokens.access);
@@ -507,14 +572,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const hasRole = (roles: string[]): boolean => {
-    return user ? roles.includes(user.role) : false;
+    if (!user) return false;
+    return roleAllowed(user.role, roles);
   };
 
-  const isSuperAdmin = (): boolean => user?.role === "SUPER_ADMIN";
-  const isAdmin = (): boolean => user?.role === "ADMIN";
+  const isSuperAdmin = (): boolean => {
+    const r = String(user?.role || "").toUpperCase();
+    return r === "SUPER_ADMIN" || r === "OWNER" || r === "ADMIN";
+  };
+  const isAdmin = (): boolean => {
+    const r = String(user?.role || "").toUpperCase();
+    return r === "ADMIN" || r === "SUPER_ADMIN" || r === "OWNER";
+  };
   const isStaff = (): boolean => {
-    const staffRoles = ["CHEF", "WAITER", "CLEANER", "CASHIER"];
-    return user ? staffRoles.includes(user.role) : false;
+    const staffRoles = ["CHEF", "WAITER", "BARTENDER", "STAFF", "CLEANER", "CASHIER"];
+    return user ? staffRoles.includes(String(user.role || "").toUpperCase()) : false;
   };
 
   const updateUser = (updatedUser: User) => {

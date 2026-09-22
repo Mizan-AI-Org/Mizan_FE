@@ -74,10 +74,10 @@ const USER_PERMS_KEY = ["rbac", "user-permissions"] as const;
  * `true`, so we never flash an empty UI before the first response lands.
  */
 export function usePermissions() {
-  const { accessToken } = useAuth() as AuthContextType;
+  const { accessToken, user } = useAuth() as AuthContextType;
 
   const query = useQuery({
-    queryKey: [...ME_KEY, accessToken],
+    queryKey: [...ME_KEY, accessToken, user?.id, user?.role],
     queryFn: () => api.getEffectivePermissions(),
     enabled: !!accessToken,
     staleTime: 5 * 60_000,
@@ -92,18 +92,23 @@ export function usePermissions() {
     };
   }, [query.data]);
 
-  const isPrivileged = query.data?.source === "privileged";
-  const ready = query.isSuccess;
+  // Defense in depth: treat restaurant owners as privileged even if /rbac/me
+  // is slow, stale, or briefly mis-parsed after login.
+  const roleIsPrivileged = ["SUPER_ADMIN", "OWNER", "ADMIN"].includes(
+    String(user?.role || "").toUpperCase(),
+  );
+  const isPrivileged = query.data?.source === "privileged" || roleIsPrivileged;
+  const ready = query.isSuccess || roleIsPrivileged;
 
   const canApp = (id: string) => (!ready ? true : isPrivileged || sets.apps.has(id));
   const canWidget = (id: string) => (!ready ? true : isPrivileged || sets.widgets.has(id));
   const canAction = (id: string) => (!ready ? true : isPrivileged || sets.actions.has(id));
 
   return {
-    isLoading: query.isLoading,
+    isLoading: query.isLoading && !roleIsPrivileged,
     isPrivileged,
-    role: query.data?.role ?? "",
-    source: query.data?.source,
+    role: query.data?.role ?? user?.role ?? "",
+    source: isPrivileged ? "privileged" : query.data?.source,
     permissions: query.data?.permissions,
     canApp,
     canWidget,

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
+import { unwrapEnvelope } from "@/lib/envelope";
 import type {
   LocationPortfolioRow,
   PortfolioSummary,
@@ -151,7 +152,7 @@ export function useLocationDetail(locationId: string | undefined) {
       if (!res.ok) {
         throw new Error(`Failed to load branch detail (HTTP ${res.status})`);
       }
-      return (await res.json()) as LocationDetail;
+      return unwrapEnvelope<LocationDetail>(await res.json());
     },
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,

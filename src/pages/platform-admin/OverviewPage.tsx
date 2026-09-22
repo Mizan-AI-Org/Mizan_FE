@@ -412,12 +412,12 @@ export default function OverviewPage() {
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <p className="text-slate-500 dark:text-slate-400">Turns</p>
-              <p className="text-xl font-bold tabular-nums">{agentMetrics?.turns.total ?? "—"}</p>
+              <p className="text-xl font-bold tabular-nums">{agentMetrics?.turns?.total ?? "—"}</p>
             </div>
             <div>
               <p className="text-slate-500 dark:text-slate-400">Success rate</p>
               <p className="text-xl font-bold tabular-nums">
-                {agentMetrics?.turns.success_rate != null
+                {agentMetrics?.turns?.success_rate != null
                   ? `${(agentMetrics.turns.success_rate * 100).toFixed(0)}%`
                   : "—"}
               </p>
@@ -425,13 +425,13 @@ export default function OverviewPage() {
             <div>
               <p className="text-slate-500 dark:text-slate-400">Avg quality</p>
               <p className="text-xl font-bold tabular-nums">
-                {agentMetrics?.evaluation.avg_quality ?? "—"}
+                {agentMetrics?.evaluation?.avg_quality ?? "—"}
               </p>
             </div>
             <div>
               <p className="text-slate-500 dark:text-slate-400">Avg accuracy</p>
               <p className="text-xl font-bold tabular-nums">
-                {agentMetrics?.evaluation.avg_accuracy ?? "—"}
+                {agentMetrics?.evaluation?.avg_accuracy ?? "—"}
               </p>
             </div>
           </div>

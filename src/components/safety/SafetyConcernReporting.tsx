@@ -13,6 +13,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, AlertTriangle, AlertCircle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE } from "@/lib/api";
+import { unwrapEnvelope } from "@/lib/envelope";
+
+function asList(payload: unknown): any[] {
+  const data = unwrapEnvelope(payload);
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    for (const key of ["results", "data", "items"]) {
+      if (Array.isArray(obj[key])) return obj[key] as any[];
+    }
+  }
+  return [];
+}
+
 
 
 interface SafetyConcern {
@@ -70,7 +84,7 @@ const SafetyConcernReporting: React.FC = () => {
         throw new Error('Failed to fetch incidents');
       }
 
-      return response.json();
+      return asList(await response.json());
     },
   });
 
@@ -118,7 +132,7 @@ const SafetyConcernReporting: React.FC = () => {
         throw new Error(message);
       }
 
-      return response.json();
+      return asList(await response.json());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['safety-concerns'] });

@@ -14,6 +14,20 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { API_BASE } from "@/lib/api";
+import { unwrapEnvelope } from "@/lib/envelope";
+
+function asList(payload: unknown): any[] {
+  const data = unwrapEnvelope(payload);
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    for (const key of ["results", "data", "items"]) {
+      if (Array.isArray(obj[key])) return obj[key] as any[];
+    }
+  }
+  return [];
+}
+
 
 
 import { useLanguage } from "@/hooks/use-language";
@@ -63,9 +77,9 @@ const CategoryManagement: React.FC = () => {
             if (!response.ok) {
                 throw new Error('Failed to fetch categories');
             }
-            return response.json();
+            return asList(await response.json());
         },
-        enabled: !!user?.restaurant && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN'),
+        enabled: !!user?.restaurant && (user.role === 'SUPER_ADMIN' || user.role === 'OWNER' || user.role === 'ADMIN'),
     });
 
     const createCategoryMutation = useMutation({
@@ -82,7 +96,7 @@ const CategoryManagement: React.FC = () => {
                 const errorData = await response.json();
                 throw new Error(errorData.name || 'Failed to create category');
             }
-            return response.json();
+            return asList(await response.json());
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -109,7 +123,7 @@ const CategoryManagement: React.FC = () => {
                 const errorData = await response.json();
                 throw new Error(errorData.name || 'Failed to update category');
             }
-            return response.json();
+            return asList(await response.json());
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -172,7 +186,7 @@ const CategoryManagement: React.FC = () => {
         return <div className="text-center py-8 text-red-500">Error: {error.message}</div>;
     }
 
-    if (!user || (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN')) {
+    if (!user || (user.role !== 'SUPER_ADMIN' && user.role !== 'OWNER' && user.role !== 'ADMIN')) {
         return <div className="text-center py-8 text-gray-500">You do not have permission to view this page.</div>;
     }
 

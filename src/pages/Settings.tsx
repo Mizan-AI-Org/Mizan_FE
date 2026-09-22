@@ -77,6 +77,7 @@ import {
 } from "@/components/settings/SettingsSection";
 import { SettingsNav, type SettingsNavItem } from "@/components/settings/SettingsNav";
 import { SETTINGS_PAGE_SHELL_PADDED } from "@/lib/page-shell";
+import { MIZAN_HERO } from "@/lib/mizan-ui";
 import { cn } from "@/lib/utils";
 
 import { API_BASE, api } from "@/lib/api";
@@ -242,6 +243,17 @@ export default function Settings() {
     if (!fromUrl || !(SETTINGS_TABS as readonly string[]).includes(fromUrl)) return;
     setActiveTab((current) => (current === fromUrl ? current : fromUrl));
   }, [searchParams, SETTINGS_TABS]);
+
+  useEffect(() => {
+    if (activeTab !== "integrations") return;
+    const hash = (window.location.hash || "").replace("#", "");
+    if (hash !== "pos-integration") return;
+    const scrollToPos = () => {
+      document.getElementById("pos-integration")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    const t = window.setTimeout(scrollToPos, 120);
+    return () => window.clearTimeout(t);
+  }, [activeTab]);
 
   const onSettingsTabChange = (next: string) => {
     setActiveTab(next);
@@ -1060,9 +1072,9 @@ export default function Settings() {
     <div className={SETTINGS_PAGE_SHELL_PADDED}>
       <Tabs value={activeTab} onValueChange={onSettingsTabChange} className="space-y-0">
         <div className="flex w-full max-w-5xl flex-col gap-5">
-          <header className="min-w-0">
-            <h1 className="text-page-title">{activeSectionLabel}</h1>
-            <p className="mt-1.5 max-w-2xl text-body text-muted-foreground">
+          <header className={cn(MIZAN_HERO, "mb-0")}>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{activeSectionLabel}</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
               {activeSectionDescription || t("settings.subtitle")}
             </p>
           </header>
@@ -1351,6 +1363,7 @@ export default function Settings() {
         {!isStaff && (
           <TabsContent value="integrations" className="mt-0 space-y-4 focus-visible:outline-none">
             <SettingsSection
+              id="pos-integration"
               icon={<Plug className="h-5 w-5" />}
               iconClassName="bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
               title={t("pos.title")}

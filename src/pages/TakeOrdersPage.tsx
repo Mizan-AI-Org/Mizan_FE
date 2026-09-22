@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PAGE_SHELL } from "@/lib/page-shell";
+import { MizanPageShell } from "@/components/os/MizanPageShell";
+import { MIZAN_GRID_GAP, MIZAN_SURFACE_CARD, MIZAN_TOOLBAR } from "@/lib/mizan-ui";
 import {
   Select,
   SelectContent,
@@ -197,7 +198,7 @@ function CapturedOrderRow({
         "rounded-xl border border-slate-200/90 dark:border-slate-700/90 border-l-4 bg-card pl-4 pr-4 py-4 shadow-sm transition-shadow hover:shadow-md",
         statusBorderClass(status),
         status === "FULFILLED" && "bg-emerald-50/40 dark:bg-emerald-950/20",
-        status === "CANCELLED" && "opacity-[0.92] bg-slate-50/80 dark:bg-slate-900/40",
+        status === "CANCELLED" && "opacity-[0.92] bg-muted/40",
       )}
     >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
@@ -668,122 +669,100 @@ export default function TakeOrdersPage() {
 
   return (
     <div className="min-h-[60vh] pb-16">
-      <div className={`${PAGE_SHELL} py-6 sm:py-8`}>
-        <header className="mb-6 lg:mb-8">
-          <div className="grid grid-cols-1 gap-3 sm:gap-2 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-4">
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
-                {t("take_orders.log_title")}
-              </h1>
+      <MizanPageShell
+        eyebrow={t("nav.customers.orders")}
+        title={t("take_orders.log_title")}
+        description={
+          listUsesActiveQueue ? t("take_orders.queue_hint_active") : t("take_orders.queue_hint_range")
+        }
+        hero
+        actions={
+          canAddManual ? (
+            <Button type="button" className="gap-2 shrink-0" onClick={openCreate}>
+              <ClipboardPlus className="h-4 w-4" />
+              {t("take_orders.add_manual")}
+            </Button>
+          ) : undefined
+        }
+        className="pb-8"
+      >
+        <div className={MIZAN_TOOLBAR}>
+          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+            <div className="flex flex-wrap items-center gap-2">
+              <CalendarRange className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+              <Label htmlFor="take-orders-from" className="sr-only">
+                {t("take_orders.filter_date_from")}
+              </Label>
+              <Input
+                id="take-orders-from"
+                type="date"
+                value={listDateFrom}
+                max={listDateTo}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setListDateFrom(v);
+                  if (listDateTo < v) setListDateTo(v);
+                }}
+                className="h-9 w-[10.5rem] rounded-lg text-xs"
+                aria-label={t("take_orders.filter_date_from")}
+              />
+              <span className="text-muted-foreground">–</span>
+              <Label htmlFor="take-orders-to" className="sr-only">
+                {t("take_orders.filter_date_to")}
+              </Label>
+              <Input
+                id="take-orders-to"
+                type="date"
+                value={listDateTo}
+                min={listDateFrom}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setListDateTo(v);
+                  if (listDateFrom > v) setListDateFrom(v);
+                }}
+                className="h-9 w-[10.5rem] rounded-lg text-xs"
+                aria-label={t("take_orders.filter_date_to")}
+              />
             </div>
-
-            <div className="flex min-w-0 justify-center">
-              <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-1.5 rounded-lg border border-slate-200/90 bg-white/90 px-2 py-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 lg:px-2.5 lg:py-2 lg:max-w-[min(100%,56rem)] xl:max-w-[min(100%,64rem)]">
-                <div className="flex w-full min-w-0 flex-[1_1_100%] items-center justify-center gap-1.5 sm:flex-[1_1_auto] sm:w-auto border-b border-slate-100 pb-1.5 mb-0.5 sm:border-0 sm:pb-0 sm:mb-0 dark:border-slate-700/80">
-                  <CalendarRange className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
-                  <div className="flex flex-wrap items-center gap-1">
-                    <Label htmlFor="take-orders-from" className="sr-only">
-                      {t("take_orders.filter_date_from")}
-                    </Label>
-                    <Input
-                      id="take-orders-from"
-                      type="date"
-                      value={listDateFrom}
-                      max={listDateTo}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setListDateFrom(v);
-                        if (listDateTo < v) setListDateTo(v);
-                      }}
-                      className="h-8 w-[9.75rem] rounded-md border-slate-200 bg-card px-2 text-[11px] dark:border-slate-600"
-                      aria-label={t("take_orders.filter_date_from")}
-                    />
-                    <span className="text-[10px] text-slate-400">-</span>
-                    <Label htmlFor="take-orders-to" className="sr-only">
-                      {t("take_orders.filter_date_to")}
-                    </Label>
-                    <Input
-                      id="take-orders-to"
-                      type="date"
-                      value={listDateTo}
-                      min={listDateFrom}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setListDateTo(v);
-                        if (listDateFrom > v) setListDateFrom(v);
-                      }}
-                      className="h-8 w-[9.75rem] rounded-md border-slate-200 bg-card px-2 text-[11px] dark:border-slate-600"
-                      aria-label={t("take_orders.filter_date_to")}
-                    />
-                  </div>
-                  {listUsesActiveQueue ? (
-                    <span className="hidden text-[10px] text-slate-500 dark:text-slate-400 sm:inline max-w-[14rem] leading-tight">
-                      {t("take_orders.queue_hint_active")}
-                    </span>
-                  ) : (
-                    <span className="hidden text-[10px] text-slate-500 dark:text-slate-400 sm:inline">
-                      {t("take_orders.queue_hint_range")}
-                    </span>
-                  )}
-                </div>
-                <div className="relative min-w-[140px] max-w-[220px] flex-1">
-                  <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder={t("take_orders.search_placeholder")}
-                    className="h-8 rounded-md border-slate-200 bg-card py-0 pl-8 pr-2 text-xs dark:border-slate-600"
-                    aria-label={t("take_orders.search_placeholder")}
-                  />
-                </div>
-                <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
-                  <SelectTrigger
-                    className="h-8 w-[min(100%,8.5rem)] rounded-md text-[11px] lg:w-[8.25rem]"
-                    aria-label={t("take_orders.sort_label")}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">{t("take_orders.sort_newest")}</SelectItem>
-                    <SelectItem value="oldest">{t("take_orders.sort_oldest")}</SelectItem>
-                    <SelectItem value="status">{t("take_orders.sort_status")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                {hasActiveFilters || filteredSorted.length !== list.length ? (
-                  <span className="whitespace-nowrap px-1 text-[10px] text-slate-500 dark:text-slate-400">
-                    {t("take_orders.showing_filtered", { visible: filteredSorted.length, total: list.length })}
-                  </span>
-                ) : null}
-              </div>
+            <div className="relative min-w-[180px] flex-1 max-w-md">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t("take_orders.search_placeholder")}
+                className="h-9 rounded-lg pl-9 text-sm"
+                aria-label={t("take_orders.search_placeholder")}
+              />
             </div>
-
-            <div className="flex shrink-0 justify-start lg:justify-end">
-              {canAddManual && (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-10 gap-2 rounded-lg bg-emerald-600 px-4 font-semibold text-white shadow-sm hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
-                  onClick={openCreate}
-                >
-                  <ClipboardPlus className="h-4 w-4" />
-                  {t("take_orders.add_manual")}
-                </Button>
-              )}
-            </div>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
+              <SelectTrigger className="h-9 w-full sm:w-[9.5rem] rounded-lg text-sm" aria-label={t("take_orders.sort_label")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">{t("take_orders.sort_newest")}</SelectItem>
+                <SelectItem value="oldest">{t("take_orders.sort_oldest")}</SelectItem>
+                <SelectItem value="status">{t("take_orders.sort_status")}</SelectItem>
+              </SelectContent>
+            </Select>
+            {hasActiveFilters || filteredSorted.length !== list.length ? (
+              <span className="text-xs text-muted-foreground">
+                {t("take_orders.showing_filtered", { visible: filteredSorted.length, total: list.length })}
+              </span>
+            ) : null}
           </div>
-        </header>
+        </div>
 
-        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap gap-2">
           {(["All", ...ORDER_STATIONS] as StationFilter[]).map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => setStationFilter(s)}
               className={cn(
-                "rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
+                "rounded-xl border px-3 py-2 text-xs font-semibold transition-colors shadow-sm",
                 stationFilter === s
-                  ? "border-emerald-500 bg-emerald-50 text-emerald-800 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-200"
-                  : "border-slate-200 bg-card text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800",
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border/70 bg-card text-muted-foreground hover:border-primary/35 hover:bg-muted/40",
               )}
             >
               {t(stationLabelKey(s))}
@@ -791,10 +770,10 @@ export default function TakeOrdersPage() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-8">
+        <div className={cn("grid grid-cols-1 xl:grid-cols-12", MIZAN_GRID_GAP)}>
           <div className="min-w-0 xl:col-span-9">
-            <Card className="overflow-hidden rounded-2xl border border-slate-200/90 bg-card shadow-md dark:border-slate-800 dark:shadow-none">
-              <div className="flex flex-col gap-1 border-b border-slate-100 bg-slate-50/90 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/80 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <Card className="overflow-hidden">
+              <div className="flex flex-col gap-1 border-b border-border bg-muted/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{t("take_orders.list_heading")}</h2>
                 <Badge variant="secondary" className="w-fit text-xs font-bold tabular-nums">
                   {isLoading ? "…" : `${filteredSorted.length}`}
@@ -807,12 +786,12 @@ export default function TakeOrdersPage() {
                     <span className="text-sm font-medium">{t("take_orders.loading")}</span>
                   </div>
                 ) : list.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-16 dark:border-slate-700 dark:bg-slate-900/40">
+                  <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 py-16">
                     <ClipboardList className="h-10 w-10 text-slate-300 dark:text-slate-600" />
                     <p className="max-w-md text-center text-sm text-slate-500 dark:text-slate-400">{t("take_orders.empty")}</p>
                   </div>
                 ) : filteredSorted.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-14 dark:border-slate-700 dark:bg-slate-900/40">
+                  <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 py-14">
                     <p className="text-sm text-slate-600 dark:text-slate-400">{t("take_orders.no_matches")}</p>
                     <Button
                       type="button"
@@ -853,7 +832,7 @@ export default function TakeOrdersPage() {
 
           <aside className="space-y-4 xl:col-span-3 xl:min-w-0">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1 xl:gap-3">
-              <div className="rounded-xl border border-slate-200/90 bg-white/90 px-3 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/80 sm:px-4 sm:py-4">
+              <div className="rounded-xl border border-border bg-card px-3 py-3 shadow-sm sm:px-4 sm:py-4">
                 <p className="text-xs font-medium leading-snug text-slate-600 dark:text-slate-400">
                   {t(listUsesActiveQueue ? "take_orders.stat_total_today" : "take_orders.stat_total_range")}
                 </p>
@@ -869,7 +848,7 @@ export default function TakeOrdersPage() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-slate-200/90 bg-white/90 px-2 py-2 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+            <div className="rounded-lg border border-border bg-card px-2 py-2 shadow-sm">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {t("take_orders.export_section_title")}
               </p>
@@ -926,7 +905,7 @@ export default function TakeOrdersPage() {
             </div>
           </aside>
         </div>
-      </div>
+      </MizanPageShell>
 
       <Dialog
         open={manualOpen}
@@ -976,7 +955,7 @@ export default function TakeOrdersPage() {
                   <div className="space-y-2">
                     <Label className="text-xs font-medium text-slate-700 dark:text-slate-300">{t("take_orders.field.order_type")}</Label>
                     <Select value={orderType} onValueChange={(v) => setOrderType(v as StaffCapturedOrderRow["order_type"])}>
-                      <SelectTrigger className="h-10 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-900/50">
+                      <SelectTrigger className="h-10 rounded-lg border-border bg-card">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1004,7 +983,7 @@ export default function TakeOrdersPage() {
                   <div className="space-y-2">
                     <Label className="text-xs font-medium text-slate-700 dark:text-slate-300">{t("take_orders.station.label")}</Label>
                     <Select value={detectedStation} onValueChange={(v) => setDetectedStation(v as OrderStation)}>
-                      <SelectTrigger className="h-10 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-900/50">
+                      <SelectTrigger className="h-10 rounded-lg border-border bg-card">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1019,7 +998,7 @@ export default function TakeOrdersPage() {
                 ) : null}
               </div>
 
-              <Separator className="bg-slate-200/80 dark:bg-slate-800" />
+              <Separator className="bg-border" />
 
               <div className="space-y-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-500">
@@ -1039,12 +1018,12 @@ export default function TakeOrdersPage() {
                     value={itemsSummary}
                     onChange={(e) => setItemsSummary(e.target.value)}
                     placeholder={t("take_orders.placeholder.items")}
-                    className="min-h-[6.5rem] resize-y rounded-lg border-slate-200 font-normal leading-relaxed dark:border-slate-700 dark:bg-slate-900/50"
+                    className="min-h-[6.5rem] resize-y rounded-lg border-border bg-card font-normal leading-relaxed"
                   />
                 </div>
               </div>
 
-              <Separator className="bg-slate-200/80 dark:bg-slate-800" />
+              <Separator className="bg-border" />
 
               <div className="space-y-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-500">
@@ -1060,7 +1039,7 @@ export default function TakeOrdersPage() {
                     value={dietaryNotes}
                     onChange={(e) => setDietaryNotes(e.target.value)}
                     placeholder={t("take_orders.placeholder.dietary")}
-                    className="rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-900/50"
+                    className="rounded-lg border-border bg-card"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1073,13 +1052,13 @@ export default function TakeOrdersPage() {
                     value={specialInstructions}
                     onChange={(e) => setSpecialInstructions(e.target.value)}
                     placeholder={t("take_orders.placeholder.special")}
-                    className="rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-900/50"
+                    className="rounded-lg border-border bg-card"
                   />
                 </div>
               </div>
             </div>
 
-            <DialogFooter className="gap-2 border-t border-slate-100 bg-slate-50/90 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/60 sm:gap-3 sm:px-8 sm:py-5">
+            <DialogFooter className="gap-2 border-t border-border bg-muted/50 px-5 py-4 sm:gap-3 sm:px-8 sm:py-5">
               <Button type="button" variant="outline" className="rounded-lg" onClick={() => setManualOpen(false)}>
                 {t("take_orders.cancel")}
               </Button>

@@ -2,6 +2,7 @@ import { useAuth } from "../hooks/use-auth";
 import React from "react";
 import { Navigate } from "react-router-dom";
 import { usePermissions } from "@/hooks/use-permissions";
+import { isPrivilegedRole, roleAllowed } from "@/lib/operationalCommandRoles";
 
 interface RoleBasedRouteProps {
     children: React.ReactNode;
@@ -34,11 +35,11 @@ const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
         return <Navigate to="/auth" replace />;
     }
 
-    if (!allowedRoles.includes(user.role)) {
+    if (!roleAllowed(user.role, allowedRoles)) {
         return <Navigate to="/unauthorized" replace />;
     }
 
-    if (appId && !canApp(appId)) {
+    if (appId && !isPrivilegedRole(user.role) && !canApp(appId)) {
         return <Navigate to="/unauthorized" replace />;
     }
 

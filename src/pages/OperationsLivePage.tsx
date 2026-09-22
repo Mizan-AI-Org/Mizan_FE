@@ -652,15 +652,15 @@ export default function OperationsLivePage() {
     () => ({
       pending: data?.pagination?.pending ?? {
         ...DEFAULT_LANE_PAGINATION,
-        total: data?.counts.pending ?? 0,
+        total: data?.counts?.pending ?? 0,
       },
       in_progress: data?.pagination?.in_progress ?? {
         ...DEFAULT_LANE_PAGINATION,
-        total: data?.counts.in_progress ?? 0,
+        total: data?.counts?.in_progress ?? 0,
       },
       completed: data?.pagination?.completed ?? {
         ...DEFAULT_LANE_PAGINATION,
-        total: data?.counts.completed ?? 0,
+        total: data?.counts?.completed ?? 0,
       },
     }),
     [data],
@@ -793,7 +793,7 @@ export default function OperationsLivePage() {
             <div className="space-y-8">
               <OperationsLiveTable
                 title={t("operations_live.section.new")}
-                count={data?.counts.pending ?? 0}
+                count={data?.counts?.pending ?? 0}
                 items={data?.pending ?? []}
                 lane="pending"
                 pagination={lanePagination.pending}
@@ -809,7 +809,7 @@ export default function OperationsLivePage() {
               />
               <OperationsLiveTable
                 title={t("operations_live.section.in_progress")}
-                count={data?.counts.in_progress ?? 0}
+                count={data?.counts?.in_progress ?? 0}
                 items={data?.in_progress ?? []}
                 lane="in_progress"
                 pagination={lanePagination.in_progress}
@@ -825,7 +825,7 @@ export default function OperationsLivePage() {
               />
               <OperationsLiveTable
                 title={t("operations_live.section.completed")}
-                count={data?.counts.completed ?? 0}
+                count={data?.counts?.completed ?? 0}
                 items={data?.completed ?? []}
                 lane="completed"
                 pagination={lanePagination.completed}

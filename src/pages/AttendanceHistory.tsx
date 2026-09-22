@@ -72,7 +72,12 @@ const AttendanceHistory: React.FC = () => {
                     console.error('Attendance history error:', response.status, errorMessage);
                     throw new Error(errorMessage);
                 }
-                return await response.json();
+                const raw = await response.json();
+                const data =
+                    raw && typeof raw === 'object' && 'data' in raw && 'success' in raw
+                        ? (raw as { data: unknown }).data
+                        : raw;
+                return Array.isArray(data) ? (data as AttendanceRecord[]) : [];
             } catch (err: any) {
                 console.error('Attendance history fetch failed:', err);
                 throw err;

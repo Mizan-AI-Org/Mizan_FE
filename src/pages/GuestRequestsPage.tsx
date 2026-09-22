@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
+import { unwrapEnvelope } from "@/lib/envelope";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -112,9 +113,12 @@ export default function GuestRequestsPage() {
     queryKey: ["guest-requests", filter],
     queryFn: async () => {
       const params = filter !== "all" ? `?status=${filter}` : "";
-      const res = await fetch(`${API_BASE}/staff/guest-requests/${params}`);
+      const token = localStorage.getItem("access_token") || "";
+      const res = await fetch(`${API_BASE}/staff/guest-requests/${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (!res.ok) throw new Error("Failed to fetch guest requests");
-      return res.json();
+      return unwrapEnvelope<GuestRequest[]>(await res.json()) || [];
     },
   });
 
@@ -128,9 +132,13 @@ export default function GuestRequestsPage() {
       notes: string;
       sla_minutes: number;
     }) => {
+      const token = localStorage.getItem("access_token") || "";
       const res = await fetch(`${API_BASE}/staff/guest-requests/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error("Failed to create guest request");
@@ -153,9 +161,13 @@ export default function GuestRequestsPage() {
       status?: GuestRequestStatus;
       resolution_notes?: string;
     }) => {
+      const token = localStorage.getItem("access_token") || "";
       const res = await fetch(`${API_BASE}/staff/guest-requests/${id}/`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error("Failed to update");

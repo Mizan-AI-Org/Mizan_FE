@@ -509,7 +509,7 @@ export default function PaymentApprovalSettings() {
       >
         <div className="space-y-6">
           {!policy.enabled ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-5 py-6 dark:border-slate-700 dark:bg-slate-900/40">
+            <div className="rounded-xl border border-dashed border-border bg-muted/50 px-5 py-6">
               <p className="text-sm text-slate-600 dark:text-slate-300">
                 {t("settings.payguard.disabled_hint")}
               </p>
@@ -545,7 +545,7 @@ export default function PaymentApprovalSettings() {
                 ].map(({ n, text, icon: Icon }) => (
                   <div
                     key={n}
-                    className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/40"
+                    className="flex items-start gap-2.5 rounded-xl border border-border bg-muted/50 px-3 py-2.5"
                   >
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white">
                       {n}

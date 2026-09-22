@@ -20,6 +20,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { API_BASE } from '@/lib/api';
+import { unwrapEnvelope } from '@/lib/envelope';
 import { PAGE_SHELL } from '@/lib/page-shell';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -125,7 +126,7 @@ const ActivityLogPage: React.FC = () => {
             if (!res.ok) {
                 throw new Error('Failed to load audit log.');
             }
-            return res.json();
+            return unwrapEnvelope<AuditResponse>(await res.json());
         },
         enabled: canView,
     });

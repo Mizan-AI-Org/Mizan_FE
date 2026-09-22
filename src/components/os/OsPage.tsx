@@ -1,7 +1,6 @@
 import React from "react";
-import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
+import { MizanPageShell } from "@/components/os/MizanPageShell";
 import { cn } from "@/lib/utils";
-import { SectionHeader } from "@/components/os/SectionHeader";
 
 type Props = {
   eyebrow?: string;
@@ -10,11 +9,12 @@ type Props = {
   action?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
-  /** Extra top padding when back-link already exists above */
   flushTop?: boolean;
+  /** Gradient hero header (default on). */
+  hero?: boolean;
 };
 
-/** Canonical OS page container - typography first, light chrome. */
+/** Canonical OS page container — aligned with Social / Intelligence hubs. */
 export function OsPage({
   eyebrow,
   title,
@@ -23,21 +23,19 @@ export function OsPage({
   children,
   className,
   flushTop,
+  hero = true,
 }: Props) {
   return (
-    <div className={cn(PAGE_SHELL_PADDED, flushTop && "pt-2", className)}>
-      <div className="space-y-section">
-        <SectionHeader
-          as="h1"
-          eyebrow={eyebrow}
-          title={title}
-          description={description}
-          titleClassName="text-page-title"
-          action={action}
-        />
-        {children}
-      </div>
-    </div>
+    <MizanPageShell
+      eyebrow={eyebrow}
+      title={title}
+      description={description}
+      actions={action}
+      hero={hero}
+      className={cn(flushTop && "pt-2", className)}
+    >
+      {children}
+    </MizanPageShell>
   );
 }
 

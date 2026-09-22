@@ -13,6 +13,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, FileText, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE } from "@/lib/api";
+import { unwrapEnvelope } from "@/lib/envelope";
+
+function asList(payload: unknown): any[] {
+  const data = unwrapEnvelope(payload);
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    for (const key of ["results", "data", "items"]) {
+      if (Array.isArray(obj[key])) return obj[key] as any[];
+    }
+  }
+  return [];
+}
+
 
 
 interface SOP {
@@ -61,7 +75,7 @@ const StandardOperatingProcedureList: React.FC = () => {
         throw new Error('Failed to fetch SOPs');
       }
 
-      return response.json();
+      return asList(await response.json());
     },
   });
 
@@ -81,7 +95,7 @@ const StandardOperatingProcedureList: React.FC = () => {
         throw new Error('Failed to create SOP');
       }
 
-      return response.json();
+      return asList(await response.json());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sops'] });

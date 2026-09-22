@@ -123,10 +123,18 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
             ? { ...options }
             : {};
       const result = i18n.t(key, opts);
-      // Ensure robust fallback: if missing or unchanged, use English fallback
-      if (typeof result !== 'string' || result === key || result.trim() === '') {
-        const fallback = i18n.t(key, { ...opts, lng: 'en' });
-        return typeof fallback === 'string' && fallback.trim() !== '' ? fallback : key;
+      const defaultValue =
+        typeof opts.defaultValue === "string" && opts.defaultValue.trim()
+          ? opts.defaultValue
+          : undefined;
+      // Ensure robust fallback: defaultValue → English catalog → key
+      if (typeof result !== "string" || result === key || result.trim() === "") {
+        if (defaultValue) return defaultValue;
+        const fallback = i18n.t(key, { ...opts, lng: "en" });
+        if (typeof fallback === "string" && fallback.trim() !== "" && fallback !== key) {
+          return fallback;
+        }
+        return defaultValue || key;
       }
       return result;
     },

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,12 +11,13 @@ import { useLanguage } from '@/hooks/use-language';
 import { API_BASE } from '@/lib/api';
 
 const AcceptInvitation: React.FC = () => {
-    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const params = useParams();
+    const token = searchParams.get('token') || params.token || null;
     const { acceptInvitation } = useAuth();
     const { toast } = useToast();
     const { t } = useLanguage();
-    const token = searchParams.get('token');
 
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -45,7 +46,7 @@ const AcceptInvitation: React.FC = () => {
         const fetchInviteMeta = async () => {
             try {
                 setInviteLoadError(null);
-                const res = await fetch(`${API_BASE}/invitations/by-token/?token=${encodeURIComponent(token)}`);
+        const res = await fetch(`${API_BASE}/staff/invite/accept/?token=${encodeURIComponent(token)}`);
                 let data: any = {};
                 try {
                     data = await res.json();
@@ -68,8 +69,9 @@ const AcceptInvitation: React.FC = () => {
                     return;
                 }
 
-                // User already accepted - redirect to login with a friendly message
-                if (data.is_accepted) {
+                const payload = data.data && typeof data.data === "object" ? data.data : data;
+
+                if (payload.is_accepted) {
                     toast({
                         title: t('auth.accept.toast_already_accepted_title') || 'Already accepted',
                         description: t('auth.accept.toast_already_accepted_desc') || "You've already accepted this invitation. Please log in.",
@@ -79,14 +81,15 @@ const AcceptInvitation: React.FC = () => {
                     return;
                 }
 
-                setInviteRole(data.role || null);
-                setInviteEmail(data.email || null);
-                setRequireEmail(!data.email);
-                if (data.restaurant_name) setRestaurantName(data.restaurant_name);
+                setInviteRole(payload.role || null);
+                setInviteEmail(payload.email || null);
+                setRequireEmail(!payload.email);
+                if (payload.restaurantName || payload.restaurant_name) {
+                    setRestaurantName(payload.restaurantName || payload.restaurant_name);
+                }
 
-                // Pre-fill name fields if present
-                if (data.first_name && !firstName) setFirstName(data.first_name);
-                if (data.last_name && !lastName) setLastName(data.last_name);
+                if (payload.first_name && !firstName) setFirstName(payload.first_name);
+                if (payload.last_name && !lastName) setLastName(payload.last_name);
             } catch {
                 setInviteLoadError({ type: 'not_found', message: t('auth.accept.error_load_failed') || 'Could not load invitation. Please check the link.' });
             }

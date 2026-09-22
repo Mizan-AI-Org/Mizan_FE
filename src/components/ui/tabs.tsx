@@ -2,39 +2,38 @@ import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 
 import { cn } from "@/lib/utils";
+import { COMPACT_TABS_LIST, COMPACT_TABS_TRIGGER, HUB_TABS_LIST_INLINE, HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
 
 const Tabs = TabsPrimitive.Root;
 
-const TabsList = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.List>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.List
-    ref={ref}
-    className={cn(
-      "flex flex-wrap gap-1 items-center justify-start rounded-full bg-muted/60 p-1 text-muted-foreground min-h-[40px]",
-      className,
-    )}
-    {...props}
-  />
-));
+type TabsListProps = React.ComponentPropsWithoutRef<typeof TabsPrimitive.List> & {
+  variant?: "hub" | "compact";
+};
+
+const TabsList = React.forwardRef<React.ElementRef<typeof TabsPrimitive.List>, TabsListProps>(
+  ({ className, variant = "hub", ...props }, ref) => (
+    <TabsPrimitive.List
+      ref={ref}
+      className={cn(variant === "compact" ? COMPACT_TABS_LIST : HUB_TABS_LIST_INLINE, className)}
+      {...props}
+    />
+  ),
+);
 TabsList.displayName = TabsPrimitive.List.displayName;
 
-const TabsTrigger = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-full px-3 md:px-4 py-1.5 md:py-2 text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 touch-manipulation",
-      "bg-transparent hover:bg-muted/60 text-muted-foreground",
-      "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm",
-      className,
-    )}
-    {...props}
-  />
-));
+type TabsTriggerProps = React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger> & {
+  variant?: "hub" | "compact";
+};
+
+const TabsTrigger = React.forwardRef<React.ElementRef<typeof TabsPrimitive.Trigger>, TabsTriggerProps>(
+  ({ className, variant = "hub", ...props }, ref) => (
+    <TabsPrimitive.Trigger
+      ref={ref}
+      className={cn(variant === "compact" ? COMPACT_TABS_TRIGGER : HUB_TABS_TRIGGER, className)}
+      {...props}
+    />
+  ),
+);
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
 
 const TabsContent = React.forwardRef<

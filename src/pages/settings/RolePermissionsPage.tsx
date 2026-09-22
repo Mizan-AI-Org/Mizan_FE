@@ -44,12 +44,11 @@ import {
   useUserPermissionMutations,
   useUserPermissions,
 } from "@/hooks/use-permissions";
+import { RBAC_EDITOR_ROLES, roleAllowed } from "@/lib/operationalCommandRoles";
 
 type BucketKey = keyof PermissionBuckets;
 type Scope = "role" | "users";
 type PermTab = "apps" | "widgets" | "actions";
-
-const ALLOWED_EDITORS = ["SUPER_ADMIN", "ADMIN", "OWNER"] as const;
 
 const PERM_TABS: { id: PermTab; bucket: BucketKey; icon: typeof LayoutGrid }[] = [
   { id: "apps", bucket: "apps", icon: LayoutGrid },
@@ -84,7 +83,7 @@ export default function RolePermissionsPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
 
-  const allowed = user && ALLOWED_EDITORS.includes(user.role as (typeof ALLOWED_EDITORS)[number]);
+  const allowed = roleAllowed(user?.role, RBAC_EDITOR_ROLES);
 
   const catalogQ = useRBACCatalog(!!allowed);
   const savedRolesQ = useRolePermissions(!!allowed);
@@ -276,7 +275,7 @@ export default function RolePermissionsPage() {
                 "flex items-center gap-2 rounded-lg border px-2.5 py-2 cursor-pointer transition-colors min-w-0",
                 checked
                   ? "border-emerald-200/80 bg-emerald-50/80 dark:border-emerald-800/50 dark:bg-emerald-950/35"
-                  : "border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-800/50",
+                  : "border-border bg-card hover:bg-muted/50",
               )}
             >
               <Checkbox
@@ -327,10 +326,10 @@ export default function RolePermissionsPage() {
     <div className={`${SETTINGS_PAGE_SHELL_PADDED} space-y-3`}>
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
             {t("rbac.title")}
           </h1>
-          <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             {t("rbac.subtitle")}
           </p>
         </div>
@@ -344,10 +343,10 @@ export default function RolePermissionsPage() {
         ) : null}
       </header>
 
-      <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-card shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
         {/* Scope + role toolbar */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 border-b border-slate-200/80 dark:border-slate-800 px-3 sm:px-4 py-2.5 bg-slate-50/70 dark:bg-slate-900/80">
-          <div className="flex gap-0.5 p-0.5 rounded-lg bg-slate-200/60 dark:bg-slate-800/80">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 border-b border-border px-3 sm:px-4 py-2.5 bg-muted/50">
+          <div className="flex gap-0.5 p-0.5 rounded-lg bg-muted">
             {(
               [
                 { id: "role" as const, label: t("rbac.scope.role"), icon: ShieldCheck },
@@ -412,7 +411,7 @@ export default function RolePermissionsPage() {
           <div className="flex-1 min-w-[8px]" />
 
           {/* Permission type tabs - inline in toolbar */}
-          <div className="flex flex-wrap gap-0.5 p-0.5 rounded-lg bg-slate-200/60 dark:bg-slate-800/80">
+          <div className="flex flex-wrap gap-0.5 p-0.5 rounded-lg bg-muted">
             {PERM_TABS.map(({ id, icon: Icon }) => (
               <button
                 key={id}
@@ -440,8 +439,8 @@ export default function RolePermissionsPage() {
           )}
         >
           {scope === "users" ? (
-            <aside className="border-b lg:border-b-0 lg:border-r border-slate-200/80 dark:border-slate-800 flex flex-col min-h-0">
-              <div className="p-2 border-b border-slate-200/80 dark:border-slate-800">
+            <aside className="border-b lg:border-b-0 lg:border-r border-border flex flex-col min-h-0">
+              <div className="p-2 border-b border-border">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                   <Input
@@ -508,7 +507,7 @@ export default function RolePermissionsPage() {
           ) : null}
 
           <div className="flex flex-col min-h-0 min-w-0">
-            <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 border-b border-slate-100 dark:border-slate-800/80">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 border-b border-border">
               <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-xl">
                 {t(`rbac.bucket.${activeBucket}.help` as const)}
               </p>

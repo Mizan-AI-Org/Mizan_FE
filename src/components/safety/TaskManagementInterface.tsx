@@ -198,10 +198,10 @@ const TaskManagementInterface: React.FC<{ isManager: boolean }> = ({ isManager }
       </div>
 
       <Tabs defaultValue="all" value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'sop' | 'checklist')}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all">All Tasks</TabsTrigger>
-          <TabsTrigger value="sop">SOP Tasks</TabsTrigger>
-          <TabsTrigger value="checklist">Checklist Tasks</TabsTrigger>
+        <TabsList variant="compact" className="grid w-full grid-cols-3">
+          <TabsTrigger variant="compact" value="all">All Tasks</TabsTrigger>
+          <TabsTrigger variant="compact" value="sop">SOP Tasks</TabsTrigger>
+          <TabsTrigger variant="compact" value="checklist">Checklist Tasks</TabsTrigger>
         </TabsList>
       </Tabs>
 

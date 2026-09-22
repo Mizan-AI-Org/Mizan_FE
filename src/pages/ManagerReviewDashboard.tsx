@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
 import { api, API_BASE, resolveMediaUrl, toAbsoluteUrl } from "@/lib/api";
@@ -132,30 +132,47 @@ const ManagerReviewDashboard: React.FC = () => {
   const [checklistPage, setChecklistPage] = useState(1);
   const checklistPageSize = 10;
 
-  // Top-level tab - deep-linkable via ?tab=submitted|incidents so that the
-  // dashboard's "Reported Incidents" widget can land directly on the right
-  // tab. We keep the URL in sync when the user switches tabs manually so
-  // copy-pasting the address bar reproduces what they're looking at.
+  // Top-level tab - deep-linkable via ?tab=submitted|incidents, and via the
+  // /dashboard/operations/incidents route (sidebar "Incidents") which must open
+  // the Incidents tab directly.
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabFromUrl = (searchParams.get("tab") || "").toLowerCase();
-  const initialTab = tabFromUrl === "incidents" ? "incidents" : "submitted";
-  const [activeTab, setActiveTab] = useState<string>(initialTab);
+  const pathImpliesIncidents = /\/incidents\/?$/.test(location.pathname);
+
+  const resolveTab = (raw: string | null): "incidents" | "submitted" => {
+    const t = (raw || "").toLowerCase();
+    if (t === "incidents") return "incidents";
+    if (t === "submitted" || t === "checklists") return "submitted";
+    return pathImpliesIncidents ? "incidents" : "submitted";
+  };
+
+  const [activeTab, setActiveTab] = useState<string>(() => resolveTab(searchParams.get("tab")));
+
+  // Keep ?tab= in sync with the visible tab (shareable / refresh-safe).
   useEffect(() => {
     const desired = activeTab === "incidents" ? "incidents" : "submitted";
-    if (tabFromUrl !== desired) {
-      const next = new URLSearchParams(searchParams);
-      if (desired === "submitted") next.delete("tab");
-      else next.set("tab", desired);
-      setSearchParams(next, { replace: true });
+    const current = (searchParams.get("tab") || "").toLowerCase();
+    if (desired === current) return;
+    if (desired === "incidents" && !current && !pathImpliesIncidents) {
+      // Non-incidents routes default to checklists without cluttering the URL.
+      return;
     }
+    const next = new URLSearchParams(searchParams);
+    if (desired === "submitted" && !pathImpliesIncidents) {
+      next.delete("tab");
+    } else {
+      next.set("tab", desired);
+    }
+    setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, pathImpliesIncidents]);
+
+  // React to URL / route changes (sidebar click, back/forward, widgets).
   useEffect(() => {
-    const t = (searchParams.get("tab") || "").toLowerCase();
-    const desired = t === "incidents" ? "incidents" : "submitted";
+    const desired = resolveTab(searchParams.get("tab"));
     if (desired !== activeTab) setActiveTab(desired);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams, location.pathname]);
 
   // Incident management state
   const [incidentFilters, setIncidentFilters] = useState({ status: 'open', severity: '', search: '' });

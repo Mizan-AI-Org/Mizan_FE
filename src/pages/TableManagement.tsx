@@ -71,7 +71,7 @@ const TableManagement: React.FC = () => {
             }
             return response.json();
         },
-        enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN'),
+        enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'OWNER' || user.role === 'ADMIN'),
         refetchInterval: 60_000,
     });
 
@@ -91,7 +91,7 @@ const TableManagement: React.FC = () => {
             }
             return response.json();
         },
-        enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') && showAssignOrderDialog, // Only fetch when dialog is open
+        enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'OWNER' || user.role === 'ADMIN') && showAssignOrderDialog, // Only fetch when dialog is open
     });
 
     const createTableMutation = useMutation({
@@ -266,27 +266,27 @@ const TableManagement: React.FC = () => {
                             )}
 
                             <div className="flex gap-2 mt-4 flex-wrap">
-                                {table.status === 'AVAILABLE' && (user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') && (
+                                {table.status === 'AVAILABLE' && (user?.role === 'SUPER_ADMIN' || user?.role === 'OWNER' || user?.role === 'ADMIN') && (
                                     <Button variant="outline" size="sm" onClick={() => handleAssignOrderClick(table.id)}>
                                         <Utensils className="w-4 h-4 mr-2" /> Assign Order
                                     </Button>
                                 )}
-                                {table.status === 'OCCUPIED' && (user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') && (
+                                {table.status === 'OCCUPIED' && (user?.role === 'SUPER_ADMIN' || user?.role === 'OWNER' || user?.role === 'ADMIN') && (
                                     <Button variant="outline" size="sm" onClick={() => clearOrderMutation.mutate(table.id)} disabled={clearOrderMutation.isPending}>
                                         <CheckCircle className="w-4 h-4 mr-2" /> Clear Order
                                     </Button>
                                 )}
-                                {table.status === 'NEEDS_CLEANING' && (user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') && (
+                                {table.status === 'NEEDS_CLEANING' && (user?.role === 'SUPER_ADMIN' || user?.role === 'OWNER' || user?.role === 'ADMIN') && (
                                     <Button variant="outline" size="sm" onClick={() => updateTableStatusMutation.mutate({ id: table.id, status: 'AVAILABLE' })} disabled={updateTableStatusMutation.isPending}>
                                         <CheckCircle className="w-4 h-4 mr-2" /> Mark Clean
                                     </Button>
                                 )}
-                                {table.status !== 'OUT_OF_SERVICE' && (user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') && (
+                                {table.status !== 'OUT_OF_SERVICE' && (user?.role === 'SUPER_ADMIN' || user?.role === 'OWNER' || user?.role === 'ADMIN') && (
                                     <Button variant="outline" size="sm" onClick={() => updateTableStatusMutation.mutate({ id: table.id, status: 'OUT_OF_SERVICE' })} disabled={updateTableStatusMutation.isPending}>
                                         <XCircle className="w-4 h-4 mr-2" /> Out of Service
                                     </Button>
                                 )}
-                                {table.status === 'OUT_OF_SERVICE' && (user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') && (
+                                {table.status === 'OUT_OF_SERVICE' && (user?.role === 'SUPER_ADMIN' || user?.role === 'OWNER' || user?.role === 'ADMIN') && (
                                     <Button variant="outline" size="sm" onClick={() => updateTableStatusMutation.mutate({ id: table.id, status: 'AVAILABLE' })} disabled={updateTableStatusMutation.isPending}>
                                         <Wrench className="w-4 h-4 mr-2" /> Mark Serviceable
                                     </Button>

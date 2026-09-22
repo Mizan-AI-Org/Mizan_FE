@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Briefcase,
@@ -39,6 +39,8 @@ interface SectorPickerProps {
   onChange: (next: BusinessVertical) => void;
   tone?: SectorPickerTone;
   columns?: 2 | 4;
+  /** Override the grid class (e.g. when rendered inside a narrower container). */
+  gridClass?: string;
   /** Show the selected pack as chips under the grid. */
   showPreview?: boolean;
   name?: string;
@@ -49,16 +51,50 @@ interface SectorPickerProps {
 export const SectorPicker: React.FC<SectorPickerProps> = ({
   value,
   onChange,
-  tone = "light",
+  tone,
   columns = 4,
+  gridClass,
   showPreview = true,
   name = "businessVertical",
   labelledBy,
   describedBy,
 }) => {
   const { t } = useTranslation();
-  const dark = tone === "dark";
+  // Auto-detect theme if not explicitly provided
+  const [resolvedTone, setResolvedTone] = useState<SectorPickerTone>(tone || "light");
+  
+  useEffect(() => {
+    if (tone) {
+      setResolvedTone(tone);
+      return;
+    }
+    // Auto-detect from document.documentElement.classList
+    const isDark = document.documentElement.classList.contains("dark");
+    setResolvedTone(isDark ? "dark" : "light");
+    
+    // Listen for theme changes
+    const handleThemeChange = () => {
+      const isDark = document.documentElement.classList.contains("dark");
+      setResolvedTone(isDark ? "dark" : "light");
+    };
+    
+    const observer = new MutationObserver(handleThemeChange);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    
+    return () => observer.disconnect();
+  }, [tone]);
+  
+  const dark = resolvedTone === "dark";
   const preview = playbooksForVertical(value).slice(0, 3);
+
+  const resolvedGridClass = gridClass ?? (
+    columns === 4
+      ? "grid-cols-2 sm:grid-cols-4"
+      : "grid-cols-2"
+  );
 
   return (
     <div className="space-y-3">
@@ -67,12 +103,7 @@ export const SectorPicker: React.FC<SectorPickerProps> = ({
         role="radiogroup"
         aria-labelledby={labelledBy}
         aria-describedby={describedBy}
-        className={cn(
-          "grid gap-2",
-          columns === 4
-            ? "grid-cols-2 sm:grid-cols-4"
-            : "grid-cols-2",
-        )}
+        className={cn("grid gap-2.5", resolvedGridClass)}
       >
         {SIGNUP_SECTOR_OPTIONS.map((opt) => {
           const selected = opt.value === value;
@@ -85,63 +116,66 @@ export const SectorPicker: React.FC<SectorPickerProps> = ({
               aria-checked={selected}
               onClick={() => onChange(opt.value)}
               className={cn(
-                "relative text-left rounded-xl border px-3 py-2.5 transition-all focus-visible:outline-none focus-visible:ring-2",
+                "relative text-left rounded-xl border p-3 transition-all focus-visible:outline-none focus-visible:ring-2 flex flex-col gap-2",
                 dark
                   ? selected
-                    ? "border-[#00E676] bg-[#00E676]/10 ring-1 ring-[#00E676]/40 text-white"
-                    : "border-white/10 bg-[#0A0D10]/50 text-white hover:border-white/25 hover:bg-white/5"
+                    ? "border-[#00E676] bg-[#00E676]/10 ring-1 ring-[#00E676]/40"
+                    : "border-white/10 bg-[#0A0D10]/50 hover:border-white/25 hover:bg-white/5"
                   : selected
-                    ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 text-slate-900 dark:border-emerald-400 dark:bg-emerald-900/20 dark:text-slate-100"
-                    : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-800 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-200 dark:hover:border-slate-700",
+                    ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20"
+                    : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80",
                 dark
                   ? "focus-visible:ring-[#00E676]/60"
                   : "focus-visible:ring-emerald-500/50",
               )}
             >
+              {/* Selected check badge */}
               {selected && (
                 <span
                   className={cn(
-                    "absolute top-1.5 right-1.5 h-4 w-4 rounded-full flex items-center justify-center",
+                    "absolute top-2 right-2 h-5 w-5 rounded-full flex items-center justify-center shadow-sm",
                     dark ? "bg-[#00E676] text-[#0A0D10]" : "bg-emerald-500 text-white",
                   )}
                 >
                   <Check className="h-3 w-3" strokeWidth={3} />
                 </span>
               )}
-              <div className="flex items-start gap-2.5 pr-4">
+
+              {/* Icon */}
+              <span
+                className={cn(
+                  "h-9 w-9 rounded-lg flex items-center justify-center shrink-0",
+                  dark
+                    ? selected
+                      ? "bg-[#00E676]/20 text-[#00E676]"
+                      : "bg-white/5 text-[#B0BEC5]"
+                    : selected
+                      ? "bg-emerald-500 text-white"
+                      : "bg-slate-100 text-slate-500",
+                )}
+              >
+                <Icon className="h-5 w-5" />
+              </span>
+
+              {/* Text */}
+              <span className="space-y-0.5">
                 <span
                   className={cn(
-                    "mt-0.5 h-8 w-8 shrink-0 rounded-lg flex items-center justify-center",
-                    dark
-                      ? selected
-                        ? "bg-[#00E676]/20 text-[#00E676]"
-                        : "bg-white/5 text-[#B0BEC5]"
-                      : selected
-                        ? "bg-emerald-500 text-white"
-                        : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
+                    "block text-sm font-semibold leading-tight",
+                    dark ? "text-white" : selected ? "text-emerald-800" : "text-slate-800",
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  {t(opt.nameKey)}
                 </span>
-                <span className="min-w-0">
-                  <span
-                    className={cn(
-                      "block text-sm font-semibold leading-tight",
-                      dark ? "text-white" : "text-slate-900 dark:text-slate-100",
-                    )}
-                  >
-                    {t(opt.nameKey)}
-                  </span>
-                  <span
-                    className={cn(
-                      "mt-0.5 block text-[11px] leading-snug line-clamp-2",
-                      dark ? "text-[#B0BEC5]" : "text-slate-500 dark:text-slate-400",
-                    )}
-                  >
-                    {t(opt.taglineKey)}
-                  </span>
+                <span
+                  className={cn(
+                    "block text-[11px] leading-snug",
+                    dark ? "text-[#B0BEC5]" : "text-slate-400",
+                  )}
+                >
+                  {t(opt.taglineKey)}
                 </span>
-              </div>
+              </span>
             </button>
           );
         })}

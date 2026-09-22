@@ -149,7 +149,15 @@ export default function TaskTemplateManagement() {
       });
       if (!response.ok) throw new Error('Failed to load task templates');
       const data = await response.json();
-      return data.results || data;
+      const payload =
+        data && typeof data === 'object' && 'data' in data && 'success' in data
+          ? (data as { data: unknown }).data
+          : data;
+      if (Array.isArray(payload)) return payload;
+      if (payload && typeof payload === 'object' && Array.isArray((payload as any).results)) {
+        return (payload as any).results;
+      }
+      return [];
     },
   });
 
