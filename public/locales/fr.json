@@ -4499,6 +4499,8 @@
   "social.connect.server_setup": "Configuration serveur",
   "social.connect.disconnect": "Déconnecter {{label}}",
   "social.connect.reconnect": "Reconnecter {{label}}",
+  "social.connect.reconnect_short": "Reconnecter",
+  "social.connect.setup": "Configurer",
   "social.connect.connect_label": "Connecter {{label}}",
   "social.connect.disconnected": "Déconnecté",
   "social.connect.could_not_start": "Impossible de démarrer la connexion",

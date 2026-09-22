@@ -4499,6 +4499,8 @@
   "social.connect.server_setup": "إعداد الخادم",
   "social.connect.disconnect": "قطع اتصال {{label}}",
   "social.connect.reconnect": "إعادة ربط {{label}}",
+  "social.connect.reconnect_short": "إعادة الربط",
+  "social.connect.setup": "إعداد",
   "social.connect.connect_label": "ربط {{label}}",
   "social.connect.disconnected": "تم قطع الاتصال",
   "social.connect.could_not_start": "تعذّر بدء الاتصال",
