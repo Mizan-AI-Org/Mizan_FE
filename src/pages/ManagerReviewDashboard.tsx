@@ -176,7 +176,16 @@ const ManagerReviewDashboard: React.FC = () => {
 
   // Incident management state
   const [incidentFilters, setIncidentFilters] = useState({ status: 'open', severity: '', search: '' });
-  const [selectedIncident, setSelectedIncident] = useState<string | null>(null);
+  const [selectedIncident, setSelectedIncident] = useState<string | null>(
+    () => (searchParams.get("incident") || "").trim() || null,
+  );
+
+  useEffect(() => {
+    const id = (searchParams.get("incident") || "").trim();
+    if (!id) return;
+    if (activeTab !== "incidents") setActiveTab("incidents");
+    if (selectedIncident !== id) setSelectedIncident(id);
+  }, [searchParams, activeTab, selectedIncident]);
   const [updateStatus, setUpdateStatus] = useState('');
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [assignTo, setAssignTo] = useState<string>('');
@@ -491,7 +500,7 @@ const ManagerReviewDashboard: React.FC = () => {
     queryFn: async () => {
       const qs = new URLSearchParams({
         ordering: "-created_at",
-        page_size: "200",
+        page_size: "500",
       });
       const res = await fetch(`${API_BASE}/staff/safety-concerns/?${qs.toString()}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
@@ -1845,6 +1854,11 @@ const ManagerReviewDashboard: React.FC = () => {
                 setUpdateStatus("");
                 setResolutionNotes("");
                 setAssignTo("");
+                const next = new URLSearchParams(searchParams);
+                if (next.has("incident")) {
+                  next.delete("incident");
+                  setSearchParams(next, { replace: true });
+                }
               }
             }}
           >

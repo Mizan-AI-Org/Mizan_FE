@@ -113,7 +113,7 @@ export function SocialConnectBar({ className, compact }: Props) {
           </span>
         ) : null}
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid min-w-0 grid-cols-6 gap-3">
         {PLATFORMS.map(({ id, label }) => {
           const acc = byPlatform[id];
           const connected = acc?.status === "connected";

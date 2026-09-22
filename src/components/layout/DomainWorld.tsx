@@ -31,6 +31,7 @@ type DomainWorld = {
     detail_params?: I18nParams;
     href?: string;
   }>;
+  today_total?: number;
   observations: Array<{
     text: string;
     message_key?: string;
@@ -163,12 +164,12 @@ export function DomainOverviewPage({ domain: domainProp }: { domain?: DomainId }
           <div className={cn("grid lg:grid-cols-2", MIZAN_GRID_GAP)}>
             <section className={MIZAN_SURFACE_CARD}>
               <h2 className="mb-3 text-section-title">{t("domain.today")}</h2>
-              <ul className="space-y-2">
+              <ul className="max-h-80 space-y-1 overflow-y-auto pr-1">
                 {(data?.today || []).map((row) => {
                   const title = localized(t, row.title_key, row.title, row.title_params);
                   const detail = localized(t, row.detail_key, row.detail || "", row.detail_params);
                   return (
-                  <li key={`${row.title_key || row.title}-${detail}`}>
+                  <li key={row.href || `${row.title_key || row.title}-${detail}`}>
                     <button
                       type="button"
                       className="w-full rounded-lg px-2 py-2 text-start transition-colors hover:bg-muted/60"
@@ -184,6 +185,15 @@ export function DomainOverviewPage({ domain: domainProp }: { domain?: DomainId }
                   <p className="text-body text-muted-foreground">{t("domain.empty_today")}</p>
                 ) : null}
               </ul>
+              {(data?.today_total || 0) > (data?.today?.length || 0) ? (
+                <p className="mt-2 text-caption text-muted-foreground">
+                  {t("domain.today.showing", {
+                    shown: data?.today?.length || 0,
+                    total: data?.today_total || 0,
+                    defaultValue: "Showing {{shown}} of {{total}}",
+                  })}
+                </p>
+              ) : null}
             </section>
             <section className={cn(MIZAN_SURFACE_CARD, "border-ai-border bg-gradient-to-br from-ai/50 to-card")}>
               <h2 className="mb-3 text-section-title">{t("domain.observations")}</h2>

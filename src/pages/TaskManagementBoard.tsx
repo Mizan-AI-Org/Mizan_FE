@@ -154,6 +154,7 @@ export default function TaskManagementBoard({
   const [isLoading, setIsLoading] = useState(true);
   const [metricsLoaded, setMetricsLoaded] = useState(false);
   const [allTasks, setAllTasks] = useState<ScheduledTask[]>([]);
+  const [taskTotal, setTaskTotal] = useState(0);
   const [tasksLoading, setTasksLoading] = useState(true);
   const [scope, setScope] = useState<TaskScopeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("open");
@@ -198,19 +199,31 @@ export default function TaskManagementBoard({
   };
 
   const loadAllTasks = async () => {
+    const pageSize = 200;
+    const pageCap = 10;
     try {
-      const response = await fetch(`${API_BASE}/scheduling/tasks/`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-      });
-      if (response.ok) {
+      const collected: ScheduledTask[] = [];
+      let reported = 0;
+      for (let page = 1; page <= pageCap; page += 1) {
+        const response = await fetch(
+          `${API_BASE}/scheduling/tasks/?page=${page}&page_size=${pageSize}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            },
+          },
+        );
+        if (!response.ok) break;
         const data = await response.json();
-        const list = Array.isArray(data) ? data : (data.results ?? []);
-        setAllTasks(list as ScheduledTask[]);
+        const list = (Array.isArray(data) ? data : (data.results ?? [])) as ScheduledTask[];
+        reported = typeof data?.count === "number" ? data.count : collected.length + list.length;
+        collected.push(...list);
+        if (!list.length || collected.length >= reported) break;
       }
+      setAllTasks(collected);
+      setTaskTotal(reported);
     } catch (error) {
-      console.error('Failed to load tasks', error);
+      console.error("Failed to load tasks", error);
     } finally {
       setTasksLoading(false);
     }
@@ -899,7 +912,7 @@ export default function TaskManagementBoard({
               </Button>
             </div>
           ) : (
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+            <ul className="max-h-[32rem] divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
               {visibleTasks.map((task) => {
                 const stat = statusChip(task.status);
                 const isShift = !!task.assigned_shift;
@@ -989,6 +1002,15 @@ export default function TaskManagementBoard({
                 );
               })}
             </ul>
+            {taskTotal > allTasks.length ? (
+              <p className="px-4 py-2 text-xs text-slate-500">
+                {t("domain.today.showing", {
+                  shown: allTasks.length,
+                  total: taskTotal,
+                  defaultValue: "Showing {{shown}} of {{total}}",
+                })}
+              </p>
+            ) : null}
           )}
         </CardContent>
       </Card>

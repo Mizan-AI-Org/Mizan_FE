@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, Loader2, Mic, Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -100,7 +100,7 @@ function ChatMessages({
   return (
     <div
       ref={scrollRef}
-      className="mizan-chat-thread min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3"
+      className="mizan-chat-thread min-h-0 flex-1 space-y-1 overflow-y-auto overflow-anchor-none px-3 py-3"
     >
       {messages.map((msg, index) => {
         const showDate = shouldShowDateDivider(messages, index);
@@ -540,9 +540,17 @@ export const AgentChatPanel: React.FC = () => {
     saveMastraMessages(userId, messages);
   }, [messages, userId, historyReady]);
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, loading]);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const snapToLatest = () => {
+      const thread = scrollRef.current;
+      if (!thread) return;
+      thread.scrollTop = thread.scrollHeight;
+    };
+    snapToLatest();
+    const frame = window.requestAnimationFrame(snapToLatest);
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, messages, loading]);
 
   useEffect(() => {
     if (panel?.prefill) {
