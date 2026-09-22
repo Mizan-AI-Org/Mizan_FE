@@ -479,7 +479,7 @@ function OperationsLiveTable({
                 <tr>
                   <td
                     colSpan={10}
-                    className="px-4 py-10 text-center text-sm text-muted-foreground bg-card"
+                    className="px-4 py-5 text-center text-sm text-muted-foreground bg-card"
                   >
                     {t("operations_live.empty")}
                   </td>
@@ -666,6 +666,14 @@ export default function OperationsLivePage() {
     [data],
   );
 
+  const pendingCount = data?.counts?.pending ?? 0;
+  const inProgressCount = data?.counts?.in_progress ?? 0;
+  const completedCount = data?.counts?.completed ?? 0;
+  const showPendingLane = pendingCount > 0;
+  const showInProgressLane = inProgressCount > 0;
+  const showCompletedLane = completedCount > 0;
+  const allLanesEmpty = !showPendingLane && !showInProgressLane && !showCompletedLane;
+
   const openRow = (taskId: string) => {
     openDashboardTaskSheet(navigate, location, taskId, { keepPath: true });
   };
@@ -692,15 +700,13 @@ export default function OperationsLivePage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-5.5rem)] bg-background">
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-5 pb-28 space-y-6">
-        <header className="space-y-1">
-          <h1 className="text-[2rem] font-bold tracking-tight text-foreground leading-tight">
+    <div className="bg-background">
+      <div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-5 sm:px-6 lg:px-8 lg:pb-6">
+        <header>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground leading-tight">
             {t("operations_live.title")}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {t("operations_live.subtitle", { restaurant: restaurantLabel })}
-          </p>
+          <p className="sr-only">{t("operations_live.subtitle", { restaurant: restaurantLabel })}</p>
         </header>
 
         <div
@@ -790,55 +796,66 @@ export default function OperationsLivePage() {
             onDragEnd={onDragEnd}
             onDragCancel={() => setActiveDrag(null)}
           >
-            <div className="space-y-8">
-              <OperationsLiveTable
-                title={t("operations_live.section.new")}
-                count={data?.counts?.pending ?? 0}
-                items={data?.pending ?? []}
-                lane="pending"
-                pagination={lanePagination.pending}
-                onPageChange={(page) =>
-                  setLanePages((prev) => ({ ...prev, pending: page }))
-                }
-                t={t}
-                onOpenRow={openRow}
-                onStatusChange={(id, status) =>
-                  statusMutation.mutate({ taskId: id, status })
-                }
-                updatingId={updatingId}
-              />
-              <OperationsLiveTable
-                title={t("operations_live.section.in_progress")}
-                count={data?.counts?.in_progress ?? 0}
-                items={data?.in_progress ?? []}
-                lane="in_progress"
-                pagination={lanePagination.in_progress}
-                onPageChange={(page) =>
-                  setLanePages((prev) => ({ ...prev, in_progress: page }))
-                }
-                t={t}
-                onOpenRow={openRow}
-                onStatusChange={(id, status) =>
-                  statusMutation.mutate({ taskId: id, status })
-                }
-                updatingId={updatingId}
-              />
-              <OperationsLiveTable
-                title={t("operations_live.section.completed")}
-                count={data?.counts?.completed ?? 0}
-                items={data?.completed ?? []}
-                lane="completed"
-                pagination={lanePagination.completed}
-                onPageChange={(page) =>
-                  setLanePages((prev) => ({ ...prev, completed: page }))
-                }
-                t={t}
-                onOpenRow={openRow}
-                onStatusChange={(id, status) =>
-                  statusMutation.mutate({ taskId: id, status })
-                }
-                updatingId={updatingId}
-              />
+            <div className="space-y-6">
+              {allLanesEmpty ? (
+                <div className="rounded-md border border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+                  {t("operations_live.empty")}
+                </div>
+              ) : null}
+              {showPendingLane ? (
+                <OperationsLiveTable
+                  title={t("operations_live.section.new")}
+                  count={pendingCount}
+                  items={data?.pending ?? []}
+                  lane="pending"
+                  pagination={lanePagination.pending}
+                  onPageChange={(page) =>
+                    setLanePages((prev) => ({ ...prev, pending: page }))
+                  }
+                  t={t}
+                  onOpenRow={openRow}
+                  onStatusChange={(id, status) =>
+                    statusMutation.mutate({ taskId: id, status })
+                  }
+                  updatingId={updatingId}
+                />
+              ) : null}
+              {showInProgressLane ? (
+                <OperationsLiveTable
+                  title={t("operations_live.section.in_progress")}
+                  count={inProgressCount}
+                  items={data?.in_progress ?? []}
+                  lane="in_progress"
+                  pagination={lanePagination.in_progress}
+                  onPageChange={(page) =>
+                    setLanePages((prev) => ({ ...prev, in_progress: page }))
+                  }
+                  t={t}
+                  onOpenRow={openRow}
+                  onStatusChange={(id, status) =>
+                    statusMutation.mutate({ taskId: id, status })
+                  }
+                  updatingId={updatingId}
+                />
+              ) : null}
+              {showCompletedLane ? (
+                <OperationsLiveTable
+                  title={t("operations_live.section.completed")}
+                  count={completedCount}
+                  items={data?.completed ?? []}
+                  lane="completed"
+                  pagination={lanePagination.completed}
+                  onPageChange={(page) =>
+                    setLanePages((prev) => ({ ...prev, completed: page }))
+                  }
+                  t={t}
+                  onOpenRow={openRow}
+                  onStatusChange={(id, status) =>
+                    statusMutation.mutate({ taskId: id, status })
+                  }
+                  updatingId={updatingId}
+                />
+              ) : null}
             </div>
             <DragOverlay>
               {activeDrag ? (

@@ -6,13 +6,13 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
-  Eye,
+  Loader2,
   RefreshCw,
-  Sparkles,
   Target,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AgentOpsStrip } from "@/components/command/AgentOpsStrip";
 import { AgentAvatar } from "@/components/agent/AgentAvatar";
 import { CommandCentreSkeleton } from "@/components/command/CommandCentreSkeleton";
 import { AttentionCard } from "@/components/os/AttentionCard";
@@ -343,42 +343,11 @@ export function CommandCentreView({ className }: { className?: string }) {
 
   return (
     <div className={cn("min-w-0 space-y-6 px-4 py-6 md:px-6 lg:px-8 lg:py-8", className)}>
-      {/* Agent co-pilot strip */}
-      <section
-        aria-label={t("command.agent_strip_aria")}
-        className="flex flex-wrap items-center gap-4 rounded-panel border border-ai-border bg-gradient-to-br from-ai via-ai/40 to-card px-4 py-4 shadow-xs"
-      >
-        <AgentAvatar size="xl" ring />
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="text-body font-semibold text-foreground">{t("command.agent_strip_title")}</p>
-          <p className="text-body text-muted-foreground">{t("command.agent_strip_desc")}</p>
-          <div className="flex flex-wrap gap-2 pt-1.5">
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-caption font-medium text-primary">
-              <Eye className="h-3 w-3" aria-hidden />
-              {t("command.agent_watching_count", { count: watchingCount })}
-            </span>
-            {handlingCount > 0 ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-card px-2 py-0.5 text-caption font-medium text-muted-foreground ring-1 ring-border/80">
-                {t("command.agent_handling_count", { count: handlingCount })}
-              </span>
-            ) : null}
-            {decideCount > 0 ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-critical-muted px-2 py-0.5 text-caption font-medium text-critical">
-                {t("command.agent_decide_count", { count: decideCount })}
-              </span>
-            ) : null}
-          </div>
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          className="gap-1.5 shrink-0"
-          onClick={() => askAgent(t("attention.brief_prompt"))}
-        >
-          <Sparkles className="h-4 w-4" aria-hidden />
-          {t("attention.brief_me")}
-        </Button>
-      </section>
+      <AgentOpsStrip
+        watchingCount={watchingCount}
+        handlingCount={handlingCount}
+        decideCount={decideCount}
+      />
 
       {/* Header */}
       <header aria-label={t("attention.aria.header")} className="space-y-3">
