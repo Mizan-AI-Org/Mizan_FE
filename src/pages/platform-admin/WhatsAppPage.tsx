@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import {
   platformApi,
+  type PlatformWhatsAppConfig,
   type PlatformWhatsAppTemplate,
 } from "@/lib/platformApi";
 import {
@@ -55,6 +56,18 @@ const SETUP_STEPS = [
   },
 ];
 
+function formFromConfig(config: PlatformWhatsAppConfig) {
+  return {
+    phone_number_id: config.phone_number_id || "",
+    business_account_id: config.business_account_id || "",
+    access_token: "",
+    verify_token: config.verify_token || "",
+    activation_phone: config.activation_phone || "",
+    api_version: config.api_version || "v22.0",
+    webhook_callback_url: config.webhook_callback_url || "",
+  };
+}
+
 function statusBadge(status: string) {
   const s = status.toUpperCase();
   if (s === "APPROVED") return opsBadgeOk;
@@ -73,7 +86,9 @@ export default function WhatsAppPage() {
     verify_token: "",
     activation_phone: "",
     api_version: "v22.0",
+    webhook_callback_url: "",
   });
+  const hydrated = useRef(false);
   const [newTemplate, setNewTemplate] = useState({
     name: "",
     language: "en_US",
@@ -92,16 +107,9 @@ export default function WhatsAppPage() {
 
   useEffect(() => {
     const c = configQuery.data;
-    if (!c) return;
-    setForm((prev) => ({
-      ...prev,
-      phone_number_id: c.phone_number_id || "",
-      business_account_id: c.business_account_id || "",
-      verify_token: c.verify_token || "",
-      activation_phone: c.activation_phone || "",
-      api_version: c.api_version || "v22.0",
-      access_token: "",
-    }));
+    if (!c || hydrated.current) return;
+    hydrated.current = true;
+    setForm(formFromConfig(c));
   }, [configQuery.data]);
 
   const templatesQuery = useQuery({
@@ -118,11 +126,12 @@ export default function WhatsAppPage() {
         verify_token: form.verify_token,
         activation_phone: form.activation_phone,
         api_version: form.api_version,
+        webhook_callback_url: form.webhook_callback_url,
         ...(form.access_token.trim() ? { access_token: form.access_token.trim() } : {}),
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["platform-whatsapp-config"] });
-      setForm((f) => ({ ...f, access_token: "" }));
+    onSuccess: (saved) => {
+      queryClient.setQueryData(["platform-whatsapp-config"], saved);
+      setForm(formFromConfig(saved));
     },
   });
 
@@ -161,8 +170,8 @@ export default function WhatsAppPage() {
 
   const syncMutation = useMutation({
     mutationFn: () => platformApi.syncWhatsAppTemplates(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["platform-whatsapp-templates"] });
+    onSuccess: (data) => {
+      queryClient.setQueryData(["platform-whatsapp-templates"], { results: data.results || [] });
     },
   });
 
@@ -190,17 +199,10 @@ export default function WhatsAppPage() {
 
   const disconnectMutation = useMutation({
     mutationFn: () => platformApi.disconnectWhatsApp(),
-    onSuccess: () => {
+    onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: ["platform-whatsapp-config"] });
       queryClient.invalidateQueries({ queryKey: ["platform-whatsapp-templates"] });
-      setForm({
-        phone_number_id: "",
-        business_account_id: "",
-        access_token: "",
-        verify_token: "",
-        activation_phone: "212784476751",
-        api_version: "v22.0",
-      });
+      setForm(formFromConfig(saved));
       testMutation.reset();
     },
   });
@@ -212,12 +214,12 @@ export default function WhatsAppPage() {
     !config?.disconnected;
 
   const copyWebhook = useCallback(async () => {
-    const url = config?.webhook_callback_url;
+    const url = form.webhook_callback_url || config?.webhook_callback_url;
     if (!url) return;
     await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }, [config?.webhook_callback_url]);
+  }, [config?.webhook_callback_url, form.webhook_callback_url]);
 
   if (configQuery.isLoading) {
     return (
@@ -436,9 +438,10 @@ export default function WhatsAppPage() {
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Webhook Callback URL</span>
                 <div className="flex gap-2">
                   <input
-                    readOnly
                     className={`${opsInput} w-full font-mono text-xs`}
-                    value={config?.webhook_callback_url || ""}
+                    value={form.webhook_callback_url}
+                    onChange={(e) => setForm((f) => ({ ...f, webhook_callback_url: e.target.value }))}
+                    placeholder="https://api.example.com/webhooks/whatsapp/"
                   />
                   <button type="button" className={opsBtnGhost} onClick={copyWebhook} title="Copy URL">
                     <Copy className="h-4 w-4" />
@@ -578,6 +581,11 @@ export default function WhatsAppPage() {
           {syncMutation.error && (
             <p className="text-sm text-rose-600 dark:text-rose-400">
               {(syncMutation.error as Error).message}
+            </p>
+          )}
+          {syncMutation.data?.ok && (
+            <p className="text-sm text-emerald-700 dark:text-emerald-400">
+              Synced {syncMutation.data.synced ?? syncMutation.data.results.length} templates from Meta.
             </p>
           )}
 
