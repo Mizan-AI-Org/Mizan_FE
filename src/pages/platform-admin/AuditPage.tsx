@@ -16,6 +16,12 @@ import {
 
 const PAGE_SIZE = 25;
 
+function formatWhen(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
+}
+
 export default function AuditPage() {
   const [page, setPage] = useState(1);
 
@@ -60,7 +66,7 @@ export default function AuditPage() {
               {(data?.results || []).map((row) => (
                 <tr key={row.id} className={opsRow}>
                   <td className={`${opsTd} whitespace-nowrap text-xs ${opsMuted}`}>
-                    {new Date(row.timestamp).toLocaleString()}
+                    {formatWhen(row.timestamp)}
                   </td>
                   <td className={`${opsTd} font-mono text-xs text-slate-700 dark:text-slate-300`}>
                     {row.action_type}
