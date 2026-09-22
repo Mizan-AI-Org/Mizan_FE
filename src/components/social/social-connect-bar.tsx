@@ -113,7 +113,7 @@ export function SocialConnectBar({ className, compact }: Props) {
           </span>
         ) : null}
       </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {PLATFORMS.map(({ id, label }) => {
           const acc = byPlatform[id];
           const connected = acc?.status === "connected";
@@ -131,82 +131,85 @@ export function SocialConnectBar({ className, compact }: Props) {
                 key={id}
                 aria-disabled
                 title={t("social.connect.coming_soon_title", { label })}
-                className="flex min-h-[6.25rem] w-full cursor-not-allowed flex-col items-start rounded-lg border border-dashed border-muted-foreground/25 bg-muted/30 px-3 py-3 opacity-60 grayscale"
+                className="flex min-h-[8.5rem] min-w-0 w-full flex-col overflow-hidden rounded-lg border border-dashed border-muted-foreground/25 bg-muted/30 px-3 py-3 opacity-60 grayscale"
               >
-                <span className="flex w-full items-center justify-between gap-2">
-                  <SocialPlatformIcon platform={id} size={28} />
-                  <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {t("social.connect.soon")}
-                  </span>
-                </span>
-                <span className="mt-2 text-sm font-medium text-muted-foreground">{label}</span>
-                <span className="mt-1 text-[10px] text-muted-foreground">{t("social.connect.coming_soon")}</span>
+                <SocialPlatformIcon platform={id} size={28} />
+                <p className="mt-2 truncate text-sm font-medium text-muted-foreground">{label}</p>
+                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{t("social.connect.coming_soon")}</p>
+                <Button type="button" size="sm" disabled variant="secondary" className="mt-auto h-8 min-h-0 w-full max-w-full px-2 text-xs">
+                  {t("social.connect.soon")}
+                </Button>
               </div>
             );
           }
 
+          const runConnectAction = () => {
+            if (needsTarget) {
+              setTargetPlatform({ id, label });
+              return;
+            }
+            if (!oauthReady) {
+              setSetupPlatform({ id, label });
+              return;
+            }
+            connect.mutate(id);
+          };
+
+          const actionLabel = connected
+            ? t("social.connect.reconnect_short")
+            : needsTarget
+              ? t("social.connect.finish")
+              : oauthReady
+                ? t("social.connect.connect")
+                : t("social.connect.setup");
+
           return (
-            <button
+            <div
               key={id}
-              type="button"
-              disabled={pending}
-              onClick={() => {
-                if (needsTarget) {
-                  setTargetPlatform({ id, label });
-                  return;
-                }
-                if (!oauthReady) {
-                  setSetupPlatform({ id, label });
-                  return;
-                }
-                connect.mutate(id);
-              }}
-              title={
-                connected
-                  ? t("social.connect.reconnect", { label })
-                  : oauthReady
-                    ? t("social.connect.connect_label", { label })
-                    : t("social.connect.oauth_setup", {
-                        missing: setup?.missing_env?.join(", ") || t("social.connect.provider_credentials"),
-                      })
-              }
               className={cn(
-                "flex min-h-[6.25rem] w-full flex-col items-start rounded-lg border px-3 py-3 text-left transition-colors",
+                "flex min-h-[8.5rem] min-w-0 w-full flex-col overflow-hidden rounded-lg border px-3 py-3",
                 connected
-                  ? "border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/15"
-                  : "border-border bg-background hover:border-primary/50 hover:bg-primary/5",
+                  ? "border-emerald-500/40 bg-emerald-500/10"
+                  : "border-border bg-background",
                 pending && "opacity-60",
               )}
             >
-              <span className="flex w-full items-center justify-between gap-2">
+              <div className="flex w-full items-start justify-between gap-2">
                 <SocialPlatformIcon platform={id} size={28} />
                 {connected ? (
-                  <Check className="h-4 w-4 shrink-0 text-emerald-600" />
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
                 ) : pending ? (
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-                ) : needsTarget ? (
-                  <span className="rounded-md bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                    {t("social.connect.finish")}
-                  </span>
-                ) : oauthReady ? (
-                  <span className="rounded-md bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground">
-                    {t("social.connect.connect")}
-                  </span>
-                ) : (
-                  <Settings2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                )}
-              </span>
-              <span className="mt-2 text-sm font-medium">{label}</span>
+                  <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                ) : !oauthReady ? (
+                  <Settings2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                ) : null}
+              </div>
+              <p className="mt-2 line-clamp-2 text-sm font-medium leading-snug">{label}</p>
               {connected ? (
-                <span className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                   @{String(acc?.username || acc?.account_name || "live")}
-                </span>
+                </p>
               ) : needsTarget ? (
-                <span className="mt-0.5 text-[10px] text-amber-600 dark:text-amber-400">{t("social.connect.pick_target")}</span>
+                <p className="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400">{t("social.connect.pick_target")}</p>
               ) : !oauthReady ? (
-                <span className="mt-1 text-[10px] text-muted-foreground">{t("social.connect.server_setup")}</span>
-              ) : null}
-            </button>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{t("social.connect.server_setup")}</p>
+              ) : (
+                <p className="mt-0.5 text-[11px] text-muted-foreground">&nbsp;</p>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                disabled={pending}
+                variant={connected ? "outline" : needsTarget ? "default" : oauthReady ? "default" : "secondary"}
+                className={cn(
+                  "mt-auto h-8 min-h-0 w-full max-w-full px-2 text-xs font-semibold",
+                  needsTarget && "bg-amber-500 text-white hover:bg-amber-600",
+                )}
+                onClick={runConnectAction}
+              >
+                {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : actionLabel}
+              </Button>
+            </div>
           );
         })}
       </div>
