@@ -912,6 +912,7 @@ export default function TaskManagementBoard({
               </Button>
             </div>
           ) : (
+            <>
             <ul className="max-h-[32rem] divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
               {visibleTasks.map((task) => {
                 const stat = statusChip(task.status);
@@ -1011,6 +1012,7 @@ export default function TaskManagementBoard({
                 })}
               </p>
             ) : null}
+            </>
           )}
         </CardContent>
       </Card>
