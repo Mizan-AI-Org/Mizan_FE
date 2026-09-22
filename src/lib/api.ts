@@ -143,8 +143,32 @@ export function parseJsonSafe(text: string): unknown | null {
   }
 }
 
-/** DRF paginated list responses use `{ count, results }`; older code expected a bare array. */
+/** Mizan `{ success, data, error }` envelope — returns inner `data` when present. */
+export function unwrapApiPayload<T>(data: unknown): T {
+  if (
+    data &&
+    typeof data === "object" &&
+    !Array.isArray(data) &&
+    "success" in data &&
+    "data" in data
+  ) {
+    return (data as { data: T }).data;
+  }
+  return data as T;
+}
+
+/** Bare array, Mizan envelope list, or DRF `{ count, results }`. */
 export function unwrapDrfListResponse<T>(data: unknown): T[] {
+  const payload = unwrapApiPayload<unknown>(data);
+  if (Array.isArray(payload)) return payload;
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "results" in payload &&
+    Array.isArray((payload as { results: unknown }).results)
+  ) {
+    return (payload as { results: T[] }).results;
+  }
   if (Array.isArray(data)) return data;
   if (
     data &&
@@ -153,6 +177,16 @@ export function unwrapDrfListResponse<T>(data: unknown): T[] {
     Array.isArray((data as { results: unknown }).results)
   ) {
     return (data as { results: T[] }).results;
+  }
+  return [];
+}
+
+/** Staff inbox list: array, `{ results }`, `{ requests }`, or Mizan envelope. */
+export function parseStaffRequestListResponse<T>(data: unknown): T[] {
+  const rows = unwrapDrfListResponse<T>(data);
+  if (rows.length > 0) return rows;
+  if (data && typeof data === "object" && Array.isArray((data as { requests?: unknown }).requests)) {
+    return (data as { requests: T[] }).requests;
   }
   return [];
 }
@@ -753,7 +787,7 @@ export class BackendService {
    */
   async getDashboardTasksDemands(limit = 5): Promise<DashboardTasksDemandsResponse> {
     const qs = `?limit=${encodeURIComponent(String(limit))}`;
-    return this.fetchWithError(`/dashboard/tasks-demands/${qs}`);
+    return unwrapApiPayload(await this.fetchWithError(`/dashboard/tasks-demands/${qs}`));
   }
 
   /** Operations Live - unified daily operations feed. */
@@ -973,7 +1007,7 @@ export class BackendService {
     limit = 5,
   ): Promise<import("./types").CategoryTasksResponse> {
     const qs = `?bucket=${encodeURIComponent(bucket)}&limit=${encodeURIComponent(String(limit))}`;
-    return this.fetchWithError(`/dashboard/category-tasks/${qs}`);
+    return unwrapApiPayload(await this.fetchWithError(`/dashboard/category-tasks/${qs}`));
   }
 
   async searchDashboardOps(
@@ -1469,7 +1503,8 @@ export class BackendService {
     if (params?.dateTo) search.set("date_to", params.dateTo);
     if (params?.date) search.set("date", params.date);
     const qs = search.toString();
-    return this.fetchWithError(`/dashboard/captured-orders/${qs ? `?${qs}` : ""}`);
+    const raw = await this.fetchWithError(`/dashboard/captured-orders/${qs ? `?${qs}` : ""}`);
+    return unwrapDrfListResponse<StaffCapturedOrderRow>(raw);
   }
 
   async createStaffCapturedOrder(
@@ -5103,9 +5138,10 @@ export class BackendService {
       avg_completion_rate: number | null;
     }>;
   }> {
-    return this.fetchWithError(
+    const raw = await this.fetchWithError(
       `/checklists/executions/manager-accountability/?days=${encodeURIComponent(String(days))}`,
     );
+    return unwrapApiPayload(raw);
   }
 
   /** Live checklist progress (WhatsApp/conversational step-by-step) for managers. */

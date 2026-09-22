@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 type EatNowDiscoverRestaurantRow = { group_id?: string; restaurants?: { id: string }[] };
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,7 +37,9 @@ type ReservationIntegrationProps = {
 export default function ReservationIntegration({ onIntegrationChange }: ReservationIntegrationProps) {
   const { accessToken } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { t } = useLanguage();
+  const focusReservations = searchParams.get("focus") === "reservations";
   const [provider, setProvider] = useState<ReservationProvider>("NONE");
   const [widgetUrl, setWidgetUrl] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -320,6 +322,7 @@ export default function ReservationIntegration({ onIntegrationChange }: Reservat
       title={t("settings.reservation.card_title")}
       description={statusHelp}
       collapsible
+      defaultOpen={focusReservations || provider === "NONE"}
       actions={
         <Badge
           variant="outline"

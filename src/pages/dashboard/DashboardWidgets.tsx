@@ -4,7 +4,7 @@ import { NavigateFunction } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
-import { api, API_BASE, fetchStaffDirectoryForPicker } from "@/lib/api";
+import { api, API_BASE, fetchStaffDirectoryForPicker, parseStaffRequestListResponse, unwrapApiPayload } from "@/lib/api";
 import type { AuthContextType } from "@/contexts/AuthContext.types";
 import type {
   DashboardTaskDemandItem,
@@ -1196,10 +1196,7 @@ function StaffInboxEnterpriseCard({
         });
         if (!r.ok) throw new Error(`staff-requests:${statusKey}`);
         const json = await r.json();
-        if (Array.isArray(json)) return json as InboxItem[];
-        if (Array.isArray(json?.results)) return json.results as InboxItem[];
-        if (Array.isArray(json?.requests)) return json.requests as InboxItem[];
-        return [] as InboxItem[];
+        return parseStaffRequestListResponse<InboxItem>(unwrapApiPayload(json));
       };
       const [pendingRows, escalatedRows] = await Promise.all([
         fetchPage("PENDING"),

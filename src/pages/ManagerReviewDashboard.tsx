@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
-import { api, API_BASE, resolveMediaUrl, toAbsoluteUrl } from "@/lib/api";
+import { api, API_BASE, resolveMediaUrl, toAbsoluteUrl, unwrapApiPayload, unwrapDrfListResponse } from "@/lib/api";
 import { AttachmentList, type AttachmentLike } from "@/components/ui/attachment-preview";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -227,9 +227,9 @@ const ManagerReviewDashboard: React.FC = () => {
         return mapped;
       }
       const data = await res.json();
-      try { logInfo({ feature: 'manager-review', action: 'fetch-submitted-ok' }, `Loaded ${(Array.isArray(data) ? data.length : (data?.results?.length || 0))} rows`); } catch { /* ignore */ }
+      let arr = unwrapDrfListResponse<unknown>(data);
+      try { logInfo({ feature: 'manager-review', action: 'fetch-submitted-ok' }, `Loaded ${arr.length} rows`); } catch { /* ignore */ }
       const isRec = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
-      let arr: unknown[] = Array.isArray(data) ? data : (isRec(data) && Array.isArray((data as { results?: unknown }).results) ? ((data as { results: unknown[] }).results) : []);
       if (!arr || arr.length === 0) {
         const fb = toAbsoluteUrl(`${API_BASE}/checklists/executions/`);
         fb.searchParams.set("status", "COMPLETED");
@@ -237,7 +237,7 @@ const ManagerReviewDashboard: React.FC = () => {
         const alt = await fetch(fb.toString(), { headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }, credentials: "include" });
         if (alt.ok) {
           const altJson = await alt.json();
-          arr = Array.isArray(altJson) ? altJson : (isRec(altJson) && Array.isArray((altJson as { results?: unknown }).results) ? ((altJson as { results: unknown[] }).results) : []);
+          arr = unwrapDrfListResponse<unknown>(altJson);
           logInfo({ feature: "manager-review", action: "fallback-completed-list" }, `Fetched ${arr.length} entries from completed list`);
         }
       }
@@ -323,7 +323,7 @@ const ManagerReviewDashboard: React.FC = () => {
           credentials: "include",
         });
         if (!res.ok) throw new Error("Failed to load shift checklist detail");
-        return res.json();
+        return unwrapApiPayload(await res.json());
       }
       return api.getChecklistExecution(id);
     },
@@ -506,7 +506,7 @@ const ManagerReviewDashboard: React.FC = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
       });
       if (!res.ok) throw new Error('Failed to fetch incidents');
-      return res.json();
+      return unwrapDrfListResponse(await res.json());
     },
     refetchInterval: 60_000,
   });
@@ -520,7 +520,7 @@ const ManagerReviewDashboard: React.FC = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
       });
       if (!res.ok) throw new Error('Failed to fetch incident details');
-      return res.json();
+      return unwrapApiPayload(await res.json());
     },
   });
 
@@ -615,10 +615,7 @@ const ManagerReviewDashboard: React.FC = () => {
   const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 
   const incidentList = useMemo<SafetyIncident[]>(() => {
-    const raw: unknown = incidents;
-    const listUnknown: unknown =
-      Array.isArray(raw) ? raw : (isRecord(raw) && Array.isArray((raw as { results?: unknown }).results) ? (raw as { results: unknown[] }).results : []);
-    const arr = Array.isArray(listUnknown) ? listUnknown : [];
+    const arr = unwrapDrfListResponse<Record<string, unknown>>(incidents);
     return arr
       .map((x) => (isRecord(x) ? x : ({} as Record<string, unknown>)))
       .map((x) => ({
@@ -762,7 +759,7 @@ const ManagerReviewDashboard: React.FC = () => {
       });
       if (!res.ok) return [];
       const data = await res.json();
-      return Array.isArray(data) ? data : data?.results || [];
+      return unwrapDrfListResponse(data);
     },
     enabled: !!selectedIncident,
   });

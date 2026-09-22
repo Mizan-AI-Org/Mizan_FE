@@ -756,6 +756,8 @@
   "dashboard.quick_actions.expand": "Expand apps panel",
   "dashboard.quick_actions.subtitle": "Jump to an app",
   "dashboard.quick_actions.title": "Quick Actions",
+  "dashboard.reservations.connect_booking_body": "Link Eat Now (or your booking widget) so webhooks and imports can fill this page.",
+  "dashboard.reservations.connect_booking_system": "Connect booking system",
   "dashboard.reservations.connect_settings": "Connect your reservation system in settings.",
   "dashboard.reservations.covers": "Covers",
   "dashboard.reservations.date_range": "Date range",

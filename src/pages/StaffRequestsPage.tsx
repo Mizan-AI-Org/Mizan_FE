@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, parseStaffRequestListResponse, unwrapApiPayload } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -96,6 +96,8 @@ type StaffRequest = {
   voice_audio_url?: string;
   transcription?: string;
   transcription_language?: string;
+  /** Dashboard operational task surfaced in the unified inbox. */
+  inbox_kind?: "operational_task" | string;
 };
 
 const STATUSES: { key: StaffRequestStatus; labelKey: string }[] = [
@@ -273,7 +275,7 @@ async function apiGet<T>(path: string): Promise<T> {
     credentials: "include",
   });
   if (!res.ok) throw new Error("Request failed");
-  return res.json();
+  return unwrapApiPayload(await res.json());
 }
 
 async function apiPost<T>(path: string, body?: any): Promise<T> {
@@ -923,7 +925,7 @@ const StaffRequestsPage: React.FC = () => {
     queryKey: [
       "staff-requests",
       activeStatus,
-      activeLaneId,
+      activeLaneId ?? "",
       filterCategories.join(","),
       activePriority,
       debouncedSearch,
@@ -938,17 +940,12 @@ const StaffRequestsPage: React.FC = () => {
       if (activePriority) qs.set("priority", activePriority);
       if (debouncedSearch) qs.set("search", debouncedSearch);
       if (assignedToMe) qs.set("assigned_to_me", "1");
+      if (activeLaneId) qs.set("lane", activeLaneId);
       // Inbox list pulls a lean payload from the backend (no comments,
       // no nested staff profile); we can show 50 per page comfortably.
       qs.set("page_size", "50");
-      const data = await apiGet<any>(`/staff/requests/?${qs.toString()}`);
-      const rows: StaffRequest[] = Array.isArray(data)
-        ? (data as StaffRequest[])
-        : data && Array.isArray(data.results)
-          ? (data.results as StaffRequest[])
-          : data && Array.isArray(data.requests)
-            ? (data.requests as StaffRequest[])
-            : [];
+      const data = await apiGet<unknown>(`/staff/requests/?${qs.toString()}`);
+      const rows = parseStaffRequestListResponse<StaffRequest>(data);
       // The backend doesn't currently filter by priority server-side,
       // so we re-filter here to honour the deep-link from the dashboard
       // Urgent widget. Cheap because the inbox page caps at 50 rows.
@@ -969,10 +966,15 @@ const StaffRequestsPage: React.FC = () => {
   });
 
   const countsQuery = useQuery({
-    queryKey: ["staff-requests-counts", assignedToMe],
+    queryKey: ["staff-requests-counts", assignedToMe, activeLaneId ?? ""],
     queryFn: async (): Promise<{ counts: Record<string, number>; assigned_to_me_open: number }> => {
-      const data = await apiGet<any>(
-        `/staff/requests/counts/${assignedToMe ? "?assigned_to_me=1" : ""}`,
+      const params = new URLSearchParams();
+      if (assignedToMe) params.set("assigned_to_me", "1");
+      if (activeLaneId) params.set("lane", activeLaneId);
+      else if (filterCategories.length > 0) params.set("category", filterCategories.join(","));
+      const qs = params.toString();
+      const data = await apiGet<{ counts?: Record<string, number>; assigned_to_me_open?: number }>(
+        `/staff/requests/counts/${qs ? `?${qs}` : ""}`,
       );
       return { counts: data?.counts || {}, assigned_to_me_open: data?.assigned_to_me_open || 0 };
     },
@@ -1202,6 +1204,24 @@ const StaffRequestsPage: React.FC = () => {
       await queryClient.invalidateQueries({ queryKey: ["staff-requests-category-counts"] });
     },
   });
+
+  const onSelectInboxRow = (r: StaffRequest) => {
+    if (r.inbox_kind === "operational_task") {
+      onSelectDashboardTask({
+        id: r.id,
+        title: r.subject || "Task",
+        description: r.description,
+        kind: "dashboard",
+        status: "PENDING",
+        priority: r.priority || "MEDIUM",
+        assignee: r.assignee_summary
+          ? { id: r.assignee_summary.id, name: r.assignee_summary.name }
+          : null,
+      });
+      return;
+    }
+    onSelect(r.id);
+  };
 
   const onSelect = (id: string) => {
     setDetailKind("staff_request");
@@ -1838,7 +1858,7 @@ const StaffRequestsPage: React.FC = () => {
                           <button
                             key={r.id}
                             type="button"
-                            onClick={() => onSelect(r.id)}
+                            onClick={() => onSelectInboxRow(r)}
                             className={cn(
                               "w-full text-left rounded-xl border p-3.5 transition-all duration-200 group relative overflow-hidden",
                               isSelected

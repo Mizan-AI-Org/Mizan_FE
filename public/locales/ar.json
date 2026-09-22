@@ -753,6 +753,8 @@
   "dashboard.quick_actions.expand": "توسيع لوحة التطبيقات",
   "dashboard.quick_actions.subtitle": "افتح تطبيقاً",
   "dashboard.quick_actions.title": "اختصارات",
+  "dashboard.reservations.connect_booking_body": "اربط Eat Now (أو ويدجت الحجز) حتى تملأ هذه الصفحة عبر webhooks والاستيراد.",
+  "dashboard.reservations.connect_booking_system": "ربط نظام الحجز",
   "dashboard.reservations.connect_settings": "اربط نظام الحجز من الإعدادات.",
   "dashboard.reservations.covers": "الأشخاص",
   "dashboard.reservations.date_range": "نطاق التاريخ",

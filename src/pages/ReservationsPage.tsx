@@ -4,7 +4,12 @@ import { format, addDays } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "@/hooks/use-language";
-import { api } from "../lib/api";
+import { api, API_BASE } from "../lib/api";
+import {
+  isBookingSystemConnected,
+  RESERVATION_BOOKING_CONNECT_PATH,
+  type ReservationSettingsSnapshot,
+} from "@/lib/reservationConnection";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,10 +48,28 @@ export default function ReservationsPage() {
   const [endDate, setEndDate] = useState(() => format(addDays(new Date(), 14), "yyyy-MM-dd"));
   const [isImporting, setIsImporting] = useState(false);
 
+  const settingsQuery = useQuery({
+    queryKey: ["unified-settings-reservations", accessToken],
+    queryFn: async (): Promise<ReservationSettingsSnapshot> => {
+      const r = await fetch(`${API_BASE}/settings/unified/`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+        },
+      });
+      if (!r.ok) return {};
+      return (await r.json()) as ReservationSettingsSnapshot;
+    },
+    enabled: !!accessToken,
+    staleTime: 60_000,
+  });
+
+  const bookingConnected = isBookingSystemConnected(settingsQuery.data);
+
   const { data, isLoading, isError, refetch, error } = useQuery({
     queryKey: ["eatnow-reservations", accessToken, startDate, endDate],
     queryFn: () => api.getEatNowReservations(accessToken!, startDate, endDate),
-    enabled: !!accessToken,
+    enabled: !!accessToken && bookingConnected,
   });
 
   const rows = data?.reservations ?? [];
@@ -57,9 +80,15 @@ export default function ReservationsPage() {
         ? data.error ?? ""
         : "";
   const notConnected =
+    !settingsQuery.isLoading &&
+    !bookingConnected;
+  const apiConfigError =
     !isLoading &&
+    bookingConnected &&
     (isError || (data != null && !data.success)) &&
     isReservationConnectionConfigError(rawErrorMessage);
+
+  const goConnectBooking = () => navigate(RESERVATION_BOOKING_CONNECT_PATH);
 
   async function handleImportFromEatNowApi() {
     if (!accessToken) return;
@@ -90,20 +119,33 @@ export default function ReservationsPage() {
           <p className="text-sm text-muted-foreground mt-1">{t("dashboard.reservations.page_subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => void handleImportFromEatNowApi()}
-            disabled={isLoading || notConnected || isImporting}
-            title={notConnected ? undefined : t("dashboard.reservations.import_from_api_title")}
-          >
-            <CloudDownload className={`h-4 w-4 mr-2 ${isImporting ? "animate-pulse" : ""}`} />
-            {t("dashboard.reservations.import_from_api")}
-          </Button>
-          <Button variant="outline" onClick={() => refetch()} disabled={isLoading || isImporting}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-            {t("dashboard.reservations.refresh")}
-          </Button>
+          {notConnected ? (
+            <Button
+              type="button"
+              className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+              onClick={goConnectBooking}
+            >
+              <Plug className="h-4 w-4 mr-2" />
+              {t("dashboard.reservations.connect_booking_system")}
+            </Button>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void handleImportFromEatNowApi()}
+                disabled={isLoading || isImporting}
+                title={t("dashboard.reservations.import_from_api_title")}
+              >
+                <CloudDownload className={`h-4 w-4 mr-2 ${isImporting ? "animate-pulse" : ""}`} />
+                {t("dashboard.reservations.import_from_api")}
+              </Button>
+              <Button variant="outline" onClick={() => refetch()} disabled={isLoading || isImporting}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                {t("dashboard.reservations.refresh")}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -132,10 +174,10 @@ export default function ReservationsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading && (
+          {(settingsQuery.isLoading || (bookingConnected && isLoading)) && (
             <p className="text-sm text-muted-foreground py-8 text-center">{t("dashboard.reservations.loading")}</p>
           )}
-          {!isLoading && notConnected && (
+          {!settingsQuery.isLoading && notConnected && (
             <div
               role="status"
               aria-live="polite"
@@ -148,28 +190,40 @@ export default function ReservationsPage() {
                     {t("dashboard.reservations.not_connected_title")}
                   </p>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                    {t("dashboard.reservations.connect_settings")}
+                    {t("dashboard.reservations.connect_booking_body")}
                   </p>
                 </div>
               </div>
               <Button
                 type="button"
                 className="shrink-0 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
-                onClick={() => navigate("/dashboard/settings")}
+                onClick={goConnectBooking}
               >
+                <Plug className="h-4 w-4 mr-2" />
+                {t("dashboard.reservations.connect_booking_system")}
+              </Button>
+            </div>
+          )}
+          {!settingsQuery.isLoading && bookingConnected && !isLoading && apiConfigError && (
+            <div
+              role="status"
+              className="flex flex-col gap-4 rounded-xl border border-amber-200/90 bg-amber-50/90 px-4 py-5 dark:border-amber-900/50 dark:bg-amber-950/25 sm:flex-row sm:items-center sm:justify-between mb-4"
+            >
+              <p className="text-sm text-slate-700 dark:text-slate-300">{rawErrorMessage || t("dashboard.reservations.connect_settings")}</p>
+              <Button type="button" variant="outline" onClick={goConnectBooking}>
                 {t("dashboard.reservations.open_settings")}
               </Button>
             </div>
           )}
-          {!isLoading && !notConnected && isError && (
+          {bookingConnected && !isLoading && !notConnected && isError && (
             <p className="text-sm text-destructive py-4">
               {(error as Error)?.message || t("dashboard.reservations.load_failed")}
             </p>
           )}
-          {!isLoading && !notConnected && data && !data.success && (
+          {bookingConnected && !isLoading && data && !data.success && !apiConfigError && (
             <p className="text-sm text-destructive py-4">{data.error || t("dashboard.reservations.load_failed")}</p>
           )}
-          {!isLoading && !notConnected && data?.success && rows.length === 0 && (
+          {bookingConnected && !isLoading && data?.success && rows.length === 0 && (
             <div className="space-y-2 py-8 text-center px-2">
               <p className="text-sm text-muted-foreground">{t("dashboard.reservations.empty_table")}</p>
               <p className="text-xs text-muted-foreground max-w-lg mx-auto">
@@ -177,7 +231,7 @@ export default function ReservationsPage() {
               </p>
             </div>
           )}
-          {!isLoading && !notConnected && data?.success && rows.length > 0 && (
+          {bookingConnected && !isLoading && data?.success && rows.length > 0 && (
             <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>

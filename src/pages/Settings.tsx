@@ -255,6 +255,19 @@ export default function Settings() {
     return () => window.clearTimeout(t);
   }, [activeTab]);
 
+  // Bookings page → Settings → Integrations → reservation (Eat Now) setup.
+  useEffect(() => {
+    if (searchParams.get("focus") !== "reservations") return;
+    setActiveTab("integrations");
+    const id = window.setTimeout(() => {
+      document.getElementById("reservation-booking-integration")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 150);
+    return () => window.clearTimeout(id);
+  }, [searchParams]);
+
   const onSettingsTabChange = (next: string) => {
     setActiveTab(next);
     setSearchParams(
@@ -1919,7 +1932,9 @@ export default function Settings() {
               </AlertDialogContent>
             </AlertDialog>
 
-            <ReservationIntegration onIntegrationChange={() => void fetchUnifiedSettings()} />
+            <div id="reservation-booking-integration" className="scroll-mt-24">
+              <ReservationIntegration onIntegrationChange={() => void fetchUnifiedSettings()} />
+            </div>
 
             <SettingsSection
               icon={<Calendar className="h-5 w-5" />}

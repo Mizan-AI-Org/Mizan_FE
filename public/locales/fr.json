@@ -753,6 +753,8 @@
   "dashboard.quick_actions.expand": "Développer le panneau d’apps",
   "dashboard.quick_actions.subtitle": "Ouvrir une application",
   "dashboard.quick_actions.title": "Accès rapide",
+  "dashboard.reservations.connect_booking_body": "Connectez Eat Now (ou votre widget de réservation) pour que les webhooks et imports alimentent cette page.",
+  "dashboard.reservations.connect_booking_system": "Connecter le système de réservation",
   "dashboard.reservations.connect_settings": "Connectez votre système de réservation dans les paramètres.",
   "dashboard.reservations.covers": "Couverts",
   "dashboard.reservations.date_range": "Plage de dates",
