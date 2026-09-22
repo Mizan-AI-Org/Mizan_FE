@@ -20,6 +20,12 @@ import {
 
 const PAGE_SIZE = 25;
 
+function formatWhen(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
+}
+
 export default function ConversationsPage() {
   const [channel, setChannel] = useState("");
   const [page, setPage] = useState(1);
@@ -90,7 +96,7 @@ export default function ConversationsPage() {
               {(data?.results || []).map((row) => (
                 <tr key={row.conversation_id} className={opsRow}>
                   <td className={`${opsTd} whitespace-nowrap text-xs ${opsMuted}`}>
-                    {new Date(row.last_at).toLocaleString()}
+                    {formatWhen(row.last_at)}
                   </td>
                   <td className={opsTd}>
                     {row.user_id ? (
@@ -117,7 +123,11 @@ export default function ConversationsPage() {
                     {" / "}
                     <span className="text-rose-600 dark:text-rose-400">{row.fail_count}</span>
                   </td>
-                  <td className={opsTd}>{(row.avg_confidence * 100).toFixed(0)}%</td>
+                  <td className={opsTd}>
+                    {Number.isFinite(row.avg_confidence)
+                      ? `${Math.round(row.avg_confidence * 100)}%`
+                      : "—"}
+                  </td>
                   <td className={opsTd}>
                     <Link
                       to={`/admin/agent/conversations/${encodeURIComponent(row.conversation_id)}`}
