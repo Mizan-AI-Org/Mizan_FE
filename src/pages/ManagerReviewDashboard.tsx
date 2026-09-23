@@ -198,7 +198,8 @@ const ManagerReviewDashboard: React.FC = () => {
     queryKey: ["manager-submitted-checklists", filterDate, filterSubmitter, filterType],
     queryFn: async () => {
       const url = toAbsoluteUrl(`${API_BASE}/checklists/executions/submitted/`);
-      url.searchParams.set("page_size", "200");
+      url.searchParams.set("days", "365");
+      url.searchParams.set("page_size", "500");
       if (filterDate) url.searchParams.set("date", filterDate);
       if (filterSubmitter) url.searchParams.set("submitted_by", filterSubmitter);
       if (filterType) url.searchParams.set("type", filterType);
@@ -233,7 +234,8 @@ const ManagerReviewDashboard: React.FC = () => {
       if (!arr || arr.length === 0) {
         const fb = toAbsoluteUrl(`${API_BASE}/checklists/executions/`);
         fb.searchParams.set("status", "COMPLETED");
-        fb.searchParams.set("page_size", "100");
+        fb.searchParams.set("scope", "restaurant");
+        fb.searchParams.set("page_size", "500");
         const alt = await fetch(fb.toString(), { headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }, credentials: "include" });
         if (alt.ok) {
           const altJson = await alt.json();
