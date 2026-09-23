@@ -1,4 +1,5 @@
 import { API_BASE } from "@/lib/api";
+import { unwrapEnvelope } from "@/lib/envelope";
 
 export type StaffPickerRow = {
   id: string;
@@ -26,12 +27,20 @@ export function staffPickerDisplayName(row: StaffPickerRow): string {
   return name || row.email || row.id;
 }
 
-/** Normalise GET /api/staff/ payloads (array or paginated envelope). */
+function staffListPayload(data: unknown): unknown {
+  if (data && typeof data === "object" && "success" in data && "data" in data) {
+    return unwrapEnvelope<unknown>(data);
+  }
+  return data;
+}
+
+/** Normalise GET /api/staff/ payloads (api_envelope, array, or paginated results). */
 export function normalizeStaffPickerRows(data: unknown): StaffPickerRow[] {
-  const arr: unknown[] = Array.isArray(data)
-    ? data
-    : data && typeof data === "object" && "results" in (data as object)
-      ? ((data as { results?: unknown[] }).results ?? [])
+  const body = staffListPayload(data);
+  const arr: unknown[] = Array.isArray(body)
+    ? body
+    : body && typeof body === "object" && "results" in (body as object)
+      ? ((body as { results?: unknown[] }).results ?? [])
       : [];
 
   const out: StaffPickerRow[] = [];
@@ -88,11 +97,12 @@ export async function loadStaffPickerOptions(
     throw new Error("Failed to load staff");
   }
   const data = await res.json();
+  const payload = staffListPayload(data);
   const rows = normalizeStaffPickerRows(data);
-  const arr: unknown[] = Array.isArray(data)
-    ? data
-    : data && typeof data === "object" && "results" in (data as object)
-      ? ((data as { results?: unknown[] }).results ?? [])
+  const arr: unknown[] = Array.isArray(payload)
+    ? payload
+    : payload && typeof payload === "object" && "results" in (payload as object)
+      ? ((payload as { results?: unknown[] }).results ?? [])
       : [];
 
   const deptById = new Map<string, string | undefined>();
@@ -146,11 +156,18 @@ export async function searchStaffPicker(opts: SearchOpts = {}): Promise<StaffPic
     throw new Error("Failed to load staff");
   }
   const data = await res.json();
+  const payload = staffListPayload(data);
   const results = normalizeStaffPickerRows(data);
+  const metaCount =
+    data && typeof data === "object" && "metadata" in (data as object)
+      ? Number((data as { metadata?: { count?: number } }).metadata?.count)
+      : NaN;
   const count =
-    data && typeof data === "object" && "count" in (data as object)
-      ? Number((data as { count?: number }).count ?? results.length)
-      : results.length;
+    Number.isFinite(metaCount) && metaCount >= 0
+      ? metaCount
+      : payload && typeof payload === "object" && "count" in (payload as object)
+        ? Number((payload as { count?: number }).count ?? results.length)
+        : results.length;
   return { results, count };
 }
 

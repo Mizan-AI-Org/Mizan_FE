@@ -16,6 +16,16 @@ export type MastraRunResponse = {
   };
   requires_confirmation?: boolean;
   verified?: boolean;
+  executedDraft?: {
+    status?: string;
+    draftId?: string;
+    tool?: string;
+    result?: {
+      projectTitle?: string;
+      taskCount?: number;
+      widget?: { title?: string; slot_id?: string };
+    };
+  };
 };
 
 export type MastraChatMessage = {

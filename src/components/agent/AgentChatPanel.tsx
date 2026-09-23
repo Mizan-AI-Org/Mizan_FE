@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, Loader2, Mic, Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -435,6 +436,7 @@ function AgentCollapsedRail({
 export const AgentChatPanel: React.FC = () => {
   const { t, language } = useLanguage();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const canUseWebAgent = isWebAgentRole(user?.role);
   const panel = useAgentPanelOptional();
   const { data: commandData } = useCommandCentre();
@@ -605,6 +607,11 @@ export const AgentChatPanel: React.FC = () => {
           savePendingConfirmation(userId, convId, null);
         }
 
+        if (result.verified && result.executedDraft?.result?.widget) {
+          void queryClient.invalidateQueries({ queryKey: ["dashboard-custom-widgets"] });
+          void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        }
+
         const reply = result.text?.trim()
           ? result.text
           : result.code === "mastra_not_configured"
@@ -639,7 +646,7 @@ export const AgentChatPanel: React.FC = () => {
         setLoading(false);
       }
     },
-    [conversationId, language, loading, t, userId],
+    [conversationId, language, loading, queryClient, t, userId],
   );
 
   sendTextRef.current = (rawText, options) => {
