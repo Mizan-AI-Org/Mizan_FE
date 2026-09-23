@@ -84,6 +84,7 @@ export default function AgentTurnsPage() {
           >
             <option value="">All channels</option>
             <option value="dashboard">Dashboard</option>
+            <option value="web">Web</option>
             <option value="whatsapp">WhatsApp</option>
             <option value="mobile">Mobile</option>
           </select>

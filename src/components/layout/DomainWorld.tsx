@@ -150,7 +150,7 @@ export function DomainOverviewPage({ domain: domainProp }: { domain?: DomainId }
                 <p className="text-caption text-muted-foreground">{localized(t, kpi.label_key, kpi.label)}</p>
                 <p
                   className={cn(
-                    "mt-1 text-section-title",
+                    "mt-2 text-4xl font-bold tabular-nums tracking-tight leading-none sm:text-5xl",
                     kpi.tone === "critical" && "text-critical",
                     kpi.tone === "warning" && "text-amber-600 dark:text-amber-400",
                   )}

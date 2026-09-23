@@ -24,6 +24,10 @@ import {
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  loadAssignedChecklists,
+  type AssignedChecklist,
+} from "@/lib/assignedChecklists";
 
 interface AssignedStaff {
   id: string;
@@ -49,7 +53,7 @@ interface ScheduledTask {
   updated_at?: string;
 }
 
-type TaskScopeFilter = "all" | "shift" | "standalone";
+type TaskScopeFilter = "all" | "shift" | "standalone" | "checklists";
 type TaskStatusFilter = "all" | "open" | "completed";
 
 interface DailyProgressStaff {
@@ -61,6 +65,7 @@ interface DailyProgressStaff {
   done: number;
   open: number;
   pct: number;
+  process_names?: string[];
 }
 
 interface StaffMetric {
@@ -154,6 +159,7 @@ export default function TaskManagementBoard({
   const [isLoading, setIsLoading] = useState(true);
   const [metricsLoaded, setMetricsLoaded] = useState(false);
   const [allTasks, setAllTasks] = useState<ScheduledTask[]>([]);
+  const [assignedChecklists, setAssignedChecklists] = useState<AssignedChecklist[]>([]);
   const [taskTotal, setTaskTotal] = useState(0);
   const [tasksLoading, setTasksLoading] = useState(true);
   const [scope, setScope] = useState<TaskScopeFilter>("all");
@@ -229,15 +235,25 @@ export default function TaskManagementBoard({
     }
   };
 
+  const loadChecklists = async () => {
+    try {
+      setAssignedChecklists(await loadAssignedChecklists());
+    } catch (error) {
+      console.error("Failed to load checklists", error);
+    }
+  };
+
   useEffect(() => {
     loadLiveBoardMetrics();
     loadStaffMetrics();
     loadAllTasks();
+    loadChecklists();
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
       loadLiveBoardMetrics();
       loadStaffMetrics();
       loadAllTasks();
+      loadChecklists();
     }, 90_000);
     return () => clearInterval(interval);
   }, []);
@@ -258,6 +274,7 @@ export default function TaskManagementBoard({
   useEffect(() => {
     if (prevTaskSheetId.current && !taskSheetId) {
       void loadAllTasks();
+      void loadChecklists();
       void loadLiveBoardMetrics();
       void loadStaffMetrics();
     }
@@ -265,13 +282,27 @@ export default function TaskManagementBoard({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh lists when detail sheet closes
   }, [taskSheetId]);
 
+  const visibleChecklists = useMemo(() => {
+    return assignedChecklists.filter((row) => {
+      if (statusFilter === "open") return row.isActive;
+      if (statusFilter === "completed") return !row.isActive;
+      return true;
+    });
+  }, [assignedChecklists, statusFilter]);
+
   const scopeCounts = useMemo(() => {
     const shift = allTasks.filter((t) => !!t.assigned_shift).length;
     const standalone = allTasks.length - shift;
-    return { all: allTasks.length, shift, standalone };
-  }, [allTasks]);
+    return {
+      all: allTasks.length + assignedChecklists.length,
+      shift,
+      standalone,
+      checklists: assignedChecklists.length,
+    };
+  }, [allTasks, assignedChecklists]);
 
   const visibleTasks = useMemo(() => {
+    if (scope === "checklists") return [];
     return allTasks
       .filter((t) => {
         if (scope === "shift") return !!t.assigned_shift;
@@ -293,6 +324,9 @@ export default function TaskManagementBoard({
         return da.localeCompare(db);
       });
   }, [allTasks, scope, statusFilter]);
+
+  const showChecklists = scope === "all" || scope === "checklists";
+  const checklistRows = showChecklists ? visibleChecklists : [];
 
   const priorityChip = (p: ScheduledTask["priority"]) => {
     switch (p) {
@@ -689,6 +723,9 @@ export default function TaskManagementBoard({
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {dailyProgressStaff.map((row) => {
                 const pct = Math.max(0, Math.min(100, Number(row.pct) || 0));
+                const checklistLabel = row.process_names?.length
+                  ? row.process_names.join(", ")
+                  : (t("live_board.checklist_progress_label") ?? "Checklist");
                 return (
                   <div
                     key={row.id}
@@ -710,8 +747,8 @@ export default function TaskManagementBoard({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center mb-1.5 gap-2">
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                          {t("live_board.tasks_today_label")}
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate" title={checklistLabel}>
+                          {checklistLabel}
                         </span>
                         <span className="text-xs font-semibold tabular-nums text-slate-500 shrink-0">
                           {row.done}/{row.total} · {pct}%
@@ -729,7 +766,7 @@ export default function TaskManagementBoard({
                         </Badge>
                       ) : row.open > 0 ? (
                         <Badge variant="outline" className="text-[10px] font-semibold">
-                          {t("live_board.open_tasks_count", { count: row.open })}
+                          {t("live_board.open_steps_count", { count: row.open }) ?? `${row.open} open`}
                         </Badge>
                       ) : (
                         <div className="flex items-center gap-1.5 text-emerald-600 text-sm font-medium">
@@ -811,7 +848,7 @@ export default function TaskManagementBoard({
               </CardTitle>
               <p className="text-sm text-slate-500 mt-1">
                 {t("live_board.all_tasks_desc") ??
-                  "Every task assigned to staff - both shift-attached and standalone."}
+                  "Tasks, checklists, and templates, with every staff member assigned to each one."}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
@@ -822,6 +859,7 @@ export default function TaskManagementBoard({
               >
                 {([
                   { key: "all" as const, label: t("live_board.scope_all") ?? "All", count: scopeCounts.all, icon: ListChecks },
+                  { key: "checklists" as const, label: t("live_board.scope_checklists") ?? "Checklists", count: scopeCounts.checklists, icon: Layers },
                   { key: "shift" as const, label: t("live_board.scope_shift") ?? "Shift-attached", count: scopeCounts.shift, icon: CalendarClock },
                   { key: "standalone" as const, label: t("live_board.scope_standalone") ?? "Standalone", count: scopeCounts.standalone, icon: UserCircle },
                 ]).map((opt) => {
@@ -889,7 +927,7 @@ export default function TaskManagementBoard({
             <div className="p-8 text-center text-slate-500 text-sm">
               {t("live_board.loading_tasks") ?? "Loading tasks…"}
             </div>
-          ) : visibleTasks.length === 0 ? (
+          ) : checklistRows.length === 0 && visibleTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
               <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mb-3">
                 <ListChecks className="w-6 h-6 text-slate-400" />
@@ -914,6 +952,67 @@ export default function TaskManagementBoard({
           ) : (
             <>
             <ul className="max-h-[32rem] divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
+              {checklistRows.map((checklist) => {
+                const names = checklist.assignees.map((person) => person.name);
+                const assigneeLabel = names.length ? names.join(", ") : (t("generic.unassigned") ?? "Unassigned");
+                const first = checklist.assignees[0];
+                const initials = first
+                  ? first.name.split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toUpperCase() || "?"
+                  : "?";
+                const stepLabel = checklist.stepCount === 1
+                  ? (t("live_board.step_one") ?? "1 step")
+                  : t("live_board.step_count", { count: checklist.stepCount });
+                return (
+                  <li key={`${checklist.kind}-${checklist.id}`}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onOpenTemplates?.()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onOpenTemplates?.();
+                        }
+                      }}
+                      className="group flex items-center gap-3 sm:gap-4 px-4 py-3 hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+                    >
+                      <Avatar className="h-9 w-9 border border-slate-200 dark:border-slate-700 shrink-0">
+                        <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(assigneeLabel)}`} />
+                        <AvatarFallback>{initials}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                          <span className="text-sm font-semibold text-slate-900 dark:text-white" title={checklist.name}>
+                            {checklist.name}
+                          </span>
+                          <span className="shrink-0 inline-flex items-center gap-1 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
+                            <Layers className="h-3 w-3" />
+                            {checklist.kind === "checklist"
+                              ? (t("live_board.badge_checklist") ?? "Checklist")
+                              : (t("live_board.badge_template") ?? "Template")}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
+                          <span title={assigneeLabel}>{assigneeLabel}</span>
+                          <span>{stepLabel}</span>
+                        </div>
+                      </div>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap",
+                          checklist.isActive
+                            ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+                        )}
+                      >
+                        {checklist.isActive
+                          ? (t("live_board.status_active") ?? "Active")
+                          : (t("live_board.status_inactive") ?? "Inactive")}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
               {visibleTasks.map((task) => {
                 const stat = statusChip(task.status);
                 const isShift = !!task.assigned_shift;
