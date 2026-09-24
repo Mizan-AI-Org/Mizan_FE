@@ -3549,7 +3549,7 @@ function RecentIncidentsCard({
   const openCount = items.length;
 
   const goToIncidents = React.useCallback(() => {
-    navigate("/dashboard/reviews/checklists?tab=incidents");
+    navigate("/dashboard/operations/incidents?tab=incidents");
   }, [navigate]);
 
   return (

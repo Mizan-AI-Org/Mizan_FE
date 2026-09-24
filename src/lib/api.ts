@@ -95,8 +95,27 @@ export const BACKEND_URL =
 export function resolveMediaUrl(path: string | null | undefined): string {
   const raw = (path || "").trim();
   if (!raw) return "";
-  if (/^https?:\/\//i.test(raw)) return raw;
   const base = BACKEND_URL || "";
+  // Short-lived S3 presigns expire; rewrite to durable /media/{key} on the API host.
+  if (/^https?:\/\//i.test(raw) && (/\.s3[.-]/i.test(raw) || /s3\.amazonaws\.com/i.test(raw))) {
+    try {
+      const u = new URL(raw);
+      const key = decodeURIComponent(u.pathname.replace(/^\/+/, ""));
+      // Path-style: /bucket/key → drop bucket segment when host is s3.amazonaws.com
+      let objectKey = key;
+      if (/^s3[.-]|s3\.amazonaws\.com$/i.test(u.hostname) && !/\.s3[.-]/i.test(u.hostname)) {
+        const parts = key.split("/");
+        if (parts.length >= 2) objectKey = parts.slice(1).join("/");
+      }
+      if (objectKey) {
+        const mediaPath = `/media/${objectKey}`;
+        return base ? `${base}${mediaPath}` : mediaPath;
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  if (/^https?:\/\//i.test(raw)) return raw;
   if (!base) {
     return raw.startsWith("/") ? raw : `/${raw}`;
   }
