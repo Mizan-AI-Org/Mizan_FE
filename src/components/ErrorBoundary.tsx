@@ -2,6 +2,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import i18n from '@/i18n';
+import { Sentry } from '@/sentry';
 
 interface ErrorBoundaryProps {
     children: ReactNode;
@@ -52,6 +53,14 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         this.errorId = Math.random().toString(36).slice(2, 10);
         console.error(`Uncaught error [${this.errorId}]:`, error, errorInfo);
         this.setState({ errorInfo });
+        try {
+            Sentry.captureException(error, {
+                tags: { errorId: this.errorId },
+                extra: { componentStack: errorInfo.componentStack },
+            });
+        } catch {
+            /* never block UI on Sentry */
+        }
     }
 
     public render() {

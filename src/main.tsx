@@ -6,6 +6,9 @@ import { AuthProvider } from "./contexts/AuthContext.tsx";
 import { BrowserRouter } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import './i18n';
+import { initSentry } from "./sentry";
+
+initSentry();
 
 createRoot(document.getElementById("root")!).render(
     <BrowserRouter>
