@@ -1786,7 +1786,14 @@ const StaffRequestsPage: React.FC = () => {
         </div>
 
         <TabsContent value={activeStatus} className="mt-5 focus-visible:outline-none">
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(320px,380px)_1fr] gap-4 items-stretch">
+          <div
+            className={cn(
+              "grid gap-4 items-stretch",
+                selectedId
+                  ? "grid-cols-1 xl:grid-cols-[minmax(320px,380px)_1fr]"
+                  : "grid-cols-1",
+            )}
+          >
             <Card className="h-[min(78vh,860px)] flex flex-col overflow-hidden border-border/70 shadow-sm">
               <CardHeader className="pb-3 pt-4 px-4 sm:px-5 border-b border-border/50 shrink-0">
                 <div className="flex items-center justify-between gap-2">
@@ -1973,18 +1980,9 @@ const StaffRequestsPage: React.FC = () => {
               </CardContent>
             </Card>
 
+            {selectedId ? (
             <Card className="h-[min(78vh,860px)] flex flex-col overflow-hidden border-border/70 shadow-sm">
-              {!selectedId ? (
-                <CardContent className="flex-1 flex flex-col items-center justify-center text-center px-5 sm:px-8 py-12">
-                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-                    <FileText className="h-6 w-6" />
-                  </div>
-                  <div className="text-base font-semibold text-foreground">{t("staff.requests.select_title")}</div>
-                  <p className="mt-2 max-w-sm text-sm text-muted-foreground leading-relaxed">
-                    {t("staff.requests.select_hint")}
-                  </p>
-                </CardContent>
-              ) : isDashboardDetail ? (
+              {isDashboardDetail ? (
                 <CardContent className="pt-6 flex-1 overflow-auto">
                   {dashboardTaskQuery.isLoading ? (
                     <div className="text-sm text-muted-foreground py-6">{t("staff.requests.loading")}</div>
@@ -2349,6 +2347,7 @@ const StaffRequestsPage: React.FC = () => {
                 </div>
               )}
             </Card>
+            ) : null}
           </div>
         </TabsContent>
       </Tabs>

@@ -198,6 +198,8 @@ interface Invitation {
     is_accepted: boolean;
     created_at: string;
     expires_at: string;
+    phone_number?: string;
+    status?: "pending" | "expired" | "accepted";
     extra_data?: {
         phone?: string;
         department?: string;
@@ -2307,12 +2309,18 @@ const TeamTab: React.FC = () => {
                         const data = await response.json().catch(() => ({}));
                         if (!response.ok)
                             throw new Error(data.error || data.detail || data.errors?.[0] || "Failed to create staff records");
+                        const createdCount = Number(data.created ?? data.invited ?? 0);
                         const activationLink = pickActivationInviteLink(data);
-                        if (data.created > 0 && activationLink) {
-                            setLastInviteLink(activationLink);
+                        if (createdCount > 0) {
+                            if (activationLink) setLastInviteLink(activationLink);
                             handleCloseInviteModal();
-                            toast.success(`${data.created} staff members ready. Copy and share the invite link so they can activate their account on WhatsApp.`);
+                            toast.success(
+                                activationLink
+                                    ? `${createdCount} staff members ready. Copy and share the invite link so they can activate on WhatsApp.`
+                                    : `${createdCount} staff members ready for WhatsApp activation.`,
+                            );
                             refetch();
+                            refetchInvites();
                             refetchActivationPending();
                         } else {
                             toast.error(data.errors?.[0] || "No records created");
@@ -2331,9 +2339,6 @@ const TeamTab: React.FC = () => {
                         body: JSON.stringify({
                             staff_list: bulkData,
                             invitation_method: inviteMethod,
-                            // Assign every invited row to the chosen branch by
-                            // default. Per-row overrides can still come from
-                            // the CSV if a 'primary_location' column is added.
                             ...(multiLocation && primaryLocation
                                 ? { primary_location: primaryLocation }
                                 : {}),
@@ -2341,9 +2346,12 @@ const TeamTab: React.FC = () => {
                     });
                     const data = await response.json().catch(() => ({}));
                     if (!response.ok) throw new Error(data.error || data.detail || "Failed to send bulk invitations");
-                    toast.success(`Emails sent for ${data.created ?? bulkData.length} staff members`);
+                    const created = Number(data.created ?? data.data?.created ?? bulkData.length);
+                    toast.success(`Invitations created for ${created} staff members`);
                     handleCloseInviteModal();
                     refetch();
+                    refetchInvites();
+                    refetchActivationPending();
                 } catch (err: unknown) {
                     toast.error(getErrorMessage(err, "Failed to send bulk invitations"));
                 } finally {
@@ -2397,7 +2405,12 @@ const TeamTab: React.FC = () => {
                 });
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.detail || "Failed to send invitation");
+                    throw new Error(
+                        errorData.error ||
+                            errorData.detail ||
+                            errorData.message ||
+                            "Failed to send invitation",
+                    );
                 }
                 const data = await response.json().catch(() => ({}));
                 const link = pickActivationInviteLink(data) || null;
@@ -2406,7 +2419,7 @@ const TeamTab: React.FC = () => {
                 handleCloseInviteModal();
                 refetch();
                 refetchInvites();
-                if (inviteMethod === "whatsapp") refetchActivationPending();
+                refetchActivationPending();
             } catch (err: unknown) {
                 toast.error(getErrorMessage(err, "Failed to send invitation"));
             } finally {
@@ -2425,69 +2438,88 @@ const TeamTab: React.FC = () => {
                             {t("staff.invite.title")}
                         </DialogTitle>
                     </DialogHeader>
-                    <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-                        {/* Mode Selector */}
-                        <div className="flex justify-center mb-2">
-                            <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-full max-w-sm">
+                    <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+                        {/* Mode + channel selectors — high-contrast segmented controls */}
+                        <div className="space-y-3">
+                            <div
+                                role="tablist"
+                                aria-label={t("staff.invite.title")}
+                                className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-900/80"
+                            >
                                 <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={!isBulkMode}
                                     onClick={() => setIsBulkMode(false)}
-                                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${!isBulkMode
-                                        ? "bg-surface-raised text-emerald-600 shadow-sm"
-                                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                                        }`}
+                                    className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+                                        !isBulkMode
+                                            ? "bg-emerald-600 text-white shadow-sm"
+                                            : "text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                                    }`}
                                 >
                                     {t("staff.invite.individual")}
                                 </button>
                                 <button
-                                    onClick={() => {
-                                        setIsBulkMode(true);
-                                        // Keep current method, but bulk supports both email and WhatsApp.
-                                        // If the user changes method, they should download the matching template.
-                                    }}
-                                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${isBulkMode
-                                        ? "bg-surface-raised text-emerald-600 shadow-sm"
-                                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                                        }`}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={isBulkMode}
+                                    onClick={() => setIsBulkMode(true)}
+                                    className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+                                        isBulkMode
+                                            ? "bg-emerald-600 text-white shadow-sm"
+                                            : "text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                                    }`}
                                 >
                                     {t("staff.invite.bulk")}
                                 </button>
                             </div>
-                        </div>
 
-                        {/* Invitation Method Selector */}
-                        <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                            <button
-                                onClick={() => {
-                                    setInviteMethod("email");
-                                    if (isBulkMode) {
-                                        setBulkData([]);
-                                        toast.message("Switched to Email bulk invite. Please upload an Email CSV.");
-                                    }
-                                }}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${inviteMethod === "email"
-                                    ? "bg-surface-raised text-emerald-600 shadow-sm"
-                                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                                    }`}
+                            <div
+                                role="tablist"
+                                aria-label="Invite channel"
+                                className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-900/80"
                             >
-                                <Mail className="w-4 h-4" />
-                                {t("staff.invite.email")}
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setInviteMethod("whatsapp");
-                                    if (isBulkMode) {
-                                        setBulkData([]);
-                                        toast.message("Switched to WhatsApp bulk invite. Please upload a WhatsApp CSV.");
-                                    }
-                                }}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${inviteMethod === "whatsapp"
-                                    ? "bg-surface-raised text-emerald-600 shadow-sm"
-                                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={inviteMethod === "email"}
+                                    onClick={() => {
+                                        setInviteMethod("email");
+                                        if (isBulkMode) {
+                                            setBulkData([]);
+                                            toast.message("Switched to Email bulk invite. Please upload an Email CSV.");
+                                        }
+                                    }}
+                                    className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+                                        inviteMethod === "email"
+                                            ? "bg-emerald-600 text-white shadow-sm"
+                                            : "text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                                     }`}
-                            >
-                                <Phone className="w-4 h-4" />
-                                {t("staff.invite.whatsapp")}
-                            </button>
+                                >
+                                    <Mail className="h-4 w-4" />
+                                    {t("staff.invite.email")}
+                                </button>
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={inviteMethod === "whatsapp"}
+                                    onClick={() => {
+                                        setInviteMethod("whatsapp");
+                                        if (isBulkMode) {
+                                            setBulkData([]);
+                                            toast.message("Switched to WhatsApp bulk invite. Please upload a WhatsApp CSV.");
+                                        }
+                                    }}
+                                    className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+                                        inviteMethod === "whatsapp"
+                                            ? "bg-emerald-600 text-white shadow-sm"
+                                            : "text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                                    }`}
+                                >
+                                    <Phone className="h-4 w-4" />
+                                    {t("staff.invite.whatsapp")}
+                                </button>
+                            </div>
                         </div>
 
                         {!isBulkMode ? (
@@ -3340,7 +3372,7 @@ const TeamTab: React.FC = () => {
                                             <TableCell className="text-slate-600 dark:text-slate-300">
                                                 <div className="flex items-center gap-2">
                                                     {invite.email ? <Mail className="w-3 h-3" /> : <Phone className="w-3 h-3" />}
-                                                    {invite.email || (invite.extra_data?.phone || "N/A")}
+                                                    {invite.email || invite.phone_number || invite.extra_data?.phone || "N/A"}
                                                 </div>
                                             </TableCell>
                                             <TableCell>
@@ -3349,7 +3381,14 @@ const TeamTab: React.FC = () => {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant="outline">{invite.email ? "Email" : "WhatsApp"}</Badge>
+                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                    <Badge variant="outline">{invite.email ? "Email" : "WhatsApp"}</Badge>
+                                                    {invite.status === "expired" && (
+                                                        <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 border-0">
+                                                            Expired
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">

@@ -53,6 +53,7 @@ type AttendanceRow = {
   shift: { start: string | null; end: string | null; status: string };
   shift_id: string | null;
   clock_in: string | null;
+  clock_out: string | null;
   clock_in_method?: string | null;
   is_manager_override?: boolean;
   override_reason?: string | null;
@@ -234,6 +235,7 @@ export default function AttendanceReportsPage() {
                   <TableHead>{t("reporting.attendance_team.col_team")}</TableHead>
                   <TableHead>{t("reporting.attendance_team.col_shift")}</TableHead>
                   <TableHead className="text-right">{t("reporting.attendance_team.col_clock_in")}</TableHead>
+                  <TableHead className="text-right">{t("reporting.attendance_team.col_clock_out")}</TableHead>
                   <TableHead>{t("reporting.attendance_team.col_status")}</TableHead>
                   <TableHead className="hidden lg:table-cell">{t("reporting.attendance_team.col_signals")}</TableHead>
                   <TableHead className="text-right w-[100px]">{t("reporting.attendance_team.col_actions")}</TableHead>
@@ -242,7 +244,7 @@ export default function AttendanceReportsPage() {
               <TableBody>
                 {filteredRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12 text-slate-500">
+                    <TableCell colSpan={7} className="text-center py-12 text-slate-500">
                       {t("reporting.attendance_team.empty")}
                     </TableCell>
                   </TableRow>
@@ -260,13 +262,16 @@ export default function AttendanceReportsPage() {
                             ? t("reporting.attendance_team.unscheduled")
                             : "-"}
                       </TableCell>
-                      <TableCell className="text-right text-sm">
+                      <TableCell className="text-right text-sm tabular-nums">
                         {row.clock_in ?? "-"}
                         {row.is_manager_override ? (
                           <Badge variant="outline" className="ml-2 text-[10px]">
                             {t("reporting.attendance_team.manager_override")}
                           </Badge>
                         ) : null}
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums">
+                        {row.clock_out ?? "-"}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={cn("font-medium capitalize", statusBadge(row.status))}>
@@ -367,6 +372,8 @@ export default function AttendanceReportsPage() {
                 </div>
                 <div className="text-slate-500">{t("reporting.attendance_team.detail_clock_in")}</div>
                 <div>{detailRow.clock_in ?? "-"}</div>
+                <div className="text-slate-500">{t("reporting.attendance_team.detail_clock_out")}</div>
+                <div>{detailRow.clock_out ?? "-"}</div>
                 <div className="text-slate-500">{t("reporting.attendance_team.detail_status")}</div>
                 <div className="capitalize">{detailRow.status?.replace(/_/g, " ")}</div>
               </div>

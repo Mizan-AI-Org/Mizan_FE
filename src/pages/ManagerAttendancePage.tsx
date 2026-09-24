@@ -279,6 +279,7 @@ function ManagerAttendanceBoard() {
                                     <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider hidden sm:table-cell">{t("staff.invite.role")}</TableHead>
                                     <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.shift")}</TableHead>
                                     <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.clock_in")}</TableHead>
+                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.clock_out")}</TableHead>
                                     <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.status")}</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -288,8 +289,9 @@ function ManagerAttendanceBoard() {
                                         {Array.from({ length: 6 }).map((_, i) => (
                                             <TableRow key={i}>
                                                 <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                                                <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                                                 <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                                             </TableRow>
@@ -301,7 +303,7 @@ function ManagerAttendanceBoard() {
                                             <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-3">
                                                 <Calendar className="w-8 h-8 text-slate-300" />
                                             </div>
-                                            <p className="text-lg font-bold text-slate-900 dark:text-white">{t("staff.attendance.no_shifts")}</p>
+                                            <p className="text-lg font-bold text-slate-900 dark:text-white">{t("staff.attendance.no_team")}</p>
                                             <p className="text-slate-500 text-sm">{t("staff.attendance.free_day")}</p>
                                         </TableCell>
                                     </TableRow>
@@ -317,7 +319,9 @@ function ManagerAttendanceBoard() {
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
                                                     <Avatar className="w-9 h-9 border border-slate-100">
-                                                        <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.staff.name}`} />
+                                                        {item.staff.avatar ? (
+                                                            <AvatarImage src={item.staff.avatar} />
+                                                        ) : null}
                                                         <AvatarFallback>{item.staff.name.substring(0, 2)}</AvatarFallback>
                                                     </Avatar>
                                                     <div>
@@ -337,14 +341,17 @@ function ManagerAttendanceBoard() {
                                             </TableCell>
                                             <TableCell className="hidden sm:table-cell">
                                                 <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider border-slate-200 text-slate-500">
-                                                    {item.staff.role?.replace('_', ' ')}
+                                                    {item.staff.role?.replace(/_/g, ' ')}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-sm font-medium text-slate-600 dark:text-slate-300">
                                                 {item.shift.start ? `${item.shift.start} - ${item.shift.end}` : <span className="text-slate-400 italic">{t("staff.attendance.unscheduled")}</span>}
                                             </TableCell>
-                                            <TableCell className="text-sm font-bold text-slate-900 dark:text-white">
+                                            <TableCell className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
                                                 {item.clock_in || <span className="text-slate-300">-</span>}
+                                            </TableCell>
+                                            <TableCell className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                                                {item.clock_out || <span className="text-slate-300">-</span>}
                                             </TableCell>
                                             <TableCell>
                                                 {/* Status Badges */}
@@ -369,6 +376,17 @@ function ManagerAttendanceBoard() {
                                                 {(item.status === 'present' || item.status === 'scheduled') && (
                                                     <Badge variant="outline" className="text-slate-500 border-slate-300">
                                                         {item.status === 'scheduled' ? t("staff.attendance.scheduled") : t("staff.attendance.present")}
+                                                    </Badge>
+                                                )}
+                                                {item.status === 'unscheduled' && (
+                                                    <Badge variant="outline" className="text-slate-400 border-slate-200">
+                                                        {t("staff.attendance.unscheduled")}
+                                                    </Badge>
+                                                )}
+                                                {item.status === 'on_leave' && (
+                                                    <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none px-2 py-1 gap-1.5 flex w-fit">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                                        {t("staff.attendance.on_leave")}
                                                     </Badge>
                                                 )}
                                                 {(item.status === 'clocked_out') && (

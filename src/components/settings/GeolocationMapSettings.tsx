@@ -76,8 +76,9 @@ export default function GeolocationMapSettings({
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [mapCenter, setMapCenter] =
     useState<L.LatLngExpression>(fallbackCenter);
-  const [polygonPoints, setPolygonPoints] =
-    useState<Array<[number, number]>>(geofencePolygon);
+  const [polygonPoints, setPolygonPoints] = useState<Array<[number, number]>>(
+    () => (Array.isArray(geofencePolygon) ? geofencePolygon : [])
+  );
   const [isDrawing, setIsDrawing] = useState(false);
   const [addressInput, setAddressInput] = useState("");
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
@@ -95,7 +96,7 @@ export default function GeolocationMapSettings({
   }, [radius]);
 
   useEffect(() => {
-    setPolygonPoints(geofencePolygon);
+    setPolygonPoints(Array.isArray(geofencePolygon) ? geofencePolygon : []);
   }, [geofencePolygon]);
 
   useEffect(() => {
@@ -492,7 +493,7 @@ export default function GeolocationMapSettings({
   };
 
   const radiusInKm = (radiusMeters / 1000).toFixed(2);
-  const hasPolygon = polygonPoints.length >= 3;
+  const hasPolygon = (polygonPoints?.length ?? 0) >= 3;
 
   return (
     <Card className="shadow-soft border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">

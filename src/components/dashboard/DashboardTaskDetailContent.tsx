@@ -111,13 +111,36 @@ export function DashboardTaskDetailContent({
           .join(", ")
       : null;
 
+  const displayWidgetTitle =
+    widgetTitle ||
+    (task.process_label || task.project_title || "").trim() ||
+    undefined;
+
+  const detailLines = [
+    task.source_label || task.source
+      ? `${t("dashboard.task_detail.source", { defaultValue: "Source" })}: ${task.source_label || task.source}`
+      : null,
+    task.category
+      ? `${t("dashboard.task_detail.category", { defaultValue: "Category" })}: ${task.category}`
+      : null,
+    task.age_label
+      ? `${t("dashboard.task_detail.reported", { defaultValue: "Opened" })}: ${task.age_label}`
+      : null,
+    task.created_at
+      ? `${t("dashboard.task_detail.created", { defaultValue: "Created" })}: ${new Date(task.created_at).toLocaleString()}`
+      : null,
+    task.updated_at
+      ? `${t("dashboard.task_detail.updated_at", { defaultValue: "Updated" })}: ${new Date(task.updated_at).toLocaleString()}`
+      : null,
+  ].filter(Boolean) as string[];
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex-1 space-y-4 overflow-y-auto px-1 pb-4">
-        {widgetTitle ? (
+        {displayWidgetTitle ? (
           <div className="inline-flex items-center gap-1.5 rounded-full border border-violet-200/80 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-violet-700 dark:border-violet-900/50 dark:bg-violet-950/40 dark:text-violet-300">
             <Sparkles className="h-3 w-3 shrink-0" aria-hidden />
-            {widgetTitle}
+            {displayWidgetTitle}
           </div>
         ) : null}
 
@@ -262,6 +285,13 @@ export function DashboardTaskDetailContent({
             <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
               {task.description || t("staff.requests.no_description")}
             </p>
+            {detailLines.length > 0 ? (
+              <ul className="mt-3 space-y-1 border-t border-border/40 pt-2.5 text-xs text-muted-foreground">
+                {detailLines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         )}
 

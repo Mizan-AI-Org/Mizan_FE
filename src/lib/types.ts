@@ -276,6 +276,10 @@ export interface DashboardTaskDemandItem {
     }>;
     created_at: string;
     updated_at: string;
+    /** Custom dashboard process widget title (e.g. Wedding). */
+    process_label?: string | null;
+    /** Alias of process_label for slider project chip. */
+    project_title?: string | null;
     /** Cross-cutting manager validation (non-blocking). */
     requires_manager_validation?: boolean;
     manager_validated?: boolean | null;

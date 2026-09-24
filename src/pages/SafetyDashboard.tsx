@@ -405,12 +405,9 @@ const SafetyDashboard: React.FC = () => {
                       attachments?: AttachmentLike[];
                       photo_url?: string;
                       photo?: string;
-                      photo_evidence?: Array<{
-                        url?: string;
-                        storage_key?: string;
-                        filename?: string;
-                        mime_type?: string;
-                      }>;
+                      evidence_url?: string;
+                      evidenceUrl?: string;
+                      photo_evidence?: unknown;
                       attachment_url?: string;
                       attachment_filename?: string;
                       attachment_content_type?: string;
@@ -420,32 +417,38 @@ const SafetyDashboard: React.FC = () => {
                       return detail.attachments.filter((a) => !!a?.url);
                     }
                     const built: AttachmentLike[] = [];
-                    const photoUrl = detail.photo_url?.trim() || resolveMediaUrl(detail.photo) || "";
-                    if (photoUrl) built.push({ url: photoUrl, name: "Photo evidence", content_type: "image/jpeg" });
+                    const pushUrl = (raw: string, name: string, contentType?: string) => {
+                      const trimmed = (raw || "").trim();
+                      if (!trimmed || /^whatsapp:/i.test(trimmed)) return;
+                      const url = resolveMediaUrl(trimmed) || trimmed;
+                      if (url && !built.some((i) => i.url === url)) {
+                        built.push({ url, name, content_type: contentType || "image/jpeg" });
+                      }
+                    };
+                    pushUrl(detail.photo_url?.trim() || resolveMediaUrl(detail.photo) || "", "Photo evidence");
+                    pushUrl(detail.evidence_url || detail.evidenceUrl || "", "Photo evidence");
                     if (detail.attachment_url?.trim()) {
-                      built.push({
-                        url: detail.attachment_url,
-                        name: detail.attachment_filename || "Attachment",
-                        content_type: detail.attachment_content_type,
-                      });
+                      pushUrl(
+                        detail.attachment_url,
+                        detail.attachment_filename || "Attachment",
+                        detail.attachment_content_type,
+                      );
                     }
                     for (const [idx, raw] of (detail.audio_evidence || []).entries()) {
-                      const url = resolveMediaUrl(raw) || raw;
-                      if (url) built.push({ url, name: `Audio ${idx + 1}`, content_type: "audio/mpeg" });
+                      pushUrl(raw, `Audio ${idx + 1}`, "audio/mpeg");
                     }
-                    for (const [idx, entry] of (detail.photo_evidence || []).entries()) {
-                      if (!entry || typeof entry !== "object") continue;
-                      const resolved =
-                        (entry as { resolved_url?: string }).resolved_url?.trim() || "";
-                      const raw = (entry.storage_key || entry.url || "").trim();
-                      const url = resolved || resolveMediaUrl(raw) || raw;
-                      if (url && !built.some((i) => i.url === url)) {
-                        built.push({
-                          url,
-                          name: entry.filename?.trim() || `Photo ${idx + 1}`,
-                          content_type: entry.mime_type || "image/jpeg",
-                        });
-                      }
+                    const photoRaw = detail.photo_evidence;
+                    const photoEntries: Array<Record<string, unknown>> = Array.isArray(photoRaw)
+                      ? photoRaw.filter((e): e is Record<string, unknown> => !!e && typeof e === "object")
+                      : photoRaw && typeof photoRaw === "object"
+                        ? [photoRaw as Record<string, unknown>]
+                        : [];
+                    for (const [idx, entry] of photoEntries.entries()) {
+                      pushUrl(
+                        String(entry.resolved_url || entry.storage_key || entry.url || entry.file_path || ""),
+                        String(entry.filename || `Photo ${idx + 1}`),
+                        String(entry.mime_type || "image/jpeg"),
+                      );
                     }
                     return built;
                   })()}

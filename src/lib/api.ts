@@ -743,6 +743,7 @@ export class BackendService {
       shift: { start: string | null; end: string | null; status: string };
       shift_id: string | null;
       clock_in: string | null;
+      clock_out: string | null;
       clock_in_method?: string | null;
       is_manager_override?: boolean;
       override_reason?: string | null;

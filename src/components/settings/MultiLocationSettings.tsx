@@ -63,6 +63,57 @@ export interface BusinessLocation {
   updated_at: string;
 }
 
+function normalizeBusinessLocation(raw: unknown): BusinessLocation | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const id = row.id != null ? String(row.id) : "";
+  const name = row.name != null ? String(row.name) : "";
+  if (!id || !name) return null;
+  const polygon = Array.isArray(row.geofence_polygon)
+    ? (row.geofence_polygon as Array<[number, number]>)
+    : [];
+  const latRaw = row.latitude;
+  const lngRaw = row.longitude;
+  return {
+    id,
+    name,
+    address: row.address != null ? String(row.address) : "",
+    latitude:
+      latRaw === null || latRaw === undefined || latRaw === ""
+        ? null
+        : Number(latRaw),
+    longitude:
+      lngRaw === null || lngRaw === undefined || lngRaw === ""
+        ? null
+        : Number(lngRaw),
+    radius: Number(row.radius ?? 100) || 100,
+    geofence_enabled: row.geofence_enabled !== false,
+    geofence_polygon: polygon,
+    timezone: row.timezone != null ? String(row.timezone) : "",
+    is_primary: Boolean(row.is_primary ?? row.isPrimary),
+    is_active: row.is_active !== false,
+    created_at: row.created_at != null ? String(row.created_at) : "",
+    updated_at: row.updated_at != null ? String(row.updated_at) : "",
+  };
+}
+
+function unwrapLocationRows(data: unknown): BusinessLocation[] {
+  const root = data && typeof data === "object" && "data" in (data as object)
+    ? (data as { data: unknown }).data
+    : data;
+  const list: unknown[] = Array.isArray(root)
+    ? root
+    : Array.isArray((root as { locations?: unknown })?.locations)
+      ? ((root as { locations: unknown[] }).locations)
+      : Array.isArray((root as { results?: unknown })?.results)
+        ? ((root as { results: unknown[] }).results)
+        : [];
+  return list
+    .map(normalizeBusinessLocation)
+    .filter((row): row is BusinessLocation => row !== null);
+}
+
+
 interface MultiLocationSettingsProps {
   /** Authenticated axios instance from the parent Settings page - already
    *  has Authorization + Accept-Language headers configured, so we don't
@@ -149,14 +200,8 @@ export default function MultiLocationSettings({
   const fetchLocations = useCallback(async () => {
     setIsLoading(true);
     try {
-      const resp = await apiClient.get<BusinessLocation[] | { results: BusinessLocation[] }>(
-        "/locations/"
-      );
-      const rows = Array.isArray(resp.data)
-        ? resp.data
-        : resp.data?.results ?? [];
-      // Sort primary first, then by name - mirrors the Meta.ordering so the
-      // UI and DB agree on visual order regardless of DRF pagination config.
+      const resp = await apiClient.get("/locations/");
+      const rows = unwrapLocationRows(resp.data);
       rows.sort((a, b) => {
         if (a.is_primary !== b.is_primary) return a.is_primary ? -1 : 1;
         return a.name.localeCompare(b.name);
@@ -189,7 +234,7 @@ export default function MultiLocationSettings({
     async (loc: BusinessLocation, lat: number, lng: number, radius: number) => {
       setSavingId(loc.id);
       try {
-        const resp = await apiClient.patch<BusinessLocation>(
+        const resp = await apiClient.patch(
           `/locations/${loc.id}/`,
           {
             latitude: lat,
@@ -199,8 +244,10 @@ export default function MultiLocationSettings({
             geofence_polygon: loc.geofence_polygon,
           }
         );
+        const updated = normalizeBusinessLocation(resp.data?.data ?? resp.data);
+        if (!updated) throw new Error(t("settings.locations.save_error"));
         setLocations((prev) =>
-          prev.map((l) => (l.id === loc.id ? resp.data : l))
+          prev.map((l) => (l.id === loc.id ? updated : l))
         );
         toast.success(t("settings.locations.save_success"));
         invalidateTenantLocationCaches();
@@ -217,12 +264,14 @@ export default function MultiLocationSettings({
   const handleToggleGeofence = useCallback(
     async (loc: BusinessLocation, enabled: boolean) => {
       try {
-        const resp = await apiClient.patch<BusinessLocation>(
+        const resp = await apiClient.patch(
           `/locations/${loc.id}/`,
           { geofence_enabled: enabled }
         );
+        const updated = normalizeBusinessLocation(resp.data?.data ?? resp.data);
+        if (!updated) throw new Error(t("settings.locations.save_error"));
         setLocations((prev) =>
-          prev.map((l) => (l.id === loc.id ? resp.data : l))
+          prev.map((l) => (l.id === loc.id ? updated : l))
         );
         invalidateTenantLocationCaches();
         onMutated?.();
@@ -249,12 +298,14 @@ export default function MultiLocationSettings({
         return;
       }
       try {
-        const resp = await apiClient.patch<BusinessLocation>(
+        const resp = await apiClient.patch(
           `/locations/${loc.id}/`,
           { geofence_polygon: polygon }
         );
+        const updated = normalizeBusinessLocation(resp.data?.data ?? resp.data);
+        if (!updated) throw new Error(t("settings.locations.save_error"));
         setLocations((prev) =>
-          prev.map((l) => (l.id === loc.id ? resp.data : l))
+          prev.map((l) => (l.id === loc.id ? updated : l))
         );
         invalidateTenantLocationCaches();
         onMutated?.();
@@ -268,12 +319,14 @@ export default function MultiLocationSettings({
   const handleRename = useCallback(
     async (loc: BusinessLocation, name: string, address: string) => {
       try {
-        const resp = await apiClient.patch<BusinessLocation>(
+        const resp = await apiClient.patch(
           `/locations/${loc.id}/`,
           { name, address }
         );
+        const updated = normalizeBusinessLocation(resp.data?.data ?? resp.data);
+        if (!updated) throw new Error(t("settings.locations.save_error"));
         setLocations((prev) =>
-          prev.map((l) => (l.id === loc.id ? resp.data : l))
+          prev.map((l) => (l.id === loc.id ? updated : l))
         );
         invalidateTenantLocationCaches();
         onMutated?.();
@@ -288,13 +341,15 @@ export default function MultiLocationSettings({
     async (loc: BusinessLocation) => {
       setPrimarySwitchingId(loc.id);
       try {
-        const resp = await apiClient.post<BusinessLocation>(
+        const resp = await apiClient.post(
           `/locations/${loc.id}/set-primary/`
         );
+        const updated = normalizeBusinessLocation(resp.data?.data ?? resp.data);
+        if (!updated) throw new Error(t("settings.locations.primary_error"));
         setLocations((prev) =>
           prev.map((l) =>
-            l.id === resp.data.id
-              ? resp.data
+            l.id === updated.id
+              ? updated
               : { ...l, is_primary: false }
           )
         );
@@ -350,7 +405,7 @@ export default function MultiLocationSettings({
       // deploys) that otherwise surface as a cryptic HTTP 500 toast.
       let resp;
       try {
-        resp = await apiClient.post<BusinessLocation>("/locations/", payload);
+        resp = await apiClient.post("/locations/", payload);
       } catch (firstErr) {
         const status = (firstErr as ApiError)?.response?.status;
         const network =
@@ -360,17 +415,21 @@ export default function MultiLocationSettings({
           status === 504;
         if (!network) throw firstErr;
         await new Promise((r) => setTimeout(r, 800));
-        resp = await apiClient.post<BusinessLocation>("/locations/", payload);
+        resp = await apiClient.post("/locations/", payload);
+      }
+      const created = normalizeBusinessLocation(resp.data?.data ?? resp.data);
+      if (!created) {
+        throw new Error(t("settings.locations.add_error"));
       }
       setLocations((prev) => {
-        const next = [...prev, resp.data];
+        const next = [...prev, created];
         next.sort((a, b) => {
           if (a.is_primary !== b.is_primary) return a.is_primary ? -1 : 1;
           return a.name.localeCompare(b.name);
         });
         return next;
       });
-      setExpandedId(resp.data.id);
+      setExpandedId(created.id);
       setNewName("");
       setNewAddress("");
       setAddOpen(false);
@@ -649,7 +708,7 @@ function LocationRow({
             longitude={location.longitude ?? 0}
             radius={location.radius}
             geofenceEnabled={location.geofence_enabled}
-            geofencePolygon={location.geofence_polygon}
+            geofencePolygon={location.geofence_polygon ?? []}
             onToggleGeofence={onToggleGeofence}
             onPolygonChange={onPolygonChange}
             onSave={onSaveCoords}

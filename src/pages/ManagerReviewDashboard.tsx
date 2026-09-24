@@ -174,8 +174,8 @@ const ManagerReviewDashboard: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, location.pathname]);
 
-  // Incident management state
-  const [incidentFilters, setIncidentFilters] = useState({ status: 'open', severity: '', search: '' });
+  // Incident management state — default All so resolved/dismissed history is visible
+  const [incidentFilters, setIncidentFilters] = useState({ status: '', severity: '', search: '' });
   const [selectedIncident, setSelectedIncident] = useState<string | null>(
     () => (searchParams.get("incident") || "").trim() || null,
   );
@@ -540,6 +540,7 @@ const ManagerReviewDashboard: React.FC = () => {
       last_name?: string | null;
     } | null;
     created_at?: string | null;
+    resolved_at?: string | null;
     resolution_notes?: string | null;
     incident_type?: string | null;
     description?: string | null;
@@ -575,41 +576,56 @@ const ManagerReviewDashboard: React.FC = () => {
       return detail.attachments.filter((a) => !!a?.url);
     }
     const items: AttachmentLike[] = [];
+    const pushUrl = (raw: string, name: string, contentType?: string) => {
+      const trimmed = (raw || "").trim();
+      if (!trimmed || /^whatsapp:/i.test(trimmed)) return;
+      const url = resolveMediaUrl(trimmed) || trimmed;
+      if (url && !items.some((i) => i.url === url)) {
+        items.push({ url, name, content_type: contentType || "image/jpeg" });
+      }
+    };
+
     const photoUrl =
       detail.photo_url?.trim() ||
       resolveMediaUrl(detail.photo) ||
       "";
-    if (photoUrl) {
-      items.push({ url: photoUrl, name: "Photo evidence", content_type: "image/jpeg" });
-    }
+    if (photoUrl) pushUrl(photoUrl, "Photo evidence", "image/jpeg");
+
+    const evidenceUrl = (detail as { evidence_url?: string; evidenceUrl?: string }).evidence_url
+      || (detail as { evidenceUrl?: string }).evidenceUrl
+      || "";
+    if (evidenceUrl) pushUrl(evidenceUrl, "Photo evidence", "image/jpeg");
+
     const fileUrl = detail.attachment_url?.trim() || "";
     if (fileUrl) {
-      items.push({
-        url: fileUrl,
-        name: detail.attachment_filename?.trim() || "Attachment",
-        content_type: detail.attachment_content_type || undefined,
-      });
+      pushUrl(fileUrl, detail.attachment_filename?.trim() || "Attachment", detail.attachment_content_type || undefined);
     }
     for (const [idx, raw] of (detail.audio_evidence || []).entries()) {
       const url = resolveMediaUrl(raw) || raw;
-      if (url) {
+      if (url && !/^whatsapp:/i.test(url)) {
         items.push({ url, name: `Audio ${idx + 1}`, content_type: "audio/mpeg" });
       }
     }
-    for (const [idx, entry] of (detail.photo_evidence || []).entries()) {
-      if (!entry || typeof entry !== "object") continue;
-      const raw = (entry.storage_key || entry.url || "").trim();
-      const url =
-        (entry as { resolved_url?: string }).resolved_url?.trim() ||
-        resolveMediaUrl(raw) ||
-        raw;
-      if (url && !items.some((i) => i.url === url)) {
-        items.push({
-          url,
-          name: entry.filename?.trim() || `Photo ${idx + 1}`,
-          content_type: entry.mime_type || "image/jpeg",
-        });
-      }
+
+    const photoEvidenceRaw = detail.photo_evidence as unknown;
+    const photoEntries: Array<Record<string, unknown>> = Array.isArray(photoEvidenceRaw)
+      ? photoEvidenceRaw.filter((e): e is Record<string, unknown> => !!e && typeof e === "object")
+      : photoEvidenceRaw && typeof photoEvidenceRaw === "object"
+        ? [photoEvidenceRaw as Record<string, unknown>]
+        : [];
+    for (const [idx, entry] of photoEntries.entries()) {
+      const raw = String(
+        (entry as { resolved_url?: string }).resolved_url
+          || entry.storage_key
+          || entry.url
+          || entry.file_path
+          || ""
+      ).trim();
+      pushUrl(
+        raw,
+        String(entry.filename || `Photo ${idx + 1}`),
+        String(entry.mime_type || "image/jpeg"),
+      );
     }
     return items;
   }
@@ -643,6 +659,7 @@ const ManagerReviewDashboard: React.FC = () => {
           last_name: typeof x.assigned_to_details.last_name === "string" ? x.assigned_to_details.last_name : null,
         } : null,
         created_at: typeof x.created_at === "string" ? x.created_at : null,
+        resolved_at: typeof x.resolved_at === "string" ? x.resolved_at : null,
         has_attachments: Boolean(x.has_attachments),
         photo_count: typeof x.photo_count === "number" ? x.photo_count : 0,
       }));
@@ -654,8 +671,9 @@ const ManagerReviewDashboard: React.FC = () => {
     const unassigned = open.filter((i) => !i.assigned_to_details);
     const resolved7 = incidentList.filter((i) => {
       if (String(i.status || "").toLowerCase() !== "resolved") return false;
-      if (!i.created_at) return false;
-      const age = Date.now() - new Date(i.created_at).getTime();
+      const when = i.resolved_at || i.created_at;
+      if (!when) return false;
+      const age = Date.now() - new Date(when).getTime();
       return age <= 7 * 86400000;
     });
     return {

@@ -34,7 +34,17 @@ export function useBusinessLocations() {
       });
       if (!res.ok) throw new Error("Failed to load locations");
       const data = await res.json();
-      const rows: unknown[] = Array.isArray(data) ? data : data?.results || [];
+      const root =
+        data && typeof data === "object" && "data" in data ? data.data : data;
+      const rows: unknown[] = Array.isArray(root)
+        ? root
+        : Array.isArray(root?.locations)
+          ? root.locations
+          : Array.isArray(root?.results)
+            ? root.results
+            : Array.isArray(data?.results)
+              ? data.results
+              : [];
       const out: BusinessLocationBrief[] = [];
       for (const item of rows) {
         if (!item || typeof item !== "object") continue;
@@ -43,6 +53,7 @@ export function useBusinessLocations() {
           name?: string;
           address?: string;
           is_primary?: boolean;
+          isPrimary?: boolean;
           is_active?: boolean;
         };
         if (!row.id || !row.name) continue;
@@ -51,7 +62,7 @@ export function useBusinessLocations() {
           id: String(row.id),
           name: String(row.name),
           address: row.address ? String(row.address) : "",
-          is_primary: Boolean(row.is_primary),
+          is_primary: Boolean(row.is_primary ?? row.isPrimary),
           is_active: row.is_active !== false,
         });
       }
