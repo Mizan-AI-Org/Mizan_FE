@@ -414,7 +414,12 @@ const SafetyDashboard: React.FC = () => {
                       audio_evidence?: string[];
                     };
                     if (Array.isArray(detail.attachments) && detail.attachments.length) {
-                      return detail.attachments.filter((a) => !!a?.url);
+                      return detail.attachments
+                        .filter((a) => !!a?.url && !/^whatsapp:/i.test(a.url))
+                        .map((a) => ({
+                          ...a,
+                          url: resolveMediaUrl(a.url) || a.url,
+                        }));
                     }
                     const built: AttachmentLike[] = [];
                     const pushUrl = (raw: string, name: string, contentType?: string) => {

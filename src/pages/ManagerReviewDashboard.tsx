@@ -174,8 +174,8 @@ const ManagerReviewDashboard: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, location.pathname]);
 
-  // Incident management state — default All so resolved/dismissed history is visible
-  const [incidentFilters, setIncidentFilters] = useState({ status: '', severity: '', search: '' });
+  // Incident management state — Open is the default attention queue
+  const [incidentFilters, setIncidentFilters] = useState({ status: 'open', severity: '', search: '' });
   const [selectedIncident, setSelectedIncident] = useState<string | null>(
     () => (searchParams.get("incident") || "").trim() || null,
   );
@@ -573,7 +573,12 @@ const ManagerReviewDashboard: React.FC = () => {
   function incidentAttachmentItems(detail: IncidentDetail | undefined): AttachmentLike[] {
     if (!detail) return [];
     if (Array.isArray(detail.attachments) && detail.attachments.length > 0) {
-      return detail.attachments.filter((a) => !!a?.url);
+      return detail.attachments
+        .filter((a) => !!a?.url && !/^whatsapp:/i.test(a.url))
+        .map((a) => ({
+          ...a,
+          url: resolveMediaUrl(a.url) || a.url,
+        }));
     }
     const items: AttachmentLike[] = [];
     const pushUrl = (raw: string, name: string, contentType?: string) => {
