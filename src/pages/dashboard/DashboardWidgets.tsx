@@ -425,10 +425,15 @@ function isDashboardWidgetId(v: string): v is DashboardWidgetId {
 /** custom tiles use `custom:<uuid>` in saved layout (matches backend CUSTOM_WIDGET_PREFIX). */
 export const CUSTOM_WIDGET_PREFIX = "custom:";
 
+/** Legacy agent/backend writes used `custom_<8 hex>` before FE alignment. */
+const LEGACY_CUSTOM_SLOT = /^custom_[0-9a-f]{8}$/i;
+
 export function isCustomWidgetSlotId(s: string): boolean {
-  if (!s.startsWith(CUSTOM_WIDGET_PREFIX)) return false;
-  const rest = s.slice(CUSTOM_WIDGET_PREFIX.length);
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rest);
+  if (s.startsWith(CUSTOM_WIDGET_PREFIX)) {
+    const rest = s.slice(CUSTOM_WIDGET_PREFIX.length);
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rest);
+  }
+  return LEGACY_CUSTOM_SLOT.test(s);
 }
 
 /** A slot on the dashboard grid: built-in widget id or a custom tile id. */
@@ -6796,7 +6801,7 @@ export function DashboardWidgetById({
     customWidgetsById,
   } = props;
 
-  if (id.startsWith(CUSTOM_WIDGET_PREFIX)) {
+  if (isCustomWidgetSlotId(id)) {
     const def = customWidgetsById[id];
     if (!def) {
       return (

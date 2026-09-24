@@ -349,7 +349,7 @@ export function DashboardWidgetGridSection() {
 
   const widgetLabel = useCallback(
     (id: string) => {
-      if (id.startsWith("custom:")) {
+      if (isCustomWidgetSlotId(id)) {
         return customWidgetsById[id]?.title ?? id;
       }
       switch (id as DashboardWidgetId) {
