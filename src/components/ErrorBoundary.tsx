@@ -14,6 +14,23 @@ interface ErrorBoundaryState {
     errorInfo: ErrorInfo | null;
 }
 
+/**
+ * Returns true when a lazy-loaded chunk could not be fetched — typically
+ * because a new deployment replaced the content-hashed file while the user
+ * had the old app open.  We auto-reload in this case rather than show an
+ * error card.
+ */
+function isChunkLoadError(error: unknown): boolean {
+    const msg = error instanceof Error ? error.message : String(error || "");
+    return (
+        /Failed to fetch dynamically imported module/i.test(msg) ||
+        /Failed to load module script/i.test(msg) ||
+        /Importing a module script failed/i.test(msg)
+    );
+}
+
+const CHUNK_RELOAD_FLAG = "chunk_reload_attempted";
+
 /** Browser extensions / dnd-kit / Radix portals can throw NotFoundError DOM races - ignore those. */
 function isBenignDomRace(error: unknown): boolean {
     const msg = error instanceof Error ? error.message : String(error || "");
@@ -37,6 +54,14 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
         if (isBenignDomRace(error)) {
             return { hasError: false, error: null, errorInfo: null };
+        }
+        if (isChunkLoadError(error)) {
+            // Guard against infinite reload loops (e.g. genuine CDN outage).
+            if (!sessionStorage.getItem(CHUNK_RELOAD_FLAG)) {
+                sessionStorage.setItem(CHUNK_RELOAD_FLAG, "1");
+                window.location.reload();
+            }
+            // If already reloaded once, fall through to the normal error UI.
         }
         return { hasError: true, error, errorInfo: null };
     }
@@ -102,6 +127,9 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
             );
         }
 
+        // Successful render — clear the chunk-reload guard so a future chunk
+        // error in the same session still gets one automatic retry.
+        sessionStorage.removeItem(CHUNK_RELOAD_FLAG);
         return this.props.children;
     }
 }
