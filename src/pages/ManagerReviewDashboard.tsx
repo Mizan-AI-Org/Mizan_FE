@@ -1414,7 +1414,9 @@ const ManagerReviewDashboard: React.FC = () => {
                   <div className="font-medium text-sm">{t("analytics.no_submissions")}</div>
                   <div className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
                     {accountabilityCounts.open_assignments > 0 || accountabilityCounts.in_progress > 0
-                      ? t("analytics.accountability.empty_with_open", "{{open}} checklists are assigned or in progress - use Live progress and Staff accountability above to follow up.", { open: accountabilityCounts.open_assignments + accountabilityCounts.in_progress })
+                      ? t("analytics.accountability.empty_with_open", {
+                          open: accountabilityCounts.open_assignments + accountabilityCounts.in_progress,
+                        })
                       : t("analytics.try_widening_range")}
                   </div>
                 </div>
