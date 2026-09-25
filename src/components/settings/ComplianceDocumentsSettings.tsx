@@ -51,6 +51,7 @@ type ComplianceDoc = {
   title: string;
   document_type: string;
   expires_at?: string | null;
+  expires_on?: string | null;
   days_until_expiry?: number | null;
   urgency: "expired" | "critical" | "soon" | "ok" | "unset";
   has_file?: boolean;
@@ -123,6 +124,26 @@ function isImage(filename: string, mime?: string): boolean {
 
 function isPdf(filename: string, mime?: string): boolean {
   return PDF_RE.test(filename) || mime === "application/pdf";
+}
+
+function dateInputValue(value?: string | null): string {
+  if (!value) return "";
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  return match?.[1] || "";
+}
+
+function typeLabel(doc: ComplianceDoc, types: DocType[]): string {
+  const raw = (doc.document_type || doc.category || "").trim();
+  const match = types.find(
+    (item) =>
+      item.id.toLowerCase() === raw.toLowerCase() || item.label.toLowerCase() === raw.toLowerCase(),
+  );
+  if (match) return match.label;
+  if (!raw || raw.toLowerCase() === "compliance") {
+    if (/insur/i.test(doc.title)) return "Insurance";
+    return "Compliance";
+  }
+  return raw.replace(/[_-]+/g, " ");
 }
 
 export default function ComplianceDocumentsSettings() {
@@ -447,11 +468,14 @@ export default function ComplianceDocumentsSettings() {
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {types.find((x) => x.id === doc.document_type)?.label || doc.document_type}
+                      {typeLabel(doc, types)}
                       {doc.days_until_expiry != null
                         ? doc.days_until_expiry < 0
                           ? ` · ${t("settings.compliance.days_ago", { n: -doc.days_until_expiry })}`
                           : ` · ${t("settings.compliance.days_left", { n: doc.days_until_expiry })}`
+                        : ""}
+                      {dateInputValue(doc.expires_on || doc.expires_at)
+                        ? ` · ${new Date(`${dateInputValue(doc.expires_on || doc.expires_at)}T12:00:00`).toLocaleDateString()}`
                         : ""}
                     </p>
                   </div>
@@ -460,8 +484,8 @@ export default function ComplianceDocumentsSettings() {
                       <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
                       <Input
                         type="date"
-                        className="h-9 w-[150px] pl-7 text-xs"
-                        value={doc.expires_at || ""}
+                        className="h-9 w-[150px] pl-7 text-xs [color-scheme:dark]"
+                        value={dateInputValue(doc.expires_on || doc.expires_at)}
                         onChange={(e) => void updateExpiry(doc.id, e.target.value)}
                         aria-label={t("settings.compliance.field_expires")}
                       />

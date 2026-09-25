@@ -713,8 +713,10 @@ export default function OperationsLivePage() {
   }, [data?.filter_options?.categories]);
 
   const staffOptions = useMemo(() => {
-    return data?.filter_options?.staff ?? [];
-  }, [data?.filter_options?.staff]);
+    const names = [...(data?.filter_options?.staff ?? [])];
+    if (staffFilter && !names.includes(staffFilter)) names.unshift(staffFilter);
+    return names;
+  }, [data?.filter_options?.staff, staffFilter]);
 
   const lanePagination = useMemo(
     () => ({
