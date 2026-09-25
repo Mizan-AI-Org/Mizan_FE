@@ -51,6 +51,8 @@ export const AGENT_WRITE_QUERY_KEYS = [
   ["dashboard", "custom-widget-tasks"],
   ["dashboard", "tasks-demands"],
   ["dashboard", "operations-live"],
+  ["approvals"],
+  ["notifications"],
   ["dashboard"],
   ["manager-submitted-checklists"],
   ["live-checklist-progress"],

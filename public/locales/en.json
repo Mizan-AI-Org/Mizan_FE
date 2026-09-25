@@ -2110,7 +2110,7 @@
   "settings.payguard.preview_result": "Needs approval from {{approver}}",
   "settings.payguard.preview_invalid": "Enter a valid amount to preview",
   "settings.payguard.reminders_title": "WhatsApp reminders",
-  "settings.payguard.save_hint": "Approvals happen on WhatsApp - this page only sets the rules.",
+  "settings.payguard.save_hint": "The assigned approver gets one WhatsApp and one web notification. After they decide, the requester gets the same. This page only sets the rules.",
   "settings.payguard.add_band": "Add amount rule",
   "settings.payguard.remove_band": "Remove rule",
   "settings.payguard.remove_rung": "Remove approver",

@@ -16,6 +16,8 @@ type ApprovalRow = {
   category?: string;
   notes?: string;
   requestedBy?: string;
+  assignedTo?: string;
+  decidedBy?: string;
 };
 
 async function load(path: string, token: string) {
@@ -47,6 +49,9 @@ export default function ApprovalsPage() {
     queryKey: ["approvals", accessToken],
     queryFn: () => load("/approvals/", accessToken),
     enabled: !!accessToken,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
   });
   const create = useMutation({
     mutationFn: () => post("/approvals/", accessToken, { title, amount, category: "spend" }),
@@ -54,16 +59,21 @@ export default function ApprovalsPage() {
       setTitle("");
       setAmount("");
       queryClient.invalidateQueries({ queryKey: ["approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
   const decide = useMutation({
     mutationFn: ({ id, decision }: { id: string; decision: string }) =>
       post(`/approvals/${id}/decide/`, accessToken, { decision }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["approvals"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
   });
   const rows = (data?.approvals || []) as ApprovalRow[];
   const pending = useMemo(() => rows.filter((row) => row.status === "pending"), [rows]);
-  const decided = useMemo(() => rows.filter((row) => row.status !== "pending"), [rows]);
+  const approved = useMemo(() => rows.filter((row) => row.status === "approved"), [rows]);
+  const rejected = useMemo(() => rows.filter((row) => row.status === "rejected"), [rows]);
 
   return (
     <div className="space-y-6 p-6">
@@ -72,7 +82,7 @@ export default function ApprovalsPage() {
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Operations</p>
           <h1 className="text-2xl font-semibold">Approvals</h1>
           <p className="text-sm text-muted-foreground">
-            Requests waiting for a yes. The approver is pinged on WhatsApp and can also tell the agent to approve.
+            Pending waits for the person on the amount ladder. After they decide, the requester gets one WhatsApp and one web notification.
           </p>
         </div>
         <Button variant="outline" asChild>
@@ -93,26 +103,37 @@ export default function ApprovalsPage() {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Needs a decision ({pending.length})</CardTitle>
+          <CardTitle>Pending ({pending.length})</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
           {isError && <p className="text-sm text-destructive">Could not load approvals.</p>}
           {!isLoading && pending.length === 0 && (
-            <p className="text-sm text-muted-foreground">Nothing is waiting. New requests show up here and ping the approver.</p>
+            <p className="text-sm text-muted-foreground">Nothing waiting. New requests land here for the assigned approver.</p>
           )}
           {pending.map((row) => (
             <ApprovalLine key={row.id} row={row} busy={decide.isPending} onDecide={(decision) => decide.mutate({ id: row.id, decision })} />
           ))}
         </CardContent>
       </Card>
-      {decided.length > 0 && (
+      <Card>
+        <CardHeader>
+          <CardTitle>Approved ({approved.length})</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {approved.length === 0 && <p className="text-sm text-muted-foreground">No approved requests yet.</p>}
+          {approved.map((row) => (
+            <ApprovalLine key={row.id} row={row} />
+          ))}
+        </CardContent>
+      </Card>
+      {rejected.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Recent decisions</CardTitle>
+            <CardTitle>Rejected ({rejected.length})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {decided.map((row) => (
+            {rejected.map((row) => (
               <ApprovalLine key={row.id} row={row} />
             ))}
           </CardContent>
@@ -132,15 +153,19 @@ function ApprovalLine({
   busy?: boolean;
 }) {
   const money = [row.amount, row.currency].filter(Boolean).join(" ");
+  const bits = [
+    money || "No amount",
+    row.category,
+    row.requestedBy ? `from ${row.requestedBy}` : "",
+    row.status === "pending" && row.assignedTo ? `awaiting ${row.assignedTo}` : "",
+    row.status !== "pending" && row.decidedBy ? `by ${row.decidedBy}` : "",
+    row.status,
+  ].filter(Boolean);
   return (
     <div className="flex items-center justify-between gap-4 border-b py-2 last:border-0">
       <div>
         <p className="font-medium">{row.title}</p>
-        <p className="text-sm text-muted-foreground">
-          {[money || "No amount", row.category, row.requestedBy ? `from ${row.requestedBy}` : "", row.status]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
+        <p className="text-sm text-muted-foreground">{bits.join(" · ")}</p>
       </div>
       {row.status === "pending" && onDecide && (
         <div className="flex gap-2">
