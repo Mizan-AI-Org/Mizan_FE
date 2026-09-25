@@ -1569,85 +1569,64 @@ const StaffRequestsPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-4 items-start">
-          <Card className="h-[72vh]">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">{t("staff.requests.inbox_tasks_demands")}</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <ScrollArea className="h-[62vh] pr-3">
-                {tasksDemandsQuery.isLoading ? (
-                  <div className="text-sm text-muted-foreground py-6">{t("staff.requests.loading")}</div>
-                ) : tasksDemandsQuery.isError ? (
-                  <div className="text-sm text-red-600 py-6">{t("staff.requests.load_tasks_failed")}</div>
-                ) : filteredDemandRows.length === 0 ? (
-                  <div className="text-sm text-muted-foreground py-10 text-center">{t("staff.requests.no_tasks")}</div>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredDemandRows.map((row) => (
-                      <button
-                        key={row.id}
-                        type="button"
-                        onClick={() => onSelectDashboardTask(row)}
-                        className={cn(
-                          "w-full text-left rounded-xl border p-4 transition-all duration-200 group relative overflow-hidden",
-                          taskSheetId === row.id
-                            ? "border-primary/50 bg-primary/5 shadow-sm ring-1 ring-primary/20"
-                            : "border-border hover:border-border-hover hover:bg-muted/50",
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                              {row.source_label || row.source}
-                            </div>
-                            <div className="font-semibold text-sm truncate">{row.title}</div>
-                            {row.ai_summary || row.description ? (
-                              <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 line-clamp-1">
-                                {row.ai_summary || row.description}
-                              </div>
-                            ) : null}
-                            <div className="text-xs text-muted-foreground mt-1 truncate">
-                              {row.assignee?.name || t("staff.requests.unassigned")}
-                            </div>
-                          </div>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-[9px] font-bold px-1.5 py-0 shrink-0",
-                              dashboardTaskStatusBadge(row.status),
-                            )}
-                          >
-                            {dashboardTaskStatusLabel(row.status, t)}
-                          </Badge>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          <Card className="h-[72vh]">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">{t("staff.requests.task_details")}</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              {!taskSheetId ? (
-                <div className="text-sm text-muted-foreground py-10 text-center">
-                  {t("staff.requests.select_task")}
-                </div>
+        <Card className="h-[72vh] max-w-2xl">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">{t("staff.requests.inbox_tasks_demands")}</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <ScrollArea className="h-[62vh] pr-3">
+              {tasksDemandsQuery.isLoading ? (
+                <div className="text-sm text-muted-foreground py-6">{t("staff.requests.loading")}</div>
+              ) : tasksDemandsQuery.isError ? (
+                <div className="text-sm text-red-600 py-6">{t("staff.requests.load_tasks_failed")}</div>
+              ) : filteredDemandRows.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-10 text-center">{t("staff.requests.no_tasks")}</div>
               ) : (
-                <div className="text-sm text-muted-foreground py-10 text-center px-4">
-                  {t("dashboard.task_detail.open_in_pane", {
-                    defaultValue: "Task details are open in the panel on the right.",
-                  })}
+                <div className="space-y-2">
+                  {filteredDemandRows.map((row) => (
+                    <button
+                      key={row.id}
+                      type="button"
+                      onClick={() => onSelectDashboardTask(row)}
+                      className={cn(
+                        "w-full text-left rounded-xl border p-4 transition-all duration-200 group relative overflow-hidden",
+                        taskSheetId === row.id
+                          ? "border-primary/50 bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                          : "border-border hover:border-border-hover hover:bg-muted/50",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                            {row.source_label || row.source}
+                          </div>
+                          <div className="font-semibold text-sm truncate">{row.title}</div>
+                          {row.ai_summary || row.description ? (
+                            <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 line-clamp-1">
+                              {row.ai_summary || row.description}
+                            </div>
+                          ) : null}
+                          <div className="text-xs text-muted-foreground mt-1 truncate">
+                            {row.assignee?.name || t("staff.requests.unassigned")}
+                          </div>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[9px] font-bold px-1.5 py-0 shrink-0",
+                            dashboardTaskStatusBadge(row.status),
+                          )}
+                        >
+                          {dashboardTaskStatusLabel(row.status, t)}
+                        </Badge>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
       </div>
     );
   }
