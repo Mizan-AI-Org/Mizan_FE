@@ -50,9 +50,14 @@ import type { OperationsLiveItem, OperationsLiveLanePagination } from "@/lib/typ
 import { openDashboardTaskSheet } from "@/lib/dashboard-task-sheet";
 import {
   dashboardTaskPrimaryAction,
+  dashboardTaskPriorityBadge,
+  dashboardTaskPriorityLabel,
   dashboardTaskSecondaryStatuses,
   dashboardTaskStatusLabel,
+  LIVE_OPS_PRIORITIES,
   resolveStoredMediaUrl,
+  toLiveOpsPriority,
+  type LiveOpsPriority,
 } from "@/components/dashboard/dashboard-task-detail-utils";
 import { toast } from "sonner";
 
@@ -244,6 +249,7 @@ function OperationsLiveRow({
   t,
   onOpen,
   onStatusChange,
+  onPriorityChange,
   isUpdating,
 }: {
   item: OperationsLiveItem;
@@ -251,6 +257,7 @@ function OperationsLiveRow({
   t: (key: string, options?: Record<string, unknown>) => string;
   onOpen: () => void;
   onStatusChange: (status: OperationsLiveItem["status"]) => void;
+  onPriorityChange: (priority: LiveOpsPriority) => void;
   isUpdating: boolean;
 }) {
   const primary = dashboardTaskPrimaryAction(item.status, t);
@@ -326,6 +333,30 @@ function OperationsLiveRow({
           {categoryLabel(item, t)}
         </span>
       </td>
+      <td className="px-4 py-3.5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+        <Select
+          value={toLiveOpsPriority(item.priority)}
+          onValueChange={(value) => onPriorityChange(value as LiveOpsPriority)}
+          disabled={isUpdating}
+        >
+          <SelectTrigger
+            className={cn(
+              "h-7 w-[7.5rem] rounded-full border px-2.5 text-[11px] font-bold uppercase",
+              dashboardTaskPriorityBadge(item.priority),
+            )}
+            aria-label={t("operations_live.col.priority")}
+          >
+            <SelectValue>{dashboardTaskPriorityLabel(item.priority, t)}</SelectValue>
+          </SelectTrigger>
+          <SelectContent align="start">
+            {LIVE_OPS_PRIORITIES.map((priority) => (
+              <SelectItem key={priority} value={priority}>
+                {dashboardTaskPriorityLabel(priority, t)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </td>
       <td className="px-4 py-3.5 whitespace-nowrap">
         <Badge
           variant="outline"
@@ -377,6 +408,17 @@ function OperationsLiveRow({
             <DropdownMenuItem onClick={onOpen}>
               {t("operations_live.action.view")}
             </DropdownMenuItem>
+            {LIVE_OPS_PRIORITIES.map((priority) => (
+              <DropdownMenuItem
+                key={priority}
+                onClick={() => onPriorityChange(priority)}
+                disabled={toLiveOpsPriority(item.priority) === priority}
+              >
+                {t("operations_live.set_priority", {
+                  priority: dashboardTaskPriorityLabel(priority, t),
+                })}
+              </DropdownMenuItem>
+            ))}
             {moveTargets.map((target) => (
               <DropdownMenuItem
                 key={target}
@@ -423,6 +465,7 @@ function OperationsLiveTable({
   t,
   onOpenRow,
   onStatusChange,
+  onPriorityChange,
   updatingId,
 }: {
   title: string;
@@ -434,6 +477,7 @@ function OperationsLiveTable({
   t: (key: string, options?: Record<string, unknown>) => string;
   onOpenRow: (id: string) => void;
   onStatusChange: (id: string, status: OperationsLiveItem["status"]) => void;
+  onPriorityChange: (id: string, priority: LiveOpsPriority) => void;
   updatingId: string | null;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `lane:${lane}` });
@@ -467,6 +511,7 @@ function OperationsLiveTable({
                 <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.from")}</th>
                 <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.to")}</th>
                 <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.category")}</th>
+                <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.priority")}</th>
                 <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.status")}</th>
                 <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.time")}</th>
                 <th className="px-4 py-2.5 font-semibold">{t("operations_live.col.escalated")}</th>
@@ -478,7 +523,7 @@ function OperationsLiveTable({
               {items.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={11}
                     className="px-4 py-5 text-center text-sm text-muted-foreground bg-card"
                   >
                     {t("operations_live.empty")}
@@ -493,6 +538,7 @@ function OperationsLiveTable({
                     t={t}
                     onOpen={() => onOpenRow(item.id)}
                     onStatusChange={(status) => onStatusChange(item.id, status)}
+                    onPriorityChange={(priority) => onPriorityChange(item.id, priority)}
                     isUpdating={updatingId === item.id}
                   />
                 ))
@@ -565,6 +611,7 @@ export default function OperationsLivePage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [staffFilter, setStaffFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<"" | LiveOpsPriority>("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [lanePages, setLanePages] = useState({
     pending: 1,
@@ -585,7 +632,7 @@ export default function OperationsLivePage() {
 
   React.useEffect(() => {
     setLanePages({ pending: 1, in_progress: 1, completed: 1 });
-  }, [debouncedSearch, categoryFilter, staffFilter]);
+  }, [debouncedSearch, categoryFilter, staffFilter, priorityFilter]);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: [
@@ -593,6 +640,7 @@ export default function OperationsLivePage() {
       debouncedSearch,
       categoryFilter,
       staffFilter,
+      priorityFilter,
       lanePages.pending,
       lanePages.in_progress,
       lanePages.completed,
@@ -606,6 +654,7 @@ export default function OperationsLivePage() {
         category: categoryFilter || undefined,
         staff: staffFilter || undefined,
         q: debouncedSearch || undefined,
+        priority: priorityFilter || undefined,
       }),
     refetchInterval: 60_000,
     placeholderData: (prev) => prev,
@@ -630,6 +679,25 @@ export default function OperationsLivePage() {
       }
     },
     onError: () => toast.error(t("operations_live.status_error")),
+    onSettled: () => setUpdatingId(null),
+  });
+
+  const priorityMutation = useMutation({
+    mutationFn: ({
+      taskId,
+      priority,
+    }: {
+      taskId: string;
+      priority: LiveOpsPriority;
+    }) => api.updateDashboardTaskPriority(taskId, priority),
+    onMutate: ({ taskId }) => setUpdatingId(taskId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "tasks-demands"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-task-demand"] });
+      toast.success(t("operations_live.priority_updated"));
+    },
+    onError: () => toast.error(t("operations_live.priority_error")),
     onSettled: () => setUpdatingId(null),
   });
 
@@ -748,6 +816,28 @@ export default function OperationsLivePage() {
             </Select>
 
             <Select
+              value={priorityFilter || "all"}
+              onValueChange={(value) =>
+                setPriorityFilter(value === "all" ? "" : (value as LiveOpsPriority))
+              }
+            >
+              <SelectTrigger
+                className="h-10 min-w-0 flex-1 rounded-full border-border bg-card text-sm shadow-sm"
+                aria-label={t("operations_live.filter_priority")}
+              >
+                <SelectValue placeholder={t("operations_live.filter_priority_all")} />
+              </SelectTrigger>
+              <SelectContent align="start">
+                <SelectItem value="all">{t("operations_live.filter_priority_all")}</SelectItem>
+                {LIVE_OPS_PRIORITIES.map((priority) => (
+                  <SelectItem key={priority} value={priority}>
+                    {dashboardTaskPriorityLabel(priority, t)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
               value={staffFilter || "all"}
               onValueChange={(value) => setStaffFilter(value === "all" ? "" : value)}
             >
@@ -817,6 +907,9 @@ export default function OperationsLivePage() {
                   onStatusChange={(id, status) =>
                     statusMutation.mutate({ taskId: id, status })
                   }
+                  onPriorityChange={(id, priority) =>
+                    priorityMutation.mutate({ taskId: id, priority })
+                  }
                   updatingId={updatingId}
                 />
               ) : null}
@@ -835,6 +928,9 @@ export default function OperationsLivePage() {
                   onStatusChange={(id, status) =>
                     statusMutation.mutate({ taskId: id, status })
                   }
+                  onPriorityChange={(id, priority) =>
+                    priorityMutation.mutate({ taskId: id, priority })
+                  }
                   updatingId={updatingId}
                 />
               ) : null}
@@ -852,6 +948,9 @@ export default function OperationsLivePage() {
                   onOpenRow={openRow}
                   onStatusChange={(id, status) =>
                     statusMutation.mutate({ taskId: id, status })
+                  }
+                  onPriorityChange={(id, priority) =>
+                    priorityMutation.mutate({ taskId: id, priority })
                   }
                   updatingId={updatingId}
                 />

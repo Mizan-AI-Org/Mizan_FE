@@ -25,12 +25,41 @@ export function dashboardTaskStatusBadge(status?: string) {
   return "bg-yellow-50 text-yellow-700 border-yellow-200 ring-1 ring-yellow-200";
 }
 
+/** Wire values the Live Ops / task-demand PATCH accepts. */
+export const LIVE_OPS_PRIORITIES = ["MEDIUM", "HIGH", "URGENT"] as const;
+export type LiveOpsPriority = (typeof LIVE_OPS_PRIORITIES)[number];
+
 export function dashboardTaskPriorityBadge(priority?: string) {
   const p = String(priority || "").toUpperCase();
-  if (p === "URGENT") return "bg-red-600 text-white border-red-600";
+  if (p === "URGENT" || p === "CRITICAL") return "bg-red-600 text-white border-red-600";
   if (p === "HIGH") return "bg-amber-500 text-white border-amber-500";
   if (p === "LOW") return "bg-slate-200 text-slate-900 border-slate-200";
   return "bg-blue-600 text-white border-blue-600";
+}
+
+/** User-facing labels: HIGH = Urgent, URGENT = Critical. */
+export function dashboardTaskPriorityLabel(
+  priority: string | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  const p = String(priority || "MEDIUM").toUpperCase();
+  if (p === "URGENT" || p === "CRITICAL") {
+    return t("operations_live.priority.critical", { defaultValue: "Critical" });
+  }
+  if (p === "HIGH") {
+    return t("operations_live.priority.urgent", { defaultValue: "Urgent" });
+  }
+  if (p === "LOW") {
+    return t("operations_live.priority.low", { defaultValue: "Low" });
+  }
+  return t("operations_live.priority.medium", { defaultValue: "Medium" });
+}
+
+export function toLiveOpsPriority(priority?: string): LiveOpsPriority {
+  const p = String(priority || "MEDIUM").toUpperCase();
+  if (p === "URGENT" || p === "CRITICAL") return "URGENT";
+  if (p === "HIGH") return "HIGH";
+  return "MEDIUM";
 }
 
 export type DashboardTaskStatus = DashboardTaskDemandItem["status"];

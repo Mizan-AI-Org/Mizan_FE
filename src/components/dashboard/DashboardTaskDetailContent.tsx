@@ -23,9 +23,11 @@ import type { DashboardTaskDemandItem } from "@/lib/types";
 import {
   dashboardTaskPrimaryAction,
   dashboardTaskPriorityBadge,
+  dashboardTaskPriorityLabel,
   dashboardTaskSecondaryStatuses,
   dashboardTaskStatusBadge,
   dashboardTaskStatusLabel,
+  LIVE_OPS_PRIORITIES,
   resolveStoredMediaUrl,
 } from "@/components/dashboard/dashboard-task-detail-utils";
 function initialAssigneeIds(task: DashboardTaskDemandItem): string[] {
@@ -184,12 +186,12 @@ export function DashboardTaskDetailContent({
                   )}
                   disabled={isUpdating}
                 >
-                  {String(task.priority || "MEDIUM")}
+                  {dashboardTaskPriorityLabel(task.priority, t)}
                   <ChevronDown className="h-3 w-3" aria-hidden />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-36 z-[4000]">
-                {(["LOW", "MEDIUM", "HIGH", "URGENT"] as const).map((p) => (
+                {LIVE_OPS_PRIORITIES.map((p) => (
                   <DropdownMenuItem
                     key={p}
                     onClick={() => onPriorityChange(p)}
@@ -204,10 +206,9 @@ export function DashboardTaskDetailContent({
                         p === "URGENT" && "bg-red-500",
                         p === "HIGH" && "bg-amber-500",
                         p === "MEDIUM" && "bg-blue-500",
-                        p === "LOW" && "bg-slate-400",
                       )}
                     />
-                    {p}
+                    {dashboardTaskPriorityLabel(p, t)}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -220,7 +221,7 @@ export function DashboardTaskDetailContent({
                 dashboardTaskPriorityBadge(task.priority),
               )}
             >
-              {String(task.priority || "MEDIUM")}
+              {dashboardTaskPriorityLabel(task.priority, t)}
             </Badge>
           )}
         </div>

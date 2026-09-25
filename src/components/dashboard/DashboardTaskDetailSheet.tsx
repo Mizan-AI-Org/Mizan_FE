@@ -181,9 +181,9 @@ export function DashboardTaskDetailSheet({
               widgetTitle={widgetTitle}
               onStatusChange={(nextStatus) => statusMutation.mutate(nextStatus)}
               onPriorityChange={
-                task.kind === "dashboard" || task.kind === undefined
-                  ? (priority) => priorityMutation.mutate(priority)
-                  : undefined
+                task.kind === "invoice"
+                  ? undefined
+                  : (priority) => priorityMutation.mutate(priority)
               }
               onSaveAssignees={
                 task.kind === "dashboard" || task.kind === undefined
@@ -195,7 +195,7 @@ export function DashboardTaskDetailSheet({
                   ? (id) => singleAssigneeMutation.mutate(id)
                   : undefined
               }
-              isUpdating={statusMutation.isPending}
+              isUpdating={statusMutation.isPending || priorityMutation.isPending}
               isSaving={saveAssigneesMutation.isPending}
               isAssigneeUpdating={singleAssigneeMutation.isPending}
               t={t}

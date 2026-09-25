@@ -821,6 +821,7 @@ export class BackendService {
     staff?: string;
     q?: string;
     searchBy?: "staff" | "task" | "category";
+    priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT" | "CRITICAL";
   }): Promise<import("@/lib/types").OperationsLiveResponse> {
     const search = new URLSearchParams();
     if (params?.limit) search.set("limit", String(params.limit));
@@ -832,6 +833,7 @@ export class BackendService {
     if (params?.staff?.trim()) search.set("staff", params.staff.trim());
     if (params?.q?.trim()) search.set("q", params.q.trim());
     if (params?.searchBy) search.set("search_by", params.searchBy);
+    if (params?.priority?.trim()) search.set("priority", params.priority.trim());
     const qs = search.toString();
     return this.fetchWithError(`/dashboard/operations-live/${qs ? `?${qs}` : ""}`);
   }
