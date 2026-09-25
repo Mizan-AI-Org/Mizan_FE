@@ -44,7 +44,11 @@ const MAX_STORED_MESSAGES = 200;
 export function sanitizeMiyaText(text: string): string {
   if (!text) return text;
   let cleaned = text
-    .replace(/<working[-_]?memory\b[^>]*>[\s\S]*?(?:<\/working[-_]?memory>|$)/gi, "")
+    .replace(
+      /<(thinking|reasoning|reflection|working[-_]?memory)\b[^>]*>[\s\S]*?(?:<\/\1>|$)/gi,
+      "",
+    )
+    .replace(/<\/?(thinking|reasoning|reflection|working[-_]?memory)\b[^>]*>/gi, "")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "$1")
     .replace(/^#{1,6}\s+/gm, "")

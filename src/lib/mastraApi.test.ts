@@ -25,4 +25,13 @@ describe("fetchMastraTranscript", () => {
     expect(text).not.toContain("working-memory");
     expect(text).not.toContain("Open incidents now");
   });
+
+  it("keeps only the spoken answer when thinking leaks", () => {
+    const text = sanitizeMiyaText(
+      "<thinking>id: 3276187c reporterName: Adama Jarju</thinking>\nAdama Jarju reported the POS Repair Request.",
+    );
+    expect(text).toBe("Adama Jarju reported the POS Repair Request.");
+    expect(text).not.toContain("thinking");
+    expect(text).not.toContain("3276187c");
+  });
 });
