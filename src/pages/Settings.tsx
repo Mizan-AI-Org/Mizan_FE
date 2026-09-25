@@ -1940,7 +1940,7 @@ export default function Settings() {
               icon={<Calendar className="h-5 w-5" />}
               iconClassName="bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
               title={t("settings.gcal.title") || "Google Calendar"}
-              description={t("settings.gcal.description") || "Connect Google Calendar to create meetings, reminders, and see upcoming events."}
+              description={t("settings.gcal.description") || "Connect your personal Google Calendar to see your upcoming meetings and reminders."}
               actions={
                   <Badge
                     variant="outline"

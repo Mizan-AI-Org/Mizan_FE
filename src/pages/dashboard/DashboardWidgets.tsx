@@ -2301,7 +2301,7 @@ function TasksDemandsCard({
 
 
 // --------------------------------------------------------------------------
-// Meetings & Reminders - pulls upcoming events from the tenant's Google
+// Meetings & Reminders - pulls upcoming events from this user's Google
 // Calendar. Design mirrors the Tasks & Demands card: row-per-item with a
 // right-aligned status pill, a "+" affordance via the per-row action menu,
 // and a footer link that opens the full calendar in a new tab. When the

@@ -1184,10 +1184,10 @@ export class BackendService {
   }
 
   /**
-   * Meetings & Reminders widget data - upcoming events pulled from the
-   * tenant's Google Calendar (connected during onboarding). If the
-   * calendar isn't connected the endpoint still returns 200 with
-   * `connected: false` so the widget can render a reconnect CTA.
+   * Meetings & Reminders widget data - upcoming events from the
+   * signed-in user's personal Google Calendar. If that user has not
+   * connected, the endpoint still returns 200 with `connected: false`
+   * so the widget can render a reconnect CTA.
    */
   async getDashboardMeetingsReminders(
     limit = 5,

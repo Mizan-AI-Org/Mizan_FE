@@ -1880,7 +1880,7 @@
   "settings.gcal.connect_hint": "Connecting Google Calendar enables scheduling meetings, setting reminders, and showing upcoming events on your Meetings & Reminders widget.",
   "settings.gcal.connected": "Connected",
   "settings.gcal.connected_title": "Google Calendar is connected",
-  "settings.gcal.description": "Connect Google Calendar to create meetings, reminders, and see upcoming events.",
+  "settings.gcal.description": "Connect your personal Google Calendar to see your upcoming meetings and reminders.",
   "settings.gcal.disconnect": "Disconnect Google Calendar",
   "settings.gcal.disconnect_desc": "The system will no longer be able to create meetings or reminders, and the Meetings & Reminders widget will show a reconnect prompt. You can reconnect at any time.",
   "settings.gcal.disconnect_error": "Failed to disconnect.",
