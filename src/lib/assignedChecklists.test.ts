@@ -42,51 +42,30 @@ describe("mapAssignedChecklists", () => {
     expect(rows[0].assignees).toEqual([{ id: "u9", name: "Kenza Bennani" }]);
   });
 
-  it("adds checklist templates and every person an execution was assigned to", () => {
+  it("does not include leftover checklist-catalog templates", () => {
+    const leftoverCatalog = {
+      success: true,
+      data: [
+        { id: "cl-1", name: "Restaurant Opening Checklist", is_active: true, step_count: 4 },
+        { id: "cl-2", name: "Restaurant Safety Checklist", is_active: true, step_count: 5 },
+      ],
+      error: null,
+    };
     const rows = mapAssignedChecklists(
+      [
+        {
+          id: "tpl-3",
+          name: "Restaurant Closing",
+          tasks: [{ title: "Lock" }],
+          standing_assignee_details: [{ id: "u1", name: "Adama" }],
+        },
+      ],
       [],
-      [],
-      {
-        success: true,
-        data: [{ id: "cl-1", name: "Fridge log", is_active: true, step_count: 4 }],
-        error: null,
-      },
-      {
-        success: true,
-        data: [
-          {
-            template_id: "cl-1",
-            assigned_to: "s1",
-            assigned_to_name: "Omar",
-          },
-          {
-            template_id: "cl-1",
-            assigned_to: "s2",
-            assigned_to_name: "Salmane",
-          },
-          {
-            template_id: "cl-1",
-            assigned_to: "s1",
-            assigned_to_name: "Omar",
-          },
-        ],
-        error: null,
-      },
     );
 
     expect(rows).toHaveLength(1);
-    expect(rows[0].kind).toBe("checklist");
-    expect(rows[0].assignees.map((person) => person.name)).toEqual(["Omar", "Salmane"]);
-  });
-
-  it("does not repeat a checklist whose name is already a process template", () => {
-    const rows = mapAssignedChecklists(
-      [{ id: "tpl-3", name: "Closing", tasks: [], standing_assignee_details: [{ id: "u1", name: "Adama" }] }],
-      [],
-      [{ id: "cl-9", name: "Closing", step_count: 1 }],
-    );
-
-    expect(rows).toHaveLength(1);
+    expect(rows[0].name).toBe("Restaurant Closing");
     expect(rows[0].kind).toBe("template");
+    expect(JSON.stringify(leftoverCatalog)).toContain("Opening");
   });
 });

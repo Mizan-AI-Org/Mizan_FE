@@ -83,35 +83,17 @@ function dedupePeople(people: ChecklistAssignee[]): ChecklistAssignee[] {
   return out;
 }
 
-function executionAssignees(executions: unknown): Map<string, ChecklistAssignee[]> {
-  const byTemplate = new Map<string, ChecklistAssignee[]>();
-  for (const row of asList(executions)) {
-    const template = asRecord(row.template);
-    const templateId = String(row.template_id ?? template?.id ?? "");
-    if (!templateId) continue;
-    const info = asRecord(row.assigned_to_info) ?? asRecord(row.submitted_by);
-    const id = String(info?.id ?? row.assigned_to ?? "");
-    const name = String(row.assigned_to_name ?? info?.name ?? "").trim()
-      || [info?.first_name, info?.last_name].filter(Boolean).join(" ").trim();
-    if (!id || !name) continue;
-    const current = byTemplate.get(templateId) ?? [];
-    current.push({ id, name });
-    byTemplate.set(templateId, current);
-  }
-  return byTemplate;
-}
-
-/** Process templates plus checklist templates, each with every assigned person. */
+/**
+ * Live Board "Checklists" uses the same ProcessTemplate catalog as
+ * Processes & Tasks → Templates. Legacy /checklists/templates/ rows
+ * (seeded opening/safety/visitation lists) stay off this list.
+ */
 export function mapAssignedChecklists(
   processTemplates: unknown,
   staff: StaffName[],
-  checklistTemplates: unknown = [],
-  executions: unknown = [],
 ): AssignedChecklist[] {
   const staffById = new Map(staff.map((person) => [person.id, person.name]));
-  const fromExecutions = executionAssignees(executions);
   const rows: AssignedChecklist[] = [];
-  const names = new Set<string>();
 
   for (const row of asList(processTemplates)) {
     const id = String(row.id ?? "");
@@ -127,24 +109,6 @@ export function mapAssignedChecklists(
       isActive: row.is_active !== false,
       stepCount: tasks.length,
       assignees: dedupePeople([...details, ...fromIds]),
-    });
-    names.add(name.toLowerCase());
-  }
-
-  for (const row of asList(checklistTemplates)) {
-    const id = String(row.id ?? "");
-    const name = String(row.name ?? "Checklist").trim() || "Checklist";
-    if (!id || names.has(name.toLowerCase())) continue;
-    const stepCount = typeof row.step_count === "number"
-      ? row.step_count
-      : Array.isArray(row.steps) ? row.steps.length : 0;
-    rows.push({
-      id,
-      kind: "checklist",
-      name,
-      isActive: row.is_active !== false,
-      stepCount,
-      assignees: dedupePeople(fromExecutions.get(id) ?? []),
     });
   }
 
@@ -166,11 +130,9 @@ async function readJson(url: string): Promise<unknown> {
 }
 
 export async function loadAssignedChecklists(): Promise<AssignedChecklist[]> {
-  const [templates, checklists, executions, staff] = await Promise.all([
+  const [templates, staff] = await Promise.all([
     readJson(`${API_BASE}/scheduling/task-templates/?page_size=500`),
-    readJson(`${API_BASE}/checklists/templates/`),
-    readJson(`${API_BASE}/checklists/executions/?scope=restaurant&page_size=200`),
     loadStaffPickerOptions({ pageSize: 500 }).catch((): StaffPickerOption[] => []),
   ]);
-  return mapAssignedChecklists(templates ?? [], staff, checklists ?? [], executions ?? []);
+  return mapAssignedChecklists(templates ?? [], staff);
 }
