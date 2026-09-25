@@ -5434,8 +5434,8 @@ function CustomWidgetTasksCard({
     useQuery<CustomWidgetTasksResponse>({
       queryKey,
       queryFn: () => api.getCustomWidgetTasks(def.id, 5),
-      refetchInterval: 60_000,
-      staleTime: 30_000,
+      refetchInterval: 15_000,
+      staleTime: 0,
       retry: 3,
       retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 8000),
       refetchOnMount: "always",

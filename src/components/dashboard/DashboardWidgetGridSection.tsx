@@ -333,6 +333,17 @@ export function DashboardWidgetGridSection() {
     [widgetOrder, canWidget],
   );
 
+  useEffect(() => {
+    const incoming = (customWidgetsPayload?.widgets ?? []).map((w) => w.slot_id);
+    const missing = incoming.filter((id) => !widgetOrder.includes(id));
+    if (missing.length === 0) return;
+    skipNextPersist.current = true;
+    setWidgetOrder((current) => [...missing, ...current.filter((id) => !missing.includes(id))]);
+    queueMicrotask(() => {
+      skipNextPersist.current = false;
+    });
+  }, [customWidgetsPayload, widgetOrder]);
+
   const hiddenCustomWidgetsByCategory = useMemo(() => {
     const byCat: Record<string, DashboardCustomWidgetDef[]> = {};
     const uncategorized: DashboardCustomWidgetDef[] = [];

@@ -45,5 +45,6 @@ describe("fetchMastraTranscript", () => {
     expect(keys).toContainEqual(["safety-incidents"]);
     expect(keys).toContainEqual(["safety-incident-detail"]);
     expect(keys).toContainEqual(["dashboard", "recent-incidents"]);
+    expect(keys).toContainEqual(["dashboard", "custom-widget-tasks"]);
   });
 });
