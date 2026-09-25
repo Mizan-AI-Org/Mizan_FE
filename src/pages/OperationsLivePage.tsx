@@ -657,6 +657,8 @@ export default function OperationsLivePage() {
         priority: priorityFilter || undefined,
       }),
     refetchInterval: 60_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     placeholderData: (prev) => prev,
   });
 

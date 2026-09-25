@@ -1824,6 +1824,7 @@ function TasksDemandsCard({
     }) => api.updateDashboardTaskStatus(id, nextStatus),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
+      qc.invalidateQueries({ queryKey: ["dashboard", "operations-live"] });
     },
     onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : "Failed to update task";
@@ -3959,6 +3960,7 @@ function WidgetDropCaptureOverlay({
 
 function invalidateWidgetTaskQueries(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
+  qc.invalidateQueries({ queryKey: ["dashboard", "operations-live"] });
   qc.invalidateQueries({
     predicate: (q) =>
       Array.isArray(q.queryKey) &&
@@ -4275,8 +4277,7 @@ function CategoryTasksCard({
       // every widget that surfaces this row picks up the new status
       // on the next render - no stale "Pending" pill.
       qc.invalidateQueries({ queryKey });
-      qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
-      qc.invalidateQueries({ queryKey: ["dashboard", "summary"] });
+      invalidateWidgetTaskQueries(qc);
     },
     onError: (err: unknown) => {
       const msg =
@@ -4291,7 +4292,7 @@ function CategoryTasksCard({
     mutationFn: (id: string) => api.validateDashboardTask(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey });
-      qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
+      invalidateWidgetTaskQueries(qc);
       toast.success(t("generic.toast.marked_as_validated"));
     },
     onError: (err: unknown) => {
@@ -5451,7 +5452,7 @@ function CustomWidgetTasksCard({
     }) => api.updateDashboardTaskStatus(id, nextStatus),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey });
-      qc.invalidateQueries({ queryKey: ["dashboard", "tasks-demands", 5] });
+      invalidateWidgetTaskQueries(qc);
     },
     onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : "Failed to update task";
