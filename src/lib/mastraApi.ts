@@ -40,10 +40,11 @@ export type MastraChatMessage = {
 
 const MAX_STORED_MESSAGES = 200;
 
-/** Strip markdown markers and em/en dashes so chat never shows raw * or —. */
+/** Strip markdown, working-memory tags, and em/en dashes so chat never shows raw markup. */
 export function sanitizeMiyaText(text: string): string {
   if (!text) return text;
   let cleaned = text
+    .replace(/<working[-_]?memory\b[^>]*>[\s\S]*?(?:<\/working[-_]?memory>|$)/gi, "")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "$1")
     .replace(/^#{1,6}\s+/gm, "")

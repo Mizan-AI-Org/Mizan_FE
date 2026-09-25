@@ -1679,6 +1679,7 @@ const ManagerReviewDashboard: React.FC = () => {
                 <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 gap-0.5">
                   {[
                     { value: "open", label: t("status.OPEN") },
+                    { value: "acknowledged", label: t("status.ACKNOWLEDGED", { defaultValue: "Acknowledged" }) },
                     { value: "", label: t("common.all") },
                     { value: "resolved", label: t("status.RESOLVED") },
                     { value: "dismissed", label: t("status.DISMISSED", { defaultValue: t("common.dismissed", { defaultValue: "Dismissed" }) }) },

@@ -26,6 +26,7 @@ import {
   runMastraChat,
   saveMastraMessages,
   savePendingConfirmation,
+  sanitizeMiyaText,
   type MastraChatMessage,
 } from "@/lib/mastraApi";
 
@@ -160,7 +161,7 @@ function ChatMessages({
                     !prevSameRole && !nextSameRole && "rounded-2xl rounded-bl-sm",
                   )}
                 >
-                  <span className="pe-14">{msg.content}</span>
+                  <span className="pe-14">{sanitizeMiyaText(msg.content)}</span>
                   <span className="absolute bottom-1 end-2 text-[10px] leading-none text-muted-foreground">
                     {formatMessageTime(msg.createdAt, language)}
                   </span>
