@@ -563,7 +563,7 @@ function InvoiceDetailPanel({
       {canApprove ? (
         <div className="rounded-2xl border border-amber-200/70 bg-amber-50/40 p-4 space-y-3">
           <div className="text-xs font-bold uppercase tracking-widest text-amber-900">
-            {t("staff.requests.invoice_payguard", { defaultValue: "PayGuard approval" })}
+            {t("staff.requests.invoice_payguard", { defaultValue: "Approval Settings" })}
           </div>
           <Textarea
             value={approvalNote}

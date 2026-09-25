@@ -354,7 +354,8 @@ const App = () => {
                 <Route path="dashboard/operations" element={<DomainLayout domain="operations" />}>
                   <Route index element={<DomainOverviewPage />} />
                   <Route path="live" element={<OperationsLivePage />} />
-                  <Route path="tasks" element={<ProcessesTasksApp />} />
+                  <Route path="approvals" element={<ApprovalsPage />} />
+                  <Route path="tasks" element={<Navigate to="/dashboard/operations/approvals" replace />} />
                   <Route path="incidents" element={<ManagerReviewDashboard />} />
                   <Route path="requests" element={<RedirectToStaffRequests />} />
                   <Route path="requests/:id" element={<RedirectToStaffRequests />} />

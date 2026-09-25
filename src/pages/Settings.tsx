@@ -118,6 +118,12 @@ interface AISettings {
   features_enabled: Record<string, boolean>;
 }
 
+function normalizeSettingsTab(raw: string): string {
+  const tab = (raw || "").toLowerCase();
+  if (tab === "approvals") return "payguard";
+  return tab;
+}
+
 export default function Settings() {
   const queryClient = useQueryClient();
   const { language, setLanguage: setAppLanguage, t } = useLanguage();
@@ -217,7 +223,6 @@ export default function Settings() {
   const [gcalDisconnecting, setGcalDisconnecting] = useState(false);
   const [gcalDisconnectOpen, setGcalDisconnectOpen] = useState(false);
   const [savingGeneral, setSavingGeneral] = useState(false);
-  // Controlled tabs - synced with ?tab= for deep links / OAuth returns
   const SETTINGS_TABS = useMemo(
     () =>
       [
@@ -232,14 +237,14 @@ export default function Settings() {
     [],
   );
   const initialTab = (() => {
-    const fromUrl = (searchParams.get("tab") || "").toLowerCase();
+    const fromUrl = normalizeSettingsTab(searchParams.get("tab") || "");
     return (SETTINGS_TABS as readonly string[]).includes(fromUrl) ? fromUrl : "profile";
   })();
   const [activeTab, setActiveTab] = useState<string>(initialTab);
 
   // Deep links from other screens can change ?tab= while this page stays mounted.
   useEffect(() => {
-    const fromUrl = (searchParams.get("tab") || "").toLowerCase();
+    const fromUrl = normalizeSettingsTab(searchParams.get("tab") || "");
     if (!fromUrl || !(SETTINGS_TABS as readonly string[]).includes(fromUrl)) return;
     setActiveTab((current) => (current === fromUrl ? current : fromUrl));
   }, [searchParams, SETTINGS_TABS]);

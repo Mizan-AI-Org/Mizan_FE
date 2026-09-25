@@ -23,7 +23,7 @@ export const DOMAIN_SECTIONS: Record<DomainId, DomainSection[]> = {
   operations: [
     { labelKey: "nav.overview", href: "/dashboard/operations", exact: true },
     { labelKey: "nav.work.live_operations", href: "/dashboard/operations/live" },
-    { labelKey: "nav.work.tasks", href: "/dashboard/operations/tasks" },
+    { labelKey: "nav.work.approvals", href: "/dashboard/operations/approvals" },
     { labelKey: "nav.work.incidents", href: "/dashboard/operations/incidents" },
     { labelKey: "nav.work.requests", href: "/dashboard/staff-requests" },
   ],
@@ -89,7 +89,7 @@ export const SETTINGS_SECTIONS: DomainNavLeaf[] = [
   { labelKey: "settings.tabs.integrations", href: "/dashboard/settings?tab=integrations" },
   { labelKey: "settings.tabs.billing", href: "/dashboard/settings?tab=billing" },
   { labelKey: "settings.tabs.compliance", href: "/dashboard/settings?tab=compliance" },
-  { labelKey: "settings.tabs.payguard", href: "/dashboard/settings?tab=payguard" },
+  { labelKey: "settings.tabs.payguard", href: "/dashboard/settings?tab=approvals" },
   { labelKey: "nav.settings.role_permissions", href: "/dashboard/settings/permissions" },
 ];
 
