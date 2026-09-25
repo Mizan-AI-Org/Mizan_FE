@@ -20,6 +20,7 @@ export function initSentry(): void {
       /Failed to execute 'removeChild' on 'Node'/i,
       /Failed to execute 'insertBefore' on 'Node'/i,
       /The node to be removed is not a child of this node/i,
+      /^TypeError: Failed to fetch/i,
     ],
   });
 }

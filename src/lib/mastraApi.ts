@@ -252,6 +252,14 @@ export function saveVoiceRepliesEnabled(enabled: boolean): void {
   }
 }
 
+async function safeFetch(url: string, init: RequestInit): Promise<Response | null> {
+  try {
+    return await fetch(url, init);
+  } catch {
+    return null;
+  }
+}
+
 export async function runMastraChat(body: {
   message: string;
   conversationId?: string;
@@ -259,7 +267,7 @@ export async function runMastraChat(body: {
   locale?: string;
   locationId?: string;
 }): Promise<MastraRunResponse> {
-  const response = await fetch(`${API_BASE}/mastra/run/`, {
+  const response = await safeFetch(`${API_BASE}/mastra/run/`, {
     method: "POST",
     headers: authHeaders(),
     credentials: "include",
@@ -271,6 +279,9 @@ export async function runMastraChat(body: {
       locationId: body.locationId,
     }),
   });
+  if (!response) {
+    return { success: false, code: "network_error", message: "Agent request failed." };
+  }
 
   const data = (await response.json().catch(() => ({}))) as MastraRunResponse;
   if (!response.ok) {
@@ -339,10 +350,13 @@ export function savePendingConfirmation(
 export async function fetchMastraTranscript(
   conversationId: string,
 ): Promise<MastraChatMessage[]> {
-  const response = await fetch(
+  const response = await safeFetch(
     `${API_BASE}/mastra/transcript/?conversationId=${encodeURIComponent(conversationId)}`,
     { headers: authHeaders(), credentials: "include" },
   );
+  if (!response) {
+    return [];
+  }
   const data = (await response.json().catch(() => ({}))) as {
     success?: boolean;
     messages?: Array<{ role?: string; content?: string }>;

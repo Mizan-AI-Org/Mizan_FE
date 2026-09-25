@@ -21,6 +21,21 @@ function getAuthToken() {
   return localStorage.getItem("access_token") || localStorage.getItem("accessToken") || "";
 }
 
+async function fetchStaffList(params: URLSearchParams): Promise<unknown | null> {
+  const token = getAuthToken();
+  try {
+    const res = await fetch(`${API_BASE}/staff/?${params.toString()}`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 /** Human-readable label for a staff row in pickers. */
 export function staffPickerDisplayName(row: StaffPickerRow): string {
   const name = [row.first_name, row.last_name].filter(Boolean).join(" ").trim();
@@ -85,18 +100,8 @@ export async function loadStaffPickerOptions(
     page_size: String(opts.pageSize ?? 500),
     all_branches: "1",
   });
-  const token = getAuthToken();
-  const res = await fetch(`${API_BASE}/staff/?${params.toString()}`, {
-    headers: {
-      Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    credentials: "include",
-  });
-  if (!res.ok) {
-    throw new Error("Failed to load staff");
-  }
-  const data = await res.json();
+  const data = await fetchStaffList(params);
+  if (data == null) return [];
   const payload = staffListPayload(data);
   const rows = normalizeStaffPickerRows(data);
   const arr: unknown[] = Array.isArray(payload)
@@ -144,18 +149,8 @@ export async function searchStaffPicker(opts: SearchOpts = {}): Promise<StaffPic
   if (q) params.set("search", q);
   if (opts.ids?.length) params.set("ids", opts.ids.join(","));
 
-  const token = getAuthToken();
-  const res = await fetch(`${API_BASE}/staff/?${params.toString()}`, {
-    headers: {
-      Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    credentials: "include",
-  });
-  if (!res.ok) {
-    throw new Error("Failed to load staff");
-  }
-  const data = await res.json();
+  const data = await fetchStaffList(params);
+  if (data == null) return { results: [], count: 0 };
   const payload = staffListPayload(data);
   const results = normalizeStaffPickerRows(data);
   const metaCount =

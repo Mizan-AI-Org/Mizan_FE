@@ -514,14 +514,16 @@ export const AgentChatPanel: React.FC = () => {
 
     const convForSync = storedConv;
     if (convForSync) {
-      void fetchMastraTranscript(convForSync).then((serverRows) => {
-        if (serverRows.length === 0) return;
-        setMessages((prev) => {
-          const local = prev.filter((m) => m.id !== "welcome");
-          if (local.length >= serverRows.length) return prev;
-          return serverRows;
-        });
-      });
+      void fetchMastraTranscript(convForSync)
+        .then((serverRows) => {
+          if (serverRows.length === 0) return;
+          setMessages((prev) => {
+            const local = prev.filter((m) => m.id !== "welcome");
+            if (local.length >= serverRows.length) return prev;
+            return serverRows;
+          });
+        })
+        .catch(() => undefined);
     }
     setHistoryReady(true);
   }, [userId, userName, t]);
