@@ -587,7 +587,14 @@ export const AgentChatPanel: React.FC = () => {
           savePendingConfirmation(userId, convId, null);
         }
 
-        if (result.verified || result.executedDraft) {
+        const wroteViaAgent =
+          result.verified ||
+          result.executedDraft ||
+          (result.pendingConfirmation?.tool &&
+            /task|project|incident|widget|complete-task|update-task-status|create-project/i.test(
+              result.pendingConfirmation.tool,
+            ));
+        if (wroteViaAgent) {
           invalidateAfterAgentWrite(queryClient);
         }
 
