@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fetchMastraTranscript, invalidateAfterAgentWrite, sanitizeMiyaText } from "./mastraApi";
+import {
+  conversationIdForUser,
+  fetchMastraTranscript,
+  invalidateAfterAgentWrite,
+  sanitizeMiyaText,
+} from "./mastraApi";
 
 describe("fetchMastraTranscript", () => {
   afterEach(() => {
@@ -33,6 +38,24 @@ describe("fetchMastraTranscript", () => {
     expect(text).toBe("Adama Jarju reported the POS Repair Request.");
     expect(text).not.toContain("thinking");
     expect(text).not.toContain("3276187c");
+  });
+
+  it("scopes conversation ids to the signed-in user", () => {
+    const store: Record<string, string> = {};
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, value: string) => {
+        store[key] = value;
+      },
+      removeItem: (key: string) => {
+        delete store[key];
+      },
+    });
+    const admin = conversationIdForUser("admin-1");
+    const wahabi = conversationIdForUser("wahabi-2");
+    expect(admin).toContain("admin-1");
+    expect(wahabi).toContain("wahabi-2");
+    expect(admin).not.toBe(wahabi);
   });
 
   it("refreshes incidents and ops queries after an Agent write", () => {

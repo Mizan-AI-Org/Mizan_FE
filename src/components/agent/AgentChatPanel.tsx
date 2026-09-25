@@ -22,7 +22,7 @@ import {
   fetchMastraTranscript,
   loadMastraMessages,
   loadPendingConfirmation,
-  mastraConversationStorageKey,
+  conversationIdForUser,
   runMastraChat,
   saveMastraMessages,
   savePendingConfirmation,
@@ -476,29 +476,14 @@ export const AgentChatPanel: React.FC = () => {
 
   useEffect(() => {
     if (!userId) {
+      setConversationId("");
+      setMessages([]);
       setHistoryReady(false);
       return;
     }
 
-    const key = mastraConversationStorageKey(userId);
-    let storedConv = "";
-    try {
-      storedConv = window.localStorage.getItem(key) || "";
-      if (!storedConv) {
-        storedConv =
-          typeof crypto !== "undefined" && crypto.randomUUID
-            ? crypto.randomUUID()
-            : `web-${userId}-${Date.now()}`;
-        window.localStorage.setItem(key, storedConv);
-      }
-      setConversationId(storedConv);
-    } catch {
-      storedConv =
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `web-${userId}-${Date.now()}`;
-      setConversationId(storedConv);
-    }
+    const storedConv = conversationIdForUser(userId);
+    setConversationId(storedConv);
 
     const storedMessages = loadMastraMessages(userId);
     if (storedMessages.length > 0) {
@@ -583,11 +568,7 @@ export const AgentChatPanel: React.FC = () => {
       setLoading(true);
 
       try {
-        const convId =
-          conversationId ||
-          (typeof crypto !== "undefined" && crypto.randomUUID
-            ? crypto.randomUUID()
-            : newMessageId());
+        const convId = (userId && conversationIdForUser(userId)) || conversationId || newMessageId();
 
         const result = await runMastraChat({
           message: text,
@@ -596,13 +577,8 @@ export const AgentChatPanel: React.FC = () => {
           locale: language,
         });
 
-        if (!conversationId && userId) {
+        if (userId) {
           setConversationId(convId);
-          try {
-            window.localStorage.setItem(mastraConversationStorageKey(userId), convId);
-          } catch {
-            // ignore
-          }
         }
 
         if (result.pendingConfirmation?.tool && userId) {

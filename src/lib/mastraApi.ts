@@ -343,6 +343,31 @@ export function mastraConversationStorageKey(userId: string): string {
   return `mizan_mastra_conversation_${userId}`;
 }
 
+/** Always the current user's thread. Never reuse another account's conversation id. */
+export function conversationIdForUser(userId: string): string {
+  if (!userId) return "";
+  const key = mastraConversationStorageKey(userId);
+  try {
+    const stored = window.localStorage.getItem(key) || "";
+    if (stored && (stored.startsWith(`${userId}:`) || stored.length > 8)) {
+      if (!stored.startsWith(`${userId}:`)) {
+        const scoped = `${userId}:${stored}`;
+        window.localStorage.setItem(key, scoped);
+        return scoped;
+      }
+      return stored;
+    }
+    const created =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? `${userId}:${crypto.randomUUID()}`
+        : `${userId}:web-${Date.now()}`;
+    window.localStorage.setItem(key, created);
+    return created;
+  } catch {
+    return `${userId}:web-${Date.now()}`;
+  }
+}
+
 export function mastraPendingStorageKey(userId: string, conversationId: string): string {
   return `mizan_mastra_pending_${userId}_${conversationId}`;
 }
