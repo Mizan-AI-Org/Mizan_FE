@@ -31,6 +31,8 @@ import { Progress } from "@/components/ui/progress";
 import { RefreshCw, TrendingUp, Users, ClipboardCheck, AlertTriangle, MapPin, User, Calendar, ShieldAlert, Camera, ChevronDown } from "lucide-react";
 import { PAGE_SHELL } from "@/lib/page-shell";
 import { isUnresolvedIncidentStatus } from "@/lib/incidentStatus";
+import { incidentAssigneeId, matchingStaffOptionId, staffOptionsWithCurrentAssignee } from "@/lib/incidentPeople";
+import { loadStaffPickerOptions } from "@/lib/staffPicker";
 import { TableSkeleton } from "@/components/skeletons";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -534,6 +536,7 @@ const ManagerReviewDashboard: React.FC = () => {
     status?: string | null;
     is_anonymous?: boolean | null;
     reporter_details?: { first_name?: string | null; last_name?: string | null } | null;
+    assigned_to?: string | { id?: string | null } | null;
     assigned_to_details?: {
       id?: string | null;
       first_name?: string | null;
@@ -778,32 +781,18 @@ const ManagerReviewDashboard: React.FC = () => {
 
   const { data: staffList } = useQuery({
     queryKey: ['staff-members-for-assign'],
-    queryFn: async () => {
-      const res = await fetch(`${API_BASE}/staff/?page_size=500&all_branches=1`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
-      });
-      if (!res.ok) return [];
-      const data = await res.json();
-      return unwrapDrfListResponse(data);
-    },
+    queryFn: () => loadStaffPickerOptions({ pageSize: 500 }),
     enabled: !!selectedIncident,
   });
 
-  // Keep assign picker synced to the current default assignee when the detail loads.
+  // Keep assign picker synced to the current assignee, matching staff option ids.
   useEffect(() => {
     if (!incidentDetail) return;
-    const currentId =
-      (typeof incidentDetail.assigned_to === "string" && incidentDetail.assigned_to) ||
-      (incidentDetail.assigned_to_details &&
-        (typeof incidentDetail.assigned_to_details.id === "string"
-          ? incidentDetail.assigned_to_details.id
-          : incidentDetail.assigned_to_details.id != null
-            ? String(incidentDetail.assigned_to_details.id)
-            : "")) ||
-      "";
-    setAssignTo(currentId);
+    const rawId = incidentAssigneeId(incidentDetail);
+    const aligned = matchingStaffOptionId(Array.isArray(staffList) ? staffList : [], rawId);
+    setAssignTo(aligned || rawId);
     setUpdateStatus(String(incidentDetail.status || "OPEN").toUpperCase());
-  }, [incidentDetail]);
+  }, [incidentDetail, staffList]);
 
   const assignMutation = useMutation({
     mutationFn: async (data: { id: string; assigned_to: string | null }) => {
@@ -1990,28 +1979,16 @@ const ManagerReviewDashboard: React.FC = () => {
                         className="flex-1 border border-slate-200 dark:border-slate-700 bg-card rounded-md px-3 py-2 text-sm"
                       >
                         <option value="">{t("ops.review.kpi.unassigned")}</option>
-                        {(() => {
-                          const rows = Array.isArray(staffList) ? [...staffList] : [];
-                          const currentId = assignTo;
-                          const currentDetails = incidentDetail.assigned_to_details;
-                          if (
-                            currentId &&
-                            !rows.some((s: { id?: string }) => String(s.id) === String(currentId)) &&
-                            currentDetails
-                          ) {
-                            rows.unshift({
-                              id: currentId,
-                              first_name: currentDetails.first_name || "",
-                              last_name: currentDetails.last_name || "",
-                              role: "Current",
-                            });
-                          }
-                          return rows.map((s: { id: string; first_name?: string; last_name?: string; role?: string }) => (
-                            <option key={s.id} value={String(s.id)}>
-                              {s.first_name} {s.last_name}{s.role ? ` (${s.role})` : ""}
-                            </option>
-                          ));
-                        })()}
+                        {staffOptionsWithCurrentAssignee(
+                          Array.isArray(staffList) ? staffList : [],
+                          incidentDetail,
+                          assignTo,
+                        ).map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {(s.name || `${s.first_name || ""} ${s.last_name || ""}`.trim())}
+                            {s.role ? ` (${s.role})` : ""}
+                          </option>
+                        ))}
                       </select>
                       <Button
                         className="bg-emerald-600 hover:bg-emerald-700 text-white"
