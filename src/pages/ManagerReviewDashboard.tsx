@@ -512,7 +512,7 @@ const ManagerReviewDashboard: React.FC = () => {
       if (!res.ok) throw new Error('Failed to fetch incidents');
       return unwrapDrfListResponse(await res.json());
     },
-    refetchInterval: 60_000,
+    refetchInterval: 15_000,
   });
 
   // Fetch selected incident details

@@ -27,6 +27,7 @@ import {
   saveMastraMessages,
   savePendingConfirmation,
   sanitizeMiyaText,
+  invalidateAfterAgentWrite,
   type MastraChatMessage,
 } from "@/lib/mastraApi";
 
@@ -610,9 +611,8 @@ export const AgentChatPanel: React.FC = () => {
           savePendingConfirmation(userId, convId, null);
         }
 
-        if (result.verified && result.executedDraft?.result?.widget) {
-          void queryClient.invalidateQueries({ queryKey: ["dashboard-custom-widgets"] });
-          void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        if (result.verified || result.executedDraft) {
+          invalidateAfterAgentWrite(queryClient);
         }
 
         const reply = result.text?.trim()

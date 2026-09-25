@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fetchMastraTranscript, sanitizeMiyaText } from "./mastraApi";
+import { fetchMastraTranscript, invalidateAfterAgentWrite, sanitizeMiyaText } from "./mastraApi";
 
 describe("fetchMastraTranscript", () => {
   afterEach(() => {
@@ -33,5 +33,17 @@ describe("fetchMastraTranscript", () => {
     expect(text).toBe("Adama Jarju reported the POS Repair Request.");
     expect(text).not.toContain("thinking");
     expect(text).not.toContain("3276187c");
+  });
+
+  it("refreshes incidents and ops queries after an Agent write", () => {
+    const keys: unknown[][] = [];
+    invalidateAfterAgentWrite({
+      invalidateQueries: ({ queryKey }) => {
+        keys.push([...queryKey]);
+      },
+    });
+    expect(keys).toContainEqual(["safety-incidents"]);
+    expect(keys).toContainEqual(["safety-incident-detail"]);
+    expect(keys).toContainEqual(["dashboard", "recent-incidents"]);
   });
 });

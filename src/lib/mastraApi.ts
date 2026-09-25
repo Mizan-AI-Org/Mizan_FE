@@ -40,6 +40,29 @@ export type MastraChatMessage = {
 
 const MAX_STORED_MESSAGES = 200;
 
+export const AGENT_WRITE_QUERY_KEYS = [
+  ["safety-incidents"],
+  ["safety-incident-detail"],
+  ["dashboard-safety-concerns"],
+  ["dashboard", "recent-incidents"],
+  ["dashboard-incident-detail"],
+  ["dashboard-custom-widgets"],
+  ["dashboard"],
+  ["manager-submitted-checklists"],
+  ["live-checklist-progress"],
+] as const;
+
+type InvalidateClient = {
+  invalidateQueries: (opts: { queryKey: readonly unknown[] }) => unknown;
+};
+
+/** Refresh the open ops screens as soon as Miya writes — do not wait for the 60s poll. */
+export function invalidateAfterAgentWrite(queryClient: InvalidateClient): void {
+  for (const queryKey of AGENT_WRITE_QUERY_KEYS) {
+    void queryClient.invalidateQueries({ queryKey });
+  }
+}
+
 /** Strip markdown, working-memory tags, and em/en dashes so chat never shows raw markup. */
 export function sanitizeMiyaText(text: string): string {
   if (!text) return text;
