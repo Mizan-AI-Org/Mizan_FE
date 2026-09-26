@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { socialApi } from "@/lib/social-api";
 import { SocialPlatformPreview } from "@/components/social/platform-preview";
 import { SocialAIAssistant } from "@/components/social/social-ai-assistant";
+import { SocialMediaPicker, type SocialMediaItem } from "@/components/social/social-media-picker";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
@@ -36,6 +37,7 @@ export function SocialPostComposerDialog({ open, onOpenChange, defaultScheduledA
   const [selected, setSelected] = useState<string[]>(["instagram", "facebook"]);
   const [previewPlatform, setPreviewPlatform] = useState("instagram");
   const [scheduledAt, setScheduledAt] = useState(defaultScheduledAt || "");
+  const [assets, setAssets] = useState<SocialMediaItem[]>([]);
 
   const { data: brand } = useQuery({
     queryKey: ["social-brand"],
@@ -52,7 +54,12 @@ export function SocialPostComposerDialog({ open, onOpenChange, defaultScheduledA
         caption,
         channels: selected,
         status: asDraft ? "draft" : "draft",
-        variants: selected.map((platform) => ({ platform, caption })),
+        asset_ids: assets.map((a) => a.id),
+        variants: selected.map((platform) => ({
+          platform,
+          caption,
+          media_asset_ids: assets.map((a) => a.id),
+        })),
       };
       const row = await socialApi.createContent(payload);
       if (!asDraft && scheduledAt && row.id) {
@@ -68,6 +75,7 @@ export function SocialPostComposerDialog({ open, onOpenChange, defaultScheduledA
       onOpenChange(false);
       setName("");
       setCaption("");
+      setAssets([]);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -117,6 +125,7 @@ export function SocialPostComposerDialog({ open, onOpenChange, defaultScheduledA
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
             />
+            <SocialMediaPicker assets={assets} onChange={setAssets} />
             <Input
               type="datetime-local"
               value={scheduledAt}
@@ -147,7 +156,13 @@ export function SocialPostComposerDialog({ open, onOpenChange, defaultScheduledA
                   </Button>
                 ))}
               </div>
-              <SocialPlatformPreview platform={previewPlatform} caption={caption} brandName={brandName} />
+              <SocialPlatformPreview
+                platform={previewPlatform}
+                caption={caption}
+                brandName={brandName}
+                mediaUrl={assets[0]?.url}
+                mediaMimeType={assets[0]?.mime_type}
+              />
             </TabsContent>
             <TabsContent value="ai" className="mt-3 h-[280px]">
               <SocialAIAssistant

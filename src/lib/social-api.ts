@@ -165,7 +165,11 @@ export const socialApi = {
       body: fd,
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || "Upload failed");
-    return body.data as { id: string; url: string };
+    if (!res.ok || body.success === false) {
+      throw new Error(body.error || body.detail || "Upload failed");
+    }
+    const data = (body.data || body) as { id: string; url: string; mime_type?: string };
+    if (!data?.id) throw new Error("Upload failed");
+    return data;
   },
 };

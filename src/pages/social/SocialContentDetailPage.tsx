@@ -10,6 +10,7 @@ import { socialApi } from "@/lib/social-api";
 import { SocialPageShell } from "@/pages/social/SocialPageShell";
 import { SocialPlatformPreview } from "@/components/social/platform-preview";
 import { SocialAIAssistant } from "@/components/social/social-ai-assistant";
+import { SocialMediaPicker, type SocialMediaItem } from "@/components/social/social-media-picker";
 import { toast } from "sonner";
 
 export default function SocialContentDetailPage() {
@@ -21,6 +22,7 @@ export default function SocialContentDetailPage() {
   const [caption, setCaption] = useState("");
   const [channels, setChannels] = useState("instagram,facebook");
   const [previewPlatform, setPreviewPlatform] = useState("instagram");
+  const [assets, setAssets] = useState<SocialMediaItem[]>([]);
 
   const { data: brand } = useQuery({ queryKey: ["social-brand"], queryFn: () => socialApi.brand() });
   const brandName = String((brand as { brand_name?: string })?.brand_name || "Your brand");
@@ -38,21 +40,31 @@ export default function SocialContentDetailPage() {
     setCaption(String(row.caption || ""));
     const ch = row.channels as string[] | undefined;
     if (ch?.length) setChannels(ch.join(","));
+    const rawAssets = Array.isArray(row.assets) ? row.assets : [];
+    setAssets(
+      rawAssets.map((a) => {
+        const item = a as Record<string, unknown>;
+        return {
+          id: String(item.id || ""),
+          url: String(item.url || ""),
+          mime_type: typeof item.mime_type === "string" ? item.mime_type : undefined,
+        };
+      }).filter((a) => a.id),
+    );
   }, [data, isNew]);
 
   const save = useMutation({
-    mutationFn: () =>
-      isNew
-        ? socialApi.createContent({
-            internal_name: name || "Untitled",
-            caption,
-            channels: channels.split(",").map((c) => c.trim()).filter(Boolean),
-          })
-        : socialApi.updateContent(id!, {
-            internal_name: name,
-            caption,
-            channels: channels.split(",").map((c) => c.trim()),
-          }),
+    mutationFn: () => {
+      const payload = {
+        internal_name: name || "Untitled",
+        caption,
+        channels: channels.split(",").map((c) => c.trim()).filter(Boolean),
+        asset_ids: assets.map((a) => a.id),
+      };
+      return isNew
+        ? socialApi.createContent(payload)
+        : socialApi.updateContent(id!, payload);
+    },
     onSuccess: (row) => {
       toast.success("Saved");
       qc.invalidateQueries({ queryKey: ["social-content"] });
@@ -97,15 +109,14 @@ export default function SocialContentDetailPage() {
   }
 
   const row = data as Record<string, unknown> | undefined;
-  const displayName = isNew ? name : String(row?.internal_name || "");
-  const displayCaption = isNew ? caption : String(row?.caption || "");
-  const channelList = (isNew ? channels.split(",") : (row?.channels as string[]) || channels.split(",")).map((c) =>
-    String(c).trim(),
-  );
+  const liveName = isNew ? name : name || String(row?.internal_name || "");
+  const liveCaption = isNew ? caption : caption || String(row?.caption || "");
+  const channelList = channels.split(",").map((c) => String(c).trim()).filter(Boolean);
+  const primaryMedia = assets[0];
 
   return (
     <SocialPageShell
-      title={isNew ? "New content" : displayName}
+      title={isNew ? "New content" : liveName}
       description={`Status: ${isNew ? "draft" : String(row?.status)}`}
       actions={
         <>
@@ -129,13 +140,13 @@ export default function SocialContentDetailPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
           <Input
-            value={isNew ? name : displayName}
+            value={liveName}
             onChange={(e) => setName(e.target.value)}
             placeholder="Internal name"
           />
           <Textarea
             rows={8}
-            value={isNew ? caption : displayCaption}
+            value={liveCaption}
             onChange={(e) => setCaption(e.target.value)}
             placeholder="Caption"
           />
@@ -144,7 +155,9 @@ export default function SocialContentDetailPage() {
             onChange={(e) => setChannels(e.target.value)}
             placeholder="Channels (comma-separated)"
           />
+          <SocialMediaPicker assets={assets} onChange={setAssets} />
           <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            {save.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Save draft
           </Button>
         </div>
@@ -170,13 +183,15 @@ export default function SocialContentDetailPage() {
             </div>
             <SocialPlatformPreview
               platform={previewPlatform}
-              caption={isNew ? caption : displayCaption}
+              caption={liveCaption}
               brandName={brandName}
+              mediaUrl={primaryMedia?.url}
+              mediaMimeType={primaryMedia?.mime_type}
             />
           </TabsContent>
           <TabsContent value="ai" className="mt-3 h-[320px]">
             <SocialAIAssistant
-              caption={isNew ? caption : displayCaption}
+              caption={liveCaption}
               platform={previewPlatform}
               onApply={(text) => setCaption(text)}
             />
