@@ -68,7 +68,7 @@ const GROUPS: NavGroup[] = [
     id: "operations",
     labelKey: "nav.operations",
     icon: IconWork,
-    href: "/dashboard/operations",
+    href: "/dashboard/operations/live",
     roles: [...OPERATIONAL_COMMAND_ROLES],
     children: domainLeaves("operations"),
   },
@@ -415,7 +415,7 @@ export function MobileIntentDock() {
       { labelKey: "nav.command", href: "/dashboard", icon: IconCommand, roles: [...OPERATIONAL_COMMAND_ROLES] },
       { labelKey: "nav.employees", href: "/dashboard/employees", icon: IconPeople, roles: [...OPERATIONAL_COMMAND_ROLES] },
       { labelKey: "nav.products", href: "/dashboard/products", icon: IconProducts, roles: [...OPERATIONAL_COMMAND_ROLES] },
-      { labelKey: "nav.operations", href: "/dashboard/operations", icon: IconWork, roles: [...OPERATIONAL_COMMAND_ROLES] },
+      { labelKey: "nav.operations", href: "/dashboard/operations/live", icon: IconWork, roles: [...OPERATIONAL_COMMAND_ROLES] },
     ];
     return candidates.filter((c) => !c.roles || hasRole(c.roles));
   }, [hasRole]);

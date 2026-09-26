@@ -30,13 +30,26 @@ export default function ProcessesTasksApp() {
   const eyebrow = underTeam ? t("nav.employees") : t("nav.operations");
 
   useEffect(() => {
-    setActiveTab(tabFromParam(searchParams.get("tab")));
-  }, [searchParams]);
+    const wantsCreate =
+      searchParams.get("create") === "1" || searchParams.get("new") === "1";
+    const nextTab = tabFromParam(searchParams.get("tab"));
+    if (wantsCreate && nextTab !== "templates") {
+      const next = new URLSearchParams(searchParams);
+      next.set("tab", "templates");
+      setSearchParams(next, { replace: true });
+      setActiveTab("templates");
+      return;
+    }
+    setActiveTab(nextTab);
+  }, [searchParams, setSearchParams]);
 
   const selectTab = (value: string) => {
     const next = tabFromParam(value);
     setActiveTab(next);
-    setSearchParams(next === "templates" ? { tab: "templates" } : {}, { replace: true });
+    const params = new URLSearchParams(searchParams);
+    if (next === "templates") params.set("tab", "templates");
+    else params.delete("tab");
+    setSearchParams(params, { replace: true });
   };
 
   return (

@@ -1,72 +1,56 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# Mizan_FE — Git ignore (production push hygiene)
 
-node_modules
-dist
-dist-ssr
+# Dependencies & builds
+node_modules/
+dist/
+dist-ssr/
+.vite/
+.turbo/
+.parcel-cache/
 *.local
 
-# Vite cache
-.vite
-
-# Env files
-.env
-.env.local
-.env.*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
-
-# Environment files
+# Env (only .env.example is allowed)
 .env
 .env.*
 !.env.example
 
-# Build metadata
-*.tsbuildinfo
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Test coverage
+# Test / coverage artifacts (source tests may still be committed)
 coverage/
 .nyc_output/
+*.tsbuildinfo
+playwright-report/
+test-results/
+vitest.config.ts.timestamp-*
 
-# PID / runtime files
+# Runtime
 server.pid
+*.pid
 
-# Editor directories and files
+# IDE / OS
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+.cursor/
+.claude/
+*.bak
+*.orig
+*.tmp
+
+# Optional local storybook / story dumps
+storybook-static/

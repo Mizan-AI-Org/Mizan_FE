@@ -13,6 +13,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import {
+  Calendar,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -78,6 +79,8 @@ const LANE_STATUS: Record<LaneKey, OperationsLiveItem["status"]> = {
   in_progress: "IN_PROGRESS",
   completed: "COMPLETED",
 };
+
+const LANE_ORDER: LaneKey[] = ["pending", "in_progress", "completed"];
 
 const ROLE_I18N: Record<string, string> = {
   "super admin": "operations_live.role.super_admin",
@@ -455,6 +458,53 @@ function OperationsLiveRow({
   );
 }
 
+function LaneTab({
+  lane,
+  label,
+  count,
+  active,
+  onSelect,
+}: {
+  lane: LaneKey;
+  label: string;
+  count: number;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  // Inactive tabs are droppable so drag-drop can move items across lanes.
+  // Active lane keeps the table droppable (same id must not be duplicated).
+  const { setNodeRef, isOver } = useDroppable({
+    id: `lane:${lane}`,
+    disabled: active,
+  });
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onSelect}
+      className={cn(
+        "inline-flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition",
+        active
+          ? "bg-emerald-600 text-white shadow-sm"
+          : "text-muted-foreground hover:bg-card hover:text-foreground",
+        isOver && !active && "ring-2 ring-emerald-500/50 bg-emerald-50 dark:bg-emerald-950/40",
+      )}
+    >
+      <span className="truncate">{label}</span>
+      <span
+        className={cn(
+          "rounded-full px-1.5 py-0.5 text-[10px] tabular-nums font-semibold",
+          active ? "bg-white/20" : "bg-muted text-muted-foreground",
+        )}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
 function OperationsLiveTable({
   title,
   count,
@@ -467,6 +517,7 @@ function OperationsLiveTable({
   onStatusChange,
   onPriorityChange,
   updatingId,
+  hideTitle = false,
 }: {
   title: string;
   count: number;
@@ -479,6 +530,7 @@ function OperationsLiveTable({
   onStatusChange: (id: string, status: OperationsLiveItem["status"]) => void;
   onPriorityChange: (id: string, priority: LiveOpsPriority) => void;
   updatingId: string | null;
+  hideTitle?: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `lane:${lane}` });
   const page = pagination.page;
@@ -490,9 +542,11 @@ function OperationsLiveTable({
 
   return (
     <section className="space-y-2.5">
-      <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-        {title} ({count})
-      </h2>
+      {!hideTitle ? (
+        <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+          {title} ({count})
+        </h2>
+      ) : null}
       <div
         ref={setNodeRef}
         className={cn(
@@ -613,6 +667,9 @@ export default function OperationsLivePage() {
   const [staffFilter, setStaffFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<"" | LiveOpsPriority>("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [activeLane, setActiveLane] = useState<LaneKey>("pending");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [lanePages, setLanePages] = useState({
     pending: 1,
     in_progress: 1,
@@ -625,6 +682,32 @@ export default function OperationsLivePage() {
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
 
+  const isAllDates = !dateFrom && !dateTo;
+
+  const clearDateRange = () => {
+    setDateFrom("");
+    setDateTo("");
+    setLanePages({ pending: 1, in_progress: 1, completed: 1 });
+  };
+
+  const onDateFromChange = (value: string) => {
+    setDateFrom(value);
+    setLanePages({ pending: 1, in_progress: 1, completed: 1 });
+  };
+  const onDateToChange = (value: string) => {
+    setDateTo(value);
+    setLanePages({ pending: 1, in_progress: 1, completed: 1 });
+  };
+
+  const rangeDaySpan = useMemo(() => {
+    if (!dateFrom || !dateTo) return null;
+    const start = new Date(`${dateFrom}T00:00:00`);
+    const end = new Date(`${dateTo}T00:00:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+    const days = Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+    return Math.max(1, Math.min(days, 365));
+  }, [dateFrom, dateTo]);
+
   React.useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => window.clearTimeout(timer);
@@ -632,7 +715,7 @@ export default function OperationsLivePage() {
 
   React.useEffect(() => {
     setLanePages({ pending: 1, in_progress: 1, completed: 1 });
-  }, [debouncedSearch, categoryFilter, staffFilter, priorityFilter]);
+  }, [debouncedSearch, categoryFilter, staffFilter, priorityFilter, dateFrom, dateTo]);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: [
@@ -641,6 +724,8 @@ export default function OperationsLivePage() {
       categoryFilter,
       staffFilter,
       priorityFilter,
+      dateFrom,
+      dateTo,
       lanePages.pending,
       lanePages.in_progress,
       lanePages.completed,
@@ -655,6 +740,8 @@ export default function OperationsLivePage() {
         staff: staffFilter || undefined,
         q: debouncedSearch || undefined,
         priority: priorityFilter || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
       }),
     refetchInterval: 60_000,
     refetchOnMount: "always",
@@ -741,10 +828,25 @@ export default function OperationsLivePage() {
   const pendingCount = data?.counts?.pending ?? 0;
   const inProgressCount = data?.counts?.in_progress ?? 0;
   const completedCount = data?.counts?.completed ?? 0;
-  const showPendingLane = pendingCount > 0;
-  const showInProgressLane = inProgressCount > 0;
-  const showCompletedLane = completedCount > 0;
-  const allLanesEmpty = !showPendingLane && !showInProgressLane && !showCompletedLane;
+  const allLanesEmpty = pendingCount + inProgressCount + completedCount === 0;
+
+  const laneMeta: Record<LaneKey, { label: string; count: number; items: OperationsLiveItem[] }> = {
+    pending: {
+      label: t("operations_live.section.new"),
+      count: pendingCount,
+      items: data?.pending ?? [],
+    },
+    in_progress: {
+      label: t("operations_live.section.in_progress"),
+      count: inProgressCount,
+      items: data?.in_progress ?? [],
+    },
+    completed: {
+      label: t("operations_live.section.completed"),
+      count: completedCount,
+      items: data?.completed ?? [],
+    },
+  };
 
   const openRow = (taskId: string) => {
     openDashboardTaskSheet(navigate, location, taskId, { keepPath: true });
@@ -768,6 +870,7 @@ export default function OperationsLivePage() {
       ?.item;
     if (!item || fromLane === targetLane) return;
     if (laneForStatus(item.status) === targetLane) return;
+    setActiveLane(targetLane);
     statusMutation.mutate({ taskId: item.id, status: LANE_STATUS[targetLane] });
   };
 
@@ -874,6 +977,54 @@ export default function OperationsLivePage() {
           </div>
         </div>
 
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <Calendar className="h-4 w-4 text-emerald-600 shrink-0" />
+            {t("operations_live.date_range", "Date range")}
+            <span className="text-xs font-normal text-muted-foreground tabular-nums">
+              {isAllDates
+                ? t("operations_live.date_range_all", "All")
+                : dateFrom && dateTo && rangeDaySpan
+                  ? t("operations_live.date_range_span", {
+                      defaultValue: "{{from}} → {{to}} · {{count}} days",
+                      from: dateFrom,
+                      to: dateTo,
+                      count: rangeDaySpan,
+                    })
+                  : [dateFrom, dateTo].filter(Boolean).join(" → ") || null}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant={isAllDates ? "default" : "outline"}
+              onClick={clearDateRange}
+              className={isAllDates ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+            >
+              {t("operations_live.date_all", "All")}
+            </Button>
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="date"
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={(e) => onDateFromChange(e.target.value)}
+                className="w-[9.5rem] h-9"
+                aria-label={t("operations_live.date_from", "From")}
+              />
+              <span className="text-xs text-muted-foreground">→</span>
+              <Input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => onDateToChange(e.target.value)}
+                className="w-[9.5rem] h-9"
+                aria-label={t("operations_live.date_to", "To")}
+              />
+            </div>
+          </div>
+        </div>
+
         {isLoading ? (
           <div className="flex items-center justify-center py-24 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -890,21 +1041,39 @@ export default function OperationsLivePage() {
             onDragEnd={onDragEnd}
             onDragCancel={() => setActiveDrag(null)}
           >
-            <div className="space-y-6">
+            <div className="space-y-4">
+              <div
+                className="grid grid-cols-3 gap-1 rounded-xl border border-border bg-muted/40 p-1"
+                role="tablist"
+                aria-label={t("operations_live.lanes_tabs", "Operations lanes")}
+              >
+                {LANE_ORDER.map((lane) => (
+                  <LaneTab
+                    key={lane}
+                    lane={lane}
+                    label={laneMeta[lane].label}
+                    count={laneMeta[lane].count}
+                    active={activeLane === lane}
+                    onSelect={() => setActiveLane(lane)}
+                  />
+                ))}
+              </div>
+
               {allLanesEmpty ? (
                 <div className="rounded-md border border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
-                  {t("operations_live.empty")}
+                  {isAllDates
+                    ? t("operations_live.empty", "No items yet.")
+                    : t("operations_live.empty_range", "No items in this date range.")}
                 </div>
-              ) : null}
-              {showPendingLane ? (
+              ) : (
                 <OperationsLiveTable
-                  title={t("operations_live.section.new")}
-                  count={pendingCount}
-                  items={data?.pending ?? []}
-                  lane="pending"
-                  pagination={lanePagination.pending}
+                  title={laneMeta[activeLane].label}
+                  count={laneMeta[activeLane].count}
+                  items={laneMeta[activeLane].items}
+                  lane={activeLane}
+                  pagination={lanePagination[activeLane]}
                   onPageChange={(page) =>
-                    setLanePages((prev) => ({ ...prev, pending: page }))
+                    setLanePages((prev) => ({ ...prev, [activeLane]: page }))
                   }
                   t={t}
                   onOpenRow={openRow}
@@ -915,50 +1084,9 @@ export default function OperationsLivePage() {
                     priorityMutation.mutate({ taskId: id, priority })
                   }
                   updatingId={updatingId}
+                  hideTitle
                 />
-              ) : null}
-              {showInProgressLane ? (
-                <OperationsLiveTable
-                  title={t("operations_live.section.in_progress")}
-                  count={inProgressCount}
-                  items={data?.in_progress ?? []}
-                  lane="in_progress"
-                  pagination={lanePagination.in_progress}
-                  onPageChange={(page) =>
-                    setLanePages((prev) => ({ ...prev, in_progress: page }))
-                  }
-                  t={t}
-                  onOpenRow={openRow}
-                  onStatusChange={(id, status) =>
-                    statusMutation.mutate({ taskId: id, status })
-                  }
-                  onPriorityChange={(id, priority) =>
-                    priorityMutation.mutate({ taskId: id, priority })
-                  }
-                  updatingId={updatingId}
-                />
-              ) : null}
-              {showCompletedLane ? (
-                <OperationsLiveTable
-                  title={t("operations_live.section.completed")}
-                  count={completedCount}
-                  items={data?.completed ?? []}
-                  lane="completed"
-                  pagination={lanePagination.completed}
-                  onPageChange={(page) =>
-                    setLanePages((prev) => ({ ...prev, completed: page }))
-                  }
-                  t={t}
-                  onOpenRow={openRow}
-                  onStatusChange={(id, status) =>
-                    statusMutation.mutate({ taskId: id, status })
-                  }
-                  onPriorityChange={(id, priority) =>
-                    priorityMutation.mutate({ taskId: id, priority })
-                  }
-                  updatingId={updatingId}
-                />
-              ) : null}
+              )}
             </div>
             <DragOverlay>
               {activeDrag ? (

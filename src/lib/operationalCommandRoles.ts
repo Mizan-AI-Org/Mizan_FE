@@ -24,6 +24,17 @@ export const WEB_AGENT_ROLES = [
   "SUPERVISOR",
 ] as const;
 
+/**
+ * Core SOAM set — must have identical Agent behavior on web and WhatsApp
+ * (same miya-manager tools, drafts, confirm). Aligns with BE AGENT_PARITY_ROLES.
+ */
+export const AGENT_PARITY_ROLES = [
+  "SUPER_ADMIN",
+  "OWNER",
+  "ADMIN",
+  "MANAGER",
+] as const;
+
 /** @deprecated alias — same as WEB_APP_ROLES */
 export const OPERATIONAL_COMMAND_ROLES = WEB_APP_ROLES;
 
@@ -54,6 +65,11 @@ export function isWebAppRole(role: string | null | undefined): boolean {
 export function isWebAgentRole(role: string | null | undefined): boolean {
   const r = normalizeRole(role);
   return (WEB_AGENT_ROLES as readonly string[]).includes(r);
+}
+
+export function isAgentParityRole(role: string | null | undefined): boolean {
+  const r = normalizeRole(role);
+  return (AGENT_PARITY_ROLES as readonly string[]).includes(r);
 }
 
 /** Front-of-house / kitchen / general staff — WhatsApp channel only. */

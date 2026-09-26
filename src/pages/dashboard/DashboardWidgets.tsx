@@ -3555,7 +3555,7 @@ function RecentIncidentsCard({
   const openCount = items.length;
 
   const goToIncidents = React.useCallback(() => {
-    navigate("/dashboard/operations/incidents?tab=incidents");
+    navigate("/dashboard/operations/incidents");
   }, [navigate]);
 
   return (

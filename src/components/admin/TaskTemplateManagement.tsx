@@ -1,5 +1,6 @@
-import React, { useState, useRef, useLayoutEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useLanguage } from '@/hooks/use-language';
 import { cn } from '@/lib/utils';
 import { CardGridSkeleton } from '@/components/skeletons';
@@ -122,6 +123,7 @@ const frequencyColors = {
 
 export default function TaskTemplateManagement() {
   const { t } = useLanguage();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterFrequency, setFilterFrequency] = useState<string>('all');
@@ -136,6 +138,18 @@ export default function TaskTemplateManagement() {
   const [startProcessStaffIds, setStartProcessStaffIds] = useState<string[]>([]);
 
   const queryClient = useQueryClient();
+
+  // Deep-link from Staff Checklists "Create Checklist" → open create dialog.
+  useEffect(() => {
+    const create = (searchParams.get("create") || searchParams.get("new") || "").trim();
+    if (create !== "1") return;
+    setIsProcessModalOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("create");
+    next.delete("new");
+    if (!next.get("tab")) next.set("tab", "templates");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // Fetch task templates
   const { data: templates, isLoading } = useQuery<TaskTemplate[]>({

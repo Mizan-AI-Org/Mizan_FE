@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation, useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
 import { api, API_BASE, resolveMediaUrl, toAbsoluteUrl, unwrapApiPayload, unwrapDrfListResponse } from "@/lib/api";
@@ -28,7 +28,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, TrendingUp, Users, ClipboardCheck, AlertTriangle, MapPin, User, Calendar, ShieldAlert, Camera, ChevronDown } from "lucide-react";
+import { RefreshCw, TrendingUp, Users, ClipboardCheck, AlertTriangle, MapPin, User, Calendar, ShieldAlert, Camera, ChevronDown, Plus } from "lucide-react";
 import { PAGE_SHELL } from "@/lib/page-shell";
 import { isUnresolvedIncidentStatus } from "@/lib/incidentStatus";
 import { incidentAssigneeId, matchingStaffOptionId, staffOptionsWithCurrentAssignee } from "@/lib/incidentPeople";
@@ -141,40 +141,49 @@ const ManagerReviewDashboard: React.FC = () => {
   const [checklistPage, setChecklistPage] = useState(1);
   const checklistPageSize = 10;
 
-  // Top-level tab - deep-linkable via ?tab=submitted|incidents, and via the
-  // /dashboard/operations/incidents route (sidebar "Incidents") which must open
-  // the Incidents tab directly.
+  // Path locks the page mode so Incidents and Staff Checklists stand alone.
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const pathImpliesIncidents = /\/incidents\/?$/.test(location.pathname);
+  const pathImpliesIncidents = /\/(?:operations\/)?incidents\/?$/.test(location.pathname);
+  const pathImpliesChecklists = /\/(?:operations\/)?checklists\/?$/.test(location.pathname);
+  const pathLocksTab = pathImpliesIncidents || pathImpliesChecklists;
 
   const resolveTab = (raw: string | null): "incidents" | "submitted" => {
+    if (pathImpliesIncidents) return "incidents";
+    if (pathImpliesChecklists) return "submitted";
     const t = (raw || "").toLowerCase();
     if (t === "incidents") return "incidents";
     if (t === "submitted" || t === "checklists") return "submitted";
-    return pathImpliesIncidents ? "incidents" : "submitted";
+    return "submitted";
   };
 
   const [activeTab, setActiveTab] = useState<string>(() => resolveTab(searchParams.get("tab")));
 
-  // Keep ?tab= in sync with the visible tab (shareable / refresh-safe).
+  // Keep ?tab= in sync only when the path does not already lock the mode.
   useEffect(() => {
+    if (pathLocksTab) {
+      const desired = pathImpliesIncidents ? "incidents" : "submitted";
+      if (activeTab !== desired) setActiveTab(desired);
+      const current = (searchParams.get("tab") || "").toLowerCase();
+      if (!current) return;
+      const next = new URLSearchParams(searchParams);
+      next.delete("tab");
+      setSearchParams(next, { replace: true });
+      return;
+    }
     const desired = activeTab === "incidents" ? "incidents" : "submitted";
     const current = (searchParams.get("tab") || "").toLowerCase();
     if (desired === current) return;
-    if (desired === "incidents" && !current && !pathImpliesIncidents) {
-      // Non-incidents routes default to checklists without cluttering the URL.
-      return;
-    }
+    if (desired === "submitted" && !current) return;
     const next = new URLSearchParams(searchParams);
-    if (desired === "submitted" && !pathImpliesIncidents) {
+    if (desired === "submitted") {
       next.delete("tab");
     } else {
       next.set("tab", desired);
     }
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, pathImpliesIncidents]);
+  }, [activeTab, pathLocksTab, pathImpliesIncidents, pathImpliesChecklists]);
 
   // React to URL / route changes (sidebar click, back/forward, widgets).
   useEffect(() => {
@@ -392,17 +401,42 @@ const ManagerReviewDashboard: React.FC = () => {
 
   const [sortBy, setSortBy] = useState<'date' | 'staff' | 'checklist'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [staffFilter, setStaffFilter] = useState('');
-  const [trendDays, setTrendDays] = useState<7 | 14 | 30>(14);
   const [accountabilityFilter, setAccountabilityFilter] = useState<
     "all" | "needs_review" | "has_issues" | "overdue"
   >("all");
 
+  const isAllDates = !dateFrom && !dateTo;
+
+  const clearDateRange = () => {
+    setDateFrom("");
+    setDateTo("");
+    setChecklistPage(1);
+  };
+
+  const onDateFromChange = (value: string) => {
+    setDateFrom(value);
+    setChecklistPage(1);
+  };
+  const onDateToChange = (value: string) => {
+    setDateTo(value);
+    setChecklistPage(1);
+  };
+
+  const rangeDaySpan = useMemo(() => {
+    if (!dateFrom || !dateTo) return null;
+    const start = new Date(`${dateFrom}T00:00:00`);
+    const end = new Date(`${dateTo}T00:00:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+    const days = Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+    return Math.max(1, Math.min(days, 365));
+  }, [dateFrom, dateTo]);
+
   const { data: accountability, isLoading: accountabilityLoading } = useQuery({
-    queryKey: ["manager-checklist-accountability", trendDays],
-    queryFn: () => api.getManagerChecklistAccountability(Math.max(trendDays, 30)),
+    queryKey: ["manager-checklist-accountability", rangeDaySpan ?? "all"],
+    queryFn: () => api.getManagerChecklistAccountability(Math.max(rangeDaySpan ?? 90, 30)),
     refetchInterval: 60_000,
     staleTime: 30_000,
   });
@@ -434,13 +468,50 @@ const ManagerReviewDashboard: React.FC = () => {
   }, []);
 
   const trendRange = useMemo(() => {
+    if (dateFrom || dateTo) {
+      const start = dateFrom
+        ? new Date(`${dateFrom}T00:00:00`)
+        : (() => {
+            const d = new Date();
+            d.setDate(d.getDate() - 89);
+            d.setHours(0, 0, 0, 0);
+            return d;
+          })();
+      const end = dateTo
+        ? new Date(`${dateTo}T23:59:59.999`)
+        : (() => {
+            const d = new Date();
+            d.setHours(23, 59, 59, 999);
+            return d;
+          })();
+      if (start.getTime() > end.getTime()) {
+        return { start: end, end: start };
+      }
+      return { start, end };
+    }
+    const stamps = filtered
+      .map((s) => (s.submitted_at ? new Date(s.submitted_at).getTime() : NaN))
+      .filter((n) => !Number.isNaN(n));
+    if (stamps.length) {
+      const start = new Date(Math.min(...stamps));
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(Math.max(...stamps));
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    }
     const end = new Date();
     end.setHours(23, 59, 59, 999);
-    const start = new Date(end);
-    start.setDate(end.getDate() - (trendDays - 1));
+    const start = new Date();
+    start.setDate(end.getDate() - 29);
     start.setHours(0, 0, 0, 0);
     return { start, end };
-  }, [trendDays]);
+  }, [dateFrom, dateTo, filtered]);
+
+  const trendDays = useMemo(() => {
+    if (rangeDaySpan != null) return rangeDaySpan;
+    const days = Math.floor((trendRange.end.getTime() - trendRange.start.getTime()) / 86400000) + 1;
+    return Math.max(1, Math.min(days, 365));
+  }, [rangeDaySpan, trendRange]);
 
   const trendDaily = useMemo(() => {
     const map = new Map<string, number>();
@@ -948,11 +1019,29 @@ const ManagerReviewDashboard: React.FC = () => {
     <div className={`${PAGE_SHELL} py-6 space-y-5`}>
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t("ops.review.title")}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {pathImpliesIncidents
+              ? t("ops.review.page.incidents.title")
+              : pathImpliesChecklists
+                ? t("ops.review.page.checklists.title")
+                : t("ops.review.title")}
+          </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {t("ops.review.desc")}
+            {pathImpliesIncidents
+              ? t("ops.review.page.incidents.desc")
+              : pathImpliesChecklists
+                ? t("ops.review.page.checklists.desc")
+                : t("ops.review.desc")}
           </p>
         </div>
+        {pathImpliesChecklists ? (
+          <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shrink-0">
+            <Link to="/dashboard/employees/tasks?tab=templates&create=1">
+              <Plus className="h-4 w-4 mr-2" />
+              {t("ops.review.create_checklist", "Create Checklist")}
+            </Link>
+          </Button>
+        ) : !pathLocksTab ? (
         <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 p-1 gap-1">
           <button
             type="button"
@@ -995,6 +1084,7 @@ const ManagerReviewDashboard: React.FC = () => {
             </span>
           </button>
         </div>
+        ) : null}
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -1004,6 +1094,54 @@ const ManagerReviewDashboard: React.FC = () => {
         </TabsList>
 
         <TabsContent value="submitted" className="mt-0 space-y-4">
+          <div className="flex flex-col gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Calendar className="h-4 w-4 text-emerald-600 shrink-0" />
+              {t("ops.review.date_range", "Date range")}
+              <span className="text-xs font-normal text-muted-foreground tabular-nums">
+                {isAllDates
+                  ? t("ops.review.date_range_all", "All")
+                  : dateFrom && dateTo && rangeDaySpan
+                    ? t("ops.review.date_range_span", {
+                        defaultValue: "{{from}} → {{to}} · {{count}} days",
+                        from: dateFrom,
+                        to: dateTo,
+                        count: rangeDaySpan,
+                      })
+                    : [dateFrom, dateTo].filter(Boolean).join(" → ") || null}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant={isAllDates ? "default" : "outline"}
+                onClick={clearDateRange}
+                className={isAllDates ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+              >
+                {t("ops.review.date_all", "All")}
+              </Button>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  max={dateTo || undefined}
+                  onChange={(e) => onDateFromChange(e.target.value)}
+                  className="w-[9.5rem] h-9"
+                  aria-label={t("ops.review.date_from", "From")}
+                />
+                <span className="text-xs text-muted-foreground">→</span>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(e) => onDateToChange(e.target.value)}
+                  className="w-[9.5rem] h-9"
+                  aria-label={t("ops.review.date_to", "To")}
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Card className={cn(accountabilityCounts.pending_review > 0 && "border-amber-300 dark:border-amber-800")}>
               <CardContent className="p-4">
@@ -1281,21 +1419,12 @@ const ManagerReviewDashboard: React.FC = () => {
                     {t("analytics.submissions_trend")}
                   </CardTitle>
                   <CardDescription className="text-sm">
-                    {t("analytics.daily_submitted")} • {t("analytics.last_days", { count: trendDays })}
+                    {t("analytics.daily_submitted")}
+                    {" • "}
+                    {isAllDates
+                      ? t("ops.review.date_range_all", "All")
+                      : t("analytics.last_days", { count: trendDays })}
                   </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  {[7, 14, 30].map((d) => (
-                    <Button
-                      key={d}
-                      size="sm"
-                      variant={trendDays === d ? "default" : "outline"}
-                      onClick={() => setTrendDays(d as 7 | 14 | 30)}
-                      className={trendDays === d ? "bg-emerald-600 hover:bg-emerald-700" : ""}
-                    >
-                      {d}d
-                    </Button>
-                  ))}
                 </div>
               </div>
             </CardHeader>
@@ -1454,20 +1583,6 @@ const ManagerReviewDashboard: React.FC = () => {
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setChecklistPage(1); }}
                   className="w-56"
-                />
-                <Input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => { setDateFrom(e.target.value); setChecklistPage(1); }}
-                  className="w-40"
-                  aria-label="From date"
-                />
-                <Input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => { setDateTo(e.target.value); setChecklistPage(1); }}
-                  className="w-40"
-                  aria-label="To date"
                 />
                 <Input
                   placeholder="Filter by staff"

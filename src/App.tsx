@@ -348,15 +348,16 @@ const App = () => {
                     </RoleBasedRoute>
                   }
                 />
-                <Route path="dashboard/work" element={<Navigate to="/dashboard/operations" replace />} />
+                <Route path="dashboard/work" element={<Navigate to="/dashboard/operations/live" replace />} />
                 <Route path="dashboard/people" element={<Navigate to="/dashboard/employees" replace />} />
                 <Route path="dashboard/business" element={<Navigate to="/dashboard/financials" replace />} />
                 <Route path="dashboard/operations" element={<DomainLayout domain="operations" />}>
-                  <Route index element={<DomainOverviewPage />} />
+                  <Route index element={<Navigate to="/dashboard/operations/live" replace />} />
                   <Route path="live" element={<OperationsLivePage />} />
                   <Route path="approvals" element={<ApprovalsPage />} />
                   <Route path="tasks" element={<Navigate to="/dashboard/operations/approvals" replace />} />
                   <Route path="incidents" element={<ManagerReviewDashboard />} />
+                  <Route path="checklists" element={<ManagerReviewDashboard />} />
                   <Route path="requests" element={<RedirectToStaffRequests />} />
                   <Route path="requests/:id" element={<RedirectToStaffRequests />} />
                 </Route>
@@ -749,11 +750,7 @@ const App = () => {
                 />
                 <Route
                   path="dashboard/reviews/checklists"
-                  element={
-                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
-                      <ManagerReviewDashboard />
-                    </RoleBasedRoute>
-                  }
+                  element={<Navigate to="/dashboard/operations/checklists" replace />}
                 />
                 <Route
                   path="dashboard/emergency-availability"

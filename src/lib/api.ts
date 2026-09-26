@@ -822,6 +822,8 @@ export class BackendService {
     q?: string;
     searchBy?: "staff" | "task" | "category";
     priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT" | "CRITICAL";
+    dateFrom?: string;
+    dateTo?: string;
   }): Promise<import("@/lib/types").OperationsLiveResponse> {
     const search = new URLSearchParams();
     if (params?.limit) search.set("limit", String(params.limit));
@@ -834,6 +836,8 @@ export class BackendService {
     if (params?.q?.trim()) search.set("q", params.q.trim());
     if (params?.searchBy) search.set("search_by", params.searchBy);
     if (params?.priority?.trim()) search.set("priority", params.priority.trim());
+    if (params?.dateFrom?.trim()) search.set("date_from", params.dateFrom.trim());
+    if (params?.dateTo?.trim()) search.set("date_to", params.dateTo.trim());
     const qs = search.toString();
     return this.fetchWithError(`/dashboard/operations-live/${qs ? `?${qs}` : ""}`);
   }
