@@ -40,14 +40,23 @@ type AttendanceDashboardSummary = {
 };
 
 type AttendanceListItem = {
-  staff: { id: string; name: string; role?: string | null };
-  shift: { start?: string | null; end?: string | null };
+  staff: { id: string; name: string; role?: string | null; avatar?: string | null };
+  shift: { start?: string | null; end?: string | null; status?: string };
+  shift_id?: string | null;
   clock_in?: string | null;
   clock_out?: string | null;
   status: string;
   late_minutes?: number;
   signals?: string[];
 };
+
+function staffHasNoShiftToday(item: AttendanceListItem): boolean {
+  return !item.shift?.start;
+}
+
+function isClockedInRow(item: AttendanceListItem): boolean {
+  return Boolean(item.clock_in);
+}
 
 type AttendanceActivityEvent = {
   id: string;
@@ -236,9 +245,9 @@ function ManagerAttendanceBoard() {
                 </Card>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_min(22rem,100%)] gap-6 xl:gap-8 items-start">
                 {/* 3. Live Attendance Table - scalable for 100+ staff */}
-                <div className="space-y-4 flex flex-col">
+                <div className="space-y-4 flex flex-col min-w-0 xl:min-h-[calc(100vh-14rem)]">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <Users className="w-5 h-5 text-slate-500" />
                         {t("staff.attendance.live_list")}
@@ -270,17 +279,18 @@ function ManagerAttendanceBoard() {
                             </div>
                         </div>
                     </div>
-                    <div className="bg-card rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1 min-h-[320px] flex flex-col">
-                        <div className="overflow-auto flex-1">
-                        <Table>
+                    <div className="bg-card rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1 min-h-[min(70vh,720px)] flex flex-col">
+                        <div className="overflow-x-auto overflow-y-auto flex-1">
+                        <Table className="min-w-[720px]">
                             <TableHeader>
                                 <TableRow className="bg-slate-50/50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800">
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.page.title")}</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider hidden sm:table-cell">{t("staff.invite.role")}</TableHead>
+                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider min-w-[180px]">{t("staff.page.title")}</TableHead>
+                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider hidden md:table-cell">{t("staff.invite.role")}</TableHead>
                                     <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.shift")}</TableHead>
+                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider whitespace-nowrap">{t("staff.attendance.col_no_shift")}</TableHead>
                                     <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.clock_in")}</TableHead>
                                     <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.clock_out")}</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.status")}</TableHead>
+                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider min-w-[120px]">{t("staff.attendance.status")}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -289,8 +299,9 @@ function ManagerAttendanceBoard() {
                                         {Array.from({ length: 6 }).map((_, i) => (
                                             <TableRow key={i}>
                                                 <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                                                <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
+                                                <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                                                 <TableCell><Skeleton className="h-5 w-20" /></TableCell>
@@ -299,7 +310,7 @@ function ManagerAttendanceBoard() {
                                     </>
                                 ) : attendanceList.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-12">
+                                        <TableCell colSpan={7} className="text-center py-12">
                                             <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-3">
                                                 <Calendar className="w-8 h-8 text-slate-300" />
                                             </div>
@@ -309,13 +320,24 @@ function ManagerAttendanceBoard() {
                                     </TableRow>
                                 ) : paginatedLiveList.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                                        <TableCell colSpan={7} className="text-center py-8 text-slate-500">
                                             {t("staff.attendance.search_placeholder")} - no match.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    paginatedLiveList.map((item) => (
-                                        <TableRow key={item.staff.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors border-slate-100 dark:border-slate-800">
+                                    paginatedLiveList.map((item) => {
+                                        const clockedIn = isClockedInRow(item);
+                                        const noShift = staffHasNoShiftToday(item);
+                                        return (
+                                        <TableRow
+                                            key={item.staff.id}
+                                            className={cn(
+                                                "group transition-colors border-slate-100 dark:border-slate-800",
+                                                clockedIn
+                                                    ? "bg-emerald-50/90 hover:bg-emerald-100/90 dark:bg-emerald-950/35 dark:hover:bg-emerald-950/50 border-l-[3px] border-l-emerald-500"
+                                                    : "hover:bg-slate-50/50 dark:hover:bg-slate-800/50",
+                                            )}
+                                        >
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
                                                     <Avatar className="w-9 h-9 border border-slate-100">
@@ -339,15 +361,30 @@ function ManagerAttendanceBoard() {
                                                     </div>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="hidden sm:table-cell">
+                                            <TableCell className="hidden md:table-cell">
                                                 <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider border-slate-200 text-slate-500">
                                                     {item.staff.role?.replace(/_/g, ' ')}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                                            <TableCell className="text-sm font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap">
                                                 {item.shift.start ? `${item.shift.start} - ${item.shift.end}` : <span className="text-slate-400 italic">{t("staff.attendance.unscheduled")}</span>}
                                             </TableCell>
-                                            <TableCell className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                                            <TableCell>
+                                                {noShift ? (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="text-[10px] font-semibold uppercase tracking-wide border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200"
+                                                    >
+                                                        {t("staff.attendance.no_shift_yes")}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-xs font-medium text-slate-400 tabular-nums">{t("staff.attendance.no_shift_no")}</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className={cn(
+                                                "text-sm font-bold tabular-nums",
+                                                clockedIn ? "text-emerald-800 dark:text-emerald-200" : "text-slate-900 dark:text-white",
+                                            )}>
                                                 {item.clock_in || <span className="text-slate-300">-</span>}
                                             </TableCell>
                                             <TableCell className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
@@ -397,7 +434,8 @@ function ManagerAttendanceBoard() {
                                                 )}
                                             </TableCell>
                                         </TableRow>
-                                    ))
+                                    );
+                                    })
                                 )}
                             </TableBody>
                         </Table>
@@ -416,13 +454,13 @@ function ManagerAttendanceBoard() {
                 </div>
 
                 {/* 4. Attendance Events Feed */}
-                <div className="space-y-4 flex flex-col">
+                <div className="space-y-4 flex flex-col xl:sticky xl:top-24">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <Activity className="w-5 h-5 text-slate-500" />
                         {t("staff.attendance.events")}
                     </h3>
-                    <div className="bg-card rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-0 overflow-hidden flex-1">
-                        <div className="h-full overflow-y-auto p-4 space-y-0 min-h-[400px]">
+                    <div className="bg-card rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-0 overflow-hidden flex-1 max-xl:min-h-[280px]">
+                        <div className="h-full overflow-y-auto p-4 space-y-0 min-h-[240px] max-h-[min(70vh,720px)]">
                             {recentActivity.length === 0 ? (
                                 <div className="text-center py-8">
                                     <p className="text-slate-400 text-sm">{t("staff.attendance.no_events")}</p>

@@ -37,6 +37,13 @@ import { TableSkeleton } from "@/components/skeletons";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  dashboardTaskPriorityBadge,
+  incidentPriorityLabel,
+  normalizeOpsPriority,
+  INCIDENT_PRIORITIES,
+  type IncidentPriority,
+} from "@/components/dashboard/dashboard-task-detail-utils";
 
 type SubmittedChecklist = {
   id: string;
@@ -191,6 +198,7 @@ const ManagerReviewDashboard: React.FC = () => {
   const [updateStatus, setUpdateStatus] = useState('');
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [assignTo, setAssignTo] = useState<string>('');
+  const [updateIncidentPriority, setUpdateIncidentPriority] = useState<IncidentPriority | "">("");
 
   // Pagination state for Incidents
   const [incidentPage, setIncidentPage] = useState(1);
@@ -675,7 +683,9 @@ const ManagerReviewDashboard: React.FC = () => {
 
   const incidentKpis = useMemo(() => {
     const open = incidentList.filter((i) => isUnresolvedIncidentStatus(i.status));
-    const critical = open.filter((i) => ["critical", "high"].includes(String(i.severity || "").toLowerCase()));
+    const critical = open.filter(
+      (i) => normalizeOpsPriority(String(i.priority || i.severity || "")) === "URGENT",
+    );
     const unassigned = open.filter((i) => !i.assigned_to_details);
     const resolved7 = incidentList.filter((i) => {
       if (String(i.status || "").toLowerCase() !== "resolved") return false;
@@ -702,7 +712,10 @@ const ManagerReviewDashboard: React.FC = () => {
           : incidentFilters.status === 'open'
             ? isUnresolvedIncidentStatus(inc.status)
             : statusLower === incidentFilters.status.toLowerCase();
-      const matchesSeverity = !incidentFilters.severity || String(inc.severity || '').toLowerCase() === incidentFilters.severity.toLowerCase();
+      const matchesSeverity =
+        !incidentFilters.severity ||
+        normalizeOpsPriority(String(inc.priority || inc.severity || "")) ===
+          normalizeOpsPriority(incidentFilters.severity);
       const q = incidentFilters.search.trim().toLowerCase();
       const matchesSearch = !q
         || String(inc.title || '').toLowerCase().includes(q)
@@ -718,14 +731,14 @@ const ManagerReviewDashboard: React.FC = () => {
   const paginatedIncidents = filteredIncidents.slice(incidentStartIndex, incidentEndIndex);
 
   const getSeverityColor = (severity: string) => {
-    const sev = (severity || '').toLowerCase();
-    switch (sev) {
-      case 'critical': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800';
-      case 'low': return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-700';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-700';
+    const tier = normalizeOpsPriority(severity);
+    if (tier === "URGENT") {
+      return "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800";
     }
+    if (tier === "MEDIUM") {
+      return "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800";
+    }
+    return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800/40 dark:text-gray-300 dark:border-gray-700";
   };
 
   const getStatusColor = (status: string) => {
@@ -793,6 +806,30 @@ const ManagerReviewDashboard: React.FC = () => {
     setAssignTo(aligned || rawId);
     setUpdateStatus(String(incidentDetail.status || "OPEN").toUpperCase());
   }, [incidentDetail, staffList]);
+
+  const updatePriorityMutation = useMutation({
+    mutationFn: async (data: { id: string; priority: IncidentPriority }) => {
+      const res = await fetch(`${API_BASE}/staff/safety-concerns/${data.id}/update_priority/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+        body: JSON.stringify({ priority: data.priority }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+        throw new Error(body.error || body.detail || `Failed to update priority (${res.status})`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["safety-incidents"] });
+      queryClient.invalidateQueries({ queryKey: ["safety-incident-detail"] });
+      toast.success(t("operations_live.priority_updated", { defaultValue: "Priority updated" }));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
   const assignMutation = useMutation({
     mutationFn: async (data: { id: string; assigned_to: string | null }) => {
@@ -1711,10 +1748,9 @@ const ManagerReviewDashboard: React.FC = () => {
                   className="border border-slate-200 dark:border-slate-700 bg-card text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 text-sm"
                 >
                   <option value="">{t("ops.review.incidents.all_severities")}</option>
-                  <option value="critical">{t("severity.CRITICAL")}</option>
-                  <option value="high">{t("severity.HIGH")}</option>
-                  <option value="medium">{t("severity.MEDIUM")}</option>
-                  <option value="low">{t("severity.LOW")}</option>
+                  <option value="normal">{t("operations_live.priority.normal", { defaultValue: "Normal" })}</option>
+                  <option value="medium">{t("operations_live.priority.medium", { defaultValue: "Medium" })}</option>
+                  <option value="urgent">{t("operations_live.priority.urgent", { defaultValue: "Urgent" })}</option>
                 </select>
               </div>
 
@@ -1769,8 +1805,14 @@ const ManagerReviewDashboard: React.FC = () => {
                             ) : null}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={getSeverityColor(String(incident.severity || ""))}>
-                              {formatStatus(String(incident.severity || "-"))}
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "uppercase text-[10px] font-bold border",
+                                dashboardTaskPriorityBadge(String(incident.priority || incident.severity || "")),
+                              )}
+                            >
+                              {incidentPriorityLabel(String(incident.priority || incident.severity || ""), t)}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -1895,8 +1937,14 @@ const ManagerReviewDashboard: React.FC = () => {
               ) : incidentDetail ? (
                 <div className="space-y-5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className={getSeverityColor(incidentDetail.severity)}>
-                      {formatStatus(incidentDetail.severity || "-")}
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "uppercase text-[10px] font-bold border",
+                        dashboardTaskPriorityBadge(String(incidentDetail.priority || incidentDetail.severity || "")),
+                      )}
+                    >
+                      {incidentPriorityLabel(String(incidentDetail.priority || incidentDetail.severity || ""), t)}
                     </Badge>
                     <Badge variant="outline" className={getStatusColor(incidentDetail.status)}>
                       {formatStatus(incidentDetail.status || "-")}
@@ -2042,6 +2090,42 @@ const ManagerReviewDashboard: React.FC = () => {
                       </div>
                     </div>
                   ) : null}
+
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                    <div className="text-sm font-semibold">Priority</div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <select
+                        value={
+                          updateIncidentPriority ||
+                          normalizeOpsPriority(String(incidentDetail.priority || incidentDetail.severity || "medium"))
+                        }
+                        onChange={(e) => setUpdateIncidentPriority(e.target.value as IncidentPriority)}
+                        className="flex-1 border border-slate-200 dark:border-slate-700 bg-card rounded-md px-3 py-2 text-sm"
+                      >
+                        {INCIDENT_PRIORITIES.map((p) => (
+                          <option key={p} value={p}>
+                            {incidentPriorityLabel(p, t)}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        variant="outline"
+                        disabled={updatePriorityMutation.isPending}
+                        onClick={() =>
+                          updatePriorityMutation.mutate({
+                            id: incidentDetail.id,
+                            priority:
+                              updateIncidentPriority ||
+                              normalizeOpsPriority(
+                                String(incidentDetail.priority || incidentDetail.severity || "medium"),
+                              ),
+                          })
+                        }
+                      >
+                        {updatePriorityMutation.isPending ? "Saving…" : "Save priority"}
+                      </Button>
+                    </div>
+                  </div>
 
                   <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
                     <div className="text-sm font-semibold">Update status</div>

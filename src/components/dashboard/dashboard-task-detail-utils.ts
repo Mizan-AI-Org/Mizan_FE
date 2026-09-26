@@ -26,40 +26,54 @@ export function dashboardTaskStatusBadge(status?: string) {
 }
 
 /** Wire values the Live Ops / task-demand PATCH accepts. */
-export const LIVE_OPS_PRIORITIES = ["MEDIUM", "HIGH", "URGENT"] as const;
+export const LIVE_OPS_PRIORITIES = ["NORMAL", "MEDIUM", "URGENT"] as const;
 export type LiveOpsPriority = (typeof LIVE_OPS_PRIORITIES)[number];
 
-export function dashboardTaskPriorityBadge(priority?: string) {
-  const p = String(priority || "").toUpperCase();
-  if (p === "URGENT" || p === "CRITICAL") return "bg-red-600 text-white border-red-600";
-  if (p === "HIGH") return "bg-amber-500 text-white border-amber-500";
-  if (p === "LOW") return "bg-slate-200 text-slate-900 border-slate-200";
-  return "bg-blue-600 text-white border-blue-600";
+export const INCIDENT_PRIORITIES = LIVE_OPS_PRIORITIES;
+export type IncidentPriority = LiveOpsPriority;
+
+export function normalizeOpsPriority(priority?: string): LiveOpsPriority {
+  const p = String(priority || "NORMAL").toUpperCase();
+  if (p === "URGENT" || p === "CRITICAL" || p === "HIGH") return "URGENT";
+  if (p === "MEDIUM" || p === "LOW") return p === "LOW" ? "NORMAL" : "MEDIUM";
+  if (p === "NORMAL") return "NORMAL";
+  return "NORMAL";
 }
 
-/** User-facing labels: HIGH = Urgent, URGENT = Critical. */
+export function dashboardTaskPriorityBadge(priority?: string) {
+  const p = normalizeOpsPriority(priority);
+  if (p === "URGENT") return "bg-red-600 text-white border-red-600";
+  if (p === "MEDIUM") return "bg-blue-600 text-white border-blue-600";
+  return "bg-slate-400 text-white border-slate-400 dark:bg-slate-600 dark:border-slate-600";
+}
+
 export function dashboardTaskPriorityLabel(
   priority: string | undefined,
   t: (key: string, options?: Record<string, unknown>) => string,
 ): string {
-  const p = String(priority || "MEDIUM").toUpperCase();
-  if (p === "URGENT" || p === "CRITICAL") {
-    return t("operations_live.priority.critical", { defaultValue: "Critical" });
-  }
-  if (p === "HIGH") {
+  const p = normalizeOpsPriority(priority);
+  if (p === "URGENT") {
     return t("operations_live.priority.urgent", { defaultValue: "Urgent" });
   }
-  if (p === "LOW") {
-    return t("operations_live.priority.low", { defaultValue: "Low" });
+  if (p === "MEDIUM") {
+    return t("operations_live.priority.medium", { defaultValue: "Medium" });
   }
-  return t("operations_live.priority.medium", { defaultValue: "Medium" });
+  return t("operations_live.priority.normal", { defaultValue: "Normal" });
 }
 
 export function toLiveOpsPriority(priority?: string): LiveOpsPriority {
-  const p = String(priority || "MEDIUM").toUpperCase();
-  if (p === "URGENT" || p === "CRITICAL") return "URGENT";
-  if (p === "HIGH") return "HIGH";
-  return "MEDIUM";
+  return normalizeOpsPriority(priority);
+}
+
+export function incidentPriorityBadge(priority?: string) {
+  return dashboardTaskPriorityBadge(priority);
+}
+
+export function incidentPriorityLabel(
+  priority: string | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  return dashboardTaskPriorityLabel(priority, t);
 }
 
 export type DashboardTaskStatus = DashboardTaskDemandItem["status"];
@@ -79,33 +93,25 @@ export function dashboardTaskPrimaryAction(
 ): { label: string; nextStatus: DashboardTaskStatus } | null {
   switch (status) {
     case "PENDING":
-      return {
-        label: t("dashboard.task_detail.accept", { defaultValue: "Accept task" }),
-        nextStatus: "ACCEPTED",
-      };
-    case "ACCEPTED":
-      return {
-        label: t("dashboard.task_detail.start", { defaultValue: "Start work" }),
-        nextStatus: "IN_PROGRESS",
-      };
+      return { label: t("staff.requests.action_start", { defaultValue: "Start" }), nextStatus: "IN_PROGRESS" };
     case "IN_PROGRESS":
-      return {
-        label: t("dashboard.task_detail.complete", { defaultValue: "Mark complete" }),
-        nextStatus: "COMPLETED",
-      };
+      return { label: t("staff.requests.action_complete", { defaultValue: "Complete" }), nextStatus: "COMPLETED" };
     default:
       return null;
   }
 }
 
 export function dashboardTaskSecondaryStatuses(
-  current: DashboardTaskStatus,
-  primaryNext?: DashboardTaskStatus | null,
+  status: DashboardTaskStatus,
+  exclude?: DashboardTaskStatus,
 ): DashboardTaskStatus[] {
-  return ALL_STATUSES.filter((s) => s !== current && s !== primaryNext);
+  return ALL_STATUSES.filter((s) => s !== status && s !== exclude);
 }
 
-export function resolveStoredMediaUrl(path: string | null | undefined, backendUrl: string): string {
+export function resolveStoredMediaUrl(
+  path: string | null | undefined,
+  backendUrl: string,
+): string {
   const raw = (path || "").trim();
   if (!raw) return "";
   if (/^https?:\/\//i.test(raw)) return raw;

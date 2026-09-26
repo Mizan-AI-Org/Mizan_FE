@@ -265,7 +265,7 @@ function OperationsLiveRow({
     item.status,
     primary?.nextStatus,
   ).filter((s) => s !== "CANCELLED");
-  const isCritical = item.display_status === "critical" && lane === "pending";
+  const isUrgent = toLiveOpsPriority(item.priority) === "URGENT";
   const escalated = item.escalated_to;
   const canCancel =
     item.can_cancel !== false &&
@@ -284,7 +284,7 @@ function OperationsLiveRow({
       ref={setNodeRef}
       className={cn(
         "border-b border-border/70 last:border-0 cursor-pointer transition-colors",
-        isCritical
+        isUrgent
           ? "bg-red-50/90 hover:bg-red-100/80 dark:bg-red-950/35 dark:hover:bg-red-950/50"
           : "bg-card hover:bg-muted/50",
         isDragging && "opacity-40",
@@ -375,7 +375,7 @@ function OperationsLiveRow({
         {escalated?.name ? (
           <span
             className={cn(
-              isCritical || lane === "in_progress"
+              isUrgent || lane === "in_progress"
                 ? "text-red-600 dark:text-red-400 font-medium"
                 : "text-foreground/80",
             )}

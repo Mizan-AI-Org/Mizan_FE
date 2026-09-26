@@ -27,6 +27,7 @@ import {
   type CommandSignal,
   localizedCommandGreeting,
   severityToBadgeLevel,
+  resolveCommandReviewRoute,
   signalsForFilter,
 } from "@/lib/commandCentre";
 import { cn } from "@/lib/utils";
@@ -300,9 +301,16 @@ export function CommandCentreView({ className }: { className?: string }) {
   const navigate = useNavigate();
   const { askAgent } = useAgentPanel();
   const { data, isLoading, isError, refetch, isFetching } = useCommandCentre();
-  const [filter, setFilter] = useState<CommandFilterKey>("all");
+  const [filter, setFilter] = useState<CommandFilterKey>("needs_me");
 
   const filtered = useMemo(() => signalsForFilter(data, filter), [data, filter]);
+  const decideNow = useMemo(
+    () =>
+      data && data.next_five.length > 0
+        ? data.next_five
+        : (data?.lanes.needs_me.slice(0, 5) ?? []),
+    [data],
+  );
 
   const greetingLine = useMemo(
     () => (data ? localizedCommandGreeting(data, t) : t("command.preparing")),
@@ -310,8 +318,7 @@ export function CommandCentreView({ className }: { className?: string }) {
   );
 
   const reviewSignal = (signal: CommandSignal) => {
-    const route = getActionRoute(signal.action_url);
-    if (route) navigate(route);
+    navigate(resolveCommandReviewRoute(signal));
   };
 
   const opsHealthLabel =
@@ -535,8 +542,8 @@ export function CommandCentreView({ className }: { className?: string }) {
               title={t("attention.next5.title")}
               description={t("attention.next5.desc")}
             />
-            {data.next_five.length > 0 ? (
-              data.next_five.map((signal) => (
+            {decideNow.length > 0 ? (
+              decideNow.map((signal) => (
                 <PrioritySignalCard
                   key={signal.id}
                   signal={signal}

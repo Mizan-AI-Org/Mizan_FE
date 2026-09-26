@@ -9,16 +9,18 @@ const t = (key: string, options?: Record<string, unknown>) =>
   String(options?.defaultValue ?? key);
 
 describe("live ops priority labels", () => {
-  it("calls HIGH urgent and URGENT critical", () => {
-    expect(dashboardTaskPriorityLabel("HIGH", t)).toBe("Urgent");
-    expect(dashboardTaskPriorityLabel("URGENT", t)).toBe("Critical");
+  it("uses three tiers: Normal, Medium, Urgent", () => {
+    expect(dashboardTaskPriorityLabel("NORMAL", t)).toBe("Normal");
     expect(dashboardTaskPriorityLabel("MEDIUM", t)).toBe("Medium");
-    expect(dashboardTaskPriorityLabel("CRITICAL", t)).toBe("Critical");
+    expect(dashboardTaskPriorityLabel("URGENT", t)).toBe("Urgent");
+    expect(dashboardTaskPriorityLabel("HIGH", t)).toBe("Urgent");
+    expect(dashboardTaskPriorityLabel("CRITICAL", t)).toBe("Urgent");
   });
 
-  it("normalizes aliases to the PATCH values", () => {
+  it("normalizes legacy aliases to wire values", () => {
     expect(toLiveOpsPriority("CRITICAL")).toBe("URGENT");
-    expect(toLiveOpsPriority("HIGH")).toBe("HIGH");
+    expect(toLiveOpsPriority("HIGH")).toBe("URGENT");
+    expect(toLiveOpsPriority("LOW")).toBe("NORMAL");
     expect(toLiveOpsPriority("MEDIUM")).toBe("MEDIUM");
   });
 });

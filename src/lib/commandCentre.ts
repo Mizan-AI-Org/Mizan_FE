@@ -109,6 +109,43 @@ export function severityToBadgeLevel(severity: string): string {
   }
 }
 
+/** Route for Review — never leave the user on /dashboard with no navigation. */
+export function resolveCommandReviewRoute(signal: CommandSignal): string {
+  const raw = (signal.action_url || "").trim();
+  if (raw === "/dashboard/staff-scheduling") {
+    return "/dashboard/scheduling";
+  }
+  if (raw && raw !== "/dashboard" && raw.startsWith("/") && !raw.startsWith("//")) {
+    return raw;
+  }
+  const category = (signal.category || "").toLowerCase();
+  if (category === "incidents" || signal.kind === "incident") {
+    const id = String(signal.id || "").trim();
+    return id
+      ? `/dashboard/operations/incidents?incident=${encodeURIComponent(id)}`
+      : "/dashboard/operations/incidents";
+  }
+  if (category === "staffing") {
+    return "/dashboard/employees/shifts";
+  }
+  if (category === "inventory") {
+    return "/dashboard/products/inventory";
+  }
+  if (category === "compliance") {
+    return "/dashboard/intelligence/compliance";
+  }
+  if (category === "tasks" || category === "workload") {
+    return "/dashboard/operations/live";
+  }
+  if (category === "finance" || signal.kind === "invoice") {
+    return "/dashboard/financials";
+  }
+  if (category === "attendance") {
+    return "/dashboard/employees/attendance";
+  }
+  return "/dashboard/operations/live";
+}
+
 export function signalsForFilter(
   data: CommandCentrePayload | undefined,
   filter: CommandFilterKey,
