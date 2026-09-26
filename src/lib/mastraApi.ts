@@ -13,6 +13,7 @@ export type MastraRunResponse = {
     tool: string;
     arguments?: Record<string, unknown>;
     message?: string;
+    draftId?: string;
   };
   requires_confirmation?: boolean;
   verified?: boolean;
@@ -300,6 +301,7 @@ export async function runMastraChat(body: {
   channel?: "web";
   locale?: string;
   locationId?: string;
+  draftId?: string;
 }): Promise<MastraRunResponse> {
   const response = await safeFetch(`${API_BASE}/mastra/run/`, {
     method: "POST",
@@ -311,6 +313,7 @@ export async function runMastraChat(body: {
       channel: body.channel ?? "web",
       locale: body.locale,
       locationId: body.locationId,
+      draftId: body.draftId,
     }),
   });
   if (!response) {

@@ -569,12 +569,19 @@ export const AgentChatPanel: React.FC = () => {
 
       try {
         const convId = (userId && conversationIdForUser(userId)) || conversationId || newMessageId();
+        const pendingDraft =
+          userId && convId ? loadPendingConfirmation(userId, convId) : null;
+        const draftId =
+          pendingDraft?.draftId && typeof pendingDraft.draftId === "string"
+            ? pendingDraft.draftId
+            : undefined;
 
         const result = await runMastraChat({
           message: text,
           conversationId: convId,
           channel: "web",
           locale: language,
+          draftId,
         });
 
         if (userId) {
