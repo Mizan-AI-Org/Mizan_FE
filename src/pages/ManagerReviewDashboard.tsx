@@ -266,7 +266,14 @@ const ManagerReviewDashboard: React.FC = () => {
         const review = (typeof itm.review_status === 'string') ? String(itm.review_status).toUpperCase() : null;
         const approved = typeof itm.supervisor_approved === 'boolean' ? itm.supervisor_approved : null;
         const rawStatus = typeof itm.status === "string" ? itm.status : (typeof itm.completion_status === "string" ? itm.completion_status : null);
-        const displayStatus = review || (approved === true ? 'APPROVED' : approved === false ? 'PENDING' : rawStatus);
+        const hasReviewDecision = typeof itm.approved_by === "string" && itm.approved_by.length > 0;
+        const displayStatus =
+          review ||
+          (approved === true
+            ? "APPROVED"
+            : approved === false && hasReviewDecision
+              ? "REJECTED"
+              : rawStatus);
         const tmplRaw = (itm.template || itm.template_info || null) as unknown;
         const tmplRec = isRec(tmplRaw) ? tmplRaw : null;
         const template = tmplRec && ("id" in tmplRec) ? { id: String(tmplRec.id ?? ""), name: typeof tmplRec.name === "string" ? tmplRec.name : undefined, description: typeof tmplRec.description === "string" ? tmplRec.description : undefined, category: typeof (tmplRec as Record<string, unknown>).category === "string" ? (tmplRec as Record<string, unknown>).category as string : undefined } : null;
@@ -303,14 +310,29 @@ const ManagerReviewDashboard: React.FC = () => {
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-        body: JSON.stringify({ decision: vars.decision, reason: vars.reason || "", notes: vars.reason || "" }),
+        body: JSON.stringify({
+          decision: vars.decision,
+          approved: vars.decision === "APPROVED",
+          reason: vars.reason || "",
+          notes: vars.reason || "",
+        }),
         credentials: "include",
       });
-      if (!res.ok) {
-        const err = (await res.json().catch(() => ({}))) as { detail?: string; error?: string; message?: string };
-        throw new Error(err?.detail || err?.error || err?.message || `Failed to ${vars.decision.toLowerCase()} submission`);
+      const payload = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: string;
+        detail?: string;
+        message?: string;
+        data?: unknown;
+      };
+      if (!res.ok || payload.success === false) {
+        const fallback =
+          vars.decision === "APPROVED"
+            ? t("ops.review.error_approve", { defaultValue: "Failed to approve submission" })
+            : t("ops.review.error_reject", { defaultValue: "Failed to reject submission" });
+        throw new Error(payload.error || payload.detail || payload.message || fallback);
       }
-      return res.json();
+      return unwrapApiPayload(payload);
     },
     onSuccess: async (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["manager-submitted-checklists"] });
@@ -397,7 +419,7 @@ const ManagerReviewDashboard: React.FC = () => {
 
   const submissionNeedsReview = useCallback((s: SubmittedChecklist) => {
     const st = String(s.status || "").toUpperCase();
-    return st === "COMPLETED";
+    return st === "COMPLETED" || st === "PENDING";
   }, []);
 
   const submissionHasIssues = useCallback((s: SubmittedChecklist) => {

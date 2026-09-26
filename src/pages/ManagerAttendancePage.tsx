@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -50,12 +51,15 @@ type AttendanceListItem = {
   signals?: string[];
 };
 
-function staffHasNoShiftToday(item: AttendanceListItem): boolean {
-  return !item.shift?.start;
-}
-
 function isClockedInRow(item: AttendanceListItem): boolean {
   return Boolean(item.clock_in);
+}
+
+function isFloorRelevant(item: AttendanceListItem): boolean {
+  if (item.clock_in) return true;
+  return ["on_time", "late", "present", "absent", "scheduled", "on_leave", "clocked_out"].includes(
+    item.status,
+  );
 }
 
 type AttendanceActivityEvent = {
@@ -118,6 +122,7 @@ function ManagerAttendanceBoard() {
     const [liveSearch, setLiveSearch] = useState("");
     const [livePage, setLivePage] = useState(1);
     const [livePageSize, setLivePageSize] = useState(25);
+    const [showFullRoster, setShowFullRoster] = useState(false);
     const { data: dashboardData, isLoading } = useQuery<AttendanceDashboardData>({
         queryKey: ["attendance-dashboard"],
         queryFn: async () => {
@@ -144,13 +149,14 @@ function ManagerAttendanceBoard() {
 
     // Live list: filter by search, then paginate (ready for 100+ staff)
     const liveSearchLower = (liveSearch || "").trim().toLowerCase();
+    const rosterScoped = showFullRoster ? attendanceList : attendanceList.filter(isFloorRelevant);
     const filteredLiveList = liveSearchLower
-        ? attendanceList.filter(
+        ? rosterScoped.filter(
             (item) =>
                 item.staff.name?.toLowerCase().includes(liveSearchLower) ||
                 (item.staff.role && item.staff.role.replace(/_/g, " ").toLowerCase().includes(liveSearchLower))
         )
-        : attendanceList;
+        : rosterScoped;
     const totalLive = filteredLiveList.length;
     const liveFrom = (livePage - 1) * livePageSize;
     const liveTo = Math.min(liveFrom + livePageSize, totalLive);
@@ -245,52 +251,81 @@ function ManagerAttendanceBoard() {
                 </Card>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_min(22rem,100%)] gap-6 xl:gap-8 items-start">
-                {/* 3. Live Attendance Table - scalable for 100+ staff */}
-                <div className="space-y-4 flex flex-col min-w-0 xl:min-h-[calc(100vh-14rem)]">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Users className="w-5 h-5 text-slate-500" />
-                        {t("staff.attendance.live_list")}
-                    </h3>
-                    <div className="flex flex-col gap-3">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                            <Input
-                                placeholder={t("staff.attendance.search_placeholder")}
-                                value={liveSearch}
-                                onChange={(e) => { setLiveSearch(e.target.value); setLivePage(1); }}
-                                className="pl-9 h-10 bg-card border-slate-200 dark:border-slate-700"
-                            />
-                        </div>
-                        <div className="flex items-center justify-between gap-2 flex-wrap text-xs text-slate-500 dark:text-slate-400">
-                            <span>{t("staff.attendance.showing", { from: totalLive === 0 ? 0 : liveFrom + 1, to: liveTo, total: totalLive })}</span>
-                            <div className="flex items-center gap-2">
-                                <Label htmlFor="live-page-size" className="text-slate-500 whitespace-nowrap">{t("staff.attendance.page_size")}</Label>
-                                <select
-                                    id="live-page-size"
-                                    value={livePageSize}
-                                    onChange={(e) => { setLivePageSize(Number(e.target.value)); setLivePage(1); }}
-                                    className="h-8 rounded-md border border-slate-200 dark:border-slate-700 bg-card text-slate-900 dark:text-white text-xs px-2"
+            <div className="space-y-6">
+                <Card className="border-border/80 shadow-sm overflow-hidden">
+                    <CardHeader className="border-b border-border/60 bg-muted/20 pb-4">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="space-y-1">
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                    <Users className="h-5 w-5 text-muted-foreground" aria-hidden />
+                                    {t("staff.attendance.live_list")}
+                                </CardTitle>
+                                <CardDescription>
+                                    {showFullRoster
+                                        ? t("staff.attendance.roster_full_hint", { defaultValue: "Full team roster for today." })
+                                        : t("staff.attendance.roster_floor_hint", {
+                                            defaultValue: "Scheduled staff, absences, and anyone who punched in.",
+                                          })}
+                                </CardDescription>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={showFullRoster ? "outline" : "default"}
+                                    onClick={() => { setShowFullRoster(false); setLivePage(1); }}
                                 >
-                                    {[25, 50, 100].map((n) => (
-                                        <option key={n} value={n}>{n}</option>
-                                    ))}
-                                </select>
+                                    {t("staff.attendance.today_floor", { defaultValue: "On floor today" })}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={showFullRoster ? "default" : "outline"}
+                                    onClick={() => { setShowFullRoster(true); setLivePage(1); }}
+                                >
+                                    {t("staff.attendance.full_roster", { defaultValue: "Full roster" })}
+                                </Button>
                             </div>
                         </div>
-                    </div>
-                    <div className="bg-card rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1 min-h-[min(70vh,720px)] flex flex-col">
-                        <div className="overflow-x-auto overflow-y-auto flex-1">
-                        <Table className="min-w-[720px]">
-                            <TableHeader>
-                                <TableRow className="bg-slate-50/50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800">
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider min-w-[180px]">{t("staff.page.title")}</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider hidden md:table-cell">{t("staff.invite.role")}</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.shift")}</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider whitespace-nowrap">{t("staff.attendance.col_no_shift")}</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.clock_in")}</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider">{t("staff.attendance.clock_out")}</TableHead>
-                                    <TableHead className="font-bold text-slate-500 text-xs uppercase tracking-wider min-w-[120px]">{t("staff.attendance.status")}</TableHead>
+                        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="relative flex-1 max-w-md">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input
+                                    placeholder={t("staff.attendance.search_placeholder")}
+                                    value={liveSearch}
+                                    onChange={(e) => { setLiveSearch(e.target.value); setLivePage(1); }}
+                                    className="pl-9 h-10"
+                                />
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                <span>{t("staff.attendance.showing", { from: totalLive === 0 ? 0 : liveFrom + 1, to: liveTo, total: totalLive })}</span>
+                                <div className="flex items-center gap-2">
+                                    <Label htmlFor="live-page-size" className="whitespace-nowrap">{t("staff.attendance.page_size")}</Label>
+                                    <select
+                                        id="live-page-size"
+                                        value={livePageSize}
+                                        onChange={(e) => { setLivePageSize(Number(e.target.value)); setLivePage(1); }}
+                                        className="h-9 rounded-md border border-input bg-background text-foreground text-xs px-2"
+                                    >
+                                        {[25, 50, 100].map((n) => (
+                                            <option key={n} value={n}>{n}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <div className="overflow-x-auto max-h-[min(72vh,780px)] overflow-y-auto">
+                        <Table>
+                            <TableHeader className="sticky top-0 z-10 bg-muted/95 backdrop-blur-sm">
+                                <TableRow>
+                                    <TableHead className="min-w-[200px]">{t("staff.page.title")}</TableHead>
+                                    <TableHead className="hidden sm:table-cell">{t("staff.invite.role")}</TableHead>
+                                    <TableHead>{t("staff.attendance.shift")}</TableHead>
+                                    <TableHead>{t("staff.attendance.clock_in")}</TableHead>
+                                    <TableHead>{t("staff.attendance.clock_out")}</TableHead>
+                                    <TableHead className="min-w-[128px]">{t("staff.attendance.status")}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -299,9 +334,8 @@ function ManagerAttendanceBoard() {
                                         {Array.from({ length: 6 }).map((_, i) => (
                                             <TableRow key={i}>
                                                 <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                                                <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
+                                                <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                                                 <TableCell><Skeleton className="h-5 w-20" /></TableCell>
@@ -310,7 +344,7 @@ function ManagerAttendanceBoard() {
                                     </>
                                 ) : attendanceList.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-12">
+                                        <TableCell colSpan={6} className="text-center py-12">
                                             <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-3">
                                                 <Calendar className="w-8 h-8 text-slate-300" />
                                             </div>
@@ -320,22 +354,25 @@ function ManagerAttendanceBoard() {
                                     </TableRow>
                                 ) : paginatedLiveList.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-8 text-slate-500">
+                                        <TableCell colSpan={6} className="text-center py-8 text-slate-500">
                                             {t("staff.attendance.search_placeholder")} - no match.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     paginatedLiveList.map((item) => {
                                         const clockedIn = isClockedInRow(item);
-                                        const noShift = staffHasNoShiftToday(item);
+                                        const onFloor = clockedIn && !item.clock_out;
                                         return (
                                         <TableRow
                                             key={item.staff.id}
                                             className={cn(
-                                                "group transition-colors border-slate-100 dark:border-slate-800",
-                                                clockedIn
-                                                    ? "bg-emerald-50/90 hover:bg-emerald-100/90 dark:bg-emerald-950/35 dark:hover:bg-emerald-950/50 border-l-[3px] border-l-emerald-500"
-                                                    : "hover:bg-slate-50/50 dark:hover:bg-slate-800/50",
+                                                "group transition-colors",
+                                                onFloor &&
+                                                    "bg-emerald-500/[0.14] hover:bg-emerald-500/[0.2] dark:bg-emerald-400/[0.12] dark:hover:bg-emerald-400/[0.18] shadow-[inset_3px_0_0_0] shadow-emerald-500",
+                                                clockedIn &&
+                                                    !onFloor &&
+                                                    "bg-emerald-500/[0.08] dark:bg-emerald-400/[0.08]",
+                                                !clockedIn && "hover:bg-muted/40",
                                             )}
                                         >
                                             <TableCell>
@@ -349,41 +386,31 @@ function ManagerAttendanceBoard() {
                                                     <div>
                                                         <p className="font-bold text-slate-900 dark:text-white text-sm">{item.staff.name}</p>
                                                         {/* Inline Signals */}
-                                                        {item.signals && item.signals.length > 0 && (
-                                                            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                                                                {item.signals.map((sig: string, idx: number) => (
-                                                                    <span key={idx} className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-medium">
-                                                                        {sig}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        )}
+                                                        {item.signals?.[0] ? (
+                                                            <p className="text-[11px] text-muted-foreground mt-0.5">{item.signals[0]}</p>
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="hidden md:table-cell">
-                                                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider border-slate-200 text-slate-500">
-                                                    {item.staff.role?.replace(/_/g, ' ')}
+                                            <TableCell className="hidden sm:table-cell">
+                                                <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wide">
+                                                    {item.staff.role?.replace(/_/g, " ") || "—"}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-sm font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                                                {item.shift.start ? `${item.shift.start} - ${item.shift.end}` : <span className="text-slate-400 italic">{t("staff.attendance.unscheduled")}</span>}
-                                            </TableCell>
-                                            <TableCell>
-                                                {noShift ? (
-                                                    <Badge
-                                                        variant="outline"
-                                                        className="text-[10px] font-semibold uppercase tracking-wide border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200"
-                                                    >
-                                                        {t("staff.attendance.no_shift_yes")}
-                                                    </Badge>
+                                            <TableCell className="text-sm whitespace-nowrap">
+                                                {item.shift.start ? (
+                                                    <span className="font-medium tabular-nums">
+                                                        {item.shift.start} – {item.shift.end}
+                                                    </span>
                                                 ) : (
-                                                    <span className="text-xs font-medium text-slate-400 tabular-nums">{t("staff.attendance.no_shift_no")}</span>
+                                                    <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                                                        {t("staff.attendance.col_no_shift")}
+                                                    </span>
                                                 )}
                                             </TableCell>
                                             <TableCell className={cn(
-                                                "text-sm font-bold tabular-nums",
-                                                clockedIn ? "text-emerald-800 dark:text-emerald-200" : "text-slate-900 dark:text-white",
+                                                "text-sm font-semibold tabular-nums",
+                                                clockedIn ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground",
                                             )}>
                                                 {item.clock_in || <span className="text-slate-300">-</span>}
                                             </TableCell>
@@ -440,8 +467,8 @@ function ManagerAttendanceBoard() {
                             </TableBody>
                         </Table>
                         </div>
-                        {totalLive > livePageSize && (
-                            <div className="border-t border-slate-100 dark:border-slate-800 p-2 flex justify-center">
+                        {totalLive > livePageSize ? (
+                            <div className="border-t border-border p-3 flex justify-center">
                                 <PaginationControls
                                     currentPage={livePage}
                                     count={totalLive}
@@ -449,18 +476,19 @@ function ManagerAttendanceBoard() {
                                     onPageChange={setLivePage}
                                 />
                             </div>
-                        )}
-                    </div>
-                </div>
+                        ) : null}
+                    </CardContent>
+                </Card>
 
-                {/* 4. Attendance Events Feed */}
-                <div className="space-y-4 flex flex-col xl:sticky xl:top-24">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-slate-500" />
-                        {t("staff.attendance.events")}
-                    </h3>
-                    <div className="bg-card rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-0 overflow-hidden flex-1 max-xl:min-h-[280px]">
-                        <div className="h-full overflow-y-auto p-4 space-y-0 min-h-[240px] max-h-[min(70vh,720px)]">
+                <Card className="border-border/80 shadow-sm">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                            <Activity className="h-4 w-4 text-muted-foreground" aria-hidden />
+                            {t("staff.attendance.events")}
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                        <div className="max-h-64 overflow-y-auto space-y-0">
                             {recentActivity.length === 0 ? (
                                 <div className="text-center py-8">
                                     <p className="text-slate-400 text-sm">{t("staff.attendance.no_events")}</p>
@@ -486,8 +514,8 @@ function ManagerAttendanceBoard() {
                                 ))
                             )}
                         </div>
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );
