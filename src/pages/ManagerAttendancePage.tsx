@@ -176,8 +176,8 @@ function ManagerAttendanceBoard() {
                                 <UserCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                             </div>
                             <div>
-                                <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                                    {summary.present.count} <span className="text-lg text-slate-400 font-medium">/ {summary.present.total}</span>
+                                <div className="text-xl font-semibold text-slate-900 dark:text-white tracking-tight tabular-nums">
+                                    {summary.present.count} <span className="text-sm text-slate-400 font-medium">/ {summary.present.total}</span>
                                 </div>
                                 <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest mt-1">
                                     {summary.present.percentage}{t("staff.attendance.pct_attendance")}
@@ -197,8 +197,8 @@ function ManagerAttendanceBoard() {
                                 <Clock className="w-6 h-6 text-amber-600 dark:text-amber-400" />
                             </div>
                             <div>
-                                <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                                    {summary.late.count} <span className="text-lg text-slate-400 font-medium">{t("staff.attendance.late")}</span>
+                                <div className="text-xl font-semibold text-slate-900 dark:text-white tracking-tight tabular-nums">
+                                    {summary.late.count} <span className="text-sm text-slate-400 font-medium">{t("staff.attendance.late")}</span>
                                 </div>
                                 <p className="text-xs font-bold text-amber-600 uppercase tracking-widest mt-1">
                                     {t("staff.attendance.avg_min", { count: summary.late.avg_minutes })}
@@ -218,8 +218,8 @@ function ManagerAttendanceBoard() {
                                 <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
                             </div>
                             <div>
-                                <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                                    {summary.absent.count} <span className="text-lg text-slate-400 font-medium">{t("staff.attendance.absent")}</span>
+                                <div className="text-xl font-semibold text-slate-900 dark:text-white tracking-tight tabular-nums">
+                                    {summary.absent.count} <span className="text-sm text-slate-400 font-medium">{t("staff.attendance.absent")}</span>
                                 </div>
                                 <p className="text-xs font-bold text-red-600 uppercase tracking-widest mt-1">
                                     {summary.absent.reason}
@@ -239,8 +239,8 @@ function ManagerAttendanceBoard() {
                                 <Coffee className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                             </div>
                             <div>
-                                <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                                    {summary.on_leave.count} <span className="text-lg text-slate-400 font-medium">{t("staff.attendance.on_leave")}</span>
+                                <div className="text-xl font-semibold text-slate-900 dark:text-white tracking-tight tabular-nums">
+                                    {summary.on_leave.count} <span className="text-sm text-slate-400 font-medium">{t("staff.attendance.on_leave")}</span>
                                 </div>
                                 <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">
                                     {summary.on_leave.subtitle}
@@ -322,7 +322,6 @@ function ManagerAttendanceBoard() {
                                 <TableRow>
                                     <TableHead className="min-w-[200px]">{t("staff.page.title")}</TableHead>
                                     <TableHead className="hidden sm:table-cell">{t("staff.invite.role")}</TableHead>
-                                    <TableHead>{t("staff.attendance.shift")}</TableHead>
                                     <TableHead>{t("staff.attendance.clock_in")}</TableHead>
                                     <TableHead>{t("staff.attendance.clock_out")}</TableHead>
                                     <TableHead className="min-w-[128px]">{t("staff.attendance.status")}</TableHead>
@@ -335,7 +334,6 @@ function ManagerAttendanceBoard() {
                                             <TableRow key={i}>
                                                 <TableCell><Skeleton className="h-4 w-28" /></TableCell>
                                                 <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
-                                                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                                                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                                                 <TableCell><Skeleton className="h-5 w-20" /></TableCell>
@@ -344,7 +342,7 @@ function ManagerAttendanceBoard() {
                                     </>
                                 ) : attendanceList.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-12">
+                                        <TableCell colSpan={5} className="text-center py-12">
                                             <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-3">
                                                 <Calendar className="w-8 h-8 text-slate-300" />
                                             </div>
@@ -354,7 +352,7 @@ function ManagerAttendanceBoard() {
                                     </TableRow>
                                 ) : paginatedLiveList.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                                        <TableCell colSpan={5} className="text-center py-8 text-slate-500">
                                             {t("staff.attendance.search_placeholder")} - no match.
                                         </TableCell>
                                     </TableRow>
@@ -396,17 +394,6 @@ function ManagerAttendanceBoard() {
                                                 <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wide">
                                                     {item.staff.role?.replace(/_/g, " ") || "—"}
                                                 </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-sm whitespace-nowrap">
-                                                {item.shift.start ? (
-                                                    <span className="font-medium tabular-nums">
-                                                        {item.shift.start} – {item.shift.end}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
-                                                        {t("staff.attendance.col_no_shift")}
-                                                    </span>
-                                                )}
                                             </TableCell>
                                             <TableCell className={cn(
                                                 "text-sm font-semibold tabular-nums",
