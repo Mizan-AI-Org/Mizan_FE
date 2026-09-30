@@ -82,6 +82,7 @@ import {
   XCircle,
   Check,
   Loader2,
+  Trash2,
   // Icons used by the new category-bucketed widgets:
   Flame,
   Wrench,
@@ -2273,7 +2274,7 @@ function TasksDemandsCard({
             className="mt-2 self-start w-auto px-2"
             onClick={(e) => {
               e.stopPropagation();
-              navigate("/dashboard/staff-requests?kind=dashboard&list=dashboard");
+              navigate("/dashboard/operations/live");
             }}
           />
         ) : null}
@@ -2562,6 +2563,8 @@ function MeetingsRemindersCard({
   const qc = useQueryClient();
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [eventBusyId, setEventBusyId] = useState<string | null>(null);
   const { data, isLoading, isError, refetch, isFetching } =
     useQuery<DashboardMeetingsRemindersResponse>({
       queryKey: ["dashboard", "meetings-reminders", 5],
@@ -2653,6 +2656,46 @@ function MeetingsRemindersCard({
     }
   }, [qc, t]);
 
+  const invalidateMeetings = React.useCallback(async () => {
+    await qc.invalidateQueries({ queryKey: ["dashboard", "meetings-reminders", 5] });
+  }, [qc]);
+
+  const handleShiftEvent = React.useCallback(
+    async (eventId: string, shiftMinutes: number) => {
+      setEventBusyId(eventId);
+      try {
+        await api.updateCalendarEvent(eventId, { shiftMinutes });
+        toast.success(t("dashboard.meetings_reminders.rescheduled_toast"));
+        await invalidateMeetings();
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : t("dashboard.meetings_reminders.update_failed"),
+        );
+      } finally {
+        setEventBusyId(null);
+      }
+    },
+    [invalidateMeetings, t],
+  );
+
+  const handleDeleteEvent = React.useCallback(async () => {
+    if (!deletingId) return;
+    const eventId = deletingId;
+    setDeletingId(null);
+    setEventBusyId(eventId);
+    try {
+      await api.deleteCalendarEvent(eventId);
+      toast.success(t("dashboard.meetings_reminders.deleted_toast"));
+      await invalidateMeetings();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : t("dashboard.meetings_reminders.delete_failed"),
+      );
+    } finally {
+      setEventBusyId(null);
+    }
+  }, [deletingId, invalidateMeetings, t]);
+
   // Handle the return from Google's OAuth consent. The backend redirects
   // back to the current page with ``?gcal=connected`` (or ``error``). We:
   //  1. Surface a toast so the user sees the outcome.
@@ -2687,6 +2730,7 @@ function MeetingsRemindersCard({
   }, [qc, t]);
 
   return (
+    <>
     <Card className={`${cardBase} flex flex-col`}>
       <CardHeader className={cardHeaderBase}>
         <div className="flex items-center gap-2 min-w-0">
@@ -2891,6 +2935,33 @@ function MeetingsRemindersCard({
                               </a>
                             </DropdownMenuItem>
                           ) : null}
+                          {ev.owner_is_me ? (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                disabled={eventBusyId === ev.id}
+                                onClick={() => handleShiftEvent(ev.id, 30)}
+                              >
+                                <Clock className="h-3.5 w-3.5 mr-2" />
+                                {t("dashboard.meetings_reminders.shift_30")}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                disabled={eventBusyId === ev.id}
+                                onClick={() => handleShiftEvent(ev.id, -30)}
+                              >
+                                <Clock className="h-3.5 w-3.5 mr-2" />
+                                {t("dashboard.meetings_reminders.shift_back_30")}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-red-600 focus:text-red-600 dark:text-red-400"
+                                disabled={eventBusyId === ev.id}
+                                onClick={() => setDeletingId(ev.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                {t("dashboard.meetings_reminders.delete_event")}
+                              </DropdownMenuItem>
+                            </>
+                          ) : null}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onClick={() => {
@@ -2952,6 +3023,24 @@ function MeetingsRemindersCard({
         ) : null}
       </CardContent>
     </Card>
+    <AlertDialog open={Boolean(deletingId)} onOpenChange={(open) => !open && setDeletingId(null)}>
+      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("dashboard.meetings_reminders.delete_title")}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("dashboard.meetings_reminders.delete_desc")}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("dashboard.meetings_reminders.delete_cancel")}</AlertDialogCancel>
+          <Button variant="destructive" onClick={handleDeleteEvent}>
+            <Trash2 className="h-4 w-4 mr-2" aria-hidden />
+            {t("dashboard.meetings_reminders.delete_confirm")}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
@@ -4177,7 +4266,7 @@ function buildInboxRowDetailHref(opts: { lane?: string; priority?: string }) {
     }
 
     if (kind === "invoice") {
-      return `/dashboard/staff-requests/${item.id}?kind=invoice`;
+      return `/dashboard/operations/live?task=${item.id}`;
     }
 
     // Legacy payloads without ``kind`` - still try the dashboard detail route.
@@ -4186,8 +4275,7 @@ function buildInboxRowDetailHref(opts: { lane?: string; priority?: string }) {
 }
 
 function tasksDemandsDetailHref(row: DashboardTaskDemandItem): string {
-  const kind = row.kind === "scheduling" ? "scheduling" : "dashboard";
-  return `/dashboard/staff-requests/${row.id}?kind=${kind}`;
+  return `/dashboard/operations/live?task=${row.id}`;
 }
 
 function CategoryTasksCard({
@@ -5847,7 +5935,7 @@ function CustomWidgetTasksCard({
                 openLink();
                 return;
               }
-              navigate("/dashboard/staff-requests?kind=dashboard&list=dashboard");
+              navigate("/dashboard/operations/live");
             }}
           />
         ) : null}
@@ -7824,7 +7912,7 @@ export function DashboardWidgetById({
           titleKey="dashboard.operations_tasks.title"
           icon={ListTodo}
           tone="emerald"
-          moreHref="/dashboard/staff-requests?lane=operations_tasks"
+          moreHref="/dashboard/operations/live"
           rowDetailHref={buildInboxRowDetailHref({ lane: "operations_tasks" })}
         />
       );

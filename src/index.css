@@ -581,13 +581,14 @@
   .mizan-agent-rail-tab {
     background: linear-gradient(
       180deg,
-      hsl(var(--primary) / 0.07) 0%,
-      hsl(var(--background)) 38%,
-      hsl(var(--primary) / 0.05) 100%
+      hsl(var(--primary) / 0.1) 0%,
+      hsl(var(--background)) 40%,
+      hsl(var(--primary) / 0.08) 100%
     );
     box-shadow:
-      -8px 0 28px hsl(var(--primary) / 0.12),
-      -2px 0 16px hsl(var(--primary) / 0.2);
+      -14px 0 40px hsl(var(--primary) / 0.2),
+      -6px 0 24px hsl(var(--primary) / 0.28),
+      inset 1px 0 0 hsl(var(--primary) / 0.15);
   }
 
   .dark .mizan-agent-rail-tab {
@@ -615,9 +616,27 @@
       inset 1px 0 0 hsl(var(--border));
   }
 
-  /* Subtle always-on edge glow so the agent rail draws the eye */
+  /* Always-on edge glow so the agent rail draws the eye (stronger in light mode) */
   .mizan-agent-rail-captivate {
-    border-inline-start-color: hsl(var(--primary) / 0.35);
+    border-inline-start-color: hsl(var(--primary) / 0.45);
+  }
+
+  .mizan-agent-rail-captivate::after {
+    content: "";
+    position: absolute;
+    inset-inline-end: 100%;
+    top: 12%;
+    bottom: 12%;
+    width: 56px;
+    background: radial-gradient(
+      ellipse at 100% 50%,
+      hsl(var(--primary) / 0.22) 0%,
+      hsl(var(--primary) / 0.08) 42%,
+      transparent 72%
+    );
+    pointer-events: none;
+    animation: mizan-agent-edge-pulse 3.6s ease-in-out infinite;
+    z-index: 0;
   }
 
   .mizan-agent-rail-captivate::before {
@@ -649,6 +668,44 @@
     box-shadow:
       0 0 16px hsl(var(--primary) / 0.65),
       0 0 40px hsl(var(--primary) / 0.35);
+  }
+
+  :root:not(.dark) .mizan-agent-rail-captivate::before {
+    width: 3px;
+    box-shadow:
+      0 0 14px hsl(var(--primary) / 0.85),
+      0 0 32px hsl(var(--primary) / 0.5),
+      0 0 56px hsl(var(--primary) / 0.22);
+  }
+
+  :root:not(.dark) .mizan-agent-glow-ring-idle::before {
+    background: radial-gradient(
+      circle,
+      hsl(var(--primary) / 0.5) 0%,
+      hsl(var(--primary) / 0.14) 48%,
+      transparent 74%
+    );
+  }
+
+  .command-centre-page {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--primary-muted) / 0.55) 0%,
+      hsl(var(--background)) 220px
+    );
+  }
+
+  .dark .command-centre-page {
+    background: transparent;
+  }
+
+  .command-metric-tile {
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .command-metric-tile:hover {
+    border-color: hsl(var(--primary) / 0.22);
+    box-shadow: 0 4px 14px hsl(var(--primary) / 0.08);
   }
 
   @keyframes mizan-agent-edge-pulse {

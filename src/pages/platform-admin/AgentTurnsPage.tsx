@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { Loader2, Search } from "lucide-react";
 import OpsPagination from "@/components/platform-admin/OpsPagination";
+import OpsDateRangeFilter from "@/components/platform-admin/OpsDateRangeFilter";
+import { dateRangeQueryParams } from "@/lib/opsDateRange";
 import { platformApi } from "@/lib/platformApi";
 import {
   opsBadgeDanger,
@@ -36,14 +38,17 @@ export default function AgentTurnsPage() {
   const [submitted, setSubmitted] = useState("");
   const [channel, setChannel] = useState("");
   const [page, setPage] = useState(1);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const { data, isLoading, error, isFetching } = useQuery({
-    queryKey: ["platform-agent-turns", submitted, channel, userIdFilter, page],
+    queryKey: ["platform-agent-turns", submitted, channel, userIdFilter, dateFrom, dateTo, page],
     queryFn: () =>
       platformApi.agentTurns({
         ...(submitted ? { q: submitted } : {}),
         ...(channel ? { channel } : {}),
         ...(userIdFilter ? { user_id: userIdFilter } : {}),
+        ...dateRangeQueryParams(dateFrom, dateTo),
         page: String(page),
         page_size: String(PAGE_SIZE),
       }),
@@ -65,6 +70,16 @@ export default function AgentTurnsPage() {
             ) : null}
           </p>
         </div>
+        <div className="flex flex-col items-end gap-2">
+        <OpsDateRangeFilter
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onChange={({ dateFrom: nextFrom, dateTo: nextTo }) => {
+            setPage(1);
+            setDateFrom(nextFrom);
+            setDateTo(nextTo);
+          }}
+        />
         <form
           className="flex flex-wrap gap-2"
           onSubmit={(e) => {
@@ -99,6 +114,7 @@ export default function AgentTurnsPage() {
           </div>
           <button type="submit" className={opsBtnPrimary}>Search</button>
         </form>
+        </div>
       </header>
 
       {isLoading ? (

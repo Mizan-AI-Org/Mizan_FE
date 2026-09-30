@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import OpsPagination from "@/components/platform-admin/OpsPagination";
+import OpsDateRangeFilter from "@/components/platform-admin/OpsDateRangeFilter";
+import { dateRangeQueryParams } from "@/lib/opsDateRange";
 import { platformApi } from "@/lib/platformApi";
 import {
   opsBtnPrimary,
@@ -29,12 +31,15 @@ function formatWhen(value?: string | null) {
 export default function ConversationsPage() {
   const [channel, setChannel] = useState("");
   const [page, setPage] = useState(1);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const { data, isLoading, error, isFetching, refetch } = useQuery({
-    queryKey: ["platform-agent-conversations", channel, page],
+    queryKey: ["platform-agent-conversations", channel, dateFrom, dateTo, page],
     queryFn: () =>
       platformApi.agentConversations({
         ...(channel ? { channel } : {}),
+        ...dateRangeQueryParams(dateFrom, dateTo),
         page: String(page),
         page_size: String(PAGE_SIZE),
       }),
@@ -50,7 +55,17 @@ export default function ConversationsPage() {
             {typeof data?.count === "number" ? ` · ${data.count} total` : ""}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col items-end gap-2">
+          <OpsDateRangeFilter
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onChange={({ dateFrom: nextFrom, dateTo: nextTo }) => {
+              setPage(1);
+              setDateFrom(nextFrom);
+              setDateTo(nextTo);
+            }}
+          />
+          <div className="flex gap-2">
           <select
             value={channel}
             onChange={(e) => {
@@ -68,6 +83,7 @@ export default function ConversationsPage() {
           <button type="button" className={opsBtnPrimary} onClick={() => refetch()}>
             Refresh
           </button>
+          </div>
         </div>
       </header>
 

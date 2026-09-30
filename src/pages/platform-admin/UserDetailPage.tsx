@@ -5,6 +5,8 @@ import { platformApi, type PlatformMe } from "@/lib/platformApi";
 import { KeyRound, Loader2, Unlock } from "lucide-react";
 import OpsBackNav from "@/components/platform-admin/OpsBackNav";
 import OpsPagination from "@/components/platform-admin/OpsPagination";
+import OpsDateRangeFilter from "@/components/platform-admin/OpsDateRangeFilter";
+import { dateRangeQueryParams } from "@/lib/opsDateRange";
 import {
   opsBtnGhost,
   opsBtnPrimary,
@@ -33,7 +35,11 @@ export default function UserDetailPage() {
   const [actionErr, setActionErr] = useState<string | null>(null);
 
   const [activityPage, setActivityPage] = useState(1);
+  const [activityDateFrom, setActivityDateFrom] = useState("");
+  const [activityDateTo, setActivityDateTo] = useState("");
+  const [turnsPage, setTurnsPage] = useState(1);
   const ACTIVITY_PAGE_SIZE = 10;
+  const TURNS_PAGE_SIZE = 10;
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["platform-user", id],
@@ -42,9 +48,10 @@ export default function UserDetailPage() {
   });
 
   const { data: activity } = useQuery({
-    queryKey: ["platform-user-activity", id, activityPage],
+    queryKey: ["platform-user-activity", id, activityPage, activityDateFrom, activityDateTo],
     queryFn: () =>
       platformApi.userActivity(id, {
+        ...dateRangeQueryParams(activityDateFrom, activityDateTo),
         page: String(activityPage),
         page_size: String(ACTIVITY_PAGE_SIZE),
       }),
@@ -52,8 +59,13 @@ export default function UserDetailPage() {
   });
 
   const { data: agentTurns } = useQuery({
-    queryKey: ["platform-user-agent-turns", id],
-    queryFn: () => platformApi.userAgentTurns(id, { page_size: "10" }),
+    queryKey: ["platform-user-agent-turns", id, turnsPage, activityDateFrom, activityDateTo],
+    queryFn: () =>
+      platformApi.userAgentTurns(id, {
+        ...dateRangeQueryParams(activityDateFrom, activityDateTo),
+        page: String(turnsPage),
+        page_size: String(TURNS_PAGE_SIZE),
+      }),
     enabled: !!id && !!data && !data.is_platform_operator,
   });
 
@@ -302,10 +314,20 @@ export default function UserDetailPage() {
       </div>
 
       <section className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Recent activity</h3>
           <Link to="/admin/audit" className={`text-xs ${opsLink}`}>All audit</Link>
         </div>
+        <OpsDateRangeFilter
+          dateFrom={activityDateFrom}
+          dateTo={activityDateTo}
+          onChange={({ dateFrom, dateTo }) => {
+            setActivityPage(1);
+            setTurnsPage(1);
+            setActivityDateFrom(dateFrom);
+            setActivityDateTo(dateTo);
+          }}
+        />
         <div className={opsTableWrap}>
           <table className="w-full text-left">
             <thead>
@@ -319,7 +341,7 @@ export default function UserDetailPage() {
               {(activity?.results || []).map((row) => (
                 <tr key={row.id} className={opsRow}>
                   <td className={`${opsTd} whitespace-nowrap text-xs ${opsMuted}`}>
-                    {new Date(row.timestamp).toLocaleString()}
+                    {new Date(row.timestamp || row.created_at || "").toLocaleString()}
                   </td>
                   <td className={`${opsTd} font-mono text-xs`}>{row.action_type}</td>
                   <td className={`${opsTd} max-w-md truncate`}>{row.description}</td>
@@ -332,14 +354,12 @@ export default function UserDetailPage() {
               ) : null}
             </tbody>
           </table>
-          {activity && activity.count > ACTIVITY_PAGE_SIZE ? (
-            <OpsPagination
-              page={activityPage}
-              pageSize={ACTIVITY_PAGE_SIZE}
-              total={activity.count}
-              onPageChange={setActivityPage}
-            />
-          ) : null}
+          <OpsPagination
+            page={activityPage}
+            pageSize={ACTIVITY_PAGE_SIZE}
+            total={activity?.count ?? 0}
+            onPageChange={setActivityPage}
+          />
         </div>
       </section>
 
@@ -384,6 +404,12 @@ export default function UserDetailPage() {
               ) : null}
             </tbody>
           </table>
+          <OpsPagination
+            page={turnsPage}
+            pageSize={TURNS_PAGE_SIZE}
+            total={agentTurns?.count ?? 0}
+            onPageChange={setTurnsPage}
+          />
         </div>
       </section>
     </div>

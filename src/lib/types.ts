@@ -97,8 +97,22 @@ export interface StaffInvitation {
     extra_data?: { phone?: string;[key: string]: any };
 }
 
-/** Staff-captured order log (voice, text, or manual form). */
-export type StaffCapturedOrderFulfillmentStatus = "NEW" | "IN_PROGRESS" | "FULFILLED" | "CANCELLED";
+/** Guest orders taken by the team via Miya (all channels) or the dashboard form. */
+export type StaffCapturedOrderFulfillmentStatus =
+    | "NEW"
+    | "IN_PROGRESS"
+    | "READY"
+    | "FULFILLED"
+    | "CANCELLED";
+
+export type StaffCapturedOrderChannel =
+    | "VOICE"
+    | "TEXT"
+    | "MANUAL"
+    | "AGENT"
+    | "WHATSAPP"
+    | "WHATSAPP_VOICE"
+    | "WEB";
 
 export interface StaffCapturedOrderRow {
     id: string;
@@ -109,11 +123,14 @@ export interface StaffCapturedOrderRow {
     items_summary: string;
     dietary_notes: string;
     special_instructions: string;
-    channel: "VOICE" | "TEXT" | "MANUAL";
+    channel: StaffCapturedOrderChannel | string;
+    capture_source?: "AGENT" | "MANUAL" | string;
     fulfillment_status: StaffCapturedOrderFulfillmentStatus;
     created_at: string;
     updated_at: string;
     recorded_by_name: string | null;
+    taken_by_id?: string | null;
+    taken_by_role?: string | null;
     requires_manager_validation?: boolean;
     manager_validated_at?: string | null;
     manager_validated?: boolean | null;

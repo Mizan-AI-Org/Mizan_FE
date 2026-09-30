@@ -45,6 +45,14 @@ const RAIL_EXPANDED = 232;
 const RAIL_COLLAPSED = 72;
 const ICON = "h-[22px] w-[22px]";
 
+/** Hidden from nav until these domains are GA-ready; routes remain reachable by URL. */
+const HIDDEN_NAV_GROUP_IDS = new Set([
+  "suppliers",
+  "financials",
+  "intelligence",
+  "social_media",
+]);
+
 function domainLeaves(id: DomainId): NavLeaf[] {
   return DOMAIN_SECTIONS[id];
 }
@@ -92,7 +100,7 @@ const GROUPS: NavGroup[] = [
     id: "customers",
     labelKey: "nav.customers",
     icon: IconCustomers,
-    href: "/dashboard/customers",
+    href: "/dashboard/customers/reservations",
     roles: [...OPERATIONAL_COMMAND_ROLES],
     children: domainLeaves("customers"),
   },
@@ -241,6 +249,7 @@ export function IntentRail({ className }: { className?: string }) {
 
   const visible = useMemo(() => {
     return GROUPS.filter((g) => {
+      if (HIDDEN_NAV_GROUP_IDS.has(g.id)) return false;
       if (g.roles && !hasRole(g.roles)) return false;
       if (g.appId && !canApp(g.appId)) return false;
       return true;
@@ -422,6 +431,7 @@ export function MobileIntentDock() {
 
   const visible = useMemo(() => {
     return GROUPS.filter((g) => {
+      if (HIDDEN_NAV_GROUP_IDS.has(g.id)) return false;
       if (g.roles && !hasRole(g.roles)) return false;
       if (g.appId && !canApp(g.appId)) return false;
       return true;

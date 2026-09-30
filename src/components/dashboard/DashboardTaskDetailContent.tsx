@@ -62,7 +62,7 @@ export function DashboardTaskDetailContent({
 }: {
   task: DashboardTaskDemandItem;
   widgetTitle?: string;
-  onStatusChange: (status: DashboardTaskDemandItem["status"]) => void;
+  onStatusChange?: (status: DashboardTaskDemandItem["status"]) => void;
   /** Multi-assign save (dashboard tasks). */
   onSaveAssignees?: (assigneeIds: string[]) => void;
   /** Legacy single-assign immediate update (staff inbox). */
@@ -328,6 +328,7 @@ export function DashboardTaskDetailContent({
       </div>
 
       <div className="shrink-0 space-y-2 border-t border-border/60 pt-4">
+        {task.kind === "invoice" || !onStatusChange ? null : (
         <div className="flex flex-wrap items-center gap-2">
           {primaryAction ? (
             <Button
@@ -372,6 +373,7 @@ export function DashboardTaskDetailContent({
             </DropdownMenu>
           ) : null}
         </div>
+        )}
         {onOpenInbox ? (
           <button
             type="button"

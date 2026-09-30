@@ -1,20 +1,10 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Activity,
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
-  Clock,
-  Loader2,
-  RefreshCw,
-  Target,
-  Users,
-} from "lucide-react";
+import { ArrowRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AgentOpsStrip } from "@/components/command/AgentOpsStrip";
 import { AgentAvatar } from "@/components/agent/AgentAvatar";
 import { CommandCentreSkeleton } from "@/components/command/CommandCentreSkeleton";
+import { CommandOperationsOverview } from "@/components/command/CommandOperationsOverview";
 import { AttentionCard } from "@/components/os/AttentionCard";
 import { CommandCollapsibleSection } from "@/components/os/CommandCollapsibleSection";
 import { SeverityBadge, severityPanelClass } from "@/components/os/SeverityBadge";
@@ -26,6 +16,7 @@ import {
   type CommandFilterKey,
   type CommandSignal,
   localizedCommandGreeting,
+  localizedOpsHealth,
   severityToBadgeLevel,
   resolveCommandReviewRoute,
   signalsForFilter,
@@ -117,31 +108,6 @@ function reviewLabelForSignal(signal: CommandSignal, t: (k: string, o?: Record<s
   return t("os.attention.review");
 }
 
-function AgentRecommendation({
-  text,
-  compact,
-}: {
-  text: string;
-  compact?: boolean;
-}) {
-  const { t } = useLanguage();
-  if (!text.trim()) return null;
-  return (
-    <div
-      className={cn(
-        "flex gap-2.5 rounded-control border border-ai-border bg-ai/60 px-3 py-2.5",
-        compact && "py-2",
-      )}
-    >
-      <AgentAvatar size="xs" className="mt-0.5 h-6 w-6" />
-      <p className="text-body text-foreground/95">
-        <span className="font-medium text-ai-foreground">{t("command.agent_suggests")} </span>
-        {text}
-      </p>
-    </div>
-  );
-}
-
 function PrioritySignalCard({
   signal,
   onReview,
@@ -152,28 +118,27 @@ function PrioritySignalCard({
   const { t } = useLanguage();
   const level = severityToBadgeLevel(signal.severity);
   const cat = categoryLabel(signal.category, t);
-  const meta = cat
-    ? `${cat} · ${t("attention.needs_decision", { defaultValue: "Needs your decision" })}`
-    : t("attention.needs_decision", { defaultValue: "Needs your decision" });
+  const detail = signal.detail || signal.why || "";
 
   return (
-    <article className={cn("rounded-panel px-4 py-4 shadow-xs", severityPanelClass(level))}>
-      <div className="flex flex-wrap items-start justify-between gap-x-5 gap-y-4">
-        <div className="min-w-0 flex-1 space-y-3">
+    <article className={cn("rounded-panel px-4 py-3.5 shadow-xs", severityPanelClass(level))}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <SeverityBadge level={level} />
-            <span className="text-caption text-muted-foreground">{meta}</span>
+            {cat ? <span className="text-caption text-muted-foreground">{cat}</span> : null}
           </div>
-          <h3 className="text-section-title leading-snug">{signal.title}</h3>
-          {signal.why ? <p className="text-body text-muted-foreground">{signal.why}</p> : null}
-          <AgentRecommendation text={signal.recommendation || ""} />
+          <h3 className="text-base font-semibold leading-snug">{signal.title}</h3>
+          {detail ? (
+            <p className="line-clamp-2 text-sm text-muted-foreground">{detail}</p>
+          ) : null}
         </div>
-        <div className="flex w-full shrink-0 flex-col items-stretch gap-2 sm:w-auto sm:min-w-[10rem]">
+        <div className="flex shrink-0 items-center gap-2">
+          <AskAgentButton signal={signal} variant="ghost" className="hidden sm:inline-flex" />
           <Button type="button" size="sm" className="gap-1" onClick={onReview}>
             {reviewLabelForSignal(signal, t)}
             <ArrowRight className="h-3.5 w-3.5" aria-hidden />
           </Button>
-          <AskAgentButton signal={signal} />
         </div>
       </div>
     </article>
@@ -197,28 +162,25 @@ function WatchingSignalCard({
   const contextLine = signal.why || "";
 
   return (
-    <article className="rounded-panel border border-border/80 bg-card px-4 py-4 shadow-xs">
-      <div className="flex flex-wrap items-start justify-between gap-x-5 gap-y-4">
-        <div className="min-w-0 flex-1 space-y-3">
+    <article className="rounded-panel border border-border/80 bg-card px-4 py-3.5 shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <SeverityBadge level={badgeLevel} />
             {cat ? (
               <span className="text-caption capitalize text-muted-foreground">{cat}</span>
             ) : null}
-            <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2 py-0.5 text-caption text-muted-foreground">
-              {t("attention.no_decision_yet", { defaultValue: "No decision required yet" })}
-            </span>
           </div>
-          <h3 className="text-section-title leading-snug">{signal.title}</h3>
-          {contextLine ? <p className="text-body text-muted-foreground">{contextLine}</p> : null}
-          <AgentRecommendation text={signal.recommendation || ""} compact />
+          <h3 className="text-base font-semibold leading-snug">{signal.title}</h3>
+          {contextLine ? (
+            <p className="line-clamp-2 text-sm text-muted-foreground">{contextLine}</p>
+          ) : null}
         </div>
-        <div className="flex w-full shrink-0 flex-col items-stretch gap-2 sm:w-auto sm:min-w-[10rem]">
-          <Button type="button" size="sm" className="gap-1" onClick={onReview}>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button type="button" size="sm" variant="outline" className="gap-1" onClick={onReview}>
             {reviewLabelForSignal(signal, t)}
             <ArrowRight className="h-3.5 w-3.5" aria-hidden />
           </Button>
-          <AskAgentButton signal={signal} />
         </div>
       </div>
     </article>
@@ -241,22 +203,18 @@ function MetricTile({
   label,
   value,
   tone,
-  icon,
 }: {
   label: string;
   value: string | number;
   tone?: "default" | "critical" | "warning";
-  icon?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-panel border border-border/60 bg-card px-4 py-3.5 shadow-xs">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-caption text-muted-foreground">{label}</p>
-        {icon}
-      </div>
+    <div className="command-metric-tile rounded-xl border border-border/60 bg-card px-3 py-2.5 shadow-sm">
+      <p className="text-caption text-muted-foreground">{label}</p>
       <p
         className={cn(
-          "mt-1.5 text-2xl font-semibold tabular-nums tracking-tight text-foreground",
+          "mt-0.5 text-base font-semibold leading-snug text-foreground sm:text-lg",
+          typeof value === "number" && "tabular-nums text-xl sm:text-2xl",
           tone === "critical" && "text-critical",
           tone === "warning" && "text-high-foreground",
         )}
@@ -267,34 +225,7 @@ function MetricTile({
   );
 }
 
-function SectionHeader({
-  title,
-  description,
-  icon,
-}: {
-  title: string;
-  description: string;
-  icon?: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start gap-2.5">
-      {icon ? <div className="mt-0.5 text-primary">{icon}</div> : null}
-      <div>
-        <h2 className="text-section-title">{title}</h2>
-        <p className="text-body text-muted-foreground">{description}</p>
-      </div>
-    </div>
-  );
-}
-
-const FILTERS: CommandFilterKey[] = [
-  "all",
-  "needs_me",
-  "today",
-  "handling",
-  "waiting",
-  "watching",
-];
+const FILTERS: CommandFilterKey[] = ["needs_me", "today", "all"];
 
 export function CommandCentreView({ className }: { className?: string }) {
   const { t } = useLanguage();
@@ -321,12 +252,10 @@ export function CommandCentreView({ className }: { className?: string }) {
     navigate(resolveCommandReviewRoute(signal));
   };
 
-  const opsHealthLabel =
-    data?.ops_health === "strained"
-      ? t("severity.STRAINED", { defaultValue: "Strained" })
-      : data?.ops_health === "healthy"
-        ? t("severity.HEALTHY", { defaultValue: "Healthy" })
-        : t("severity.STABLE", { defaultValue: "Stable" });
+  const opsHealthLabel = localizedOpsHealth(data?.ops_health, t);
+
+  const decideCount = data?.filter_counts.needs_me ?? 0;
+  const briefing = data?.briefing;
 
   if (isLoading) {
     return <CommandCentreSkeleton className={className} />;
@@ -344,35 +273,64 @@ export function CommandCentreView({ className }: { className?: string }) {
     );
   }
 
-  const watchingCount = data.filter_counts.watching;
-  const handlingCount = data.filter_counts.handling;
-  const decideCount = data.filter_counts.needs_me;
-
   return (
-    <div className={cn("min-w-0 space-y-6 px-4 py-6 md:px-6 lg:px-8 lg:py-8", className)}>
-      <AgentOpsStrip
-        watchingCount={watchingCount}
-        handlingCount={handlingCount}
-        decideCount={decideCount}
-      />
-
-      {/* Header */}
-      <header aria-label={t("attention.aria.header")} className="space-y-3">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1">
-            <p className="text-caption font-semibold uppercase tracking-wider text-primary">
-              {t("command.eyebrow")}
-            </p>
-            <h1 className="text-page-title">{greetingLine}</h1>
-            <p className="text-body text-muted-foreground">
-              {t("command.subtitle", { count: data.signals_total })}
-            </p>
-          </div>
+    <div
+      className={cn(
+        "command-centre-page min-w-0 space-y-5 px-4 py-5 md:px-6 lg:px-8 lg:py-6",
+        className,
+      )}
+    >
+      <header aria-label={t("attention.aria.header")} className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{greetingLine}</h1>
+          <p className="text-sm text-muted-foreground">
+            {briefing?.restaurantName ? (
+              <span className="text-foreground/90">{briefing.restaurantName}</span>
+            ) : null}
+            {briefing?.restaurantName ? " · " : null}
+            {decideCount > 0 ? (
+              <>
+                {t("command.subtitle_decisions", {
+                  count: decideCount,
+                  defaultValue: `${decideCount} need your decision`,
+                })}
+                {data.filter_counts.today > 0 ? (
+                  <>
+                    {" · "}
+                    {t("command.subtitle_today_watch", {
+                      today: data.filter_counts.today,
+                      defaultValue: `${data.filter_counts.today} on today's watchlist`,
+                    })}
+                  </>
+                ) : null}
+              </>
+            ) : (
+              t("command.subtitle_clear_owner", {
+                defaultValue: "No urgent decisions — see operations overview below.",
+              })
+            )}
+            {data.ops_health === "strained" ? (
+              <span className="ms-2 inline-flex items-center rounded-full bg-critical-muted px-2 py-0.5 text-caption font-medium text-critical">
+                {opsHealthLabel}
+              </span>
+            ) : null}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-muted-foreground"
+            onClick={() => askAgent(t("attention.brief_prompt"))}
+          >
+            {t("attention.brief_me")}
+          </Button>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="gap-1.5 border-border bg-card"
+            className="gap-1.5"
             onClick={() => void refetch()}
             disabled={isFetching}
             aria-label={t("command.refresh_aria")}
@@ -381,110 +339,42 @@ export function CommandCentreView({ className }: { className?: string }) {
             {t("common.refresh", { defaultValue: "Refresh" })}
           </Button>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {data.chips.now > 0 ? (
-            <span className="inline-flex items-center rounded-full bg-critical px-2.5 py-0.5 text-caption font-semibold text-critical-foreground">
-              {data.chips.now} {t("attention.chip.now")}
-            </span>
-          ) : null}
-          {data.chips.today > 0 ? (
-            <span className="inline-flex items-center rounded-full bg-high px-2.5 py-0.5 text-caption font-semibold text-high-foreground">
-              {data.chips.today} {t("attention.chip.today")}
-            </span>
-          ) : null}
-          {data.chips.handled > 0 ? (
-            <span className="inline-flex items-center rounded-full bg-primary px-2.5 py-0.5 text-caption font-semibold text-primary-foreground">
-              {data.chips.handled} {t("attention.chip.handled")}
-            </span>
-          ) : null}
-          {data.ops_health === "strained" ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-critical-border bg-critical-muted px-2.5 py-0.5 text-caption font-semibold text-critical">
-              <span className="h-1.5 w-1.5 rounded-full bg-critical" aria-hidden />
-              {opsHealthLabel}
-            </span>
-          ) : null}
-        </div>
       </header>
 
-      {(data.domain_attention || []).length > 0 ? (
-        <section className="rounded-panel border border-critical-border/60 bg-critical-muted/40 p-4">
-          <h2 className="mb-3 text-section-title">
-            {t("command.business_needs", { count: String(data.domain_attention?.length || 0) })}
-          </h2>
-          <ul className="space-y-2">
-            {(data.domain_attention || []).map((area) => (
-              <li key={area.domain}>
-                <button
-                  type="button"
-                  className="flex w-full items-start justify-between gap-3 rounded-md px-2 py-2 text-start hover:bg-background/70"
-                  onClick={() => navigate(area.href)}
-                >
-                  <span>
-                    <span className="font-medium">
-                      {t(`nav.${area.domain}`, { defaultValue: area.title })}.{" "}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {area.detail_key
-                        ? t(area.detail_key, { ...(area.detail_params || {}), defaultValue: area.detail })
-                        : area.detail}
-                    </span>
-                  </span>
-                  <ArrowRight className="mt-1 h-4 w-4 shrink-0" aria-hidden />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {/* Metrics */}
-      <section aria-label={t("command.glance")} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <section
+        aria-label={t("command.glance")}
+        className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5"
+      >
         <MetricTile
           label={t("command.tile.people_working")}
           value={data.metrics.people_working}
-          icon={<Users className="h-4 w-4 text-muted-foreground" aria-hidden />}
         />
         <MetricTile
           label={t("command.tile.active_work")}
           value={data.metrics.active_work}
-          icon={<Activity className="h-4 w-4 text-muted-foreground" aria-hidden />}
         />
         <MetricTile
           label={t("command.tile.open_incidents")}
           value={data.metrics.open_incidents}
           tone={data.metrics.open_incidents > 0 ? "critical" : "default"}
-          icon={
-            data.metrics.open_incidents > 0 ? (
-              <AlertTriangle className="h-4 w-4 text-critical" aria-hidden />
-            ) : undefined
-          }
         />
         <MetricTile
           label={t("command.tile.pending_approvals")}
           value={data.metrics.pending_approvals}
           tone={data.metrics.pending_approvals > 0 ? "warning" : "default"}
-          icon={
-            data.metrics.pending_approvals > 0 ? (
-              <Target className="h-4 w-4 text-approval" aria-hidden />
-            ) : (
-              <Clock className="h-4 w-4 text-muted-foreground" aria-hidden />
-            )
-          }
         />
         <MetricTile
           label={t("command.tile.ops_health")}
           value={opsHealthLabel}
           tone={data.ops_health === "strained" ? "critical" : "default"}
-          icon={
-            data.ops_health === "strained" ? (
-              <CheckCircle2 className="h-4 w-4 text-critical" aria-hidden />
-            ) : (
-              <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
-            )
-          }
         />
       </section>
+
+      <CommandOperationsOverview data={data} />
+
+      <h2 className="text-sm font-semibold text-foreground">
+        {t("command.priority_queue", { defaultValue: "Priority queue" })}
+      </h2>
 
       {/* Filters */}
       <nav aria-label={t("attention.aria.filters")} className="flex flex-wrap gap-2">
@@ -538,10 +428,6 @@ export function CommandCentreView({ className }: { className?: string }) {
         <>
           {/* Decide now */}
           <section className="space-y-3" aria-labelledby="command-decide-heading">
-            <SectionHeader
-              title={t("attention.next5.title")}
-              description={t("attention.next5.desc")}
-            />
             {decideNow.length > 0 ? (
               decideNow.map((signal) => (
                 <PrioritySignalCard
@@ -566,7 +452,7 @@ export function CommandCentreView({ className }: { className?: string }) {
               title={t("attention.lane.handling")}
               description={t("attention.lane.handling_desc")}
               count={data.lanes.handling.length}
-              defaultOpen
+              defaultOpen={false}
               preview={data.lanes.handling[0]?.title}
             >
               <div className="space-y-3">
@@ -592,10 +478,7 @@ export function CommandCentreView({ className }: { className?: string }) {
           {/* Clusters */}
           {data.clusters.length > 0 ? (
             <section className="space-y-3">
-              <SectionHeader
-                title={t("attention.clusters.title")}
-                description={t("attention.clusters.desc")}
-              />
+              <h2 className="text-sm font-medium text-muted-foreground">{t("attention.clusters.title")}</h2>
               <div className="grid gap-3 md:grid-cols-2">
                 {data.clusters.map((cluster) => (
                   <article
@@ -638,33 +521,27 @@ export function CommandCentreView({ className }: { className?: string }) {
             </section>
           ) : null}
 
-          {/* Agent watching — always visible */}
-          <section className="space-y-3" aria-labelledby="command-watching-heading">
-            <SectionHeader
+          {data.lanes.watching.length > 0 ? (
+            <CommandCollapsibleSection
+              id="lane-watching"
+              variant="agent"
               title={t("attention.lane.watching")}
               description={t("attention.lane.watching_desc")}
-              icon={<AgentAvatar size="sm" className="h-7 w-7" />}
-            />
-            {data.lanes.watching.length > 0 ? (
-              data.lanes.watching.map((signal) => (
-                <WatchingSignalCard
-                  key={signal.id}
-                  signal={signal}
-                  onReview={() => reviewSignal(signal)}
-                />
-              ))
-            ) : (
-              <div className="rounded-panel border border-ai-border/80 bg-ai/30 px-4 py-5">
-                <div className="flex gap-3">
-                  <AgentAvatar size="md" />
-                  <div className="space-y-1">
-                    <p className="text-body font-medium text-foreground">{t("command.watching_scan_title")}</p>
-                    <p className="text-body text-muted-foreground">{t("command.watching_scan_desc")}</p>
-                  </div>
-                </div>
+              count={data.lanes.watching.length}
+              defaultOpen={false}
+              preview={data.lanes.watching[0]?.title}
+            >
+              <div className="space-y-3">
+                {data.lanes.watching.map((signal) => (
+                  <WatchingSignalCard
+                    key={signal.id}
+                    signal={signal}
+                    onReview={() => reviewSignal(signal)}
+                  />
+                ))}
               </div>
-            )}
-          </section>
+            </CommandCollapsibleSection>
+          ) : null}
         </>
       )}
     </div>

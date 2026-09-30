@@ -10,7 +10,6 @@ import {
   RESERVATION_BOOKING_CONNECT_PATH,
   type ReservationSettingsSnapshot,
 } from "@/lib/reservationConnection";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CalendarDays, CloudDownload, RefreshCw, Plug, Users } from "lucide-react";
+import { CloudDownload, Plug, RefreshCw, Users } from "lucide-react";
 import { PAGE_SHELL } from "@/lib/page-shell";
 import { toast } from "sonner";
 
@@ -79,9 +78,7 @@ export default function ReservationsPage() {
       : !isLoading && data && !data.success
         ? data.error ?? ""
         : "";
-  const notConnected =
-    !settingsQuery.isLoading &&
-    !bookingConnected;
+  const notConnected = !settingsQuery.isLoading && !bookingConnected;
   const apiConfigError =
     !isLoading &&
     bookingConnected &&
@@ -110,144 +107,154 @@ export default function ReservationsPage() {
 
   return (
     <div className={`${PAGE_SHELL} py-8 space-y-6`}>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Users className="h-7 w-7 text-emerald-600 shrink-0" />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            <Users className="h-7 w-7 shrink-0 text-emerald-600" aria-hidden />
             {t("dashboard.reservations.title")}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">{t("dashboard.reservations.page_subtitle")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {notConnected
+              ? t("dashboard.reservations.page_subtitle_disconnected")
+              : t("dashboard.reservations.page_subtitle")}
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {notConnected ? (
+        {bookingConnected ? (
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
-              onClick={goConnectBooking}
+              variant="secondary"
+              onClick={() => void handleImportFromEatNowApi()}
+              disabled={isLoading || isImporting}
+              title={t("dashboard.reservations.import_from_api_title")}
             >
-              <Plug className="h-4 w-4 mr-2" />
-              {t("dashboard.reservations.connect_booking_system")}
+              <CloudDownload className={`mr-2 h-4 w-4 ${isImporting ? "animate-pulse" : ""}`} />
+              {t("dashboard.reservations.import_from_api")}
             </Button>
-          ) : (
-            <>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => void handleImportFromEatNowApi()}
-                disabled={isLoading || isImporting}
-                title={t("dashboard.reservations.import_from_api_title")}
-              >
-                <CloudDownload className={`h-4 w-4 mr-2 ${isImporting ? "animate-pulse" : ""}`} />
-                {t("dashboard.reservations.import_from_api")}
-              </Button>
-              <Button variant="outline" onClick={() => refetch()} disabled={isLoading || isImporting}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-                {t("dashboard.reservations.refresh")}
-              </Button>
-            </>
-          )}
-        </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => refetch()}
+              disabled={isLoading || isImporting}
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+              {t("dashboard.reservations.refresh")}
+            </Button>
+          </div>
+        ) : null}
       </div>
 
-      <Card className="w-full border-slate-200 dark:border-slate-800 shadow-sm">
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-emerald-600" />
-            {t("dashboard.reservations.date_range")}
-          </CardTitle>
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-auto"
-              disabled={notConnected}
-            />
-            <span className="text-muted-foreground">{t("dashboard.reservations.date_to")}</span>
-            <Input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-auto"
-              disabled={notConnected}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          {(settingsQuery.isLoading || (bookingConnected && isLoading)) && (
-            <p className="text-sm text-muted-foreground py-8 text-center">{t("dashboard.reservations.loading")}</p>
-          )}
-          {!settingsQuery.isLoading && notConnected && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="flex flex-col gap-4 rounded-xl border border-amber-200/90 bg-amber-50/90 px-4 py-5 dark:border-amber-900/50 dark:bg-amber-950/25 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="flex gap-3 min-w-0">
-                <Plug className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" aria-hidden />
-                <div className="min-w-0">
-                  <p className="font-semibold text-slate-900 dark:text-white">
-                    {t("dashboard.reservations.not_connected_title")}
-                  </p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                    {t("dashboard.reservations.connect_booking_body")}
-                  </p>
-                </div>
-              </div>
-              <Button
-                type="button"
-                className="shrink-0 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
-                onClick={goConnectBooking}
-              >
-                <Plug className="h-4 w-4 mr-2" />
-                {t("dashboard.reservations.connect_booking_system")}
-              </Button>
+      {settingsQuery.isLoading ? (
+        <p className="py-12 text-center text-sm text-muted-foreground">
+          {t("dashboard.reservations.loading")}
+        </p>
+      ) : notConnected ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex flex-col items-start gap-4 rounded-xl border border-border/80 bg-card px-5 py-8 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex min-w-0 gap-3">
+            <Plug className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+            <div className="min-w-0 space-y-1">
+              <p className="font-semibold text-foreground">
+                {t("dashboard.reservations.not_connected_title")}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {t("dashboard.reservations.connect_booking_body")}
+              </p>
             </div>
+          </div>
+          <Button
+            type="button"
+            className="shrink-0 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+            onClick={goConnectBooking}
+          >
+            <Plug className="mr-2 h-4 w-4" />
+            {t("dashboard.reservations.connect_booking_system")}
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4 rounded-xl border border-border/80 bg-card p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium text-foreground">
+              {t("dashboard.reservations.date_range")}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-auto"
+              />
+              <span className="text-muted-foreground">{t("dashboard.reservations.date_to")}</span>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-auto"
+              />
+            </div>
+          </div>
+
+          {isLoading && (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              {t("dashboard.reservations.loading")}
+            </p>
           )}
-          {!settingsQuery.isLoading && bookingConnected && !isLoading && apiConfigError && (
+
+          {!isLoading && apiConfigError && (
             <div
               role="status"
-              className="flex flex-col gap-4 rounded-xl border border-amber-200/90 bg-amber-50/90 px-4 py-5 dark:border-amber-900/50 dark:bg-amber-950/25 sm:flex-row sm:items-center sm:justify-between mb-4"
+              className="flex flex-col gap-3 rounded-lg border border-border/80 bg-muted/40 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
             >
-              <p className="text-sm text-slate-700 dark:text-slate-300">{rawErrorMessage || t("dashboard.reservations.connect_settings")}</p>
-              <Button type="button" variant="outline" onClick={goConnectBooking}>
+              <p className="text-sm text-foreground">
+                {rawErrorMessage || t("dashboard.reservations.connect_settings")}
+              </p>
+              <Button type="button" variant="outline" size="sm" onClick={goConnectBooking}>
                 {t("dashboard.reservations.open_settings")}
               </Button>
             </div>
           )}
-          {bookingConnected && !isLoading && !notConnected && isError && (
-            <p className="text-sm text-destructive py-4">
+
+          {!isLoading && isError && !apiConfigError && (
+            <p className="py-4 text-sm text-destructive">
               {(error as Error)?.message || t("dashboard.reservations.load_failed")}
             </p>
           )}
-          {bookingConnected && !isLoading && data && !data.success && !apiConfigError && (
-            <p className="text-sm text-destructive py-4">{data.error || t("dashboard.reservations.load_failed")}</p>
+
+          {!isLoading && data && !data.success && !apiConfigError && (
+            <p className="py-4 text-sm text-destructive">
+              {data.error || t("dashboard.reservations.load_failed")}
+            </p>
           )}
-          {bookingConnected && !isLoading && data?.success && rows.length === 0 && (
-            <div className="space-y-2 py-8 text-center px-2">
+
+          {!isLoading && data?.success && rows.length === 0 && (
+            <div className="space-y-1 py-10 text-center">
               <p className="text-sm text-muted-foreground">{t("dashboard.reservations.empty_table")}</p>
-              <p className="text-xs text-muted-foreground max-w-lg mx-auto">
+              <p className="mx-auto max-w-md text-xs text-muted-foreground">
                 {t("dashboard.reservations.empty_import_hint")}
               </p>
             </div>
           )}
-          {bookingConnected && !isLoading && data?.success && rows.length > 0 && (
-            <div className="rounded-md border overflow-x-auto">
+
+          {!isLoading && data?.success && rows.length > 0 && (
+            <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>When</TableHead>
-                    <TableHead>Guest</TableHead>
-                    <TableHead>Covers</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Notes</TableHead>
+                    <TableHead>{t("dashboard.reservations.col_when")}</TableHead>
+                    <TableHead>{t("dashboard.reservations.col_guest")}</TableHead>
+                    <TableHead>{t("dashboard.reservations.covers")}</TableHead>
+                    <TableHead>{t("dashboard.reservations.col_status")}</TableHead>
+                    <TableHead>{t("dashboard.reservations.col_contact")}</TableHead>
+                    <TableHead>{t("dashboard.reservations.col_notes")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rows.map((r) => (
                     <TableRow key={r.id || `${r.start_time}-${r.guest_name}`}>
-                      <TableCell className="font-medium whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap font-medium">
                         {r.start_time ? String(r.start_time) : "-"}
                       </TableCell>
                       <TableCell>{r.guest_name || "-"}</TableCell>
@@ -261,10 +268,10 @@ export default function ReservationsPage() {
                           "-"
                         )}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                      <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
                         {[r.phone, r.email].filter(Boolean).join(" · ") || "-"}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[220px] truncate">
+                      <TableCell className="max-w-[220px] truncate text-sm text-muted-foreground">
                         {r.notes || "-"}
                       </TableCell>
                     </TableRow>
@@ -273,8 +280,8 @@ export default function ReservationsPage() {
               </Table>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }

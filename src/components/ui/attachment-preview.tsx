@@ -38,6 +38,14 @@ import {
   X,
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 /**
@@ -490,6 +498,130 @@ export function AttachmentPreview({
       sizeLabel={sizeLabel}
       className={className}
     />
+  );
+}
+
+export type AttachmentViewerState = {
+  url: string;
+  name?: string;
+  label?: string | null;
+};
+
+function mimeHintFromLabel(label: string | null | undefined): string {
+  const key = (label || "").trim().toLowerCase();
+  if (key === "picture") return "image/jpeg";
+  if (key === "voice") return "audio/mpeg";
+  if (key === "invoice") return "application/pdf";
+  if (key === "document") return "application/octet-stream";
+  return "";
+}
+
+function viewerKind(
+  attachment: AttachmentViewerState,
+): AttachmentKind {
+  const like: AttachmentLike = {
+    url: attachment.url,
+    filename: attachment.name,
+    content_type: mimeHintFromLabel(attachment.label),
+  };
+  const kind = classifyKind(like);
+  if (kind === "other" && attachment.label?.toLowerCase() === "picture") {
+    return "image";
+  }
+  return kind;
+}
+
+/** Full-screen modal preview for Live Ops and other list surfaces. */
+export function AttachmentViewerModal({
+  open,
+  onOpenChange,
+  attachment,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  attachment: AttachmentViewerState | null;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const url = attachment?.url?.trim() || "";
+  const name = attachment?.name?.trim() || "Attachment";
+  const kind = attachment ? viewerKind(attachment) : "other";
+
+  useEffect(() => {
+    if (open) setImgError(false);
+  }, [open, url]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className={cn(
+          "max-h-[92vh] w-[min(96vw,56rem)] gap-0 overflow-hidden p-0",
+          kind === "pdf" && "max-w-4xl",
+        )}
+      >
+        <DialogHeader className="space-y-1 border-b border-border px-5 py-4 pr-12">
+          <DialogTitle className="truncate text-base">{name}</DialogTitle>
+        </DialogHeader>
+        <div className="max-h-[calc(92vh-8rem)] overflow-auto bg-muted/20 px-5 py-4">
+          {!url ? (
+            <p className="text-sm text-muted-foreground">No file to preview.</p>
+          ) : kind === "image" ? (
+            imgError ? (
+              <p className="text-sm text-muted-foreground">Preview unavailable.</p>
+            ) : (
+              <img
+                src={url}
+                alt={name}
+                onError={() => setImgError(true)}
+                className="mx-auto max-h-[70vh] w-full object-contain"
+              />
+            )
+          ) : kind === "pdf" ? (
+            <iframe
+              title={name}
+              src={url}
+              className="h-[70vh] w-full rounded-md border border-border bg-background"
+            />
+          ) : kind === "video" ? (
+            <video
+              controls
+              preload="metadata"
+              src={url}
+              className="mx-auto max-h-[70vh] w-full rounded-md bg-black"
+            >
+              <track kind="captions" />
+            </video>
+          ) : kind === "audio" ? (
+            <div className="rounded-lg border border-border bg-background p-4">
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+              <audio controls preload="metadata" src={url} className="w-full" />
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-4 py-8 text-center">
+              <IconForKind kind={kind} className="h-12 w-12 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Preview is not available for this file type.
+              </p>
+            </div>
+          )}
+        </div>
+        {url ? (
+          <DialogFooter className="border-t border-border px-5 py-3 sm:justify-between">
+            <Button type="button" variant="outline" size="sm" asChild>
+              <a href={url} download={name}>
+                <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                Download
+              </a>
+            </Button>
+            <Button type="button" variant="secondary" size="sm" asChild>
+              <a href={url} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                Open in new tab
+              </a>
+            </Button>
+          </DialogFooter>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }
 

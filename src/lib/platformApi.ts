@@ -400,6 +400,30 @@ export type PlatformAgentMetrics = {
   };
 };
 
+export type PlatformBriefingRecipient = {
+  user_id: string;
+  role: string;
+  email: string;
+  name: string;
+  channels: Record<string, string>;
+};
+
+export type PlatformBriefing = {
+  id: string;
+  kind: "morning" | "evening" | string;
+  kind_label: string;
+  local_date: string | null;
+  status: string;
+  body: string;
+  error: string;
+  restaurant_id: string;
+  restaurant_name: string;
+  created_at: string | null;
+  owner_count: number;
+  manager_count: number;
+  recipients: PlatformBriefingRecipient[];
+};
+
 export type Paginated<T> = {
   count: number;
   page?: number;
@@ -534,6 +558,10 @@ export const platformApi = {
   audit: (params?: Record<string, string>) => {
     const qs = new URLSearchParams(params || {}).toString();
     return platformFetch<Paginated<PlatformAuditRow>>(`/audit/${qs ? `?${qs}` : ""}`);
+  },
+  briefings: (params?: Record<string, string>) => {
+    const qs = new URLSearchParams(params || {}).toString();
+    return platformFetch<Paginated<PlatformBriefing>>(`/briefings/${qs ? `?${qs}` : ""}`);
   },
   agentTurns: (params?: Record<string, string>) => {
     const qs = new URLSearchParams(params || {}).toString();

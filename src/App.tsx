@@ -126,6 +126,9 @@ const PlatformConversationDetailPage = React.lazy(
 const PlatformAgentQualityPage = React.lazy(
   () => import("./pages/platform-admin/AgentQualityPage")
 );
+const PlatformBriefingsPage = React.lazy(
+  () => import("./pages/platform-admin/BriefingsPage")
+);
 const StaffAppsPage = React.lazy(() => import("./pages/StaffAppsPage"));
 const SafetyDashboard = React.lazy(() => import("./pages/SafetyDashboard"));
 const PinLogin = React.lazy(() => import("./components/auth/PinLogin"));
@@ -144,6 +147,7 @@ const RolePermissionsPage = React.lazy(() => import("./pages/settings/RolePermis
 const StaffManagement = React.lazy(() => import("./pages/StaffManagement"));
 const StaffRequestsPage = React.lazy(() => import("./pages/StaffRequestsPage"));
 const RedirectToStaffRequests = React.lazy(() => import("./pages/RedirectToStaffRequests"));
+const RedirectToOperationsLive = React.lazy(() => import("./pages/RedirectToOperationsLive"));
 const WeeklyScheduleView = React.lazy(
   () => import("./pages/WeeklyScheduleView")
 );
@@ -196,7 +200,7 @@ const ResetPassword = React.lazy(() => import("./pages/ResetPassword"));
 const DashboardAttendancePage = React.lazy(
   () => import("./pages/DashboardAttendancePage")
 );
-const TakeOrdersPage = React.lazy(() => import("./pages/TakeOrdersPage"));
+const OrdersPage = React.lazy(() => import("./pages/orders/OrdersPage"));
 const CleaningTasks = React.lazy(() => import("./pages/CleaningTasks"));
 const ActivityLogPage = React.lazy(() => import("./pages/ActivityLogPage"));
 const OnboardingWizard = React.lazy(() => import("./pages/OnboardingWizard"));
@@ -309,6 +313,7 @@ const App = () => {
                   <Route path="whatsapp" element={<PlatformWhatsAppPage />} />
                   <Route path="health" element={<PlatformHealthPage />} />
                   <Route path="audit" element={<PlatformAuditPage />} />
+                  <Route path="briefings" element={<PlatformBriefingsPage />} />
                   <Route path="agent/turns" element={<PlatformAgentTurnsPage />} />
                   <Route path="agent/turns/:id" element={<PlatformAgentTurnDetailPage />} />
                   <Route path="agent/conversations" element={<PlatformConversationsPage />} />
@@ -358,8 +363,8 @@ const App = () => {
                   <Route path="tasks" element={<Navigate to="/dashboard/operations/approvals" replace />} />
                   <Route path="incidents" element={<ManagerReviewDashboard />} />
                   <Route path="checklists" element={<ManagerReviewDashboard />} />
-                  <Route path="requests" element={<RedirectToStaffRequests />} />
-                  <Route path="requests/:id" element={<RedirectToStaffRequests />} />
+                  <Route path="requests" element={<RedirectToOperationsLive />} />
+                  <Route path="requests/:id" element={<RedirectToOperationsLive />} />
                 </Route>
                 <Route path="dashboard/employees" element={<DomainLayout domain="employees" />}>
                   <Route index element={<DomainOverviewPage />} />
@@ -380,10 +385,10 @@ const App = () => {
                   <Route path="waste" element={<WastePage />} />
                 </Route>
                 <Route path="dashboard/customers" element={<DomainLayout domain="customers" />}>
-                  <Route index element={<DomainOverviewPage />} />
-                  <Route path="list" element={<DomainOverviewPage />} />
+                  <Route index element={<Navigate to="/dashboard/customers/reservations" replace />} />
+                  <Route path="list" element={<Navigate to="/dashboard/customers/reservations" replace />} />
                   <Route path="reservations" element={<ReservationsPage />} />
-                  <Route path="orders" element={<TakeOrdersPage />} />
+                  <Route path="orders" element={<OrdersPage />} />
                   <Route path="insights" element={<DomainOverviewPage />} />
                 </Route>
                 <Route path="dashboard/suppliers" element={<DomainLayout domain="suppliers" />}>
@@ -443,7 +448,7 @@ const App = () => {
                     <RoleBasedRoute
                       allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}
                     >
-                      <TakeOrdersPage />
+                      <OrdersPage />
                     </RoleBasedRoute>
                   }
                 />
@@ -962,7 +967,7 @@ const App = () => {
                   }
                 />
                 <Route path="chat" element={<StaffChat />} />
-                <Route path="take-orders" element={<TakeOrdersPage />} />
+                <Route path="take-orders" element={<OrdersPage />} />
                 <Route
                   path="announcements"
                   element={<StaffChat />}

@@ -126,15 +126,16 @@ export function DomainOverviewPage({ domain: domainProp }: { domain?: DomainId }
 
   const siblingLinks = (DOMAIN_SECTIONS[domain] || []).filter((s) => !s.exact && s.href !== section?.href);
   const workspaceLinks = (DOMAIN_SECTIONS[domain] || []).filter((s) => !s.exact);
+  const compactShell = domain === "customers";
 
   return (
     <MizanPageShell
-      eyebrow={eyebrow}
+      eyebrow={compactShell ? undefined : eyebrow}
       title={title}
-      description={subtitle || sectionDescription}
-      showAskAgent
+      description={compactShell ? undefined : subtitle || sectionDescription}
+      showAskAgent={!compactShell}
       askAgentPrompt={t("domain.ask_prompt", { domain: domainTitle })}
-      hero
+      hero={!compactShell}
     >
       {onOverviewIndex ? (
         <>
@@ -270,11 +271,6 @@ export function DomainOverviewPage({ domain: domainProp }: { domain?: DomainId }
                 </li>
               ))}
             </ul>
-          ) : null}
-          {section?.href ? (
-            <Button className="mt-6" variant="secondary" onClick={() => navigate(section.href)}>
-              {t("domain.open_section", { section: sectionTitle, defaultValue: `Open ${sectionTitle}` })}
-            </Button>
           ) : null}
         </section>
       )}

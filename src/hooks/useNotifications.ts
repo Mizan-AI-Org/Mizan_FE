@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from './use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { API_BASE, WS_BASE } from "@/lib/api";
+import { mapNotification } from "@/lib/mapNotification";
 
 interface Notification {
     id: string;
@@ -12,6 +13,8 @@ interface Notification {
     is_read: boolean;
     notification_type: string;
     title?: string;
+    link?: string;
+    data?: { route?: string };
     attachments?: Array<{
         original_name?: string;
         url?: string;
@@ -86,6 +89,7 @@ export const useNotifications = () => {
             return [];
         },
         enabled: !!user, // Only fetch if user is logged in
+        refetchInterval: 30_000,
     });
 
     // Mutation to mark a single notification as read
@@ -267,11 +271,7 @@ export const useNotifications = () => {
     return {
         notifications: normalized.map(n => ({
             ...n,
-            read: n.is_read, // Map backend 'is_read' to frontend 'read'
-            timestamp: n.created_at, // Map backend 'created_at' to frontend 'timestamp'
-            verb: (n.notification_type || '').replace(/_/g, ' ').toLowerCase(), // Derive verb from type safely
-            description: formatNotificationMessage(n.message), // Map backend 'message' to frontend 'description', formatted for display
-            title: (n as any).title,
+            ...mapNotification(n, formatNotificationMessage),
             attachments: (n as any).attachments || [],
         })),
         unreadCount: normalized.filter(n => !n.is_read).length,

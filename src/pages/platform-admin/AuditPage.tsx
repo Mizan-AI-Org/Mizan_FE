@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { platformApi } from "@/lib/platformApi";
 import { Loader2 } from "lucide-react";
 import OpsPagination from "@/components/platform-admin/OpsPagination";
+import OpsDateRangeFilter from "@/components/platform-admin/OpsDateRangeFilter";
+import { dateRangeQueryParams } from "@/lib/opsDateRange";
 import {
   opsMuted,
   opsPage,
@@ -24,11 +26,14 @@ function formatWhen(value?: string | null) {
 
 export default function AuditPage() {
   const [page, setPage] = useState(1);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const { data, isLoading, error, isFetching } = useQuery({
-    queryKey: ["platform-audit", page],
+    queryKey: ["platform-audit", page, dateFrom, dateTo],
     queryFn: () =>
       platformApi.audit({
+        ...dateRangeQueryParams(dateFrom, dateTo),
         page: String(page),
         page_size: String(PAGE_SIZE),
       }),
@@ -36,12 +41,23 @@ export default function AuditPage() {
 
   return (
     <div className={opsPage}>
-      <header>
-        <h2 className={opsTitle}>Audit log</h2>
-        <p className={opsSubtitle}>
-          Recent platform and cross-tenant events
-          {typeof data?.count === "number" ? ` · ${data.count} total` : ""}
-        </p>
+      <header className="space-y-4">
+        <div>
+          <h2 className={opsTitle}>Audit log</h2>
+          <p className={opsSubtitle}>
+            Recent platform and cross-tenant events
+            {typeof data?.count === "number" ? ` · ${data.count} total` : ""}
+          </p>
+        </div>
+        <OpsDateRangeFilter
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onChange={({ dateFrom: nextFrom, dateTo: nextTo }) => {
+            setPage(1);
+            setDateFrom(nextFrom);
+            setDateTo(nextTo);
+          }}
+        />
       </header>
 
       {isLoading ? (

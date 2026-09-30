@@ -1200,8 +1200,42 @@ export class BackendService {
     return this.fetchWithError(`/dashboard/meetings-reminders/${qs}`);
   }
 
+  async createCalendarEvent(payload: {
+    title: string;
+    startsAt: string;
+    endsAt: string;
+    location?: string;
+    notes?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.fetchWithError("/calendar/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updateCalendarEvent(
+    eventId: string,
+    payload: {
+      title?: string;
+      startsAt?: string;
+      endsAt?: string;
+      location?: string;
+      notes?: string;
+      shiftMinutes?: number;
+    },
+  ): Promise<Record<string, unknown>> {
+    return this.fetchWithError(`/calendar/${eventId}/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteCalendarEvent(eventId: string): Promise<{ deleted?: boolean }> {
+    return this.fetchWithError(`/calendar/${eventId}/`, { method: "DELETE" });
+  }
+
   /**
-   * Accounts-payable invoices for the Finance widget + the Finance
+   * Accounts-payable invoices for the Finance
    * page. Tenant-scoped; manager role required server-side. Pass
    * ``status=OPEN`` (default) to see only unpaid; ``overdue=true`` to
    * see only past-due rows; ``due_within=7`` to see "due this week".

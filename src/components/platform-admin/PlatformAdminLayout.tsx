@@ -13,6 +13,8 @@ import {
   Bot,
   MessagesSquare,
   Gauge,
+  Sunrise,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PlatformMe } from "@/lib/platformApi";
@@ -21,18 +23,46 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { LiveDateTime } from "@/components/LiveDateTime";
 import { UserAvatarMenu } from "@/components/layout/UserAvatarMenu";
 
-const NAV = [
-  { to: "/admin", end: true, label: "Overview", icon: LayoutDashboard },
-  { to: "/admin/tenants", label: "Tenants", icon: Building2 },
-  { to: "/admin/users", label: "Users", icon: Users },
-  { to: "/admin/operators", label: "Operators", icon: Shield },
-  { to: "/admin/billing", label: "Billing", icon: CreditCard },
-  { to: "/admin/whatsapp", label: "WhatsApp", icon: MessageCircle },
-  { to: "/admin/agent/turns", label: "Agent turns", icon: Bot },
-  { to: "/admin/agent/conversations", label: "Conversations", icon: MessagesSquare },
-  { to: "/admin/agent/quality", label: "Agent quality", icon: Gauge },
-  { to: "/admin/health", label: "Health", icon: HeartPulse },
-  { to: "/admin/audit", label: "Audit", icon: ScrollText },
+type NavItem = {
+  to: string;
+  end?: boolean;
+  label: string;
+  icon: LucideIcon;
+};
+
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+  {
+    label: "Directory",
+    items: [
+      { to: "/admin", end: true, label: "Overview", icon: LayoutDashboard },
+      { to: "/admin/tenants", label: "Tenants", icon: Building2 },
+      { to: "/admin/users", label: "Users", icon: Users },
+      { to: "/admin/operators", label: "Operators", icon: Shield },
+    ],
+  },
+  {
+    label: "Messages",
+    items: [
+      { to: "/admin/briefings", label: "Briefings", icon: Sunrise },
+      { to: "/admin/whatsapp", label: "WhatsApp", icon: MessageCircle },
+      { to: "/admin/agent/conversations", label: "Conversations", icon: MessagesSquare },
+    ],
+  },
+  {
+    label: "Agent",
+    items: [
+      { to: "/admin/agent/turns", label: "Agent turns", icon: Bot },
+      { to: "/admin/agent/quality", label: "Agent quality", icon: Gauge },
+    ],
+  },
+  {
+    label: "Platform",
+    items: [
+      { to: "/admin/billing", label: "Billing", icon: CreditCard },
+      { to: "/admin/health", label: "Health", icon: HeartPulse },
+      { to: "/admin/audit", label: "Audit", icon: ScrollText },
+    ],
+  },
 ];
 
 export default function PlatformAdminLayout() {
@@ -94,26 +124,33 @@ export default function PlatformAdminLayout() {
 
       <div className="flex min-h-0 flex-1">
         <aside className="flex w-[15.5rem] shrink-0 flex-col border-r border-slate-200 bg-white text-slate-900 shadow-[4px_0_24px_-12px_rgba(15,23,42,0.12)] dark:border-slate-800 dark:bg-gradient-to-b dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 dark:text-slate-100 dark:shadow-[4px_0_24px_-12px_rgba(15,23,42,0.45)]">
-          <nav className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-3 pt-4">
-            {NAV.map(({ to, end, label, icon: Icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={end}
-                className={({ isActive }) =>
-                  cn(
-                    "group flex items-center gap-3 rounded-xl px-3.5 py-3 text-[14px] font-semibold transition-all",
-                    isActive
-                      ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/25 [&_span]:bg-slate-950/15 [&_span]:text-slate-950"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 [&_span]:bg-slate-100 [&_span]:text-slate-500 hover:[&_span]:bg-emerald-50 hover:[&_span]:text-emerald-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white dark:[&_span]:bg-white/5 dark:[&_span]:text-slate-400 dark:hover:[&_span]:bg-white/10 dark:hover:[&_span]:text-emerald-300",
-                  )
-                }
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors">
-                  <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2.25} />
-                </span>
-                {label}
-              </NavLink>
+          <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 pt-4">
+            {NAV_GROUPS.map((group) => (
+              <div key={group.label} className="space-y-1">
+                <p className="px-3.5 pb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                  {group.label}
+                </p>
+                {group.items.map(({ to, end, label, icon: Icon }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    end={end}
+                    className={({ isActive }) =>
+                      cn(
+                        "group flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[14px] font-semibold transition-all",
+                        isActive
+                          ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/25 [&_span]:bg-slate-950/15 [&_span]:text-slate-950"
+                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 [&_span]:bg-slate-100 [&_span]:text-slate-500 hover:[&_span]:bg-emerald-50 hover:[&_span]:text-emerald-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white dark:[&_span]:bg-white/5 dark:[&_span]:text-slate-400 dark:hover:[&_span]:bg-white/10 dark:hover:[&_span]:text-emerald-300",
+                      )
+                    }
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors">
+                      <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2.25} />
+                    </span>
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
             ))}
           </nav>
 

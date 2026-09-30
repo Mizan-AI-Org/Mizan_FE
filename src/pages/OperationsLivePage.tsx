@@ -61,6 +61,10 @@ import {
   type LiveOpsPriority,
 } from "@/components/dashboard/dashboard-task-detail-utils";
 import { toast } from "sonner";
+import {
+  AttachmentViewerModal,
+  type AttachmentViewerState,
+} from "@/components/ui/attachment-preview";
 
 type LaneKey = "pending" | "in_progress" | "completed";
 
@@ -216,33 +220,48 @@ function OperationDemandCell({ item }: { item: OperationsLiveItem }) {
   );
 }
 
+function attachmentViewStateFromItem(item: OperationsLiveItem): AttachmentViewerState | null {
+  const raw = (item.attachment_url || item.proof_media_url || "").trim();
+  if (!raw) return null;
+  const url = resolveStoredMediaUrl(raw, BACKEND_URL) || raw;
+  const { title } = operationCell(item);
+  return {
+    url,
+    name: title !== "—" ? title : undefined,
+    label: item.attachment_label,
+  };
+}
+
 function attachmentCell(
   item: OperationsLiveItem,
   t: (key: string, options?: Record<string, unknown>) => string,
+  onOpenAttachment: () => void,
 ): React.ReactNode {
   const label = item.attachment_label;
-  const url = item.attachment_url;
-  if (!label) {
+  const url = item.attachment_url || item.proof_media_url;
+  if (!label && !url) {
     return (
       <span className="text-muted-foreground">{t("operations_live.attachment.none")}</span>
     );
   }
-  const text = t(`operations_live.attachment.${label}`, { defaultValue: label });
+  const text = label
+    ? t(`operations_live.attachment.${label}`, { defaultValue: label })
+    : t("operations_live.attachment.document", { defaultValue: "document" });
   if (!url) return <span className="text-foreground/80">{text}</span>;
-  const href = resolveStoredMediaUrl(url, BACKEND_URL);
   const Icon =
     label === "picture" ? ImageIcon : label === "voice" ? Mic : FileText;
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
+    <button
+      type="button"
       className="inline-flex items-center gap-1.5 text-foreground underline-offset-2 hover:underline"
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpenAttachment();
+      }}
     >
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       {text}
-    </a>
+    </button>
   );
 }
 
@@ -251,6 +270,7 @@ function OperationsLiveRow({
   lane,
   t,
   onOpen,
+  onOpenAttachment,
   onStatusChange,
   onPriorityChange,
   isUpdating,
@@ -259,6 +279,7 @@ function OperationsLiveRow({
   lane: LaneKey;
   t: (key: string, options?: Record<string, unknown>) => string;
   onOpen: () => void;
+  onOpenAttachment: () => void;
   onStatusChange: (status: OperationsLiveItem["status"]) => void;
   onPriorityChange: (priority: LiveOpsPriority) => void;
   isUpdating: boolean;
@@ -270,12 +291,18 @@ function OperationsLiveRow({
   ).filter((s) => s !== "CANCELLED");
   const isUrgent = toLiveOpsPriority(item.priority) === "URGENT";
   const escalated = item.escalated_to;
+  const isInvoice = item.kind === "invoice";
+  const hasAttachment = Boolean(
+    (item.attachment_url || item.proof_media_url || "").trim(),
+  );
   const canCancel =
+    !isInvoice &&
     item.can_cancel !== false &&
     !["COMPLETED", "CANCELLED"].includes(String(item.status || "").toUpperCase());
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `row:${item.id}`,
     data: { item, fromLane: lane },
+    disabled: isInvoice,
   });
 
   const moveTargets = (["pending", "in_progress", "completed"] as LaneKey[]).filter(
@@ -337,28 +364,40 @@ function OperationsLiveRow({
         </span>
       </td>
       <td className="px-4 py-3.5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-        <Select
-          value={toLiveOpsPriority(item.priority)}
-          onValueChange={(value) => onPriorityChange(value as LiveOpsPriority)}
-          disabled={isUpdating}
-        >
-          <SelectTrigger
+        {isInvoice ? (
+          <Badge
+            variant="outline"
             className={cn(
-              "h-7 w-[7.5rem] rounded-full border px-2.5 text-[11px] font-bold uppercase",
+              "h-7 rounded-full px-2.5 text-[11px] font-bold uppercase pointer-events-none",
               dashboardTaskPriorityBadge(item.priority),
             )}
-            aria-label={t("operations_live.col.priority")}
           >
-            <SelectValue>{dashboardTaskPriorityLabel(item.priority, t)}</SelectValue>
-          </SelectTrigger>
-          <SelectContent align="start">
-            {LIVE_OPS_PRIORITIES.map((priority) => (
-              <SelectItem key={priority} value={priority}>
-                {dashboardTaskPriorityLabel(priority, t)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            {dashboardTaskPriorityLabel(item.priority, t)}
+          </Badge>
+        ) : (
+          <Select
+            value={toLiveOpsPriority(item.priority)}
+            onValueChange={(value) => onPriorityChange(value as LiveOpsPriority)}
+            disabled={isUpdating}
+          >
+            <SelectTrigger
+              className={cn(
+                "h-7 w-[7.5rem] rounded-full border px-2.5 text-[11px] font-bold uppercase",
+                dashboardTaskPriorityBadge(item.priority),
+              )}
+              aria-label={t("operations_live.col.priority")}
+            >
+              <SelectValue>{dashboardTaskPriorityLabel(item.priority, t)}</SelectValue>
+            </SelectTrigger>
+            <SelectContent align="start">
+              {LIVE_OPS_PRIORITIES.map((priority) => (
+                <SelectItem key={priority} value={priority}>
+                  {dashboardTaskPriorityLabel(priority, t)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </td>
       <td className="px-4 py-3.5 whitespace-nowrap">
         <Badge
@@ -389,7 +428,7 @@ function OperationsLiveRow({
           <span className="text-muted-foreground">-</span>
         )}
       </td>
-      <td className="px-4 py-3.5 text-[13px]">{attachmentCell(item, t)}</td>
+      <td className="px-4 py-3.5 text-[13px]">{attachmentCell(item, t, onOpenAttachment)}</td>
       <td className="px-2 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -408,10 +447,21 @@ function OperationsLiveRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem onClick={onOpen}>
-              {t("operations_live.action.view")}
-            </DropdownMenuItem>
-            {LIVE_OPS_PRIORITIES.map((priority) => (
+            {isInvoice ? (
+              hasAttachment ? (
+                <DropdownMenuItem onClick={onOpenAttachment}>
+                  {t("operations_live.action.view_attachment", {
+                    defaultValue: "View attachment",
+                  })}
+                </DropdownMenuItem>
+              ) : null
+            ) : (
+              <DropdownMenuItem onClick={onOpen}>
+                {t("operations_live.action.view")}
+              </DropdownMenuItem>
+            )}
+            {!isInvoice &&
+              LIVE_OPS_PRIORITIES.map((priority) => (
               <DropdownMenuItem
                 key={priority}
                 onClick={() => onPriorityChange(priority)}
@@ -422,7 +472,7 @@ function OperationsLiveRow({
                 })}
               </DropdownMenuItem>
             ))}
-            {moveTargets.map((target) => (
+            {!isInvoice && moveTargets.map((target) => (
               <DropdownMenuItem
                 key={target}
                 onClick={() => onStatusChange(LANE_STATUS[target])}
@@ -430,12 +480,12 @@ function OperationsLiveRow({
                 {t(`operations_live.move_to.${target}`)}
               </DropdownMenuItem>
             ))}
-            {primary ? (
+            {!isInvoice && primary ? (
               <DropdownMenuItem onClick={() => onStatusChange(primary.nextStatus)}>
                 {primary.label}
               </DropdownMenuItem>
             ) : null}
-            {secondary.map((s) => (
+            {!isInvoice && secondary.map((s) => (
               <DropdownMenuItem key={s} onClick={() => onStatusChange(s)}>
                 {dashboardTaskStatusLabel(s, t)}
               </DropdownMenuItem>
@@ -514,6 +564,7 @@ function OperationsLiveTable({
   onPageChange,
   t,
   onOpenRow,
+  onOpenAttachment,
   onStatusChange,
   onPriorityChange,
   updatingId,
@@ -527,6 +578,7 @@ function OperationsLiveTable({
   onPageChange: (page: number) => void;
   t: (key: string, options?: Record<string, unknown>) => string;
   onOpenRow: (id: string) => void;
+  onOpenAttachment: (item: OperationsLiveItem) => void;
   onStatusChange: (id: string, status: OperationsLiveItem["status"]) => void;
   onPriorityChange: (id: string, priority: LiveOpsPriority) => void;
   updatingId: string | null;
@@ -591,6 +643,7 @@ function OperationsLiveTable({
                     lane={lane}
                     t={t}
                     onOpen={() => onOpenRow(item.id)}
+                    onOpenAttachment={() => onOpenAttachment(item)}
                     onStatusChange={(status) => onStatusChange(item.id, status)}
                     onPriorityChange={(priority) => onPriorityChange(item.id, priority)}
                     isUpdating={updatingId === item.id}
@@ -677,6 +730,10 @@ export default function OperationsLivePage() {
   });
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [activeDrag, setActiveDrag] = useState<OperationsLiveItem | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<AttachmentViewerState | null>(
+    null,
+  );
+  const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -848,7 +905,17 @@ export default function OperationsLivePage() {
     },
   };
 
+  const openAttachmentPreview = (item: OperationsLiveItem) => {
+    const state = attachmentViewStateFromItem(item);
+    if (!state) return;
+    setAttachmentPreview(state);
+    setAttachmentPreviewOpen(true);
+  };
+
   const openRow = (taskId: string) => {
+    const pools = [data?.pending, data?.in_progress, data?.completed];
+    const item = pools.flatMap((rows) => rows ?? []).find((row) => row.id === taskId);
+    if (!item) return;
     openDashboardTaskSheet(navigate, location, taskId, { keepPath: true });
   };
 
@@ -868,7 +935,7 @@ export default function OperationsLivePage() {
       ?.fromLane;
     const item = (event.active.data.current as { item?: OperationsLiveItem } | undefined)
       ?.item;
-    if (!item || fromLane === targetLane) return;
+    if (!item || item.kind === "invoice" || fromLane === targetLane) return;
     if (laneForStatus(item.status) === targetLane) return;
     setActiveLane(targetLane);
     statusMutation.mutate({ taskId: item.id, status: LANE_STATUS[targetLane] });
@@ -1077,6 +1144,7 @@ export default function OperationsLivePage() {
                   }
                   t={t}
                   onOpenRow={openRow}
+                  onOpenAttachment={openAttachmentPreview}
                   onStatusChange={(id, status) =>
                     statusMutation.mutate({ taskId: id, status })
                   }
@@ -1098,6 +1166,11 @@ export default function OperationsLivePage() {
           </DndContext>
         )}
       </div>
+      <AttachmentViewerModal
+        open={attachmentPreviewOpen}
+        onOpenChange={setAttachmentPreviewOpen}
+        attachment={attachmentPreview}
+      />
     </div>
   );
 }

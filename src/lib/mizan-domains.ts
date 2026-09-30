@@ -25,7 +25,6 @@ export const DOMAIN_SECTIONS: Record<DomainId, DomainSection[]> = {
     { labelKey: "nav.work.approvals", href: "/dashboard/operations/approvals" },
     { labelKey: "nav.work.incidents", href: "/dashboard/operations/incidents" },
     { labelKey: "nav.work.staff_checklists", href: "/dashboard/operations/checklists" },
-    { labelKey: "nav.work.requests", href: "/dashboard/staff-requests" },
   ],
   employees: [
     { labelKey: "nav.overview", href: "/dashboard/employees", exact: true },
@@ -43,8 +42,6 @@ export const DOMAIN_SECTIONS: Record<DomainId, DomainSection[]> = {
     { labelKey: "nav.products.waste", href: "/dashboard/products/waste" },
   ],
   customers: [
-    { labelKey: "nav.overview", href: "/dashboard/customers", exact: true },
-    { labelKey: "nav.customers.list", href: "/dashboard/customers/list" },
     { labelKey: "nav.customers.reservations", href: "/dashboard/customers/reservations" },
     { labelKey: "nav.customers.orders", href: "/dashboard/customers/orders" },
     { labelKey: "nav.customers.insights", href: "/dashboard/customers/insights" },

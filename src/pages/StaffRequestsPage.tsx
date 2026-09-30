@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { API_BASE, parseStaffRequestListResponse, unwrapApiPayload } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -294,7 +294,6 @@ async function apiPost<T>(path: string, body?: any): Promise<T> {
 }
 
 type DetailKind = "staff_request" | "dashboard" | "scheduling" | "invoice";
-type TasksDemandsTab = "pending" | "in_progress" | "completed";
 type FinanceListFilter = "all" | "overdue" | "pending_approval";
 
 type StaffRequestsDeepLink = {
@@ -348,7 +347,7 @@ function tasksDemandsDetailKind(row: Pick<DashboardTaskDemandItem, "kind">): Det
 }
 
 function tasksDemandsDetailHref(row: DashboardTaskDemandItem): string {
-  return `/dashboard/staff-requests?list=dashboard&task=${row.id}`;
+  return `/dashboard/operations/live?task=${row.id}`;
 }
 
 function resolveStoredMediaUrl(path: string | null | undefined): string {
@@ -790,12 +789,6 @@ const StaffRequestsPage: React.FC = () => {
     return "staff_request";
   })();
 
-  const initialDashboardListMode = (() => {
-    if (searchParams.get("task")) return searchParams.get("list") === "dashboard";
-    if (searchParams.get("id")) return false;
-    return searchParams.get("list") === "dashboard";
-  })();
-
   const initialFinanceListMode = (() => {
     if (searchParams.get("task") || searchParams.get("id") || params.id) return false;
     return searchParams.get("list") === "finance";
@@ -803,46 +796,36 @@ const StaffRequestsPage: React.FC = () => {
 
   const initialFinanceFilter = resolveFinanceListFilter(searchParams.get("filter"));
 
-  // Dashboard tasks open in the layout right pane (?task=), not a full-page route.
+  // Dashboard / scheduling tasks live on Live Operations.
   useEffect(() => {
     if (!params.id) return;
     const kind = (searchParams.get("kind") || "").toLowerCase();
     if (kind !== "dashboard" && kind !== "scheduling") return;
-
-    const next = new URLSearchParams(searchParams);
-    next.delete("kind");
-    next.set("task", params.id);
-    if (next.get("list") === "dashboard" || searchParams.get("list") === "dashboard") {
-      next.set("list", "dashboard");
-    }
-    navigate({ pathname: "/dashboard/staff-requests", search: next.toString() }, { replace: true });
+    navigate(
+      { pathname: "/dashboard/operations/live", search: `task=${params.id}` },
+      { replace: true },
+    );
   }, [params.id, searchParams, navigate]);
 
-  // Legacy ?id= query → ?task= right pane.
+  // Legacy ?id= query → Live Operations task pane.
   useEffect(() => {
     if (params.id) return;
     const id = (searchParams.get("id") || "").trim();
     if (!id) return;
-
-    const next = new URLSearchParams(searchParams);
-    next.delete("id");
-    next.set("task", id);
-    const kind = next.get("kind") || "dashboard";
-    next.delete("kind");
-    if (searchParams.get("list") === "dashboard") {
-      next.set("list", "dashboard");
-    }
-    navigate({ pathname: location.pathname, search: next.toString() }, { replace: true });
-  }, [params.id, searchParams, navigate, location.pathname]);
+    const kind = (searchParams.get("kind") || "dashboard").toLowerCase();
+    if (kind !== "dashboard" && kind !== "scheduling") return;
+    navigate(
+      { pathname: "/dashboard/operations/live", search: `task=${id}` },
+      { replace: true },
+    );
+  }, [params.id, searchParams, navigate]);
 
   const [activeStatus, setActiveStatus] = useState<StaffRequestStatus>(initialStatusFromUrl);
   /** null = All Requests; otherwise a dashboard widget lane id (e.g. team_medical_service). */
   const [activeLaneId, setActiveLaneId] = useState<string | null>(null);
   const [detailKind, setDetailKind] = useState<DetailKind>(initialDetailKind);
-  const [dashboardListMode, setDashboardListMode] = useState(initialDashboardListMode);
   const [financeListMode, setFinanceListMode] = useState(initialFinanceListMode);
   const [financeFilter, setFinanceFilter] = useState<FinanceListFilter>(initialFinanceFilter);
-  const [demandsTab, setDemandsTab] = useState<TasksDemandsTab>("pending");
   const [activePriority, setActivePriority] = useState<string>(initialPriorityFilter);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -886,13 +869,8 @@ const StaffRequestsPage: React.FC = () => {
     if (dl.kind === "invoice") {
       setDetailKind("invoice");
     }
-    if (dl.list === "dashboard" && !searchParams.get("id")) {
-      setDashboardListMode(true);
-      setFinanceListMode(false);
-    }
     if (dl.list === "finance" && !searchParams.get("id")) {
       setFinanceListMode(true);
-      setDashboardListMode(false);
       setFinanceFilter(resolveFinanceListFilter(dl.filter));
     }
 
@@ -1130,14 +1108,6 @@ const StaffRequestsPage: React.FC = () => {
     selectedId === dashboardTask.id &&
     !requests.some((r) => r.id === dashboardTask.id);
 
-  const tasksDemandsQuery = useQuery({
-    queryKey: ["dashboard", "tasks-demands", 25],
-    queryFn: () => api.getDashboardTasksDemands(25),
-    enabled: dashboardListMode,
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
-
   const financeCategoryQuery = useQuery({
     queryKey: ["dashboard", "category-tasks", "finance", 50],
     queryFn: () => api.getDashboardCategoryTasks("finance", 50),
@@ -1159,37 +1129,41 @@ const StaffRequestsPage: React.FC = () => {
     refetchOnWindowFocus: false,
   });
 
-  const demandCounts = tasksDemandsQuery.data?.counts ?? {
-    pending: 0,
-    in_progress: 0,
-    completed: 0,
-  };
-
-  const demandRows = useMemo(() => {
-    const data = tasksDemandsQuery.data;
-    if (!data) return [];
-    if (demandsTab === "pending") return data.pending;
-    if (demandsTab === "in_progress") return data.in_progress;
-    return data.completed;
-  }, [tasksDemandsQuery.data, demandsTab]);
-
-  const filteredDemandRows = useMemo(() => {
-    if (!debouncedSearch) return demandRows;
-    const q = debouncedSearch.toLowerCase();
-    return demandRows.filter(
-      (row) =>
-        row.title.toLowerCase().includes(q) ||
-        (row.description || "").toLowerCase().includes(q) ||
-        (row.assignee?.name || "").toLowerCase().includes(q),
-    );
-  }, [demandRows, debouncedSearch]);
-
   const onSelectDashboardTask = (row: DashboardTaskDemandItem) => {
-    const next = new URLSearchParams(searchParams);
-    next.set("task", row.id);
-    next.set("list", "dashboard");
-    navigate({ pathname: location.pathname, search: next.toString() });
+    navigate(`/dashboard/operations/live?task=${row.id}`);
   };
+
+  const tasksDemandsRedirectTarget = useMemo(() => {
+    const list = searchParams.get("list");
+    const kind = (searchParams.get("kind") || "").toLowerCase();
+    const task = (searchParams.get("task") || "").trim();
+    const toLive = (taskId?: string | null) =>
+      taskId
+        ? `/dashboard/operations/live?task=${encodeURIComponent(taskId)}`
+        : "/dashboard/operations/live";
+
+    if (list === "dashboard") return toLive(task || null);
+    if (params.id && (kind === "dashboard" || kind === "scheduling")) {
+      return toLive(params.id);
+    }
+    if (
+      task &&
+      !params.id &&
+      searchParams.get("list") !== "finance" &&
+      (kind === "dashboard" || kind === "scheduling" || list === "dashboard")
+    ) {
+      return toLive(task);
+    }
+    if (
+      (kind === "dashboard" || kind === "scheduling") &&
+      !params.id &&
+      !financeListMode &&
+      list !== "finance"
+    ) {
+      return toLive(task || null);
+    }
+    return null;
+  }, [searchParams, params.id, financeListMode]);
 
   const mutateAction = useMutation({
     mutationFn: async ({ action, payload }: { action: string; payload?: any }) => {
@@ -1225,7 +1199,6 @@ const StaffRequestsPage: React.FC = () => {
 
   const onSelect = (id: string) => {
     setDetailKind("staff_request");
-    setDashboardListMode(false);
     const params = new URLSearchParams();
     if (activeLaneId) params.set("lane", activeLaneId);
     params.set("status", activeStatus);
@@ -1280,9 +1253,7 @@ const StaffRequestsPage: React.FC = () => {
 
   const pageTitle = financeListMode
     ? laneTitle("finance", t("staff.requests.lane.finance.title", { defaultValue: "Finance" }))
-    : dashboardListMode
-      ? t("staff.requests.tasks_demands_title")
-      : laneTitle(activeLaneId, activeLane?.page_title);
+    : laneTitle(activeLaneId, activeLane?.page_title);
   const pageSubtitle = financeListMode
     ? financeFilter === "overdue"
       ? t("staff.requests.finance_subtitle_overdue", {
@@ -1295,9 +1266,7 @@ const StaffRequestsPage: React.FC = () => {
         : laneSubtitle("finance", t("staff.requests.lane.finance.subtitle", {
             defaultValue: "Invoices, bills, and money-out requests.",
           }))
-    : dashboardListMode
-      ? t("staff.requests.tasks_demands_subtitle")
-      : laneSubtitle(activeLaneId, activeLane?.page_subtitle) || null;
+    : laneSubtitle(activeLaneId, activeLane?.page_subtitle) || null;
 
   const financeCategoryRows = useMemo(() => {
     const items = financeCategoryQuery.data?.items ?? [];
@@ -1340,6 +1309,10 @@ const StaffRequestsPage: React.FC = () => {
     }
     onSelectDashboardTask(row);
   };
+
+  if (tasksDemandsRedirectTarget) {
+    return <Navigate to={tasksDemandsRedirectTarget} replace />;
+  }
 
   if (isInvoiceDetail && selectedId) {
     const invoice = invoiceQuery.data;
@@ -1509,122 +1482,6 @@ const StaffRequestsPage: React.FC = () => {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (dashboardListMode) {
-    const demandTabs: { id: TasksDemandsTab; label: string; count: number }[] = [
-      { id: "pending", label: t("dashboard.tasks_demands.tab_pending"), count: demandCounts.pending },
-      { id: "in_progress", label: t("dashboard.tasks_demands.tab_in_progress"), count: demandCounts.in_progress },
-      { id: "completed", label: t("dashboard.tasks_demands.tab_completed"), count: demandCounts.completed },
-    ];
-
-    return (
-      <div className={`${PAGE_SHELL} py-6`}>
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
-            <h2 className="text-2xl font-bold">{pageTitle}</h2>
-            {pageSubtitle ? (
-              <p className="text-sm text-muted-foreground mt-1">{pageSubtitle}</p>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/50 p-0.5">
-            {demandTabs.map((tb) => {
-              const active = demandsTab === tb.id;
-              return (
-                <button
-                  key={tb.id}
-                  type="button"
-                  onClick={() => setDemandsTab(tb.id)}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
-                    active
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <span>{tb.label}</span>
-                  <Badge variant="secondary" className="h-4 min-w-4 px-1 text-[10px] rounded-full">
-                    {tb.count}
-                  </Badge>
-                </button>
-              );
-            })}
-          </div>
-          <div className="flex gap-2 w-full md:w-[360px]">
-            <Input
-              placeholder={t("staff.requests.search_tasks")}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <Button variant="outline" onClick={() => setSearch("")}>
-              {t("staff.requests.clear")}
-            </Button>
-          </div>
-        </div>
-
-        <Card className="h-[72vh] max-w-2xl">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">{t("staff.requests.inbox_tasks_demands")}</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <ScrollArea className="h-[62vh] pr-3">
-              {tasksDemandsQuery.isLoading ? (
-                <div className="text-sm text-muted-foreground py-6">{t("staff.requests.loading")}</div>
-              ) : tasksDemandsQuery.isError ? (
-                <div className="text-sm text-red-600 py-6">{t("staff.requests.load_tasks_failed")}</div>
-              ) : filteredDemandRows.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-10 text-center">{t("staff.requests.no_tasks")}</div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredDemandRows.map((row) => (
-                    <button
-                      key={row.id}
-                      type="button"
-                      onClick={() => onSelectDashboardTask(row)}
-                      className={cn(
-                        "w-full text-left rounded-xl border p-4 transition-all duration-200 group relative overflow-hidden",
-                        taskSheetId === row.id
-                          ? "border-primary/50 bg-primary/5 shadow-sm ring-1 ring-primary/20"
-                          : "border-border hover:border-border-hover hover:bg-muted/50",
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                            {row.source_label || row.source}
-                          </div>
-                          <div className="font-semibold text-sm truncate">{row.title}</div>
-                          {row.ai_summary || row.description ? (
-                            <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 line-clamp-1">
-                              {row.ai_summary || row.description}
-                            </div>
-                          ) : null}
-                          <div className="text-xs text-muted-foreground mt-1 truncate">
-                            {row.assignee?.name || t("staff.requests.unassigned")}
-                          </div>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-[9px] font-bold px-1.5 py-0 shrink-0",
-                            dashboardTaskStatusBadge(row.status),
-                          )}
-                        >
-                          {dashboardTaskStatusLabel(row.status, t)}
-                        </Badge>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
           </CardContent>
         </Card>
       </div>

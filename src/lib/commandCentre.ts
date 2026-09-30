@@ -73,7 +73,45 @@ export type CommandCentrePayload = {
     href: string;
     severity?: string;
   }>;
+  briefing?: CommandBriefingSnapshot;
 };
+
+export type CommandBriefingSnapshot = {
+  restaurantName?: string;
+  asOf?: string;
+  whatsHappening?: string;
+  whatNeedsAttention?: string;
+  live?: {
+    summary?: string;
+    missingClockIns?: Array<{ id?: string; name?: string }>;
+    clockedIn?: unknown[];
+    todaysClockIns?: unknown[];
+  };
+  upcomingShifts?: Array<{
+    id?: string;
+    staffName?: string;
+    startsAt?: string;
+    start_time?: string;
+    end_time?: string;
+    roleLabel?: string;
+  }>;
+  inventoryAlerts?: Array<{ id: string; name: string; quantity?: number; unit?: string }>;
+};
+
+const OPS_HEALTH_DEFAULTS: Record<CommandCentrePayload["ops_health"], string> = {
+  strained: "Needs attention",
+  stable: "Steady",
+  healthy: "Running smoothly",
+};
+
+/** Plain-language ops health for managers (not engineering jargon). */
+export function localizedOpsHealth(
+  opsHealth: CommandCentrePayload["ops_health"] | undefined,
+  t: (key: string, opts?: Record<string, string | number>) => string,
+): string {
+  const ops: CommandCentrePayload["ops_health"] = opsHealth ?? "stable";
+  return t(`command.ops_health.${ops}`, { defaultValue: OPS_HEALTH_DEFAULTS[ops] });
+}
 
 export function localizedCommandGreeting(
   data: Pick<CommandCentrePayload, "greeting" | "greeting_period" | "greeting_name">,

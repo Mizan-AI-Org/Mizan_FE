@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -34,8 +34,11 @@ import {
   opsBadgeViolet,
 } from "@/components/platform-admin/opsStyles";
 import { cn } from "@/lib/utils";
+import OpsPagination from "@/components/platform-admin/OpsPagination";
 
 type Tab = "config" | "templates";
+
+const TEMPLATE_PAGE_SIZE = 10;
 
 const SETUP_STEPS = [
   {
@@ -97,6 +100,7 @@ export default function WhatsAppPage() {
     footer_text: "",
   });
   const [showNewTemplate, setShowNewTemplate] = useState(false);
+  const [templatePage, setTemplatePage] = useState(1);
 
   const queryClient = useQueryClient();
 
@@ -117,6 +121,16 @@ export default function WhatsAppPage() {
     queryFn: () => platformApi.whatsappTemplates(),
     enabled: tab === "templates",
   });
+
+  const templateResults = templatesQuery.data?.results || [];
+  const templateRows = useMemo(() => {
+    const start = (templatePage - 1) * TEMPLATE_PAGE_SIZE;
+    return templateResults.slice(start, start + TEMPLATE_PAGE_SIZE);
+  }, [templateResults, templatePage]);
+
+  useEffect(() => {
+    setTemplatePage(1);
+  }, [templateResults.length]);
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -665,12 +679,12 @@ export default function WhatsAppPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {(templatesQuery.data?.results || []).length === 0 ? (
+              {templateResults.length === 0 ? (
                 <div className={`${opsCard} p-8 text-center ${opsMuted}`}>
                   No templates cached yet. Save WhatsApp config, then click Sync from Meta.
                 </div>
               ) : (
-                templatesQuery.data?.results.map((t: PlatformWhatsAppTemplate) => (
+                templateRows.map((t: PlatformWhatsAppTemplate) => (
                   <article key={t.id} className={`${opsCard} p-5 space-y-3`}>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="space-y-2">
@@ -708,6 +722,15 @@ export default function WhatsAppPage() {
                   </article>
                 ))
               )}
+              {templateResults.length > 0 ? (
+                <OpsPagination
+                  page={templatePage}
+                  pageSize={TEMPLATE_PAGE_SIZE}
+                  total={templateResults.length}
+                  onPageChange={setTemplatePage}
+                  className={`${opsCard} border-0 shadow-none`}
+                />
+              ) : null}
             </div>
           )}
         </div>

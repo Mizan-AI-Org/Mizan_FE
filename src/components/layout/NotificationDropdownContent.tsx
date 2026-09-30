@@ -144,7 +144,7 @@ function NotificationRow({
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
-          <p className="truncate text-xs font-medium capitalize">{notification.verb.replace(/_/g, " ")}</p>
+          <p className="truncate text-xs font-medium capitalize">{notification.title || notification.verb.replace(/_/g, " ")}</p>
           <span className="shrink-0 text-[10px] text-muted-foreground">
             {formatRelativeTime(notification.timestamp)}
           </span>

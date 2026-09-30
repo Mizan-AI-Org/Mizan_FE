@@ -15,7 +15,7 @@ import { DashboardTaskDetailContent } from "@/components/dashboard/DashboardTask
 import { toast } from "sonner";
 
 function tasksDemandsDetailHref(taskId: string): string {
-  return `/dashboard/staff-requests?list=dashboard&task=${taskId}`;
+  return `/dashboard/operations/live?task=${taskId}`;
 }
 
 export function DashboardTaskDetailSheet({
@@ -147,6 +147,10 @@ export function DashboardTaskDetailSheet({
   });
 
   const task = taskQuery.data;
+  const sheetTitle =
+    task?.kind === "invoice"
+      ? t("dashboard.task_detail.invoice_title", { defaultValue: "Invoice" })
+      : t("dashboard.task_detail.title", { defaultValue: "Task" });
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
@@ -156,11 +160,9 @@ export function DashboardTaskDetailSheet({
         overlayClassName="bg-black/50 pointer-events-auto"
       >
         <SheetHeader className="shrink-0 space-y-1 pr-8 text-left">
-          <SheetTitle className="text-base font-semibold">
-            {t("dashboard.task_detail.title", { defaultValue: "Task" })}
-          </SheetTitle>
+          <SheetTitle className="text-base font-semibold">{sheetTitle}</SheetTitle>
           <SheetDescription className="sr-only">
-            {task?.title || t("dashboard.task_detail.title", { defaultValue: "Task" })}
+            {task?.title || sheetTitle}
           </SheetDescription>
         </SheetHeader>
 
@@ -179,7 +181,11 @@ export function DashboardTaskDetailSheet({
             <DashboardTaskDetailContent
               task={task}
               widgetTitle={widgetTitle}
-              onStatusChange={(nextStatus) => statusMutation.mutate(nextStatus)}
+              onStatusChange={
+                task.kind === "invoice"
+                  ? undefined
+                  : (nextStatus) => statusMutation.mutate(nextStatus)
+              }
               onPriorityChange={
                 task.kind === "invoice"
                   ? undefined

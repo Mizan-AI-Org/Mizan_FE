@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useToast } from "@/components/ui/use-toast";
 import { Loader2, Mail, Lock } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "@/hooks/use-language";
@@ -23,7 +22,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({
   const [error, setError] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const { toast } = useToast();
   const auth = useAuth();
   const { t } = useLanguage();
 
@@ -48,15 +46,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({
 
     try {
       await auth.login(email, credential);
-
-      const displayName =
-        auth.user?.first_name?.trim() ||
-        (auth.user?.email ? auth.user.email.split("@")[0] : "there");
-
-      toast({
-        title: `${t("auth.toasts.welcome_back")}, ${displayName}!`,
-        description: t("auth.toasts.signed_in_success"),
-      });
     } catch (error: unknown) {
       if (error instanceof Error) {
         const raw = (error.message || "").toLowerCase();

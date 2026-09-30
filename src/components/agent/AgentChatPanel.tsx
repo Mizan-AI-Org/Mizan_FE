@@ -412,10 +412,10 @@ function AgentCollapsedRail({
         <div
           className={cn(
             "relative rounded-full",
-            isBusy ? "mizan-agent-glow-ring" : "mizan-agent-glow-ring-idle",
+            isBusy || signalBadge > 0 ? "mizan-agent-glow-ring" : "mizan-agent-glow-ring-idle",
           )}
         >
-          <AgentAvatar size="lg" ring className="relative z-[1] ring-primary/40 ring-offset-2" />
+          <AgentAvatar size="lg" ring className="relative z-[1] ring-primary/50 ring-offset-2 ring-offset-background" />
         </div>
         {signalBadge > 0 ? (
           <span className="absolute -end-1 -top-1 z-[2] flex h-5 min-w-5 items-center justify-center rounded-full bg-high px-1 text-[10px] font-bold text-high-foreground shadow-md ring-2 ring-background">
@@ -428,7 +428,7 @@ function AgentCollapsedRail({
           />
         )}
       </div>
-      <span className="mizan-agent-tab-label relative z-10 text-[10px] font-bold uppercase text-primary/90 group-hover:text-primary">
+      <span className="mizan-agent-tab-label relative z-10 text-[10px] font-bold uppercase tracking-widest text-primary drop-shadow-[0_0_12px_hsl(var(--primary)/0.45)] group-hover:text-primary">
         {agentLabel}
       </span>
     </button>
@@ -708,7 +708,7 @@ export const AgentChatPanel: React.FC = () => {
       {isDesktop ? (
         <aside
           className={cn(
-            "mizan-agent-rail mizan-agent-rail-captivate fixed end-0 z-[1600] hidden flex-col overflow-hidden border-s border-border/80 bg-card lg:flex",
+            "mizan-agent-rail mizan-agent-rail-captivate relative fixed end-0 z-[1600] hidden flex-col overflow-hidden border-s border-border/80 bg-card lg:flex",
             open
               ? "mizan-agent-rail-open w-[var(--mizan-agent-width)]"
               : "mizan-agent-rail-tab w-[var(--mizan-agent-tab-width)]",
