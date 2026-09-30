@@ -3,6 +3,10 @@ import { API_BASE } from "./api";
 export type MastraRunResponse = {
   success: boolean;
   text?: string;
+  /** Present when the user spoke via mic and TTS succeeded */
+  audioBase64?: string;
+  mimeType?: string;
+  replyAudioProvider?: string;
   correlationId?: string;
   finishReason?: string;
   mode?: string;
@@ -37,6 +41,8 @@ export type MastraChatMessage = {
   createdAt?: number;
   /** User spoke via mic — enables voice reply playback */
   fromVoice?: boolean;
+  /** Session-only TTS for this assistant turn (not persisted to localStorage) */
+  replyAudio?: { base64: string; mimeType: string };
 };
 
 const MAX_STORED_MESSAGES = 200;
@@ -128,7 +134,7 @@ export function loadMastraMessages(userId: string): MastraChatMessage[] {
 export function saveMastraMessages(userId: string, messages: MastraChatMessage[]): void {
   try {
     if (typeof window === "undefined") return;
-    const trimmed = messages.slice(-MAX_STORED_MESSAGES);
+    const trimmed = messages.slice(-MAX_STORED_MESSAGES).map(({ replyAudio: _drop, ...rest }) => rest);
     window.localStorage.setItem(mastraMessagesStorageKey(userId), JSON.stringify(trimmed));
   } catch {
     // ignore quota / private mode
@@ -295,6 +301,21 @@ async function safeFetch(url: string, init: RequestInit): Promise<Response | nul
   }
 }
 
+export function playAgentReplyAudio(base64: string, mimeType: string): void {
+  if (typeof window === "undefined" || !base64) return;
+  try {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: mimeType || "audio/mpeg" });
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    void audio.play().finally(() => URL.revokeObjectURL(url));
+  } catch {
+    // ignore playback errors
+  }
+}
+
 export async function runMastraChat(body: {
   message: string;
   conversationId?: string;
@@ -302,6 +323,7 @@ export async function runMastraChat(body: {
   locale?: string;
   locationId?: string;
   draftId?: string;
+  inputMode?: "text" | "voice";
 }): Promise<MastraRunResponse> {
   const response = await safeFetch(`${API_BASE}/mastra/run/`, {
     method: "POST",
@@ -314,6 +336,7 @@ export async function runMastraChat(body: {
       locale: body.locale,
       locationId: body.locationId,
       draftId: body.draftId,
+      inputMode: body.inputMode ?? "text",
     }),
   });
   if (!response) {
