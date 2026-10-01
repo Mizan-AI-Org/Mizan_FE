@@ -227,6 +227,8 @@ function phonesMatch(a: string | null | undefined, b: string | null | undefined)
 }
 
 const STAFF_ACTIVATION_WA_TEXT = "Hi Mizan AI, I am ready to activate my account!";
+/** Public Mizan WhatsApp number. Used when the API omits a wa.me link. */
+const MIZAN_ACTIVATION_WA_PHONE = "212784476751";
 
 /** Build a wa.me link with a specific prefilled message. */
 function buildWhatsAppMeLink(phoneDigits: string, text: string): string {
@@ -252,15 +254,25 @@ function isLegacyAiChatInviteLink(link: string): boolean {
 
 function isStaffActivationInviteLink(link: string): boolean {
     if (!link) return false;
+    if (/wa\.me\/\d+/i.test(link)) return true;
     // Short redirects: /wa (activation) - not /wa/hi (chat)
     if (/\/wa\/?($|\?)/i.test(link) && !/\/wa\/hi/i.test(link)) return true;
     if (link.includes("/api/go/wa")) return true;
     try {
         const decoded = decodeURIComponent(link);
-        return /activate my account/i.test(decoded);
+        return /activate my (staff )?account/i.test(decoded);
     } catch {
         return /activate/i.test(link);
     }
+}
+
+function unwrapInvitePayload(data: Record<string, unknown> | null | undefined) {
+    const nested = data && typeof data.data === "object" && data.data ? (data.data as Record<string, unknown>) : {};
+    return { ...nested, ...(data || {}) } as {
+        invite_link?: string;
+        invite_short_link?: string;
+        chat_link?: string;
+    };
 }
 
 /**
@@ -271,19 +283,16 @@ function pickActivationInviteLink(data: {
     invite_short_link?: string;
     chat_link?: string;
 }): string {
-    // Prefer short redirect (https://api…/wa) over the long wa.me URL.
-    const candidates = [data.invite_short_link, data.invite_link].filter(Boolean) as string[];
+    const candidates = [data.invite_link, data.invite_short_link, data.chat_link].filter(Boolean) as string[];
     for (const candidate of candidates) {
         if (isLegacyAiChatInviteLink(candidate)) continue;
-        if (isStaffActivationInviteLink(candidate) || candidate.includes("/wa")) {
-            return candidate;
-        }
+        if (/wa\.me\/\d+/i.test(candidate)) return candidate;
     }
-    // API sometimes returns chat_link-shaped URLs in invite fields - rebuild activation.
     const phone =
         extractWaMePhone(data.invite_link || "") ||
         extractWaMePhone(data.invite_short_link || "") ||
-        extractWaMePhone(data.chat_link || "");
+        extractWaMePhone(data.chat_link || "") ||
+        MIZAN_ACTIVATION_WA_PHONE;
     return buildWhatsAppMeLink(phone, STAFF_ACTIVATION_WA_TEXT);
 }
 
@@ -663,14 +672,27 @@ const TeamTab: React.FC = () => {
         }
     };
 
+    const fetchActivationInviteLink = async (): Promise<string> => {
+        const headers = {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            "Content-Type": "application/json",
+        };
+        let response = await fetch(`${API_BASE}/staff/activation/invite-link/`, { headers });
+        if (response.status === 405) {
+            response = await fetch(`${API_BASE}/staff/activation/invite-link/`, {
+                method: "POST",
+                headers,
+                body: "{}",
+            });
+        }
+        if (!response.ok) throw new Error("Failed to get link");
+        const data = unwrapInvitePayload(await response.json().catch(() => ({})));
+        return pickActivationInviteLink(data);
+    };
+
     const handleCopyActivationLink = async () => {
         try {
-            const response = await fetch(`${API_BASE}/staff/activation/invite-link/`, {
-                headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-            });
-            if (!response.ok) throw new Error("Failed to get link");
-            const data = await response.json().catch(() => ({}));
-            const link = pickActivationInviteLink(data);
+            const link = await fetchActivationInviteLink();
             if (link) {
                 await navigator.clipboard.writeText(link);
                 toast.success(t("toasts.invite_copied"));
@@ -686,12 +708,7 @@ const TeamTab: React.FC = () => {
     /** Copy the ONE-TAP WhatsApp activation invite. */
     const handleCopyWhatsAppInviteLink = async (): Promise<{ link: string; kind: "activation" } | null> => {
         try {
-            const response = await fetch(`${API_BASE}/staff/activation/invite-link/`, {
-                headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-            });
-            if (!response.ok) throw new Error("Failed to get link");
-            const data = await response.json().catch(() => ({}));
-            const link = pickActivationInviteLink(data);
+            const link = await fetchActivationInviteLink();
             if (!link) {
                 toast.error(t("errors.no_invite_link") || "WhatsApp link is not configured.");
                 return null;

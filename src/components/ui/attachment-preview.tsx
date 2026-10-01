@@ -365,11 +365,14 @@ export function AttachmentPreview({
   attachment,
   fallbackName,
   className,
+  imageClassName,
 }: {
   attachment: AttachmentLike;
   /** Used when the attachment has no resolvable name (e.g. legacy rows). */
   fallbackName?: string;
   className?: string;
+  /** Overrides the default 128px cover crop, e.g. a large incident photo. */
+  imageClassName?: string;
 }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -408,7 +411,10 @@ export function AttachmentPreview({
             alt={name}
             loading="lazy"
             onError={() => setImgError(true)}
-            className="h-32 w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+            className={cn(
+              "h-32 w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]",
+              imageClassName,
+            )}
           />
           {/* Overlay caption - subtle gradient + truncated filename + size */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 text-[11px] font-medium text-white">
@@ -629,11 +635,13 @@ export function AttachmentList({
   attachments,
   className,
   emptyMessage,
+  imageClassName,
 }: {
   attachments: AttachmentLike[] | undefined | null;
   className?: string;
   /** Shown when ``attachments`` is empty - pass ``null`` to render nothing. */
   emptyMessage?: string | null;
+  imageClassName?: string;
 }) {
   const safe = (attachments || []).filter((a) => !!a?.url);
   if (safe.length === 0) {
@@ -661,7 +669,9 @@ export function AttachmentList({
           className={cn(
             "grid gap-2",
             images.length === 1
-              ? "grid-cols-1 sm:max-w-sm"
+              ? imageClassName
+                ? "grid-cols-1"
+                : "grid-cols-1 sm:max-w-sm"
               : images.length === 2
               ? "grid-cols-2"
               : "grid-cols-2 sm:grid-cols-3",
@@ -672,6 +682,7 @@ export function AttachmentList({
               key={(a.url || "") + i}
               attachment={a}
               fallbackName={`Image ${i + 1}`}
+              imageClassName={imageClassName}
             />
           ))}
         </div>

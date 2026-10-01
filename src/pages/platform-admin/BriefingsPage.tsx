@@ -162,7 +162,6 @@ export default function BriefingsPage() {
         ...(role ? { role } : {}),
         ...(submitted ? { q: submitted } : {}),
         ...dateRangeQueryParams(dateFrom, dateTo),
-        status: "sent",
         page: String(page),
         page_size: String(PAGE_SIZE),
       }),
@@ -174,8 +173,8 @@ export default function BriefingsPage() {
         <div>
           <h2 className={opsTitle}>Briefings</h2>
           <p className={opsSubtitle}>
-            Daily morning briefings and evening debriefings sent to owners and managers
-            {typeof data?.count === "number" ? ` · ${data.count} sent` : ""}
+            Daily morning briefings and evening debriefings for owners and managers
+            {typeof data?.count === "number" ? ` · ${data.count}` : ""}
           </p>
         </div>
         <form

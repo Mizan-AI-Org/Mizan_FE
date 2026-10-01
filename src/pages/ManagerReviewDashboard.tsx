@@ -28,7 +28,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, TrendingUp, Users, ClipboardCheck, AlertTriangle, MapPin, User, Calendar, ShieldAlert, Camera, ChevronDown, Plus } from "lucide-react";
+import { RefreshCw, TrendingUp, Users, ClipboardCheck, AlertTriangle, MapPin, Calendar, ShieldAlert, Camera, ChevronDown, Plus } from "lucide-react";
 import { PAGE_SHELL } from "@/lib/page-shell";
 import { isUnresolvedIncidentStatus } from "@/lib/incidentStatus";
 import { incidentAssigneeId, matchingStaffOptionId, staffOptionsWithCurrentAssignee } from "@/lib/incidentPeople";
@@ -2055,7 +2055,7 @@ const ManagerReviewDashboard: React.FC = () => {
               }
             }}
           >
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 pr-6">
                   <ShieldAlert className="h-5 w-5 text-emerald-600 shrink-0" />
@@ -2072,88 +2072,56 @@ const ManagerReviewDashboard: React.FC = () => {
                   <Skeleton className="h-24 w-full" />
                 </div>
               ) : incidentDetail ? (
-                <div className="space-y-5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "uppercase text-[10px] font-bold border",
-                        dashboardTaskPriorityBadge(String(incidentDetail.priority || incidentDetail.severity || "")),
-                      )}
-                    >
-                      {incidentPriorityLabel(String(incidentDetail.priority || incidentDetail.severity || ""), t)}
-                    </Badge>
-                    <Badge variant="outline" className={getStatusColor(incidentDetail.status)}>
-                      {formatStatus(incidentDetail.status || "-")}
-                    </Badge>
-                    {incidentDetail.incident_type ? (
-                      <Badge variant="secondary" className="capitalize text-[10px]">
-                        {incidentDetail.incident_type}
-                      </Badge>
-                    ) : null}
-                    <span className="text-[11px] text-muted-foreground font-mono ml-auto">
-                      #{String(incidentDetail.id || "").slice(0, 8)}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 space-y-1">
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5" /> Location
-                      </div>
-                      <div className="font-medium">{incidentDetail.location || "Not specified"}</div>
-                    </div>
-                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 space-y-1">
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <User className="h-3.5 w-3.5" /> Reporter
-                      </div>
-                      <div className="font-medium">
-                        {incidentDetail.is_anonymous
-                          ? "Anonymous"
-                          : incidentDetail.reporter_details
-                            ? `${incidentDetail.reporter_details.first_name} ${incidentDetail.reporter_details.last_name}`
-                            : "-"}
-                      </div>
-                    </div>
-                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 space-y-1">
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Calendar className="h-3.5 w-3.5" /> Reported
-                      </div>
-                      <div className="font-medium">
-                        {incidentDetail.created_at
-                          ? new Date(incidentDetail.created_at).toLocaleString()
-                          : "-"}
-                      </div>
-                    </div>
-                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 space-y-1">
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Calendar className="h-3.5 w-3.5" /> Occurred
-                      </div>
-                      <div className="font-medium">
-                        {incidentDetail.occurred_at
-                          ? new Date(incidentDetail.occurred_at).toLocaleString()
-                          : "-"}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                      Description
-                    </div>
-                    <div className="rounded-lg border border-slate-100 dark:border-slate-800 p-3 text-sm whitespace-pre-wrap leading-relaxed">
-                      {incidentDetail.description || "No description provided."}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                      {t("analytics.incident_photo_evidence")}
-                    </div>
+                <div className="space-y-3">
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1.7fr)_13.5rem] lg:items-start">
                     <AttachmentList
                       attachments={incidentAttachmentItems(incidentDetail as IncidentDetail)}
                       emptyMessage={t("analytics.no_incident_photos")}
+                      imageClassName="h-auto min-h-[420px] max-h-[74vh] w-full bg-slate-100 object-contain dark:bg-slate-900"
                     />
+                    <div className="space-y-2 text-xs leading-snug">
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "uppercase text-[10px] font-bold border",
+                            dashboardTaskPriorityBadge(String(incidentDetail.priority || incidentDetail.severity || "")),
+                          )}
+                        >
+                          {incidentPriorityLabel(String(incidentDetail.priority || incidentDetail.severity || ""), t)}
+                        </Badge>
+                        <Badge variant="outline" className={getStatusColor(incidentDetail.status)}>
+                          {formatStatus(incidentDetail.status || "-")}
+                        </Badge>
+                      </div>
+                      <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
+                        <dt className="text-muted-foreground">Location</dt>
+                        <dd className="font-medium">{incidentDetail.location || "Not specified"}</dd>
+                        <dt className="text-muted-foreground">Reporter</dt>
+                        <dd className="font-medium">
+                          {incidentDetail.is_anonymous
+                            ? "Anonymous"
+                            : incidentDetail.reporter_details
+                              ? `${incidentDetail.reporter_details.first_name} ${incidentDetail.reporter_details.last_name}`
+                              : "-"}
+                        </dd>
+                        <dt className="text-muted-foreground">Reported</dt>
+                        <dd className="font-medium">
+                          {incidentDetail.created_at
+                            ? new Date(incidentDetail.created_at).toLocaleString()
+                            : "-"}
+                        </dd>
+                        <dt className="text-muted-foreground">Occurred</dt>
+                        <dd className="font-medium">
+                          {incidentDetail.occurred_at
+                            ? new Date(incidentDetail.occurred_at).toLocaleString()
+                            : "-"}
+                        </dd>
+                      </dl>
+                      <p className="line-clamp-6 whitespace-pre-wrap text-slate-700 dark:text-slate-200">
+                        {incidentDetail.description || "No description provided."}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
