@@ -39,7 +39,9 @@ function isReservationConnectionConfigError(message: string | undefined): boolea
   );
 }
 
-export default function ReservationsPage() {
+type ReservationsPanelProps = { embedded?: boolean };
+
+export function ReservationsPanel({ embedded = false }: ReservationsPanelProps) {
   const { accessToken } = useAuth();
   const navigate = useNavigate();
   const { t } = useLanguage();
@@ -105,22 +107,32 @@ export default function ReservationsPage() {
     }
   }
 
+  const shellClass = embedded ? "space-y-6" : `${PAGE_SHELL} space-y-6 py-8`;
+
   return (
-    <div className={`${PAGE_SHELL} py-8 space-y-6`}>
+    <div className={shellClass}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            <Users className="h-7 w-7 shrink-0 text-emerald-600" aria-hidden />
-            {t("dashboard.reservations.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+        {embedded ? (
+          <p className="text-sm text-muted-foreground">
             {notConnected
               ? t("dashboard.reservations.page_subtitle_disconnected")
               : t("dashboard.reservations.page_subtitle")}
           </p>
-        </div>
+        ) : (
+          <div className="min-w-0">
+            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+              <Users className="h-7 w-7 shrink-0 text-emerald-600" aria-hidden />
+              {t("dashboard.reservations.title")}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {notConnected
+                ? t("dashboard.reservations.page_subtitle_disconnected")
+                : t("dashboard.reservations.page_subtitle")}
+            </p>
+          </div>
+        )}
         {bookingConnected ? (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
             <Button
               type="button"
               variant="secondary"
@@ -284,4 +296,8 @@ export default function ReservationsPage() {
       )}
     </div>
   );
+}
+
+export default function ReservationsPage() {
+  return <ReservationsPanel />;
 }

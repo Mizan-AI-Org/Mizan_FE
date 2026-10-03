@@ -26,9 +26,13 @@ function parseCustomRoles(data: unknown): CustomStaffRoleRow[] {
   if (!Array.isArray(raw)) return [];
   const out: CustomStaffRoleRow[] = [];
   for (const item of raw) {
+    if (typeof item === "string") {
+      continue;
+    }
     if (!item || typeof item !== "object") continue;
-    const id = String((item as { id?: string }).id || "").trim();
-    const name = String((item as { name?: string }).name || "").trim();
+    const row = item as { id?: string; name?: string; label?: string; title?: string };
+    const name = String(row.name || row.label || row.title || "").trim();
+    const id = String(row.id || "").trim();
     if (id && name) out.push({ id, name });
   }
   return out;
@@ -53,7 +57,8 @@ export function useBusinessVertical() {
         customStaffRoles: parseCustomRoles(data),
       };
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
+    refetchOnMount: "always",
   });
 }
 

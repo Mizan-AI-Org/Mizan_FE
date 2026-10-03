@@ -14,7 +14,6 @@ import {
   CheckCircle,
   AlertCircle,
   AlertTriangle,
-  PlayCircle,
   CalendarClock,
   ListChecks,
   UserCircle,
@@ -98,15 +97,6 @@ interface StaffMetric {
   };
 }
 
-function MetricSkeleton() {
-  return (
-    <div className="animate-pulse space-y-2">
-      <div className="h-3 w-24 rounded bg-slate-200 dark:bg-slate-700" />
-      <div className="h-7 w-14 rounded bg-slate-200 dark:bg-slate-700" />
-    </div>
-  );
-}
-
 function StaffRowSkeleton() {
   return (
     <div className="p-4 flex flex-col md:flex-row items-center gap-4 md:gap-8 animate-pulse">
@@ -151,13 +141,8 @@ export default function TaskManagementBoard({
   const dailyProgressDate = dailyProgressQuery.data?.date;
 
   const [activeProcessesCount, setActiveProcessesCount] = useState(0);
-  const [tasksToday, setTasksToday] = useState({ total: 0, completed: 0, ongoing: 0 });
-  const [onTimeRate, setOnTimeRate] = useState(0);
-  const [onTimeChange, setOnTimeChange] = useState(0);
-  const [attentionNeeded, setAttentionNeeded] = useState(0);
   const [staffMetrics, setStaffMetrics] = useState<StaffMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [metricsLoaded, setMetricsLoaded] = useState(false);
   const [allTasks, setAllTasks] = useState<ScheduledTask[]>([]);
   const [assignedChecklists, setAssignedChecklists] = useState<AssignedChecklist[]>([]);
   const [taskTotal, setTaskTotal] = useState(0);
@@ -175,15 +160,9 @@ export default function TaskManagementBoard({
       if (response.ok) {
         const data = await response.json();
         setActiveProcessesCount(data.active_processes_count ?? 0);
-        setTasksToday(data.tasks_today ?? { total: 0, completed: 0, ongoing: 0 });
-        setOnTimeRate(data.on_time_rate ?? 0);
-        setOnTimeChange(data.on_time_change ?? 0);
-        setAttentionNeeded(data.attention_needed ?? 0);
       }
     } catch (error) {
       console.error('Failed to load metrics', error);
-    } finally {
-      setMetricsLoaded(true);
     }
   };
 
@@ -419,123 +398,8 @@ export default function TaskManagementBoard({
   const hasAnyProgress = hasShiftLiveProgress || hasDailyProgress;
   const progressLoading = isLoading || dailyProgressQuery.isLoading;
 
-  const metrics = [
-    {
-      key: "active",
-      label: t("live_board.active_ongoing_processes"),
-      value: String(activeProcessesCount),
-      subtext:
-        activeProcessesCount > 0
-          ? t("live_board.active_processes_scheduled", { count: activeProcessesCount })
-          : null,
-      change: undefined as number | undefined,
-      icon: PlayCircle,
-      accent: "text-sky-600 dark:text-sky-400",
-      iconBg: "bg-sky-50 dark:bg-sky-950/40",
-      alert: false,
-    },
-    {
-      key: "today",
-      label: t("live_board.processes_tasks_today"),
-      value: `${tasksToday.completed}/${tasksToday.total}`,
-      subtext: `${tasksToday.ongoing} ${t("live_board.in_progress")}`,
-      change: undefined as number | undefined,
-      icon: CheckCircle,
-      accent: "text-emerald-600 dark:text-emerald-400",
-      iconBg: "bg-emerald-50 dark:bg-emerald-950/40",
-      alert: false,
-    },
-    {
-      key: "ontime",
-      label: t("live_board.on_time_rate"),
-      value: `${onTimeRate}%`,
-      subtext: null as string | null,
-      change: onTimeChange,
-      icon: Clock,
-      accent: "text-primary",
-      iconBg: "bg-primary/10",
-      alert: false,
-    },
-    {
-      key: "attention",
-      label: t("live_board.attention_needed"),
-      value: String(attentionNeeded),
-      subtext:
-        attentionNeeded === 0
-          ? t("live_board.attention_clear")
-          : t("live_board.attention_count", { count: attentionNeeded }),
-      change: undefined as number | undefined,
-      icon: AlertCircle,
-      accent: attentionNeeded > 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-500 dark:text-slate-400",
-      iconBg:
-        attentionNeeded > 0
-          ? "bg-rose-50 dark:bg-rose-950/40"
-          : "bg-slate-100 dark:bg-slate-800",
-      alert: attentionNeeded > 0,
-    },
-  ];
-
   return (
     <div className="h-full flex flex-col space-y-5 w-full">
-      {/* Compact metrics strip - one composition, less empty card chrome */}
-      <section
-        aria-label={t("live_board.metrics_label")}
-        className="rounded-xl border border-border bg-card overflow-hidden"
-      >
-        <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-slate-100 dark:divide-slate-800">
-          {metrics.map((metric) => (
-            <div
-              key={metric.key}
-              className={cn(
-                "p-4 sm:p-5 flex items-start justify-between gap-3 min-h-[96px]",
-                metric.alert && "bg-rose-50/40 dark:bg-rose-950/20",
-              )}
-            >
-              {!metricsLoaded ? (
-                <MetricSkeleton />
-              ) : (
-                <>
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      {metric.label}
-                    </p>
-                    <div className="flex items-baseline gap-2 mt-1.5">
-                      <p
-                        className={cn(
-                          "text-2xl font-bold tabular-nums text-slate-900 dark:text-white leading-none",
-                          metric.alert && "text-rose-700 dark:text-rose-300",
-                        )}
-                      >
-                        {metric.value}
-                      </p>
-                      {metric.change !== undefined && metric.change !== 0 && (
-                        <span
-                          className={cn(
-                            "text-xs font-medium tabular-nums",
-                            metric.change >= 0 ? "text-emerald-600" : "text-rose-600",
-                          )}
-                        >
-                          {metric.change > 0 ? "+" : ""}
-                          {metric.change}%
-                        </span>
-                      )}
-                    </div>
-                    {metric.subtext && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-snug">
-                        {metric.subtext}
-                      </p>
-                    )}
-                  </div>
-                  <div className={cn("p-2 rounded-lg shrink-0", metric.iconBg)}>
-                    <metric.icon className={cn("w-4 h-4", metric.accent)} />
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* Staff Live Progress - deep-linked from dashboard Staff progress widget */}
       <Card
         id="staff-live-progress"

@@ -32,6 +32,8 @@ const KIND_FILTERS = [
 function roleLabel(role: string) {
   if (role === "OWNER") return "Owner";
   if (role === "MANAGER") return "Manager";
+  if (role === "ADMIN") return "Admin";
+  if (role === "SUPER_ADMIN") return "Super Admin";
   return role || "Recipient";
 }
 
@@ -49,9 +51,13 @@ function channelLabel(channel: string) {
 
 function audienceLine(row: PlatformBriefing) {
   const parts: string[] = [];
+  if (row.super_admin_count) {
+    parts.push(`${row.super_admin_count} super admin${row.super_admin_count === 1 ? "" : "s"}`);
+  }
+  if (row.admin_count) parts.push(`${row.admin_count} admin${row.admin_count === 1 ? "" : "s"}`);
   if (row.owner_count) parts.push(`${row.owner_count} owner${row.owner_count === 1 ? "" : "s"}`);
   if (row.manager_count) parts.push(`${row.manager_count} manager${row.manager_count === 1 ? "" : "s"}`);
-  return parts.join(" · ") || "No owners or managers";
+  return parts.join(" · ") || "No leadership recipients";
 }
 
 function RecipientRow({ person }: { person: PlatformBriefingRecipient }) {
@@ -136,7 +142,7 @@ function BriefingCard({ row }: { row: PlatformBriefing }) {
                 ))}
               </ul>
             ) : (
-              <p className={opsMuted}>No owner or manager deliveries recorded.</p>
+              <p className={opsMuted}>No leadership deliveries recorded.</p>
             )}
           </div>
         </div>
@@ -173,7 +179,7 @@ export default function BriefingsPage() {
         <div>
           <h2 className={opsTitle}>Briefings</h2>
           <p className={opsSubtitle}>
-            Daily morning briefings and evening debriefings for owners and managers
+            Daily morning briefings and evening debriefings for super admins, admins, managers, and owners
             {typeof data?.count === "number" ? ` · ${data.count}` : ""}
           </p>
         </div>
@@ -194,7 +200,9 @@ export default function BriefingsPage() {
             className={opsInput}
             aria-label="Recipient role"
           >
-            <option value="">Owners and managers</option>
+            <option value="">All leadership roles</option>
+            <option value="SUPER_ADMIN">Super admins only</option>
+            <option value="ADMIN">Admins only</option>
             <option value="OWNER">Owners only</option>
             <option value="MANAGER">Managers only</option>
           </select>

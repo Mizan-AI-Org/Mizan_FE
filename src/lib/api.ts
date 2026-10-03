@@ -1155,6 +1155,78 @@ export class BackendService {
     return this.fetchWithError(`/dashboard/staff-daily-progress/history/?days=${days}`);
   }
 
+  async getOperationsProgressSummary(opts: { date?: string; days?: number } = {}): Promise<{
+    date: string;
+    startDate: string;
+    days: number;
+    taskCompletionPct: number;
+    tasksCompleted: number;
+    tasksOpen: number;
+    tasksOverdueOpen: number;
+    checklistCompletionPct: number;
+    checklistStepsDone: number;
+    checklistStepsTotal: number;
+    attentionNeeded: number;
+    generatedAt: string;
+    definitions?: Record<string, string>;
+  }> {
+    const params = new URLSearchParams();
+    if (opts.date) params.set("date", opts.date);
+    if (opts.days != null && opts.days > 1) params.set("days", String(opts.days));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return this.fetchWithError(`/operations/progress/summary/${qs}`);
+  }
+
+  async getOperationsProgressByStaff(opts: { date?: string; days?: number } = {}): Promise<{
+    staff: Array<{
+      staffId: string;
+      name: string;
+      role: string;
+      tasks: {
+        total: number;
+        completed: number;
+        open: number;
+        overdueOpen: number;
+        completionPct: number | null;
+        onTimePct: number | null;
+        avgCompletionMinutes: number | null;
+      };
+      checklists: {
+        total: number;
+        done: number;
+        open: number;
+        completionPct: number | null;
+        avgCompletionMinutes: number | null;
+      };
+    }>;
+  }> {
+    const params = new URLSearchParams();
+    if (opts.date) params.set("date", opts.date);
+    if (opts.days != null && opts.days > 1) params.set("days", String(opts.days));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return this.fetchWithError(`/operations/progress/by-staff/${qs}`);
+  }
+
+  async getOperationsProgressByCategory(opts: { date?: string; days?: number } = {}): Promise<{
+    categories: Array<{
+      bucket: string;
+      labelKey: string;
+      total: number;
+      completed: number;
+      open: number;
+      completionPct: number;
+      onTimePct: number | null;
+      avgCompletionMinutes: number | null;
+      overdueOpen: number;
+    }>;
+  }> {
+    const params = new URLSearchParams();
+    if (opts.date) params.set("date", opts.date);
+    if (opts.days != null && opts.days > 1) params.set("days", String(opts.days));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return this.fetchWithError(`/operations/progress/by-category/${qs}`);
+  }
+
   async validateDashboardTask(taskId: string): Promise<{ success: boolean; validation_label?: string }> {
     return this.fetchWithError(`/dashboard/tasks/${taskId}/validate/`, { method: "POST", body: "{}" });
   }
@@ -1631,6 +1703,10 @@ export class BackendService {
     return this.fetchWithError("/dashboard/command-center/");
   }
 
+  async getNavAttention(): Promise<{ counts: Record<string, number>; generated_at?: string | null }> {
+    return this.fetchWithError("/dashboard/nav-attention/");
+  }
+
   async getDomainWorld(domain: string): Promise<{
     id: string;
     title: string;
@@ -1957,6 +2033,32 @@ export class BackendService {
     } catch (error: any) {
       throw new Error(error.message || "Failed to update staff role");
     }
+  }
+
+  async uploadStaffAvatar(
+    accessToken: string,
+    staffId: string,
+    file: File,
+  ): Promise<{ avatar_url?: string } & Record<string, unknown>> {
+    const form = new FormData();
+    form.append("avatar", file);
+    const response = await fetch(`${API_BASE}/staff/profile/${staffId}/avatar/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: form,
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const err =
+        (json as { error?: string }).error ||
+        (json as { detail?: string }).detail ||
+        "Failed to upload photo";
+      throw new Error(typeof err === "string" ? err : "Failed to upload photo");
+    }
+    const data = (json as { data?: Record<string, unknown> }).data ?? json;
+    return data as { avatar_url?: string };
   }
 
   async updateStaffProfile(

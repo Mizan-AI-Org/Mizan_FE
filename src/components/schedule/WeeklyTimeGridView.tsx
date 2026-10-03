@@ -173,6 +173,10 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
         initialTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         enableResponsive: true,
         onShiftClick: (shift) => {
+            if (shift.source === "process" || String(shift.id).startsWith("process-")) {
+                toast.info(t("schedule.process_edit_hint"));
+                return;
+            }
             if (canEditShifts) {
                 onEditShift(shift);
             } else {

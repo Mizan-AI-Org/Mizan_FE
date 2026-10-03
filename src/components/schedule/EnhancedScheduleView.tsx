@@ -3,7 +3,7 @@ import { WeeklyTimeGridView } from "./WeeklyTimeGridView";
 import { StaffScheduleListView } from "./StaffScheduleListView";
 import { StaffTimesheetView } from "./StaffTimesheetView";
 import ShiftModal from "@/components/ShiftModal";
-import type { Shift, StaffMember, WeeklyScheduleData, BackendShift, TaskPriority } from "@/types/schedule";
+import type { Shift, StaffMember, WeeklyScheduleData, BackendShift, ProcessOccurrence, TaskPriority } from "@/types/schedule";
 import { displayShiftTitle } from "@/lib/shiftDisplay";
 import { useLanguage } from "@/hooks/use-language";
 import { startOfWeek, endOfWeek, format, addDays, parseISO, addWeeks, addMonths, isBefore, isEqual } from "date-fns";
@@ -123,7 +123,16 @@ const EnhancedScheduleView: React.FC = () => {
         }
       }
 
-      if (!existing) return { id: "", week_start: "", week_end: "", is_published: false, assigned_shifts: [] };
+      if (!existing) {
+        return {
+          id: "",
+          week_start: weekStartStr,
+          week_end: toYMD(addDays(getWeekStart(currentDate), 6)),
+          is_published: false,
+          assigned_shifts: [],
+          process_occurrences: [],
+        };
+      }
       return existing;
     },
     // Light polling so newly generated schedules show up on the calendar
@@ -134,8 +143,6 @@ const EnhancedScheduleView: React.FC = () => {
   });
 
   const shifts: Shift[] = useMemo(() => {
-    if (!scheduleData?.assigned_shifts) return [];
-
     const toHHmm = (val: string) => {
       if (!val) return "00:00";
       const m = val.match(/^\d{2}:\d{2}/);
@@ -147,34 +154,66 @@ const EnhancedScheduleView: React.FC = () => {
       return "00:00";
     };
 
-    return scheduleData.assigned_shifts.map((shift: BackendShift) => {
+    const mapBackendShift = (shift: BackendShift): Shift => {
       const members = shift.staff_members?.length ? shift.staff_members : (shift.staff ? [shift.staff] : []);
       const firstStaffId = members[0] || shift.staff;
       return {
-      id: shift.id,
-      title: displayShiftTitle(shift),
-      start: toHHmm(shift.start_time),
-      end: toHHmm(shift.end_time),
-      date: shift.shift_date,
-      type: "confirmed" as const,
-      day: new Date(shift.shift_date).getDay() === 0 ? 6 : new Date(shift.shift_date).getDay() - 1,
-      staffId: firstStaffId ?? shift.staff,
-      staff_members: members,
-      staff_members_details: shift.staff_members_details,
-      color: firstStaffId ? getStaffColor(firstStaffId) : (shift.color || "#6b7280"),
-      task_templates: shift.task_templates ?? [],
-      task_templates_details: shift.task_templates_details,
-      tasks: (shift.tasks ?? []).map((t: { id?: string; title: string; priority?: string }) => ({
-        id: t.id,
-        title: t.title,
-        priority: (t.priority as TaskPriority) || "MEDIUM",
-      })),
-      isRecurring: !!shift.is_recurring,
-      recurrence_group_id: shift.recurrence_group_id ?? undefined,
-      recurringEndDate: shift.recurrence_end_date ?? undefined,
-      frequency: shift.is_recurring ? 'WEEKLY' : undefined,
+        id: shift.id,
+        source: "shift",
+        title: displayShiftTitle(shift),
+        start: toHHmm(shift.start_time),
+        end: toHHmm(shift.end_time),
+        date: shift.shift_date,
+        type: "confirmed" as const,
+        day: new Date(shift.shift_date).getDay() === 0 ? 6 : new Date(shift.shift_date).getDay() - 1,
+        staffId: firstStaffId ?? shift.staff,
+        staff_members: members,
+        staff_members_details: shift.staff_members_details,
+        color: firstStaffId ? getStaffColor(firstStaffId) : (shift.color || "#6b7280"),
+        task_templates: shift.task_templates ?? [],
+        task_templates_details: shift.task_templates_details,
+        tasks: (shift.tasks ?? []).map((t: { id?: string; title: string; priority?: string }) => ({
+          id: t.id,
+          title: t.title,
+          priority: (t.priority as TaskPriority) || "MEDIUM",
+        })),
+        isRecurring: !!shift.is_recurring,
+        recurrence_group_id: shift.recurrence_group_id ?? undefined,
+        recurringEndDate: shift.recurrence_end_date ?? undefined,
+        frequency: shift.is_recurring ? "WEEKLY" : undefined,
+      };
     };
-    });
+
+    const mapProcessOccurrence = (occ: ProcessOccurrence): Shift => {
+      const members = occ.staff_members?.length ? occ.staff_members : [occ.staff];
+      const firstStaffId = members[0] || occ.staff;
+      const details = occ.staff_info
+        ? [{ id: occ.staff_info.id, first_name: occ.staff_info.first_name, last_name: occ.staff_info.last_name }]
+        : undefined;
+      return {
+        id: occ.id,
+        source: "process",
+        template_id: occ.template_id,
+        title: occ.title || "Process",
+        start: toHHmm(occ.start_time),
+        end: toHHmm(occ.end_time),
+        date: occ.shift_date,
+        type: "tentative" as const,
+        day: new Date(occ.shift_date).getDay() === 0 ? 6 : new Date(occ.shift_date).getDay() - 1,
+        staffId: firstStaffId,
+        staff_members: members,
+        staff_members_details: details,
+        color: "#0d9488",
+        frequency: occ.frequency,
+        days_of_week: occ.schedule_days,
+        role: occ.role,
+        tasks: [],
+      };
+    };
+
+    const assigned = (scheduleData?.assigned_shifts ?? []).map(mapBackendShift);
+    const processes = (scheduleData?.process_occurrences ?? []).map(mapProcessOccurrence);
+    return [...assigned, ...processes];
   }, [scheduleData]);
 
   const isLoading = isLoadingStaff || isLoadingShifts;
@@ -209,6 +248,11 @@ const EnhancedScheduleView: React.FC = () => {
     const token = localStorage.getItem("access_token");
     if (!token) {
       toast.error(t("schedule.not_authenticated"));
+      return;
+    }
+    if (shift.source === "process" || String(shift.id).startsWith("process-")) {
+      toast.info(t("schedule.process_edit_hint"));
+      setIsShiftModalOpen(false);
       return;
     }
     const isUpdate = shifts.some((s) => s.id === shift.id && !String(s.id).startsWith("temp"));
@@ -354,6 +398,11 @@ const EnhancedScheduleView: React.FC = () => {
   };
 
   const handleDeleteShift = async (shiftId: string) => {
+    if (String(shiftId).startsWith("process-")) {
+      toast.info(t("schedule.process_edit_hint"));
+      setIsShiftModalOpen(false);
+      return;
+    }
     try {
       const token = localStorage.getItem("access_token");
       const url = `${API_BASE}/scheduling/assigned-shifts-v2/${shiftId}/`;

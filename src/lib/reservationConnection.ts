@@ -8,7 +8,7 @@ export type ReservationSettingsSnapshot = {
 };
 
 export const RESERVATION_BOOKING_CONNECT_PATH =
-  "/dashboard/settings?tab=integrations&focus=reservations";
+  "/dashboard/settings?tab=integrations&section=reservations";
 
 export function isBookingSystemConnected(
   data: ReservationSettingsSnapshot | null | undefined,

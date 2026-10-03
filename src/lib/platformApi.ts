@@ -421,6 +421,8 @@ export type PlatformBriefing = {
   created_at: string | null;
   owner_count: number;
   manager_count: number;
+  admin_count?: number;
+  super_admin_count?: number;
   recipients: PlatformBriefingRecipient[];
 };
 

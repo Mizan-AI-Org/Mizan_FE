@@ -1,16 +1,17 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useLocation, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Layers, ListChecks } from "lucide-react";
 import TaskManagementBoard from "./TaskManagementBoard";
 import TaskTemplates from "./TaskTemplates";
 import { useLanguage } from "@/hooks/use-language";
 import { MizanPageShell } from "@/components/os/MizanPageShell";
+import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
 import { cn } from "@/lib/utils";
 
-/** Portal target for process actions (New / Import / Pre-Built) - shown on Live Board and Templates. */
+/** Portal target for New / Import / Pre-Built actions on the All My Processes tab. */
 export const PROCESSES_TASKS_HEADER_ACTIONS_ID = "processes-tasks-header-actions";
 
 type ProcessesTab = "board" | "templates";
@@ -25,10 +26,6 @@ export default function ProcessesTasksApp() {
     tabFromParam(searchParams.get("tab")),
   );
   const { t } = useLanguage();
-  const { pathname } = useLocation();
-  const underTeam = pathname.includes("/employees/");
-  const eyebrow = underTeam ? t("nav.employees") : t("nav.operations");
-
   useEffect(() => {
     const wantsCreate =
       searchParams.get("create") === "1" || searchParams.get("new") === "1";
@@ -53,25 +50,20 @@ export default function ProcessesTasksApp() {
   };
 
   return (
-    <MizanPageShell
-      eyebrow={eyebrow}
-      title={t("processes_tasks.title")}
-      description={t("processes_tasks.subtitle")}
-      actions={
-        <div
-          id={PROCESSES_TASKS_HEADER_ACTIONS_ID}
-          className="flex flex-wrap items-center justify-end gap-2 shrink-0"
-        />
-      }
-      hero
-    >
+    <MizanPageShell title={t("processes_tasks.title")} showHeader={false}>
       <Tabs value={activeTab} onValueChange={selectTab} className="w-full">
-        <TabsList className="max-w-md">
-          <TabsTrigger value="board" className="inline-flex items-center gap-2">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5">
+          <TabsTrigger
+            value="board"
+            className={cn(HUB_TABS_TRIGGER, "w-full justify-center gap-2 py-3 text-sm font-semibold sm:text-[15px]")}
+          >
             <ListChecks className="h-4 w-4 shrink-0" />
             {t("processes_tasks.tabs.live_board")}
           </TabsTrigger>
-          <TabsTrigger value="templates" className="inline-flex items-center gap-2">
+          <TabsTrigger
+            value="templates"
+            className={cn(HUB_TABS_TRIGGER, "w-full justify-center gap-2 py-3 text-sm font-semibold sm:text-[15px]")}
+          >
             <Layers className="h-4 w-4 shrink-0" />
             {t("processes_tasks.tabs.templates")}
           </TabsTrigger>
@@ -84,8 +76,12 @@ export default function ProcessesTasksApp() {
         <TabsContent
           value="templates"
           forceMount
-          className={cn("mt-6 focus-visible:outline-none", activeTab !== "templates" && "hidden")}
+          className={cn("mt-6 space-y-4 focus-visible:outline-none", activeTab !== "templates" && "hidden")}
         >
+          <div
+            id={PROCESSES_TASKS_HEADER_ACTIONS_ID}
+            className="flex flex-wrap items-center justify-start gap-2 sm:justify-end"
+          />
           <TaskTemplates />
         </TabsContent>
       </Tabs>

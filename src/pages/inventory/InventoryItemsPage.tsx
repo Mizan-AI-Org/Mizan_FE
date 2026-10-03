@@ -45,6 +45,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 import { useLanguage } from "@/hooks/use-language";
 import { PAGE_SHELL } from "@/lib/page-shell";
+import { cn } from "@/lib/utils";
 
 function parseInventoryCsv(text: string) {
     const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
@@ -75,7 +76,11 @@ function parseInventoryCsv(text: string) {
     return rows;
 }
 
-export default function InventoryItemsPage() {
+type InventoryItemsPageProps = {
+  embedded?: boolean;
+};
+
+export default function InventoryItemsPage({ embedded = false }: InventoryItemsPageProps = {}) {
     const { t } = useLanguage();
     const { accessToken } = useAuth();
     const queryClient = useQueryClient();
@@ -237,36 +242,47 @@ export default function InventoryItemsPage() {
 
     const categories = Array.from(new Set((inventoryItems || []).map((item) => item.category).filter(Boolean)));
 
-    return (
-        <div className={`${PAGE_SHELL} py-8 space-y-6`}>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-foreground">{t("inventory.title")}</h1>
-                    <p className="text-muted-foreground">{t("inventory.subtitle")}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".csv,.tsv,.txt"
-                        className="hidden"
-                        onChange={(e) => {
-                            void handleCsvUpload(e.target.files?.[0]);
-                            e.target.value = "";
-                        }}
-                    />
-                    <Button variant="outline" onClick={downloadTemplate}>
-                        {t("inventory.template")}
-                    </Button>
-                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importMutation.isPending}>
-                        <Upload className="w-4 h-4 mr-2" />
-                        {importMutation.isPending ? t("inventory.uploading") : t("inventory.upload")}
-                    </Button>
-                    <Button onClick={() => setIsCreateDialogOpen(true)}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        {t("inventory.add")}
-                    </Button>
-                </div>
+    const toolbar = (
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.tsv,.txt"
+                className="hidden"
+                onChange={(e) => {
+                    void handleCsvUpload(e.target.files?.[0]);
+                    e.target.value = "";
+                }}
+            />
+            <Button variant="outline" onClick={downloadTemplate}>
+                {t("inventory.template")}
+            </Button>
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importMutation.isPending}>
+                <Upload className="w-4 h-4 mr-2" />
+                {importMutation.isPending ? t("inventory.uploading") : t("inventory.upload")}
+            </Button>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                {t("inventory.add")}
+            </Button>
+        </div>
+    );
+
+    const body = (
+        <>
+            <div
+                className={cn(
+                    "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+                    embedded && "sm:justify-end",
+                )}
+            >
+                {!embedded ? (
+                    <div>
+                        <h1 className="text-3xl font-bold text-foreground">{t("inventory.title")}</h1>
+                        <p className="text-muted-foreground">{t("inventory.subtitle")}</p>
+                    </div>
+                ) : null}
+                {toolbar}
             </div>
 
             <Card className="shadow-soft">
@@ -590,6 +606,12 @@ export default function InventoryItemsPage() {
                     )}
                 </DialogContent>
             </Dialog>
-        </div>
+        </>
     );
+
+    if (embedded) {
+        return <div className="space-y-6">{body}</div>;
+    }
+
+    return <div className={`${PAGE_SHELL} py-8 space-y-6`}>{body}</div>;
 }

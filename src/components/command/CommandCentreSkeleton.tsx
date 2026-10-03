@@ -47,7 +47,7 @@ export function CommandCentreSkeleton({ className }: { className?: string }) {
         ))}
       </section>
 
-      <Skeleton className="h-24 w-full max-w-3xl rounded-lg" />
+      <Skeleton className="h-48 w-full rounded-2xl" />
 
       <Skeleton className="h-4 w-32" />
 

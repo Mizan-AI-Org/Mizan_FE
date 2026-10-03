@@ -234,7 +234,9 @@ function OrderCard({
   );
 }
 
-export default function OrdersPage() {
+type OrdersPanelProps = { embedded?: boolean };
+
+export function OrdersPanel({ embedded = false }: OrdersPanelProps) {
   const { t } = useLanguage();
   const { accessToken, user } = useAuth() as AuthContextType;
   const qc = useQueryClient();
@@ -382,20 +384,19 @@ export default function OrdersPage() {
     [statusMutation],
   );
 
-  return (
-    <MizanPageShell
-      title={t("take_orders.log_title")}
-      description={t("take_orders.page_hint_agent")}
-      hero={false}
-      actions={
-        canManage ? (
-          <Button type="button" onClick={() => setManualOpen(true)} className="gap-1.5">
-            <ClipboardPlus className="h-4 w-4" />
-            {t("take_orders.add_manual")}
-          </Button>
-        ) : null
-      }
-    >
+  const addManualButton =
+    canManage ? (
+      <Button type="button" onClick={() => setManualOpen(true)} className="gap-1.5">
+        <ClipboardPlus className="h-4 w-4" />
+        {t("take_orders.add_manual")}
+      </Button>
+    ) : null;
+
+  const body = (
+    <>
+      {embedded && addManualButton ? (
+        <div className="mb-4 flex justify-end">{addManualButton}</div>
+      ) : null}
       <div className={cn("grid grid-cols-2 md:grid-cols-4", MIZAN_GRID_GAP)}>
         {[
           { label: t("take_orders.stats.total"), value: stats.total },
@@ -581,6 +582,25 @@ export default function OrdersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+
+  if (embedded) {
+    return body;
+  }
+
+  return (
+    <MizanPageShell
+      title={t("take_orders.log_title")}
+      description={t("take_orders.page_hint_agent")}
+      hero={false}
+      actions={addManualButton}
+    >
+      {body}
     </MizanPageShell>
   );
+}
+
+export default function OrdersPage() {
+  return <OrdersPanel />;
 }

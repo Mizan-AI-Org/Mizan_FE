@@ -86,7 +86,9 @@ export default function ApprovalsPage() {
           </p>
         </div>
         <Button variant="outline" asChild>
-          <Link to="/dashboard/settings?tab=approvals">Approval Settings</Link>
+          <Link to="/dashboard/settings?tab=compliance-approvals&section=approvals">
+            Approval Settings
+          </Link>
         </Button>
       </div>
       <Card>

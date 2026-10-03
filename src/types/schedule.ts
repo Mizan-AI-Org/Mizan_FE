@@ -19,9 +19,14 @@ export interface Task {
   frequency?: TaskFrequency;
 }
 
+export type ShiftSource = 'shift' | 'process';
+
 export interface Shift {
   id: string;
   title: string;
+  /** When set to process, block is derived from Processes & Tasks (not editable as a shift). */
+  source?: ShiftSource;
+  template_id?: string;
   start: string;
   end: string;
   // ISO date string (YYYY-MM-DD)
@@ -60,6 +65,30 @@ export interface StaffMember {
   role?: string;
 }
 
+export interface ProcessOccurrence {
+  id: string;
+  kind?: 'process';
+  template_id: string;
+  staff: string;
+  staff_members: string[];
+  staff_info?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email?: string;
+  };
+  shift_date: string;
+  start_time: string;
+  end_time: string;
+  title: string;
+  notes?: string;
+  frequency?: TaskFrequency;
+  schedule_days?: number[];
+  priority_level?: TaskPriority;
+  status?: string;
+  role?: string;
+}
+
 export interface BackendShift {
   id: string;
   staff: string;
@@ -87,4 +116,5 @@ export interface WeeklyScheduleData {
   week_end: string;
   is_published: boolean;
   assigned_shifts: BackendShift[];
+  process_occurrences?: ProcessOccurrence[];
 }

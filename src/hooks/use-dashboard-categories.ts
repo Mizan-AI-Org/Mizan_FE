@@ -28,6 +28,7 @@ export type DashboardCustomWidgetRow = {
 
 const CATEGORIES_KEY = ["dashboard-categories"] as const;
 const CUSTOM_WIDGETS_KEY = ["dashboard-custom-widgets"] as const;
+const RBAC_CATALOG_KEY = ["rbac", "catalog"] as const;
 
 export function useDashboardCategories(enabled = true) {
   return useQuery({
@@ -60,6 +61,7 @@ export function useDashboardCategoryMutations() {
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: CATEGORIES_KEY });
     qc.invalidateQueries({ queryKey: CUSTOM_WIDGETS_KEY });
+    qc.invalidateQueries({ queryKey: RBAC_CATALOG_KEY });
   };
 
   const createCategory = useMutation({
@@ -96,6 +98,7 @@ export function useDashboardCategoryMutations() {
     }) => api.createDashboardCustomWidget(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: CUSTOM_WIDGETS_KEY });
+      qc.invalidateQueries({ queryKey: RBAC_CATALOG_KEY });
       qc.invalidateQueries({ queryKey: ["dashboard-widget-order"] });
       qc.invalidateQueries({ queryKey: ["staff-inbox-lanes"] });
     },
@@ -118,6 +121,7 @@ export function useDashboardCategoryMutations() {
     }) => api.updateDashboardCustomWidget(id, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: CUSTOM_WIDGETS_KEY });
+      qc.invalidateQueries({ queryKey: RBAC_CATALOG_KEY });
     },
   });
 
@@ -125,6 +129,7 @@ export function useDashboardCategoryMutations() {
     mutationFn: (id: string) => api.deleteDashboardCustomWidget(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: CUSTOM_WIDGETS_KEY });
+      qc.invalidateQueries({ queryKey: RBAC_CATALOG_KEY });
       qc.invalidateQueries({ queryKey: ["dashboard-widget-order"] });
       qc.invalidateQueries({ queryKey: ["staff-inbox-lanes"] });
     },

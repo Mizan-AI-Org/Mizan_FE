@@ -43,7 +43,12 @@ const ORDER_TYPE_LABELS: Record<string, string> = {
   CATERING: "Catering",
 };
 
-export default function SalesAndPrepPage() {
+type SalesAndPrepPageProps = {
+  /** When true, omit page shell and title (used inside Sales hub tabs). */
+  embedded?: boolean;
+};
+
+export default function SalesAndPrepPage({ embedded = false }: SalesAndPrepPageProps = {}) {
   const navigate = useNavigate();
   const { accessToken } = useAuth();
   const { t } = useLanguage();
@@ -126,7 +131,7 @@ export default function SalesAndPrepPage() {
           {
             action: {
               label: t("common.view") || "View",
-              onClick: () => navigate("/dashboard/inventory/purchase-orders"),
+              onClick: () => navigate("/dashboard/suppliers/procurement?tab=orders"),
             },
           },
         );
@@ -196,15 +201,8 @@ export default function SalesAndPrepPage() {
   const isConnectPosPrompt = rec?.action_label?.toLowerCase().includes("connect pos") ?? false;
   const showRecCard = Boolean(rec && !isConnectPosPrompt);
 
-  return (
-    <div className="min-h-screen">
-      <div className={`${PAGE_SHELL} py-6 md:py-8 space-y-6`}>
-        <header className="space-y-1">
-          <h1 className="text-2xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            {t("dashboard.sales.page_title") || "Sales Analysis & Prep List"}
-          </h1>
-        </header>
-
+  const content = (
+    <>
         <Card className={`${cardBase} flex flex-col`}>
           <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-emerald-50/80 to-transparent dark:from-emerald-950/20 dark:to-transparent">
             <div className="flex items-center justify-between">
@@ -576,7 +574,11 @@ export default function SalesAndPrepPage() {
                     <Button variant="outline" size="sm" onClick={() => handleExportPrep("pdf")} disabled={!!exportingPrep}>
                       PDF
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => navigate("/dashboard/inventory")}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate("/dashboard/products/sales?tab=inventory")}
+                    >
                       {t("dashboard.prep.view_inventory") || "View inventory"}
                     </Button>
                   </div>
@@ -591,7 +593,6 @@ export default function SalesAndPrepPage() {
             </CardContent>
           </div>
         </Card>
-      </div>
 
       {/* Full Prep List Modal */}
       <Dialog open={prepListModalOpen} onOpenChange={setPrepListModalOpen}>
@@ -696,6 +697,23 @@ export default function SalesAndPrepPage() {
           </div>
         </DialogContent>
       </Dialog>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="space-y-6">{content}</div>;
+  }
+
+  return (
+    <div className="min-h-screen">
+      <div className={`${PAGE_SHELL} py-6 md:py-8 space-y-6`}>
+        <header className="space-y-1">
+          <h1 className="text-2xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            {t("dashboard.sales.page_title") || "Sales Analysis & Prep List"}
+          </h1>
+        </header>
+        {content}
+      </div>
     </div>
   );
 }

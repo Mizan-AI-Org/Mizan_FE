@@ -4,7 +4,7 @@ import { ArrowRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AgentAvatar } from "@/components/agent/AgentAvatar";
 import { CommandCentreSkeleton } from "@/components/command/CommandCentreSkeleton";
-import { CommandOperationsOverview } from "@/components/command/CommandOperationsOverview";
+import { OperationsLiveFeed } from "@/pages/OperationsLivePage";
 import { AttentionCard } from "@/components/os/AttentionCard";
 import { CommandCollapsibleSection } from "@/components/os/CommandCollapsibleSection";
 import { SeverityBadge, severityPanelClass } from "@/components/os/SeverityBadge";
@@ -370,7 +370,7 @@ export function CommandCentreView({ className }: { className?: string }) {
         />
       </section>
 
-      <CommandOperationsOverview data={data} />
+      <OperationsLiveFeed embedded />
 
       <h2 className="text-sm font-semibold text-foreground">
         {t("command.priority_queue", { defaultValue: "Priority queue" })}

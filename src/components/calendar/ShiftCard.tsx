@@ -27,6 +27,9 @@ const DAY_COLORS: Record<number, string> = {
 };
 
 function getColorForDayOfWeek(shift: CalendarShift): string {
+  if (shift.source === 'process' && shift.color) {
+    return shift.color;
+  }
   const dateStr = shift.date;
   if (!dateStr) return DAY_COLORS[1];
   const day = new Date(dateStr + 'T12:00:00').getDay();
@@ -50,16 +53,18 @@ const getPositionStyles = (shift: CalendarShift): React.CSSProperties => {
     ? Math.max(12, shift.position.width - 1) // 1% gutter so cards don't touch
     : 100;
 
+  const isProcess = shift.source === 'process';
+
   return {
     top: `${shift.position.top}px`,
     height: `${shift.position.height}px`,
     left: `${leftPct}%`,
     width: `${widthPct}%`,
     zIndex: shift.position.zIndex,
-    backgroundColor: `${color}18`,
+    backgroundColor: `${color}${isProcess ? '28' : '18'}`,
     borderLeftColor: color,
     borderLeftWidth: '4px',
-    borderLeftStyle: 'solid',
+    borderLeftStyle: isProcess ? 'dashed' : 'solid',
     // CSS variable consumed by .dark .shift-card override in ShiftCard.css
     '--shift-color': color,
   } as React.CSSProperties;

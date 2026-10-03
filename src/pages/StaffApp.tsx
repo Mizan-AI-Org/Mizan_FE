@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -85,6 +84,7 @@ import { format, parseISO } from "date-fns";
 import DeleteStaffConfirmation from "@/components/staff/DeleteStaffConfirmation";
 import DeactivateStaffConfirmation from "@/components/staff/DeactivateStaffConfirmation";
 import MoveStaffBranchDialog from "@/components/staff/MoveStaffBranchDialog";
+import { StaffMemberAvatar } from "@/components/staff/StaffMemberAvatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { splitInviteRoleSelection, useBusinessVertical } from "@/hooks/use-business-vertical";
 import { useBusinessLocations } from "@/hooks/use-business-locations";
@@ -159,6 +159,7 @@ interface StaffMember {
     role: string;
     /** Human-readable role; use for CUSTOM titles */
     role_display?: string;
+    avatar_url?: string | null;
     is_active: boolean;
     phone?: string;
     primary_location?: string | null;
@@ -495,6 +496,9 @@ const TeamTab: React.FC = () => {
     const [branchFilter, setBranchFilter] = useState<string>("all");
     const [moveDialogOpen, setMoveDialogOpen] = useState(false);
     const [moveTargets, setMoveTargets] = useState<StaffMember[]>([]);
+    const avatarInputRef = React.useRef<HTMLInputElement>(null);
+    const [avatarUploadTargetId, setAvatarUploadTargetId] = useState<string | null>(null);
+    const [avatarUploading, setAvatarUploading] = useState(false);
     const { user, logout } = useAuth() as AuthContextType;
     const queryClient = useQueryClient();
     const { data: tenantLocations = [] } = useBusinessLocations();
@@ -667,6 +671,7 @@ const TeamTab: React.FC = () => {
             if (!response.ok) throw new Error("Failed to cancel invitation");
             toast.success(t("toasts.invitation_cancelled"));
             refetchInvites();
+            void queryClient.invalidateQueries({ queryKey: ["nav-attention", "counts"] });
         } catch (err: unknown) {
             toast.error(getErrorMessage(err, "Failed to cancel invitation"));
         }
@@ -755,6 +760,51 @@ const TeamTab: React.FC = () => {
         setIsEditModalOpen(true);
     };
 
+    const openAvatarUpload = (memberId: string) => {
+        setAvatarUploadTargetId(memberId);
+        avatarInputRef.current?.click();
+    };
+
+    const applyMemberAvatar = (memberId: string, avatarUrl: string | null | undefined) => {
+        const patch = (m: StaffMember) =>
+            m.id === memberId ? { ...m, avatar_url: avatarUrl ?? m.avatar_url } : m;
+        queryClient.setQueriesData<PaginatedResponse<StaffMember>>(
+            { queryKey: ["staff-members"] },
+            (old) => (old?.results ? { ...old, results: old.results.map(patch) } : old),
+        );
+        setSelectedMember((prev) => (prev && prev.id === memberId ? patch(prev) : prev));
+        setSelectedStaffById((prev) => {
+            const row = prev[memberId];
+            if (!row) return prev;
+            return { ...prev, [memberId]: patch(row) };
+        });
+    };
+
+    const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        const staffId = avatarUploadTargetId;
+        e.target.value = "";
+        setAvatarUploadTargetId(null);
+        if (!file || !staffId) return;
+        if (!file.type.startsWith("image/")) {
+            toast.error(t("staff.avatar.invalid_type", { defaultValue: "Please choose an image file." }));
+            return;
+        }
+        setAvatarUploading(true);
+        try {
+            const token = localStorage.getItem("access_token") || "";
+            const data = await api.uploadStaffAvatar(token, staffId, file);
+            const url = (data.avatar_url as string | undefined) ?? null;
+            applyMemberAvatar(staffId, url);
+            toast.success(t("staff.avatar.updated", { defaultValue: "Profile photo updated." }));
+            refetchStaff();
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, "Failed to upload photo"));
+        } finally {
+            setAvatarUploading(false);
+        }
+    };
+
     // View Profile Modal
     const ViewProfileModal = () => {
         const [isGeneratingReport, setIsGeneratingReport] = useState(false);
@@ -827,11 +877,14 @@ const TeamTab: React.FC = () => {
                         <CardContent className={cn(STAFF_MODAL_BODY, "space-y-8 px-6 sm:px-8 pb-6")}>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-6">
-                                <div className="w-20 h-20 rounded-[1.5rem] bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center border border-emerald-100/50">
-                                    <span className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tighter">
-                                        {selectedMember.first_name?.[0]}{selectedMember.last_name?.[0]}
-                                    </span>
-                                </div>
+                                <StaffMemberAvatar
+                                    size="xl"
+                                    firstName={selectedMember.first_name}
+                                    lastName={selectedMember.last_name}
+                                    avatarUrl={selectedMember.avatar_url}
+                                    onUploadClick={() => openAvatarUpload(selectedMember.id)}
+                                    uploadLabel={t("staff.avatar.change", { defaultValue: "Change photo" })}
+                                />
                                 <div>
                                     <h3 className="text-2xl font-black text-slate-900 dark:text-white leading-tight tracking-tight">
                                         {selectedMember.first_name} {selectedMember.last_name}
@@ -1253,6 +1306,23 @@ const TeamTab: React.FC = () => {
                         </CardHeader>
 
                         <CardContent className={cn(STAFF_MODAL_BODY, "px-5 sm:px-6 pb-5")}>
+                        <div className="flex flex-col items-center gap-2 pb-4 border-b border-border/60">
+                            <StaffMemberAvatar
+                                size="xl"
+                                firstName={formData.first_name}
+                                lastName={formData.last_name}
+                                avatarUrl={selectedMember.avatar_url}
+                                onUploadClick={
+                                    avatarUploading ? undefined : () => openAvatarUpload(selectedMember.id)
+                                }
+                                uploadLabel={t("staff.avatar.change", { defaultValue: "Change photo" })}
+                            />
+                            <p className="text-xs text-muted-foreground text-center max-w-xs">
+                                {t("staff.avatar.hint", {
+                                    defaultValue: "Add a clear face photo so managers recognize them on cards and in ops.",
+                                })}
+                            </p>
+                        </div>
                         <div className="space-y-3 py-2">
                             {/* Personal Information */}
                             <div className="space-y-3">
@@ -1620,9 +1690,14 @@ const TeamTab: React.FC = () => {
 
     // Invite Staff Modal
     const InviteStaffModal = () => {
+        const queryClient = useQueryClient();
         const { data: staffSettings } = useBusinessVertical();
         const businessVertical = staffSettings?.businessVertical ?? "RESTAURANT";
         const customStaffRoles = staffSettings?.customStaffRoles ?? [];
+
+        useEffect(() => {
+            void queryClient.invalidateQueries({ queryKey: ["settings", "business_vertical"] });
+        }, [queryClient]);
         const { data: tenantLocations = [] } = useBusinessLocations();
         // Only show branch pickers when the tenant has more than one location;
         // single-site tenants shouldn't see fields they don't care about.
@@ -2361,6 +2436,13 @@ const TeamTab: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="sr-only"
+                onChange={handleAvatarFileChange}
+            />
             {/* Modals */}
             {isViewModalOpen && <ViewProfileModal />}
             {isEditModalOpen && <EditProfileModal />}
@@ -2593,7 +2675,17 @@ const TeamTab: React.FC = () => {
                                                         </TableCell>
                                                     ) : null}
                                                     <TableCell className="font-medium text-slate-900 dark:text-white">
-                                                        {member.first_name} {member.last_name}
+                                                        <div className="flex items-center gap-3">
+                                                            <StaffMemberAvatar
+                                                                size="sm"
+                                                                firstName={member.first_name}
+                                                                lastName={member.last_name}
+                                                                avatarUrl={member.avatar_url}
+                                                            />
+                                                            <span>
+                                                                {member.first_name} {member.last_name}
+                                                            </span>
+                                                        </div>
                                                     </TableCell>
                                                     <TableCell className="text-slate-600 dark:text-slate-300">
                                                         {isWhatsAppActivationEmail(member.email)
@@ -2647,13 +2739,6 @@ const TeamTab: React.FC = () => {
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                         {filteredStaff.map((member) => {
                                             const isSelected = selectedStaffIds.includes(member.id);
-                                            const initials = (() => {
-                                                const f = (member.first_name || "").trim();
-                                                const l = (member.last_name || "").trim();
-                                                if (f && l) return `${f[0]}${l[0]}`.toUpperCase();
-                                                if (f.length >= 2) return f.slice(0, 2).toUpperCase();
-                                                return (f[0] || "?").toUpperCase();
-                                            })();
                                             const contactLine = (() => {
                                                 const email = member.email || "";
                                                 const phone = member.phone || phoneFromWhatsAppEmail(email);
@@ -2676,76 +2761,68 @@ const TeamTab: React.FC = () => {
                                             <Card
                                                 key={member.id}
                                                 className={cn(
-                                                    "group relative overflow-hidden rounded-2xl border border-border/80 bg-card",
-                                                    "shadow-sm hover:shadow-lg hover:border-emerald-500/30 transition-all duration-200",
-                                                    isSelected && "ring-2 ring-emerald-500 border-emerald-400 dark:border-emerald-600",
+                                                    "group relative overflow-hidden rounded-2xl border border-border/70 bg-card",
+                                                    "shadow-sm hover:shadow-md hover:border-emerald-500/25 transition-all duration-200",
+                                                    isSelected && "ring-2 ring-emerald-500/80 border-emerald-400/80",
                                                 )}
                                             >
-                                                <div
-                                                    className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400"
-                                                    aria-hidden
-                                                />
-                                                <CardContent className="p-4">
-                                                    <div className="flex items-start gap-3">
-                                                        {multiBranch ? (
-                                                            <div className="pt-1 shrink-0">
-                                                                <Checkbox
-                                                                    checked={isSelected}
-                                                                    onCheckedChange={() => toggleStaffSelected(member)}
-                                                                    className="border-slate-300 dark:border-slate-600"
-                                                                    aria-label={`Select ${member.first_name}`}
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                />
-                                                            </div>
-                                                        ) : null}
-                                                        <button
-                                                            type="button"
-                                                            className="flex min-w-0 flex-1 items-start gap-3 text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"
-                                                            onClick={() => handleViewProfile(member)}
-                                                        >
-                                                            <Avatar className="h-12 w-12 shrink-0 ring-2 ring-background shadow-md">
-                                                                <AvatarFallback className="text-sm font-bold bg-gradient-to-br from-emerald-100 to-teal-50 text-emerald-800 dark:from-emerald-950 dark:to-slate-900 dark:text-emerald-200">
-                                                                    {initials}
-                                                                </AvatarFallback>
-                                                            </Avatar>
-                                                            <div className="min-w-0 flex-1 space-y-1.5 pt-0.5">
-                                                                <div className="flex flex-wrap items-center gap-2">
-                                                                    <h3 className="font-semibold text-[15px] leading-snug text-slate-900 dark:text-white truncate">
-                                                                        {member.first_name} {member.last_name}
-                                                                    </h3>
-                                                                    <Badge
-                                                                        variant="secondary"
-                                                                        className="shrink-0 capitalize text-[10px] font-medium px-2 py-0 bg-muted/80"
-                                                                    >
-                                                                        {staffRoleLabel(member)}
-                                                                    </Badge>
-                                                                </div>
-                                                                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                                                    <ContactIcon className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-                                                                    <span className="truncate">{contactLine.text}</span>
-                                                                </p>
-                                                                {multiBranch && member.primary_location_data?.name ? (
-                                                                    <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                                                                        <MapPin className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
-                                                                        <span className="truncate">{member.primary_location_data.name}</span>
-                                                                    </p>
-                                                                ) : null}
-                                                                <Badge
-                                                                    className={cn(
-                                                                        "mt-1 text-[10px] font-semibold px-2 py-0 rounded-full uppercase tracking-wide",
-                                                                        member.is_active
-                                                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
-                                                                            : "bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900",
-                                                                    )}
-                                                                >
-                                                                    {member.is_active ? t("common.active") : t("common.inactive")}
-                                                                </Badge>
-                                                            </div>
-                                                        </button>
-                                                        <div
-                                                            className="flex shrink-0 flex-col gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
+                                                <CardContent className="p-5 flex flex-col items-center text-center gap-3">
+                                                    {multiBranch ? (
+                                                        <div className="absolute left-3 top-3">
+                                                            <Checkbox
+                                                                checked={isSelected}
+                                                                onCheckedChange={() => toggleStaffSelected(member)}
+                                                                aria-label={`Select ${member.first_name}`}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                        </div>
+                                                    ) : null}
+                                                    <button
+                                                        type="button"
+                                                        className="flex flex-col items-center gap-2 w-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 pt-1"
+                                                        onClick={() => handleViewProfile(member)}
+                                                    >
+                                                        <StaffMemberAvatar
+                                                            size="xl"
+                                                            firstName={member.first_name}
+                                                            lastName={member.last_name}
+                                                            avatarUrl={member.avatar_url}
+                                                            onUploadClick={() => openAvatarUpload(member.id)}
+                                                            uploadLabel={t("staff.avatar.change", { defaultValue: "Change photo" })}
+                                                        />
+                                                        <div className="min-w-0 w-full space-y-1">
+                                                            <h3 className="font-semibold text-base text-foreground truncate px-1">
+                                                                {member.first_name} {member.last_name}
+                                                            </h3>
+                                                            <Badge variant="secondary" className="capitalize text-[10px] font-medium">
+                                                                {staffRoleLabel(member)}
+                                                            </Badge>
+                                                        </div>
+                                                    </button>
+                                                    <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground w-full min-w-0 px-1">
+                                                        <ContactIcon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                                                        <span className="truncate">{contactLine.text}</span>
+                                                    </p>
+                                                    {multiBranch && member.primary_location_data?.name ? (
+                                                        <p className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
+                                                            <MapPin className="h-3 w-3 shrink-0" aria-hidden />
+                                                            <span className="truncate">{member.primary_location_data.name}</span>
+                                                        </p>
+                                                    ) : null}
+                                                    <Badge
+                                                        className={cn(
+                                                            "text-[10px] font-semibold uppercase tracking-wide",
+                                                            member.is_active
+                                                                ? "bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300"
+                                                                : "bg-red-50 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-300",
+                                                        )}
+                                                    >
+                                                        {member.is_active ? t("common.active") : t("common.inactive")}
+                                                    </Badge>
+                                                    <div
+                                                        className="flex w-full justify-center gap-1 pt-1 border-t border-border/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
@@ -2776,7 +2853,6 @@ const TeamTab: React.FC = () => {
                                                                 </Button>
                                                             ) : null}
                                                         </div>
-                                                    </div>
                                                 </CardContent>
                                             </Card>
                                             );

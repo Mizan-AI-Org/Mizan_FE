@@ -27,7 +27,7 @@ export const COMPACT_TABS_TRIGGER =
   "inline-flex items-center justify-center whitespace-nowrap rounded-full px-3 md:px-4 py-1.5 md:py-2 text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 touch-manipulation bg-transparent hover:bg-muted/60 text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm";
 
 export const MIZAN_HERO =
-  "mb-8 overflow-hidden rounded-2xl border bg-gradient-to-br from-primary/10 via-card to-card p-6 shadow-sm";
+  "mb-5 overflow-hidden rounded-xl border bg-gradient-to-br from-primary/10 via-card to-card p-4 shadow-sm";
 
 export const MIZAN_SURFACE_CARD =
   "rounded-xl border border-border/80 bg-card p-5 shadow-sm";

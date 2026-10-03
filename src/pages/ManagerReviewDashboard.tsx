@@ -28,8 +28,29 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, TrendingUp, Users, ClipboardCheck, AlertTriangle, MapPin, Calendar, ShieldAlert, Camera, ChevronDown, Plus } from "lucide-react";
+import {
+  RefreshCw,
+  TrendingUp,
+  Users,
+  ClipboardCheck,
+  AlertTriangle,
+  MapPin,
+  Calendar,
+  ShieldAlert,
+  Camera,
+  ChevronDown,
+  Plus,
+  Search,
+} from "lucide-react";
 import { PAGE_SHELL } from "@/lib/page-shell";
+import { HUB_TABS_TRIGGER, MIZAN_HERO, MIZAN_SURFACE_CARD, MIZAN_TOOLBAR } from "@/lib/mizan-ui";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { isUnresolvedIncidentStatus } from "@/lib/incidentStatus";
 import { incidentAssigneeId, matchingStaffOptionId, staffOptionsWithCurrentAssignee } from "@/lib/incidentPeople";
 import { loadStaffPickerOptions } from "@/lib/staffPicker";
@@ -1017,16 +1038,35 @@ const ManagerReviewDashboard: React.FC = () => {
 
   return (
     <div className={`${PAGE_SHELL} py-6 space-y-5`}>
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+      <header
+        className={cn(
+          "flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between",
+          (pathImpliesIncidents || pathImpliesChecklists) && cn(MIZAN_HERO, "p-4 sm:p-4"),
+        )}
+      >
+        <div className="min-w-0">
+          <h1
+            className={cn(
+              "font-semibold tracking-tight",
+              pathImpliesIncidents || pathImpliesChecklists
+                ? "text-lg sm:text-xl"
+                : "text-2xl",
+            )}
+          >
             {pathImpliesIncidents
               ? t("ops.review.page.incidents.title")
               : pathImpliesChecklists
                 ? t("ops.review.page.checklists.title")
                 : t("ops.review.title")}
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p
+            className={cn(
+              "text-muted-foreground mt-0.5",
+              pathImpliesIncidents || pathImpliesChecklists
+                ? "text-xs leading-snug sm:text-sm max-w-2xl"
+                : "text-sm",
+            )}
+          >
             {pathImpliesIncidents
               ? t("ops.review.page.incidents.desc")
               : pathImpliesChecklists
@@ -1088,122 +1128,396 @@ const ManagerReviewDashboard: React.FC = () => {
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="hidden">
-          <TabsTrigger value="submitted">submitted</TabsTrigger>
-          <TabsTrigger value="incidents">incidents</TabsTrigger>
-        </TabsList>
+        {!pathLocksTab ? (
+          <TabsList className="hidden">
+            <TabsTrigger value="submitted">submitted</TabsTrigger>
+            <TabsTrigger value="incidents">incidents</TabsTrigger>
+          </TabsList>
+        ) : null}
 
+        {!pathImpliesIncidents ? (
         <TabsContent value="submitted" className="mt-0 space-y-4">
-          <div className="flex flex-col gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <Calendar className="h-4 w-4 text-emerald-600 shrink-0" />
-              {t("ops.review.date_range", "Date range")}
-              <span className="text-xs font-normal text-muted-foreground tabular-nums">
-                {isAllDates
-                  ? t("ops.review.date_range_all", "All")
-                  : dateFrom && dateTo && rangeDaySpan
-                    ? t("ops.review.date_range_span", {
-                        defaultValue: "{{from}} → {{to}} · {{count}} days",
-                        from: dateFrom,
-                        to: dateTo,
-                        count: rangeDaySpan,
-                      })
-                    : [dateFrom, dateTo].filter(Boolean).join(" → ") || null}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="sm"
-                variant={isAllDates ? "default" : "outline"}
-                onClick={clearDateRange}
-                className={isAllDates ? "bg-emerald-600 hover:bg-emerald-700" : ""}
-              >
-                {t("ops.review.date_all", "All")}
-              </Button>
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="date"
-                  value={dateFrom}
-                  max={dateTo || undefined}
-                  onChange={(e) => onDateFromChange(e.target.value)}
-                  className="w-[9.5rem] h-9"
-                  aria-label={t("ops.review.date_from", "From")}
-                />
-                <span className="text-xs text-muted-foreground">→</span>
-                <Input
-                  type="date"
-                  value={dateTo}
-                  min={dateFrom || undefined}
-                  onChange={(e) => onDateToChange(e.target.value)}
-                  className="w-[9.5rem] h-9"
-                  aria-label={t("ops.review.date_to", "To")}
-                />
+          <div className={cn(MIZAN_TOOLBAR, "space-y-3")}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Calendar className="h-4 w-4 text-primary shrink-0" />
+                {t("ops.review.date_range", "Date range")}
+                <span className="text-xs font-normal text-muted-foreground tabular-nums">
+                  {isAllDates
+                    ? t("ops.review.date_range_all", "All")
+                    : dateFrom && dateTo && rangeDaySpan
+                      ? t("ops.review.date_range_span", {
+                          defaultValue: "{{from}} → {{to}} · {{count}} days",
+                          from: dateFrom,
+                          to: dateTo,
+                          count: rangeDaySpan,
+                        })
+                      : [dateFrom, dateTo].filter(Boolean).join(" → ") || null}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant={isAllDates ? "default" : "outline"}
+                  onClick={clearDateRange}
+                  className={isAllDates ? "bg-primary hover:bg-primary/90" : ""}
+                >
+                  {t("ops.review.date_all", "All")}
+                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="date"
+                    value={dateFrom}
+                    max={dateTo || undefined}
+                    onChange={(e) => onDateFromChange(e.target.value)}
+                    className="h-10 w-[9.5rem]"
+                    aria-label={t("ops.review.date_from", "From")}
+                  />
+                  <span className="text-xs text-muted-foreground">→</span>
+                  <Input
+                    type="date"
+                    value={dateTo}
+                    min={dateFrom || undefined}
+                    onChange={(e) => onDateToChange(e.target.value)}
+                    className="h-10 w-[9.5rem]"
+                    aria-label={t("ops.review.date_to", "To")}
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Card className={cn(accountabilityCounts.pending_review > 0 && "border-amber-300 dark:border-amber-800")}>
-              <CardContent className="p-4">
-                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-                  {t("analytics.accountability.pending_review", "Needs your review")}
+          <div className="grid gap-px overflow-hidden rounded-xl border border-border/80 bg-border/80 sm:grid-cols-2 xl:grid-cols-4">
+            {(
+              [
+                {
+                  label: t("analytics.accountability.pending_review", "Needs your review"),
+                  value: accountabilityLoading ? "…" : accountabilityCounts.pending_review,
+                  hint: t("analytics.accountability.pending_review_desc", "Completed - awaiting sign-off"),
+                  tone:
+                    accountabilityCounts.pending_review > 0
+                      ? "text-amber-600"
+                      : "",
+                },
+                {
+                  label: t("analytics.accountability.overdue", "Overdue"),
+                  value: accountabilityLoading ? "…" : accountabilityCounts.overdue,
+                  hint: t("analytics.accountability.overdue_desc", "Past due - not finished"),
+                  tone: accountabilityCounts.overdue > 0 ? "text-red-600" : "",
+                },
+                {
+                  label: t("analytics.accountability.in_progress", "In progress"),
+                  value: accountabilityLoading ? "…" : accountabilityCounts.in_progress,
+                  hint: t("analytics.accountability.in_progress_desc", "Started but not submitted"),
+                  tone: accountabilityCounts.in_progress > 0 ? "text-sky-600" : "",
+                },
+                {
+                  label: t("analytics.accountability.with_issues", "Submissions with issues"),
+                  value: accountabilityLoading ? "…" : accountabilityCounts.with_issues,
+                  hint: t("analytics.accountability.with_issues_desc", "Failed steps, gaps, or open actions"),
+                  tone: accountabilityCounts.with_issues > 0 ? "text-amber-700 dark:text-amber-400" : "",
+                },
+              ] as const
+            ).map((kpi) => (
+              <div key={kpi.label} className="bg-card px-4 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {kpi.label}
                 </div>
-                <div className={cn(
-                  "mt-1 text-2xl font-semibold tabular-nums",
-                  accountabilityCounts.pending_review > 0 && "text-amber-600",
-                )}>
-                  {accountabilityLoading ? "…" : accountabilityCounts.pending_review}
+                <div className={cn("mt-0.5 text-2xl font-semibold tabular-nums", kpi.tone)}>
+                  {kpi.value}
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {t("analytics.accountability.pending_review_desc", "Completed - awaiting sign-off")}
+                <div className="text-[11px] text-muted-foreground mt-0.5">{kpi.hint}</div>
+              </div>
+            ))}
+          </div>
+
+          <div
+            className="grid h-auto w-full grid-cols-1 gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5 sm:grid-cols-3"
+            role="tablist"
+            aria-label={t("ops.review.checklists.filters", { defaultValue: "Submission filters" })}
+          >
+            {(
+              [
+                { id: "all" as const, label: t("analytics.accountability.filter_all", "All") },
+                {
+                  id: "needs_review" as const,
+                  label: t("analytics.accountability.filter_review", "Needs review"),
+                },
+                {
+                  id: "has_issues" as const,
+                  label: t("analytics.accountability.filter_issues", "Has issues"),
+                },
+              ] as const
+            ).map((f) => {
+              const active = accountabilityFilter === f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => {
+                    setAccountabilityFilter(f.id);
+                    setChecklistPage(1);
+                  }}
+                  className={cn(
+                    HUB_TABS_TRIGGER,
+                    "w-full justify-center py-2.5 text-xs font-semibold sm:text-sm",
+                    active && "!border-primary !bg-primary !text-primary-foreground shadow-md",
+                  )}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className={cn(MIZAN_TOOLBAR, "space-y-3")}>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative min-w-0 flex-1 sm:max-w-xs">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder={t("ops.review.checklists.search", {
+                      defaultValue: "Search name or checklist…",
+                    })}
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setChecklistPage(1);
+                    }}
+                    className="h-10 pl-9"
+                  />
                 </div>
-              </CardContent>
-            </Card>
-            <Card className={cn(accountabilityCounts.overdue > 0 && "border-red-300 dark:border-red-900")}>
-              <CardContent className="p-4">
-                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-                  {t("analytics.accountability.overdue", "Overdue")}
+                <Input
+                  placeholder={t("ops.review.checklists.staff_filter", {
+                    defaultValue: "Filter by staff",
+                  })}
+                  value={staffFilter}
+                  onChange={(e) => {
+                    setStaffFilter(e.target.value);
+                    setChecklistPage(1);
+                  }}
+                  className="h-10 sm:max-w-[200px]"
+                />
+              </div>
+              <Button size="sm" variant="outline" className="h-10 shrink-0" onClick={exportCsv}>
+                {t("ops.review.checklists.export", { defaultValue: "Export CSV" })}
+              </Button>
+            </div>
+          </div>
+
+          <div className={cn(MIZAN_SURFACE_CARD, "overflow-hidden p-0")}>
+            <div className="space-y-4 p-4 sm:p-5">
+              {isLoading ? (
+                <TableSkeleton rowCount={8} colCount={6} />
+              ) : sortedTable.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border/80 px-4 py-12 text-center">
+                  <ClipboardCheck className="mx-auto h-10 w-10 text-muted-foreground/40 mb-3" />
+                  <div className="font-medium text-sm">{t("analytics.no_submissions")}</div>
+                  <div className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+                    {accountabilityCounts.open_assignments > 0 || accountabilityCounts.in_progress > 0
+                      ? t("analytics.accountability.empty_with_open", {
+                          open: accountabilityCounts.open_assignments + accountabilityCounts.in_progress,
+                        })
+                      : t("analytics.try_widening_range")}
+                  </div>
                 </div>
-                <div className={cn(
-                  "mt-1 text-2xl font-semibold tabular-nums",
-                  accountabilityCounts.overdue > 0 && "text-red-600",
-                )}>
-                  {accountabilityLoading ? "…" : accountabilityCounts.overdue}
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-border/60">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>
+                          <button
+                            type="button"
+                            className="text-left w-full font-medium"
+                            onClick={() => {
+                              setSortBy("checklist");
+                              setSortDir(sortBy === "checklist" && sortDir === "asc" ? "desc" : "asc");
+                            }}
+                          >
+                            {t("ops.review.checklists.col_checklist", { defaultValue: "Checklist" })}
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button
+                            type="button"
+                            className="text-left w-full font-medium"
+                            onClick={() => {
+                              setSortBy("staff");
+                              setSortDir(sortBy === "staff" && sortDir === "asc" ? "desc" : "asc");
+                            }}
+                          >
+                            {t("ops.review.checklists.col_staff", { defaultValue: "Staff" })}
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button
+                            type="button"
+                            className="text-left w-full font-medium"
+                            onClick={() => {
+                              setSortBy("date");
+                              setSortDir(sortBy === "date" && sortDir === "asc" ? "desc" : "asc");
+                            }}
+                          >
+                            {t("ops.review.checklists.col_submitted", { defaultValue: "Submitted" })}
+                          </button>
+                        </TableHead>
+                        <TableHead>{t("ops.review.checklists.col_health", { defaultValue: "Health" })}</TableHead>
+                        <TableHead>{t("ops.review.col.status")}</TableHead>
+                        <TableHead className="w-[90px]" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedChecklists.map((s) => {
+                        const issues =
+                          (s.compiled_summary?.failed_steps || 0) +
+                          (s.compiled_summary?.required_missing || 0) +
+                          (s.compiled_summary?.out_of_range_measurements || 0) +
+                          (s.compiled_summary?.actions_open || 0);
+                        const rate = s.compiled_summary?.completion_rate;
+                        return (
+                          <TableRow
+                            key={s.id}
+                            className={cn(!isCompletedLike(s.status) && "bg-amber-50/60 dark:bg-amber-950/20")}
+                          >
+                            <TableCell>
+                              <div className="font-medium text-sm">{s.template?.name || "-"}</div>
+                              {s.source_type === "shift_progress" ? (
+                                <Badge variant="outline" className="mt-0.5 text-[10px]">
+                                  WhatsApp
+                                </Badge>
+                              ) : null}
+                              {s.notes ? (
+                                <div
+                                  className="text-[11px] text-muted-foreground truncate max-w-[220px] mt-0.5"
+                                  title={s.notes}
+                                >
+                                  {s.notes}
+                                </div>
+                              ) : null}
+                            </TableCell>
+                            <TableCell className="text-sm">{s.submitted_by?.name || "-"}</TableCell>
+                            <TableCell className="text-sm whitespace-nowrap">
+                              {s.submitted_at
+                                ? new Date(s.submitted_at).toLocaleString(undefined, {
+                                    month: "short",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "-"}
+                            </TableCell>
+                            <TableCell>
+                              <div className="min-w-[120px] space-y-1">
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="tabular-nums">
+                                    {s.compiled_summary?.completed_steps ?? "-"}/
+                                    {s.compiled_summary?.total_steps ?? "-"}
+                                    {typeof rate === "number" ? ` · ${rate}%` : ""}
+                                  </span>
+                                  {typeof s.compiled_summary?.duration_minutes === "number" ? (
+                                    <span className="text-muted-foreground">
+                                      {s.compiled_summary.duration_minutes}m
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <Progress value={typeof rate === "number" ? rate : 0} className="h-1.5" />
+                                {issues > 0 ? (
+                                  <div className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {issues} issue{issues === 1 ? "" : "s"}
+                                  </div>
+                                ) : (
+                                  <div className="text-[11px] text-muted-foreground">
+                                    {t("ops.review.checklists.no_issues", { defaultValue: "No issues" })}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col gap-1">
+                                <Badge
+                                  variant={isCompletedLike(s.status) ? "secondary" : "outline"}
+                                  className="text-[10px] w-fit"
+                                >
+                                  {s.status || "-"}
+                                </Badge>
+                                {submissionNeedsReview(s) ? (
+                                  <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                                    {t("analytics.accountability.awaiting_signoff", "Awaiting sign-off")}
+                                  </span>
+                                ) : String(s.status || "").toUpperCase() === "APPROVED" ? (
+                                  <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                                    {t("analytics.accountability.signed_off", "Manager signed off")}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  setDetailId(s.id);
+                                  setDetailSourceType(s.source_type || "execution");
+                                  setReviewComment(s.notes || "");
+                                  try {
+                                    await api.logAdminAction(String(s.id), {
+                                      action: "VIEW_SUBMISSION",
+                                      message: "Opened submission details",
+                                    });
+                                  } catch {
+                                    /* ignore */
+                                  }
+                                }}
+                              >
+                                {t("analytics.review_now", "Review")}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {t("analytics.accountability.overdue_desc", "Past due - not finished")}
+              )}
+
+              {sortedTable.length > 0 && (
+                <div className="flex flex-col gap-2 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    {t("ops.review.incidents.pagination", {
+                      defaultValue: "Showing {{from}}–{{to}} of {{total}}",
+                      from: checklistStartIndex + 1,
+                      to: Math.min(checklistEndIndex, totalChecklistItems),
+                      total: totalChecklistItems,
+                    })}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={checklistPage <= 1}
+                      onClick={() => setChecklistPage((p) => Math.max(1, p - 1))}
+                    >
+                      {t("common.previous", { defaultValue: "Previous" })}
+                    </Button>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {checklistPage} / {totalChecklistPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={checklistPage >= totalChecklistPages}
+                      onClick={() => setChecklistPage((p) => Math.min(totalChecklistPages, p + 1))}
+                    >
+                      {t("common.next", { defaultValue: "Next" })}
+                    </Button>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-                  {t("analytics.accountability.in_progress", "In progress")}
-                </div>
-                <div className="mt-1 text-2xl font-semibold tabular-nums text-sky-600">
-                  {accountabilityLoading ? "…" : accountabilityCounts.in_progress}
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {t("analytics.accountability.in_progress_desc", "Started but not submitted")}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-                  {t("analytics.accountability.with_issues", "Submissions with issues")}
-                </div>
-                <div className={cn(
-                  "mt-1 text-2xl font-semibold tabular-nums",
-                  accountabilityCounts.with_issues > 0 && "text-amber-700",
-                )}>
-                  {accountabilityLoading ? "…" : accountabilityCounts.with_issues}
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {t("analytics.accountability.with_issues_desc", "Failed steps, gaps, or open actions")}
-                </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
           </div>
 
           {(accountability?.pending_review?.length ?? 0) > 0 ? (
@@ -1410,6 +1724,7 @@ const ManagerReviewDashboard: React.FC = () => {
             </Card>
           ) : null}
 
+          {(!pathImpliesChecklists || trendKpis.totalInRange > 0) && (
           <Card className="overflow-hidden">
             <CardHeader className="pb-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1541,229 +1856,7 @@ const ManagerReviewDashboard: React.FC = () => {
               ) : null}
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <CardTitle className="text-base">Submitted checklists</CardTitle>
-                  <CardDescription>
-                    {totalChecklistItems} matching · review completions and issues
-                  </CardDescription>
-                </div>
-                <Button size="sm" variant="outline" onClick={exportCsv}>
-                  Export CSV
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                {([
-                  { id: "all" as const, label: t("analytics.accountability.filter_all", "All") },
-                  { id: "needs_review" as const, label: t("analytics.accountability.filter_review", "Needs review") },
-                  { id: "has_issues" as const, label: t("analytics.accountability.filter_issues", "Has issues") },
-                ]).map((f) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => { setAccountabilityFilter(f.id); setChecklistPage(1); }}
-                    className={cn(
-                      "rounded-full px-3 py-1 text-xs font-medium border transition",
-                      accountabilityFilter === f.id
-                        ? "bg-emerald-600 text-white border-emerald-600"
-                        : "border-slate-200 dark:border-slate-700 text-muted-foreground hover:bg-muted/60",
-                    )}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Input
-                  placeholder="Search name or checklist…"
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setChecklistPage(1); }}
-                  className="w-56"
-                />
-                <Input
-                  placeholder="Filter by staff"
-                  value={staffFilter}
-                  onChange={(e) => { setStaffFilter(e.target.value); setChecklistPage(1); }}
-                  className="w-44"
-                />
-              </div>
-
-              {isLoading ? (
-                <TableSkeleton rowCount={8} colCount={6} />
-              ) : sortedTable.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 px-4 py-12 text-center">
-                  <ClipboardCheck className="mx-auto h-10 w-10 text-muted-foreground/40 mb-3" />
-                  <div className="font-medium text-sm">{t("analytics.no_submissions")}</div>
-                  <div className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
-                    {accountabilityCounts.open_assignments > 0 || accountabilityCounts.in_progress > 0
-                      ? t("analytics.accountability.empty_with_open", {
-                          open: accountabilityCounts.open_assignments + accountabilityCounts.in_progress,
-                        })
-                      : t("analytics.try_widening_range")}
-                  </div>
-                </div>
-              ) : (
-                <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>
-                          <button className="text-left w-full font-medium" onClick={() => { setSortBy('checklist'); setSortDir(sortBy === 'checklist' && sortDir === 'asc' ? 'desc' : 'asc'); }}>
-                            Checklist
-                          </button>
-                        </TableHead>
-                        <TableHead>
-                          <button className="text-left w-full font-medium" onClick={() => { setSortBy('staff'); setSortDir(sortBy === 'staff' && sortDir === 'asc' ? 'desc' : 'asc'); }}>
-                            Staff
-                          </button>
-                        </TableHead>
-                        <TableHead>
-                          <button className="text-left w-full font-medium" onClick={() => { setSortBy('date'); setSortDir(sortBy === 'date' && sortDir === 'asc' ? 'desc' : 'asc'); }}>
-                            Submitted
-                          </button>
-                        </TableHead>
-                        <TableHead>Health</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="w-[90px]" />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedChecklists.map((s) => {
-                        const issues =
-                          (s.compiled_summary?.failed_steps || 0) +
-                          (s.compiled_summary?.required_missing || 0) +
-                          (s.compiled_summary?.out_of_range_measurements || 0) +
-                          (s.compiled_summary?.actions_open || 0);
-                        const rate = s.compiled_summary?.completion_rate;
-                        return (
-                          <TableRow
-                            key={s.id}
-                            className={cn(!isCompletedLike(s.status) && "bg-amber-50/60 dark:bg-amber-950/20")}
-                          >
-                            <TableCell>
-                              <div className="font-medium text-sm">{s.template?.name || "-"}</div>
-                              {s.source_type === "shift_progress" ? (
-                                <Badge variant="outline" className="mt-0.5 text-[10px]">WhatsApp</Badge>
-                              ) : null}
-                              {s.notes ? (
-                                <div className="text-[11px] text-muted-foreground truncate max-w-[220px] mt-0.5" title={s.notes}>
-                                  {s.notes}
-                                </div>
-                              ) : null}
-                            </TableCell>
-                            <TableCell className="text-sm">{s.submitted_by?.name || "-"}</TableCell>
-                            <TableCell className="text-sm whitespace-nowrap">
-                              {s.submitted_at
-                                ? new Date(s.submitted_at).toLocaleString(undefined, {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })
-                                : "-"}
-                            </TableCell>
-                            <TableCell>
-                              <div className="min-w-[120px] space-y-1">
-                                <div className="flex items-center justify-between text-[11px]">
-                                  <span className="tabular-nums">
-                                    {s.compiled_summary?.completed_steps ?? "-"}/{s.compiled_summary?.total_steps ?? "-"}
-                                    {typeof rate === "number" ? ` · ${rate}%` : ""}
-                                  </span>
-                                  {typeof s.compiled_summary?.duration_minutes === "number" ? (
-                                    <span className="text-muted-foreground">{s.compiled_summary.duration_minutes}m</span>
-                                  ) : null}
-                                </div>
-                                <Progress value={typeof rate === "number" ? rate : 0} className="h-1.5" />
-                                {issues > 0 ? (
-                                  <div className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400">
-                                    <AlertTriangle className="h-3 w-3" />
-                                    {issues} issue{issues === 1 ? "" : "s"}
-                                  </div>
-                                ) : (
-                                  <div className="text-[11px] text-muted-foreground">No issues</div>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-col gap-1">
-                                <Badge
-                                  variant={isCompletedLike(s.status) ? "secondary" : "outline"}
-                                  className="text-[10px] w-fit"
-                                >
-                                  {s.status || "-"}
-                                </Badge>
-                                {submissionNeedsReview(s) ? (
-                                  <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
-                                    {t("analytics.accountability.awaiting_signoff", "Awaiting sign-off")}
-                                  </span>
-                                ) : String(s.status || "").toUpperCase() === "APPROVED" ? (
-                                  <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
-                                    {t("analytics.accountability.signed_off", "Manager signed off")}
-                                  </span>
-                                ) : null}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={async () => {
-                                  setDetailId(s.id);
-                                  setDetailSourceType(s.source_type || "execution");
-                                  setReviewComment(s.notes || "");
-                                  try {
-                                    await api.logAdminAction(String(s.id), {
-                                      action: "VIEW_SUBMISSION",
-                                      message: "Opened submission details",
-                                    });
-                                  } catch { /* ignore */ }
-                                }}
-                              >
-                                Review
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-
-              {sortedTable.length > 0 && (
-                <div className="flex items-center justify-between pt-2">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {checklistStartIndex + 1}-{Math.min(checklistEndIndex, totalChecklistItems)} of {totalChecklistItems}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={checklistPage <= 1}
-                      onClick={() => setChecklistPage((p) => Math.max(1, p - 1))}
-                    >
-                      Previous
-                    </Button>
-                    <span className="text-xs tabular-nums text-muted-foreground">
-                      {checklistPage} / {totalChecklistPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={checklistPage >= totalChecklistPages}
-                      onClick={() => setChecklistPage((p) => Math.min(totalChecklistPages, p + 1))}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          )}
 
           {(recentActivity.length > 0) && (
             <div className="grid gap-4 lg:grid-cols-1">
@@ -1795,52 +1888,104 @@ const ManagerReviewDashboard: React.FC = () => {
             </div>
           )}
         </TabsContent>
+        ) : null}
 
+        {!pathImpliesChecklists ? (
         <TabsContent value="incidents" className="mt-0 space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{t("ops.review.kpi.open")}</div>
-                <div className={cn("mt-1 text-2xl font-semibold tabular-nums", incidentKpis.open > 0 && "text-amber-600")}>
-                  {incidentKpis.open}
+          <div
+            className={cn(
+              "grid gap-px overflow-hidden rounded-xl border border-border/80 bg-border/80 sm:grid-cols-2 xl:grid-cols-4",
+            )}
+          >
+            {(
+              [
+                {
+                  label: t("ops.review.kpi.open"),
+                  value: incidentKpis.open,
+                  hint: t("ops.review.kpi.needs_attention"),
+                  tone: incidentKpis.open > 0 ? "text-amber-600" : "",
+                },
+                {
+                  label: t("ops.review.kpi.critical_high"),
+                  value: incidentKpis.critical,
+                  hint: t("ops.review.kpi.among_open"),
+                  tone: incidentKpis.critical > 0 ? "text-red-600" : "",
+                },
+                {
+                  label: t("ops.review.kpi.unassigned"),
+                  value: incidentKpis.unassigned,
+                  hint: t("ops.review.kpi.no_owner"),
+                  tone: incidentKpis.unassigned > 0 ? "text-amber-700 dark:text-amber-400" : "",
+                },
+                {
+                  label: t("ops.review.kpi.resolved_7d"),
+                  value: incidentKpis.resolved7,
+                  hint: t("ops.review.kpi.total_filed", { count: incidentKpis.total }),
+                  tone: "text-emerald-600",
+                },
+              ] as const
+            ).map((kpi) => (
+              <div key={kpi.label} className="bg-card px-4 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {kpi.label}
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">{t("ops.review.kpi.needs_attention")}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{t("ops.review.kpi.critical_high")}</div>
-                <div className={cn("mt-1 text-2xl font-semibold tabular-nums", incidentKpis.critical > 0 && "text-red-600")}>
-                  {incidentKpis.critical}
+                <div className={cn("mt-0.5 text-2xl font-semibold tabular-nums", kpi.tone)}>
+                  {kpi.value}
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">{t("ops.review.kpi.among_open")}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{t("ops.review.kpi.unassigned")}</div>
-                <div className="mt-1 text-2xl font-semibold tabular-nums">{incidentKpis.unassigned}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">{t("ops.review.kpi.no_owner")}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{t("ops.review.kpi.resolved_7d")}</div>
-                <div className="mt-1 text-2xl font-semibold tabular-nums text-emerald-600">{incidentKpis.resolved7}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">{t("ops.review.kpi.total_filed", { count: incidentKpis.total })}</div>
-              </CardContent>
-            </Card>
+                <div className="text-[11px] text-muted-foreground mt-0.5">{kpi.hint}</div>
+              </div>
+            ))}
           </div>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">{t("ops.review.incidents.title")}</CardTitle>
-              <CardDescription>
-                {t("ops.review.incidents.desc")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2">
+          <div
+            className="grid h-auto w-full grid-cols-2 gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5 sm:grid-cols-5"
+            role="tablist"
+            aria-label={t("ops.review.col.status")}
+          >
+            {[
+              { value: "open", label: t("status.OPEN") },
+              {
+                value: "acknowledged",
+                label: t("status.ACKNOWLEDGED", { defaultValue: "Acknowledged" }),
+              },
+              { value: "all", label: t("common.all") },
+              { value: "resolved", label: t("status.RESOLVED") },
+              {
+                value: "dismissed",
+                label: t("status.DISMISSED", {
+                  defaultValue: t("common.dismissed", { defaultValue: "Dismissed" }),
+                }),
+              },
+            ].map((opt) => {
+              const filterValue = opt.value === "all" ? "" : opt.value;
+              const active = incidentFilters.status === filterValue;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => {
+                    setIncidentFilters({ ...incidentFilters, status: filterValue });
+                    setIncidentPage(1);
+                  }}
+                  className={cn(
+                    HUB_TABS_TRIGGER,
+                    "w-full justify-center py-2.5 text-xs font-semibold sm:text-sm",
+                    active &&
+                      "!border-primary !bg-primary !text-primary-foreground shadow-md",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className={cn(MIZAN_TOOLBAR, "space-y-3")}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative min-w-0 flex-1 sm:max-w-md">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder={t("ops.review.incidents.search")}
                   value={incidentFilters.search}
@@ -1848,49 +1993,40 @@ const ManagerReviewDashboard: React.FC = () => {
                     setIncidentFilters({ ...incidentFilters, search: e.target.value });
                     setIncidentPage(1);
                   }}
-                  className="w-56"
+                  className="h-10 pl-9"
                 />
-                <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 gap-0.5">
-                  {[
-                    { value: "open", label: t("status.OPEN") },
-                    { value: "acknowledged", label: t("status.ACKNOWLEDGED", { defaultValue: "Acknowledged" }) },
-                    { value: "", label: t("common.all") },
-                    { value: "resolved", label: t("status.RESOLVED") },
-                    { value: "dismissed", label: t("status.DISMISSED", { defaultValue: t("common.dismissed", { defaultValue: "Dismissed" }) }) },
-                  ].map((opt) => (
-                    <button
-                      key={opt.value || "all"}
-                      type="button"
-                      onClick={() => {
-                        setIncidentFilters({ ...incidentFilters, status: opt.value });
-                        setIncidentPage(1);
-                      }}
-                      className={cn(
-                        "rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-                        incidentFilters.status === opt.value
-                          ? "bg-emerald-600 text-white"
-                          : "text-muted-foreground hover:bg-slate-100 dark:hover:bg-slate-800",
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                <select
-                  value={incidentFilters.severity}
-                  onChange={(e) => {
-                    setIncidentFilters({ ...incidentFilters, severity: e.target.value });
-                    setIncidentPage(1);
-                  }}
-                  className="border border-slate-200 dark:border-slate-700 bg-card text-slate-900 dark:text-slate-100 rounded-md px-3 py-2 text-sm"
-                >
-                  <option value="">{t("ops.review.incidents.all_severities")}</option>
-                  <option value="normal">{t("operations_live.priority.normal", { defaultValue: "Normal" })}</option>
-                  <option value="medium">{t("operations_live.priority.medium", { defaultValue: "Medium" })}</option>
-                  <option value="urgent">{t("operations_live.priority.urgent", { defaultValue: "Urgent" })}</option>
-                </select>
               </div>
+              <Select
+                value={incidentFilters.severity || "all"}
+                onValueChange={(value) => {
+                  setIncidentFilters({
+                    ...incidentFilters,
+                    severity: value === "all" ? "" : value,
+                  });
+                  setIncidentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-10 w-full sm:w-[200px]">
+                  <SelectValue placeholder={t("ops.review.incidents.all_severities")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("ops.review.incidents.all_severities")}</SelectItem>
+                  <SelectItem value="normal">
+                    {t("operations_live.priority.normal", { defaultValue: "Normal" })}
+                  </SelectItem>
+                  <SelectItem value="medium">
+                    {t("operations_live.priority.medium", { defaultValue: "Medium" })}
+                  </SelectItem>
+                  <SelectItem value="urgent">
+                    {t("operations_live.priority.urgent", { defaultValue: "Urgent" })}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
+          <div className={cn(MIZAN_SURFACE_CARD, "p-0 overflow-hidden")}>
+            <div className="space-y-4 p-4 sm:p-5">
               {incidentsLoading ? (
                 <TableSkeleton rowCount={6} colCount={6} />
               ) : filteredIncidents.length === 0 ? (
@@ -2009,9 +2145,14 @@ const ManagerReviewDashboard: React.FC = () => {
               )}
 
               {filteredIncidents.length > 0 && (
-                <div className="flex items-center justify-between pt-1">
+                <div className="flex flex-col gap-2 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-sm text-muted-foreground">
-                    Showing {incidentStartIndex + 1}-{Math.min(incidentEndIndex, totalIncidentItems)} of {totalIncidentItems}
+                    {t("ops.review.incidents.pagination", {
+                      defaultValue: "Showing {{from}}–{{to}} of {{total}}",
+                      from: incidentStartIndex + 1,
+                      to: Math.min(incidentEndIndex, totalIncidentItems),
+                      total: totalIncidentItems,
+                    })}
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
@@ -2020,7 +2161,7 @@ const ManagerReviewDashboard: React.FC = () => {
                       disabled={incidentPage <= 1}
                       onClick={() => setIncidentPage((p) => Math.max(1, p - 1))}
                     >
-                      Previous
+                      {t("common.previous", { defaultValue: "Previous" })}
                     </Button>
                     <span className="text-xs tabular-nums text-muted-foreground">
                       {incidentPage} / {totalIncidentPages}
@@ -2031,13 +2172,13 @@ const ManagerReviewDashboard: React.FC = () => {
                       disabled={incidentPage >= totalIncidentPages}
                       onClick={() => setIncidentPage((p) => Math.min(totalIncidentPages, p + 1))}
                     >
-                      Next
+                      {t("common.next", { defaultValue: "Next" })}
                     </Button>
                   </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           <Dialog
             open={!!selectedIncident}
@@ -2294,6 +2435,7 @@ const ManagerReviewDashboard: React.FC = () => {
             </DialogContent>
           </Dialog>
         </TabsContent>
+        ) : null}
       </Tabs>
 
       <Dialog open={detailId !== null} onOpenChange={(o) => { if (!o) { setDetailId(null); setReviewComment(""); } }}>

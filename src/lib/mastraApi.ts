@@ -373,6 +373,28 @@ export function mastraConversationStorageKey(userId: string): string {
 }
 
 /** Always the current user's thread. Never reuse another account's conversation id. */
+/**
+ * Start a fresh agent thread: new conversation id, clear pending confirm for the old thread.
+ * Mastra/Django thread memory for the old id is left intact but no longer referenced.
+ */
+export function startNewMastraConversation(userId: string): string {
+  if (!userId) return "";
+  const previous = conversationIdForUser(userId);
+  if (previous) {
+    savePendingConfirmation(userId, previous, null);
+  }
+  const created =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? `${userId}:${crypto.randomUUID()}`
+      : `${userId}:web-${Date.now()}`;
+  try {
+    window.localStorage.setItem(mastraConversationStorageKey(userId), created);
+  } catch {
+    // ignore
+  }
+  return created;
+}
+
 export function conversationIdForUser(userId: string): string {
   if (!userId) return "";
   const key = mastraConversationStorageKey(userId);

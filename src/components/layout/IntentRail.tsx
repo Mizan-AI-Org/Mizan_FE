@@ -10,11 +10,8 @@ import { cn } from "@/lib/utils";
 import { OPERATIONAL_COMMAND_ROLES } from "@/lib/operationalCommandRoles";
 import {
   IconAttention,
-  IconSocial,
   IconCommand,
   IconCustomers,
-  IconFinancials,
-  IconIntelligence,
   IconPeople,
   IconProducts,
   IconSettings,
@@ -22,13 +19,13 @@ import {
   IconWork,
 } from "@/components/layout/mizan-nav-icons";
 import {
-  SOCIAL_MEDIA_SECTIONS,
   DOMAIN_SECTIONS,
   SETTINGS_SECTIONS,
   type DomainId,
   type DomainNavLeaf,
 } from "@/lib/mizan-domains";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useNavAttentionBadges } from "@/hooks/use-nav-attention-badges";
 
 type NavLeaf = DomainNavLeaf;
 type NavGroup = {
@@ -44,14 +41,6 @@ type NavGroup = {
 const RAIL_EXPANDED = 232;
 const RAIL_COLLAPSED = 72;
 const ICON = "h-[22px] w-[22px]";
-
-/** Hidden from nav until these domains are GA-ready; routes remain reachable by URL. */
-const HIDDEN_NAV_GROUP_IDS = new Set([
-  "suppliers",
-  "financials",
-  "intelligence",
-  "social_media",
-]);
 
 function domainLeaves(id: DomainId): NavLeaf[] {
   return DOMAIN_SECTIONS[id];
@@ -84,58 +73,30 @@ const GROUPS: NavGroup[] = [
     id: "employees",
     labelKey: "nav.employees",
     icon: IconPeople,
-    href: "/dashboard/employees",
+    href: "/dashboard/employees/people",
     roles: [...OPERATIONAL_COMMAND_ROLES],
     children: domainLeaves("employees"),
   },
   {
     id: "products",
-    labelKey: "nav.products",
+    labelKey: "nav.sales",
     icon: IconProducts,
-    href: "/dashboard/products",
+    href: "/dashboard/products/sales",
     roles: [...OPERATIONAL_COMMAND_ROLES],
-    children: domainLeaves("products"),
   },
   {
-    id: "customers",
-    labelKey: "nav.customers",
-    icon: IconCustomers,
-    href: "/dashboard/customers/reservations",
-    roles: [...OPERATIONAL_COMMAND_ROLES],
-    children: domainLeaves("customers"),
-  },
-  {
-    id: "suppliers",
-    labelKey: "nav.suppliers",
+    id: "procurements",
+    labelKey: "nav.procurements",
     icon: IconSuppliers,
-    href: "/dashboard/suppliers",
+    href: "/dashboard/suppliers/procurement",
     roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
-    children: domainLeaves("suppliers"),
   },
   {
-    id: "financials",
-    labelKey: "nav.financials",
-    icon: IconFinancials,
-    href: "/dashboard/financials",
-    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
-    children: domainLeaves("financials"),
-  },
-  {
-    id: "intelligence",
-    labelKey: "nav.intelligence",
-    icon: IconIntelligence,
-    href: "/dashboard/intelligence/insights",
-    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
-    children: domainLeaves("intelligence"),
-  },
-  {
-    id: "social_media",
-    labelKey: "nav.social_media",
-    icon: IconSocial,
-    href: "/dashboard/social-media",
-    appId: "social_media",
-    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
-    children: SOCIAL_MEDIA_SECTIONS,
+    id: "reservations_orders",
+    labelKey: "nav.customers.reservations_orders",
+    icon: IconCustomers,
+    href: "/dashboard/customers/reservations-orders",
+    roles: [...OPERATIONAL_COMMAND_ROLES],
   },
   {
     id: "settings",
@@ -198,12 +159,41 @@ function navItemClass(active: boolean, collapsed: boolean) {
     collapsed && "justify-center px-0",
     active
       ? [
-          "bg-primary/[0.09] font-medium text-foreground ring-1 ring-inset ring-primary/15",
+          "bg-primary/[0.11] font-semibold text-foreground ring-1 ring-inset ring-primary/20",
           "[&>svg:first-of-type]:text-primary",
-          "before:absolute before:inset-inline-start-0 before:top-1/2 before:h-5 before:w-[3px]",
+          "before:absolute before:inset-inline-start-0 before:top-1/2 before:h-6 before:w-[3px]",
           "before:-translate-y-1/2 before:rounded-e-full before:bg-primary before:content-['']",
         ]
       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground",
+  );
+}
+
+function navChildItemClass(active: boolean) {
+  return cn(
+    "relative flex min-h-10 w-full items-center gap-2 rounded-md px-2.5 py-2 text-start text-body transition-all duration-os",
+    active
+      ? [
+          "bg-primary/[0.11] font-semibold text-foreground ring-1 ring-inset ring-primary/20",
+          "before:absolute before:inset-inline-start-0 before:top-1/2 before:h-5 before:w-[3px]",
+          "before:-translate-y-1/2 before:rounded-e-full before:bg-primary before:content-['']",
+        ]
+      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+  );
+}
+
+function NavAttentionBadge({ count, className }: { count: number; className?: string }) {
+  if (count <= 0) return null;
+  const label = count > 99 ? "99+" : `+${count}`;
+  return (
+    <span
+      className={cn(
+        "shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold tabular-nums leading-none text-primary-foreground",
+        className,
+      )}
+      aria-label={`${count} need attention`}
+    >
+      {label}
+    </span>
   );
 }
 
@@ -249,7 +239,6 @@ export function IntentRail({ className }: { className?: string }) {
 
   const visible = useMemo(() => {
     return GROUPS.filter((g) => {
-      if (HIDDEN_NAV_GROUP_IDS.has(g.id)) return false;
       if (g.roles && !hasRole(g.roles)) return false;
       if (g.appId && !canApp(g.appId)) return false;
       return true;
@@ -262,6 +251,16 @@ export function IntentRail({ className }: { className?: string }) {
       }),
     }));
   }, [hasRole, canApp]);
+
+  const navHrefs = useMemo(
+    () =>
+      visible.flatMap((g) => [
+        ...(g.href ? [g.href] : []),
+        ...((g.children || []).map((c) => c.href)),
+      ]),
+    [visible],
+  );
+  const { badgeForHref } = useNavAttentionBadges(navHrefs);
 
   return (
     <aside
@@ -281,6 +280,7 @@ export function IntentRail({ className }: { className?: string }) {
           const expanded = openGroups[group.id] ?? false;
 
           if (!group.children?.length) {
+            const leafBadge = badgeForHref(group.href || "/dashboard", active);
             return (
               <NavLink
                 key={group.id}
@@ -288,12 +288,32 @@ export function IntentRail({ className }: { className?: string }) {
                 end={group.href === "/dashboard"}
                 title={label}
                 className={navItemClass(active, collapsed)}
+                aria-current={active ? "page" : undefined}
               >
                 <Icon className={ICON} />
-                {!collapsed ? <span>{label}</span> : <span className="sr-only">{label}</span>}
+                {!collapsed ? (
+                  <>
+                    <span className="min-w-0 flex-1 truncate">{label}</span>
+                    <NavAttentionBadge count={leafBadge} />
+                  </>
+                ) : (
+                  <>
+                    <span className="sr-only">{label}</span>
+                    {leafBadge > 0 ? (
+                      <span className="absolute end-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-bold text-primary-foreground">
+                        {leafBadge > 9 ? "9+" : leafBadge}
+                      </span>
+                    ) : null}
+                  </>
+                )}
               </NavLink>
             );
           }
+
+          const groupBadge = (group.children || []).reduce((sum, child) => {
+            const childActive = leafMatches(location.pathname, location.search, child);
+            return sum + badgeForHref(child.href, childActive);
+          }, 0);
 
           return (
             <div key={group.id}>
@@ -308,17 +328,25 @@ export function IntentRail({ className }: { className?: string }) {
                 <Icon className={ICON} />
                 {!collapsed ? (
                   <>
-                    <span className="flex-1 text-start">{label}</span>
+                    <span className="flex-1 text-start truncate">{label}</span>
+                    {!expanded ? <NavAttentionBadge count={groupBadge} /> : null}
                     {expanded ? (
-                      <ChevronDown className="h-4 w-4 opacity-60" />
+                      <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
                     ) : isRTL ? (
-                      <ChevronLeft className="h-4 w-4 opacity-60" />
+                      <ChevronLeft className="h-4 w-4 shrink-0 opacity-60" />
                     ) : (
-                      <ChevronRight className="h-4 w-4 opacity-60" />
+                      <ChevronRight className="h-4 w-4 shrink-0 opacity-60" />
                     )}
                   </>
                 ) : (
-                  <span className="sr-only">{label}</span>
+                  <>
+                    <span className="sr-only">{label}</span>
+                    {groupBadge > 0 ? (
+                      <span className="absolute end-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-bold text-primary-foreground">
+                        {groupBadge > 9 ? "9+" : groupBadge}
+                      </span>
+                    ) : null}
+                  </>
                 )}
               </button>
               {!collapsed && expanded ? (
@@ -329,27 +357,17 @@ export function IntentRail({ className }: { className?: string }) {
                   {(group.children || []).map((child) => {
                     const childActive = leafMatches(location.pathname, location.search, child);
                     const childLabel = t(child.labelKey);
+                    const childBadge = badgeForHref(child.href, childActive);
                     return (
                       <button
                         key={child.href + child.labelKey}
                         type="button"
                         onClick={() => navigate(child.href)}
-                        className={cn(
-                          "flex min-h-10 w-full items-center gap-2 rounded-md px-2 py-2",
-                          "text-start text-body transition-all duration-os",
-                          childActive
-                            ? "bg-primary/[0.08] font-medium text-foreground"
-                            : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-                        )}
+                        className={navChildItemClass(childActive)}
+                        aria-current={childActive ? "page" : undefined}
                       >
-                        <span
-                          className={cn(
-                            "h-1.5 w-1.5 shrink-0 rounded-full transition-colors duration-os",
-                            childActive ? "bg-primary" : "bg-transparent",
-                          )}
-                          aria-hidden
-                        />
-                        <span className="min-w-0 truncate">{childLabel}</span>
+                        <span className="min-w-0 flex-1 truncate">{childLabel}</span>
+                        <NavAttentionBadge count={childBadge} />
                       </button>
                     );
                   })}
@@ -423,7 +441,7 @@ export function MobileIntentDock() {
     const candidates = [
       { labelKey: "nav.command", href: "/dashboard", icon: IconCommand, roles: [...OPERATIONAL_COMMAND_ROLES] },
       { labelKey: "nav.employees", href: "/dashboard/employees", icon: IconPeople, roles: [...OPERATIONAL_COMMAND_ROLES] },
-      { labelKey: "nav.products", href: "/dashboard/products", icon: IconProducts, roles: [...OPERATIONAL_COMMAND_ROLES] },
+      { labelKey: "nav.sales", href: "/dashboard/products/sales", icon: IconProducts, roles: [...OPERATIONAL_COMMAND_ROLES] },
       { labelKey: "nav.operations", href: "/dashboard/operations/live", icon: IconWork, roles: [...OPERATIONAL_COMMAND_ROLES] },
     ];
     return candidates.filter((c) => !c.roles || hasRole(c.roles));
@@ -431,7 +449,6 @@ export function MobileIntentDock() {
 
   const visible = useMemo(() => {
     return GROUPS.filter((g) => {
-      if (HIDDEN_NAV_GROUP_IDS.has(g.id)) return false;
       if (g.roles && !hasRole(g.roles)) return false;
       if (g.appId && !canApp(g.appId)) return false;
       return true;
@@ -444,6 +461,16 @@ export function MobileIntentDock() {
       }),
     }));
   }, [hasRole, canApp]);
+
+  const mobileNavHrefs = useMemo(
+    () =>
+      visible.flatMap((g) => [
+        ...(g.href ? [g.href] : []),
+        ...((g.children || []).map((c) => c.href)),
+      ]),
+    [visible],
+  );
+  const { badgeForHref: mobileBadgeForHref } = useNavAttentionBadges(mobileNavHrefs);
 
   useEffect(() => {
     const owning = GROUPS.find(
@@ -503,6 +530,7 @@ export function MobileIntentDock() {
               const active = groupOwnsPath(group, location.pathname, location.search);
               const expanded = openGroups[group.id] ?? false;
               if (!group.children?.length) {
+                const leafBadge = mobileBadgeForHref(group.href || "/dashboard", active);
                 return (
                   <button
                     key={group.id}
@@ -512,12 +540,18 @@ export function MobileIntentDock() {
                       setMenuOpen(false);
                     }}
                     className={cn(navItemClass(active, false), "w-full")}
+                    aria-current={active ? "page" : undefined}
                   >
                     <Icon className={ICON} />
-                    <span>{label}</span>
+                    <span className="min-w-0 flex-1 truncate text-start">{label}</span>
+                    <NavAttentionBadge count={leafBadge} />
                   </button>
                 );
               }
+              const groupBadge = (group.children || []).reduce((sum, child) => {
+                const childActive = leafMatches(location.pathname, location.search, child);
+                return sum + mobileBadgeForHref(child.href, childActive);
+              }, 0);
               return (
                 <div key={group.id}>
                   <button
@@ -527,13 +561,15 @@ export function MobileIntentDock() {
                     aria-expanded={expanded}
                   >
                     <Icon className={ICON} />
-                    <span className="flex-1 text-start">{label}</span>
+                    <span className="flex-1 text-start truncate">{label}</span>
+                    {!expanded ? <NavAttentionBadge count={groupBadge} /> : null}
                     {expanded ? <ChevronDown className="h-4 w-4 opacity-60" /> : <ChevronRight className="h-4 w-4 opacity-60" />}
                   </button>
                   {expanded ? (
                     <div className="ms-4 mt-0.5 space-y-0.5 border-s border-sidebar-border ps-3">
                       {(group.children || []).map((child) => {
                         const childActive = leafMatches(location.pathname, location.search, child);
+                        const childBadge = mobileBadgeForHref(child.href, childActive);
                         return (
                           <button
                             key={child.href + child.labelKey}
@@ -542,14 +578,11 @@ export function MobileIntentDock() {
                               navigate(child.href);
                               setMenuOpen(false);
                             }}
-                            className={cn(
-                              "flex min-h-10 w-full items-center gap-2 rounded-md px-2 py-2 text-start text-body",
-                              childActive
-                                ? "bg-primary/[0.08] font-medium text-foreground"
-                                : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-                            )}
+                            className={navChildItemClass(childActive)}
+                            aria-current={childActive ? "page" : undefined}
                           >
-                            <span className="min-w-0 truncate">{t(child.labelKey)}</span>
+                            <span className="min-w-0 flex-1 truncate">{t(child.labelKey)}</span>
+                            <NavAttentionBadge count={childBadge} />
                           </button>
                         );
                       })}

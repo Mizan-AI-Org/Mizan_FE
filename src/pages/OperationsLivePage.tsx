@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   DndContext,
   DragOverlay,
@@ -13,7 +13,6 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import {
-  Calendar,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -24,6 +23,8 @@ import {
   MoreHorizontal,
   RefreshCw,
   Search,
+  BarChart3,
+  LayoutGrid,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,9 @@ import {
   AttachmentViewerModal,
   type AttachmentViewerState,
 } from "@/components/ui/attachment-preview";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
+import { OperationsProgressPanel } from "@/components/operations/OperationsProgressPanel";
 
 type LaneKey = "pending" | "in_progress" | "completed";
 
@@ -708,10 +712,30 @@ function categoryFilterLabel(
   return key.replace(/_/g, " ");
 }
 
-export default function OperationsLivePage() {
+type OpsPageView = "live" | "progress";
+
+export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean }) {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const opsView: OpsPageView =
+    !embedded && searchParams.get("view") === "progress" ? "progress" : "live";
+
+  const setOpsView = (next: OpsPageView) => {
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        if (next === "live") {
+          p.delete("view");
+        } else {
+          p.set("view", "progress");
+        }
+        return p;
+      },
+      { replace: true },
+    );
+  };
   const queryClient = useQueryClient();
   const { user } = useAuth() as AuthContextType;
 
@@ -755,15 +779,6 @@ export default function OperationsLivePage() {
     setDateTo(value);
     setLanePages({ pending: 1, in_progress: 1, completed: 1 });
   };
-
-  const rangeDaySpan = useMemo(() => {
-    if (!dateFrom || !dateTo) return null;
-    const start = new Date(`${dateFrom}T00:00:00`);
-    const end = new Date(`${dateTo}T00:00:00`);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-    const days = Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
-    return Math.max(1, Math.min(days, 365));
-  }, [dateFrom, dateTo]);
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -942,157 +957,191 @@ export default function OperationsLivePage() {
   };
 
   return (
-    <div className="bg-background">
-      <div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-5 sm:px-6 lg:px-8 lg:pb-6">
-        <header>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground leading-tight">
-            {t("operations_live.title")}
-          </h1>
-          <p className="sr-only">{t("operations_live.subtitle", { restaurant: restaurantLabel })}</p>
-        </header>
-
-        <div
-          className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center"
-          role="toolbar"
-          aria-label={t("operations_live.filters_toolbar")}
-        >
-          {/* Search: 50% on desktop, full width on mobile */}
-          <div className="relative w-full sm:w-1/2">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("operations_live.search_placeholder")}
-              className="h-11 rounded-full border-border bg-card pl-10 pr-4 text-sm shadow-sm placeholder:text-muted-foreground"
-            />
-          </div>
-
-          {/* Filters: 50% on desktop, full width on mobile */}
-          <div className="flex w-full items-center gap-2 sm:w-1/2">
-            <Select
-              value={categoryFilter || "all"}
-              onValueChange={(value) => setCategoryFilter(value === "all" ? "" : value)}
-            >
-              <SelectTrigger
-                className="h-10 min-w-0 flex-1 rounded-full border-border bg-card text-sm shadow-sm"
-                aria-label={t("operations_live.filter_category")}
-              >
-                <SelectValue placeholder={t("operations_live.filter_category_all")} />
-              </SelectTrigger>
-              <SelectContent align="start">
-                <SelectItem value="all">{t("operations_live.filter_category_all")}</SelectItem>
-                {categoryOptions.map((key) => (
-                  <SelectItem key={key} value={key}>
-                    {categoryFilterLabel(key, t)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={priorityFilter || "all"}
-              onValueChange={(value) =>
-                setPriorityFilter(value === "all" ? "" : (value as LiveOpsPriority))
-              }
-            >
-              <SelectTrigger
-                className="h-10 min-w-0 flex-1 rounded-full border-border bg-card text-sm shadow-sm"
-                aria-label={t("operations_live.filter_priority")}
-              >
-                <SelectValue placeholder={t("operations_live.filter_priority_all")} />
-              </SelectTrigger>
-              <SelectContent align="start">
-                <SelectItem value="all">{t("operations_live.filter_priority_all")}</SelectItem>
-                {LIVE_OPS_PRIORITIES.map((priority) => (
-                  <SelectItem key={priority} value={priority}>
-                    {dashboardTaskPriorityLabel(priority, t)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={staffFilter || "all"}
-              onValueChange={(value) => setStaffFilter(value === "all" ? "" : value)}
-            >
-              <SelectTrigger
-                className="h-10 min-w-0 flex-1 rounded-full border-border bg-card text-sm shadow-sm"
-                aria-label={t("operations_live.filter_staff")}
-              >
-                <SelectValue placeholder={t("operations_live.filter_staff_all")} />
-              </SelectTrigger>
-              <SelectContent align="start">
-                <SelectItem value="all">{t("operations_live.filter_staff_all")}</SelectItem>
-                {staffOptions.map((name) => (
-                  <SelectItem key={name} value={name}>
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
+    <div
+      className={
+        embedded
+          ? "command-live-ops min-w-0 space-y-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm md:p-5"
+          : "bg-background"
+      }
+      {...(embedded ? { "aria-label": t("operations_live.title") } : {})}
+    >
+      <div
+        className={
+          embedded
+            ? "w-full space-y-5"
+            : "mx-auto w-full max-w-7xl space-y-5 px-4 py-5 sm:px-6 lg:px-8 lg:pb-6"
+        }
+      >
+        {embedded ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-foreground">{t("operations_live.title")}</h2>
             <Button
-              variant="outline"
-              size="icon"
-              className="h-10 w-10 shrink-0 rounded-full border-border bg-card shadow-sm"
-              onClick={() => refetch()}
-              disabled={isFetching}
-              title={t("common.refresh")}
-            >
-              <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <Calendar className="h-4 w-4 text-emerald-600 shrink-0" />
-            {t("operations_live.date_range", "Date range")}
-            <span className="text-xs font-normal text-muted-foreground tabular-nums">
-              {isAllDates
-                ? t("operations_live.date_range_all", "All")
-                : dateFrom && dateTo && rangeDaySpan
-                  ? t("operations_live.date_range_span", {
-                      defaultValue: "{{from}} → {{to}} · {{count}} days",
-                      from: dateFrom,
-                      to: dateTo,
-                      count: rangeDaySpan,
-                    })
-                  : [dateFrom, dateTo].filter(Boolean).join(" → ") || null}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
+              type="button"
+              variant="ghost"
               size="sm"
-              variant={isAllDates ? "default" : "outline"}
-              onClick={clearDateRange}
-              className={isAllDates ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+              className="h-8 gap-1 text-primary"
+              onClick={() => navigate("/dashboard/operations/live")}
             >
-              {t("operations_live.date_all", "All")}
+              {t("operations_live.open_full")}
+              <ChevronRight className="h-4 w-4" aria-hidden />
             </Button>
-            <div className="flex items-center gap-1.5">
+          </div>
+        ) : (
+          <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground leading-tight">
+                {t("operations_live.title")}
+              </h1>
+              <p className="sr-only">{t("operations_live.subtitle", { restaurant: restaurantLabel })}</p>
+            </div>
+            <Tabs
+              value={opsView}
+              onValueChange={(value) => setOpsView(value as OpsPageView)}
+              className="w-full sm:w-auto sm:min-w-[280px]"
+            >
+              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
+                <TabsTrigger value="live" className={cn(HUB_TABS_TRIGGER, "gap-1.5 py-2 text-sm")}>
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  {t("operations_live.tab.board")}
+                </TabsTrigger>
+                <TabsTrigger value="progress" className={cn(HUB_TABS_TRIGGER, "gap-1.5 py-2 text-sm")}>
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  {t("nav.work.progress")}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </header>
+        )}
+
+        {!embedded && opsView === "progress" ? <OperationsProgressPanel /> : null}
+
+        {!embedded && opsView === "progress" ? null : !embedded ? (
+          <div
+            className="overflow-x-auto rounded-xl border border-border/70 bg-card/80 p-2 shadow-sm"
+            role="toolbar"
+            aria-label={t("operations_live.filters_toolbar")}
+          >
+            <div className="flex min-w-[min(100%,52rem)] items-center gap-2 sm:min-w-0 sm:flex-wrap">
+              <div className="relative min-w-[10rem] flex-1 sm:max-w-xs">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={t("operations_live.search_placeholder")}
+                  className="h-9 border-border/80 bg-background pl-9 text-sm"
+                />
+              </div>
+
+              <Select
+                value={categoryFilter || "all"}
+                onValueChange={(value) => setCategoryFilter(value === "all" ? "" : value)}
+              >
+                <SelectTrigger
+                  className="h-9 w-[8.5rem] shrink-0 border-border/80 bg-background text-xs sm:text-sm"
+                  aria-label={t("operations_live.filter_category")}
+                >
+                  <SelectValue placeholder={t("operations_live.filter_category_all")} />
+                </SelectTrigger>
+                <SelectContent align="start">
+                  <SelectItem value="all">{t("operations_live.filter_category_all")}</SelectItem>
+                  {categoryOptions.map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {categoryFilterLabel(key, t)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={priorityFilter || "all"}
+                onValueChange={(value) =>
+                  setPriorityFilter(value === "all" ? "" : (value as LiveOpsPriority))
+                }
+              >
+                <SelectTrigger
+                  className="h-9 w-[8.5rem] shrink-0 border-border/80 bg-background text-xs sm:text-sm"
+                  aria-label={t("operations_live.filter_priority")}
+                >
+                  <SelectValue placeholder={t("operations_live.filter_priority_all")} />
+                </SelectTrigger>
+                <SelectContent align="start">
+                  <SelectItem value="all">{t("operations_live.filter_priority_all")}</SelectItem>
+                  {LIVE_OPS_PRIORITIES.map((priority) => (
+                    <SelectItem key={priority} value={priority}>
+                      {dashboardTaskPriorityLabel(priority, t)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={staffFilter || "all"}
+                onValueChange={(value) => setStaffFilter(value === "all" ? "" : value)}
+              >
+                <SelectTrigger
+                  className="h-9 w-[8.5rem] shrink-0 border-border/80 bg-background text-xs sm:text-sm"
+                  aria-label={t("operations_live.filter_staff")}
+                >
+                  <SelectValue placeholder={t("operations_live.filter_staff_all")} />
+                </SelectTrigger>
+                <SelectContent align="start">
+                  <SelectItem value="all">{t("operations_live.filter_staff_all")}</SelectItem>
+                  {staffOptions.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <div className="hidden h-6 w-px shrink-0 bg-border sm:block" aria-hidden />
+
               <Input
                 type="date"
                 value={dateFrom}
                 max={dateTo || undefined}
                 onChange={(e) => onDateFromChange(e.target.value)}
-                className="w-[9.5rem] h-9"
+                className="h-9 w-[8.75rem] shrink-0 border-border/80 bg-background text-xs"
                 aria-label={t("operations_live.date_from", "From")}
               />
-              <span className="text-xs text-muted-foreground">→</span>
+              <span className="shrink-0 text-muted-foreground" aria-hidden>
+                –
+              </span>
               <Input
                 type="date"
                 value={dateTo}
                 min={dateFrom || undefined}
                 onChange={(e) => onDateToChange(e.target.value)}
-                className="w-[9.5rem] h-9"
+                className="h-9 w-[8.75rem] shrink-0 border-border/80 bg-background text-xs"
                 aria-label={t("operations_live.date_to", "To")}
               />
+              {!isAllDates ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 shrink-0 px-2 text-xs text-muted-foreground"
+                  onClick={clearDateRange}
+                >
+                  {t("operations_live.date_all", "All dates")}
+                </Button>
+              ) : null}
+
+              <Button
+                variant="outline"
+                size="icon"
+                className="ms-auto h-9 w-9 shrink-0 border-border/80"
+                onClick={() => refetch()}
+                disabled={isFetching}
+                title={t("common.refresh")}
+              >
+                <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+              </Button>
             </div>
           </div>
-        </div>
+        ) : null}
 
-        {isLoading ? (
+        {!embedded && opsView === "progress" ? null : isLoading ? (
           <div className="flex items-center justify-center py-24 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {t("operations_live.loading")}
@@ -1108,9 +1157,9 @@ export default function OperationsLivePage() {
             onDragEnd={onDragEnd}
             onDragCancel={() => setActiveDrag(null)}
           >
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div
-                className="grid grid-cols-3 gap-1 rounded-xl border border-border bg-muted/40 p-1"
+                className="grid grid-cols-3 gap-1 rounded-lg border border-border/70 bg-muted/30 p-1"
                 role="tablist"
                 aria-label={t("operations_live.lanes_tabs", "Operations lanes")}
               >
@@ -1173,4 +1222,8 @@ export default function OperationsLivePage() {
       />
     </div>
   );
+}
+
+export default function OperationsLivePage() {
+  return <OperationsLiveFeed />;
 }

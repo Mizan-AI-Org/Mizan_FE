@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, Loader2, Mic, Paperclip, X } from "lucide-react";
+import { ArrowUp, Loader2, MessageSquarePlus, Mic, Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -23,6 +23,7 @@ import {
   loadMastraMessages,
   loadPendingConfirmation,
   conversationIdForUser,
+  startNewMastraConversation,
   runMastraChat,
   saveMastraMessages,
   savePendingConfirmation,
@@ -314,7 +315,15 @@ function ChatComposer({
   );
 }
 
-function PanelHeader({ onClose, signalBadge }: { onClose?: () => void; signalBadge?: number }) {
+function PanelHeader({
+  onClose,
+  onNewConversation,
+  signalBadge,
+}: {
+  onClose?: () => void;
+  onNewConversation?: () => void;
+  signalBadge?: number;
+}) {
   const { t } = useLanguage();
   return (
     <header className="flex shrink-0 items-center justify-between border-b border-border/60 bg-primary px-4 py-2.5 text-primary-foreground">
@@ -334,18 +343,33 @@ function PanelHeader({ onClose, signalBadge }: { onClose?: () => void; signalBad
           <p className="text-xs text-primary-foreground/80">{t("ai.chat_online")}</p>
         </div>
       </div>
-      {onClose ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 text-primary-foreground hover:bg-primary-foreground/10"
-          onClick={onClose}
-          aria-label={t("common.close", { defaultValue: "Close" })}
-        >
-          <X className="h-5 w-5" aria-hidden />
-        </Button>
-      ) : null}
+      <div className="flex items-center gap-0.5">
+        {onNewConversation ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 text-primary-foreground hover:bg-primary-foreground/10"
+            onClick={onNewConversation}
+            title={t("ai.chat_new_conversation_hint")}
+            aria-label={t("ai.chat_new_conversation")}
+          >
+            <MessageSquarePlus className="h-5 w-5" aria-hidden />
+          </Button>
+        ) : null}
+        {onClose ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 text-primary-foreground hover:bg-primary-foreground/10"
+            onClick={onClose}
+            aria-label={t("common.close", { defaultValue: "Close" })}
+          >
+            <X className="h-5 w-5" aria-hidden />
+          </Button>
+        ) : null}
+      </div>
     </header>
   );
 }
@@ -358,6 +382,7 @@ function AgentPanelBody({
   setInput,
   onSend,
   onClose,
+  onNewConversation,
   signalBadge,
   voiceSupported,
   voiceState,
@@ -371,6 +396,7 @@ function AgentPanelBody({
   setInput: (v: string) => void;
   onSend: () => void;
   onClose: () => void;
+  onNewConversation?: () => void;
   signalBadge: number;
   voiceSupported: boolean;
   voiceState: "idle" | "recording" | "transcribing";
@@ -379,7 +405,11 @@ function AgentPanelBody({
 }) {
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <PanelHeader onClose={onClose} signalBadge={signalBadge} />
+      <PanelHeader
+        onClose={onClose}
+        onNewConversation={onNewConversation}
+        signalBadge={signalBadge}
+      />
       <ChatMessages messages={messages} loading={loading} scrollRef={scrollRef} />
       <ChatComposer
         input={input}
@@ -691,6 +721,20 @@ export const AgentChatPanel: React.FC = () => {
     void sendText(input);
   }, [input, sendText]);
 
+  const beginNewConversation = useCallback(() => {
+    if (!userId || loading) return;
+    const newId = startNewMastraConversation(userId);
+    setConversationId(newId);
+    const welcome: MastraChatMessage = {
+      id: "welcome",
+      role: "assistant",
+      content: t("ai.chat_welcome", { name: userName }),
+      createdAt: Date.now(),
+    };
+    setMessages([welcome]);
+    saveMastraMessages(userId, [welcome]);
+  }, [loading, t, userId, userName]);
+
   const handleVoiceHoldStart = useCallback(() => {
     if (loading) return;
     void pressHold();
@@ -713,6 +757,7 @@ export const AgentChatPanel: React.FC = () => {
     setInput,
     onSend: handleSend,
     onClose: handleClose,
+    onNewConversation: beginNewConversation,
     signalBadge,
     voiceSupported,
     voiceState,

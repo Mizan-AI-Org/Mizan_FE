@@ -18,17 +18,15 @@ import { PageLoadingSkeleton } from "./components/skeletons";
 // All route components are lazy-loaded below. Keep the top-level module graph
 // tiny so the initial JS chunk can paint the shell + skeleton immediately.
 const InventoryItemsPage = React.lazy(() => import("./pages/inventory/InventoryItemsPage"));
-const WastePage = React.lazy(() => import("./pages/inventory/WastePage"));
 const PurchasingPage = React.lazy(() => import("./pages/PurchasingPage"));
+const ProcurementHubPage = React.lazy(() => import("./pages/ProcurementHubPage"));
 const ApprovalsPage = React.lazy(() => import("./pages/ApprovalsPage"));
-const SuppliersPage = React.lazy(() => import("./pages/inventory/SuppliersPage"));
-const SupplierPricesPage = React.lazy(() => import("./pages/inventory/SupplierPricesPage"));
 const PurchaseOrdersPage = React.lazy(() => import("./pages/inventory/PurchaseOrdersPage"));
+const SuppliersPage = React.lazy(() => import("./pages/inventory/SuppliersPage"));
 const StockAdjustmentsPage = React.lazy(() => import("./pages/inventory/StockAdjustmentsPage"));
 const DailySalesReportsPage = React.lazy(() => import("./pages/reporting/DailySalesReportsPage"));
-const FinancialMarginsPage = React.lazy(() => import("./pages/financials/FinancialMarginsPage"));
-const FinancialPnLPage = React.lazy(() => import("./pages/financials/FinancialPnLPage"));
 const SalesAndPrepPage = React.lazy(() => import("./pages/SalesAndPrepPage"));
+const SalesHubPage = React.lazy(() => import("./pages/SalesHubPage"));
 const ReservationsPage = React.lazy(() => import("./pages/ReservationsPage"));
 const AttendanceReportsPage = React.lazy(() => import("./pages/reporting/AttendanceReportsPage"));
 const InventoryReportsPage = React.lazy(() => import("./pages/reporting/InventoryReportsPage"));
@@ -46,17 +44,14 @@ const DomainOverviewPage = React.lazy(() =>
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const AttentionPage = React.lazy(() => import("./pages/os/AttentionPage"));
 const AutomationHubPage = React.lazy(() => import("./pages/os/AutomationHubPage"));
-const SocialMediaHubPage = React.lazy(() => import("./pages/social/SocialMediaHubPage"));
-const SocialContentDetailPage = React.lazy(() => import("./pages/social/SocialContentDetailPage"));
-const IntelligenceInsightsPage = React.lazy(() => import("./pages/intelligence/IntelligenceInsightsPage"));
-const IntelligenceForecastsPage = React.lazy(() => import("./pages/intelligence/IntelligenceForecastsPage"));
-const IntelligenceRecommendationsPage = React.lazy(() => import("./pages/intelligence/IntelligenceRecommendationsPage"));
-const IntelligenceReportsPage = React.lazy(() => import("./pages/intelligence/IntelligenceReportsPage"));
 const LocationsOverview = React.lazy(
   () => import("./pages/LocationsOverview")
 );
 const OperationsLivePage = React.lazy(
   () => import("./pages/OperationsLivePage")
+);
+const OperationsProgressPage = React.lazy(
+  () => import("./pages/OperationsProgressPage")
 );
 const BranchDetailPage = React.lazy(
   () => import("./pages/BranchDetailPage")
@@ -168,7 +163,6 @@ const TableManagement = React.lazy(() => import("./pages/TableManagement"));
 const CategoryManagement = React.lazy(
   () => import("./pages/CategoryManagement")
 );
-const ProductManagement = React.lazy(() => import("./pages/ProductManagement"));
 const SupervisorDashboard = React.lazy(
   () => import("./pages/SupervisorDashboard")
 );
@@ -201,6 +195,9 @@ const DashboardAttendancePage = React.lazy(
   () => import("./pages/DashboardAttendancePage")
 );
 const OrdersPage = React.lazy(() => import("./pages/orders/OrdersPage"));
+const ReservationsOrdersPage = React.lazy(
+  () => import("./pages/customers/ReservationsOrdersPage"),
+);
 const CleaningTasks = React.lazy(() => import("./pages/CleaningTasks"));
 const ActivityLogPage = React.lazy(() => import("./pages/ActivityLogPage"));
 const OnboardingWizard = React.lazy(() => import("./pages/OnboardingWizard"));
@@ -355,10 +352,11 @@ const App = () => {
                 />
                 <Route path="dashboard/work" element={<Navigate to="/dashboard/operations/live" replace />} />
                 <Route path="dashboard/people" element={<Navigate to="/dashboard/employees" replace />} />
-                <Route path="dashboard/business" element={<Navigate to="/dashboard/financials" replace />} />
+                <Route path="dashboard/business" element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard/operations" element={<DomainLayout domain="operations" />}>
                   <Route index element={<Navigate to="/dashboard/operations/live" replace />} />
                   <Route path="live" element={<OperationsLivePage />} />
+                  <Route path="progress" element={<OperationsProgressPage />} />
                   <Route path="approvals" element={<ApprovalsPage />} />
                   <Route path="tasks" element={<Navigate to="/dashboard/operations/approvals" replace />} />
                   <Route path="incidents" element={<ManagerReviewDashboard />} />
@@ -367,7 +365,7 @@ const App = () => {
                   <Route path="requests/:id" element={<RedirectToOperationsLive />} />
                 </Route>
                 <Route path="dashboard/employees" element={<DomainLayout domain="employees" />}>
-                  <Route index element={<DomainOverviewPage />} />
+                  <Route index element={<Navigate to="/dashboard/employees/people" replace />} />
                   <Route path="people" element={<StaffApp />} />
                   <Route path="shifts" element={<StaffSchedulingPage />} />
                   <Route path="tasks" element={<ProcessesTasksApp />} />
@@ -377,71 +375,44 @@ const App = () => {
                   <Route path="requests/:id" element={<RedirectToStaffRequests />} />
                 </Route>
                 <Route path="dashboard/products" element={<DomainLayout domain="products" />}>
-                  <Route index element={<DomainOverviewPage />} />
-                  <Route path="catalog" element={<ProductManagement />} />
-                  <Route path="sales" element={<SalesAndPrepPage />} />
+                  <Route index element={<Navigate to="/dashboard/products/sales" replace />} />
+                  <Route path="sales" element={<SalesHubPage />} />
+                  <Route path="catalog" element={<Navigate to="/dashboard/products/sales" replace />} />
+                  <Route path="inventory" element={<Navigate to="/dashboard/products/sales?tab=inventory" replace />} />
+                  <Route path="waste" element={<Navigate to="/dashboard/products/sales" replace />} />
                   <Route path="recipes" element={<MenuManagement />} />
-                  <Route path="inventory" element={<InventoryItemsPage />} />
-                  <Route path="waste" element={<WastePage />} />
                 </Route>
                 <Route path="dashboard/customers" element={<DomainLayout domain="customers" />}>
-                  <Route index element={<Navigate to="/dashboard/customers/reservations" replace />} />
-                  <Route path="list" element={<Navigate to="/dashboard/customers/reservations" replace />} />
-                  <Route path="reservations" element={<ReservationsPage />} />
-                  <Route path="orders" element={<OrdersPage />} />
+                  <Route index element={<Navigate to="/dashboard/customers/reservations-orders" replace />} />
+                  <Route path="list" element={<Navigate to="/dashboard/customers/reservations-orders" replace />} />
+                  <Route path="reservations-orders" element={<ReservationsOrdersPage />} />
+                  <Route
+                    path="reservations"
+                    element={<Navigate to="/dashboard/customers/reservations-orders" replace />}
+                  />
+                  <Route
+                    path="orders"
+                    element={<Navigate to="/dashboard/customers/reservations-orders?tab=orders" replace />}
+                  />
                   <Route path="insights" element={<DomainOverviewPage />} />
                 </Route>
-                <Route path="dashboard/suppliers" element={<DomainLayout domain="suppliers" />}>
-                  <Route index element={<DomainOverviewPage />} />
-                  <Route path="directory" element={<SuppliersPage />} />
-                  <Route path="prices" element={<SupplierPricesPage />} />
-                  <Route path="purchasing" element={<PurchasingPage />} />
-                  <Route path="deliveries" element={<PurchaseOrdersPage />} />
-                </Route>
+                <Route path="dashboard/suppliers" element={<Navigate to="/dashboard/suppliers/procurement" replace />} />
+                <Route path="dashboard/suppliers/directory" element={<Navigate to="/dashboard/suppliers/procurement" replace />} />
+                <Route path="dashboard/suppliers/prices" element={<Navigate to="/dashboard/suppliers/procurement" replace />} />
                 <Route
-                  path="dashboard/financials"
-                  element={<DomainLayout domain="financials" roles={["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"]} />}
-                >
-                  <Route index element={<DomainOverviewPage />} />
-                  <Route path="revenue" element={<DailySalesReportsPage />} />
-                  <Route path="costs" element={<InventoryReportsPage />} />
-                  <Route path="margins" element={<FinancialMarginsPage />} />
-                  <Route path="pnl" element={<FinancialPnLPage />} />
-                </Route>
-                <Route
-                  path="dashboard/intelligence"
-                  element={<DomainLayout domain="intelligence" roles={["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"]} />}
-                >
-                  <Route index element={<Navigate to="/dashboard/intelligence/insights" replace />} />
-                  <Route path="insights" element={<IntelligenceInsightsPage />} />
-                  <Route path="forecasts" element={<IntelligenceForecastsPage />} />
-                  <Route path="recommendations" element={<IntelligenceRecommendationsPage />} />
-                  <Route path="reports" element={<IntelligenceReportsPage />} />
-                </Route>
-                <Route path="dashboard/automation" element={<Navigate to="/dashboard/social-media" replace />} />
-                <Route
-                  path="dashboard/social-media"
+                  path="dashboard/suppliers/procurement"
                   element={
-                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]} appId="social_media">
-                      <SocialMediaHubPage />
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"]}>
+                      <ProcurementHubPage />
                     </RoleBasedRoute>
                   }
                 />
-                <Route path="dashboard/social-media/ideas" element={<Navigate to="/dashboard/social-media?tab=plan" replace />} />
-                <Route path="dashboard/social-media/calendar" element={<Navigate to="/dashboard/social-media?tab=schedule" replace />} />
-                <Route path="dashboard/social-media/accounts" element={<Navigate to="/dashboard/social-media?tab=home" replace />} />
-                <Route path="dashboard/social-media/campaigns" element={<Navigate to="/dashboard/social-media?tab=insights" replace />} />
-                <Route path="dashboard/social-media/analytics" element={<Navigate to="/dashboard/social-media?tab=insights" replace />} />
-                <Route path="dashboard/social-media/autopilot" element={<Navigate to="/dashboard/social-media?tab=insights" replace />} />
-                <Route path="dashboard/social-media/content" element={<Navigate to="/dashboard/social-media?tab=posts" replace />} />
-                <Route
-                  path="dashboard/social-media/content/:id"
-                  element={
-                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]} appId="social_media">
-                      <SocialContentDetailPage />
-                    </RoleBasedRoute>
-                  }
-                />
+                <Route path="dashboard/suppliers/purchasing" element={<Navigate to="/dashboard/suppliers/procurement?tab=needs" replace />} />
+                <Route path="dashboard/suppliers/deliveries" element={<Navigate to="/dashboard/suppliers/procurement?tab=receiving" replace />} />
+                <Route path="dashboard/financials/*" element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard/intelligence/*" element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard/social-media/*" element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard/automation" element={<Navigate to="/dashboard" replace />} />
                 <Route
                   path="dashboard/take-orders"
                   element={
@@ -522,11 +493,7 @@ const App = () => {
                 />
                 <Route
                   path="dashboard/purchasing"
-                  element={
-                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
-                      <PurchasingPage />
-                    </RoleBasedRoute>
-                  }
+                  element={<Navigate to="/dashboard/suppliers/procurement?tab=needs" replace />}
                 />
                 <Route
                   path="dashboard/approvals"
@@ -546,11 +513,7 @@ const App = () => {
                 />
                 <Route
                   path="dashboard/inventory/purchase-orders"
-                  element={
-                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
-                      <PurchaseOrdersPage />
-                    </RoleBasedRoute>
-                  }
+                  element={<Navigate to="/dashboard/suppliers/procurement?tab=orders" replace />}
                 />
                 <Route
                   path="dashboard/inventory/adjustments"
@@ -593,7 +556,7 @@ const App = () => {
                   }
                 />
                 {/* Catalog now lives under the Products domain */}
-                <Route path="dashboard/catalog" element={<Navigate to="/dashboard/products/catalog" replace />} />
+                <Route path="dashboard/catalog" element={<Navigate to="/dashboard/products/sales" replace />} />
                 {/* Removed legacy staff route */}
                 <Route
                   path="dashboard/staff-app"
@@ -795,7 +758,7 @@ const App = () => {
                   path="dashboard/reservations"
                   element={
                     <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
-                      <ReservationsPage />
+                      <Navigate to="/dashboard/customers/reservations-orders" replace />
                     </RoleBasedRoute>
                   }
                 />

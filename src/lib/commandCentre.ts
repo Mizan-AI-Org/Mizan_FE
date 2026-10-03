@@ -167,16 +167,19 @@ export function resolveCommandReviewRoute(signal: CommandSignal): string {
     return "/dashboard/employees/shifts";
   }
   if (category === "inventory") {
-    return "/dashboard/products/inventory";
+    return "/dashboard/suppliers/procurement?tab=needs";
   }
   if (category === "compliance") {
-    return "/dashboard/intelligence/compliance";
+    return "/dashboard/settings?tab=compliance-approvals";
   }
   if (category === "tasks" || category === "workload") {
-    return "/dashboard/operations/live";
+    const id = String(signal.id || "").trim();
+    return id
+      ? `/dashboard/operations?task=${encodeURIComponent(id)}`
+      : "/dashboard/operations/live";
   }
   if (category === "finance" || signal.kind === "invoice") {
-    return "/dashboard/financials";
+    return "/dashboard/operations/approvals";
   }
   if (category === "attendance") {
     return "/dashboard/employees/attendance";

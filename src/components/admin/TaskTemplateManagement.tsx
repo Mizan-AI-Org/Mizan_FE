@@ -89,6 +89,8 @@ interface TaskTemplate {
   ai_generated: boolean;
   standing_assignees?: string[];
   standing_assignee_count?: number;
+  schedule_days?: number[];
+  schedule_time?: string | null;
 }
 
 const templateTypeIcons = {
@@ -805,14 +807,11 @@ export default function TaskTemplateManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Actions sit opposite "Processes & Tasks" via portal when embedded in that page */}
       {headerActionsEl
         ? createPortal(actionButtons, headerActionsEl)
         : (
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold">{t("processes.manage_processes")}</h1>
-            </div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="text-2xl font-bold">{t("processes.manage_processes")}</h1>
             {actionButtons}
           </div>
         )}
@@ -935,11 +934,7 @@ export default function TaskTemplateManagement() {
                 </div>
               </CardHeader>
 
-              <CardContent className="flex flex-1 flex-col space-y-4">
-                <p className="min-h-[2.5rem] text-sm text-muted-foreground line-clamp-2">
-                  {template.description || "\u00A0"}
-                </p>
-
+              <CardContent className="flex flex-1 flex-col space-y-3">
                 <div className="flex flex-wrap gap-2">
                   <Badge
                     variant="outline"
@@ -962,21 +957,21 @@ export default function TaskTemplateManagement() {
                   </div>
                 </div>
 
-                <div className="mt-auto flex items-center gap-2 border-t border-border/50 pt-3">
+                <div className="mt-auto grid w-full grid-cols-4 items-center gap-2 border-t border-border/50 pt-3">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleEdit(template)}
-                    className="h-9 flex-1"
+                    className="h-9 w-full min-w-0 px-2"
                   >
-                    <Edit className="h-4 w-4 mr-1.5" />
-                    {t("processes.edit")}
+                    <Edit className="h-4 w-4 shrink-0 sm:mr-1.5" />
+                    <span className="hidden sm:inline truncate">{t("processes.edit")}</span>
                   </Button>
 
                   <Button
                     variant="outline"
-                    size="icon"
-                    className="h-9 w-9 shrink-0"
+                    size="sm"
+                    className="h-9 w-full px-0"
                     onClick={() => handleDuplicate(template.id)}
                     disabled={duplicateTemplateMutation.isPending}
                     title={t("processes.duplicate") || "Duplicate"}
@@ -987,8 +982,8 @@ export default function TaskTemplateManagement() {
 
                   <Button
                     variant="outline"
-                    size="icon"
-                    className="h-9 w-9 shrink-0"
+                    size="sm"
+                    className="h-9 w-full px-0"
                     onClick={() => openStartProcess(template)}
                     disabled={startProcessMutation.isPending}
                     title={t('processes.start_process')}
@@ -1001,8 +996,8 @@ export default function TaskTemplateManagement() {
                     <AlertDialogTrigger asChild>
                       <Button
                         variant="outline"
-                        size="icon"
-                        className="h-9 w-9 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        size="sm"
+                        className="h-9 w-full px-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
                         title={t("processes.delete_template")}
                         aria-label={t("processes.delete_template")}
                       >

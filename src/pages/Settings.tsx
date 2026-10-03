@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -15,8 +15,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Building2,
-  Users,
-  MapPin,
   Plug,
   CreditCard as CreditCardIcon,
   Loader2,
@@ -77,7 +75,7 @@ import {
 } from "@/components/settings/SettingsSection";
 import { SettingsNav, type SettingsNavItem } from "@/components/settings/SettingsNav";
 import { SETTINGS_PAGE_SHELL_PADDED } from "@/lib/page-shell";
-import { MIZAN_HERO } from "@/lib/mizan-ui";
+import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
 import { cn } from "@/lib/utils";
 
 import { API_BASE, api } from "@/lib/api";
@@ -118,10 +116,53 @@ interface AISettings {
   features_enabled: Record<string, boolean>;
 }
 
+type GeneralSettingsSection = "profile" | "general" | "location";
+type IntegrationSection = "pos" | "reservations" | "calendar";
+type ComplianceApprovalsSection = "compliance" | "approvals";
+
 function normalizeSettingsTab(raw: string): string {
   const tab = (raw || "").toLowerCase();
-  if (tab === "approvals") return "payguard";
+  if (tab === "approvals" || tab === "payguard" || tab === "compliance") {
+    return "compliance-approvals";
+  }
+  if (tab === "profile" || tab === "general" || tab === "location") return "general-settings";
   return tab;
+}
+
+function resolveComplianceApprovalsSection(params: URLSearchParams): ComplianceApprovalsSection {
+  const section = (params.get("section") || "").toLowerCase();
+  if (section === "compliance" || section === "approvals") return section;
+  const legacyTab = (params.get("tab") || "").toLowerCase();
+  if (legacyTab === "compliance") return "compliance";
+  if (legacyTab === "approvals" || legacyTab === "payguard") return "approvals";
+  return "compliance";
+}
+
+function resolveGeneralSettingsSection(params: URLSearchParams): GeneralSettingsSection {
+  const section = (params.get("section") || "").toLowerCase();
+  if (
+    section === "profile" ||
+    section === "general" ||
+    section === "location"
+  ) {
+    return section;
+  }
+  const legacyTab = (params.get("tab") || "").toLowerCase();
+  if (legacyTab === "profile" || legacyTab === "general" || legacyTab === "location") {
+    return legacyTab;
+  }
+  return "profile";
+}
+
+function resolveIntegrationSection(params: URLSearchParams): IntegrationSection {
+  const section = (params.get("section") || "").toLowerCase();
+  if (section === "pos" || section === "reservations" || section === "calendar") {
+    return section;
+  }
+  if (params.get("focus") === "reservations") return "reservations";
+  const hash = typeof window !== "undefined" ? (window.location.hash || "").replace("#", "") : "";
+  if (hash === "pos-integration") return "pos";
+  return "pos";
 }
 
 export default function Settings() {
@@ -226,21 +267,26 @@ export default function Settings() {
   const SETTINGS_TABS = useMemo(
     () =>
       [
-        "profile",
-        "location",
-        "general",
+        "general-settings",
         "integrations",
         "billing",
-        "compliance",
-        "payguard",
+        "compliance-approvals",
       ] as const,
     [],
   );
   const initialTab = (() => {
     const fromUrl = normalizeSettingsTab(searchParams.get("tab") || "");
-    return (SETTINGS_TABS as readonly string[]).includes(fromUrl) ? fromUrl : "profile";
+    return (SETTINGS_TABS as readonly string[]).includes(fromUrl) ? fromUrl : "general-settings";
   })();
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+  const [generalSection, setGeneralSection] = useState<GeneralSettingsSection>(() =>
+    resolveGeneralSettingsSection(searchParams),
+  );
+  const [integrationSection, setIntegrationSection] = useState<IntegrationSection>(() =>
+    resolveIntegrationSection(searchParams),
+  );
+  const [complianceApprovalsSection, setComplianceApprovalsSection] =
+    useState<ComplianceApprovalsSection>(() => resolveComplianceApprovalsSection(searchParams));
 
   // Deep links from other screens can change ?tab= while this page stays mounted.
   useEffect(() => {
@@ -250,7 +296,64 @@ export default function Settings() {
   }, [searchParams, SETTINGS_TABS]);
 
   useEffect(() => {
+    const legacyTab = (searchParams.get("tab") || "").toLowerCase();
+    if (legacyTab !== "profile" && legacyTab !== "general" && legacyTab !== "location") return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("section", legacyTab);
+        next.set("tab", "general-settings");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const legacyTab = (searchParams.get("tab") || "").toLowerCase();
+    if (legacyTab !== "compliance" && legacyTab !== "approvals" && legacyTab !== "payguard") return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", "compliance-approvals");
+        next.set(
+          "section",
+          legacyTab === "compliance" ? "compliance" : "approvals",
+        );
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (activeTab !== "general-settings") return;
+    const section = resolveGeneralSettingsSection(searchParams);
+    setGeneralSection((current) => (current === section ? current : section));
+  }, [searchParams, activeTab]);
+
+  const onGeneralSectionChange = (next: string) => {
+    const section = next as GeneralSettingsSection;
+    setGeneralSection(section);
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        n.set("tab", "general-settings");
+        n.set("section", section);
+        return n;
+      },
+      { replace: true },
+    );
+  };
+
+  useEffect(() => {
     if (activeTab !== "integrations") return;
+    const section = resolveIntegrationSection(searchParams);
+    setIntegrationSection((current) => (current === section ? current : section));
+  }, [searchParams, activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "integrations" || integrationSection !== "pos") return;
     const hash = (window.location.hash || "").replace("#", "");
     if (hash !== "pos-integration") return;
     const scrollToPos = () => {
@@ -258,20 +361,58 @@ export default function Settings() {
     };
     const t = window.setTimeout(scrollToPos, 120);
     return () => window.clearTimeout(t);
-  }, [activeTab]);
+  }, [activeTab, integrationSection]);
 
   // Bookings page → Settings → Integrations → reservation (Eat Now) setup.
   useEffect(() => {
     if (searchParams.get("focus") !== "reservations") return;
     setActiveTab("integrations");
-    const id = window.setTimeout(() => {
-      document.getElementById("reservation-booking-integration")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, 150);
-    return () => window.clearTimeout(id);
-  }, [searchParams]);
+    setIntegrationSection("reservations");
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", "integrations");
+        next.set("section", "reservations");
+        next.delete("focus");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
+
+  const onIntegrationSectionChange = (next: string) => {
+    const section = next as IntegrationSection;
+    setIntegrationSection(section);
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        n.set("tab", "integrations");
+        n.set("section", section);
+        return n;
+      },
+      { replace: true },
+    );
+  };
+
+  useEffect(() => {
+    if (activeTab !== "compliance-approvals") return;
+    const section = resolveComplianceApprovalsSection(searchParams);
+    setComplianceApprovalsSection((current) => (current === section ? current : section));
+  }, [searchParams, activeTab]);
+
+  const onComplianceApprovalsSectionChange = (next: string) => {
+    const section = next as ComplianceApprovalsSection;
+    setComplianceApprovalsSection(section);
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        n.set("tab", "compliance-approvals");
+        n.set("section", section);
+        return n;
+      },
+      { replace: true },
+    );
+  };
 
   const onSettingsTabChange = (next: string) => {
     setActiveTab(next);
@@ -279,6 +420,15 @@ export default function Settings() {
       (prev) => {
         const n = new URLSearchParams(prev);
         n.set("tab", next);
+        if (next === "integrations" && !n.get("section")) {
+          n.set("section", "pos");
+        }
+        if (next === "compliance-approvals") {
+          const sec = (n.get("section") || "").toLowerCase();
+          if (sec !== "compliance" && sec !== "approvals") {
+            n.set("section", "compliance");
+          }
+        }
         return n;
       },
       { replace: true },
@@ -345,6 +495,7 @@ export default function Settings() {
       if (role !== "STAFF") fetchUnifiedSettings();
       clean("gcal", "gcal_detail");
       setActiveTab("integrations");
+      setIntegrationSection("calendar");
     } else if (gcal === "error") {
       const detail = url.searchParams.get("gcal_detail") || "";
       toast.error(
@@ -354,6 +505,7 @@ export default function Settings() {
       );
       clean("gcal", "gcal_detail");
       setActiveTab("integrations");
+      setIntegrationSection("calendar");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -390,29 +542,24 @@ export default function Settings() {
   const canEditPermissions =
     roleUpper === "SUPER_ADMIN" || roleUpper === "ADMIN" || roleUpper === "OWNER";
 
+  useEffect(() => {
+    if (!isStaff || activeTab !== "general-settings") return;
+    if (generalSection === "profile") return;
+    onGeneralSectionChange("profile");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- staff may only open Profile
+  }, [isStaff, activeTab, generalSection]);
+
   const settingsNavItems = useMemo((): SettingsNavItem[] => {
     const items: SettingsNavItem[] = [
       {
-        id: "profile",
-        label: t("settings.tabs.profile"),
-        description: t("settings.nav.profile_desc"),
-        icon: Users,
+        id: "general-settings",
+        label: t("settings.tabs.general_settings"),
+        description: t("settings.nav.general_settings_desc"),
+        icon: Building2,
       },
     ];
     if (!isStaff) {
       items.push(
-        {
-          id: "general",
-          label: t("settings.tabs.general"),
-          description: t("settings.nav.general_desc"),
-          icon: Building2,
-        },
-        {
-          id: "location",
-          label: t("settings.tabs.geolocation"),
-          description: t("settings.nav.location_desc"),
-          icon: MapPin,
-        },
         {
           id: "integrations",
           label: t("settings.tabs.integrations"),
@@ -426,28 +573,15 @@ export default function Settings() {
           icon: CreditCardIcon,
         },
         {
-          id: "compliance",
-          label: t("settings.tabs.compliance"),
-          description: t("settings.nav.compliance_desc"),
-          icon: FileWarning,
-        },
-        {
-          id: "payguard",
-          label: t("settings.tabs.payguard"),
-          description: t("settings.nav.payguard_desc"),
+          id: "compliance-approvals",
+          label: t("settings.tabs.compliance_approvals"),
+          description: t("settings.nav.compliance_approvals_desc"),
           icon: Shield,
         },
       );
     }
     return items;
   }, [isStaff, t]);
-
-  const activeSection = useMemo(
-    () => settingsNavItems.find((item) => item.id === activeTab),
-    [settingsNavItems, activeTab],
-  );
-  const activeSectionLabel = activeSection?.label || t("settings.title");
-  const activeSectionDescription = activeSection?.description;
 
   const loadCoreSettings = async () => {
     try {
@@ -1090,13 +1224,6 @@ export default function Settings() {
     <div className={SETTINGS_PAGE_SHELL_PADDED}>
       <Tabs value={activeTab} onValueChange={onSettingsTabChange} className="space-y-0">
         <div className="flex w-full max-w-5xl flex-col gap-5">
-          <header className={cn(MIZAN_HERO, "mb-0")}>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{activeSectionLabel}</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              {activeSectionDescription || t("settings.subtitle")}
-            </p>
-          </header>
-
           {/* Desktop navigation lives in the Intent rail; this is the small-screen fallback. */}
           <aside className="lg:hidden">
             <SettingsNav
@@ -1115,29 +1242,61 @@ export default function Settings() {
           </aside>
 
           <div className="min-w-0 space-y-4">
-        <TabsContent value="profile" className="mt-0 space-y-4 focus-visible:outline-none">
-          <Suspense fallback={<FormSectionSkeleton fields={5} />}>
-            <ProfileSettings />
-          </Suspense>
-        </TabsContent>
+        <TabsContent value="general-settings" className="mt-0 space-y-4 focus-visible:outline-none">
+          <Tabs value={generalSection} onValueChange={onGeneralSectionChange} className="space-y-4">
+            <TabsList
+              className={cn(
+                "grid h-auto w-full gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5",
+                isStaff ? "grid-cols-1" : "grid-cols-3",
+              )}
+            >
+              <TabsTrigger
+                value="profile"
+                className={cn(HUB_TABS_TRIGGER, "w-full py-3 text-sm font-semibold sm:text-[15px]")}
+              >
+                {t("settings.tabs.profile")}
+              </TabsTrigger>
+              {!isStaff ? (
+                <>
+                  <TabsTrigger
+                    value="general"
+                    className={cn(HUB_TABS_TRIGGER, "w-full py-3 text-sm font-semibold sm:text-[15px]")}
+                  >
+                    {t("settings.tabs.general")}
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="location"
+                    className={cn(HUB_TABS_TRIGGER, "w-full py-3 text-sm font-semibold sm:text-[15px]")}
+                  >
+                    {t("nav.business.locations")}
+                  </TabsTrigger>
+                </>
+              ) : null}
+            </TabsList>
 
-        {!isStaff && (
-          <TabsContent value="location" className="mt-0 space-y-4 focus-visible:outline-none">
-            <SectionErrorBoundary label="Business Locations">
-              <Suspense fallback={<FormSectionSkeleton fields={4} />}>
-                <MultiLocationSettings
-                  apiClient={apiClient}
-                  onMutated={() => {
-                    fetchUnifiedSettings();
-                  }}
-                />
+            <TabsContent value="profile" className="mt-0 space-y-4 focus-visible:outline-none">
+              <Suspense fallback={<FormSectionSkeleton fields={5} />}>
+                <ProfileSettings />
               </Suspense>
-            </SectionErrorBoundary>
-          </TabsContent>
-        )}
+            </TabsContent>
 
-        {!isStaff && (
-          <TabsContent value="general" className="mt-0 space-y-4 focus-visible:outline-none">
+            {!isStaff ? (
+              <TabsContent value="location" className="mt-0 space-y-4 focus-visible:outline-none">
+                <SectionErrorBoundary label="Business Locations">
+                  <Suspense fallback={<FormSectionSkeleton fields={4} />}>
+                    <MultiLocationSettings
+                      apiClient={apiClient}
+                      onMutated={() => {
+                        fetchUnifiedSettings();
+                      }}
+                    />
+                  </Suspense>
+                </SectionErrorBoundary>
+              </TabsContent>
+            ) : null}
+
+            {!isStaff ? (
+              <TabsContent value="general" className="mt-0 space-y-4 focus-visible:outline-none">
             <SettingsSection
               icon={<Building2 className="h-5 w-5" />}
               iconClassName="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
@@ -1375,11 +1534,49 @@ export default function Settings() {
                 {t("settings.general.save_general")}
               </Button>
             </SettingsStickyActions>
-          </TabsContent>
-        )}
+              </TabsContent>
+            ) : null}
+          </Tabs>
+        </TabsContent>
 
         {!isStaff && (
           <TabsContent value="integrations" className="mt-0 space-y-4 focus-visible:outline-none">
+            <Tabs
+              value={integrationSection}
+              onValueChange={onIntegrationSectionChange}
+              className="w-full space-y-4"
+            >
+              <TabsList className="grid h-auto w-full grid-cols-3 gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5">
+                <TabsTrigger
+                  value="pos"
+                  className={cn(
+                    HUB_TABS_TRIGGER,
+                    "w-full justify-center py-3 text-sm font-semibold sm:text-[15px]",
+                  )}
+                >
+                  {t("settings.integrations.tabs.pos")}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="reservations"
+                  className={cn(
+                    HUB_TABS_TRIGGER,
+                    "w-full justify-center py-3 text-sm font-semibold sm:text-[15px]",
+                  )}
+                >
+                  {t("settings.integrations.tabs.reservations")}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="calendar"
+                  className={cn(
+                    HUB_TABS_TRIGGER,
+                    "w-full justify-center py-3 text-sm font-semibold sm:text-[15px]",
+                  )}
+                >
+                  {t("settings.integrations.tabs.calendar")}
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="pos" className="mt-0 space-y-4 focus-visible:outline-none">
             <SettingsSection
               id="pos-integration"
               icon={<Plug className="h-5 w-5" />}
@@ -1936,11 +2133,15 @@ export default function Settings() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+              </TabsContent>
 
+              <TabsContent value="reservations" className="mt-0 space-y-4 focus-visible:outline-none">
             <div id="reservation-booking-integration" className="scroll-mt-24">
               <ReservationIntegration onIntegrationChange={() => void fetchUnifiedSettings()} />
             </div>
+              </TabsContent>
 
+              <TabsContent value="calendar" className="mt-0 space-y-4 focus-visible:outline-none">
             <SettingsSection
               icon={<Calendar className="h-5 w-5" />}
               iconClassName="bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
@@ -2076,7 +2277,8 @@ export default function Settings() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         )}
 
@@ -2101,18 +2303,47 @@ export default function Settings() {
         )}
 
         {!isStaff && (
-          <TabsContent value="compliance" className="mt-0 space-y-4 focus-visible:outline-none">
-            <Suspense fallback={<FormSectionSkeleton />}>
-              <ComplianceDocumentsSettings />
-            </Suspense>
-          </TabsContent>
-        )}
+          <TabsContent value="compliance-approvals" className="mt-0 space-y-4 focus-visible:outline-none">
+            <Tabs
+              value={complianceApprovalsSection}
+              onValueChange={onComplianceApprovalsSectionChange}
+              className="w-full space-y-4"
+            >
+              <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5">
+                <TabsTrigger
+                  value="compliance"
+                  className={cn(
+                    HUB_TABS_TRIGGER,
+                    "w-full justify-center gap-2 py-3 text-sm font-semibold sm:text-[15px]",
+                  )}
+                >
+                  <FileWarning className="h-4 w-4 shrink-0" />
+                  {t("settings.tabs.compliance")}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="approvals"
+                  className={cn(
+                    HUB_TABS_TRIGGER,
+                    "w-full justify-center gap-2 py-3 text-sm font-semibold sm:text-[15px]",
+                  )}
+                >
+                  <Shield className="h-4 w-4 shrink-0" />
+                  {t("settings.tabs.payguard")}
+                </TabsTrigger>
+              </TabsList>
 
-        {!isStaff && (
-          <TabsContent value="payguard" className="mt-0 space-y-4 focus-visible:outline-none">
-            <Suspense fallback={<FormSectionSkeleton />}>
-              <PaymentApprovalSettings />
-            </Suspense>
+              <TabsContent value="compliance" className="mt-0 focus-visible:outline-none">
+                <Suspense fallback={<FormSectionSkeleton />}>
+                  <ComplianceDocumentsSettings />
+                </Suspense>
+              </TabsContent>
+
+              <TabsContent value="approvals" className="mt-0 focus-visible:outline-none">
+                <Suspense fallback={<FormSectionSkeleton />}>
+                  <PaymentApprovalSettings />
+                </Suspense>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         )}
           </div>

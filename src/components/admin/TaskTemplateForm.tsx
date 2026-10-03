@@ -1,6 +1,6 @@
 // components/tasks/TaskTemplateForm.tsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   DndContext,
   DragEndEvent,
@@ -143,6 +143,10 @@ interface TaskTemplate {
   ai_generated?: boolean;
   /** Staff who can run this checklist after clock-in without a scheduled shift */
   standing_assignees?: string[];
+  /** 0=Mon … 6=Sun — when this process appears on the staff schedule */
+  schedule_days?: number[];
+  /** Local time (HH:mm) when the process block starts on the calendar */
+  schedule_time?: string | null;
 }
 
 interface TaskTemplateFormProps {
@@ -164,6 +168,16 @@ const templateTypes: DropdownOption[] = [
   { value: 'QUALITY', label: 'Quality Control' },
   { value: 'CUSTOM', label: 'Custom Template' },
 ];
+
+const WEEKDAY_KEYS = [
+  { value: 0, labelKey: 'process.schedule.day_mon' },
+  { value: 1, labelKey: 'process.schedule.day_tue' },
+  { value: 2, labelKey: 'process.schedule.day_wed' },
+  { value: 3, labelKey: 'process.schedule.day_thu' },
+  { value: 4, labelKey: 'process.schedule.day_fri' },
+  { value: 5, labelKey: 'process.schedule.day_sat' },
+  { value: 6, labelKey: 'process.schedule.day_sun' },
+] as const;
 
 const frequencies: DropdownOption[] = [
   { value: 'DAILY', label: 'Daily' },
@@ -216,6 +230,7 @@ const getPriorityColor = (priority: string) => {
 
 export default function TaskTemplateForm({ template, onSuccess, onCancel }: TaskTemplateFormProps) {
     const { t } = useLanguage();
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState<TaskTemplate>({
     name: '',
     description: '',
@@ -229,6 +244,10 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     standing_assignees: Array.isArray(template?.standing_assignees)
       ? template!.standing_assignees!.map(String)
       : [],
+    schedule_days: Array.isArray(template?.schedule_days)
+      ? template!.schedule_days!.map((d) => Number(d)).filter((d) => d >= 0 && d <= 6)
+      : [],
+    schedule_time: template?.schedule_time ?? '09:00',
   });
 
   // New hierarchical state: processes (stations) containing tasks
@@ -471,6 +490,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       } catch {
         // ignore announcement errors
       }
+      await queryClient.invalidateQueries({ queryKey: ['weekly-schedule'] });
       onSuccess();
     },
     onError: (error) => {
@@ -529,6 +549,8 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       ...formData,
       tasks: flattenedTasks,
       standing_assignees: formData.standing_assignees || [],
+      schedule_days: formData.schedule_days ?? [],
+      schedule_time: formData.schedule_time?.slice(0, 5) || null,
     });
   };
 
@@ -740,6 +762,21 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
   };
 
   // Handler for dropdown changes with proper typing
+  const showScheduleDays =
+    formData.frequency === 'DAILY' ||
+    formData.frequency === 'WEEKLY' ||
+    formData.frequency === 'CUSTOM';
+
+  const toggleScheduleDay = (day: number) => {
+    setFormData((prev) => {
+      const current = prev.schedule_days ?? [];
+      const next = current.includes(day)
+        ? current.filter((d) => d !== day)
+        : [...current, day].sort((a, b) => a - b);
+      return { ...prev, schedule_days: next };
+    });
+  };
+
   const handleDropdownChange = (field: keyof TaskTemplate) => (value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -1041,6 +1078,50 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                 <Label htmlFor="is_active">Active</Label>
               </div>
             </div>
+          </div>
+
+          <div className="space-y-3 pt-2 border-t border-border/60">
+            <div>
+              <Label htmlFor="schedule_time">{t('process.schedule.start_time')}</Label>
+              <Input
+                id="schedule_time"
+                type="time"
+                className="max-w-[10rem] mt-1"
+                value={formData.schedule_time?.slice(0, 5) || '09:00'}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, schedule_time: e.target.value || '09:00' }))
+                }
+              />
+              <p className="text-xs text-muted-foreground mt-1">{t('process.schedule.start_time_help')}</p>
+            </div>
+
+            {showScheduleDays && (
+              <div className="space-y-2">
+                <Label>{t('process.schedule.days_label')}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {WEEKDAY_KEYS.map(({ value, labelKey }) => {
+                    const selected = (formData.schedule_days ?? []).includes(value);
+                    return (
+                      <Button
+                        key={value}
+                        type="button"
+                        size="sm"
+                        variant={selected ? 'default' : 'outline'}
+                        className={cn('min-w-[3rem]', selected && 'bg-emerald-600 hover:bg-emerald-700')}
+                        onClick={() => toggleScheduleDay(value)}
+                      >
+                        {t(labelKey)}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">{t('process.schedule.days_help')}</p>
+              </div>
+            )}
+
+            {!showScheduleDays && (
+              <p className="text-xs text-muted-foreground">{t('process.schedule.monthly_hint')}</p>
+            )}
           </div>
         </CardContent>
       </Card>

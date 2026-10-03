@@ -3302,7 +3302,7 @@ function StaffDailyProgressCard({
   const liveStaff = data?.staff ?? [];
 
   const goToProgress = React.useCallback(() => {
-    navigate("/dashboard/tasks#staff-live-progress");
+    navigate("/dashboard/operations/live?view=progress&tab=staff");
   }, [navigate]);
 
   const renderStaffList = (
