@@ -27,11 +27,6 @@ import { Switch } from '@/components/ui/switch';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
   Plus,
   Trash2,
   GripVertical,
@@ -44,13 +39,15 @@ import {
   ArrowRight,
   Users,
   Camera,
-  Check as CheckIcon,
-  X as XIcon,
   ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_BASE, api } from "@/lib/api";
 import { loadStaffPickerOptions, type StaffPickerOption } from "@/lib/staffPicker";
+import {
+  BranchAlertAssigneeSelect,
+  ProcessAssigneeMultiSelect,
+} from "@/components/admin/ProcessAssigneeMultiSelect";
 import { cn } from "@/lib/utils";
 
 import { useLanguage } from "@/hooks/use-language";
@@ -270,38 +267,6 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     queryKey: ["task-template-staff"],
     queryFn: () => loadStaffPickerOptions({ pageSize: 500 }),
   });
-
-  const staffNameById = useMemo(() => {
-    const m = new Map<string, string>();
-    staffOptions.forEach((s) => m.set(s.id, s.name));
-    return m;
-  }, [staffOptions]);
-
-  const departmentGroups = useMemo(() => {
-    const byDept = new Map<string, StaffPickerOption[]>();
-    for (const s of staffOptions) {
-      const key = (s.department || s.role || "General").trim();
-      const bucket = byDept.get(key) || [];
-      bucket.push(s);
-      byDept.set(key, bucket);
-    }
-    return Array.from(byDept.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [staffOptions]);
-
-  const toggleDepartmentAssignees = (department: string) => {
-    const ids = (departmentGroups.find(([d]) => d === department)?.[1] || []).map((s) => s.id);
-    if (!ids.length) return;
-    setFormData((prev) => {
-      const current = new Set(prev.standing_assignees || []);
-      const allSelected = ids.every((id) => current.has(id));
-      if (allSelected) {
-        ids.forEach((id) => current.delete(id));
-      } else {
-        ids.forEach((id) => current.add(id));
-      }
-      return { ...prev, standing_assignees: Array.from(current) };
-    });
-  };
 
   // Search/filter term for tasks within processes
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -554,15 +519,6 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     });
   };
 
-  const toggleStandingAssignee = (staffId: string) => {
-    setFormData((prev) => {
-      const current = prev.standing_assignees || [];
-      const next = current.includes(staffId)
-        ? current.filter((id) => id !== staffId)
-        : [...current, staffId];
-      return { ...prev, standing_assignees: next };
-    });
-  };
 
   // Process/task operations for hierarchical structure
   const genProcessId = () =>
@@ -781,20 +737,6 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const toggleAssignee = (
-    processId: string,
-    taskIndex: number,
-    answer: "yes" | "no",
-    action: BranchAction,
-    staffId: string,
-  ) => {
-    const current = action.assignees || [];
-    const next = current.includes(staffId)
-      ? current.filter((id) => id !== staffId)
-      : [...current, staffId];
-    setBranchAction(processId, taskIndex, answer, { ...action, type: "alert", assignees: next });
-  };
-
   const renderAssigneePicker = (
     processId: string,
     taskIndex: number,
@@ -803,70 +745,13 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
   ) => {
     const selected = action.assignees || [];
     return (
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 border-dashed"
-            >
-              <Users className="h-3.5 w-3.5" />
-              {selected.length > 0
-                ? `Assigned to ${selected.length}`
-                : "Assign to people"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-64 p-0 z-[3100]" align="start">
-            <div className="px-3 py-2 border-b text-xs text-muted-foreground">
-              Notify specific people (leave empty for managers)
-            </div>
-            <div className="max-h-60 overflow-y-auto py-1">
-              {staffOptions.length === 0 ? (
-                <p className="px-3 py-3 text-sm text-muted-foreground">No staff found.</p>
-              ) : (
-                staffOptions.map((s) => {
-                  const isSel = selected.includes(s.id);
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => toggleAssignee(processId, taskIndex, answer, action, s.id)}
-                      className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors"
-                    >
-                      <span className="min-w-0 truncate">
-                        {s.name}
-                        {s.role ? (
-                          <span className="text-muted-foreground"> · {s.role}</span>
-                        ) : null}
-                      </span>
-                      {isSel && <CheckIcon className="h-4 w-4 text-emerald-600 shrink-0" />}
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
-        {selected.map((id) => (
-          <Badge
-            key={id}
-            variant="secondary"
-            className="gap-1 pl-2 pr-1 py-0.5 text-xs font-medium"
-          >
-            {staffNameById.get(id) || "Unknown"}
-            <button
-              type="button"
-              onClick={() => toggleAssignee(processId, taskIndex, answer, action, id)}
-              className="rounded-full hover:bg-black/10 dark:hover:bg-white/10 p-0.5"
-              aria-label={`Remove ${staffNameById.get(id) || "assignee"}`}
-            >
-              <XIcon className="h-3 w-3" />
-            </button>
-          </Badge>
-        ))}
-      </div>
+      <BranchAlertAssigneeSelect
+        selectedIds={selected}
+        staffOptions={staffOptions}
+        onChange={(ids) =>
+          setBranchAction(processId, taskIndex, answer, { ...action, type: "alert", assignees: ids })
+        }
+      />
     );
   };
 
@@ -1138,98 +1023,13 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
             clock in first or say <span className="font-medium">start checklist</span> anytime.
           </p>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {departmentGroups.length > 1 ? (
-            <div className="flex flex-wrap gap-2">
-              {departmentGroups.map(([dept, members]) => {
-                const ids = members.map((m) => m.id);
-                const allOn = ids.every((id) => (formData.standing_assignees || []).includes(id));
-                return (
-                  <Button
-                    key={dept}
-                    type="button"
-                    variant={allOn ? "secondary" : "outline"}
-                    size="sm"
-                    className="h-8 text-xs"
-                    onClick={() => toggleDepartmentAssignees(dept)}
-                  >
-                    {dept} ({members.length})
-                  </Button>
-                );
-              })}
-            </div>
-          ) : null}
-          <div className="flex flex-wrap items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9 gap-1.5 border-dashed"
-                >
-                  <Users className="h-3.5 w-3.5" />
-                  {(formData.standing_assignees || []).length > 0
-                    ? `${(formData.standing_assignees || []).length} assigned`
-                    : "Assign staff"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-72 p-0 z-[3100]" align="start">
-                <div className="px-3 py-2 border-b text-xs text-muted-foreground">
-                  Clock in → start checklist, or start checklist directly. No shift required.
-                </div>
-                <div className="max-h-60 overflow-y-auto py-1">
-                  {staffOptions.length === 0 ? (
-                    <p className="px-3 py-3 text-sm text-muted-foreground">No staff found.</p>
-                  ) : (
-                    departmentGroups.map(([dept, members]) => (
-                      <div key={dept}>
-                        <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          {dept}
-                        </p>
-                        {members.map((s) => {
-                          const selected = (formData.standing_assignees || []).includes(s.id);
-                          return (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onClick={() => toggleStandingAssignee(s.id)}
-                              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors"
-                            >
-                              <span className="min-w-0 truncate">
-                                {s.name}
-                                {s.role ? (
-                                  <span className="text-muted-foreground"> · {s.role}</span>
-                                ) : null}
-                              </span>
-                              {selected && <CheckIcon className="h-4 w-4 text-emerald-600 shrink-0" />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
-            {(formData.standing_assignees || []).map((id) => (
-              <Badge
-                key={id}
-                variant="secondary"
-                className="gap-1 pl-2 pr-1 py-0.5 text-xs font-medium"
-              >
-                {staffNameById.get(id) || "Staff"}
-                <button
-                  type="button"
-                  onClick={() => toggleStandingAssignee(id)}
-                  className="rounded-full hover:bg-black/10 dark:hover:bg-white/10 p-0.5"
-                  aria-label={`Remove ${staffNameById.get(id) || "assignee"}`}
-                >
-                  <XIcon className="h-3 w-3" />
-                </button>
-              </Badge>
-            ))}
-          </div>
+        <CardContent>
+          <ProcessAssigneeMultiSelect
+            selectedIds={formData.standing_assignees || []}
+            staffOptions={staffOptions}
+            onChange={(ids) => setFormData((prev) => ({ ...prev, standing_assignees: ids }))}
+            popoverHint="Clock in → start checklist, or start checklist directly. No shift required."
+          />
         </CardContent>
       </Card>
 

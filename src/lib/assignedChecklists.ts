@@ -71,6 +71,19 @@ function peopleFromIds(raw: unknown, staffById: Map<string, string>): ChecklistA
   return out;
 }
 
+export function standingAssigneesForTemplate(
+  row: {
+    standing_assignees?: unknown;
+    standing_assignee_details?: unknown;
+  },
+  staff: StaffName[],
+): ChecklistAssignee[] {
+  const staffById = new Map(staff.map((person) => [person.id, person.name]));
+  const details = peopleFromDetails(row.standing_assignee_details, staffById);
+  const fromIds = peopleFromIds(row.standing_assignees, staffById);
+  return dedupePeople([...details, ...fromIds]);
+}
+
 function dedupePeople(people: ChecklistAssignee[]): ChecklistAssignee[] {
   const seen = new Set<string>();
   const out: ChecklistAssignee[] = [];

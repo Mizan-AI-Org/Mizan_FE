@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { mapAssignedChecklists } from "./assignedChecklists";
+import { mapAssignedChecklists, standingAssigneesForTemplate } from "./assignedChecklists";
+
+describe("standingAssigneesForTemplate", () => {
+  it("merges API details with roster fallback", () => {
+    const people = standingAssigneesForTemplate(
+      {
+        standing_assignees: ["u1", "u2"],
+        standing_assignee_details: [{ id: "u1", name: "Salmane Tazi" }],
+      },
+      [{ id: "u2", name: "Soufiane Hadni" }],
+    );
+    expect(people.map((p) => p.name)).toEqual(["Salmane Tazi", "Soufiane Hadni"]);
+  });
+});
 
 describe("mapAssignedChecklists", () => {
   it("lists every person assigned to a process template", () => {
