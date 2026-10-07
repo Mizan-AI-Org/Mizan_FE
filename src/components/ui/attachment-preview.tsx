@@ -559,8 +559,9 @@ export function AttachmentViewerModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        overlayClassName="z-[4000]"
         className={cn(
-          "max-h-[92vh] w-[min(96vw,56rem)] gap-0 overflow-hidden p-0",
+          "z-[4001] max-h-[92vh] w-[min(96vw,56rem)] gap-0 overflow-hidden p-0",
           kind === "pdf" && "max-w-4xl",
         )}
       >

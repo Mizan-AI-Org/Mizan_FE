@@ -16,6 +16,12 @@ import type {
 } from "@/lib/types";
 import { toast } from "sonner";
 import { DashboardTaskDetailSheet } from "@/components/dashboard/DashboardTaskDetailSheet";
+import {
+  AttachmentViewerModal,
+  type AttachmentViewerState,
+} from "@/components/ui/attachment-preview";
+import { resolveStoredMediaUrl } from "@/components/dashboard/dashboard-task-detail-utils";
+import { BACKEND_URL } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -107,6 +113,7 @@ import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffReque
 import { StaffTagSelector } from "@/components/staff/StaffTagChips";
 import type { StaffTag } from "@/lib/staff-tags";
 import { translateWidgetTaskSubtitle } from "@/lib/localeTag";
+import { localizeAgeLabel } from "@/lib/localizeAgeLabel";
 
 import { useLanguage } from "@/hooks/use-language";
 
@@ -4334,6 +4341,9 @@ function CategoryTasksCard({
   // Brief success pulse after a successful incoming drop so the manager
   // sees the landing confirmed visually on top of the toast.
   const [justReceivedDrop, setJustReceivedDrop] = useState(false);
+  const [proofPreview, setProofPreview] = useState<AttachmentViewerState | null>(
+    null,
+  );
   // Global drag session (sibling-aware): tells this card whether *any*
   // drag is in progress and which bucket it came from. Used to light up
   // every valid drop target at once - not just the one under the cursor.
@@ -4831,6 +4841,20 @@ function CategoryTasksCard({
                       ? () => navigate(rowDetailHref(it))
                       : undefined
                   }
+                  onOpenProofMedia={
+                    it.proof_media_url
+                      ? () => {
+                          const url =
+                            resolveStoredMediaUrl(it.proof_media_url!, BACKEND_URL) ||
+                            it.proof_media_url!;
+                          setProofPreview({
+                            url,
+                            name: it.title,
+                            label: "picture",
+                          });
+                        }
+                      : undefined
+                  }
                 />
               ))}
             </ul>
@@ -4849,6 +4873,13 @@ function CategoryTasksCard({
           />
         ) : null}
       </CardContent>
+      <AttachmentViewerModal
+        open={!!proofPreview}
+        onOpenChange={(open) => {
+          if (!open) setProofPreview(null);
+        }}
+        attachment={proofPreview}
+      />
     </Card>
   );
 }
@@ -5033,6 +5064,7 @@ function CategoryTaskRow({
   isDragging,
   onDragStateChange,
   onRowNavigate,
+  onOpenProofMedia,
 }: {
   item: DashboardTaskDemandItem;
   t: (key: string) => string;
@@ -5044,6 +5076,7 @@ function CategoryTaskRow({
   isDragging?: boolean;
   onDragStateChange?: (id: string | null) => void;
   onRowNavigate?: () => void;
+  onOpenProofMedia?: () => void;
 }) {
   const pill = statusPillClass(item.status, item.priority, item.pill_status);
   const assigneeLabel = item.assignee?.name?.trim()
@@ -5131,7 +5164,7 @@ function CategoryTaskRow({
   return (
     <li
       className={cn(
-        "group/row grid grid-cols-1 gap-2 rounded-lg px-2 py-2 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-all sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center",
+        "group/row flex flex-col gap-1.5 rounded-lg px-2 py-2 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-all",
         onRowNavigate && "cursor-pointer",
         // Subtle "you can drag this" affordance: a grab cursor on
         // hover so the manager realises the rows are interactive
@@ -5166,14 +5199,14 @@ function CategoryTaskRow({
           : undefined
       }
     >
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
-          <div
-            className="text-[13px] font-medium text-slate-900 dark:text-white line-clamp-2 break-words"
-            title={item.title}
-          >
-            {item.title}
-          </div>
+      <div className="min-w-0 w-full">
+        <div
+          className="text-[13px] font-medium text-slate-900 dark:text-white line-clamp-2 break-words"
+          title={item.title}
+        >
+          {item.title}
+        </div>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
           {showUrgentBadge ? (
             <span
               className="shrink-0 inline-flex items-center rounded-sm border border-red-200 bg-red-50 px-1 py-px text-[9px] font-bold uppercase tracking-wider text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
@@ -5198,16 +5231,43 @@ function CategoryTaskRow({
             </span>
           ) : null}
           {item.has_photo_proof ? (
-            <span className="shrink-0 inline-flex items-center gap-1 rounded-sm border border-violet-200 bg-violet-50 px-1 py-px text-[9px] font-semibold text-violet-800 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-200">
-              {item.proof_media_url ? (
+            onOpenProofMedia && item.proof_media_url ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  stop(e);
+                  onOpenProofMedia();
+                }}
+                className="shrink-0 inline-flex items-center gap-1 rounded-sm border border-violet-200 bg-violet-50 px-1 py-px text-[9px] font-semibold text-violet-800 hover:bg-violet-100 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-200 dark:hover:bg-violet-950/50"
+                title={t("dashboard.task_detail.view_full_image", {
+                  defaultValue: "View full size",
+                })}
+              >
                 <img
-                  src={item.proof_media_url}
+                  src={
+                    resolveStoredMediaUrl(item.proof_media_url, BACKEND_URL) ||
+                    item.proof_media_url
+                  }
                   alt=""
                   className="h-4 w-4 rounded object-cover"
                 />
-              ) : null}
-              {t("dashboard.category_tasks.photo_proof_ok")}
-            </span>
+                {t("dashboard.category_tasks.photo_proof_ok")}
+              </button>
+            ) : (
+              <span className="shrink-0 inline-flex items-center gap-1 rounded-sm border border-violet-200 bg-violet-50 px-1 py-px text-[9px] font-semibold text-violet-800 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-200">
+                {item.proof_media_url ? (
+                  <img
+                    src={
+                      resolveStoredMediaUrl(item.proof_media_url, BACKEND_URL) ||
+                      item.proof_media_url
+                    }
+                    alt=""
+                    className="h-4 w-4 rounded object-cover"
+                  />
+                ) : null}
+                {t("dashboard.category_tasks.photo_proof_ok")}
+              </span>
+            )
           ) : null}
         </div>
         {item.ai_summary ? (
@@ -5236,13 +5296,13 @@ function CategoryTaskRow({
           {item.age_label ? (
             <>
               <span aria-hidden className="text-slate-300 dark:text-slate-600">·</span>
-              <span className="tabular-nums whitespace-nowrap">{item.age_label}</span>
+              <span className="tabular-nums whitespace-nowrap">{localizeAgeLabel(item.age_label, t)}</span>
             </>
           ) : null}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-1 sm:max-w-[11rem] md:max-w-none">
+      <div className="flex flex-wrap items-center justify-end gap-1 w-full">
       {needsValidation && onValidate && item.kind === "dashboard" ? (
         <button
           type="button"
@@ -5266,10 +5326,11 @@ function CategoryTaskRow({
             onChase();
           }}
           disabled={isPending}
-          className="hidden sm:inline-flex shrink-0 rounded-md border border-sky-300 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-900 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100 disabled:opacity-50"
+          className="inline-flex shrink-0 rounded-md border border-sky-300 bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-900 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100 disabled:opacity-50 max-w-[5.5rem] truncate sm:max-w-none sm:px-2"
           title={t("dashboard.category_tasks.update_now_title")}
         >
-          {t("dashboard.category_tasks.update_now")}
+          <span className="truncate sm:hidden">{t("dashboard.category_tasks.update_now_short")}</span>
+          <span className="hidden sm:inline">{t("dashboard.category_tasks.update_now")}</span>
         </button>
       ) : null}
 

@@ -69,6 +69,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
 import { OperationsProgressPanel } from "@/components/operations/OperationsProgressPanel";
+import { localizeAgeLabel } from "@/lib/localizeAgeLabel";
 
 type LaneKey = "pending" | "in_progress" | "completed";
 
@@ -105,30 +106,6 @@ const ROLE_I18N: Record<string, string> = {
   staff: "operations_live.role.staff",
   receptionist: "operations_live.role.receptionist",
 };
-
-function localizeAgeLabel(
-  label: string | undefined,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  const raw = (label || "").trim();
-  if (!raw || raw === "-") return "-";
-  const lower = raw.toLowerCase();
-  if (lower === "just now") return t("operations_live.rel.just_now");
-  if (lower === "yesterday") return t("operations_live.rel.yesterday");
-  let m = lower.match(/^(\d+)\s*m\s*ago$/);
-  if (m) return t("operations_live.rel.minutes", { count: Number(m[1]) });
-  m = lower.match(/^(\d+)\s*h\s*ago$/);
-  if (m) return t("operations_live.rel.hours", { count: Number(m[1]) });
-  m = lower.match(/^(\d+)\s*d\s*ago$/);
-  if (m) return t("operations_live.rel.days", { count: Number(m[1]) });
-  m = lower.match(/^(\d+)\s*w\s*ago$/);
-  if (m) return t("operations_live.rel.weeks", { count: Number(m[1]) });
-  m = lower.match(/^(\d+)\s*mo\s*ago$/);
-  if (m) return t("operations_live.rel.months", { count: Number(m[1]) });
-  m = lower.match(/^(\d+)\s*y\s*ago$/);
-  if (m) return t("operations_live.rel.years", { count: Number(m[1]) });
-  return raw;
-}
 
 function localizeRole(
   role: string | null | undefined,

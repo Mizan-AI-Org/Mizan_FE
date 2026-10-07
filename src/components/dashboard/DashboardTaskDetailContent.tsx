@@ -6,6 +6,7 @@ import {
   Sparkles,
   Play,
   CheckCircle2,
+  Maximize2,
   ThumbsUp,
 } from "lucide-react";
 import { TaskAssigneePicker } from "@/components/dashboard/TaskAssigneePicker";
@@ -30,6 +31,11 @@ import {
   LIVE_OPS_PRIORITIES,
   resolveStoredMediaUrl,
 } from "@/components/dashboard/dashboard-task-detail-utils";
+import { localizeAgeLabel } from "@/lib/localizeAgeLabel";
+import {
+  AttachmentViewerModal,
+  type AttachmentViewerState,
+} from "@/components/ui/attachment-preview";
 function initialAssigneeIds(task: DashboardTaskDemandItem): string[] {
   if (task.assignees?.length) {
     return task.assignees.map((a) => a.id);
@@ -78,6 +84,21 @@ export function DashboardTaskDetailContent({
   const multiAssignMode = !!onSaveAssignees;
   const savedIds = useMemo(() => initialAssigneeIds(task), [task]);
   const [pendingIds, setPendingIds] = useState<string[]>(savedIds);
+  const [attachmentPreview, setAttachmentPreview] =
+    useState<AttachmentViewerState | null>(null);
+
+  const openAttachmentPreview = (
+    rawUrl: string,
+    opts?: { label?: string | null; name?: string },
+  ) => {
+    const url = resolveStoredMediaUrl(rawUrl, BACKEND_URL) || rawUrl;
+    if (!url.trim()) return;
+    setAttachmentPreview({
+      url,
+      name: opts?.name?.trim() || task.title,
+      label: opts?.label ?? "picture",
+    });
+  };
 
   useEffect(() => {
     setPendingIds(initialAssigneeIds(task));
@@ -126,7 +147,7 @@ export function DashboardTaskDetailContent({
       ? `${t("dashboard.task_detail.category", { defaultValue: "Category" })}: ${task.category}`
       : null,
     task.age_label
-      ? `${t("dashboard.task_detail.reported", { defaultValue: "Opened" })}: ${task.age_label}`
+      ? `${t("dashboard.task_detail.reported", { defaultValue: "Opened" })}: ${localizeAgeLabel(task.age_label, t)}`
       : null,
     task.created_at
       ? `${t("dashboard.task_detail.created", { defaultValue: "Created" })}: ${new Date(task.created_at).toLocaleString()}`
@@ -302,11 +323,34 @@ export function DashboardTaskDetailContent({
               {t("staff.requests.photo_proof", { defaultValue: "Photo proof" })}
             </div>
             {task.proof_media_url ? (
-              <img
-                src={resolveStoredMediaUrl(task.proof_media_url, BACKEND_URL) || task.proof_media_url}
-                alt={task.proof_caption || "Task proof"}
-                className="max-h-52 w-full rounded-lg border object-contain bg-muted/20"
-              />
+              <button
+                type="button"
+                onClick={() =>
+                  openAttachmentPreview(task.proof_media_url!, {
+                    name: task.proof_caption || task.title,
+                    label: "picture",
+                  })
+                }
+                className="group relative block w-full overflow-hidden rounded-lg border bg-muted/20 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                title={t("dashboard.task_detail.view_full_image", {
+                  defaultValue: "View full size",
+                })}
+              >
+                <img
+                  src={
+                    resolveStoredMediaUrl(task.proof_media_url, BACKEND_URL) ||
+                    task.proof_media_url
+                  }
+                  alt={task.proof_caption || "Task proof"}
+                  className="max-h-52 w-full object-contain transition-opacity group-hover:opacity-90"
+                />
+                <span className="pointer-events-none absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                  <Maximize2 className="h-3 w-3" aria-hidden />
+                  {t("dashboard.task_detail.view_full_image", {
+                    defaultValue: "View full size",
+                  })}
+                </span>
+              </button>
             ) : null}
             {task.proof_caption ? (
               <p className="text-sm whitespace-pre-wrap">{task.proof_caption}</p>
@@ -323,8 +367,22 @@ export function DashboardTaskDetailContent({
         {task.attachment_url &&
         resolveStoredMediaUrl(task.attachment_url, BACKEND_URL) !==
           resolveStoredMediaUrl(task.proof_media_url, BACKEND_URL) ? (
-          <AttachmentPreview url={task.attachment_url} label={task.attachment_label} t={t} />
+          <AttachmentPreview
+            url={task.attachment_url}
+            label={task.attachment_label}
+            t={t}
+            onOpenFullView={openAttachmentPreview}
+            displayName={task.title}
+          />
         ) : null}
+
+        <AttachmentViewerModal
+          open={!!attachmentPreview}
+          onOpenChange={(next) => {
+            if (!next) setAttachmentPreview(null);
+          }}
+          attachment={attachmentPreview}
+        />
       </div>
 
       <div className="shrink-0 space-y-2 border-t border-border/60 pt-4">
@@ -405,10 +463,17 @@ function AttachmentPreview({
   url,
   label,
   t,
+  onOpenFullView,
+  displayName,
 }: {
   url: string;
   label?: string | null;
   t: (key: string, options?: Record<string, unknown>) => string;
+  onOpenFullView?: (
+    rawUrl: string,
+    opts?: { label?: string | null; name?: string },
+  ) => void;
+  displayName?: string;
 }) {
   const resolved = resolveStoredMediaUrl(url, BACKEND_URL) || url;
   const labelText = (label || "").trim();
@@ -424,13 +489,41 @@ function AttachmentPreview({
         {t("dashboard.task_detail.attachment", { defaultValue: "Attachment" })}
       </div>
       {isImage ? (
-        <a href={resolved} target="_blank" rel="noopener noreferrer">
-          <img
-            src={resolved}
-            alt={labelText || "Attachment"}
-            className="max-h-52 w-full rounded-lg border object-contain bg-muted/20 cursor-pointer hover:opacity-90 transition-opacity"
-          />
-        </a>
+        onOpenFullView ? (
+          <button
+            type="button"
+            onClick={() =>
+              onOpenFullView(url, {
+                label: labelText || "picture",
+                name: displayName || labelText || undefined,
+              })
+            }
+            className="group relative block w-full overflow-hidden rounded-lg border bg-muted/20 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            title={t("dashboard.task_detail.view_full_image", {
+              defaultValue: "View full size",
+            })}
+          >
+            <img
+              src={resolved}
+              alt={labelText || "Attachment"}
+              className="max-h-52 w-full object-contain transition-opacity group-hover:opacity-90"
+            />
+            <span className="pointer-events-none absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+              <Maximize2 className="h-3 w-3" aria-hidden />
+              {t("dashboard.task_detail.view_full_image", {
+                defaultValue: "View full size",
+              })}
+            </span>
+          </button>
+        ) : (
+          <a href={resolved} target="_blank" rel="noopener noreferrer">
+            <img
+              src={resolved}
+              alt={labelText || "Attachment"}
+              className="max-h-52 w-full rounded-lg border object-contain bg-muted/20 cursor-pointer hover:opacity-90 transition-opacity"
+            />
+          </a>
+        )
       ) : (
         <a
           href={resolved}
