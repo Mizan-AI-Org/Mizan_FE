@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Loader2, Search, Users, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -48,14 +49,22 @@ export function ProcessAssigneeMultiSelect({
   selectedIds,
   onChange,
   staffOptions,
-  emptyTriggerLabel = "Assign staff",
-  selectedTriggerLabel = (n) => `${n} assigned`,
-  popoverHint = "Search by name, role, or team. Tap a row to add or remove.",
+  emptyTriggerLabel,
+  selectedTriggerLabel,
+  popoverHint,
   triggerClassName,
   contentClassName,
   disabled = false,
   showDepartmentPills = true,
 }: Props) {
+  const { t } = useTranslation();
+  const resolvedEmpty =
+    emptyTriggerLabel ?? t("process.assignee.empty_trigger");
+  const resolvedHint =
+    popoverHint ?? t("process.assignee.popover_hint");
+  const resolvedSelected =
+    selectedTriggerLabel ??
+    ((n: number) => t("process.assignee.selected_trigger", { count: n }));
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -171,7 +180,7 @@ export function ProcessAssigneeMultiSelect({
           <div className="truncate text-xs text-muted-foreground">
             {[row.department || row.role, row.role && row.department ? row.role : null]
               .filter(Boolean)
-              .join(" · ") || "Team member"}
+              .join(" · ") || t("process.assignee.team_member")}
           </div>
         </div>
       </CommandItem>
@@ -218,8 +227,8 @@ export function ProcessAssigneeMultiSelect({
             >
               <Users className="h-3.5 w-3.5" />
               {selectedIds.length > 0
-                ? selectedTriggerLabel(selectedIds.length)
-                : emptyTriggerLabel}
+                ? resolvedSelected(selectedIds.length)
+                : resolvedEmpty}
             </Button>
           </PopoverTrigger>
           <PopoverContent
@@ -228,11 +237,11 @@ export function ProcessAssigneeMultiSelect({
           >
             <Command shouldFilter={false} className="rounded-lg border-none">
               <div className="border-b px-3 pt-3 pb-2 space-y-2">
-                <p className="text-xs text-muted-foreground leading-snug">{popoverHint}</p>
+                <p className="text-xs text-muted-foreground leading-snug">{resolvedHint}</p>
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                   <CommandInput
-                    placeholder="Search name, role, or team…"
+                    placeholder={t("process.assignee.search_placeholder")}
                     value={search}
                     onValueChange={setSearch}
                     className="h-10 pl-9"
@@ -241,9 +250,13 @@ export function ProcessAssigneeMultiSelect({
                 <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                   <span>
                     {debouncedSearch
-                      ? `${visibleCount} match${visibleCount === 1 ? "" : "es"}`
-                      : `${staffOptions.length} people`}
-                    {selectedIds.length > 0 ? ` · ${selectedIds.length} selected` : ""}
+                      ? visibleCount === 1
+                        ? t("process.assignee.match_count", { count: visibleCount })
+                        : t("process.assignee.match_count_plural", { count: visibleCount })
+                      : t("process.assignee.people_count", { count: staffOptions.length })}
+                    {selectedIds.length > 0
+                      ? ` · ${t("process.assignee.selected_count", { count: selectedIds.length })}`
+                      : ""}
                   </span>
                   {selectedIds.length > 0 ? (
                     <button
@@ -251,7 +264,7 @@ export function ProcessAssigneeMultiSelect({
                       className="font-medium text-foreground hover:underline"
                       onClick={clearSelection}
                     >
-                      Clear all
+                      {t("process.assignee.clear_all")}
                     </button>
                   ) : visibleCount > 0 && debouncedSearch ? (
                     <button
@@ -259,7 +272,7 @@ export function ProcessAssigneeMultiSelect({
                       className="font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
                       onClick={selectAllVisible}
                     >
-                      Select matches
+                      {t("process.assignee.select_matches")}
                     </button>
                   ) : null}
                 </div>
@@ -268,13 +281,13 @@ export function ProcessAssigneeMultiSelect({
                 {isLoading ? (
                   <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Searching…
+                    {t("process.assignee.searching")}
                   </div>
                 ) : staffOptions.length === 0 ? (
-                  <CommandEmpty>No staff on this roster yet.</CommandEmpty>
+                  <CommandEmpty>{t("process.assignee.no_roster")}</CommandEmpty>
                 ) : visibleCount === 0 ? (
                   <CommandEmpty>
-                    No one matches &ldquo;{debouncedSearch}&rdquo;. Try another name or role.
+                    {t("process.assignee.no_match", { query: debouncedSearch })}
                   </CommandEmpty>
                 ) : debouncedSearch ? (
                   <CommandGroup>{browseGroups.flatMap(([, rows]) => rows.map(renderRow))}</CommandGroup>
@@ -294,7 +307,9 @@ export function ProcessAssigneeMultiSelect({
                               toggleDepartment(dept);
                             }}
                           >
-                            {rows.every((r) => selectedIds.includes(r.id)) ? "Remove team" : "Add team"}
+                            {rows.every((r) => selectedIds.includes(r.id))
+                              ? t("process.assignee.remove_team")
+                              : t("process.assignee.add_team")}
                           </button>
                         </span>
                       }
@@ -314,13 +329,15 @@ export function ProcessAssigneeMultiSelect({
             variant="secondary"
             className="gap-1 pl-2 pr-1 py-0.5 text-xs font-medium max-w-[200px]"
           >
-            <span className="truncate">{nameById.get(id) || "Staff"}</span>
+            <span className="truncate">{nameById.get(id) || t("process.assignee.staff_fallback")}</span>
             <button
               type="button"
               disabled={disabled}
               onClick={() => onChange(toggleId(selectedIds, id))}
               className="rounded-full hover:bg-black/10 dark:hover:bg-white/10 p-0.5 shrink-0"
-              aria-label={`Remove ${nameById.get(id) || "assignee"}`}
+              aria-label={t("process.assignee.remove_person", {
+                name: nameById.get(id) || t("process.assignee.staff_fallback"),
+              })}
             >
               <X className="h-3 w-3" />
             </button>
@@ -336,21 +353,22 @@ export function BranchAlertAssigneeSelect({
   selectedIds,
   onChange,
   staffOptions,
-  popoverHint = "Notify specific people (leave empty to alert managers)",
+  popoverHint,
 }: {
   selectedIds: string[];
   onChange: (ids: string[]) => void;
   staffOptions: StaffPickerOption[];
   popoverHint?: string;
 }) {
+  const { t } = useTranslation();
   return (
     <ProcessAssigneeMultiSelect
       selectedIds={selectedIds}
       onChange={onChange}
       staffOptions={staffOptions}
-      emptyTriggerLabel="Assign to people"
-      selectedTriggerLabel={(n) => `Assigned to ${n}`}
-      popoverHint={popoverHint}
+      emptyTriggerLabel={t("process.assignee.branch_empty")}
+      selectedTriggerLabel={(n) => t("process.assignee.branch_selected", { count: n })}
+      popoverHint={popoverHint ?? t("process.assignee.branch_hint")}
       showDepartmentPills={false}
       triggerClassName="h-8"
     />

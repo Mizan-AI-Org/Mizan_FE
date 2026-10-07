@@ -33,7 +33,7 @@ i18n
     // Load resources from public folder for smaller bundle.
     // Query bump busts stale browser caches after locale updates.
     backend: {
-      loadPath: '/locales/{{lng}}.json?v=2026-09-22g',
+      loadPath: '/locales/{{lng}}.json?v=2026-10-07b',
     },
     // Flat keys contain dots; never treat "." as nesting.
     nsSeparator: false,

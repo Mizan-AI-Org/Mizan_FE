@@ -25,8 +25,6 @@ def should_skip(path: Path) -> bool:
     parts = set(path.parts)
     if parts & SKIP_DIRS:
         return True
-    if "platform-admin" in path.parts:
-        return True
     return False
 
 

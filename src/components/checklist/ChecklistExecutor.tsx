@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Camera, Check, Circle, CircleOff, FileText, PenTool, Plus, Save, X } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 import type { TemplateDefinition, StepDefinition, ExecutionRecord, StepResponse, ResponseOption, EvidenceAttachment, PriorityLevel, ActionItem } from '@/types/checklist';
 
 type Props = {
@@ -23,6 +24,7 @@ const storageKey = (templateId: string) => `checklist-exec:${templateId}`;
 
 // Basic signature pad using canvas
 const SignaturePad: React.FC<{ onSave: (dataUrl: string) => void } & React.HTMLAttributes<HTMLDivElement>> = ({ onSave, ...rest }) => {
+  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [drawing, setDrawing] = useState(false);
 
@@ -76,9 +78,9 @@ const SignaturePad: React.FC<{ onSave: (dataUrl: string) => void } & React.HTMLA
         <Button variant="secondary" onClick={() => {
           const ctx = canvasRef.current!.getContext('2d')!;
           ctx.clearRect(0, 0, 320, 120);
-        }}>Clear</Button>
+        }}>{t('checklist.executor.clear_signature')}</Button>
         <Button onClick={() => onSave(canvasRef.current!.toDataURL('image/png'))}>
-          <PenTool className="h-4 w-4 mr-2" /> Save Signature
+          <PenTool className="h-4 w-4 mr-2" /> {t('checklist.executor.save_signature')}
         </Button>
       </div>
     </div>
@@ -91,6 +93,7 @@ const EvidencePanel: React.FC<{
   onAddEvidence: (e: EvidenceAttachment) => void;
   locked?: boolean;
 }> = ({ step, evidence, onAddEvidence, locked }) => {
+  const { t } = useTranslation();
   const [note, setNote] = useState('');
   const [showSignature, setShowSignature] = useState(false);
 
@@ -112,22 +115,22 @@ const EvidencePanel: React.FC<{
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label>Add Note</Label>
-          <Textarea value={note} onChange={(e) => setNote(e.target.value)} onBlur={addNoteAuto} placeholder="Details, observations, or context" disabled={!!locked} />
+          <Label>{t('checklist.executor.add_note')}</Label>
+          <Textarea value={note} onChange={(e) => setNote(e.target.value)} onBlur={addNoteAuto} placeholder={t('checklist.executor.note_placeholder')} disabled={!!locked} />
         </div>
         <div className="space-y-2">
-          <Label>Attach Photo</Label>
+          <Label>{t('checklist.executor.attach_photo')}</Label>
           <Input type="file" accept="image/*" capture="environment" onChange={(e) => handleFile(e, 'photo')} disabled={!!locked} />
           {step.requiresPhoto && (
-            <Badge variant="destructive" className="w-fit">Photo required</Badge>
+            <Badge variant="destructive" className="w-fit">{t('checklist.executor.photo_required')}</Badge>
           )}
         </div>
         <div className="space-y-2">
-          <Label>Attach Video</Label>
+          <Label>{t('checklist.executor.attach_video')}</Label>
           <Input type="file" accept="video/*" onChange={(e) => handleFile(e, 'video')} disabled={!!locked} />
         </div>
         <div className="space-y-2">
-          <Label>Attach Document</Label>
+          <Label>{t('checklist.executor.attach_document')}</Label>
           <Input type="file" accept="application/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={(e) => handleFile(e, 'document')} disabled={!!locked} />
         </div>
 
@@ -136,16 +139,17 @@ const EvidencePanel: React.FC<{
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Label>Digital Signature</Label>
+            <Label>{t('checklist.executor.digital_signature')}</Label>
             {step.requiresSignature && evidence.every(ev => String(ev.type).toLowerCase() !== 'signature') && (
-              <Badge variant="destructive" className="w-fit">Signature required</Badge>
+              <Badge variant="destructive" className="w-fit">{t('checklist.executor.signature_required')}</Badge>
             )}
             {evidence.some(ev => String(ev.type).toLowerCase() === 'signature') && (
-              <Badge className="w-fit bg-green-100 text-green-700">Signed</Badge>
+              <Badge className="w-fit bg-green-100 text-green-700">{t('checklist.executor.signed')}</Badge>
             )}
           </div>
           <Button variant="ghost" size="sm" onClick={() => setShowSignature((s) => !s)} aria-label="Toggle signature pad" disabled={!!locked}>
-            {showSignature ? <X className="h-4 w-4 mr-2" /> : <PenTool className="h-4 w-4 mr-2" />} {showSignature ? 'Hide' : 'Add Signature'}
+            {showSignature ? <X className="h-4 w-4 mr-2" /> : <PenTool className="h-4 w-4 mr-2" />}{' '}
+            {showSignature ? t('checklist.executor.hide') : t('checklist.executor.add_signature')}
           </Button>
         </div>
         {showSignature && !locked && (
@@ -158,7 +162,7 @@ const EvidencePanel: React.FC<{
 
       {evidence.length > 0 && (
         <div className="space-y-2">
-          <Label>Evidence</Label>
+          <Label>{t('checklist.executor.evidence')}</Label>
           <div className="grid grid-cols-3 gap-2">
             {evidence.map((ev) => (
               <div key={ev.id} className="border rounded-md p-2 text-xs">
@@ -191,6 +195,7 @@ const ActionModal: React.FC<{
   onOpenChange: (v: boolean) => void;
   onCreate: (action: ActionItem) => void;
 }> = ({ open, onOpenChange, onCreate }) => {
+  const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<PriorityLevel>('MEDIUM');
@@ -221,57 +226,57 @@ const ActionModal: React.FC<{
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Create Follow-up Action</DialogTitle>
+          <DialogTitle>{t('checklist.executor.follow_up_title')}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3">
           <div>
-            <Label>Title</Label>
+            <Label>{t('checklist.executor.field_title')}</Label>
             <Input value={title} onChange={e => setTitle(e.target.value)} />
           </div>
           <div>
-            <Label>Description</Label>
+            <Label>{t('checklist.executor.field_description')}</Label>
             <Textarea value={description} onChange={e => setDescription(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Priority</Label>
+              <Label>{t('checklist.executor.field_priority')}</Label>
               <select className="border rounded-md h-9 px-2 w-full" value={priority} onChange={e => setPriority(e.target.value as PriorityLevel)}>
-                <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HIGH">High</option>
-                <option value="CRITICAL">Critical</option>
+                <option value="LOW">{t('severity.LOW')}</option>
+                <option value="MEDIUM">{t('severity.MEDIUM')}</option>
+                <option value="HIGH">{t('severity.HIGH')}</option>
+                <option value="CRITICAL">{t('severity.CRITICAL')}</option>
               </select>
             </div>
             <div>
-              <Label>Due Date</Label>
+              <Label>{t('checklist.executor.field_due_date')}</Label>
               <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Assignee</Label>
-              <Input placeholder="Staff ID or picklist" value={assigneeId} onChange={e => setAssigneeId(e.target.value)} />
+              <Label>{t('checklist.executor.field_assignee')}</Label>
+              <Input placeholder={t('checklist.executor.assignee_placeholder')} value={assigneeId} onChange={e => setAssigneeId(e.target.value)} />
             </div>
             <div>
-              <Label>Location/Site</Label>
-              <Input placeholder="Site ID" value={locationId} onChange={e => setLocationId(e.target.value)} />
+              <Label>{t('checklist.executor.field_location')}</Label>
+              <Input placeholder={t('checklist.executor.site_placeholder')} value={locationId} onChange={e => setLocationId(e.target.value)} />
             </div>
           </div>
           <div>
-            <Label>Labels/Tags (comma separated)</Label>
+            <Label>{t('checklist.executor.labels_tags')}</Label>
             <Input value={labels} onChange={e => setLabels(e.target.value)} />
           </div>
           <div>
-            <Label>Visibility</Label>
+            <Label>{t('checklist.executor.visibility')}</Label>
             <select className="border rounded-md h-9 px-2 w-full" value={visibility} onChange={e => setVisibility(e.target.value as 'private' | 'team' | 'org')}>
-              <option value="private">Private</option>
-              <option value="team">Team</option>
-              <option value="org">Organization</option>
+              <option value="private">{t('checklist.executor.visibility_private')}</option>
+              <option value="team">{t('checklist.executor.visibility_team')}</option>
+              <option value="org">{t('checklist.executor.visibility_org')}</option>
             </select>
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={submit}><Plus className="h-4 w-4 mr-2" /> Create Action</Button>
+          <Button onClick={submit}><Plus className="h-4 w-4 mr-2" /> {t('checklist.executor.create_action')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -288,6 +293,7 @@ const responseIcon = (r?: ResponseOption) => {
 };
 
 const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubmit }) => {
+  const { t } = useTranslation();
   const [record, setRecord] = useState<ExecutionRecord>(initialExecution ?? (() => {
     const raw = localStorage.getItem(storageKey(template.id));
     return raw ? JSON.parse(raw) : {
@@ -442,14 +448,18 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
         <div className="flex items-center justify-between mb-4">
           <div>
             <CardTitle className="text-lg sm:text-xl">{template.name}</CardTitle>
-            <CardDescription className="text-sm">Quick, mobile-first checklist executor</CardDescription>
+            <CardDescription className="text-sm">{t('checklist.executor.subtitle')}</CardDescription>
           </div>
-          <Badge variant={record.offline ? 'destructive' : 'secondary'}>{record.offline ? 'Offline' : 'Online'}</Badge>
+          <Badge variant={record.offline ? 'destructive' : 'secondary'}>
+            {record.offline ? t('checklist.executor.offline') : t('generic.online')}
+          </Badge>
         </div>
         <div>
-          <div className="text-sm font-medium mb-2">Overall Progress</div>
+          <div className="text-sm font-medium mb-2">{t('checklist.executor.overall_progress')}</div>
           <Progress value={overallPct} className="h-2" />
-          <div className="text-xs text-muted-foreground mt-1.5" aria-live="polite">{completedCount} of {template.steps.length} tasks completed</div>
+          <div className="text-xs text-muted-foreground mt-1.5" aria-live="polite">
+            {t('checklist.executor.tasks_completed', { done: completedCount, total: template.steps.length })}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -457,7 +467,9 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
         <div className="border rounded-lg p-4 sm:p-5 bg-card shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
-              <div className="text-xs font-medium text-muted-foreground mb-1">Step {record.currentIndex + 1} of {template.steps.length}</div>
+              <div className="text-xs font-medium text-muted-foreground mb-1">
+                {t('checklist.executor.step_of', { current: record.currentIndex + 1, total: template.steps.length })}
+              </div>
               <div className="text-lg font-semibold text-gray-900">{currentStep.title}</div>
               {currentStep.instruction && (
                 <p className="text-sm text-muted-foreground mt-2">{currentStep.instruction}</p>
@@ -496,8 +508,8 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 mt-4">
-            <Button variant="outline" size="default" className="flex-1 h-11" onClick={() => setShowQuickNote(true)} disabled={locked}><FileText className="h-4 w-4 mr-2" /> Add Comment</Button>
-            <Button variant="outline" size="default" className="flex-1 h-11" onClick={() => fileRef.current?.click()} disabled={locked}><Camera className="h-4 w-4 mr-2" /> Attach Photo</Button>
+            <Button variant="outline" size="default" className="flex-1 h-11" onClick={() => setShowQuickNote(true)} disabled={locked}><FileText className="h-4 w-4 mr-2" /> {t('checklist.executor.add_comment')}</Button>
+            <Button variant="outline" size="default" className="flex-1 h-11" onClick={() => fileRef.current?.click()} disabled={locked}><Camera className="h-4 w-4 mr-2" /> {t('checklist.executor.attach_photo')}</Button>
             <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) {
@@ -510,31 +522,31 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
 
           {showQuickNote && (
             <div className="mt-3 space-y-2">
-              <Textarea value={quickNote} onChange={(e) => setQuickNote(e.target.value)} placeholder="Add a comment" />
+              <Textarea value={quickNote} onChange={(e) => setQuickNote(e.target.value)} placeholder={t('checklist.executor.comment_placeholder')} />
               <div className="flex items-center gap-2">
-                <Button size="sm" onClick={() => { if (quickNote.trim()) { addEvidence({ id: crypto.randomUUID(), type: 'note', note: quickNote, createdAt: new Date().toISOString() }); setQuickNote(''); } }} disabled={locked}><Save className="h-4 w-4 mr-2" /> Save Comment</Button>
-                <Button variant="ghost" size="sm" onClick={() => { setShowQuickNote(false); setQuickNote(''); }} disabled={locked}>Cancel</Button>
+                <Button size="sm" onClick={() => { if (quickNote.trim()) { addEvidence({ id: crypto.randomUUID(), type: 'note', note: quickNote, createdAt: new Date().toISOString() }); setQuickNote(''); } }} disabled={locked}><Save className="h-4 w-4 mr-2" /> {t('checklist.executor.save_comment')}</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setShowQuickNote(false); setQuickNote(''); }} disabled={locked}>{t('common.cancel')}</Button>
               </div>
             </div>
           )}
 
           {currentStep.requiresPhoto && !(record.stepResponses.find(sr => sr.stepId === currentStep.id)?.evidence || []).some(ev => ev.type === 'photo') && (
-            <div className="mt-3 rounded-md border bg-amber-50 text-amber-800 px-3 py-2 text-sm">Photo evidence is required to complete this task</div>
+            <div className="mt-3 rounded-md border bg-amber-50 text-amber-800 px-3 py-2 text-sm">{t('checklist.executor.photo_required_banner')}</div>
           )}
 
           {/* Evidence Panel */}
           <div className="mt-4">
             <Tabs defaultValue="evidence">
               <TabsList variant="compact" className="grid w-full grid-cols-2">
-                <TabsTrigger variant="compact" value="evidence">Evidence</TabsTrigger>
-                <TabsTrigger variant="compact" value="actions">Actions</TabsTrigger>
+                <TabsTrigger variant="compact" value="evidence">{t('checklist.executor.tab_evidence')}</TabsTrigger>
+                <TabsTrigger variant="compact" value="actions">{t('checklist.executor.tab_actions')}</TabsTrigger>
               </TabsList>
               <TabsContent value="evidence" className="mt-3">
                 <EvidencePanel step={currentStep} evidence={record.stepResponses.find(sr => sr.stepId === currentStep.id)?.evidence || []} onAddEvidence={locked ? () => { } : addEvidence} locked={locked} />
               </TabsContent>
               <TabsContent value="actions" className="mt-3">
                 <Button onClick={() => setActionOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" /> Create Follow-up Action
+                  <Plus className="h-4 w-4 mr-2" /> {t('checklist.executor.follow_up_title')}
                 </Button>
                 {record.actions.length > 0 && (
                   <div className="mt-3 space-y-2">
@@ -554,13 +566,13 @@ const ChecklistExecutor: React.FC<Props> = ({ template, initialExecution, onSubm
           </div>
 
           <div className="flex items-center justify-between gap-3 mt-6 pt-4 border-t">
-            <Button variant="secondary" size="lg" onClick={prevStep} disabled={locked} className="h-11 px-6" aria-label="Previous step">Previous</Button>
-            <div className="hidden sm:block text-xs text-muted-foreground flex-shrink-0" aria-live="polite">Auto-saved</div>
+            <Button variant="secondary" size="lg" onClick={prevStep} disabled={locked} className="h-11 px-6" aria-label={t('checklist.executor.previous')}>{t('checklist.executor.previous')}</Button>
+            <div className="hidden sm:block text-xs text-muted-foreground flex-shrink-0" aria-live="polite">{t('checklist.executor.auto_saved')}</div>
             {!hasAnySignature ? (
-              <Button size="lg" onClick={nextStep} disabled={locked || !isStepRequirementsMet(currentStep, currentStep.id)} className="h-11 px-6 transition-colors" aria-label="Next step">Next</Button>
+              <Button size="lg" onClick={nextStep} disabled={locked || !isStepRequirementsMet(currentStep, currentStep.id)} className="h-11 px-6 transition-colors" aria-label={t('checklist.executor.next')}>{t('checklist.executor.next')}</Button>
             ) : (
-              <Button size="lg" onClick={handleSubmit} disabled={locked || !allStepsSatisfied} className="h-11 px-6 bg-green-600 hover:bg-green-700 text-white transition-colors animate-in fade-in slide-in-from-right" aria-label="Submit checklist">
-                <Save className="h-4 w-4 mr-2" /> Submit
+              <Button size="lg" onClick={handleSubmit} disabled={locked || !allStepsSatisfied} className="h-11 px-6 bg-green-600 hover:bg-green-700 text-white transition-colors animate-in fade-in slide-in-from-right" aria-label={t('checklist.executor.submit')}>
+                <Save className="h-4 w-4 mr-2" /> {t('checklist.executor.submit')}
               </Button>
             )}
           </div>

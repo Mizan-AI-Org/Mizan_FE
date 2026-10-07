@@ -33,6 +33,7 @@ import { toast } from 'sonner';
 import AssignedShiftModal from '@/components/schedule/AssignedShiftModal';
 import { API_BASE } from "@/lib/api";
 import { PAGE_SHELL } from "@/lib/page-shell";
+import { useTranslation } from 'react-i18next';
 
 
 interface TimesheetEntry {
@@ -95,6 +96,7 @@ interface BackendUserSummary {
 }
 
 const Timesheets: React.FC = () => {
+  const { t } = useTranslation();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTimesheet, setSelectedTimesheet] = useState<Timesheet | null>(null);
@@ -292,13 +294,13 @@ const Timesheets: React.FC = () => {
       return response.json();
     },
     onSuccess: () => {
-      toast.success('Timesheet approved successfully');
+      toast.success(t('timesheets.toast.approved'));
       queryClient.invalidateQueries({ queryKey: ['timesheets'] });
       setShowApproveDialog(false);
       setSelectedTimesheet(null);
     },
     onError: (error) => {
-      toast.error((error as Error).message || 'Failed to approve timesheet');
+      toast.error((error as Error).message || t('timesheets.toast.approve_failed'));
     },
   });
 
@@ -321,11 +323,11 @@ const Timesheets: React.FC = () => {
       return response.json();
     },
     onSuccess: () => {
-      toast.success('Timesheet marked as paid');
+      toast.success(t('timesheets.toast.paid'));
       queryClient.invalidateQueries({ queryKey: ['timesheets'] });
     },
     onError: (error) => {
-      toast.error((error as Error).message || 'Failed to mark as paid');
+      toast.error((error as Error).message || t('timesheets.toast.paid_failed'));
     },
   });
 
@@ -388,7 +390,7 @@ const Timesheets: React.FC = () => {
       if (!res.ok) throw new Error('Failed to confirm shift');
       return res.json();
     },
-    onSuccess: () => { toast.success('Shift confirmed'); refetchShifts(); }
+    onSuccess: () => { toast.success(t('timesheets.toast.shift_confirmed')); refetchShifts(); }
   });
   const completeShiftMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -398,7 +400,7 @@ const Timesheets: React.FC = () => {
       if (!res.ok) throw new Error('Failed to complete shift');
       return res.json();
     },
-    onSuccess: () => { toast.success('Shift marked completed'); refetchShifts(); }
+    onSuccess: () => { toast.success(t('timesheets.toast.shift_completed')); refetchShifts(); }
   });
   const deleteShiftMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -407,7 +409,7 @@ const Timesheets: React.FC = () => {
       });
       if (!res.ok) throw new Error('Failed to delete shift');
     },
-    onSuccess: () => { toast.success('Shift deleted'); refetchShifts(); }
+    onSuccess: () => { toast.success(t('timesheets.toast.shift_deleted')); refetchShifts(); }
   });
 
   const bulkConfirm = () => selectedShiftIds.forEach(id => confirmShiftMutation.mutate(id));
@@ -437,7 +439,7 @@ const Timesheets: React.FC = () => {
     const start = dateFrom || weekRange.days[0]?.toISOString().slice(0, 10);
     const end = dateTo || weekRange.days[weekRange.days.length - 1]?.toISOString().slice(0, 10);
     if (!start || !end) {
-      toast.error('Select a date range first');
+      toast.error(t('timesheets.toast.select_date_range'));
       return;
     }
     try {
@@ -458,9 +460,9 @@ const Timesheets: React.FC = () => {
       a.download = `payroll_export_${start}_${end}.csv`;
       a.click();
       URL.revokeObjectURL(downloadUrl);
-      toast.success('Payroll CSV downloaded');
+      toast.success(t('timesheets.toast.payroll_downloaded'));
     } catch (e) {
-      toast.error((e as Error).message || 'Export failed');
+      toast.error((e as Error).message || t('timesheets.toast.export_failed'));
     }
   };
 
@@ -516,6 +518,9 @@ const Timesheets: React.FC = () => {
     });
   };
 
+  const shiftStatusLabel = (status: string) =>
+    t(`status.${status}`, { defaultValue: status });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -535,14 +540,14 @@ const Timesheets: React.FC = () => {
   return (
     <div className={`${PAGE_SHELL} space-y-6`}>
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Timesheets</h1>
-        <p className="text-gray-600 mt-1">Manage and approve staff timesheets</p>
+        <h1 className="text-3xl font-bold text-gray-900">{t('timesheets.page_title')}</h1>
+        <p className="text-gray-600 mt-1">{t('timesheets.page_subtitle')}</p>
       </div>
       {/* Timesheet (Weekly Grid) */}
       <div className="border rounded-lg shadow-sm">
         <div className="px-4 py-3 flex items-center justify-between">
           <div>
-            <div className="text-lg font-semibold">Timesheet</div>
+            <div className="text-lg font-semibold">{t('timesheets.weekly_title')}</div>
             <div className="text-xs text-muted-foreground">{weekRange.label}</div>
           </div>
         </div>
@@ -550,19 +555,19 @@ const Timesheets: React.FC = () => {
           <table className="w-full text-xs sm:text-sm">
             <thead>
               <tr className="bg-muted/40">
-                <th className="p-2 text-left">Staff</th>
+                <th className="p-2 text-left">{t('schedule.staff')}</th>
                 {weekRange.days.map((d, i) => (
                   <th key={i} className="p-2 text-center">
                     <div className="font-medium">{dayNames[d.getDay()]}</div>
                     <div className="text-xs text-muted-foreground hidden md:block">{d.toLocaleDateString()}</div>
                   </th>
                 ))}
-                <th className="p-2 text-right">Total</th>
+                <th className="p-2 text-right">{t('generic.total')}</th>
               </tr>
             </thead>
             <tbody>
               {weeklyByStaff.length === 0 ? (
-                <tr><td className="p-4 text-center text-muted-foreground" colSpan={weekRange.days.length + 2}>No shifts in selected week</td></tr>
+                <tr><td className="p-4 text-center text-muted-foreground" colSpan={weekRange.days.length + 2}>{t('timesheets.no_shifts_week')}</td></tr>
               ) : weeklyByStaff.map(row => (
                 <tr key={row.id} className="border-t">
                   <td className="p-2 font-medium">{row.name}</td>
@@ -595,45 +600,45 @@ const Timesheets: React.FC = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Staff Shifts</CardTitle>
-              <CardDescription>Comprehensive view of assigned shifts</CardDescription>
+              <CardTitle>{t('timesheets.staff_shifts_title')}</CardTitle>
+              <CardDescription>{t('timesheets.staff_shifts_desc')}</CardDescription>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={exportCSV} className="flex items-center gap-2">
-                <Download className="w-4 h-4" /> Export Shifts CSV
+                <Download className="w-4 h-4" /> {t('timesheets.export_shifts_csv')}
               </Button>
               <Button variant="default" onClick={exportPayrollCSV} className="flex items-center gap-2">
-                <Download className="w-4 h-4" /> Export Payroll CSV
+                <Download className="w-4 h-4" /> {t('timesheets.export_payroll_csv')}
               </Button>
               <Button variant="outline" onClick={() => window.print()} className="flex items-center gap-2">
-                <Download className="w-4 h-4" /> Print / PDF
+                <Download className="w-4 h-4" /> {t('timesheets.print_pdf')}
               </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
-            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="From" />
-            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="To" />
-            <Input placeholder="Search staff..." value={shiftSearch} onChange={(e) => setShiftSearch(e.target.value)} />
+            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder={t('timesheets.placeholder_from')} />
+            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder={t('timesheets.placeholder_to')} />
+            <Input placeholder={t('timesheets.search_staff')} value={shiftSearch} onChange={(e) => setShiftSearch(e.target.value)} />
             <Select value={shiftStatusFilter} onValueChange={setShiftStatusFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder={t('common.status')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="SCHEDULED">Scheduled</SelectItem>
-                <SelectItem value="CONFIRMED">Confirmed</SelectItem>
-                <SelectItem value="COMPLETED">Completed</SelectItem>
-                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                <SelectItem value="all">{t('timesheets.all_status')}</SelectItem>
+                <SelectItem value="SCHEDULED">{t('status.SCHEDULED')}</SelectItem>
+                <SelectItem value="CONFIRMED">{t('status.CONFIRMED')}</SelectItem>
+                <SelectItem value="COMPLETED">{t('status.COMPLETED')}</SelectItem>
+                <SelectItem value="CANCELLED">{t('status.CANCELLED')}</SelectItem>
               </SelectContent>
             </Select>
             <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Department" />
+                <SelectValue placeholder={t('generic.department')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Departments</SelectItem>
+                <SelectItem value="all">{t('timesheets.all_departments')}</SelectItem>
                 {Array.from(new Set(users.map(u => (u.profile?.department || '').trim()).filter(Boolean))).map(dept => (
                   <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                 ))}
@@ -643,14 +648,17 @@ const Timesheets: React.FC = () => {
 
           <div className="flex gap-2 items-center">
             <Button variant="outline" size="sm" onClick={() => setSortBy(sortBy === 'name' ? 'time' : 'name')} className="flex items-center gap-2">
-              <ArrowUpDown className="w-4 h-4" /> Sort by {sortBy === 'name' ? 'Name' : 'Time'}
+              <ArrowUpDown className="w-4 h-4" />{' '}
+              {t('timesheets.sort_by_label', {
+                field: sortBy === 'name' ? t('timesheets.sort_by_name') : t('timesheets.sort_by_time'),
+              })}
             </Button>
             <Button variant="outline" size="sm" onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}>{sortDir.toUpperCase()}</Button>
             <div className="ml-auto flex gap-2 flex-wrap justify-end">
-              <Button size="sm" onClick={bulkConfirm} disabled={selectedShiftIds.size === 0}>Confirm Selected</Button>
-              <Button size="sm" onClick={bulkComplete} disabled={selectedShiftIds.size === 0}>Mark Completed</Button>
+              <Button size="sm" onClick={bulkConfirm} disabled={selectedShiftIds.size === 0}>{t('timesheets.confirm_selected')}</Button>
+              <Button size="sm" onClick={bulkComplete} disabled={selectedShiftIds.size === 0}>{t('timesheets.mark_completed')}</Button>
               <Button size="sm" variant="destructive" onClick={bulkDelete} disabled={selectedShiftIds.size === 0} className="flex items-center gap-2">
-                <Trash2 className="w-4 h-4" /> Delete
+                <Trash2 className="w-4 h-4" /> {t('common.delete')}
               </Button>
             </div>
           </div>
@@ -661,23 +669,23 @@ const Timesheets: React.FC = () => {
                 <TableRow>
                   <TableHead className="w-10">
                     <Checkbox checked={selectedShiftIds.size === processedShifts.length && processedShifts.length > 0}
-                      onCheckedChange={(v) => toggleSelectAll(!!v)} aria-label="Select all" />
+                      onCheckedChange={(v) => toggleSelectAll(!!v)} aria-label={t('timesheets.select_all')} />
                   </TableHead>
-                  <TableHead>Staff</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead>{t('schedule.staff')}</TableHead>
+                  <TableHead>{t('generic.date')}</TableHead>
+                  <TableHead>{t('generic.time')}</TableHead>
+                  <TableHead>{t('generic.role')}</TableHead>
+                  <TableHead>{t('common.status')}</TableHead>
+                  <TableHead>{t('generic.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoadingShifts ? (
-                  <TableRow><TableCell colSpan={7} className="py-8 text-center">Loading shifts...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="py-8 text-center">{t('timesheets.loading_shifts')}</TableCell></TableRow>
                 ) : shiftsError ? (
-                  <TableRow><TableCell colSpan={7} className="py-8 text-center text-red-600">Failed to load shifts</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="py-8 text-center text-red-600">{t('timesheets.failed_load_shifts')}</TableCell></TableRow>
                 ) : processedShifts.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="py-8 text-center text-gray-500">No shifts found</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="py-8 text-center text-gray-500">{t('timesheets.no_shifts_found')}</TableCell></TableRow>
                 ) : (
                   processedShifts.map(s => (
                     <TableRow key={s.id} className="hover:bg-gray-50">
@@ -691,15 +699,17 @@ const Timesheets: React.FC = () => {
                       <TableCell className="text-sm text-gray-600">{s.start_time?.substring(0, 5)} - {s.end_time?.substring(0, 5)}</TableCell>
                       <TableCell>{s.role}</TableCell>
                       <TableCell>
-                        <Badge className={`${getShiftBadgeColor(s.status || (s.is_confirmed ? 'CONFIRMED' : 'SCHEDULED'))} w-fit`}>{s.status || (s.is_confirmed ? 'CONFIRMED' : 'SCHEDULED')}</Badge>
+                        <Badge className={`${getShiftBadgeColor(s.status || (s.is_confirmed ? 'CONFIRMED' : 'SCHEDULED'))} w-fit`}>
+                          {shiftStatusLabel(s.status || (s.is_confirmed ? 'CONFIRMED' : 'SCHEDULED'))}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button size="sm" variant="outline" className="flex items-center gap-2" onClick={() => setEditingShift(s)}>
-                            <Edit className="w-4 h-4" /> Edit
+                            <Edit className="w-4 h-4" /> {t('common.edit')}
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => confirmShiftMutation.mutate(s.id)}>Confirm</Button>
-                          <Button size="sm" variant="ghost" onClick={() => completeShiftMutation.mutate(s.id)}>Complete</Button>
+                          <Button size="sm" variant="ghost" onClick={() => confirmShiftMutation.mutate(s.id)}>{t('common.confirm')}</Button>
+                          <Button size="sm" variant="ghost" onClick={() => completeShiftMutation.mutate(s.id)}>{t('timesheets.complete_action')}</Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -723,7 +733,7 @@ const Timesheets: React.FC = () => {
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>
-                <CardTitle>Timesheet Details</CardTitle>
+                <CardTitle>{t('timesheets.details_title')}</CardTitle>
                 <CardDescription>{selectedTimesheet.staff_name}</CardDescription>
               </div>
               <Button
@@ -737,34 +747,34 @@ const Timesheets: React.FC = () => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-600">Period</p>
+                <p className="text-sm text-gray-600">{t('timesheets.period')}</p>
                 <p className="font-medium">
                   {formatDate(selectedTimesheet.start_date)} - {formatDate(selectedTimesheet.end_date)}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Status</p>
+                <p className="text-sm text-gray-600">{t('common.status')}</p>
                 <Badge className={getStatusBadgeColor(selectedTimesheet.status)}>
-                  {selectedTimesheet.status}
+                  {shiftStatusLabel(selectedTimesheet.status)}
                 </Badge>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Total Hours</p>
-                <p className="font-medium">{selectedTimesheet.total_hours.toFixed(2)} hours</p>
+                <p className="text-sm text-gray-600">{t('timesheets.total_hours')}</p>
+                <p className="font-medium">{t('timesheets.hours_value', { hours: selectedTimesheet.total_hours.toFixed(2) })}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Hourly Rate</p>
+                <p className="text-sm text-gray-600">{t('timesheets.hourly_rate')}</p>
                 <p className="font-medium">{formatCurrency(selectedTimesheet.hourly_rate)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Total Earnings</p>
+                <p className="text-sm text-gray-600">{t('timesheets.total_earnings')}</p>
                 <p className="font-medium text-lg text-green-600">
                   {formatCurrency(selectedTimesheet.total_earnings)}
                 </p>
               </div>
               {selectedTimesheet.approved_by_name && (
                 <div>
-                  <p className="text-sm text-gray-600">Approved By</p>
+                  <p className="text-sm text-gray-600">{t('timesheets.approved_by')}</p>
                   <p className="font-medium">{selectedTimesheet.approved_by_name}</p>
                 </div>
               )}
@@ -772,7 +782,7 @@ const Timesheets: React.FC = () => {
 
             {selectedTimesheet.entries.length > 0 && (
               <div>
-                <h3 className="font-semibold mb-2">Entries</h3>
+                <h3 className="font-semibold mb-2">{t('timesheets.entries')}</h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {selectedTimesheet.entries.map((entry) => (
                     <div key={entry.id} className="p-2 bg-gray-50 rounded border border-gray-200">
@@ -794,7 +804,7 @@ const Timesheets: React.FC = () => {
 
             {selectedTimesheet.notes && (
               <div>
-                <p className="text-sm text-gray-600">Notes</p>
+                <p className="text-sm text-gray-600">{t('generic.notes')}</p>
                 <p className="text-sm">{selectedTimesheet.notes}</p>
               </div>
             )}
@@ -808,7 +818,7 @@ const Timesheets: React.FC = () => {
                   className="flex items-center gap-2"
                 >
                   <CheckCircle className="w-4 h-4" />
-                  Approve Timesheet
+                  {t('timesheets.approve_timesheet')}
                 </Button>
               )}
               {selectedTimesheet.status === 'APPROVED' && (
@@ -818,14 +828,14 @@ const Timesheets: React.FC = () => {
                   disabled={markAsPaidMutation.isPending}
                 >
                   <DollarSign className="w-4 h-4" />
-                  {markAsPaidMutation.isPending ? 'Processing...' : 'Mark as Paid'}
+                  {markAsPaidMutation.isPending ? t('timesheets.processing') : t('timesheets.mark_as_paid')}
                 </Button>
               )}
               <Button
                 variant="outline"
                 onClick={() => setSelectedTimesheet(null)}
               >
-                Close
+                {t('common.close')}
               </Button>
             </div>
           </CardContent>
@@ -835,25 +845,27 @@ const Timesheets: React.FC = () => {
       {/* Approve Dialog */}
       <AlertDialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
         <AlertDialogContent>
-          <AlertDialogTitle>Approve Timesheet?</AlertDialogTitle>
+          <AlertDialogTitle>{t('timesheets.approve_dialog_title')}</AlertDialogTitle>
           <AlertDialogDescription>
             {selectedTimesheet && (
               <div className="space-y-2">
-                <p>Are you sure you want to approve the timesheet for {selectedTimesheet.staff_name}?</p>
+                <p>{t('timesheets.approve_dialog_body', { name: selectedTimesheet.staff_name })}</p>
                 <p className="font-semibold">
-                  Total Hours: {selectedTimesheet.total_hours.toFixed(2)}h |
-                  Total Earnings: {formatCurrency(selectedTimesheet.total_earnings)}
+                  {t('timesheets.approve_dialog_summary', {
+                    hours: selectedTimesheet.total_hours.toFixed(2),
+                    earnings: formatCurrency(selectedTimesheet.total_earnings),
+                  })}
                 </p>
               </div>
             )}
           </AlertDialogDescription>
           <div className="flex gap-3 mt-4">
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => selectedTimesheet && approveTimesheetMutation.mutate(selectedTimesheet.id)}
               disabled={approveTimesheetMutation.isPending}
             >
-              {approveTimesheetMutation.isPending ? 'Approving...' : 'Approve'}
+              {approveTimesheetMutation.isPending ? t('timesheets.approving') : t('generic.approve')}
             </AlertDialogAction>
           </div>
         </AlertDialogContent>

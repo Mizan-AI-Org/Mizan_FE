@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { compressCanvasToJPEG, embedExifTimestamp, formatExifDate } from "@/lib/image";
 
@@ -15,6 +16,7 @@ type MinimalFaceDetectorInstance = { detect: (source: HTMLVideoElement) => Promi
 type MinimalFaceDetectorCtor = new () => MinimalFaceDetectorInstance;
 
 export const CameraCaptureModal: React.FC<Props> = ({ open, onClose, onCaptured }) => {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -34,17 +36,17 @@ export const CameraCaptureModal: React.FC<Props> = ({ open, onClose, onCaptured 
           await videoRef.current.play();
         }
         setError(null);
-      } catch (e) {
-        setError("Camera access denied or unavailable.");
+      } catch {
+        setError(t("camera.access_denied"));
       }
     })();
     return () => {
       setStream((prev) => {
-        prev?.getTracks().forEach((t) => t.stop());
+        prev?.getTracks().forEach((track) => track.stop());
         return null;
       });
     };
-  }, [open]);
+  }, [open, t]);
 
   // Try lightweight face detection if available
   useEffect(() => {
@@ -74,10 +76,10 @@ export const CameraCaptureModal: React.FC<Props> = ({ open, onClose, onCaptured 
 
   const startCountdownAndCapture = () => {
     setCountdown(3);
-    const t = setInterval(() => {
+    const timer = setInterval(() => {
       setCountdown((c) => {
         if (c <= 1) {
-          clearInterval(t);
+          clearInterval(timer);
           capture();
           return 0;
         }
@@ -114,12 +116,24 @@ export const CameraCaptureModal: React.FC<Props> = ({ open, onClose, onCaptured 
   if (!open) return null;
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="Clock photo capture" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("camera.dialog_label")}
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70"
+    >
       <div className="bg-card rounded-lg shadow-lg w-[92vw] max-w-[720px] p-4">
         <div className="relative">
+          {error && <p className="text-sm text-destructive mb-2">{error}</p>}
           {!capturedPreview ? (
             <div className="relative">
-              <video ref={videoRef} className="w-full rounded relative z-10" playsInline muted aria-label="Camera preview" />
+              <video
+                ref={videoRef}
+                className="w-full rounded relative z-10"
+                playsInline
+                muted
+                aria-label={t("camera.preview_label")}
+              />
               {faceBox && (
                 <div
                   aria-hidden
@@ -135,22 +149,30 @@ export const CameraCaptureModal: React.FC<Props> = ({ open, onClose, onCaptured 
                 </div>
               )}
               <div className="mt-3 flex gap-2">
-                <Button onClick={startCountdownAndCapture} aria-label="Capture">Capture</Button>
-                <Button variant="outline" onClick={onClose} aria-label="Cancel">Cancel</Button>
+                <Button onClick={startCountdownAndCapture} aria-label={t("camera.capture")}>
+                  {t("camera.capture")}
+                </Button>
+                <Button variant="outline" onClick={onClose} aria-label={t("common.cancel")}>
+                  {t("common.cancel")}
+                </Button>
               </div>
             </div>
           ) : (
             <div>
-              <img src={capturedPreview} alt="Captured preview" className="w-full rounded" />
+              <img src={capturedPreview} alt={t("camera.captured_preview")} className="w-full rounded" />
               <div className="mt-3 flex gap-2">
-                <Button onClick={confirm} aria-label="Use photo">Use Photo</Button>
-                <Button variant="outline" onClick={retake} aria-label="Retake">Retake</Button>
+                <Button onClick={confirm} aria-label={t("camera.use_photo")}>
+                  {t("camera.use_photo")}
+                </Button>
+                <Button variant="outline" onClick={retake} aria-label={t("camera.retake")}>
+                  {t("camera.retake")}
+                </Button>
               </div>
             </div>
           )}
           <canvas ref={canvasRef} className="hidden" />
         </div>
-        <p className="mt-2 text-sm text-muted-foreground">Center your face; a 3-2-1 countdown will auto-capture.</p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("camera.face_hint")}</p>
       </div>
     </div>
   );
