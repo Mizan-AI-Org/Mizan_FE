@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/hooks/use-language";
 import { API_BASE } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +42,7 @@ async function post(path: string, token: string, payload: Record<string, unknown
 }
 
 export default function ApprovalsPage() {
+  const { t } = useLanguage();
   const { accessToken } = useAuth() as { accessToken: string };
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
@@ -79,39 +81,49 @@ export default function ApprovalsPage() {
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Operations</p>
-          <h1 className="text-2xl font-semibold">Approvals</h1>
-          <p className="text-sm text-muted-foreground">
-            Pending waits for the person on the amount ladder. After they decide, the requester gets one WhatsApp and one web notification.
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {t("nav.operations")}
           </p>
+          <h1 className="text-2xl font-semibold">{t("approvals.page_title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("approvals.page_desc")}</p>
         </div>
         <Button variant="outline" asChild>
           <Link to="/dashboard/settings?tab=compliance-approvals&section=approvals">
-            Approval Settings
+            {t("approvals.settings_link")}
           </Link>
         </Button>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>New request</CardTitle>
+          <CardTitle>{t("approvals.new_request")}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          <Input placeholder="What needs approval" value={title} onChange={(e) => setTitle(e.target.value)} className="max-w-xs" />
-          <Input placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} className="max-w-[140px]" />
+          <Input
+            placeholder={t("approvals.placeholder_title")}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="max-w-xs"
+          />
+          <Input
+            placeholder={t("approvals.placeholder_amount")}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="max-w-[140px]"
+          />
           <Button disabled={!title || create.isPending} onClick={() => create.mutate()}>
-            Submit
+            {t("approvals.submit")}
           </Button>
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Pending ({pending.length})</CardTitle>
+          <CardTitle>{t("approvals.pending_title", { count: pending.length })}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-          {isError && <p className="text-sm text-destructive">Could not load approvals.</p>}
+          {isLoading && <p className="text-sm text-muted-foreground">{t("common.loading")}</p>}
+          {isError && <p className="text-sm text-destructive">{t("approvals.load_error")}</p>}
           {!isLoading && pending.length === 0 && (
-            <p className="text-sm text-muted-foreground">Nothing waiting. New requests land here for the assigned approver.</p>
+            <p className="text-sm text-muted-foreground">{t("approvals.pending_empty")}</p>
           )}
           {pending.map((row) => (
             <ApprovalLine key={row.id} row={row} busy={decide.isPending} onDecide={(decision) => decide.mutate({ id: row.id, decision })} />
@@ -120,10 +132,10 @@ export default function ApprovalsPage() {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Approved ({approved.length})</CardTitle>
+          <CardTitle>{t("approvals.approved_title", { count: approved.length })}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {approved.length === 0 && <p className="text-sm text-muted-foreground">No approved requests yet.</p>}
+          {approved.length === 0 && <p className="text-sm text-muted-foreground">{t("approvals.approved_empty")}</p>}
           {approved.map((row) => (
             <ApprovalLine key={row.id} row={row} />
           ))}
@@ -132,7 +144,7 @@ export default function ApprovalsPage() {
       {rejected.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Rejected ({rejected.length})</CardTitle>
+            <CardTitle>{t("approvals.rejected_title", { count: rejected.length })}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {rejected.map((row) => (
@@ -154,14 +166,23 @@ function ApprovalLine({
   onDecide?: (decision: string) => void;
   busy?: boolean;
 }) {
+  const { t } = useLanguage();
   const money = [row.amount, row.currency].filter(Boolean).join(" ");
   const bits = [
-    money || "No amount",
+    money || t("approvals.no_amount"),
     row.category,
-    row.requestedBy ? `from ${row.requestedBy}` : "",
-    row.status === "pending" && row.assignedTo ? `awaiting ${row.assignedTo}` : "",
-    row.status !== "pending" && row.decidedBy ? `by ${row.decidedBy}` : "",
-    row.status,
+    row.requestedBy ? t("approvals.from_person", { name: row.requestedBy }) : "",
+    row.status === "pending" && row.assignedTo
+      ? t("approvals.awaiting_person", { name: row.assignedTo })
+      : "",
+    row.status !== "pending" && row.decidedBy ? t("approvals.decided_by", { name: row.decidedBy }) : "",
+    row.status === "approved"
+      ? t("approvals.status_approved")
+      : row.status === "rejected"
+        ? t("approvals.status_rejected")
+        : row.status === "pending"
+          ? t("approvals.status_pending")
+          : row.status,
   ].filter(Boolean);
   return (
     <div className="flex items-center justify-between gap-4 border-b py-2 last:border-0">
@@ -172,10 +193,10 @@ function ApprovalLine({
       {row.status === "pending" && onDecide && (
         <div className="flex gap-2">
           <Button size="sm" disabled={busy} onClick={() => onDecide("approved")}>
-            Approve
+            {t("generic.approve")}
           </Button>
           <Button size="sm" variant="outline" disabled={busy} onClick={() => onDecide("rejected")}>
-            Reject
+            {t("approvals.reject")}
           </Button>
         </div>
       )}

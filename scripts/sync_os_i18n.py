@@ -1262,7 +1262,7 @@ KEYS: dict[str, dict[str, str]] = {
         "fr": "Nouveau fil. Les confirmations en attente du chat précédent ne sont pas reprises.",
         "ar": "محادثة جديدة. لن تُنقل تأكيدات المحادثة السابقة المعلّقة.",
     },
-    "ai.chat_title": {"en": "Agent", "fr": "Agent", "ar": "الوكيل"},
+    "ai.chat_title": {"en": "Agent", "fr": "Assistant", "ar": "المساعد"},
     "ai.agent_name": {"en": "Agent", "fr": "Agent", "ar": "الوكيل"},
     "ai.workspace.attention": {
         "en": "Attention",
@@ -1479,6 +1479,123 @@ KEYS: dict[str, dict[str, str]] = {
     "checklist.executor.submit": {"en": "Submit", "fr": "Soumettre", "ar": "إرسال"},
     "checklist.executor.offline": {"en": "Offline", "fr": "Hors ligne", "ar": "غير متصل"},
     "generic.online": {"en": "Online", "fr": "En ligne", "ar": "متصل"},
+    # --- Approvals page (was hardcoded English) ---
+    "approvals.page_title": {"en": "Approvals", "fr": "Approbations", "ar": "الموافقات"},
+    "approvals.page_desc": {
+        "en": "Pending waits for the person on the amount ladder. After they decide, the requester gets one WhatsApp and one web notification.",
+        "fr": "En attente : la personne prévue sur l'échelle de montants décide. Ensuite, le demandeur reçoit une notification WhatsApp et une sur le web.",
+        "ar": "المعلّق ينتظر صاحب الصلاحية حسب سلم المبالغ. بعد القرار، يتلقى مقدم الطلب إشعار واتساب وإشعار ويب.",
+    },
+    "approvals.settings_link": {"en": "Approval Settings", "fr": "Paramètres d'approbation", "ar": "إعدادات الموافقة"},
+    "approvals.new_request": {"en": "New request", "fr": "Nouvelle demande", "ar": "طلب جديد"},
+    "approvals.placeholder_title": {"en": "What needs approval", "fr": "Objet de la demande", "ar": "ما الذي يحتاج موافقة"},
+    "approvals.placeholder_amount": {"en": "Amount", "fr": "Montant", "ar": "المبلغ"},
+    "approvals.submit": {"en": "Submit", "fr": "Envoyer", "ar": "إرسال"},
+    "approvals.pending_title": {"en": "Pending ({{count}})", "fr": "En attente ({{count}})", "ar": "معلّق ({{count}})"},
+    "approvals.approved_title": {"en": "Approved ({{count}})", "fr": "Approuvé ({{count}})", "ar": "موافق عليه ({{count}})"},
+    "approvals.rejected_title": {"en": "Rejected ({{count}})", "fr": "Rejeté ({{count}})", "ar": "مرفوض ({{count}})"},
+    "approvals.load_error": {"en": "Could not load approvals.", "fr": "Impossible de charger les approbations.", "ar": "تعذر تحميل الموافقات."},
+    "approvals.pending_empty": {
+        "en": "Nothing waiting. New requests land here for the assigned approver.",
+        "fr": "Rien en attente. Les nouvelles demandes arrivent ici pour l'approbateur assigné.",
+        "ar": "لا شيء في الانتظار. الطلبات الجديدة تظهر هنا للمعتمد المكلّف.",
+    },
+    "approvals.approved_empty": {"en": "No approved requests yet.", "fr": "Aucune demande approuvée pour l'instant.", "ar": "لا طلبات موافق عليها بعد."},
+    "approvals.no_amount": {"en": "No amount", "fr": "Sans montant", "ar": "بدون مبلغ"},
+    "approvals.from_person": {"en": "from {{name}}", "fr": "de {{name}}", "ar": "من {{name}}"},
+    "approvals.awaiting_person": {"en": "awaiting {{name}}", "fr": "en attente de {{name}}", "ar": "بانتظار {{name}}"},
+    "approvals.decided_by": {"en": "by {{name}}", "fr": "par {{name}}", "ar": "بواسطة {{name}}"},
+    "approvals.status_pending": {"en": "pending", "fr": "en attente", "ar": "معلّق"},
+    "approvals.status_approved": {"en": "approved", "fr": "approuvé", "ar": "موافق عليه"},
+    "approvals.status_rejected": {"en": "rejected", "fr": "rejeté", "ar": "مرفوض"},
+    "approvals.reject": {"en": "Reject", "fr": "Rejeter", "ar": "رفض"},
+    # --- FR/AR gaps: procurement & live ops progress (keys existed but were English in fr) ---
+    "procurement.subtitle": {
+        "en": "Needs, orders, receiving, and pay in one workflow.",
+        "fr": "Besoins, commandes, réception et paiement dans un seul flux.",
+        "ar": "الاحتياجات والطلبات والاستلام والدفع في سير عمل واحد.",
+    },
+    "procurement.tab.needs": {"en": "Needs", "fr": "Besoins", "ar": "الاحتياجات"},
+    "procurement.tab.orders": {"en": "Orders", "fr": "Commandes", "ar": "الطلبات"},
+    "procurement.tab.receiving": {"en": "Receiving", "fr": "Réception", "ar": "الاستلام"},
+    "procurement.tab.invoices": {"en": "Invoices & pay", "fr": "Factures et paiement", "ar": "الفواتير والدفع"},
+    "procurement.staff_requests": {"en": "Staff purchase requests", "fr": "Demandes d'achat du personnel", "ar": "طلبات شراء الموظفين"},
+    "procurement.no_staff_requests": {
+        "en": "No open purchase requests.",
+        "fr": "Aucune demande d'achat ouverte.",
+        "ar": "لا طلبات شراء مفتوحة.",
+    },
+    "operations_progress.subtitle": {
+        "en": "Staff completion, timings, and work by Live Ops category.",
+        "fr": "Achèvement, délais et travail par catégorie des opérations live.",
+        "ar": "إنجاز الموظفين والمواعيد والعمل حسب فئة العمليات المباشرة.",
+    },
+    "operations_progress.today": {"en": "Today", "fr": "Aujourd'hui", "ar": "اليوم"},
+    "operations_progress.last_7_days": {"en": "Last 7 days", "fr": "7 derniers jours", "ar": "آخر 7 أيام"},
+    "operations_progress.kpi_tasks": {"en": "Tasks done", "fr": "Tâches terminées", "ar": "مهام منجزة"},
+    "operations_progress.kpi_checklists": {"en": "Checklists", "fr": "Checklists", "ar": "قوائم التحقق"},
+    "operations_progress.kpi_overdue": {"en": "Overdue", "fr": "En retard", "ar": "متأخر"},
+    "operations_progress.tab.staff": {"en": "Staff", "fr": "Personnel", "ar": "الموظفون"},
+    "operations_progress.tab.categories": {"en": "By category", "fr": "Par catégorie", "ar": "حسب الفئة"},
+    "operations_progress.col.name": {"en": "Staff", "fr": "Personnel", "ar": "الموظف"},
+    "operations_progress.col.tasks_pct": {"en": "Tasks %", "fr": "Tâches %", "ar": "المهام %"},
+    "operations_progress.col.checklists_pct": {"en": "Checklists %", "fr": "Checklists %", "ar": "قوائم التحقق %"},
+    "operations_progress.col.avg_min": {"en": "Avg min", "fr": "Moy. min", "ar": "متوسط الدقائق"},
+    "operations_progress.col.overdue": {"en": "Overdue", "fr": "En retard", "ar": "متأخر"},
+    # --- Incidents table ---
+    "ops.review.incidents.anonymous_reporter": {
+        "en": "Anonymous reporter",
+        "fr": "Signalement anonyme",
+        "ar": "بلاغ مجهول",
+    },
+    "ops.review.incidents.reported_by": {"en": "by {{name}}", "fr": "par {{name}}", "ar": "بواسطة {{name}}"},
+    # --- Dashboard widget polish ---
+    "dashboard.custom_widget.task_count": {
+        "en": "{{count}} task(s)",
+        "fr": "{{count}} tâche(s)",
+        "ar": "{{count}} مهمة",
+    },
+    "dashboard.category_tasks.ai_part_of_project": {
+        "en": "Part of project:",
+        "fr": "Projet :",
+        "ar": "ضمن المشروع:",
+    },
+    "dashboard.staff_messages.template.check_in": {
+        "en": "Quick check-in",
+        "fr": "Point rapide",
+        "ar": "تسجيل سريع",
+    },
+    "dashboard.staff_messages.template.update_now": {
+        "en": "Need update",
+        "fr": "Besoin d'un point",
+        "ar": "مطلوب تحديث",
+    },
+    # --- Roles (sidebar / RBAC) ---
+    "staff.roles.super_admin": {
+        "en": "Super Admin",
+        "fr": "Super administrateur",
+        "ar": "مدير عام",
+    },
+    "staff.roles.manager": {"en": "Manager", "fr": "Manager", "ar": "مدير"},
+    "staff.roles.admin": {"en": "Admin", "fr": "Administrateur", "ar": "مسؤول"},
+    "staff.roles.owner": {"en": "Owner", "fr": "Propriétaire", "ar": "المالك"},
+    # --- RBAC feature labels (French loanwords cleaned up) ---
+    "rbac.feature.checklists": {
+        "en": "Checklists & incidents",
+        "fr": "Checklists et incidents",
+        "ar": "قوائم التحقق والحوادث",
+    },
+    "rbac.feature.scheduling": {"en": "Scheduling", "fr": "Plannings", "ar": "الجدولة"},
+    "rbac.feature.staff_requests": {
+        "en": "Staff inbox / requests",
+        "fr": "Boîte personnel / demandes",
+        "ar": "صندوق الموظفين / الطلبات",
+    },
+    "rbac.feature.operations_live": {
+        "en": "Live Operations (daily demands & tasks)",
+        "fr": "Opérations live (demandes et tâches)",
+        "ar": "العمليات المباشرة (المطالب والمهام)",
+    },
 }
 
 

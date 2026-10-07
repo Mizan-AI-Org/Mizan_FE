@@ -43,6 +43,7 @@ import {
   Search,
 } from "lucide-react";
 import { PAGE_SHELL } from "@/lib/page-shell";
+import { localeTag } from "@/lib/localeTag";
 import { HUB_TABS_TRIGGER, MIZAN_HERO, MIZAN_SURFACE_CARD, MIZAN_TOOLBAR } from "@/lib/mizan-ui";
 import {
   Select,
@@ -149,7 +150,7 @@ type ChecklistExecutionDetail = {
 
 const ManagerReviewDashboard: React.FC = () => {
   const queryClient = useQueryClient();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [search, setSearch] = useState("");
   const [filterSubmitter, setFilterSubmitter] = useState("");
   const [filterDate, setFilterDate] = useState("");
@@ -874,7 +875,12 @@ const ManagerReviewDashboard: React.FC = () => {
   };
 
   const formatStatus = (status: string) => {
-    return (status || '').replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+    const raw = (status || "").trim();
+    if (!raw || raw === "-") return raw;
+    const key = `status.${raw.toUpperCase()}`;
+    const label = t(key);
+    if (label !== key) return label;
+    return raw.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   // Update status mutation
@@ -2103,15 +2109,17 @@ const ManagerReviewDashboard: React.FC = () => {
                               )}
                             <div className="text-[11px] text-muted-foreground">
                               {incident.is_anonymous
-                                ? "Anonymous reporter"
+                                ? t("ops.review.incidents.anonymous_reporter")
                                 : incident.reporter_details
-                                  ? `by ${incident.reporter_details.first_name} ${incident.reporter_details.last_name}`
+                                  ? t("ops.review.incidents.reported_by", {
+                                      name: `${incident.reporter_details.first_name ?? ""} ${incident.reporter_details.last_name ?? ""}`.trim(),
+                                    })
                                   : ""}
                             </div>
                           </TableCell>
                           <TableCell className="text-sm whitespace-nowrap">
                             {incident.created_at
-                              ? new Date(incident.created_at).toLocaleString(undefined, {
+                              ? new Date(incident.created_at).toLocaleString(localeTag(language), {
                                   month: "short",
                                   day: "numeric",
                                   hour: "2-digit",

@@ -106,8 +106,23 @@ import { CSS } from "@dnd-kit/utilities";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 import { StaffTagSelector } from "@/components/staff/StaffTagChips";
 import type { StaffTag } from "@/lib/staff-tags";
+import { translateWidgetTaskSubtitle } from "@/lib/localeTag";
 
 import { useLanguage } from "@/hooks/use-language";
+
+function staffMessageTemplateLabel(tpl: { id: string; label: string }, t: (key: string) => string): string {
+  const key = `dashboard.staff_messages.template.${tpl.id}`;
+  const translated = t(key);
+  return translated !== key ? translated : tpl.label;
+}
+
+function localizeAiSummaryLine(line: string, t: (key: string) => string): string {
+  const partOf = /^Part of project:\s*/i;
+  if (partOf.test(line)) {
+    return line.replace(partOf, `${t("dashboard.category_tasks.ai_part_of_project")} `);
+  }
+  return line;
+}
 export const DASHBOARD_WIDGET_IDS = [
   "insights",
   "tasks_demands",
@@ -5197,7 +5212,7 @@ function CategoryTaskRow({
         </div>
         {item.ai_summary ? (
           <div className="truncate text-[10.5px] text-emerald-700 dark:text-emerald-300">
-            {item.ai_summary}
+            {localizeAiSummaryLine(item.ai_summary, t)}
           </div>
         ) : null}
         <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-slate-500 dark:text-slate-400">
@@ -5681,7 +5696,7 @@ function CustomWidgetTasksCard({
               </CardTitle>
               {def.subtitle ? (
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
-                  {def.subtitle}
+                  {translateWidgetTaskSubtitle(def.subtitle, t) ?? def.subtitle}
                 </p>
               ) : null}
             </div>
@@ -6641,7 +6656,7 @@ function StaffMessagesCard({
                 className="inline-flex items-center rounded-full border border-slate-200 dark:border-slate-700 bg-card px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-300 transition-colors"
                 title={tpl.body}
               >
-                {tpl.label}
+                {staffMessageTemplateLabel(tpl, t)}
               </button>
             ))}
             <Button

@@ -58,6 +58,7 @@ import {
 } from "@/hooks/use-permissions";
 import { RBAC_EDITOR_ROLES, roleAllowed } from "@/lib/operationalCommandRoles";
 import { CUSTOM_WIDGET_PREFIX } from "@/pages/dashboard/DashboardWidgets";
+import { roleDisplayName } from "@/lib/roleDisplayName";
 
 type BucketKey = keyof PermissionBuckets;
 type Scope = "role" | "users";
@@ -457,7 +458,7 @@ export default function RolePermissionsPage() {
                   <SelectContent>
                     {(catalog?.editable_roles ?? []).map((role) => (
                       <SelectItem key={role} value={role}>
-                        {role}
+                        {roleDisplayName(role, t)}
                       </SelectItem>
                     ))}
                   </SelectContent>

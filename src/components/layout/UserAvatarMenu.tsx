@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
 import { cn } from "@/lib/utils";
+import { roleDisplayName } from "@/lib/roleDisplayName";
 
 export type AvatarMenuUser = {
   first_name?: string | null;
@@ -94,7 +95,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
 
   const roleLabel =
     subtitle ||
-    (user?.role ? user.role.toLowerCase().replace(/_/g, " ") : "");
+    (user?.role ? roleDisplayName(user.role, t) : "");
 
   const handleLogout = () => {
     if (onLogout) {
