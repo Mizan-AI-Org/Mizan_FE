@@ -1570,6 +1570,11 @@ KEYS: dict[str, dict[str, str]] = {
         "fr": "Besoin d'un point",
         "ar": "مطلوب تحديث",
     },
+    "dashboard.staff_messages.via_whatsapp": {
+        "en": "via WhatsApp",
+        "fr": "Par WhatsApp",
+        "ar": "عبر واتساب",
+    },
     # --- Roles (sidebar / RBAC) ---
     "staff.roles.super_admin": {
         "en": "Super Admin",

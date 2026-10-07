@@ -854,7 +854,7 @@
   "dashboard.staff_messages.status_read": "Lu",
   "dashboard.staff_messages.status_sent": "Envoyé",
   "dashboard.staff_messages.title": "Messages au personnel",
-  "dashboard.staff_messages.via_whatsapp": "via WhatsApp",
+  "dashboard.staff_messages.via_whatsapp": "Par WhatsApp",
   "dashboard.staffing.afternoon_no_shows": "absences après-midi",
   "dashboard.staffing.attendance_suffix_late": "(en retard)",
   "dashboard.staffing.attendance_suffix_no_clock_in": "(pas de pointage)",

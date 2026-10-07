@@ -6385,8 +6385,8 @@ function StaffMessagesCard({
 
   return (
     <Card className={cn(cardBase, "flex flex-col")}>
-      <CardHeader className={cardHeaderBase}>
-        <div className="flex items-center gap-2 min-w-0">
+      <CardHeader className={cn(cardHeaderBase, "gap-2 flex-wrap")}>
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/12 text-emerald-600 dark:text-emerald-400">
             <Send className="h-4 w-4" aria-hidden />
           </div>
@@ -6396,7 +6396,7 @@ function StaffMessagesCard({
         </div>
         <Badge
           variant="outline"
-          className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/60 text-[10px] font-semibold px-2 h-5"
+          className="shrink-0 whitespace-nowrap border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/60 text-[10px] font-semibold leading-none px-2 py-1"
         >
           {t("dashboard.staff_messages.via_whatsapp")}
         </Badge>
