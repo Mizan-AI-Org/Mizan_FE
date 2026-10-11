@@ -603,6 +603,9 @@ export interface DashboardMeetingsRemindersResponse {
      * has OAuth creds at all (so we can hide the connect CTA if it'd just 501). */
     configured?: boolean;
     generated_at: string;
+    /** ISO timestamp of last Google pull (when connected). */
+    last_sync_at?: string | null;
+    sync_mode?: string | null;
 }
 
 /** Row shape served by GET /api/dashboard/clock-ins/. */

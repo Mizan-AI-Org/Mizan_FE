@@ -2353,8 +2353,24 @@ function pillClassForMeetingStatus(status: MeetingReminderItem["status"]) {
         dot: "bg-amber-500",
         bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/50",
         text: "text-amber-700 dark:text-amber-300",
-        labelKey: "dashboard.meetings_reminders.status_pending",
+        labelKey: "dashboard.meetings_reminders.status_upcoming",
       } as const;
+  }
+}
+
+function formatLastSyncLabel(iso: string | null | undefined, locale: string): string {
+  if (!iso) return "";
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const mins = Math.round((Date.now() - then) / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `${hours}h ago`;
+  try {
+    return new Date(iso).toLocaleString(locale, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  } catch {
+    return "";
   }
 }
 
@@ -2370,6 +2386,10 @@ function GoogleCalendarSyncHub({
   disconnecting,
   onConnect,
   onDisconnect,
+  onRefresh,
+  refreshing,
+  lastSyncAt,
+  locale,
   calendarLink,
   t,
 }: {
@@ -2380,6 +2400,10 @@ function GoogleCalendarSyncHub({
   disconnecting: boolean;
   onConnect: () => void;
   onDisconnect: () => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
+  lastSyncAt?: string | null;
+  locale: string;
   calendarLink: string;
   t: (key: string) => string;
 }) {
@@ -2424,12 +2448,33 @@ function GoogleCalendarSyncHub({
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
               {connected
-                ? t("dashboard.meetings_reminders.sync_active")
+                ? (() => {
+                    const ago = formatLastSyncLabel(lastSyncAt, locale);
+                    return ago
+                      ? t("dashboard.meetings_reminders.sync_last").replace("{ago}", ago)
+                      : t("dashboard.meetings_reminders.sync_active");
+                  })()
                 : t("dashboard.meetings_reminders.not_connected_desc")}
             </p>
           </div>
 
           {connected ? (
+            <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0"
+              disabled={refreshing}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRefresh?.();
+              }}
+              aria-label={t("dashboard.meetings_reminders.refresh")}
+              title={t("dashboard.meetings_reminders.refresh")}
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} aria-hidden />
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -2450,10 +2495,17 @@ function GoogleCalendarSyncHub({
                   </a>
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  disabled={refreshing}
+                  onClick={() => onRefresh?.()}
+                >
+                  <RefreshCw className={cn("h-3.5 w-3.5 mr-2", refreshing && "animate-spin")} />
+                  {t("dashboard.meetings_reminders.refresh")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   disabled={connecting || !configured}
                   onClick={onConnect}
                 >
-                  <RefreshCw className={cn("h-3.5 w-3.5 mr-2", connecting && "animate-spin")} />
+                  <Link2 className="h-3.5 w-3.5 mr-2" />
                   {t("dashboard.meetings_reminders.switch_account")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -2467,6 +2519,7 @@ function GoogleCalendarSyncHub({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            </>
           ) : (
             <Button
               type="button"
@@ -2591,12 +2644,18 @@ function MeetingsRemindersCard({
     useQuery<DashboardMeetingsRemindersResponse>({
       queryKey: ["dashboard", "meetings-reminders", 5],
       queryFn: () => api.getDashboardMeetingsReminders(5),
-      refetchInterval: 90_000,
-      staleTime: 45_000,
+      refetchInterval: 60_000,
+      staleTime: 30_000,
       retry: 2,
       retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 6000),
       refetchOnMount: "always",
+      refetchOnWindowFocus: true,
     });
+
+  const handleRefreshCalendar = React.useCallback(async () => {
+    const fresh = await api.getDashboardMeetingsReminders(5, true);
+    qc.setQueryData(["dashboard", "meetings-reminders", 5], fresh);
+  }, [qc]);
 
   const { data: personalReminders } = useQuery({
     queryKey: ["dashboard", "personal-reminders"],
@@ -2787,6 +2846,10 @@ function MeetingsRemindersCard({
           disconnecting={disconnecting}
           onConnect={handleConnect}
           onDisconnect={handleDisconnect}
+          onRefresh={handleRefreshCalendar}
+          refreshing={isFetching}
+          lastSyncAt={data?.last_sync_at}
+          locale={locale}
           calendarLink={calendarLink}
           t={t}
         />
@@ -2806,7 +2869,7 @@ function MeetingsRemindersCard({
                 size="sm"
                 variant="outline"
                 className="h-7 px-3 text-xs"
-                onClick={() => refetch()}
+                onClick={() => void handleRefreshCalendar()}
                 disabled={isFetching}
               >
                 {t("dashboard.meetings_reminders.retry")}

@@ -1267,9 +1267,11 @@ export class BackendService {
    */
   async getDashboardMeetingsReminders(
     limit = 5,
+    refresh = false,
   ): Promise<DashboardMeetingsRemindersResponse> {
-    const qs = `?limit=${encodeURIComponent(String(limit))}`;
-    return this.fetchWithError(`/dashboard/meetings-reminders/${qs}`);
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (refresh) params.set("refresh", "1");
+    return this.fetchWithError(`/dashboard/meetings-reminders/?${params.toString()}`);
   }
 
   async createCalendarEvent(payload: {
