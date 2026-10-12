@@ -53,6 +53,7 @@ import {
   TrendingUp,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   DollarSign,
   ArrowRight,
   Users,
@@ -1778,13 +1779,17 @@ function WidgetTasksMoreFooter({
   onClick,
   t,
   className,
+  expanded,
 }: {
   visible: boolean;
   onClick: (e: React.MouseEvent) => void;
   t: (key: string) => string;
   className?: string;
+  expanded?: boolean;
 }) {
   if (!visible) return null;
+  const label = expanded ? t("dashboard.category_tasks.less") : t("dashboard.category_tasks.more");
+  const Chevron = expanded ? ChevronUp : ChevronDown;
   return (
     <button
       type="button"
@@ -1794,13 +1799,16 @@ function WidgetTasksMoreFooter({
         "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
         className,
       )}
-      aria-label={t("dashboard.category_tasks.more")}
+      aria-label={label}
+      aria-expanded={expanded === undefined ? undefined : expanded}
     >
-      {t("dashboard.category_tasks.more")}
-      <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+      {label}
+      <Chevron className="h-3.5 w-3.5" aria-hidden />
     </button>
   );
 }
+
+const WIDGET_TASK_EXPANDED_LIMIT = 25;
 
 function TasksDemandsCard({
   cardBase,
@@ -1816,11 +1824,15 @@ function TasksDemandsCard({
   const qc = useQueryClient();
   const [tab, setTab] = useState<TasksDemandsTab>("pending");
   const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const { data, isLoading, isError, error, refetch, isFetching } =
     useQuery<DashboardTasksDemandsResponse>({
-      queryKey: ["dashboard", "tasks-demands", 5],
-      queryFn: () => api.getDashboardTasksDemands(5),
+      queryKey: expanded
+        ? ["dashboard", "tasks-demands", 5, "expanded"]
+        : ["dashboard", "tasks-demands", 5],
+      queryFn: () => api.getDashboardTasksDemands(expanded ? WIDGET_TASK_EXPANDED_LIMIT : 5),
+      placeholderData: (previous) => previous,
       // Dashboard widget - bounded cost. 60 s refetch matches the other
       // operational cards, with staleTime so tab switches don't re-fetch.
       refetchInterval: 60_000,
@@ -1958,7 +1970,7 @@ function TasksDemandsCard({
       : tab === "in_progress"
         ? counts.in_progress
         : counts.completed;
-  const previewRows = rows.slice(0, WIDGET_TASK_PREVIEW_LIMIT);
+  const previewRows = expanded ? rows : rows.slice(0, WIDGET_TASK_PREVIEW_LIMIT);
   const showMoreLink =
     activeTabCount > WIDGET_TASK_PREVIEW_LIMIT || rows.length > WIDGET_TASK_PREVIEW_LIMIT;
 
@@ -2085,7 +2097,7 @@ function TasksDemandsCard({
               {t(`dashboard.tasks_demands.empty_${tab}`)}
             </div>
           ) : (
-            <ul className="space-y-1.5">
+            <ul className={cn("space-y-1.5", expanded && "max-h-[420px] overflow-y-auto pr-1")}>
               {previewRows.map((row) => {
                 const pill = statusPillClass(row.status, row.priority, row.pill_status);
                 const SrcIcon = sourceIcon(row.source);
@@ -2293,10 +2305,11 @@ function TasksDemandsCard({
           <WidgetTasksMoreFooter
             visible
             t={t}
+            expanded={expanded}
             className="mt-2 self-start w-auto px-2"
             onClick={(e) => {
               e.stopPropagation();
-              navigate("/dashboard/operations/live");
+              setExpanded((v) => !v);
             }}
           />
         ) : null}
@@ -5541,9 +5554,7 @@ export type DashboardWidgetBundleProps = {
   noShowsLabelKey: string;
   noShowsDescKey: string;
   todaySales: { connected?: boolean; currency?: string; total_sales?: number; order_count?: number; avg_ticket?: number } | undefined;
-  prepList: { ingredient_prep_list?: unknown[]; forecast_portions?: unknown[] } | undefined;
   salesLoading: boolean;
-  prepLoading: boolean;
   hasRole: (roles: string[]) => boolean;
   /** Map slot_id → definition for custom tiles (`custom:<uuid>`). */
   customWidgetsById: Record<string, DashboardCustomWidgetDef>;
@@ -5620,7 +5631,7 @@ export function SortableDashboardWidget({
   );
 }
 
-function CustomWidgetTasksCard({
+export function CustomWidgetTasksCard({
   def,
   cardBase,
   cardHeaderBase,
@@ -5637,10 +5648,15 @@ function CustomWidgetTasksCard({
   const [tab, setTab] = useState<TasksDemandsTab>("pending");
   const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const customDropTarget = def.slot_id || `${CUSTOM_WIDGET_PREFIX}${def.id}`;
   const queryKey = useMemo(
     () => ["dashboard", "custom-widget-tasks", def.id, 5] as const,
     [def.id],
+  );
+  const fetchKey = useMemo(
+    () => (expanded ? [...queryKey, "expanded"] : queryKey),
+    [expanded, queryKey],
   );
 
   const Icon = CUSTOM_WIDGET_ICONS[def.icon] || ClipboardCheck;
@@ -5660,8 +5676,9 @@ function CustomWidgetTasksCard({
 
   const { data, isLoading, isError, error, refetch, isFetching } =
     useQuery<CustomWidgetTasksResponse>({
-      queryKey,
-      queryFn: () => api.getCustomWidgetTasks(def.id, 5),
+      queryKey: fetchKey,
+      queryFn: () => api.getCustomWidgetTasks(def.id, expanded ? WIDGET_TASK_EXPANDED_LIMIT : 5),
+      placeholderData: (previous) => previous,
       refetchInterval: 15_000,
       staleTime: 0,
       retry: 3,
@@ -5758,7 +5775,7 @@ function CustomWidgetTasksCard({
       : tab === "in_progress"
         ? tabCounts.in_progress
         : tabCounts.completed;
-  const previewRows = rows.slice(0, WIDGET_TASK_PREVIEW_LIMIT);
+  const previewRows = expanded ? rows : rows.slice(0, WIDGET_TASK_PREVIEW_LIMIT);
   const showMoreLink =
     activeTabCount > WIDGET_TASK_PREVIEW_LIMIT || rows.length > WIDGET_TASK_PREVIEW_LIMIT;
 
@@ -5891,7 +5908,7 @@ function CustomWidgetTasksCard({
               {t(`dashboard.tasks_demands.empty_${tab}`)}
             </div>
           ) : (
-            <ul className="space-y-1.5">
+            <ul className={cn("space-y-1.5", expanded && "max-h-[420px] overflow-y-auto pr-1")}>
               {previewRows.map((row) => {
                 const pill = statusPillClass(row.status, row.priority, row.pill_status);
                 const SrcIcon = sourceIcon(row.source);
@@ -6068,13 +6085,10 @@ function CustomWidgetTasksCard({
           <WidgetTasksMoreFooter
             visible
             t={t}
+            expanded={expanded}
             onClick={(e) => {
               e.stopPropagation();
-              if (hasNavigableLink) {
-                openLink();
-                return;
-              }
-              navigate("/dashboard/operations/live");
+              setExpanded((v) => !v);
             }}
           />
         ) : null}
@@ -7022,9 +7036,7 @@ export function DashboardWidgetById({
     noShowsLabelKey,
     noShowsDescKey,
     todaySales,
-    prepList,
     salesLoading,
-    prepLoading,
     hasRole,
     customWidgetsById,
   } = props;
@@ -7350,7 +7362,7 @@ export function DashboardWidgetById({
               </div>
             </CardHeader>
             <CardContent className="flex flex-col flex-1 px-6 pb-6 pt-2 min-h-0">
-              {salesLoading || prepLoading ? (
+              {salesLoading ? (
                 <div className="text-sm text-slate-400">{t("dashboard.sales.loading") || "Loading…"}</div>
               ) : !todaySales?.connected ? (
                 <p className="text-sm text-slate-600 dark:text-slate-400">{t("dashboard.sales.connect_pos") || "Connect your POS in Settings to see today's sales."}</p>
@@ -7367,12 +7379,6 @@ export function DashboardWidgetById({
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500 dark:text-slate-400">{t("dashboard.sales.avg_ticket") || "Avg ticket"}</span>
                     <span className="font-medium text-slate-700 dark:text-slate-300">{todaySales?.currency || ""} {(todaySales?.avg_ticket ?? 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500 dark:text-slate-400">{t("dashboard.prep.title") || "Recommended Prep List"}</span>
-                    <span className="font-medium text-slate-700 dark:text-slate-300">
-                      {(prepList?.ingredient_prep_list?.length ?? prepList?.forecast_portions?.length ?? 0) || 0} items
-                    </span>
                   </div>
                 </div>
               )}

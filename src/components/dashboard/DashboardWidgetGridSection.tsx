@@ -90,13 +90,6 @@ export function DashboardWidgetGridSection() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: prepList, isLoading: prepLoading } = useQuery({
-    queryKey: ["pos-prep-list", accessToken],
-    queryFn: () => api.getPrepList(accessToken!),
-    enabled: !!accessToken && hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER"]),
-    refetchInterval: 300000,
-  });
-
   const { data: summary, isLoading } = useQuery({
     queryKey: ["dashboard-summary"],
     queryFn: () => api.getDashboardSummary(),
@@ -419,9 +412,7 @@ export function DashboardWidgetGridSection() {
       noShowsLabelKey,
       noShowsDescKey,
       todaySales,
-      prepList,
       salesLoading,
-      prepLoading,
       hasRole,
       customWidgetsById,
     }),
@@ -429,7 +420,7 @@ export function DashboardWidgetGridSection() {
       t, navigate, cardBase, cardHeaderBase, summary, isLoading,
       showAllInsights, criticalCount, insights, insightsVisible,
       attentionNow, noShowsCount, noShowsLabelKey, noShowsDescKey,
-      todaySales, prepList, salesLoading, prepLoading, hasRole,
+      todaySales, salesLoading, hasRole,
       customWidgetsById,
     ],
   );

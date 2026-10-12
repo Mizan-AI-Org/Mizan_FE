@@ -24,6 +24,7 @@ export const DOMAIN_SECTIONS: Record<DomainId, DomainSection[]> = {
     { labelKey: "nav.work.staff_checklists", href: "/dashboard/operations/checklists" },
   ],
   employees: [
+    { labelKey: "nav.employees.staff_requests", href: "/dashboard/staff-requests" },
     { labelKey: "nav.employees.people", href: "/dashboard/employees/people" },
     { labelKey: "nav.employees.shifts", href: "/dashboard/employees/shifts" },
     { labelKey: "nav.employees.tasks", href: "/dashboard/employees/tasks" },
