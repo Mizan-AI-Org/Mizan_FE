@@ -93,6 +93,12 @@ export interface BackendShift {
   id: string;
   staff: string;
   staff_members: string[];
+  staff_info?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email?: string;
+  };
   staff_members_details?: { id: string; first_name: string; last_name: string; }[];
   shift_date: string;
   start_time: string;

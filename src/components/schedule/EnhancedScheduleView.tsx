@@ -64,9 +64,17 @@ const EnhancedScheduleView: React.FC = () => {
       });
       if (!response.ok) throw new Error("Failed to fetch staff");
       const json = await response.json();
-      const staffArr = (json?.results ?? json) as Record<string, unknown>[];
+      const staffArr = (
+        Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json?.results)
+            ? json.results
+            : Array.isArray(json)
+              ? json
+              : []
+      ) as Record<string, unknown>[];
       return staffArr.map((s: Record<string, unknown>) => {
-        const id = String(s.id ?? (s.user as Record<string, unknown>)?.id ?? '');
+        const id = String(s.id ?? (s.user as Record<string, unknown>)?.id ?? "").trim();
         const firstName = String(s.first_name ?? '');
         const lastName = String(s.last_name ?? '');
         return {
@@ -157,6 +165,13 @@ const EnhancedScheduleView: React.FC = () => {
     const mapBackendShift = (shift: BackendShift): Shift => {
       const members = shift.staff_members?.length ? shift.staff_members : (shift.staff ? [shift.staff] : []);
       const firstStaffId = members[0] || shift.staff;
+      const staffInfoDetails = shift.staff_info
+        ? [{
+            id: String(shift.staff_info.id),
+            first_name: shift.staff_info.first_name || "",
+            last_name: shift.staff_info.last_name || "",
+          }]
+        : undefined;
       return {
         id: shift.id,
         source: "shift",
@@ -168,7 +183,9 @@ const EnhancedScheduleView: React.FC = () => {
         day: new Date(shift.shift_date).getDay() === 0 ? 6 : new Date(shift.shift_date).getDay() - 1,
         staffId: firstStaffId ?? shift.staff,
         staff_members: members,
-        staff_members_details: shift.staff_members_details,
+        staff_members_details: shift.staff_members_details?.length
+          ? shift.staff_members_details
+          : staffInfoDetails,
         color: firstStaffId ? getStaffColor(firstStaffId) : (shift.color || "#6b7280"),
         task_templates: shift.task_templates ?? [],
         task_templates_details: shift.task_templates_details,

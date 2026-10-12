@@ -12,6 +12,7 @@ import { format, parseISO, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
 import type { Shift } from "@/types/schedule";
+import { resolveStaffForShiftId, staffDisplayName } from "@/lib/shiftDisplay";
 
 interface StaffMember {
     id: string;
@@ -46,7 +47,7 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
         return shifts.filter(shift => {
             const staffIds = (shift.staff_members && shift.staff_members.length) ? shift.staff_members : [shift.staffId];
             const anyStaffMatches = staffIds.some(staffId => {
-                const staff = staffMembers.find(s => s.id === staffId);
+                const staff = resolveStaffForShiftId(staffId, staffMembers);
                 const staffName = `${staff?.user?.first_name || staff?.first_name || ""} ${staff?.user?.last_name || staff?.last_name || ""}`.toLowerCase();
                 const role = (staff?.role || "").toLowerCase();
                 return staffName.includes(searchTerm.toLowerCase()) || role.includes(searchTerm.toLowerCase());
@@ -154,15 +155,18 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                                     const memberIds: string[] = (shift.staff_members && shift.staff_members.length)
                                         ? shift.staff_members
                                         : (shift.staffId ? [shift.staffId] : []);
-                                    const members = memberIds
-                                        .map(id => ({ id, staff: staffMembers.find(s => s.id === id) }))
-                                        .filter(m => !!m.id);
+                                    const details = shift.staff_members_details;
+                                    const members = memberIds.map((id) => ({
+                                        id,
+                                        staff: resolveStaffForShiftId(id, staffMembers, details),
+                                    }));
                                     const isTeam = members.length > 1;
                                     const displayMember = members[0];
                                     const displayStaff = displayMember?.staff;
                                     const displayInitials = displayStaff
                                         ? `${(displayStaff.user?.first_name || displayStaff.first_name || "")[0] || ""}${(displayStaff.user?.last_name || displayStaff.last_name || "")[0] || ""}`
                                         : "?";
+                                    const singleStaffLabel = staffDisplayName(displayStaff);
                                     const roleLabel = (shift as Shift & { role?: string }).role || displayStaff?.role;
 
                                     return (
@@ -208,7 +212,7 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                                                                         || (isTeam
                                                                             ? (t("schedule.team_shift_n_staff", { count: members.length })
                                                                                 || `Team shift - ${members.length} staff`)
-                                                                            : `${displayStaff?.user?.first_name || displayStaff?.first_name || "Unknown"} ${displayStaff?.user?.last_name || displayStaff?.last_name || ""}`.trim())}
+                                                                            : singleStaffLabel)}
                                                                 </span>
                                                                 {roleLabel && (
                                                                     <span className="text-[9px] font-bold text-green-700 dark:text-green-400 uppercase tracking-wide bg-green-50 dark:bg-green-900/30 px-1 py-0 rounded mt-0.5 inline-block w-fit">
@@ -234,7 +238,7 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                                                                         {isTeam
                                                                             ? (t("schedule.team_shift_n_staff", { count: members.length })
                                                                                 || `${members.length} staff`)
-                                                                            : `${displayStaff?.user?.first_name || displayStaff?.first_name || "Unknown"} ${displayStaff?.user?.last_name || displayStaff?.last_name || ""}`.trim()}
+                                                                            : singleStaffLabel}
                                                                     </p>
                                                                 </div>
                                                             ) : null}

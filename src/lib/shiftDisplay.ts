@@ -7,6 +7,51 @@ type ShiftTitleSource = {
   task_templates_details?: { name?: string; title?: string }[];
 };
 
+export type ShiftStaffDetail = {
+  id: string;
+  first_name: string;
+  last_name: string;
+};
+
+type StaffLookup = {
+  id: string;
+  user?: { id: string; first_name: string; last_name: string };
+  first_name?: string;
+  last_name?: string;
+  role?: string;
+};
+
+/** Match shift assignee ids to roster rows; fall back to API-embedded staff_info on process shifts. */
+export function resolveStaffForShiftId(
+  staffId: string,
+  staffMembers: StaffLookup[],
+  details?: ShiftStaffDetail[],
+): StaffLookup | undefined {
+  const id = String(staffId);
+  const fromRoster = staffMembers.find((s) => String(s.id) === id);
+  if (fromRoster) return fromRoster;
+  const embedded = details?.find((d) => String(d.id) === id);
+  if (!embedded) return undefined;
+  return {
+    id,
+    first_name: embedded.first_name,
+    last_name: embedded.last_name,
+    user: {
+      id,
+      first_name: embedded.first_name,
+      last_name: embedded.last_name,
+    },
+  };
+}
+
+export function staffDisplayName(staff?: StaffLookup): string {
+  if (!staff) return "Unknown";
+  const first = staff.user?.first_name || staff.first_name || "";
+  const last = staff.user?.last_name || staff.last_name || "";
+  const name = `${first} ${last}`.trim();
+  return name || "Unknown";
+}
+
 /** Calendar-friendly shift title; hides internal ad-hoc checklist markers. */
 export function displayShiftTitle(shift: ShiftTitleSource): string {
   const templates = (shift.task_templates_details ?? [])
