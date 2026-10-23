@@ -353,7 +353,14 @@ function ManagerAttendanceBoard() {
                                 ) : paginatedLiveList.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={5} className="text-center py-8 text-slate-500">
-                                            {t("staff.attendance.search_placeholder")} - no match.
+                                            {liveSearchLower
+                                                ? `${t("staff.attendance.search_placeholder")} - no match.`
+                                                : !showFullRoster && attendanceList.length > 0
+                                                  ? t("staff.attendance.no_floor_yet", {
+                                                      defaultValue:
+                                                        "No scheduled punches or absences yet today. Switch to Full roster to see everyone, or wait for clock-ins.",
+                                                    })
+                                                  : `${t("staff.attendance.search_placeholder")} - no match.`}
                                         </TableCell>
                                     </TableRow>
                                 ) : (
