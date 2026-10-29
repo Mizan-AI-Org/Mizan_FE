@@ -22,7 +22,6 @@ const PurchasingPage = React.lazy(() => import("./pages/PurchasingPage"));
 const BillingInvoicePage = React.lazy(() => import("./pages/BillingInvoicePage"));
 const VerifySignaturePage = React.lazy(() => import("./pages/VerifySignaturePage"));
 const FoodSafetyPage = React.lazy(() => import("./pages/FoodSafetyPage"));
-const ArchivedPage = React.lazy(() => import("./pages/ArchivedPage"));
 const AccountabilityPage = React.lazy(() => import("./pages/AccountabilityPage"));
 const ProcurementHubPage = React.lazy(() => import("./pages/ProcurementHubPage"));
 const ApprovalsPage = React.lazy(() => import("./pages/ApprovalsPage"));
@@ -357,7 +356,7 @@ const App = () => {
                   <Route path="incidents" element={<ManagerReviewDashboard />} />
                   <Route path="checklists" element={<ManagerReviewDashboard />} />
                   <Route path="food-safety" element={<FoodSafetyPage />} />
-                  <Route path="archived" element={<ArchivedPage />} />
+                  <Route path="archived" element={<Navigate to="/dashboard/operations/live" replace />} />
                   <Route path="accountability" element={<AccountabilityPage />} />
                   <Route path="requests" element={<RedirectToOperationsLive />} />
                   <Route path="requests/:id" element={<RedirectToOperationsLive />} />
