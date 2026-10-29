@@ -888,6 +888,9 @@ export interface Supplier {
     phone?: string;
     address?: string;
     lead_time_days?: number;
+    delivery_days?: number[];
+    order_cutoff?: string | null;
+    min_order_amount?: number;
     prices?: SupplierPriceQuote[];
     created_at: string;
     updated_at: string;

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SupplierBuyingFields } from "@/components/inventory/SupplierBuyingFields";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -285,6 +286,11 @@ export default function SuppliersPage() {
                                     <p className="text-[11px] text-muted-foreground">{t("suppliers.directory.lead_time_hint")}</p>
                                 </div>
                             </div>
+                            <SupplierBuyingFields
+                                idPrefix="supplier"
+                                value={newSupplier}
+                                onChange={(next) => setNewSupplier({ ...newSupplier, ...next })}
+                            />
                         </div>
                         <DialogFooter>
                             <Button type="submit" disabled={createMutation.isPending}>
@@ -339,6 +345,11 @@ export default function SuppliersPage() {
                                         <p className="text-[11px] text-muted-foreground">{t("suppliers.directory.lead_time_hint")}</p>
                                     </div>
                                 </div>
+                                <SupplierBuyingFields
+                                    idPrefix="edit-supplier"
+                                    value={selectedSupplier}
+                                    onChange={(next) => setSelectedSupplier({ ...selectedSupplier, ...next })}
+                                />
                             </div>
                             <DialogFooter>
                                 <Button type="submit" disabled={updateMutation.isPending}>
