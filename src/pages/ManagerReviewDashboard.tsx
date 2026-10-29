@@ -422,8 +422,15 @@ const ManagerReviewDashboard: React.FC = () => {
 
   const [sortBy, setSortBy] = useState<'date' | 'staff' | 'checklist'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  // Default to the last 7 days: "All" put months-old submissions (e.g. one from September) on today's screen.
+  const isoDay = (offset: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - offset);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const [dateFrom, setDateFrom] = useState(() => isoDay(6));
+  const [dateTo, setDateTo] = useState(() => isoDay(0));
+  const [showTrends, setShowTrends] = useState(false);
   const [staffFilter, setStaffFilter] = useState('');
   const [accountabilityFilter, setAccountabilityFilter] = useState<
     "all" | "needs_review" | "has_issues" | "overdue"
@@ -436,6 +443,12 @@ const ManagerReviewDashboard: React.FC = () => {
     setDateTo("");
     setChecklistPage(1);
   };
+  const setLastDays = (days: number) => {
+    setDateFrom(isoDay(days - 1));
+    setDateTo(isoDay(0));
+    setChecklistPage(1);
+  };
+  const isLastDays = (days: number) => dateFrom === isoDay(days - 1) && dateTo === isoDay(0);
 
   const onDateFromChange = (value: string) => {
     setDateFrom(value);
@@ -1155,6 +1168,17 @@ const ManagerReviewDashboard: React.FC = () => {
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {([1, 7, 30] as const).map((days) => (
+                  <Button
+                    key={days}
+                    size="sm"
+                    variant={isLastDays(days) ? "default" : "outline"}
+                    onClick={() => setLastDays(days)}
+                    className={isLastDays(days) ? "bg-primary hover:bg-primary/90" : ""}
+                  >
+                    {days === 1 ? t("ops.review.date_today", "Today") : t("ops.review.date_last_days", { defaultValue: "{{count}} days", count: days })}
+                  </Button>
+                ))}
                 <Button
                   size="sm"
                   variant={isAllDates ? "default" : "outline"}
@@ -1617,80 +1641,12 @@ const ManagerReviewDashboard: React.FC = () => {
             </Collapsible>
           ) : null}
 
-          {(accountability?.staff_accountability?.length ?? 0) > 0 ? (
-            <Collapsible defaultOpen={false} className="group/staff">
-              <Card>
-                <CollapsibleTrigger asChild>
-                  <button
-                    type="button"
-                    className="w-full text-left rounded-t-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <Users className="h-4 w-4 text-emerald-600 shrink-0" />
-                            {t("analytics.accountability.staff_table", "Staff accountability")}
-                            <Badge variant="secondary" className="ml-1 tabular-nums">
-                              {accountability?.staff_accountability?.length ?? 0}
-                            </Badge>
-                          </CardTitle>
-                          <CardDescription className="mt-1">
-                            {t("analytics.accountability.staff_table_desc", {
-                              defaultValue: "Per-person completion, overdue work, and quality flags for the last {{days}} days.",
-                              days: accountability?.period_days ?? 30,
-                            })}
-                          </CardDescription>
-                        </div>
-                        <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/staff:rotate-180" />
-                      </div>
-                    </CardHeader>
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent className="overflow-x-auto pt-0">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>{t("analytics.accountability.col_staff", "Staff")}</TableHead>
-                          <TableHead className="text-right">{t("analytics.accountability.col_completed", "Completed")}</TableHead>
-                          <TableHead className="text-right">{t("analytics.accountability.col_open", "Open")}</TableHead>
-                          <TableHead className="text-right">{t("analytics.accountability.col_overdue", "Overdue")}</TableHead>
-                          <TableHead className="text-right">{t("analytics.accountability.col_pending_review", "Awaiting review")}</TableHead>
-                          <TableHead className="text-right">{t("analytics.accountability.col_issues", "With issues")}</TableHead>
-                          <TableHead className="text-right">{t("common.avg_score")}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(accountability?.staff_accountability ?? []).map((row) => (
-                          <TableRow
-                            key={row.staff_id}
-                            className={cn(row.overdue > 0 && "bg-red-50/40 dark:bg-red-950/10")}
-                          >
-                            <TableCell className="font-medium">{row.staff_name}</TableCell>
-                            <TableCell className="text-right tabular-nums">{row.completed}</TableCell>
-                            <TableCell className="text-right tabular-nums">{row.open}</TableCell>
-                            <TableCell className={cn("text-right tabular-nums", row.overdue > 0 && "text-red-600 font-semibold")}>
-                              {row.overdue}
-                            </TableCell>
-                            <TableCell className={cn("text-right tabular-nums", row.pending_review > 0 && "text-amber-600 font-semibold")}>
-                              {row.pending_review}
-                            </TableCell>
-                            <TableCell className={cn("text-right tabular-nums", row.with_issues > 0 && "text-amber-700")}>
-                              {row.with_issues}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              {typeof row.avg_completion_rate === "number" ? `${row.avg_completion_rate}%` : " - "}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </CollapsibleContent>
-              </Card>
-            </Collapsible>
-          ) : null}
+          <p className="text-sm text-muted-foreground">
+            {t("ops.review.accountability_link_hint", "Who delivers on time, per person:")}{" "}
+            <Link to="/dashboard/operations/accountability" className="font-medium text-primary underline-offset-4 hover:underline">
+              {t("nav.work.accountability", "Accountability")}
+            </Link>
+          </p>
 
           {(liveItems.length > 0 || liveProgressLoading) ? (
             <Card>
@@ -1723,7 +1679,14 @@ const ManagerReviewDashboard: React.FC = () => {
             </Card>
           ) : null}
 
-          {(!pathImpliesChecklists || trendKpis.totalInRange > 0) && (
+          <div className="flex justify-center">
+            <Button variant="ghost" size="sm" onClick={() => setShowTrends((v) => !v)} aria-expanded={showTrends}>
+              <TrendingUp className="mr-2 h-4 w-4" />
+              {showTrends ? t("ops.review.hide_trends", "Hide trends") : t("ops.review.show_trends", "Show trends")}
+            </Button>
+          </div>
+
+          {showTrends && (!pathImpliesChecklists || trendKpis.totalInRange > 0) && (
           <Card className="overflow-hidden">
             <CardHeader className="pb-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1857,7 +1820,7 @@ const ManagerReviewDashboard: React.FC = () => {
           </Card>
           )}
 
-          {(recentActivity.length > 0) && (
+          {showTrends && recentActivity.length > 0 && (
             <div className="grid gap-4 lg:grid-cols-1">
               <Card>
                 <CardHeader className="pb-2">

@@ -5746,5 +5746,10 @@
   "staff.errors.delete_document": "Impossible de supprimer le document",
   "staff.errors.upload_photo": "Impossible d'ajouter la photo",
   "staff.errors.remove_pending": "Impossible de retirer l'invitation en attente",
-  "onboarding.gate.go_dashboard": "Aller au tableau de bord"
+  "onboarding.gate.go_dashboard": "Aller au tableau de bord",
+  "ops.review.date_today": "Aujourd'hui",
+  "ops.review.date_last_days": "{{count}} jours",
+  "ops.review.accountability_link_hint": "Qui livre à l'heure, par personne :",
+  "ops.review.show_trends": "Voir les tendances",
+  "ops.review.hide_trends": "Masquer les tendances"
 }
