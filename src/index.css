@@ -310,8 +310,17 @@
     font-family: var(--font-family-arabic);
   }
 
-  [dir="rtl"] .flex-row {
-    flex-direction: row-reverse;
+  /* No [dir=rtl] .flex-row reversal: in RTL the browser already lays rows out right to left, and reversing them
+     flipped headers and toolbars back to left-to-right. Directional icons are mirrored instead. */
+  [dir="rtl"] svg.lucide-arrow-right,
+  [dir="rtl"] svg.lucide-arrow-left,
+  [dir="rtl"] svg.lucide-chevron-right,
+  [dir="rtl"] svg.lucide-chevron-left,
+  [dir="rtl"] svg.lucide-chevrons-right,
+  [dir="rtl"] svg.lucide-chevrons-left,
+  [dir="rtl"] svg.lucide-arrow-up-right,
+  [dir="rtl"] svg.lucide-external-link {
+    transform: scaleX(-1);
   }
 
   /* RTL layout overrides */

@@ -156,7 +156,7 @@ export function DashboardTaskDetailSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent
-        side="right"
+        side={typeof document !== "undefined" && document.documentElement.dir === "rtl" ? "left" : "right"}
         className="flex w-full flex-col sm:max-w-lg z-[3500]"
         overlayClassName="bg-black/50 pointer-events-auto"
       >

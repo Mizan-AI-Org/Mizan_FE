@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "@/hooks/use-language";
-import { api, API_BASE, resolveMediaUrl, toAbsoluteUrl, unwrapApiPayload, unwrapDrfListResponse } from "@/lib/api";
+import { api, API_BASE, authFetch, resolveMediaUrl, toAbsoluteUrl, unwrapApiPayload, unwrapDrfListResponse } from "@/lib/api";
 import { AttachmentList, type AttachmentLike } from "@/components/ui/attachment-preview";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -244,7 +244,7 @@ const ManagerReviewDashboard: React.FC = () => {
       if (filterDate) url.searchParams.set("date", filterDate);
       if (filterSubmitter) url.searchParams.set("submitted_by", filterSubmitter);
       if (filterType) url.searchParams.set("type", filterType);
-      const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }, credentials: "include" });
+      const res = await authFetch(url.toString(), { credentials: "include" });
       if (!res.ok) {
         logInfo({ feature: "manager-review", action: "fetch-submitted" }, `HTTP ${res.status}; using fallback`, { url: url.toString() });
         const my = await api.getMyChecklists({ status: "COMPLETED", page_size: 100 });
@@ -277,7 +277,7 @@ const ManagerReviewDashboard: React.FC = () => {
         fb.searchParams.set("status", "COMPLETED");
         fb.searchParams.set("scope", "restaurant");
         fb.searchParams.set("page_size", "500");
-        const alt = await fetch(fb.toString(), { headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }, credentials: "include" });
+        const alt = await authFetch(fb.toString(), { credentials: "include" });
         if (alt.ok) {
           const altJson = await alt.json();
           arr = unwrapDrfListResponse<unknown>(altJson);
@@ -338,9 +338,9 @@ const ManagerReviewDashboard: React.FC = () => {
       const url = isShift
         ? `${API_BASE}/checklists/shift-progress/${vars.id}/manager_review/`
         : `${API_BASE}/checklists/executions/${vars.id}/manager_review/`;
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           decision: vars.decision,
           approved: vars.decision === "APPROVED",
@@ -383,8 +383,7 @@ const ManagerReviewDashboard: React.FC = () => {
     queryFn: async () => {
       const id = String(detailId);
       if (detailSourceType === 'shift_progress') {
-        const res = await fetch(`${API_BASE}/checklists/shift-progress/${id}/`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+        const res = await authFetch(`${API_BASE}/checklists/shift-progress/${id}/`, {
           credentials: "include",
         });
         if (!res.ok) throw new Error("Failed to load shift checklist detail");
@@ -629,9 +628,7 @@ const ManagerReviewDashboard: React.FC = () => {
         ordering: "-created_at",
         page_size: "500",
       });
-      const res = await fetch(`${API_BASE}/staff/safety-concerns/?${qs.toString()}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
-      });
+      const res = await authFetch(`${API_BASE}/staff/safety-concerns/?${qs.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch incidents');
       return unwrapDrfListResponse(await res.json());
     },
@@ -643,9 +640,7 @@ const ManagerReviewDashboard: React.FC = () => {
     queryKey: ['safety-incident-detail', selectedIncident],
     enabled: !!selectedIncident,
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/staff/safety-concerns/${selectedIncident}/`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
-      });
+      const res = await authFetch(`${API_BASE}/staff/safety-concerns/${selectedIncident}/`);
       if (!res.ok) throw new Error('Failed to fetch incident details');
       return unwrapApiPayload<IncidentDetail>(await res.json());
     },
@@ -887,11 +882,10 @@ const ManagerReviewDashboard: React.FC = () => {
   // Update status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async (data: { id: string; status: string; resolution_notes: string }) => {
-      const res = await fetch(`${API_BASE}/staff/safety-concerns/${data.id}/update_status/`, {
+      const res = await authFetch(`${API_BASE}/staff/safety-concerns/${data.id}/update_status/`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ status: data.status, resolution_notes: data.resolution_notes })
       });
@@ -930,11 +924,10 @@ const ManagerReviewDashboard: React.FC = () => {
 
   const updatePriorityMutation = useMutation({
     mutationFn: async (data: { id: string; priority: IncidentPriority }) => {
-      const res = await fetch(`${API_BASE}/staff/safety-concerns/${data.id}/update_priority/`, {
+      const res = await authFetch(`${API_BASE}/staff/safety-concerns/${data.id}/update_priority/`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ priority: data.priority }),
       });
@@ -954,11 +947,10 @@ const ManagerReviewDashboard: React.FC = () => {
 
   const assignMutation = useMutation({
     mutationFn: async (data: { id: string; assigned_to: string | null }) => {
-      const res = await fetch(`${API_BASE}/staff/safety-concerns/${data.id}/assign/`, {
+      const res = await authFetch(`${API_BASE}/staff/safety-concerns/${data.id}/assign/`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ assigned_to: data.assigned_to })
       });

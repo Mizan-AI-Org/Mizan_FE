@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { AlertTriangle, Archive, CheckCircle2, Clock, Download, Loader2, Pencil, Plus, Thermometer } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, authFetch } from "@/lib/api";
 import { archiveWithUndo } from "@/lib/archiveApi";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,10 +59,11 @@ const KINDS = ["fridge", "freezer", "hot_hold", "cooking", "cooling", "delivery"
 const ROLES = ["", "CHEF", "STAFF", "WAITER", "BARTENDER", "SUPERVISOR", "MANAGER"];
 const selectClass = "h-10 w-full rounded-md border bg-background px-3 text-sm";
 
-async function request(path: string, token: string, method = "GET", body?: Record<string, unknown>) {
-  const res = await fetch(`${API_BASE}${path}`, {
+async function request(path: string, method = "GET", body?: Record<string, unknown>) {
+  // authFetch attaches the bearer token and silently refreshes it on 401.
+  const res = await authFetch(`${API_BASE}${path}`, {
     method,
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
@@ -70,8 +71,8 @@ async function request(path: string, token: string, method = "GET", body?: Recor
   return data.data ?? data;
 }
 
-const post = (path: string, token: string, body: Record<string, unknown>) => request(path, token, "POST", body);
-const patch = (path: string, token: string, body: Record<string, unknown>) => request(path, token, "PATCH", body);
+const post = (path: string, body: Record<string, unknown>) => request(path, "POST", body);
+const patch = (path: string, body: Record<string, unknown>) => request(path, "PATCH", body);
 
 const blankPoint = {
   name: "",
@@ -98,12 +99,12 @@ export default function FoodSafetyPage() {
 
   const summary = useQuery<Summary>({
     queryKey: ["food-safety", "summary", days, accessToken],
-    queryFn: () => request(`/food-safety/summary/?days=${days}`, accessToken),
+    queryFn: () => request(`/food-safety/summary/?days=${days}`),
     enabled: !!accessToken,
   });
   const points = useQuery<Point[]>({
     queryKey: ["food-safety", "points", accessToken],
-    queryFn: () => request("/food-safety/points/", accessToken),
+    queryFn: () => request("/food-safety/points/"),
     enabled: !!accessToken,
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["food-safety"] });
@@ -125,8 +126,8 @@ export default function FoodSafetyPage() {
         isActive: f.isActive,
       };
       return editing.id
-        ? patch(`/food-safety/points/${editing.id}/`, accessToken, body)
-        : post("/food-safety/points/", accessToken, body);
+        ? patch(`/food-safety/points/${editing.id}/`, body)
+        : post("/food-safety/points/", body);
     },
     onSuccess: () => {
       toast.success(t("food_safety.saved"));
@@ -140,7 +141,7 @@ export default function FoodSafetyPage() {
     mutationFn: () => {
       if (!logging) return Promise.resolve(null);
       const measured = logging.min !== null || logging.max !== null;
-      return post("/food-safety/logs/", accessToken, {
+      return post("/food-safety/logs/", {
         pointId: logging.id,
         value: measured ? reading.value : undefined,
         done: measured ? undefined : reading.done,
@@ -161,9 +162,7 @@ export default function FoodSafetyPage() {
   const downloadReport = async () => {
     setDownloading(true);
     try {
-      const res = await fetch(`${API_BASE}/food-safety/report/?days=${days}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const res = await authFetch(`${API_BASE}/food-safety/report/?days=${days}`);
       if (!res.ok) throw new Error(t("food_safety.report_failed"));
       const url = URL.createObjectURL(await res.blob());
       const a = document.createElement("a");

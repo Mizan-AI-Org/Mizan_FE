@@ -379,6 +379,36 @@ export function refreshAccessToken(): Promise<string | null> {
   return refreshInFlight;
 }
 
+/**
+ * Drop-in `fetch` for pages that read raw `Response`s: attaches the stored
+ * bearer token and, like `fetchWithError`, retries once after a silent token
+ * refresh on 401 (broadcasting auth-expired when no refresh is possible).
+ * Callers keep their own response parsing, so payload shapes are unchanged.
+ */
+export async function authFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const withToken = (token: string | null): RequestInit => {
+    const headers = new Headers(init.headers);
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    return { ...init, headers };
+  };
+  let stored: string | null = null;
+  try {
+    stored = typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null;
+  } catch {
+    stored = null;
+  }
+  let response = await fetch(input, withToken(stored));
+  if (response.status === 401) {
+    const refreshedToken = await refreshAccessToken();
+    if (refreshedToken) {
+      response = await fetch(input, withToken(refreshedToken));
+    } else {
+      broadcastAuthExpired();
+    }
+  }
+  return response;
+}
+
 export class BackendService {
   [x: string]: any;
   // In a real frontend application, HttpService and ConfigService would not be used directly
@@ -839,12 +869,6 @@ export class BackendService {
     return this.fetchWithError(`/dashboard/personal-reminders/${qs}`);
   }
 
-  async getDashboardTenantDocuments(limit = 10, q = ""): Promise<{ success: boolean; documents: Array<Record<string, unknown>>; count: number }> {
-    const params = new URLSearchParams({ limit: String(limit) });
-    if (q.trim()) params.set("q", q.trim());
-    return this.fetchWithError(`/dashboard/tenant-documents/?${params.toString()}`);
-  }
-
   async getCategoryOwners(): Promise<{
     success?: boolean;
     owners: Record<string, string | string[]>;
@@ -1226,16 +1250,6 @@ export class BackendService {
     return this.fetchWithError("/dashboard/records/chase/", {
       method: "POST",
       body: JSON.stringify(payload),
-    });
-  }
-
-  async requireDashboardTaskValidation(
-    taskId: string,
-    required = true,
-  ): Promise<{ success: boolean; validation_label?: string | null }> {
-    return this.fetchWithError(`/dashboard/tasks/${taskId}/require-validation/`, {
-      method: "POST",
-      body: JSON.stringify({ required }),
     });
   }
 
@@ -1686,15 +1700,6 @@ export class BackendService {
       method: "POST",
       body: JSON.stringify({ shift_id: shiftId }),
     });
-  }
-
-  async getActionCenter(): Promise<{
-    items: Array<Record<string, unknown>>;
-    counts: Record<string, number>;
-    total: number;
-    timestamp: string;
-  }> {
-    return this.fetchWithError("/dashboard/action-center/");
   }
 
   async getCommandCenter(): Promise<import("@/lib/commandCentre").CommandCentrePayload> {
@@ -4844,50 +4849,6 @@ export class BackendService {
     }
 
     return results;
-  }
-
-  /**
-   * Unified tasks for the current user: direct assignments + template-embedded tasks.
-   * Backend: GET `/scheduling/tasks/my_combined/`
-   */
-  async getMyCombinedTasks(
-    accessToken: string,
-    params?: { status?: string; priority?: string; ordering?: string; due_from?: string; due_to?: string; page_size?: number }
-  ): Promise<Array<{
-    id: string;
-    title: string;
-    description?: string | null;
-    priority?: string | null;
-    status?: string | null;
-    due_date?: string | null;
-    source: 'SHIFT_TASK' | 'TEMPLATE_TASK';
-    associated_shift?: { id?: string; shift_date?: string; role?: string } | null;
-    associated_template?: { id?: string; name?: string; type?: string } | null;
-  }>> {
-    const url = new URL(`${API_BASE}/scheduling/tasks/my_combined/`);
-    if (params?.status) url.searchParams.set('status', params.status);
-    if (params?.priority) url.searchParams.set('priority', params.priority);
-    if (params?.ordering) url.searchParams.set('ordering', params.ordering);
-    if (params?.due_from) url.searchParams.set('due_from', params.due_from);
-    if (params?.due_to) url.searchParams.set('due_to', params.due_to);
-    if (params?.page_size) url.searchParams.set('page_size', String(params.page_size));
-
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: this.getHeaders(accessToken),
-    });
-    if (!response.ok) {
-      let message = 'Failed to fetch combined tasks';
-      try {
-        const err = await response.json();
-        message = err.message || err.detail || err.error || message;
-      } catch {
-        message = `${message} (${response.status})`;
-      }
-      throw new Error(message);
-    }
-    const data = await response.json();
-    return Array.isArray(data) ? data : (data?.results || []);
   }
 
   async getChecklistExecution(executionId: string): Promise<any> {

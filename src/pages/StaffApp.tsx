@@ -74,7 +74,7 @@ import {
     Share2,
     ArrowRightLeft,
 } from "lucide-react";
-import { API_BASE, BACKEND_URL, BackendService, api } from "@/lib/api";
+import { API_BASE, BACKEND_URL, BackendService, api, authFetch } from "@/lib/api";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -188,6 +188,11 @@ function staffRoleLabel(m: Pick<StaffMember, "role" | "role_display">): string {
     return m.role?.toLowerCase().replace(/_/g, " ") ?? "";
 }
 
+/** Translated label for a role code in the edit/promote selects. */
+function roleOptionLabel(code: string): string {
+    return t(`staff.roles.${code.toLowerCase()}`);
+}
+
 interface Invitation {
     id: string;
     email: string;
@@ -262,16 +267,6 @@ type StaffDocument = {
     uploaded_at: string;
 };
 
-type ManagerTask = {
-    id: string;
-    title: string;
-    status: string;
-    due_date: string;
-    due_time?: string | null;
-    priority?: string | null;
-    assigned_to_names?: string[];
-};
-
 type BulkInviteRow = {
     first_name: string;
     last_name: string;
@@ -327,8 +322,12 @@ const PaginationControls: React.FC<{
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between py-4 mt-2 border-t border-slate-100 dark:border-slate-800">
             <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
                 {count > 0
-                    ? `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, count)} of ${count}`
-                    : "No results"}
+                    ? t("staff.pagination.range", {
+                          from: (currentPage - 1) * pageSize + 1,
+                          to: Math.min(currentPage * pageSize, count),
+                          total: count,
+                      })
+                    : t("staff.pagination.no_results")}
             </p>
             <div className="flex flex-wrap items-center gap-2">
                 {onPageSizeChange && (
@@ -337,10 +336,10 @@ const PaginationControls: React.FC<{
                         onChange={(e) => onPageSizeChange(Number(e.target.value))}
                         disabled={isLoading}
                         className="h-8 rounded-lg border border-border bg-card px-2 text-xs text-foreground"
-                        aria-label="Items per page"
+                        aria-label={t("staff.pagination.items_per_page")}
                     >
                         {pageSizeOptions.map((n) => (
-                            <option key={n} value={n}>{n} / page</option>
+                            <option key={n} value={n}>{t("staff.pagination.per_page", { count: n })}</option>
                         ))}
                     </select>
                 )}
@@ -417,7 +416,7 @@ const TeamTab: React.FC = () => {
     const avatarInputRef = React.useRef<HTMLInputElement>(null);
     const [avatarUploadTargetId, setAvatarUploadTargetId] = useState<string | null>(null);
     const [avatarUploading, setAvatarUploading] = useState(false);
-    const { user, logout } = useAuth() as AuthContextType;
+    const { user } = useAuth() as AuthContextType;
     const queryClient = useQueryClient();
     const { data: tenantLocations = [] } = useBusinessLocations();
     const multiBranch = tenantLocations.length >= 2;
@@ -435,7 +434,7 @@ const TeamTab: React.FC = () => {
             setDocuments(docs);
         } catch (err: unknown) {
             console.error("Failed to fetch documents", err);
-            toast.error(getErrorMessage(err, "Failed to load documents"));
+            toast.error(getErrorMessage(err, t("staff.errors.load_documents")));
         }
     };
 
@@ -463,18 +462,9 @@ const TeamTab: React.FC = () => {
             if (branchFilter && branchFilter !== "all") {
                 params.set("primary_location", branchFilter);
             }
-            const response = await fetch(`${API_BASE}/users/?${params.toString()}`, {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-                },
-            });
-            if (!response.ok) {
-                if (response.status === 401) {
-                    logout();
-                    throw new Error("Session expired");
-                }
-                throw new Error("Failed to fetch staff");
-            }
+            // authFetch refreshes an expired token instead of logging the manager out.
+            const response = await authFetch(`${API_BASE}/users/?${params.toString()}`);
+            if (!response.ok) throw new Error("Failed to fetch staff");
             return unwrapEnvelope(await response.json());
         },
     });
@@ -483,11 +473,7 @@ const TeamTab: React.FC = () => {
         queryKey: ["pending-activations"],
         queryFn: async () => {
             // WhatsApp-first: people added but not joined yet, with the welcome's delivery state.
-            const response = await fetch(`${API_BASE}/staff/invites/pending/`, {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-                },
-            });
+            const response = await authFetch(`${API_BASE}/staff/invites/pending/`);
             if (!response.ok) throw new Error("Failed to fetch pending activations");
             const rows = (unwrapEnvelope(await response.json()) || []) as { id: string; name: string; phone: string; role: string; status: string; sentAt: string | null }[];
             const pending = rows.map((r) => ({ id: r.id, first_name: r.name, last_name: "", phone: r.phone, role: r.role, status: r.status, batch_id: "", created_at: r.sentAt }));
@@ -553,9 +539,8 @@ const TeamTab: React.FC = () => {
 
     const handleResendWelcome = async (staffId: string) => {
         try {
-            const response = await fetch(`${API_BASE}/staff/invites/${staffId}/resend/`, {
+            const response = await authFetch(`${API_BASE}/staff/invites/${staffId}/resend/`, {
                 method: "POST",
-                headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
             });
             const body = unwrapEnvelope(await response.json().catch(() => ({}))) as { error?: string; status?: string } | null;
             if (!response.ok) throw new Error(body?.error || t("staff.pending.resend_failed"));
@@ -571,16 +556,15 @@ const TeamTab: React.FC = () => {
     const handleDeletePendingActivation = async (activationId: string) => {
         if (!confirm(t("staff.pending.delete_confirm"))) return;
         try {
-            const response = await fetch(`${API_BASE}/staff/invites/${activationId}/`, {
+            const response = await authFetch(`${API_BASE}/staff/invites/${activationId}/`, {
                 method: "DELETE",
-                headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
             });
-            if (!response.ok) throw new Error("Failed to remove pending invitation");
+            if (!response.ok) throw new Error(t("staff.errors.remove_pending"));
             toast.success(t("staff.pending.deleted"));
             refetchActivationPending();
             void queryClient.invalidateQueries({ queryKey: ["nav-attention", "counts"] });
         } catch (err: unknown) {
-            toast.error(getErrorMessage(err, "Failed to remove pending invitation"));
+            toast.error(getErrorMessage(err, t("staff.errors.remove_pending")));
         }
     };
 
@@ -639,7 +623,7 @@ const TeamTab: React.FC = () => {
             toast.success(t("staff.avatar.updated", { defaultValue: "Profile photo updated." }));
             refetchStaff();
         } catch (err: unknown) {
-            toast.error(getErrorMessage(err, "Failed to upload photo"));
+            toast.error(getErrorMessage(err, t("staff.errors.upload_photo")));
         } finally {
             setAvatarUploading(false);
         }
@@ -673,7 +657,7 @@ const TeamTab: React.FC = () => {
                 toast.success(t("toasts.report_generated"));
             } catch (err: unknown) {
                 reportWindow?.close();
-                toast.error(getErrorMessage(err, "Failed to generate report"));
+                toast.error(getErrorMessage(err, t("staff.errors.generate_report")));
             } finally {
                 setIsGeneratingReport(false);
             }
@@ -692,12 +676,13 @@ const TeamTab: React.FC = () => {
                 <div className={STAFF_MODAL_OVERLAY_INNER}>
                     <Card className={cn(STAFF_MODAL_SHELL, "bg-card")}>
                         <CardHeader className="shrink-0 pt-5 pb-2 px-6 sm:px-8 flex flex-row items-center justify-between gap-4">
-                            <CardTitle className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Staff Profile</CardTitle>
+                            <CardTitle className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{t("staff.staff_profile")}</CardTitle>
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 className="shrink-0 rounded-full bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                                 onClick={() => setIsViewModalOpen(false)}
+                                aria-label={t("common.close")}
                             >
                                 <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                             </Button>
@@ -731,7 +716,7 @@ const TeamTab: React.FC = () => {
                                 disabled={isGeneratingReport}
                             >
                                 {isGeneratingReport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-                                PDF Report
+                                {t("staff.pdf_report")}
                             </Button>
                             </div>
                         </div>
@@ -739,22 +724,22 @@ const TeamTab: React.FC = () => {
                         {/* Performance Analytics */}
                         <div className="grid grid-cols-3 gap-3 py-4">
                             <div className="bg-slate-50/50 dark:bg-slate-800/40 p-5 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 flex flex-col items-center">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Weekly</p>
-                                <p className="text-xl font-black text-slate-900 dark:text-white">{selectedMember.stats?.hours_weekly || 0}h</p>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t("generic.weekly")}</p>
+                                <p className="text-xl font-black text-slate-900 dark:text-white">{t("staff.hours_value", { count: selectedMember.stats?.hours_weekly || 0 })}</p>
                             </div>
                             <div className="bg-emerald-50/30 dark:bg-emerald-900/10 p-5 rounded-[1.5rem] border border-emerald-100/50 dark:border-emerald-900/30 flex flex-col items-center shadow-sm">
-                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Monthly</p>
-                                <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">{selectedMember.stats?.hours_monthly || 0}h</p>
+                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">{t("billing.monthly")}</p>
+                                <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">{t("staff.hours_value", { count: selectedMember.stats?.hours_monthly || 0 })}</p>
                             </div>
                             <div className="bg-slate-50/50 dark:bg-slate-800/40 p-5 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 flex flex-col items-center">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Yearly</p>
-                                <p className="text-xl font-black text-slate-900 dark:text-white">{selectedMember.stats?.hours_yearly || 0}h</p>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t("billing.yearly")}</p>
+                                <p className="text-xl font-black text-slate-900 dark:text-white">{t("staff.hours_value", { count: selectedMember.stats?.hours_yearly || 0 })}</p>
                             </div>
                         </div>
 
                         <div className={cn("grid grid-cols-2 gap-12 py-8 border-t", STAFF_MODAL_DIVIDER)}>
                             <div className="space-y-6">
-                                <h4 className={STAFF_MODAL_SECTION_TITLE}>Contact Info</h4>
+                                <h4 className={STAFF_MODAL_SECTION_TITLE}>{t("staff.contact_info")}</h4>
                                 <div className="space-y-4">
                                     {isWhatsAppActivationEmail(selectedMember.email) ? (
                                         <div className="flex items-center gap-3 group">
@@ -762,7 +747,7 @@ const TeamTab: React.FC = () => {
                                                 <Phone className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                             </div>
                                             <div className="min-w-0 flex-1">
-                                                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">WhatsApp / Phone</p>
+                                                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t("staff.whatsapp_phone")}</p>
                                                 <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
                                                     {waPhone || t("common.not_provided")}
                                                 </p>
@@ -775,7 +760,7 @@ const TeamTab: React.FC = () => {
                                                     <Mail className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Email Address</p>
+                                                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t("staff.email_address")}</p>
                                                     <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
                                                         {selectedMember.email || t("common.not_provided")}
                                                     </p>
@@ -786,7 +771,7 @@ const TeamTab: React.FC = () => {
                                                     <Phone className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">WhatsApp Number</p>
+                                                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t("staff.invite.whatsapp_number")}</p>
                                                     <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
                                                         {waPhone || t("common.not_provided")}
                                                     </p>
@@ -852,14 +837,14 @@ const TeamTab: React.FC = () => {
                             </div>
 
                             <div className="space-y-6">
-                                <h4 className={STAFF_MODAL_SECTION_TITLE}>Employment Details</h4>
+                                <h4 className={STAFF_MODAL_SECTION_TITLE}>{t("staff.employment_details")}</h4>
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-3 group">
                                         <div className={STAFF_MODAL_ICON_BOX}>
                                             <Briefcase className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Department</p>
+                                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t("staff.department")}</p>
                                             <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{selectedMember.profile?.department || t("common.unassigned")}</p>
                                         </div>
                                     </div>
@@ -868,8 +853,8 @@ const TeamTab: React.FC = () => {
                                             <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Join Date</p>
-                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{selectedMember.profile?.join_date ? format(new Date(selectedMember.profile.join_date), 'PPP') : "N/A"}</p>
+                                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t("staff.join_date")}</p>
+                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{selectedMember.profile?.join_date ? format(new Date(selectedMember.profile.join_date), 'PPP') : t("staff.not_available")}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3 group">
@@ -877,11 +862,11 @@ const TeamTab: React.FC = () => {
                                             <TrendingUp className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Salary / Wage</p>
+                                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t("staff.salary_wage")}</p>
                                             <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
                                                 ${selectedMember.profile?.hourly_rate || 0}
                                                 <span className="text-xs text-slate-500 dark:text-slate-400 font-normal ml-1">
-                                                    {selectedMember.profile?.salary_type === 'MONTHLY' ? '/mo' : '/hr'}
+                                                    {selectedMember.profile?.salary_type === 'MONTHLY' ? t("staff.per_month_short") : t("staff.per_hour_short")}
                                                 </span>
                                             </p>
                                         </div>
@@ -892,7 +877,7 @@ const TeamTab: React.FC = () => {
 
                         {/* Promotion History */}
                         <div className={cn("space-y-6 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
-                            <h4 className={STAFF_MODAL_SECTION_TITLE}>Promotion History</h4>
+                            <h4 className={STAFF_MODAL_SECTION_TITLE}>{t("staff.promotion_history")}</h4>
                             <div className="space-y-3">
                                 {selectedMember.profile?.promotion_history && selectedMember.profile.promotion_history.length > 0 ? (
                                     selectedMember.profile.promotion_history.map((p, i) => (
@@ -911,7 +896,7 @@ const TeamTab: React.FC = () => {
                                     ))
                                 ) : (
                                     <div className={STAFF_MODAL_EMPTY}>
-                                        <p className={STAFF_MODAL_EMPTY_TEXT}>No promotion history</p>
+                                        <p className={STAFF_MODAL_EMPTY_TEXT}>{t("staff.no_promotion_history")}</p>
                                     </div>
                                 )}
                             </div>
@@ -929,13 +914,13 @@ const TeamTab: React.FC = () => {
                                 className={cn(STAFF_MODAL_CANCEL_BTN, "h-12 sm:h-14 text-base active:scale-[0.98] transition-all")}
                                 onClick={() => setIsViewModalOpen(false)}
                             >
-                                <X className="w-5 h-5 mr-3" /> Cancel
+                                <X className="w-5 h-5 mr-3" /> {t("common.cancel")}
                             </Button>
                             <Button
                                 className="flex-1 h-12 sm:h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black tracking-tight text-base shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all"
                                 onClick={() => { setIsViewModalOpen(false); handleEditProfile(selectedMember); }}
                             >
-                                <Edit className="w-5 h-5 mr-3" /> Edit Profile
+                                <Edit className="w-5 h-5 mr-3" /> {t("common.edit_profile")}
                             </Button>
                         </div>
                     </Card>
@@ -1061,7 +1046,7 @@ const TeamTab: React.FC = () => {
                 setIsEditModalOpen(false);
                 refetchStaff();
             } catch (err: unknown) {
-                toast.error(getErrorMessage(err, "Failed to update profile"));
+                toast.error(getErrorMessage(err, t("staff.errors.update_profile")));
             }
         };
 
@@ -1078,7 +1063,7 @@ const TeamTab: React.FC = () => {
                 setShowPasswordReset(false);
                 setNewPassword("");
             } catch (err: unknown) {
-                toast.error(getErrorMessage(err, "Failed to reset password"));
+                toast.error(getErrorMessage(err, t("staff.errors.reset_password")));
             } finally {
                 setIsResetting(false);
             }
@@ -1099,7 +1084,7 @@ const TeamTab: React.FC = () => {
             setFormData({ ...formData, role: promoRole, department: newDept });
             setIsPromoting(false);
             setPromoNote("");
-            toast.success(`Staff promoted to ${promoRole}`);
+            toast.success(t("staff.promoted_toast", { role: roleOptionLabel(promoRole) }));
         };
 
         return (
@@ -1108,10 +1093,10 @@ const TeamTab: React.FC = () => {
                     <Card className={cn(STAFF_MODAL_SHELL, "bg-card")}>
                         <CardHeader className="shrink-0 pt-5 pb-1 px-5 sm:px-6 flex flex-row items-center justify-between gap-4">
                             <div className="min-w-0">
-                                <CardTitle className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Edit Staff Profile</CardTitle>
-                                <CardDescription className="text-slate-500 dark:text-slate-400 font-medium text-[11px]">Manage detailed staff information</CardDescription>
+                                <CardTitle className="text-lg font-black text-slate-900 dark:text-white tracking-tight">{t("staff.edit_staff_profile")}</CardTitle>
+                                <CardDescription className="text-slate-500 dark:text-slate-400 font-medium text-[11px]">{t("staff.manage_staff_info")}</CardDescription>
                             </div>
-                            <Button variant="ghost" size="icon" className="shrink-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => setIsEditModalOpen(false)}>
+                            <Button variant="ghost" size="icon" className="shrink-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => setIsEditModalOpen(false)} aria-label={t("common.close")}>
                                 <X className="w-5 h-5 text-slate-400 dark:text-slate-500" />
                             </Button>
                         </CardHeader>
@@ -1137,10 +1122,10 @@ const TeamTab: React.FC = () => {
                         <div className="space-y-3 py-2">
                             {/* Personal Information */}
                             <div className="space-y-3">
-                                <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>Personal Information</h4>
+                                <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>{t("staff.personal_info")}</h4>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
-                                        <label className={STAFF_MODAL_FIELD_LABEL}>First Name</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>{t("staff.first_name")}</label>
                                         <Input
                                             value={formData.first_name}
                                             onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
@@ -1148,7 +1133,7 @@ const TeamTab: React.FC = () => {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className={STAFF_MODAL_FIELD_LABEL}>Last Name</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>{t("staff.last_name")}</label>
                                         <Input
                                             value={formData.last_name}
                                             onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
@@ -1169,19 +1154,19 @@ const TeamTab: React.FC = () => {
                                         </div>
                                     )}
                                     <div className="space-y-2">
-                                        <label className={STAFF_MODAL_FIELD_LABEL}>WhatsApp Number</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>{t("staff.invite.whatsapp_number")}</label>
                                         <Input
                                             value={formData.phone}
                                             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                            placeholder="e.g. 212784476751 (country code + number)"
+                                            placeholder={t("staff.whatsapp_phone_placeholder")}
                                             className={STAFF_MODAL_INPUT}
                                         />
                                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                                            Digits only with country code. This number is used to recognize the person on WhatsApp.
+                                            {t("staff.whatsapp_phone_hint")}
                                         </p>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className={STAFF_MODAL_FIELD_LABEL}>Join Date</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>{t("staff.join_date")}</label>
                                         <Input
                                             type="date"
                                             value={formData.join_date}
@@ -1194,10 +1179,10 @@ const TeamTab: React.FC = () => {
 
                             {/* Role & Compensation */}
                             <div className={cn("space-y-4 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
-                                <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>Role & Compensation</h4>
+                                <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>{t("staff.role_compensation")}</h4>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
-                                        <label className={STAFF_MODAL_FIELD_LABEL}>Current Role</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>{t("staff.current_role")}</label>
                                         <select
                                             value={formData.role}
                                             onChange={(e) => {
@@ -1208,27 +1193,27 @@ const TeamTab: React.FC = () => {
                                             }}
                                             className={STAFF_MODAL_SELECT}
                                         >
-                                            <option value="SUPER_ADMIN">Super Admin</option>
-                                            <option value="ADMIN">Admin</option>
-                                            <option value="OWNER">Owner</option>
-                                            <option value="MANAGER">Manager</option>
-                                            <option value="CHEF">Chef</option>
-                                            <option value="WAITER">Waiter</option>
-                                            <option value="KITCHEN_HELP">Kitchen Help</option>
-                                            <option value="BARTENDER">Bartender</option>
-                                            <option value="RECEPTIONIST">Receptionist</option>
-                                            <option value="CLEANER">Cleaner</option>
-                                            <option value="SECURITY">Security</option>
+                                            <option value="SUPER_ADMIN">{roleOptionLabel("SUPER_ADMIN")}</option>
+                                            <option value="ADMIN">{roleOptionLabel("ADMIN")}</option>
+                                            <option value="OWNER">{roleOptionLabel("OWNER")}</option>
+                                            <option value="MANAGER">{roleOptionLabel("MANAGER")}</option>
+                                            <option value="CHEF">{roleOptionLabel("CHEF")}</option>
+                                            <option value="WAITER">{roleOptionLabel("WAITER")}</option>
+                                            <option value="KITCHEN_HELP">{roleOptionLabel("KITCHEN_HELP")}</option>
+                                            <option value="BARTENDER">{roleOptionLabel("BARTENDER")}</option>
+                                            <option value="RECEPTIONIST">{roleOptionLabel("RECEPTIONIST")}</option>
+                                            <option value="CLEANER">{roleOptionLabel("CLEANER")}</option>
+                                            <option value="SECURITY">{roleOptionLabel("SECURITY")}</option>
                                         </select>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className={STAFF_MODAL_FIELD_LABEL}>Department</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>{t("staff.department")}</label>
                                         <select
                                             value={formData.department}
                                             onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                                             className={STAFF_MODAL_SELECT}
                                         >
-                                            <option value="">Unassigned</option>
+                                            <option value="">{t("common.unassigned")}</option>
                                             <option value="Management">{t("staff.departments.management")}</option>
                                             <option value="Kitchen">{t("staff.departments.kitchen")}</option>
                                             <option value="Front of House">{t("staff.departments.front_of_house")}</option>
@@ -1238,7 +1223,7 @@ const TeamTab: React.FC = () => {
                                         </select>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className={STAFF_MODAL_FIELD_LABEL}>Salary / Wage</label>
+                                        <label className={STAFF_MODAL_FIELD_LABEL}>{t("staff.salary_wage")}</label>
                                         <div className="flex gap-2">
                                             <Input
                                                 type="number"
@@ -1251,8 +1236,8 @@ const TeamTab: React.FC = () => {
                                                 onChange={(e) => setFormData({ ...formData, salary_type: e.target.value as 'HOURLY' | 'MONTHLY' })}
                                                 className={STAFF_MODAL_SALARY_TYPE_SELECT}
                                             >
-                                                <option value="HOURLY">/HR</option>
-                                                <option value="MONTHLY">/MO</option>
+                                                <option value="HOURLY">{t("staff.per_hour_short")}</option>
+                                                <option value="MONTHLY">{t("staff.per_month_short")}</option>
                                             </select>
                                         </div>
                                     </div>
@@ -1262,10 +1247,10 @@ const TeamTab: React.FC = () => {
                             {/* Promotion History */}
                             <div className={cn("space-y-4 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
                                 <div className="flex items-center justify-between">
-                                    <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>Promotion History</h4>
+                                    <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>{t("staff.promotion_history")}</h4>
                                     {!isPromoting && (
                                         <Button variant="ghost" size="sm" className="text-emerald-600 dark:text-emerald-400 font-black text-[9px] uppercase tracking-widest hover:bg-emerald-50 dark:hover:bg-emerald-900/20" onClick={() => setIsPromoting(true)}>
-                                            <TrendingUp className="w-3 h-3 mr-1" /> Promote Staff
+                                            <TrendingUp className="w-3 h-3 mr-1" /> {t("staff.promote_staff")}
                                         </Button>
                                     )}
                                 </div>
@@ -1274,30 +1259,30 @@ const TeamTab: React.FC = () => {
                                     <div className="p-6 bg-emerald-50/50 dark:bg-emerald-900/20 rounded-3xl border border-emerald-100 dark:border-emerald-800/50 space-y-4 animate-in fade-in slide-in-from-top-2">
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="space-y-2">
-                                                <label className={STAFF_MODAL_FIELD_LABEL}>New Role</label>
+                                                <label className={STAFF_MODAL_FIELD_LABEL}>{t("staff.new_role")}</label>
                                                 <select
                                                     value={promoRole}
                                                     onChange={(e) => setPromoRole(e.target.value)}
                                                     className={STAFF_MODAL_SELECT}
                                                 >
-                                                    <option value="SUPER_ADMIN">Super Admin</option>
-                                                    <option value="ADMIN">Admin</option>
-                                                    <option value="OWNER">Owner</option>
-                                                    <option value="MANAGER">Manager</option>
-                                                    <option value="CHEF">Chef</option>
-                                                    <option value="WAITER">Waiter</option>
-                                                    <option value="KITCHEN_HELP">Kitchen Help</option>
-                                                    <option value="BARTENDER">Bartender</option>
-                                                    <option value="CLEANER">Cleaner</option>
+                                                    <option value="SUPER_ADMIN">{roleOptionLabel("SUPER_ADMIN")}</option>
+                                                    <option value="ADMIN">{roleOptionLabel("ADMIN")}</option>
+                                                    <option value="OWNER">{roleOptionLabel("OWNER")}</option>
+                                                    <option value="MANAGER">{roleOptionLabel("MANAGER")}</option>
+                                                    <option value="CHEF">{roleOptionLabel("CHEF")}</option>
+                                                    <option value="WAITER">{roleOptionLabel("WAITER")}</option>
+                                                    <option value="KITCHEN_HELP">{roleOptionLabel("KITCHEN_HELP")}</option>
+                                                    <option value="BARTENDER">{roleOptionLabel("BARTENDER")}</option>
+                                                    <option value="CLEANER">{roleOptionLabel("CLEANER")}</option>
                                                 </select>
                                             </div>
                                             <div className="space-y-2">
-                                                <label className={STAFF_MODAL_FIELD_LABEL}>Effective Date</label>
+                                                <label className={STAFF_MODAL_FIELD_LABEL}>{t("staff.effective_date")}</label>
                                                 <Input disabled value={format(new Date(), "PPP")} className={cn(STAFF_MODAL_INPUT, "opacity-70 cursor-not-allowed")} />
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <label className={STAFF_MODAL_FIELD_LABEL}>Promotion Notes</label>
+                                            <label className={STAFF_MODAL_FIELD_LABEL}>{t("staff.promotion_notes")}</label>
                                             <textarea
                                                 value={promoNote}
                                                 onChange={(e) => setPromoNote(e.target.value)}
@@ -1306,8 +1291,8 @@ const TeamTab: React.FC = () => {
                                             />
                                         </div>
                                         <div className="flex gap-2">
-                                            <Button variant="ghost" className="flex-1 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => setIsPromoting(false)}>Cancel</Button>
-                                            <Button className="flex-2 h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg px-8" onClick={handlePromote}>Confirm Promotion</Button>
+                                            <Button variant="ghost" className="flex-1 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => setIsPromoting(false)}>{t("common.cancel")}</Button>
+                                            <Button className="flex-2 h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg px-8" onClick={handlePromote}>{t("staff.confirm_promotion")}</Button>
                                         </div>
                                     </div>
                                 )}
@@ -1330,13 +1315,14 @@ const TeamTab: React.FC = () => {
                                                 size="icon"
                                                 className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 h-6 w-6"
                                                 onClick={() => setPromotions(promotions.filter((_, idx) => idx !== i))}
+                                                aria-label={t("staff.remove_promotion")}
                                             >
                                                 <X className="w-3 h-3" />
                                             </Button>
                                         </div>
                                     )) : (
                                         <div className={STAFF_MODAL_EMPTY}>
-                                            <p className={STAFF_MODAL_EMPTY_TEXT_SM}>No promotion records found</p>
+                                            <p className={STAFF_MODAL_EMPTY_TEXT_SM}>{t("staff.no_promotion_records")}</p>
                                         </div>
                                     )}
                                 </div>
@@ -1345,7 +1331,7 @@ const TeamTab: React.FC = () => {
                             {/* Documents Section */}
                             <div className={cn("space-y-4 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
                                 <div className="flex items-center justify-between">
-                                    <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>Documents</h4>
+                                    <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>{t("staff.documents")}</h4>
                                     <label className="cursor-pointer group">
                                         <Input
                                             type="file"
@@ -1360,7 +1346,7 @@ const TeamTab: React.FC = () => {
                                                     toast.success(t("toasts.document_uploaded"));
                                                     fetchDocuments(selectedMember.id);
                                                 } catch (err: unknown) {
-                                                    toast.error(getErrorMessage(err, "Failed to upload document"));
+                                                    toast.error(getErrorMessage(err, t("staff.errors.upload_document")));
                                                 } finally {
                                                     setIsUploading(false);
                                                 }
@@ -1369,7 +1355,7 @@ const TeamTab: React.FC = () => {
                                         />
                                         <div className="flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors uppercase tracking-widest">
                                             {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-4 h-4" />}
-                                            Upload Document
+                                            {t("staff.upload_document")}
                                         </div>
                                     </label>
                                 </div>
@@ -1391,8 +1377,8 @@ const TeamTab: React.FC = () => {
                                                         href={getDocumentUrl(doc.file)}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        aria-label={`Download document: ${doc.title}`}
-                                                        title={`Download ${doc.title}`}
+                                                        aria-label={t("staff.download_document", { title: doc.title })}
+                                                        title={t("staff.download_document", { title: doc.title })}
                                                         className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-emerald-500 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-900 transition-all"
                                                     >
                                                         <Download className="w-4 h-4" />
@@ -1401,6 +1387,8 @@ const TeamTab: React.FC = () => {
                                                         variant="ghost"
                                                         size="icon"
                                                         className="w-8 h-8 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-white dark:hover:bg-slate-900 transition-all"
+                                                        aria-label={t("staff.delete_document", { title: doc.title })}
+                                                        title={t("staff.delete_document", { title: doc.title })}
                                                         onClick={async () => {
                                                             if (!confirm(t("errors.confirm_delete_document"))) return;
                                                             try {
@@ -1409,7 +1397,7 @@ const TeamTab: React.FC = () => {
                                                                 toast.success(t("toasts.document_deleted"));
                                                                 fetchDocuments(selectedMember.id);
                                                             } catch (err: unknown) {
-                                                                toast.error(getErrorMessage(err, "Failed to delete document"));
+                                                                toast.error(getErrorMessage(err, t("staff.errors.delete_document")));
                                                             }
                                                         }}
                                                     >
@@ -1420,7 +1408,7 @@ const TeamTab: React.FC = () => {
                                         ))
                                     ) : (
                                         <div className={cn(STAFF_MODAL_EMPTY, "flex flex-col items-center justify-center py-8")}>
-                                            <p className={cn(STAFF_MODAL_EMPTY_TEXT_SM, "text-center")}>No documents uploaded</p>
+                                            <p className={cn(STAFF_MODAL_EMPTY_TEXT_SM, "text-center")}>{t("staff.no_documents")}</p>
                                         </div>
                                     )}
                                 </div>
@@ -1429,7 +1417,7 @@ const TeamTab: React.FC = () => {
                             {/* Password Security */}
                             <div className={cn("space-y-3 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
                                 <div className="flex items-center justify-between">
-                                    <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>Security</h4>
+                                    <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>{t("staff.security")}</h4>
                                     <Button
                                         variant="outline"
                                         size="sm"
@@ -1449,7 +1437,7 @@ const TeamTab: React.FC = () => {
                                         <div className="space-y-2">
                                             <div className="flex items-center gap-2 mb-2">
                                                 <Key className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                                <label className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">New Password</label>
+                                                <label className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">{t("staff.new_password")}</label>
                                             </div>
                                             <div className="flex gap-3">
                                                 <Input
@@ -1467,7 +1455,7 @@ const TeamTab: React.FC = () => {
                                                     {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : t("common.update")}
                                                 </Button>
                                             </div>
-                                            <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium ml-1">Staff can use this to login via PIN or password.</p>
+                                            <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium ml-1">{t("staff.password_reset_hint")}</p>
                                         </div>
                                     </div>
                                 )}
@@ -1479,10 +1467,10 @@ const TeamTab: React.FC = () => {
                                     <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>{t("staff.danger_zone")}</h4>
                                     <div className="flex gap-2">
                                         <Button variant="outline" size="sm" className="text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20" onClick={() => { setStaffToDeactivate({ id: selectedMember.id, name: `${selectedMember.first_name} ${selectedMember.last_name}` }); setIsDeactivateModalOpen(true); }}>
-                                            Deactivate staff
+                                            {t("staff.deactivate_staff")}
                                         </Button>
                                         <Button variant="outline" size="sm" className="text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => { setStaffToDelete({ id: selectedMember.id, name: `${selectedMember.first_name} ${selectedMember.last_name}` }); setIsDeleteModalOpen(true); }}>
-                                            Remove staff
+                                            {t("staff.remove_staff")}
                                         </Button>
                                     </div>
                                 </div>
@@ -1492,10 +1480,10 @@ const TeamTab: React.FC = () => {
 
                         <div className={cn(STAFF_MODAL_FOOTER, "shrink-0")}>
                             <Button variant="outline" className={STAFF_MODAL_CANCEL_BTN} onClick={() => setIsEditModalOpen(false)}>
-                                Cancel Changes
+                                {t("staff.cancel_changes")}
                             </Button>
                             <Button className="flex-1 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs shadow-lg shadow-emerald-600/20 dark:shadow-emerald-900/30" onClick={handleSave}>
-                                Save Information
+                                {t("staff.save_information")}
                             </Button>
                         </div>
                     </Card>
@@ -1571,9 +1559,9 @@ const TeamTab: React.FC = () => {
                             clearSelection();
                         }}
                         className="h-10 rounded-md border border-slate-200 dark:border-slate-700 bg-card px-3 text-sm text-slate-700 dark:text-slate-200"
-                        aria-label="From branch"
+                        aria-label={t("generic.from_branch")}
                     >
-                        <option value="all">All branches</option>
+                        <option value="all">{t("generic.all_branches")}</option>
                         {tenantLocations.map((loc) => (
                             <option key={loc.id} value={loc.id}>
                                 {loc.name}
@@ -1591,6 +1579,8 @@ const TeamTab: React.FC = () => {
                                 : "text-muted-foreground hover:text-foreground"
                         )}
                         title={t("common.grid_view")}
+                        aria-label={t("common.grid_view")}
+                        aria-pressed={viewMode === 'grid'}
                     >
                         <LayoutGrid className="w-4 h-4" />
                     </button>
@@ -1603,6 +1593,8 @@ const TeamTab: React.FC = () => {
                                 : "text-muted-foreground hover:text-foreground"
                         )}
                         title={t("common.list_view")}
+                        aria-label={t("common.list_view")}
+                        aria-pressed={viewMode === 'list'}
                     >
                         <List className="w-4 h-4" />
                     </button>
@@ -1616,7 +1608,7 @@ const TeamTab: React.FC = () => {
             {multiBranch && selectedStaffIds.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900 px-4 py-3">
                     <span className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
-                        {selectedStaffIds.length} selected
+                        {t("staff.selected_count", { count: selectedStaffIds.length })}
                         {branchFilter !== "all"
                             ? ` · ${tenantLocations.find((l) => l.id === branchFilter)?.name || ""}`
                             : ""}
@@ -1632,14 +1624,14 @@ const TeamTab: React.FC = () => {
                         }}
                     >
                         <ArrowRightLeft className="w-4 h-4 mr-1.5" />
-                        Move to branch
+                        {t("generic.move_to_branch")}
                     </Button>
                     <Button
                         size="sm"
                         variant="ghost"
                         onClick={clearSelection}
                     >
-                        Clear
+                        {t("staff.clear_selection")}
                     </Button>
                 </div>
             ) : null}
@@ -1670,7 +1662,7 @@ const TeamTab: React.FC = () => {
                                                                 filteredStaff.every((m) => selectedStaffIds.includes(m.id))
                                                             }
                                                             onCheckedChange={() => toggleSelectAllVisible()}
-                                                            aria-label="Select all on page"
+                                                            aria-label={t("staff.select_all_on_page")}
                                                         />
                                                     </TableHead>
                                                 ) : null}
@@ -1678,7 +1670,7 @@ const TeamTab: React.FC = () => {
                                                 <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.table_contact")}</TableHead>
                                                 <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.table_role")}</TableHead>
                                                 {multiBranch ? (
-                                                    <TableHead className="text-slate-500 dark:text-slate-400">Branch</TableHead>
+                                                    <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.add_people.branch")}</TableHead>
                                                 ) : null}
                                                 <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.table_status")}</TableHead>
                                                 <TableHead className="text-slate-500 dark:text-slate-400">{t("staff.table_actions")}</TableHead>
@@ -1692,7 +1684,7 @@ const TeamTab: React.FC = () => {
                                                             <Checkbox
                                                                 checked={selectedStaffIds.includes(member.id)}
                                                                 onCheckedChange={() => toggleStaffSelected(member)}
-                                                                aria-label={`Select ${member.first_name}`}
+                                                                aria-label={t("staff.select_member", { name: member.first_name })}
                                                             />
                                                         </TableCell>
                                                     ) : null}
@@ -1740,15 +1732,16 @@ const TeamTab: React.FC = () => {
                                                                     size="icon"
                                                                     className="h-8 w-8"
                                                                     onClick={() => openMoveDialog([member])}
-                                                                    title="Move to branch"
+                                                                    title={t("generic.move_to_branch")}
+                                                                    aria-label={t("generic.move_to_branch")}
                                                                 >
                                                                     <ArrowRightLeft className="h-4 w-4" />
                                                                 </Button>
                                                             ) : null}
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditProfile(member)} title={t("common.edit_profile")}>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditProfile(member)} title={t("common.edit_profile")} aria-label={t("common.edit_profile")}>
                                                                 <Edit className="h-4 w-4" />
                                                             </Button>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewProfile(member)} title={t("common.view_profile")}>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewProfile(member)} title={t("common.view_profile")} aria-label={t("common.view_profile")}>
                                                                 <Eye className="h-4 w-4" />
                                                             </Button>
                                                         </div>
@@ -1798,6 +1791,7 @@ const TeamTab: React.FC = () => {
                                                         className="h-7 w-7 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
                                                         onClick={() => handleViewProfile(member)}
                                                         title={t("common.view_profile")}
+                                                        aria-label={t("common.view_profile")}
                                                     >
                                                         <Eye className="h-3.5 w-3.5" />
                                                     </Button>
@@ -1807,6 +1801,7 @@ const TeamTab: React.FC = () => {
                                                         className="h-7 w-7 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
                                                         onClick={() => handleEditProfile(member)}
                                                         title={t("common.edit_profile")}
+                                                        aria-label={t("common.edit_profile")}
                                                     >
                                                         <Edit className="h-3.5 w-3.5" />
                                                     </Button>
@@ -1816,7 +1811,8 @@ const TeamTab: React.FC = () => {
                                                             size="icon"
                                                             className="h-7 w-7 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
                                                             onClick={() => openMoveDialog([member])}
-                                                            title="Move to branch"
+                                                            title={t("generic.move_to_branch")}
+                                                                    aria-label={t("generic.move_to_branch")}
                                                         >
                                                             <ArrowRightLeft className="h-3.5 w-3.5" />
                                                         </Button>
@@ -1828,7 +1824,7 @@ const TeamTab: React.FC = () => {
                                                             <Checkbox
                                                                 checked={isSelected}
                                                                 onCheckedChange={() => toggleStaffSelected(member)}
-                                                                aria-label={`Select ${member.first_name}`}
+                                                                aria-label={t("staff.select_member", { name: member.first_name })}
                                                                 onClick={(e) => e.stopPropagation()}
                                                             />
                                                         </div>
@@ -1967,7 +1963,7 @@ const TeamTab: React.FC = () => {
                                                         <Send className="w-3.5 h-3.5 mr-1.5" />
                                                         {t("staff.pending.resend")}
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={() => handleDeletePendingActivation(pa.id)} title={t("staff.pending.delete")}>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={() => handleDeletePendingActivation(pa.id)} title={t("staff.pending.delete")} aria-label={t("staff.pending.delete")}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </div>
@@ -1980,156 +1976,6 @@ const TeamTab: React.FC = () => {
                     ) : (
                         <div className="text-center py-8 text-slate-500">{t("staff.pending.none")}</div>
                     )}
-                </CardContent>
-            </Card>
-        </div>
-    );
-};
-
-// Attendance Tab Component
-// Attendance Tab Component
-
-// Tasks Tab Component
-const TasksTab: React.FC = () => {
-    const [page, setPage] = useState(1);
-    const { logout } = useAuth() as AuthContextType;
-
-    const { data: paginatedData, isLoading } = useQuery<PaginatedResponse<ManagerTask>>({
-        queryKey: ["manager-tasks", page],
-        queryFn: async () => {
-            const response = await fetch(`${API_BASE}/scheduling/tasks/?page=${page}`, {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-                },
-            });
-            if (!response.ok) {
-                if (response.status === 401) logout();
-                throw new Error("Failed to fetch tasks");
-            }
-            return response.json();
-        },
-    });
-
-    const tasks: ManagerTask[] = Array.isArray(paginatedData) ? paginatedData : (paginatedData?.results || []);
-
-    const stats = {
-        total: tasks?.length || 0,
-        completed: tasks?.filter(t => t.status === "COMPLETED").length || 0,
-        inProgress: tasks?.filter(t => t.status === "IN_PROGRESS").length || 0,
-        overdue: tasks?.filter(t => t.status === "TODO" && new Date(t.due_date) < new Date()).length || 0,
-    };
-
-    const getStatusBadge = (status: string) => {
-        const styles = {
-            completed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-            in_progress: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-            overdue: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-            pending: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-        };
-        return <Badge className={styles[status as keyof typeof styles]}>{status.replace("_", " ")}</Badge>;
-    };
-
-    return (
-        <div className="space-y-6">
-            {/* Task Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Card className="border-slate-100 dark:border-slate-800 bg-card">
-                    <CardContent className="pt-6 text-center">
-                        <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Total Tasks</p>
-                    </CardContent>
-                </Card>
-                <Card className="border-slate-100 dark:border-slate-800 bg-card">
-                    <CardContent className="pt-6 text-center">
-                        <p className="text-2xl font-bold text-emerald-600">{stats.completed}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Completed</p>
-                    </CardContent>
-                </Card>
-                <Card className="border-slate-100 dark:border-slate-800 bg-card">
-                    <CardContent className="pt-6 text-center">
-                        <p className="text-2xl font-bold text-blue-600">{stats.inProgress}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">In Progress</p>
-                    </CardContent>
-                </Card>
-                <Card className="border-slate-100 dark:border-slate-800 bg-card">
-                    <CardContent className="pt-6 text-center">
-                        <p className="text-2xl font-bold text-red-600">{stats.overdue}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Overdue</p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Actions */}
-            <div className="flex justify-end">
-                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                    <PlusCircle className="w-4 h-4 mr-2" />
-                    Create Task
-                </Button>
-            </div>
-
-            {/* Task List */}
-            <Card className="border-slate-100 dark:border-slate-800 bg-card">
-                <CardHeader>
-                    <CardTitle className="text-slate-900 dark:text-white">Today's Tasks</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="border-slate-100 dark:border-slate-800">
-                                <TableHead className="text-slate-500 dark:text-slate-400">Task</TableHead>
-                                <TableHead className="text-slate-500 dark:text-slate-400">Assigned To</TableHead>
-                                <TableHead className="text-slate-500 dark:text-slate-400">Due Time</TableHead>
-                                <TableHead className="text-slate-500 dark:text-slate-400">Priority</TableHead>
-                                <TableHead className="text-slate-500 dark:text-slate-400">Status</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                <>
-                                    {Array.from({ length: 5 }).map((_, i) => (
-                                        <TableRow key={i}>
-                                            <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                                            <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                                            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                                        </TableRow>
-                                    ))}
-                                </>
-                            ) : tasks && tasks.length > 0 ? (
-                                tasks.map((task) => (
-                                    <TableRow key={task.id} className="border-slate-100 dark:border-slate-800">
-                                        <TableCell className="font-medium text-slate-900 dark:text-white">{task.title}</TableCell>
-                                        <TableCell className="text-slate-600 dark:text-slate-300">
-                                            {task.assigned_to_names?.join(", ") || t("common.unassigned")}
-                                        </TableCell>
-                                        <TableCell className="text-slate-600 dark:text-slate-300">
-                                            {task.due_time || format(new Date(task.due_date), "HH:mm")}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline" className={task.priority === "HIGH" || task.priority === "URGENT" ? "border-red-200 text-red-600" : ""}>
-                                                {task.priority || "MEDIUM"}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>{getStatusBadge(task.status)}</TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8 text-slate-500">
-                                        No tasks found
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                    <PaginationControls
-                        currentPage={page}
-                        count={paginatedData?.count || 0}
-                        pageSize={20}
-                        onPageChange={setPage}
-                        isLoading={isLoading}
-                    />
                 </CardContent>
             </Card>
         </div>

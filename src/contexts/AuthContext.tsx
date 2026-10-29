@@ -98,7 +98,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           if (userData.is_platform_operator === true && !isTenantUserSession(userData)) {
             if (
               location.pathname === "/auth" ||
-              location.pathname === "/staff-login" ||
               !location.pathname.startsWith("/admin")
             ) {
               navigate("/admin", { replace: true });
@@ -109,10 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           applyLanguageForUser(userData);
           // Don't auto-redirect on auth initialization - let the user stay where they are
           // Only redirect if they're on a public route like /auth
-          if (
-            location.pathname === "/auth" ||
-            location.pathname === "/staff-login"
-          ) {
+          if (location.pathname === "/auth") {
             navigate(resolvePostLoginPath(userData));
           }
         } else {
