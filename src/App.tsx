@@ -6,7 +6,6 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import { LanguageProvider } from "./contexts/LanguageProvider";
-import StaffGridLayout from "./components/layout/StaffGridLayout";
 import RoleBasedRoute from "./components/RoleBasedRoute";
 import OnboardingGate from "./components/OnboardingGate";
 import { useIdleTimeout } from "./hooks/use-idle-timeout";
@@ -39,7 +38,6 @@ const InventoryReportsPage = React.lazy(() => import("./pages/reporting/Inventor
 const LaborAttendanceReportPage = React.lazy(() => import("./pages/reporting/LaborAttendanceReportPage"));
 const TimeClockPage = React.lazy(() => import("./pages/TimeClockPage"));
 const ManagerAttendancePage = React.lazy(() => import("./pages/ManagerAttendancePage"));
-const ShiftDetailView = React.lazy(() => import("./pages/ShiftDetailView"));
 
 const DomainLayout = React.lazy(() =>
   import("./components/layout/DomainWorld").then((m) => ({ default: m.DomainLayout }))
@@ -130,9 +128,6 @@ const PlatformAgentQualityPage = React.lazy(
 const PlatformBriefingsPage = React.lazy(
   () => import("./pages/platform-admin/BriefingsPage")
 );
-const StaffAppsPage = React.lazy(() => import("./pages/StaffAppsPage"));
-const SafetyDashboard = React.lazy(() => import("./pages/SafetyDashboard"));
-const PinLogin = React.lazy(() => import("./components/auth/PinLogin"));
 const StaffApp = React.lazy(() => import("./pages/StaffApp"));
 const FinancePage = React.lazy(() => import("./pages/financials/FinancePage"));
 const ProcessesTasksApp = React.lazy(() => import("./pages/ProcessesTasksApp"));
@@ -150,9 +145,6 @@ const StaffManagement = React.lazy(() => import("./pages/StaffManagement"));
 const StaffRequestsPage = React.lazy(() => import("./pages/StaffRequestsPage"));
 const RedirectToStaffRequests = React.lazy(() => import("./pages/RedirectToStaffRequests"));
 const RedirectToOperationsLive = React.lazy(() => import("./pages/RedirectToOperationsLive"));
-const WeeklyScheduleView = React.lazy(
-  () => import("./pages/WeeklyScheduleView")
-);
 const TaskManagementBoard = React.lazy(
   () => import("./pages/TaskManagementBoard")
 );
@@ -173,7 +165,6 @@ const CategoryManagement = React.lazy(
 const SupervisorDashboard = React.lazy(
   () => import("./pages/SupervisorDashboard")
 );
-const StaffChat = React.lazy(() => import("./pages/StaffAnnouncement"));
 const StaffAnnouncements = React.lazy(
   () => import("./pages/StaffAnnouncements")
 );
@@ -181,21 +172,10 @@ const ReportsPage = React.lazy(() => import("./pages/ReportsPage"));
 const AcceptInvitation = React.lazy(() => import("./pages/AcceptInvitation"));
 const AutoSchedule = React.lazy(() => import("./pages/AutoSchedule"));
 const Timesheets = React.lazy(() => import("./pages/Timesheets"));
-const TaskChecklistRunner = React.lazy(
-  () => import("./pages/TaskChecklistRunner")
-);
-const StaffMyTasks = React.lazy(() => import("./pages/StaffMyTasks"));
-const MyChecklistsPage = React.lazy(() => import("./pages/MyChecklistsPage"));
-const ProcessConversationalRunner = React.lazy(
-  () => import("./pages/ProcessConversationalRunner"),
-);
-const ChecklistRunner = React.lazy(() => import("./pages/ChecklistRunner"));
 const AdminChecklistTemplates = React.lazy(
   () => import("./pages/AdminChecklistTemplates")
 );
-const StaffChecklistBoard = React.lazy(() => import("@/pages/StaffChecklistBoard"));
 const ManagerReviewDashboard = React.lazy(() => import("./pages/ManagerReviewDashboard"));
-const StaffSubmittedChecklists = React.lazy(() => import("./pages/StaffSubmittedChecklists"));
 const ResetPassword = React.lazy(() => import("./pages/ResetPassword"));
 
 const DashboardAttendancePage = React.lazy(
@@ -290,7 +270,6 @@ const App = () => {
               <Route path="/auth" element={<Auth />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
               <Route path="/staff-whatsapp" element={<StaffWhatsAppOnly />} />
-              <Route path="/staff-login" element={<PinLogin />} />
               <Route path="/accept-invitation" element={<AcceptInvitation />} />
               <Route path="/invite/:token" element={<AcceptInvitation />} />
               <Route path="/reset-password" element={<ResetPassword />} />
@@ -923,59 +902,6 @@ const App = () => {
                       <TimeClockPage />
                     </RoleBasedRoute>
                   }
-                />
-              </Route>
-
-              {/* Staff Routes */}
-              <Route
-                path="/staff-dashboard"
-                element={
-                  <ProtectedRoute>
-                    <StaffGridLayout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route index element={<StaffAppsPage />} />
-                <Route path="time-tracking" element={<TimeClockPage />} />
-                <Route path="schedule" element={<WeeklyScheduleView />} />
-                <Route path="schedule/:id" element={<ShiftDetailView />} />
-                <Route path="attendance" element={<AttendanceHistory />} />
-                <Route path="safety" element={<SafetyDashboard />} />
-                <Route path="my-checklists" element={<MyChecklistsPage />} />
-                <Route path="process-run" element={<ProcessConversationalRunner />} />
-                <Route path="process-run/:runId" element={<ProcessConversationalRunner />} />
-                <Route path="my-tasks" element={<StaffMyTasks />} />
-                <Route path="staff-checklists" element={<StaffChecklistBoard />} />
-                <Route path="submissions" element={<StaffSubmittedChecklists />} />
-                <Route
-                  path="cleaning"
-                  element={
-                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
-                      <CleaningTasks />
-                    </RoleBasedRoute>
-                  }
-                />
-                <Route
-                  path="task-checklist/:taskId"
-                  element={<TaskChecklistRunner />}
-                />
-                <Route
-                  path="run-checklist/:executionId"
-                  element={<ChecklistRunner />}
-                />
-                <Route
-                  path="kitchen"
-                  element={
-                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
-                      <KitchenDisplay />
-                    </RoleBasedRoute>
-                  }
-                />
-                <Route path="chat" element={<StaffChat />} />
-                <Route path="take-orders" element={<OrdersPage />} />
-                <Route
-                  path="announcements"
-                  element={<StaffChat />}
                 />
               </Route>
 

@@ -7,9 +7,28 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Loader2, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
-import type { AssignedShift } from './WeeklyScheduleView'; // Reuse interface from WeeklyScheduleView
 import { API_BASE } from "@/lib/api";
 import { unwrapEnvelope } from "@/lib/envelope";
+
+interface AssignedShift {
+  id: string;
+  shift_date: string | Date;
+  start_time: string;
+  end_time: string;
+  break_duration?: number | string;
+  role: string;
+  notes: string | null;
+  staff_info: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
+  staff?: string | { id: string; first_name?: string; last_name?: string; email?: string };
+  actual_hours?: number;
+  status?: "SCHEDULED" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+  is_confirmed?: boolean;
+}
 
 function asList(payload: unknown): any[] {
   const data = unwrapEnvelope(payload);

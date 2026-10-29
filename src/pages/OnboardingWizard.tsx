@@ -491,8 +491,8 @@ const OnboardingWizard: React.FC = () => {
                                 "Only the restaurant owner can complete initial setup.",
                             )}
                         </p>
-                        <Button variant="outline" onClick={() => navigate("/staff-dashboard")}>
-                            {t("onboarding.gate.go_staff_app", "Go to my staff app")}
+                        <Button variant="outline" onClick={() => navigate("/dashboard")}>
+                            {t("onboarding.gate.go_dashboard", "Go to the dashboard")}
                         </Button>
                     </CardContent>
                 </Card>
