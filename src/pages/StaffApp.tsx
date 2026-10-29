@@ -98,6 +98,7 @@ import {
 } from "@/config/staffInviteRolesByVertical";
 import { t } from "i18next";
 import { WEB_APP_ROLES } from "@/lib/operationalCommandRoles";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const STAFF_MODAL_INPUT =
     "h-9 rounded-lg bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 font-medium [color-scheme:light] dark:[color-scheme:dark]";
@@ -643,13 +644,13 @@ const TeamTab: React.FC = () => {
             phoneFromWhatsAppEmail(selectedMember.email) ||
             "";
 
-        const handleGenerateReport = async () => {
+        const handleGenerateReport = async (lang?: "en" | "fr" | "ar") => {
             // Open the tab inside the click so popup blockers allow it; the report prints itself (Save as PDF).
             const reportWindow = window.open("", "_blank");
             setIsGeneratingReport(true);
             try {
                 const token = localStorage.getItem("access_token") || "";
-                const html = await api.generateStaffReport(token, selectedMember.id);
+                const html = await api.generateStaffReport(token, selectedMember.id, lang);
                 if (!reportWindow) throw new Error(t("staff.report.popup_blocked"));
                 reportWindow.document.open();
                 reportWindow.document.write(html);
@@ -708,16 +709,26 @@ const TeamTab: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="border-emerald-100 text-emerald-600 hover:bg-emerald-50 rounded-xl font-bold h-11 px-6 shadow-sm ring-offset-background transition-all hover:shadow-md"
-                                onClick={handleGenerateReport}
-                                disabled={isGeneratingReport}
-                            >
-                                {isGeneratingReport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-                                {t("staff.pdf_report")}
-                            </Button>
+                            {/* The record can be issued in the language the manager or the staff member needs. */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="border-emerald-100 text-emerald-600 hover:bg-emerald-50 rounded-xl font-bold h-11 px-6 shadow-sm ring-offset-background transition-all hover:shadow-md"
+                                        disabled={isGeneratingReport}
+                                    >
+                                        {isGeneratingReport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                                        {t("staff.pdf_report")}
+                                        <ChevronDown className="w-4 h-4 ms-1 opacity-70" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleGenerateReport("en")}>English</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleGenerateReport("fr")}>Français</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleGenerateReport("ar")}>العربية</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                             </div>
                         </div>
 
