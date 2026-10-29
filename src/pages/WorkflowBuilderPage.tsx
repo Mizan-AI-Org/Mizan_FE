@@ -135,6 +135,14 @@ const EVENT_TYPES = [
 ];
 
 // ── Component ───────────────────────────────────────────────────────
+/** The workflow API needs the signed-in user's token like every other dashboard call. */
+function authFetch(url: string, init: RequestInit = {}) {
+  return fetch(url, {
+    ...init,
+    headers: { ...(init.headers as Record<string, string> | undefined), Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
+  });
+}
+
 export default function WorkflowBuilderPage() {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
@@ -145,7 +153,7 @@ export default function WorkflowBuilderPage() {
   const { data: workflows = [], isLoading } = useQuery<WorkflowDefinition[]>({
     queryKey: ["workflows"],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/core/workflows/`);
+      const res = await authFetch(`${API_BASE}/core/workflows/`);
       if (!res.ok) throw new Error("Failed to fetch workflows");
       return res.json();
     },
@@ -161,7 +169,7 @@ export default function WorkflowBuilderPage() {
       conditions: WorkflowCondition[];
       actions: WorkflowAction[];
     }) => {
-      const res = await fetch(`${API_BASE}/core/workflows/`, {
+      const res = await authFetch(`${API_BASE}/core/workflows/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -179,7 +187,7 @@ export default function WorkflowBuilderPage() {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, is_enabled }: { id: string; is_enabled: boolean }) => {
-      const res = await fetch(`${API_BASE}/core/workflows/${id}/`, {
+      const res = await authFetch(`${API_BASE}/core/workflows/${id}/`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_enabled }),
@@ -196,7 +204,7 @@ export default function WorkflowBuilderPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${API_BASE}/core/workflows/${id}/`, {
+      const res = await authFetch(`${API_BASE}/core/workflows/${id}/`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete workflow");
@@ -211,7 +219,7 @@ export default function WorkflowBuilderPage() {
 
   const runMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${API_BASE}/core/workflows/${id}/run/`, {
+      const res = await authFetch(`${API_BASE}/core/workflows/${id}/run/`, {
         method: "POST",
       });
       if (!res.ok) throw new Error("Failed to run workflow");

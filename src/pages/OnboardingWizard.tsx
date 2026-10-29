@@ -48,6 +48,7 @@ import {
     Sparkles,
     Upload,
     UserCog,
+    LayoutGrid,
     Users,
     X,
 } from "lucide-react";
@@ -74,6 +75,10 @@ import {
     type DashboardWidgetId,
 } from "@/pages/dashboard/DashboardWidgets";
 import { SectorPicker } from "@/components/onboarding/SectorPicker";
+import { ModulePicker } from "@/components/onboarding/ModulePicker";
+import { recommendedModules } from "@/config/modules";
+import { useModules } from "@/hooks/use-modules";
+import type { ModuleKey, ModulePricing } from "@/lib/types";
 import { playbooksForVertical } from "@/config/sectorPlaybookPreview";
 import {
     parseBusinessVertical,
@@ -93,11 +98,14 @@ type BackendStep =
     | "category_owners"
     | "google_calendar";
 
-type WizardStep = "welcome" | BackendStep | "done";
+type WizardStep = "welcome" | BackendStep | "modules" | "done";
+
+const MODULES_DONE_KEY = "mizan.onboarding.modules";
 
 const WIZARD_ORDER: WizardStep[] = [
     "welcome",
     "industry",
+    "modules",
     "staff_csv",
     "widgets",
     "widget_permissions",
@@ -409,7 +417,12 @@ const OnboardingWizard: React.FC = () => {
             // step rather than forcing them back through welcome.
             const started =
                 (Object.values(status.steps) as boolean[]).some((v) => v);
-            if (started) goTo(status.next_step as WizardStep);
+            if (started) {
+                const next = status.next_step as WizardStep;
+                const modulesDone = localStorage.getItem(MODULES_DONE_KEY) === "1";
+                const pastIndustry = next !== "industry";
+                goTo(!modulesDone && pastIndustry ? "modules" : next);
+            }
         }
     }, [status, step, goTo]);
 
@@ -556,7 +569,9 @@ const OnboardingWizard: React.FC = () => {
                     <div className="flex items-center gap-1.5 text-xs">
                         {WIZARD_ORDER.filter((s) => s !== "welcome" && s !== "done").map(
                             (s, i) => {
-                                const done = status.steps[s as BackendStep];
+                                const done = s === "modules"
+                                    ? localStorage.getItem(MODULES_DONE_KEY) === "1"
+                                    : status.steps[s as BackendStep];
                                 const active = step === s;
                                 return (
                                     <React.Fragment key={s}>
@@ -637,6 +652,21 @@ const OnboardingWizard: React.FC = () => {
                             onSkip={async () => {
                                 await markStepComplete("industry");
                                 await refreshStatus();
+                                goNext();
+                            }}
+                        />
+                    )}
+
+                    {step === "modules" && (
+                        <ModulesStep
+                            status={status}
+                            alreadyDone={localStorage.getItem(MODULES_DONE_KEY) === "1"}
+                            onSaved={async () => {
+                                localStorage.setItem(MODULES_DONE_KEY, "1");
+                                goNext();
+                            }}
+                            onSkip={() => {
+                                localStorage.setItem(MODULES_DONE_KEY, "1");
                                 goNext();
                             }}
                         />
@@ -877,7 +907,8 @@ const OnboardingWizard: React.FC = () => {
     async function syncSessionFromBackend(completedAtHint?: string | null) {
         const token = localStorage.getItem("access_token") || "";
         if (!token) return;
-        const profile = await api.getUserProfile(token);
+        // getUserProfile is typed with the minimal lib/types User; the payload is the full auth user.
+        const profile = (await api.getUserProfile(token)) as unknown as AuthUser & { restaurant_id?: string };
         const completedAt =
             profile.restaurant_data?.onboarding_completed_at ?? completedAtHint ?? null;
         const nextUser =
@@ -902,6 +933,8 @@ function stepChipFallback(s: string): string {
     switch (s) {
         case "industry":
             return "Industry";
+        case "modules":
+            return "Modules";
         case "staff_csv":
             return "Staff";
         case "widgets":
@@ -1155,6 +1188,107 @@ const IndustryStep: React.FC<{
                         <ArrowRight className="h-4 w-4" />
                     )}
                     {t("onboarding.industry.cta", "Continue")}
+                </Button>
+            </StepActions>
+        </StepShell>
+    );
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Step: Modules                                                              */
+/* -------------------------------------------------------------------------- */
+
+const ModulesStep: React.FC<{
+    status: OnboardingStatus;
+    alreadyDone: boolean;
+    onSaved: () => Promise<void> | void;
+    onSkip: () => void;
+}> = ({ status, alreadyDone, onSaved, onSkip }) => {
+    const { t } = useTranslation();
+    const queryClient = useQueryClient();
+    const vertical = parseBusinessVertical(status.business_vertical);
+    const sectorName = t(
+        SIGNUP_SECTOR_OPTIONS.find((o) => o.value === vertical)?.nameKey || "auth.signup.sector.restaurant",
+    );
+    const [modules, setModules] = useState<ModuleKey[]>(() => recommendedModules(vertical));
+    const [recommended, setRecommended] = useState<ModuleKey[]>(() => recommendedModules(vertical));
+    const [prices, setPrices] = useState<Partial<Record<ModuleKey, number>>>({});
+    const [pricing, setPricing] = useState<ModulePricing | undefined>(undefined);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        Promise.all([
+            api.getModuleCatalog(vertical).catch(() => null),
+            api.getTenantModules().catch(() => null),
+        ]).then(([catalog, current]) => {
+            if (cancelled) return;
+            if (catalog) {
+                setRecommended(catalog.recommended);
+                setPrices(Object.fromEntries((catalog.modules || []).map((m) => [m.key, m.priceMonthly])));
+                setPricing(catalog.pricing);
+            }
+            const selected = current?.selected?.length ? current.selected : catalog?.recommended;
+            if (selected?.length) setModules(selected);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [vertical]);
+
+    const save = async () => {
+        setSaving(true);
+        try {
+            await api.updateTenantModules(modules);
+            await queryClient.invalidateQueries({ queryKey: ["tenant-modules"] });
+            await onSaved();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : t("onboarding.err.step", "Could not save progress."));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <StepShell
+            icon={<LayoutGrid className="h-6 w-6" />}
+            title={t("onboarding.modules.title", "What will you run with Mizan?")}
+            subtitle={t("onboarding.modules.subtitle", {
+                defaultValue: "We picked what a {{sector}} business usually needs. Keep it or tailor it.",
+                sector: sectorName,
+            })}
+            alreadyDoneBadge={alreadyDone}
+            optional
+        >
+            <ModulePicker
+                variant="app"
+                value={modules}
+                recommended={recommended}
+                prices={prices}
+                pricing={pricing}
+                totalNote={t("auth.signup.trial_note")}
+                onChange={setModules}
+                disabled={saving}
+            />
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t(
+                    "onboarding.modules.later",
+                    "You can change this later under Settings → General Settings → Modules. Turning one off hides it; nothing is deleted.",
+                )}
+            </p>
+            <StepActions>
+                <Button variant="ghost" type="button" onClick={onSkip} disabled={saving}>
+                    {t("onboarding.skip_step", "Skip for now")}
+                </Button>
+                <Button
+                    onClick={() => {
+                        void save();
+                    }}
+                    disabled={saving}
+                    className="gap-2 bg-emerald-500 hover:bg-emerald-600"
+                >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                    {t("onboarding.continue", "Continue")}
                 </Button>
             </StepActions>
         </StepShell>
@@ -1433,6 +1567,12 @@ const WidgetsStep: React.FC<{
     onSkip: () => Promise<void> | void;
 }> = ({ status, onSaved, onSkip }) => {
     const { t } = useTranslation();
+    const { isEnabled: isModuleOn } = useModules();
+    const widgetChoices = DASHBOARD_WIDGET_IDS.filter((id) => {
+        if (id === "incidents") return isModuleOn("incidents");
+        if (id === "finance") return isModuleOn("finance");
+        return true;
+    });
     const [selected, setSelected] = useState<Set<DashboardWidgetId>>(() => {
         const extras = (status.suggested_widgets || []).filter(
             (id): id is DashboardWidgetId =>
@@ -1455,17 +1595,14 @@ const WidgetsStep: React.FC<{
     };
 
     const save = async () => {
-        if (selected.size === 0) {
+        const chosen = widgetChoices.filter((id) => selected.has(id));
+        if (chosen.length === 0) {
             toast.error(t("onboarding.widgets.err.need_one", "Pick at least one widget."));
             return;
         }
         setSaving(true);
         try {
-            await onSaved(
-                DASHBOARD_WIDGET_IDS.filter((id) =>
-                    selected.has(id),
-                ) as DashboardWidgetId[],
-            );
+            await onSaved(chosen);
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Save failed.");
         } finally {
@@ -1484,7 +1621,7 @@ const WidgetsStep: React.FC<{
             alreadyDoneBadge={status.steps.widgets}
         >
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {DASHBOARD_WIDGET_IDS.map((id) => {
+                {widgetChoices.map((id) => {
                     const Icon = WIDGET_ADD_ICONS[id];
                     const on = selected.has(id);
                     return (
@@ -1535,7 +1672,7 @@ const WidgetsStep: React.FC<{
                     <div className="text-xs text-muted-foreground">
                         {t("onboarding.widgets.selected_count", {
                             defaultValue: "{{count}} selected",
-                            count: selected.size,
+                            count: widgetChoices.filter((id) => selected.has(id)).length,
                         })}
                     </div>
                     <Button

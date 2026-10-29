@@ -32,7 +32,7 @@ const sizeClass = {
   sm: "h-10 w-10 text-xs",
   md: "h-14 w-14 text-sm",
   lg: "h-20 w-20 text-base",
-  xl: "h-24 w-24 text-lg",
+  xl: "h-[7.25rem] w-[7.25rem] text-xl",
 };
 
 export function StaffMemberAvatar({
@@ -52,27 +52,37 @@ export function StaffMemberAvatar({
       <Avatar
         className={cn(
           sizeClass[size],
-          "ring-2 ring-background shadow-md border border-border/60 bg-muted",
+          "ring-[3px] ring-background shadow-lg border border-border/50 bg-muted",
         )}
       >
         {src ? <AvatarImage src={src} alt="" className="object-cover" /> : null}
-        <AvatarFallback className="font-semibold bg-gradient-to-br from-emerald-100 to-teal-50 text-emerald-900 dark:from-emerald-950 dark:to-slate-900 dark:text-emerald-100">
+        <AvatarFallback className="font-semibold bg-gradient-to-br from-[hsl(var(--primary-muted))] via-card to-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))] dark:text-[hsl(var(--primary-hover))]">
           {initials}
         </AvatarFallback>
       </Avatar>
       {onUploadClick ? (
-        <button
-          type="button"
+        // Not a <button>: the avatar often sits inside a clickable staff card that is a <button> itself, and a button
+        // can't contain another one (React validateDOMNesting warning, broken click target).
+        <span
+          role="button"
+          tabIndex={0}
           onClick={(e) => {
             e.stopPropagation();
             onUploadClick();
           }}
-          className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm hover:text-foreground hover:bg-muted transition-colors"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              e.stopPropagation();
+              onUploadClick();
+            }
+          }}
+          className="absolute -bottom-0.5 -right-0.5 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 border-background bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-md hover:brightness-110 transition-[filter,transform] hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           title={uploadLabel}
           aria-label={uploadLabel}
         >
           <Camera className="h-3.5 w-3.5" />
-        </button>
+        </span>
       ) : null}
     </div>
   );

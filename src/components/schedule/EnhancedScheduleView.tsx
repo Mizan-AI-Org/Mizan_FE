@@ -17,6 +17,8 @@ import { AuthContextType } from "@/contexts/AuthContext.types";
 import { getStaffColor } from "@/lib/utils";
 import { exportTimesheetToPDF, exportTimesheetToExcel } from "@/utils/timesheetExport";
 import { Button } from "@/components/ui/button";
+import { MIZAN_SURFACE_CARD } from "@/lib/mizan-ui";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -221,7 +223,7 @@ const EnhancedScheduleView: React.FC = () => {
         staff_members: members,
         staff_members_details: details,
         color: "#0d9488",
-        frequency: occ.frequency,
+        frequency: occ.frequency as Shift["frequency"], // process occurrences may also be QUARTERLY/ANNUALLY
         days_of_week: occ.schedule_days,
         role: occ.role,
         tasks: [],
@@ -438,51 +440,31 @@ const EnhancedScheduleView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 p-4 sm:p-5">
-      {/* Sticky header so Grid Weekly / Timesheet / List View tabs stay visible when scrolling */}
-      <div className="sticky top-0 z-10 -mx-4 px-4 sm:-mx-5 sm:px-5 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-gray-100 dark:border-slate-800">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-            {t("schedule.staff_schedule")}
-          </h2>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as "week" | "timesheet" | "list")} className="bg-gray-100/80 dark:bg-slate-800/80 p-1 rounded-xl shrink-0 border border-gray-200/80 dark:border-slate-700/80">
-              <TabsList className="bg-transparent border-none flex flex-wrap gap-1 h-auto">
-                <TabsTrigger
-                  value="week"
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200/60 dark:hover:bg-slate-700/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:border-0 transition-colors"
-                >
-                  {t("schedule.weekly_grid_view")}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="timesheet"
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200/60 dark:hover:bg-slate-700/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:border-0 transition-colors"
-                >
-                  {t("schedule.timesheet_view")}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="list"
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200/60 dark:hover:bg-slate-700/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:border-0 transition-colors"
-                >
-                  {t("schedule.list_view")}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <button
-              onClick={() => {
-                setCurrentShift(null);
-                setIsShiftModalOpen(true);
-              }}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-all shadow-md hover:shadow-lg active:scale-95"
-            >
-              <Plus className="h-4 w-4" />
-              <span>{t("schedule.create")}</span>
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-4">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+          {t("schedule.staff_schedule")}
+        </h1>
+        <Tabs
+          value={currentView}
+          onValueChange={(v) => setCurrentView(v as "week" | "timesheet" | "list")}
+          className="w-full shrink-0 sm:w-[min(40rem,56%)]"
+        >
+          <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
+            <TabsTrigger value="week" className="w-full justify-center py-2.5 text-sm">
+              {t("schedule.weekly_grid_view")}
+            </TabsTrigger>
+            <TabsTrigger value="timesheet" className="w-full justify-center py-2.5 text-sm">
+              {t("schedule.timesheet_view")}
+            </TabsTrigger>
+            <TabsTrigger value="list" className="w-full justify-center py-2.5 text-sm">
+              {t("schedule.list_view")}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </header>
 
-      <div className="w-full">
+      <div className={cn(MIZAN_SURFACE_CARD, "w-full overflow-hidden p-0")}>
         {currentView === "week" && (
           <WeeklyTimeGridView
             shifts={shifts}
@@ -491,6 +473,10 @@ const EnhancedScheduleView: React.FC = () => {
             setCurrentDate={setCurrentDate}
             onEditShift={(shift) => {
               setCurrentShift(shift);
+              setIsShiftModalOpen(true);
+            }}
+            onCreateShift={() => {
+              setCurrentShift(null);
               setIsShiftModalOpen(true);
             }}
             isLoading={isLoading}
@@ -506,6 +492,10 @@ const EnhancedScheduleView: React.FC = () => {
               setCurrentShift(shift);
               setIsShiftModalOpen(true);
             }}
+            onCreateShift={() => {
+              setCurrentShift(null);
+              setIsShiftModalOpen(true);
+            }}
             isLoading={isLoading}
           />
         )}
@@ -514,6 +504,10 @@ const EnhancedScheduleView: React.FC = () => {
             shifts={shifts}
             staffMembers={staffMembers}
             currentDate={currentDate}
+            onCreateShift={() => {
+              setCurrentShift(null);
+              setIsShiftModalOpen(true);
+            }}
             isLoading={isLoading}
           />
         )}

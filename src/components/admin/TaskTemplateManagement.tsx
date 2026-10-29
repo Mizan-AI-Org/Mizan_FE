@@ -858,9 +858,15 @@ export default function TaskTemplateManagement() {
           {filteredTemplates.map((template) => (
             <Card
               key={template.id}
-              className="flex h-full flex-col border border-border/60 bg-card shadow-sm transition-shadow hover:shadow-md"
+              className="relative flex h-full cursor-pointer flex-col border border-border/60 bg-card shadow-sm transition-shadow hover:shadow-md"
             >
-              <CardHeader className="pb-3">
+              <button
+                type="button"
+                className="absolute inset-0 z-0 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={t("processes.edit_process_named", { name: template.name })}
+                onClick={() => handleEdit(template)}
+              />
+              <CardHeader className="pointer-events-none relative z-10 pb-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 flex-1 items-start gap-2">
                     <span className="mt-0.5 shrink-0 text-muted-foreground">
@@ -886,7 +892,7 @@ export default function TaskTemplateManagement() {
                 </div>
               </CardHeader>
 
-              <CardContent className="flex flex-1 flex-col space-y-3">
+              <CardContent className="pointer-events-none relative z-10 flex flex-1 flex-col space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex flex-wrap gap-2 min-w-0">
                     <Badge
@@ -926,7 +932,7 @@ export default function TaskTemplateManagement() {
                   }
                 />
 
-                <div className="mt-auto grid w-full grid-cols-3 items-center gap-2 border-t border-border/50 pt-3">
+                <div className="pointer-events-auto relative z-10 mt-auto grid w-full grid-cols-3 items-center gap-2 border-t border-border/50 pt-3">
                   <Button
                     variant="outline"
                     size="sm"
@@ -998,7 +1004,7 @@ export default function TaskTemplateManagement() {
               </DialogDescription>
             </DialogHeader>
             <TaskTemplateForm
-              template={editingProcess}
+              template={editingProcess as unknown as React.ComponentProps<typeof TaskTemplateForm>["template"]} /* fetched templates carry task ids; local TemplateTask type omits them */
               onSuccess={handleFormSuccess}
               onCancel={() => setEditingProcess(null)}
             />

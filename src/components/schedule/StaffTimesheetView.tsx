@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button as UIButton } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { cn, getStaffColor } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
@@ -26,6 +26,7 @@ interface StaffTimesheetViewProps {
   currentDate: Date;
   setCurrentDate: React.Dispatch<React.SetStateAction<Date>>;
   onEditShift?: (shift: Shift) => void;
+  onCreateShift?: () => void;
   isLoading?: boolean;
 }
 
@@ -128,6 +129,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
   currentDate,
   setCurrentDate,
   onEditShift,
+  onCreateShift,
   isLoading = false,
 }) => {
   const { t } = useLanguage();
@@ -226,6 +228,16 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({
           </div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{displayRange}</h2>
         </div>
+        {onCreateShift ? (
+          <button
+            type="button"
+            onClick={onCreateShift}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:bg-primary/90 active:scale-95"
+          >
+            <Plus className="h-4 w-4" />
+            <span>{t("schedule.create")}</span>
+          </button>
+        ) : null}
       </div>
 
       <div className="flex-1 overflow-auto">

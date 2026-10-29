@@ -1,6 +1,22 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   User,
+  AccountabilityScorecard,
+  NeedsAttentionItem,
+  InventorySummary,
+  StockCountReport,
+  ReorderSuggestions,
+  FinancePeriod,
+  FinancePnL,
+  FinancePayables,
+  StaffHRFile,
+  StaffHRDocument,
+  StaffDocumentCategory,
+  StaffNoteKind,
+  StaffAbsence,
+  StaffAbsenceStatus,
+  DayPresence,
+  MonthlyAttendance,
   Restaurant,
   LoginResponse,
   SignupData,
@@ -38,6 +54,20 @@ import {
   SubscriptionPlan,
   CurrentSubscription,
   BillingEntitlements,
+  ModuleCatalogResponse,
+  ModuleKey,
+  TenantModulesResponse,
+  UpdateModulesResponse,
+  BillingQuote,
+  BillingDetails,
+  BillingInvoiceDocument,
+  BillingInvoiceRow,
+  BillingOverview,
+  ApprovalKind,
+  ApprovalRow,
+  ApprovalsListResponse,
+  ApprovalRule,
+  ApprovalRulesResponse,
 } from "./types"; // Updated import path
 import { unwrapEnvelope } from "./envelope";
 
@@ -123,6 +153,21 @@ export function resolveMediaUrl(path: string | null | undefined): string {
 }
 
 // If BACKEND_URL is empty, API_BASE becomes "/api" which works with proxy/rewrites
+/** Inventory item form -> backend fields (cost, category, par level and default supplier are stored). */
+function inventoryItemBody(item: Partial<InventoryItem>): Record<string, unknown> {
+  return {
+    name: item.name,
+    unit: item.unit,
+    quantity: item.current_stock,
+    reorderPoint: item.min_stock_level,
+    sku: (item as { sku?: string }).sku || "",
+    category: item.category || undefined,
+    unitCost: item.cost_per_unit,
+    parLevel: item.par_level,
+    defaultSupplierId: item.supplier || undefined,
+  };
+}
+
 export const API_BASE = BACKEND_URL ? `${BACKEND_URL}/api` : "/api";
 
 const getWsBase = () => {
@@ -346,7 +391,8 @@ export class BackendService {
     // For frontend, we will directly use the API_BASE constant
   }
 
-  private async fetchWithError(path: string, options?: { method?: string; body?: string }): Promise<any> {
+  // `headers` is accepted for caller compatibility but not used: getHeaders() always supplies them.
+  private async fetchWithError(path: string, options?: { method?: string; body?: string; headers?: Record<string, string> }): Promise<any> {
     const method = options?.method || "GET";
     const buildInit = (): RequestInit => {
       const init: RequestInit = { method, headers: this.getHeaders() };
@@ -597,65 +643,6 @@ export class BackendService {
     }
   }
 
-  async acceptInvitation(
-    token: string,
-    first_name: string,
-    last_name: string,
-    password?: string,
-    pin_code?: string | null,
-    invitation_pin?: string | null,
-    email?: string
-  ): Promise<LoginResponse> {
-    try {
-      // Decide endpoint based on provided credentials
-      // Staff flow now requires only a login PIN, no invitation PIN
-      const endpoint = `${API_BASE}/staff/invite/accept/`;
-
-      const body: Record<string, any> = {
-        token,
-        first_name,
-        last_name,
-      };
-
-      if (isStaffFlow) {
-        body.pin_code = pin_code;
-        if (email) body.email = email;
-      } else if (password) {
-        body.password = password;
-      } else {
-        throw new Error("Missing credentials: provide PIN for staff or password for admin.");
-      }
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: this.getHeaders(),
-        body: JSON.stringify(body),
-      });
-      if (!response.ok) {
-        let message = "Invitation acceptance failed";
-        try {
-          const errorData = await response.json();
-          message = errorData.message || errorData.detail || errorData.error || message;
-          // Use a stable message so callers can redirect to login when already accepted
-          if (errorData.code === 'already_accepted') {
-            message = 'already_accepted';
-          }
-        } catch (_) {
-          // ignore parse errors
-        }
-        throw new Error(message);
-      }
-      return await response.json();
-    } catch (error: any) {
-      throw new Error(error.message || "Invitation acceptance failed");
-    }
-  }
-
-  /**
-   * Refresh the access token and persist whatever the backend rotates back.
-   * ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION are on server-side, so the
-   * returned `refresh` (not just `access`) must be saved or the next refresh fails.
-   */
   async refreshToken(refreshToken: string): Promise<{ access: string; refresh?: string }> {
     try {
       const response = await fetch(`${API_BASE}/token/refresh/`, {
@@ -687,7 +674,7 @@ export class BackendService {
       }
       const body = await response.json();
       const { unwrapUser } = await import("@/lib/envelope");
-      return unwrapUser(body) as User;
+      return unwrapUser(body) as unknown as User;
     } catch (error: any) {
       throw new Error(error.message || "Failed to fetch user profile");
     }
@@ -821,7 +808,7 @@ export class BackendService {
     staff?: string;
     q?: string;
     searchBy?: "staff" | "task" | "category";
-    priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT" | "CRITICAL";
+    priority?: "NORMAL" | "LOW" | "MEDIUM" | "HIGH" | "URGENT" | "CRITICAL";
     dateFrom?: string;
     dateTo?: string;
   }): Promise<import("@/lib/types").OperationsLiveResponse> {
@@ -906,7 +893,7 @@ export class BackendService {
 
   async updateDashboardTaskPriority(
     taskId: string,
-    priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT",
+    priority: "NORMAL" | "LOW" | "MEDIUM" | "HIGH" | "URGENT",
   ): Promise<DashboardTaskDemandItem> {
     return this.fetchWithError(
       `/dashboard/tasks-demands/${taskId}/priority/`,
@@ -1316,7 +1303,7 @@ export class BackendService {
    */
   async listInvoices(
     opts: {
-      status?: "OPEN" | "PAID" | "VOIDED" | "DRAFT" | "PENDING_APPROVAL" | "ALL";
+      status?: "OPEN" | "PAID" | "VOIDED" | "ARCHIVED" | "DRAFT" | "PENDING_APPROVAL" | "ALL";
       vendor?: string;
       overdue?: boolean;
       due_within?: number;
@@ -1421,6 +1408,15 @@ export class BackendService {
   ): Promise<DashboardClockInsResponse> {
     const qs = `?limit=${encodeURIComponent(String(limit))}`;
     return this.fetchWithError(`/dashboard/clock-ins/${qs}`);
+  }
+
+  /** Approve a geo clock-in, or reject it (voids it; the staff member is told why). */
+  async reviewClockIn(id: string, approve: boolean, note = ""): Promise<{ id: string; kind: string; review_status: string }> {
+    const res = await this.fetchWithError(`/attendance/clock-ins/${id}/review/`, {
+      method: "POST",
+      body: JSON.stringify({ approve, note }),
+    });
+    return (res as { data?: { id: string; kind: string; review_status: string } }).data ?? res;
   }
 
   /**
@@ -1828,26 +1824,6 @@ export class BackendService {
     }
   }
 
-  async handleInviteStaff(
-    accessToken: string,
-    invitationData: InviteStaffData
-  ): Promise<StaffOperationResponse> {
-    try {
-      const response = await fetch(`${API_BASE}/staff/invite/`, {
-        method: "POST",
-        headers: this.getHeaders(accessToken),
-        body: JSON.stringify(invitationData),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Staff invitation failed");
-      }
-      return await response.json();
-    } catch (error: any) {
-      throw new Error(error.message || "Staff invitation failed");
-    }
-  }
-
   // Shift Template Selections
   async saveShiftTemplateSelections(
     accessToken: string,
@@ -1910,14 +1886,6 @@ export class BackendService {
     } catch (error: any) {
       throw new Error(error.message || "Failed to clear template selections");
     }
-  }
-
-  // Alias for consistency with controllers expecting inviteStaff()
-  async inviteStaff(
-    accessToken: string,
-    invitationData: InviteStaffData
-  ): Promise<StaffOperationResponse> {
-    return this.handleInviteStaff(accessToken, invitationData);
   }
 
   async getStaffList(accessToken: string): Promise<StaffListItem[]> {
@@ -2112,50 +2080,6 @@ export class BackendService {
     }
   }
 
-  async getPendingStaffInvitations(
-    accessToken: string
-  ): Promise<StaffInvitation[]> {
-    try {
-      const response = await fetch(
-        `${API_BASE}/invitations/?is_accepted=false&show_expired=false`,
-        {
-          method: "GET",
-          headers: this.getHeaders(accessToken),
-        }
-      );
-      if (response.ok) {
-        return await response.json();
-      }
-
-      // Fallback to legacy endpoint and client-side filter
-      const fallback = await fetch(`${API_BASE}/staff/invitations/`, {
-        method: "GET",
-        headers: this.getHeaders(accessToken),
-      });
-      if (!fallback.ok) {
-        let msg = "Failed to fetch pending staff invitations";
-        try {
-          const err = await fallback.json();
-          msg = err.message || err.detail || err.error || msg;
-        } catch {
-          // ignore parse error
-        }
-        throw new Error(msg);
-      }
-      const allInvites: StaffInvitation[] = await fallback.json();
-      const now = Date.now();
-      return (allInvites || []).filter((i: any) => {
-        const accepted = Boolean(i?.is_accepted);
-        const expiresAt = i?.expires_at ? Date.parse(i.expires_at) : 0;
-        return !accepted && expiresAt > now;
-      });
-    } catch (error: any) {
-      const message =
-        error?.message || "Failed to fetch pending staff invitations";
-      throw new Error(message);
-    }
-  }
-
   async getStaffDocuments(accessToken: string, staffId: string): Promise<any> {
     try {
       const response = await fetch(`${API_BASE}/staff/documents/?staff_id=${staffId}`, {
@@ -2173,19 +2097,19 @@ export class BackendService {
   }
 
   /**
-   * Generate and download a branded PDF report for a staff member (profile, hours, employment details).
-   * Returns a Blob for the PDF file.
+   * Printable HR report for a staff member (profile, contract, attendance, absences, documents).
+   * Returns the HTML page; the caller opens it in a tab, which prints itself (Save as PDF).
    */
-  async generateStaffReport(accessToken: string, staffId: string): Promise<Blob> {
-    const response = await fetch(`${API_BASE}/staff/${staffId}/report/pdf/`, {
+  async generateStaffReport(accessToken: string, staffId: string): Promise<string> {
+    const response = await fetch(`${API_BASE}/staff/${staffId}/report/`, {
       method: "GET",
       headers: this.getHeaders(accessToken),
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      throw new Error((err as { detail?: string }).detail || response.statusText || "Failed to generate report");
+      throw new Error((err as { error?: string; detail?: string }).error || (err as { detail?: string }).detail || response.statusText || "Failed to generate report");
     }
-    return response.blob();
+    return response.text();
   }
 
   async uploadStaffDocument(
@@ -2233,6 +2157,257 @@ export class BackendService {
     } catch (error: any) {
       throw new Error(error.message || "Failed to delete document");
     }
+  }
+
+  // ── HR staff file (people app) ──────────────────────────────────────────
+
+  private async peopleRequest<T>(accessToken: string, path: string, init: RequestInit = {}): Promise<T> {
+    const isForm = typeof FormData !== "undefined" && init.body instanceof FormData;
+    const response = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers: isForm ? { Authorization: `Bearer ${accessToken}` } : this.getHeaders(accessToken),
+    });
+    if (response.status === 204) return undefined as T;
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || payload.message || payload.detail || "Request failed");
+    }
+    return (payload && typeof payload === "object" && "data" in payload ? payload.data : payload) as T;
+  }
+
+  async getStaffFile(accessToken: string, staffId: string): Promise<StaffHRFile> {
+    return this.peopleRequest(accessToken, `/people/staff/${staffId}/file/`);
+  }
+
+  async updateStaffHrFields(accessToken: string, staffId: string, fields: Record<string, unknown>): Promise<StaffHRFile> {
+    return this.peopleRequest(accessToken, `/people/staff/${staffId}/file/`, {
+      method: "PATCH",
+      body: JSON.stringify({ fields }),
+    });
+  }
+
+  async addStaffNote(accessToken: string, staffId: string, body: string, kind: StaffNoteKind = "NOTE"): Promise<unknown> {
+    return this.peopleRequest(accessToken, `/people/staff/${staffId}/notes/`, {
+      method: "POST",
+      body: JSON.stringify({ body, kind }),
+    });
+  }
+
+  async deleteStaffNote(accessToken: string, noteId: string): Promise<void> {
+    return this.peopleRequest(accessToken, `/people/notes/${noteId}/`, { method: "DELETE" });
+  }
+
+  async uploadStaffDocumentFull(
+    accessToken: string,
+    staffId: string,
+    file: File,
+    title: string,
+    category: StaffDocumentCategory,
+    expiresAt?: string,
+  ): Promise<StaffHRDocument> {
+    const form = new FormData();
+    form.append("staff", staffId);
+    form.append("title", title);
+    form.append("category", category);
+    form.append("file", file);
+    if (expiresAt) form.append("expires_at", expiresAt);
+    return this.peopleRequest(accessToken, "/staff/documents/", { method: "POST", body: form });
+  }
+
+  async listAbsences(
+    accessToken: string,
+    params: { from?: string; to?: string; staff_id?: string; status?: string } = {},
+  ): Promise<StaffAbsence[]> {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString();
+    return this.peopleRequest(accessToken, `/people/absences/${qs ? `?${qs}` : ""}`);
+  }
+
+  async reviewAbsence(accessToken: string, absenceId: string, status: StaffAbsenceStatus, note = ""): Promise<StaffAbsence> {
+    return this.peopleRequest(accessToken, `/people/absences/${absenceId}/`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, note }),
+    });
+  }
+
+  async uploadAbsenceJustification(accessToken: string, absenceId: string, file: File): Promise<StaffAbsence> {
+    const form = new FormData();
+    form.append("file", file);
+    return this.peopleRequest(accessToken, `/people/absences/${absenceId}/justification/`, { method: "POST", body: form });
+  }
+
+  async getDayPresence(accessToken: string, date?: string): Promise<DayPresence> {
+    return this.peopleRequest(accessToken, `/people/attendance/day/${date ? `?date=${date}` : ""}`);
+  }
+
+  async getMonthlyAttendance(accessToken: string, month: string): Promise<MonthlyAttendance> {
+    return this.peopleRequest(accessToken, `/people/attendance/month/?month=${month}`);
+  }
+
+  async downloadMonthlyAttendanceCsv(accessToken: string, month: string): Promise<Blob> {
+    const response = await fetch(`${API_BASE}/people/attendance/month/?month=${month}&export=csv`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) throw new Error("Failed to export attendance");
+    return response.blob();
+  }
+
+  // ── Finance: P&L, payables, invoice edit / export ──────────────────────
+
+  async getFinancePnL(params: { period?: FinancePeriod; from?: string; to?: string } = {}): Promise<FinancePnL> {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString();
+    return this.peopleRequest(localStorage.getItem("access_token") || "", `/finance/pnl/${qs ? `?${qs}` : ""}`);
+  }
+
+  async getFinancePayables(): Promise<FinancePayables> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/finance/payables/");
+  }
+
+  async updateInvoiceFields(
+    invoiceId: string,
+    fields: Partial<{ vendor_name: string; invoice_number: string; amount: number; due_date: string; category: string }>,
+  ): Promise<import("./types").Invoice> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", `/finance/invoices/${invoiceId}/`, {
+      method: "PATCH",
+      body: JSON.stringify(fields),
+    });
+  }
+
+  async downloadInvoicesCsv(from: string, to: string): Promise<Blob> {
+    const response = await fetch(`${API_BASE}/finance/invoices/export/?from=${from}&to=${to}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
+    });
+    if (!response.ok) throw new Error("Failed to export invoices");
+    return response.blob();
+  }
+
+  // ── Inventory: summary, stock count, reorder ──────────────────────────
+
+  async getInventorySummary(): Promise<InventorySummary> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/inventory/summary/");
+  }
+
+  async submitStockCount(counts: { itemId: string; counted: number }[], note = ""): Promise<StockCountReport> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/inventory/counts/", {
+      method: "POST",
+      body: JSON.stringify({ counts, note }),
+    });
+  }
+
+  async getReorderSuggestions(): Promise<ReorderSuggestions> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/procurement/reorder/");
+  }
+
+  async createReorderOrders(
+    groups: { supplierId: string | null; lines: { itemId: string; quantity: number; unitPrice?: number }[] }[],
+  ): Promise<{ orders: { id: string }[] }> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/procurement/reorder/", {
+      method: "POST",
+      body: JSON.stringify({ groups }),
+    });
+  }
+
+  // ── Accountability (operations execution loop) ─────────────────────────
+
+  async getAccountability(days = 30): Promise<AccountabilityScorecard> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", `/operations/accountability/?days=${days}`);
+  }
+
+  async getModuleCatalog(vertical: string): Promise<ModuleCatalogResponse> {
+    const res = await fetch(`${API_BASE}/modules/catalog/?vertical=${encodeURIComponent(vertical)}`);
+    if (!res.ok) throw new Error("Request failed");
+    return res.json();
+  }
+
+  async getTenantModules(): Promise<TenantModulesResponse> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/modules/");
+  }
+
+  async updateTenantModules(enabled: ModuleKey[]): Promise<UpdateModulesResponse> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/modules/", {
+      method: "PUT",
+      body: JSON.stringify({ enabled }),
+    });
+  }
+
+  async getBillingQuote(modules: ModuleKey[], interval: "month" | "year" = "month"): Promise<BillingQuote> {
+    const res = await fetch(`${API_BASE}/billing/quote/?modules=${modules.join(",")}&interval=${interval}`);
+    if (!res.ok) throw new Error("Request failed");
+    return res.json();
+  }
+
+  async getBillingOverview(): Promise<BillingOverview> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/overview/");
+  }
+
+  async setBillingInterval(interval: "month" | "year"): Promise<BillingOverview> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/billing/interval/", {
+      method: "PUT",
+      body: JSON.stringify({ interval }),
+    });
+  }
+
+  async getBillingInvoice(id: string): Promise<BillingInvoiceDocument> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", `/billing/invoices/${id}/`);
+  }
+
+  /** "We paid this by bank transfer": Mizan confirms it against the bank, then marks it paid. */
+  async reportBillingPayment(id: string, reference: string, note = ""): Promise<BillingInvoiceRow> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", `/billing/invoices/${id}/report-payment/`, {
+      method: "POST",
+      body: JSON.stringify({ reference, note }),
+    });
+  }
+
+  async listApprovals(scope: "mine" | "pending" | "requested" | "decided" | "all" = "mine"): Promise<ApprovalsListResponse> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", `/approvals/?scope=${scope}`);
+  }
+
+  async getApproval(id: string): Promise<ApprovalRow> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", `/approvals/${id}/`);
+  }
+
+  async decideApproval(id: string, decision: "approve" | "reject", note = ""): Promise<ApprovalRow> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", `/approvals/${id}/decide/`, {
+      method: "POST",
+      body: JSON.stringify({ decision, note }),
+    });
+  }
+
+  async createApproval(body: { kind: ApprovalKind; title: string; amount?: string; notes?: string }): Promise<ApprovalRow> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/approvals/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async cancelApproval(id: string): Promise<ApprovalRow> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", `/approvals/${id}/cancel/`, { method: "POST" });
+  }
+
+  async getApprovalRules(): Promise<ApprovalRulesResponse> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/approvals/rules/");
+  }
+
+  async saveApprovalRules(rules: Partial<Record<ApprovalKind, Partial<ApprovalRule>>>): Promise<ApprovalRulesResponse> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/approvals/rules/", {
+      method: "PUT",
+      body: JSON.stringify({ rules }),
+    });
+  }
+
+  async getNeedsAttention(): Promise<{ items: NeedsAttentionItem[] }> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", "/operations/needs-attention/");
+  }
+
+  async taskExecutionAction(
+    taskId: string,
+    action: "reassign" | "extend" | "validate" | "block",
+    body: Record<string, unknown> = {},
+  ): Promise<unknown> {
+    return this.peopleRequest(localStorage.getItem("access_token") || "", `/operations/tasks/${taskId}/${action}/`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
   }
 
   async getRestaurantDetails(accessToken: string): Promise<Restaurant> {
@@ -2333,13 +2508,7 @@ export class BackendService {
       const response = await fetch(`${API_BASE}/inventory/`, {
         method: "POST",
         headers: this.getHeaders(accessToken),
-        body: JSON.stringify({
-          name: (itemData as { name?: string }).name,
-          unit: (itemData as { unit?: string }).unit,
-          quantity: (itemData as { current_stock?: number }).current_stock,
-          reorderPoint: (itemData as { min_stock_level?: number }).min_stock_level,
-          sku: (itemData as { sku?: string }).sku || "",
-        }),
+        body: JSON.stringify(inventoryItemBody(itemData)),
       });
       const payload = parseJsonSafe(await response.text());
       if (!response.ok || !payload) {
@@ -2400,18 +2569,12 @@ export class BackendService {
       const response = await fetch(`${API_BASE}/inventory/`, {
         method: "POST",
         headers: this.getHeaders(accessToken),
-        body: JSON.stringify({
-          id: itemId,
-          name: itemData.name,
-          unit: itemData.unit,
-          quantity: itemData.current_stock,
-          reorderPoint: itemData.min_stock_level,
-          sku: (itemData as { sku?: string }).sku || "",
-        }),
+        body: JSON.stringify({ id: itemId, ...inventoryItemBody(itemData) }),
       });
       const payload = parseJsonSafe(await response.text());
       if (!response.ok || !payload) {
-        throw new Error("Failed to update inventory item");
+        const err = payload as { message?: string; error?: string } | null;
+        throw new Error(err?.error || err?.message || "Failed to update inventory item");
       }
       const { mapInventoryItem } = await import("./envelope");
       return mapInventoryItem((unwrapEnvelope(payload) || payload) as Record<string, unknown>);
@@ -2578,7 +2741,7 @@ export class BackendService {
       id: String(row.id),
       restaurant: "",
       supplier: "",
-      supplier_info: { id: "", restaurant: "", name: row.itemName || "Item" },
+      supplier_info: { id: "", restaurant: "", name: row.itemName || "Item" } as PurchaseOrder["supplier_info"],
       order_date: String(row.createdAt || "").slice(0, 10),
       expected_delivery_date: undefined,
       delivery_date: row.receivedAt ? String(row.receivedAt).slice(0, 10) : undefined,
@@ -3630,7 +3793,7 @@ export class BackendService {
       headers: { ...this.getHeaders(accessToken), "Content-Type": "application/json" },
       body: JSON.stringify(body || {}),
     });
-    const data = parseJsonSafe(await response.text()) as { success?: boolean; error?: string; detail?: string } | null;
+    const data = parseJsonSafe(await response.text()) as { success: boolean; groups?: { id: string; name: string }[]; restaurants_by_group?: unknown[]; error?: string; detail?: string } | null;
     if (!data) {
       throw new Error("Eat Now is not connected. Save your Concierge API key in Settings → Integrations.");
     }
@@ -3650,7 +3813,7 @@ export class BackendService {
       body: JSON.stringify(body || {}),
     });
     const data = parseJsonSafe(await response.text()) as {
-      success?: boolean;
+      success: boolean;
       connected?: boolean;
       message?: string;
       sample_count?: number;
@@ -3686,7 +3849,7 @@ export class BackendService {
       body: JSON.stringify(body),
     });
     const data = parseJsonSafe(await response.text()) as {
-      success?: boolean;
+      success: boolean;
       imported?: number;
       api_count?: number;
       start_date?: string;

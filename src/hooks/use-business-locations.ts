@@ -63,7 +63,7 @@ export function useBusinessLocations() {
           name: String(row.name),
           address: row.address ? String(row.address) : "",
           is_primary: Boolean(row.is_primary ?? row.isPrimary),
-          is_active: row.is_active !== false,
+          is_active: (row.is_active as boolean | undefined) !== false,
         });
       }
       // Primary first, then alphabetical.

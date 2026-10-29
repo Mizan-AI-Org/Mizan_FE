@@ -33,10 +33,11 @@ import {
   Shield,
 } from "lucide-react";
 import { FormSectionSkeleton } from "@/components/skeletons";
-import { useState, useEffect, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense, memo } from "react";
 import { SectionErrorBoundary } from "@/components/ErrorBoundary";
 import { useQueryClient } from "@tanstack/react-query";
 import ReservationIntegration from "@/components/ReservationIntegration";
+import PosIntegrations from "@/components/settings/PosIntegrations";
 // Lazy-load heavy settings sections for better mobile performance
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
@@ -47,6 +48,7 @@ const MultiLocationSettings = lazy(() => import("@/components/settings/MultiLoca
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
 const BillingSettings = lazy(() => import("@/components/settings/BillingSettings"));
+const ModulesSettings = lazy(() => import("@/components/settings/ModulesSettings"));
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
 const ComplianceDocumentsSettings = lazy(
@@ -54,9 +56,7 @@ const ComplianceDocumentsSettings = lazy(
 );
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
-const PaymentApprovalSettings = lazy(
-  () => import("@/components/settings/PaymentApprovalSettings"),
-);
+const ApprovalRulesSettings = lazy(() => import("@/components/settings/ApprovalRulesSettings"));
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/use-language";
 import { Language } from "@/contexts/LanguageContext.types";
@@ -64,7 +64,6 @@ import { supportedLanguages } from "@/i18n";
 import axios from "axios";
 import type { AxiosError } from "axios";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { StaffInvitation } from "@/lib/types";
 import { User } from "@/contexts/AuthContext.types";
 import { translateApiError } from "@/i18n/messages";
 import {
@@ -88,7 +87,6 @@ import {
   type BusinessVertical,
 } from "@/config/staffInviteRolesByVertical";
 
-type PosConnectionStatus = "idle" | "connected" | "error";
 
 interface GeolocationSettings {
   latitude: number;
@@ -98,25 +96,13 @@ interface GeolocationSettings {
   geofence_polygon: Array<[number, number]>;
 }
 
-interface POSSettings {
-  pos_provider: string;
-  pos_merchant_id: string;
-  pos_location_id?: string;
-  pos_is_connected: boolean;
-  pos_custom_api_url?: string;
-  pos_custom_api_key?: string;
-  /** Lightspeed product line: Restaurant K-Series vs Retail X-Series */
-  lightspeed_line?: "RESTAURANT_K" | "RETAIL_X";
-  lightspeed_domain_prefix?: string;
-}
-
 interface AISettings {
   enabled: boolean;
   ai_provider: string;
   features_enabled: Record<string, boolean>;
 }
 
-type GeneralSettingsSection = "profile" | "general" | "location";
+type GeneralSettingsSection = "profile" | "general" | "location" | "modules";
 type IntegrationSection = "pos" | "reservations" | "calendar";
 type ComplianceApprovalsSection = "compliance" | "approvals";
 
@@ -125,7 +111,9 @@ function normalizeSettingsTab(raw: string): string {
   if (tab === "approvals" || tab === "payguard" || tab === "compliance") {
     return "compliance-approvals";
   }
-  if (tab === "profile" || tab === "general" || tab === "location") return "general-settings";
+  if (tab === "profile" || tab === "general" || tab === "location" || tab === "modules") {
+    return "general-settings";
+  }
   return tab;
 }
 
@@ -143,12 +131,18 @@ function resolveGeneralSettingsSection(params: URLSearchParams): GeneralSettings
   if (
     section === "profile" ||
     section === "general" ||
-    section === "location"
+    section === "location" ||
+    section === "modules"
   ) {
     return section;
   }
   const legacyTab = (params.get("tab") || "").toLowerCase();
-  if (legacyTab === "profile" || legacyTab === "general" || legacyTab === "location") {
+  if (
+    legacyTab === "profile" ||
+    legacyTab === "general" ||
+    legacyTab === "location" ||
+    legacyTab === "modules"
+  ) {
     return legacyTab;
   }
   return "profile";
@@ -165,7 +159,7 @@ function resolveIntegrationSection(params: URLSearchParams): IntegrationSection 
   return "pos";
 }
 
-export default function Settings() {
+function Settings() {
   const queryClient = useQueryClient();
   const { language, setLanguage: setAppLanguage, t } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -215,39 +209,14 @@ export default function Settings() {
     revenue: false,
     aiInsights: true,
   });
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteFirstName, setInviteFirstName] = useState("");
-  const [inviteLastName, setInviteLastName] = useState("");
-  const [inviteRole, setInviteRole] = useState("STAFF");
-  const [invitePhone, setInvitePhone] = useState("");
-  const [inviteSendWhatsApp, setInviteSendWhatsApp] = useState(false);
-  const [pendingInvitations, setPendingInvitations] = useState<
-    StaffInvitation[]
-  >([]);
   const [user, setUser] = useState<User | null>(null);
   // Quick Settings States
   const [smsNotificationsEnabled, setSmsNotificationsEnabled] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
 
   const [savingGeolocation, setSavingGeolocation] = useState(false);
-  const [posSettings, setPosSettings] = useState<POSSettings>({
-    pos_provider: "NONE",
-    pos_merchant_id: "",
-    pos_location_id: "",
-    pos_is_connected: false,
-    lightspeed_line: "RESTAURANT_K",
-    lightspeed_domain_prefix: "",
-  });
-  const [posAPIKey, setPosAPIKey] = useState("");
-  const [showAPIKey, setShowAPIKey] = useState(false);
-  const [savingPos, setSavingPos] = useState(false);
-  const [posTestingConnection, setPosTestingConnection] = useState(false);
-  const [posConnectionStatus, setPosConnectionStatus] =
-    useState<PosConnectionStatus>("idle");
   // Tracks backend settings schema/version for optimistic concurrency
   const [settingsSchemaVersion, setSettingsSchemaVersion] = useState<number | null>(null);
-  const [posDisconnectOpen, setPosDisconnectOpen] = useState(false);
-  const [posDisconnecting, setPosDisconnecting] = useState(false);
   const [aiSettings, setAiSettings] = useState<AISettings>({
     enabled: true,
     ai_provider: "GROQ",
@@ -297,7 +266,14 @@ export default function Settings() {
 
   useEffect(() => {
     const legacyTab = (searchParams.get("tab") || "").toLowerCase();
-    if (legacyTab !== "profile" && legacyTab !== "general" && legacyTab !== "location") return;
+    if (
+      legacyTab !== "profile" &&
+      legacyTab !== "general" &&
+      legacyTab !== "location" &&
+      legacyTab !== "modules"
+    ) {
+      return;
+    }
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -446,48 +422,14 @@ export default function Settings() {
     []
   );
 
-  // Handle POS OAuth callback results (redirect back to /dashboard/settings).
-  // We handle both the legacy ?square=connected|error convention and the
-  // unified ?pos_connected=true&provider=<name> convention used by the
-  // pos-app OAuth flows (Clover today; Square via the pos/ route; Toast
-  // never redirects because it uses partner-credentials without browser
-  // navigation).
+  // Back from Google Calendar's sign-in page (POS sign-ins are handled by PosIntegrations).
   useEffect(() => {
     const url = new URL(window.location.href);
-    const square = url.searchParams.get("square");
-    const message = url.searchParams.get("message");
-    const posConnected = url.searchParams.get("pos_connected");
-    const posError = url.searchParams.get("pos_error");
-    const provider = (url.searchParams.get("provider") || "").toLowerCase();
-
     const role = (JSON.parse(localStorage.getItem("user") || "{}")?.role || "").toUpperCase();
     const clean = (...keys: string[]) => {
       keys.forEach((k) => url.searchParams.delete(k));
       window.history.replaceState({}, "", url.toString());
     };
-
-    if (square === "connected") {
-      toast.success(t("settings.square_connected"));
-      if (role !== "STAFF") fetchUnifiedSettings();
-      clean("square", "message");
-    } else if (square === "error") {
-      toast.error(message ? `Square connect failed: ${message}` : "Square connect failed");
-      clean("square", "message");
-    } else if (posConnected === "true") {
-      const label =
-        provider === "clover"
-          ? t("pos.clover.connected") || "Clover connected."
-          : t("pos.connection.success") || "POS connected.";
-      toast.success(label);
-      if (role !== "STAFF") fetchUnifiedSettings();
-      clean("pos_connected", "provider");
-    } else if (posError) {
-      toast.error(
-        t("pos.connection.failed") ||
-          `POS connect failed (${posError}). Please try again.`,
-      );
-      clean("pos_error", "provider");
-    }
 
     const gcal = url.searchParams.get("gcal");
     if (gcal === "connected") {
@@ -543,7 +485,9 @@ export default function Settings() {
     roleUpper === "SUPER_ADMIN" || roleUpper === "ADMIN" || roleUpper === "OWNER";
 
   useEffect(() => {
-    if (!isStaff || activeTab !== "general-settings") return;
+    // Wait for the signed-in user: before it loads the role is empty and everyone looked like staff,
+    // which bounced deep links (?section=modules) back to Profile.
+    if (!user?.role || !isStaff || activeTab !== "general-settings") return;
     if (generalSection === "profile") return;
     onGeneralSectionChange("profile");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- staff may only open Profile
@@ -612,15 +556,6 @@ export default function Settings() {
       toast.error(t("generic.toast.failed_to_load_restaurant_settings"));
     }
 
-    try {
-      const response = await apiClient.get(
-        "/accounts/staff/invitations/"
-      );
-      setPendingInvitations(response.data);
-    } catch (error) {
-      console.error("Error fetching pending invitations:", error);
-      toast.error(t("settings.failed_load_invitations"));
-    }
   };
 
   const fetchUnifiedSettings = async () => {
@@ -653,19 +588,6 @@ export default function Settings() {
       setBreakDuration(data.break_duration || 30);
       setEmailNotifications(data.email_notifications || emailNotifications);
       setPushNotifications(data.push_notifications || pushNotifications);
-
-      // POS
-      setPosSettings({
-        pos_provider: data.pos_provider || "NONE",
-        pos_merchant_id: data.pos_merchant_id || "",
-        pos_location_id: data.pos_location_id || "",
-        pos_is_connected: data.pos_is_connected || false,
-        pos_custom_api_url: data.pos_custom_api_url || "",
-        pos_custom_api_key: data.pos_custom_api_key_set ? "••••••••" : "",
-        lightspeed_line: (data.lightspeed_line as POSSettings["lightspeed_line"]) || "RESTAURANT_K",
-        lightspeed_domain_prefix: data.lightspeed_domain_prefix || "",
-      });
-      setPosConnectionStatus(data.pos_is_connected ? "connected" : "idle");
 
       // AI
       const ai = data.ai_config || {};
@@ -745,11 +667,6 @@ export default function Settings() {
       }
     }
   };
-
-  const posFullyConnected = useMemo(
-    () => posSettings.pos_provider !== "NONE" && posSettings.pos_is_connected,
-    [posSettings.pos_provider, posSettings.pos_is_connected]
-  );
 
   const saveLocationSettings = async (
     lat: number,
@@ -901,306 +818,6 @@ export default function Settings() {
     }
   };
 
-  const handleInviteStaff = async () => {
-    if (!inviteFirstName || !inviteLastName || !inviteRole) {
-      toast.error(t("invitations.fill_required"));
-      return;
-    }
-    if (!inviteSendWhatsApp && !inviteEmail) {
-      toast.error(t("validation.email"));
-      return;
-    }
-    if (inviteSendWhatsApp && !invitePhone) {
-      toast.error(t("settings.phone_required_whatsapp"));
-      return;
-    }
-
-    try {
-      // Align with backend: /api/staff/invite/
-      const payload: Record<string, any> = {
-        first_name: inviteFirstName,
-        last_name: inviteLastName,
-        role: inviteRole,
-        send_whatsapp: inviteSendWhatsApp,
-      };
-      if (inviteEmail) payload.email = inviteEmail;
-      if (invitePhone) payload.phone_number = invitePhone;
-      const response = await apiClient.post("/staff/invite/", payload);
-
-      if (response.status === 201) {
-        toast.success(t("invitations.sent_success"));
-        setInviteEmail("");
-        setInviteFirstName("");
-        setInviteLastName("");
-        setInviteRole("STAFF");
-        setInvitePhone("");
-        setInviteSendWhatsApp(false);
-        const updatedInvitationsResponse = await apiClient.get(
-          "/invitations/?is_accepted=false&show_expired=false"
-        );
-        setPendingInvitations(updatedInvitationsResponse.data);
-      } else {
-        const errorData = response.data;
-        toast.error(
-          `Failed to send invitation: ${errorData.detail || errorData.error || "Unknown error"
-          }`
-        );
-      }
-    } catch (error) {
-      console.error("Error inviting staff:", error);
-      toast.error(t("settings.failed_send_invitation"));
-    }
-  };
-
-  const testPosConnection = async () => {
-    if (posSettings.pos_provider === "NONE") {
-      toast.error(t("pos.select_provider_first"));
-      return;
-    }
-    setPosTestingConnection(true);
-    try {
-      const response = await apiClient.post("/settings/test_pos_connection/", {
-        pos_provider: posSettings.pos_provider,
-        pos_merchant_id: posSettings.pos_merchant_id,
-        // For Square OAuth we validate server-side stored token; avoid sending secrets from UI.
-        pos_api_key: posSettings.pos_provider === "SQUARE" ? "" : posAPIKey,
-      });
-      const data = response.data;
-      if (data.connected) {
-        setPosConnectionStatus("connected");
-        setPosSettings((prev) => ({ ...prev, pos_is_connected: true }));
-        toast.success(t("pos.connection.success"));
-      } else {
-        setPosConnectionStatus("error");
-        setPosSettings((prev) => ({ ...prev, pos_is_connected: false }));
-        toast.error(
-          `${t("pos.connection.failed")}${data.message ? `: ${data.message}` : ""}`
-        );
-      }
-    } catch (error) {
-      setPosConnectionStatus("error");
-      setPosSettings((prev) => ({ ...prev, pos_is_connected: false }));
-      const axiosError = error as AxiosError<{ message?: string }>;
-      const message = translateApiError(axiosError);
-      toast.error(message);
-    } finally {
-      setPosTestingConnection(false);
-    }
-  };
-
-  const updatePosSettings = async () => {
-    if (posSettings.pos_provider === "NONE") {
-      toast.error(t("pos.select_provider_first"));
-      return;
-    }
-    setSavingPos(true);
-    try {
-      if (posSettings.pos_provider === "SQUARE") {
-        await testPosConnection();
-        await fetchUnifiedSettings();
-      } else if (posSettings.pos_provider === "CUSTOM") {
-        await saveCustomApi();
-      } else if (posSettings.pos_provider === "LIGHTSPEED") {
-        await saveLightSpeed();
-      } else if (posSettings.pos_provider === "TOAST") {
-        await connectToast();
-      } else if (posSettings.pos_provider === "CLOVER") {
-        await connectClover();
-      } else {
-        toast.error(t("common.coming_soon") || "Coming soon");
-      }
-    } catch (error) {
-      console.error("Failed to update POS settings:", error);
-      toast.error(t("settings.failed_update_pos"));
-    } finally {
-      setSavingPos(false);
-    }
-  };
-
-  const connectSquare = async () => {
-    try {
-      const resp = await apiClient.get("/settings/square/oauth/authorize/");
-      const url = resp.data?.authorization_url as string | undefined;
-      if (!url) {
-        toast.error(t("settings.square_oauth_unavailable"));
-        return;
-      }
-      window.location.href = url;
-    } catch (error) {
-      const axiosErr = error as AxiosError<{ detail?: string; error?: string }>;
-      toast.error(translateApiError(axiosErr));
-    }
-  };
-
-  // Toast uses partner-credentials auth - the tenant only needs to
-  // provide their restaurantGuid, which the backend verifies against
-  // Toast before persisting. No browser redirect.
-  const [toastGuidInput, setToastGuidInput] = useState("");
-  const [toastConnecting, setToastConnecting] = useState(false);
-  const connectToast = async () => {
-    const guid = toastGuidInput.trim();
-    if (!guid) {
-      toast.error(t("pos.toast.guid_required") || "Toast restaurant GUID is required.");
-      return;
-    }
-    setToastConnecting(true);
-    try {
-      await apiClient.post("/pos/toast/connect/", { restaurant_guid: guid });
-      toast.success(t("pos.toast.connected") || "Toast connected.");
-      setToastGuidInput("");
-      await fetchUnifiedSettings();
-    } catch (error) {
-      const axiosErr = error as AxiosError<{ detail?: string; error?: string }>;
-      const status = axiosErr.response?.status;
-      if (status === 501) {
-        // Server returns a sanitized `detail` string for this case; prefer
-        // the localized UI copy so translations stay consistent.
-        toast.error(
-          t("pos.toast.not_configured") ||
-            "Toast is not available right now. Contact your administrator.",
-        );
-      } else {
-        toast.error(translateApiError(axiosErr));
-      }
-    } finally {
-      setToastConnecting(false);
-    }
-  };
-
-  // Clover uses standard OAuth 2.0 - we ask the backend for the
-  // authorize URL (signed state bound to this tenant) and navigate.
-  const connectClover = async () => {
-    try {
-      const resp = await apiClient.get("/pos/clover/authorize/");
-      const url = resp.data?.authorization_url as string | undefined;
-      if (!url) {
-        toast.error(
-          t("pos.clover.not_configured") ||
-            "Clover is not available right now. Contact your administrator.",
-        );
-        return;
-      }
-      window.location.href = url;
-    } catch (error) {
-      const axiosErr = error as AxiosError<{ detail?: string; error?: string }>;
-      const status = axiosErr.response?.status;
-      if (status === 501) {
-        toast.error(
-          t("pos.clover.not_configured") ||
-            "Clover is not available right now. Contact your administrator.",
-        );
-      } else {
-        toast.error(translateApiError(axiosErr));
-      }
-    }
-  };
-
-  const disconnectToastOrClover = async (provider: "TOAST" | "CLOVER") => {
-    setPosDisconnecting(true);
-    try {
-      const path = provider === "TOAST" ? "/pos/toast/disconnect/" : "/pos/clover/disconnect/";
-      await apiClient.post(path);
-      toast.success(t("pos.disconnect_success"));
-      await fetchUnifiedSettings();
-      setPosDisconnectOpen(false);
-    } catch (error) {
-      toast.error(translateApiError(error as AxiosError<{ detail?: string; error?: string }>));
-    } finally {
-      setPosDisconnecting(false);
-    }
-  };
-
-  const saveLightSpeed = async () => {
-    const line = posSettings.lightspeed_line || "RESTAURANT_K";
-    if (!posAPIKey) {
-      toast.error(t("generic.toast.access_token_required"));
-      return;
-    }
-    if (line === "RESTAURANT_K" && !posSettings.pos_merchant_id) {
-      toast.error(t("generic.toast.business_location_required"));
-      return;
-    }
-    if (line === "RETAIL_X" && !posSettings.lightspeed_domain_prefix?.trim()) {
-      toast.error(t("generic.toast.domain_prefix_is_required_for_retail_x_series_e_g_mystore_from_mystore_retail_lightspeed_app"));
-      return;
-    }
-    setSavingPos(true);
-    try {
-      await apiClient.put("/settings/unified/", {
-        pos_provider: "LIGHTSPEED",
-        pos_api_key: posAPIKey,
-        pos_merchant_id: posSettings.pos_merchant_id,
-        pos_location_id: posSettings.pos_location_id || "",
-        lightspeed_line: line,
-        lightspeed_domain_prefix: posSettings.lightspeed_domain_prefix,
-      });
-      toast.success(t("generic.toast.lightspeed_saved"));
-      await testPosConnection();
-      await fetchUnifiedSettings();
-    } catch (error) {
-      console.error("Failed to save Lightspeed:", error);
-      toast.error(t("settings.failed_update_pos"));
-    } finally {
-      setSavingPos(false);
-    }
-  };
-
-  const saveCustomApi = async () => {
-    if (!posSettings.pos_custom_api_url) {
-      toast.error(t("generic.toast.api_base_url_required"));
-      return;
-    }
-    setSavingPos(true);
-    try {
-      await apiClient.put("/settings/unified/", {
-        pos_provider: "CUSTOM",
-        pos_custom_api_url: posSettings.pos_custom_api_url,
-        pos_custom_api_key: posSettings.pos_custom_api_key || "",
-      });
-      toast.success(t("generic.toast.custom_api_saved"));
-      await testPosConnection();
-      await fetchUnifiedSettings();
-    } catch (error) {
-      const axiosErr = error as AxiosError<{ detail?: string; error?: string }>;
-      toast.error(translateApiError(axiosErr));
-    } finally {
-      setSavingPos(false);
-    }
-  };
-
-  /** Clears all POS credentials (Square OAuth, Custom API, Lightspeed) via unified settings. */
-  const disconnectPosPlatform = async () => {
-    if (settingsSchemaVersion === null) {
-      toast.error(t("pos.disconnect_version_error"));
-      return;
-    }
-    setPosDisconnecting(true);
-    try {
-      const response = await apiClient.put("/settings/unified/", {
-        settings_schema_version: settingsSchemaVersion,
-        pos_disconnect: true,
-      });
-      toast.success(t("pos.disconnect_success"));
-      setPosDisconnectOpen(false);
-      setPosAPIKey("");
-      const v = response.data?.settings_schema_version ?? response.data?.settingsVersion;
-      if (typeof v === "number") {
-        setSettingsSchemaVersion(v);
-      }
-      await fetchUnifiedSettings();
-    } catch (error) {
-      const axiosErr = error as AxiosError<{ detail?: string; error?: string }>;
-      if (axiosErr.response?.status === 409) {
-        toast.error(t("pos.disconnect_conflict"));
-        await fetchUnifiedSettings();
-      } else {
-        toast.error(translateApiError(axiosErr) || t("pos.disconnect_error"));
-      }
-    } finally {
-      setPosDisconnecting(false);
-    }
-  };
-
   const saveAiSettings = async () => {
     setSavingAi(true);
     try {
@@ -1243,11 +860,12 @@ export default function Settings() {
 
           <div className="min-w-0 space-y-4">
         <TabsContent value="general-settings" className="mt-0 space-y-4 focus-visible:outline-none">
+          {activeTab === "general-settings" ? (
           <Tabs value={generalSection} onValueChange={onGeneralSectionChange} className="space-y-4">
             <TabsList
               className={cn(
                 "grid h-auto w-full gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5",
-                isStaff ? "grid-cols-1" : "grid-cols-3",
+                isStaff ? "grid-cols-1" : "grid-cols-2 lg:grid-cols-4",
               )}
             >
               <TabsTrigger
@@ -1270,6 +888,12 @@ export default function Settings() {
                   >
                     {t("nav.business.locations")}
                   </TabsTrigger>
+                  <TabsTrigger
+                    value="modules"
+                    className={cn(HUB_TABS_TRIGGER, "w-full py-3 text-sm font-semibold sm:text-[15px]")}
+                  >
+                    {t("settings.tabs.modules")}
+                  </TabsTrigger>
                 </>
               ) : null}
             </TabsList>
@@ -1279,6 +903,14 @@ export default function Settings() {
                 <ProfileSettings />
               </Suspense>
             </TabsContent>
+
+            {!isStaff ? (
+              <TabsContent value="modules" className="mt-0 space-y-4 focus-visible:outline-none">
+                <Suspense fallback={<FormSectionSkeleton />}>
+                  <ModulesSettings />
+                </Suspense>
+              </TabsContent>
+            ) : null}
 
             {!isStaff ? (
               <TabsContent value="location" className="mt-0 space-y-4 focus-visible:outline-none">
@@ -1537,10 +1169,12 @@ export default function Settings() {
               </TabsContent>
             ) : null}
           </Tabs>
+          ) : null}
         </TabsContent>
 
         {!isStaff && (
           <TabsContent value="integrations" className="mt-0 space-y-4 focus-visible:outline-none">
+            {activeTab === "integrations" ? (
             <Tabs
               value={integrationSection}
               onValueChange={onIntegrationSectionChange}
@@ -1577,562 +1211,7 @@ export default function Settings() {
               </TabsList>
 
               <TabsContent value="pos" className="mt-0 space-y-4 focus-visible:outline-none">
-            <SettingsSection
-              id="pos-integration"
-              icon={<Plug className="h-5 w-5" />}
-              iconClassName="bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
-              title={t("pos.title")}
-              description={t("pos.description")}
-              actions={
-                  <Badge
-                    variant="outline"
-                    className={
-                      posSettings.pos_provider === "NONE"
-                        ? "shrink-0 border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400"
-                        : posFullyConnected
-                          ? "shrink-0 border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-                          : "shrink-0 border-amber-500 bg-amber-50 text-amber-900 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-200"
-                    }
-                  >
-                    {posSettings.pos_provider === "NONE"
-                      ? t("integrations.status.pos_not_configured")
-                      : posFullyConnected
-                        ? t("integrations.status.fully_connected")
-                        : t("integrations.status.setup_incomplete")}
-                  </Badge>
-              }
-            >
-                <div
-                  className={cn(
-                    "grid grid-cols-1 gap-6",
-                    posSettings.pos_provider !== "NONE" &&
-                      "lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] lg:items-start",
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "space-y-3",
-                      posSettings.pos_provider !== "NONE"
-                        ? "lg:sticky lg:top-24"
-                        : "max-w-sm",
-                    )}
-                  >
-                    <div className="space-y-2">
-                      <Label htmlFor="pos-provider" className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("pos.provider")}</Label>
-                      <select
-                        id="pos-provider"
-                        value={posSettings.pos_provider}
-                        onChange={(e) =>
-                          setPosSettings({
-                            ...posSettings,
-                            pos_provider: e.target.value,
-                          })
-                        }
-                        className={settingsSelectClassName}
-                      >
-                        <option value="NONE">{t("pos.not_configured")}</option>
-                        <option value="SQUARE">Square</option>
-                        <option value="TOAST">Toast</option>
-                        <option value="LIGHTSPEED">Lightspeed</option>
-                        <option value="CLOVER">Clover</option>
-                        <option value="STRIPE" disabled={posSettings.pos_provider !== "STRIPE"}>Stripe (Coming soon…)</option>
-                        <option value="CUSTOM">{t("pos.custom_api") || "Custom API"}</option>
-                      </select>
-                      {posSettings.pos_provider === "NONE" ? (
-                        <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                          {t("pos.select_provider_first")} Square, Toast, Clover, Lightspeed, and
-                          Custom API are supported.
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="min-w-0">
-                <div>
-                  {posSettings.pos_provider === "SQUARE" ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("settings.square_account") || "Square account"}</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
-                            Connect via OAuth so no API keys are stored in the browser.
-                          </div>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={
-                            posFullyConnected
-                              ? "border-emerald-400 text-emerald-800 dark:border-emerald-700 dark:text-emerald-300"
-                              : "border-amber-500 text-amber-900 dark:border-amber-600 dark:text-amber-200"
-                          }
-                        >
-                          {posFullyConnected
-                            ? t("integrations.status.fully_connected")
-                            : t("integrations.status.setup_incomplete")}
-                        </Badge>
-                      </div>
-
-                      {!posSettings.pos_is_connected ? (
-                        <Button onClick={connectSquare} className="w-full">
-                          <Plug className="mr-2 h-4 w-4" />
-                          Connect with Square
-                        </Button>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="flex flex-col gap-2 sm:flex-row">
-                            <Button onClick={testPosConnection} variant="outline" className="flex-1">
-                              <Plug className="mr-2 h-4 w-4" />
-                              {t("pos.test_connection")}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              className="flex-1"
-                              onClick={() => setPosDisconnectOpen(true)}
-                            >
-                              <Unplug className="mr-2 h-4 w-4" />
-                              {t("pos.disconnect")}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : posSettings.pos_provider === "CUSTOM" ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-slate-700 dark:text-slate-300">Custom API</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
-                            Connect your own POS or sales API. Mizan will pull sales, menu, and order data.
-                          </div>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={
-                            posFullyConnected
-                              ? "border-emerald-400 text-emerald-800 dark:border-emerald-700 dark:text-emerald-300"
-                              : "border-amber-500 text-amber-900 dark:border-amber-600 dark:text-amber-200"
-                          }
-                        >
-                          {posFullyConnected
-                            ? t("integrations.status.fully_connected")
-                            : t("integrations.status.setup_incomplete")}
-                        </Badge>
-                      </div>
-
-                      <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                        <div className="space-y-1">
-                          <Label htmlFor="custom-api-url" className="text-sm font-medium text-slate-700 dark:text-slate-300">API Base URL *</Label>
-                          <Input
-                            id="custom-api-url"
-                            type="url"
-                            placeholder="https://your-pos-api.com/v1"
-                            value={posSettings.pos_custom_api_url || ''}
-                            onChange={(e) => setPosSettings({ ...posSettings, pos_custom_api_url: e.target.value })}
-                          />
-                          <p className="text-xs text-slate-400">
-                            Your API should expose <code>/menu</code> and <code>/orders</code> endpoints.
-                          </p>
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="custom-api-key" className="text-sm font-medium text-slate-700 dark:text-slate-300">API Key / Token</Label>
-                          <Input
-                            id="custom-api-key"
-                            type="password"
-                            placeholder="Bearer token or API key (optional)"
-                            value={posSettings.pos_custom_api_key || ''}
-                            onChange={(e) => setPosSettings({ ...posSettings, pos_custom_api_key: e.target.value })}
-                          />
-                          <p className="text-xs text-slate-400">
-                            Sent as <code>Authorization: Bearer &lt;key&gt;</code> header.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col gap-2 sm:flex-row">
-                        <Button onClick={saveCustomApi} disabled={savingPos || !posSettings.pos_custom_api_url} className="flex-1">
-                          {savingPos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                          {t("pos.save_connect")}
-                        </Button>
-                        <Button onClick={testPosConnection} variant="outline" disabled={posTestingConnection || !posSettings.pos_custom_api_url} className="flex-1">
-                          {posTestingConnection ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plug className="mr-2 h-4 w-4" />}
-                          {t("pos.test_connection_short")}
-                        </Button>
-                      </div>
-                      {posSettings.pos_is_connected && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
-                          onClick={() => setPosDisconnectOpen(true)}
-                        >
-                          <Unplug className="mr-2 h-4 w-4" />
-                          {t("pos.disconnect")}
-                        </Button>
-                      )}
-                    </div>
-                  ) : posSettings.pos_provider === "LIGHTSPEED" ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-slate-800 dark:text-slate-200">Lightspeed POS</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
-                            Restaurant (K-Series) or Retail (X-Series). See{" "}
-                            <a href="https://www.lightspeedhq.com/" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
-                              lightspeedhq.com
-                            </a>{" "}
-                            for product docs.
-                          </div>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={
-                            posFullyConnected
-                              ? "border-emerald-400 text-emerald-800 dark:border-emerald-700 dark:text-emerald-300"
-                              : "border-amber-500 text-amber-900 dark:border-amber-600 dark:text-amber-200"
-                          }
-                        >
-                          {posFullyConnected
-                            ? t("integrations.status.fully_connected")
-                            : t("integrations.status.setup_incomplete")}
-                        </Badge>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="lightspeed-line" className="text-sm font-medium text-slate-700 dark:text-slate-300">Product line</Label>
-                        <select
-                          id="lightspeed-line"
-                          value={posSettings.lightspeed_line || "RESTAURANT_K"}
-                          onChange={(e) =>
-                            setPosSettings({
-                              ...posSettings,
-                              lightspeed_line: e.target.value as POSSettings["lightspeed_line"],
-                            })
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100 rounded-md"
-                        >
-                          <option value="RESTAURANT_K">Restaurant - K-Series API</option>
-                          <option value="RETAIL_X">Retail - X-Series API</option>
-                        </select>
-                      </div>
-                      <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                        <div className="space-y-1">
-                          <Label htmlFor="lightspeed-api-key" className="text-sm font-medium text-slate-700 dark:text-slate-300">Access token *</Label>
-                          <Input
-                            id="lightspeed-api-key"
-                            type={showAPIKey ? "text" : "password"}
-                            placeholder="Token from Lightspeed Developer Portal"
-                            value={posAPIKey}
-                            onChange={(e) => setPosAPIKey(e.target.value)}
-                          />
-                          <p className="text-xs text-slate-400">
-                            {posSettings.lightspeed_line === "RETAIL_X"
-                              ? "Bearer token with sales:read (Retail X-Series)."
-                              : "Bearer token with access to your location sales (Restaurant K-Series)."}
-                          </p>
-                        </div>
-                        {posSettings.lightspeed_line === "RETAIL_X" ? (
-                          <>
-                            <div className="space-y-1">
-                              <Label htmlFor="lightspeed-domain" className="text-sm font-medium text-slate-700 dark:text-slate-300">Domain prefix *</Label>
-                              <Input
-                                id="lightspeed-domain"
-                                type="text"
-                                placeholder="e.g. mystore (from mystore.retail.lightspeed.app)"
-                                value={posSettings.lightspeed_domain_prefix || ""}
-                                onChange={(e) => setPosSettings({ ...posSettings, lightspeed_domain_prefix: e.target.value })}
-                              />
-                              <p className="text-xs text-slate-400">Subdomain only, before .retail.lightspeed.app</p>
-                            </div>
-                            <div className="space-y-1">
-                              <Label htmlFor="lightspeed-outlet" className="text-sm font-medium text-slate-700 dark:text-slate-300">Outlet ID (optional)</Label>
-                              <Input
-                                id="lightspeed-outlet"
-                                type="text"
-                                placeholder="Limit search to one outlet"
-                                value={posSettings.pos_location_id || ""}
-                                onChange={(e) => setPosSettings({ ...posSettings, pos_location_id: e.target.value })}
-                              />
-                            </div>
-                          </>
-                        ) : (
-                          <div className="space-y-1">
-                            <Label htmlFor="lightspeed-location-id" className="text-sm font-medium text-slate-700 dark:text-slate-300">Business Location ID *</Label>
-                            <Input
-                              id="lightspeed-location-id"
-                              type="text"
-                              placeholder="e.g. from K-Series admin / API"
-                              value={posSettings.pos_merchant_id || ""}
-                              onChange={(e) => setPosSettings({ ...posSettings, pos_merchant_id: e.target.value })}
-                            />
-                            <p className="text-xs text-slate-400">Used in K-Series /f/v2/business-location/&#123;id&#125;/sales</p>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-2 sm:flex-row">
-                        <Button
-                          onClick={saveLightSpeed}
-                          disabled={
-                            savingPos ||
-                            !posAPIKey ||
-                            (posSettings.lightspeed_line === "RESTAURANT_K" && !posSettings.pos_merchant_id) ||
-                            (posSettings.lightspeed_line === "RETAIL_X" && !posSettings.lightspeed_domain_prefix?.trim())
-                          }
-                          className="flex-1"
-                        >
-                          {savingPos ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                          {t("pos.save_connect")}
-                        </Button>
-                        <Button
-                          onClick={testPosConnection}
-                          variant="outline"
-                          className="flex-1"
-                          disabled={
-                            posTestingConnection ||
-                            (!posAPIKey && !posSettings.pos_is_connected) ||
-                            (posSettings.lightspeed_line === "RESTAURANT_K" && !posSettings.pos_merchant_id) ||
-                            (posSettings.lightspeed_line === "RETAIL_X" && !posSettings.lightspeed_domain_prefix?.trim())
-                          }
-                        >
-                          {posTestingConnection ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plug className="mr-2 h-4 w-4" />}
-                          {t("pos.test_connection_short")}
-                        </Button>
-                      </div>
-                      {posSettings.pos_is_connected && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
-                          onClick={() => setPosDisconnectOpen(true)}
-                        >
-                          <Unplug className="mr-2 h-4 w-4" />
-                          {t("pos.disconnect")}
-                        </Button>
-                      )}
-                    </div>
-                  ) : posSettings.pos_provider === "TOAST" ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-slate-800 dark:text-slate-200">Toast POS</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
-                            {t("pos.toast.subtitle") ||
-                              "Provide your Toast restaurantGuid. Mizan uses its partner credentials to pull your orders - no API keys stored in your browser."}
-                          </div>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={
-                            posFullyConnected
-                              ? "border-emerald-400 text-emerald-800 dark:border-emerald-700 dark:text-emerald-300"
-                              : "border-amber-500 text-amber-900 dark:border-amber-600 dark:text-amber-200"
-                          }
-                        >
-                          {posFullyConnected
-                            ? t("integrations.status.fully_connected")
-                            : t("integrations.status.setup_incomplete")}
-                        </Badge>
-                      </div>
-
-                      {!posSettings.pos_is_connected ? (
-                        <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                          <div className="space-y-1">
-                            <Label htmlFor="toast-guid" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                              {t("pos.toast.guid_label") || "Toast restaurant GUID *"}
-                            </Label>
-                            <Input
-                              id="toast-guid"
-                              type="text"
-                              placeholder="e.g. 9f8b5a7c-1234-4a56-9bcd-ef0123456789"
-                              value={toastGuidInput}
-                              onChange={(e) => setToastGuidInput(e.target.value)}
-                            />
-                            <p className="text-xs text-slate-400">
-                              {t("pos.toast.guid_hint") ||
-                                "Find this in Toast Web - Restaurant Admin → API access. Format: UUID."}
-                            </p>
-                          </div>
-                          <Button
-                            onClick={connectToast}
-                            disabled={toastConnecting || !toastGuidInput.trim()}
-                            className="w-full"
-                          >
-                            {toastConnecting ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <Plug className="mr-2 h-4 w-4" />
-                            )}
-                            {t("pos.toast.connect") || "Connect Toast"}
-                          </Button>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="space-y-1 p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/20">
-                            <div className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
-                              {t("pos.toast.connected_title") || "Toast is connected"}
-                            </div>
-                            <div className="text-xs text-emerald-700 dark:text-emerald-400 break-all">
-                              {t("pos.toast.guid_label_short") || "Restaurant GUID"}:{" "}
-                              <code>{posSettings.pos_merchant_id}</code>
-                            </div>
-                          </div>
-                          <div className="flex flex-col gap-2 sm:flex-row">
-                            <Button onClick={testPosConnection} variant="outline" className="flex-1">
-                              <Plug className="mr-2 h-4 w-4" />
-                              {t("pos.test_connection")}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              className="flex-1"
-                              onClick={() => setPosDisconnectOpen(true)}
-                            >
-                              <Unplug className="mr-2 h-4 w-4" />
-                              {t("pos.disconnect")}
-                            </Button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ) : posSettings.pos_provider === "CLOVER" ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-slate-800 dark:text-slate-200">Clover POS</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
-                            {t("pos.clover.subtitle") ||
-                              "Connect via Clover App Market OAuth so tokens stay out of your browser."}
-                          </div>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={
-                            posFullyConnected
-                              ? "border-emerald-400 text-emerald-800 dark:border-emerald-700 dark:text-emerald-300"
-                              : "border-amber-500 text-amber-900 dark:border-amber-600 dark:text-amber-200"
-                          }
-                        >
-                          {posFullyConnected
-                            ? t("integrations.status.fully_connected")
-                            : t("integrations.status.setup_incomplete")}
-                        </Badge>
-                      </div>
-
-                      {!posSettings.pos_is_connected ? (
-                        <Button onClick={connectClover} className="w-full">
-                          <Plug className="mr-2 h-4 w-4" />
-                          {t("pos.clover.connect") || "Connect with Clover"}
-                        </Button>
-                      ) : (
-                        <>
-                          <div className="space-y-1 p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/20">
-                            <div className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
-                              {t("pos.clover.connected_title") || "Clover is connected"}
-                            </div>
-                            {posSettings.pos_merchant_id ? (
-                              <div className="text-xs text-emerald-700 dark:text-emerald-400 break-all">
-                                {t("pos.clover.merchant_label") || "Merchant ID"}:{" "}
-                                <code>{posSettings.pos_merchant_id}</code>
-                              </div>
-                            ) : null}
-                          </div>
-                          <div className="flex flex-col gap-2 sm:flex-row">
-                            <Button onClick={testPosConnection} variant="outline" className="flex-1">
-                              <Plug className="mr-2 h-4 w-4" />
-                              {t("pos.test_connection")}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              className="flex-1"
-                              onClick={() => setPosDisconnectOpen(true)}
-                            >
-                              <Unplug className="mr-2 h-4 w-4" />
-                              {t("pos.disconnect")}
-                            </Button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ) : posSettings.pos_provider === "NONE" ? null : (
-                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                            {posSettings.pos_provider} integration
-                          </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
-                            Coming soon. Square, Toast, Clover, Lightspeed, and Custom API are available now.
-                          </div>
-                        </div>
-                        <Badge variant="outline" className="border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400">
-                          Coming soon
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                  </div>
-                </div>
-
-                {posConnectionStatus !== "idle" && (
-                  <div
-                    className={`flex items-center gap-2 p-3 rounded-lg ${posConnectionStatus === "connected"
-                      ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
-                      : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
-                      }`}
-                  >
-                    {posConnectionStatus === "connected" ? (
-                      <>
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                        <span className="text-green-800 dark:text-green-300">
-                          POS connection successful
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <AlertCircle className="w-5 h-5 text-red-600" />
-                        <span className="text-red-800 dark:text-red-300">
-                          POS connection failed
-                        </span>
-                      </>
-                    )}
-                  </div>
-                )}
-            </SettingsSection>
-
-            <AlertDialog open={posDisconnectOpen} onOpenChange={setPosDisconnectOpen}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{t("pos.disconnect_confirm_title")}</AlertDialogTitle>
-                  <AlertDialogDescription className="text-left">
-                    {t("pos.disconnect_confirm_desc")}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={posDisconnecting}>{t("settings.reservation.disconnect_cancel")}</AlertDialogCancel>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    disabled={posDisconnecting}
-                    onClick={() => {
-                      // Toast and Clover need provider-specific disconnect
-                      // endpoints (the unified /settings/unified/ endpoint
-                      // only understands Square/Lightspeed/Custom today).
-                      if (posSettings.pos_provider === "TOAST") {
-                        void disconnectToastOrClover("TOAST");
-                      } else if (posSettings.pos_provider === "CLOVER") {
-                        void disconnectToastOrClover("CLOVER");
-                      } else {
-                        void disconnectPosPlatform();
-                      }
-                    }}
-                  >
-                    {posDisconnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Unplug className="mr-2 h-4 w-4" />}
-                    {t("pos.disconnect")}
-                  </Button>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <PosIntegrations onChange={() => void fetchUnifiedSettings()} />
               </TabsContent>
 
               <TabsContent value="reservations" className="mt-0 space-y-4 focus-visible:outline-none">
@@ -2279,10 +1358,11 @@ export default function Settings() {
             </AlertDialog>
               </TabsContent>
             </Tabs>
+            ) : null}
           </TabsContent>
         )}
 
-        {!isStaff && (
+        {!isStaff && activeTab === "billing" ? (
           <TabsContent value="billing" className="mt-0 space-y-4 focus-visible:outline-none">
             <Suspense fallback={<FormSectionSkeleton />}>
               <BillingSettings />
@@ -2300,7 +1380,7 @@ export default function Settings() {
               </Button>
             </SettingsSection>
           </TabsContent>
-        )}
+        ) : null}
 
         {!isStaff && (
           <TabsContent value="compliance-approvals" className="mt-0 space-y-4 focus-visible:outline-none">
@@ -2332,17 +1412,21 @@ export default function Settings() {
                 </TabsTrigger>
               </TabsList>
 
+              {complianceApprovalsSection === "compliance" ? (
               <TabsContent value="compliance" className="mt-0 focus-visible:outline-none">
                 <Suspense fallback={<FormSectionSkeleton />}>
                   <ComplianceDocumentsSettings />
                 </Suspense>
               </TabsContent>
+              ) : null}
 
+              {complianceApprovalsSection === "approvals" ? (
               <TabsContent value="approvals" className="mt-0 focus-visible:outline-none">
                 <Suspense fallback={<FormSectionSkeleton />}>
-                  <PaymentApprovalSettings />
+                  <ApprovalRulesSettings />
                 </Suspense>
               </TabsContent>
+              ) : null}
             </Tabs>
           </TabsContent>
         )}
@@ -2352,3 +1436,5 @@ export default function Settings() {
     </div>
   );
 }
+
+export default memo(Settings);

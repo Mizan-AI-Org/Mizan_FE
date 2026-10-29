@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -9,6 +10,12 @@ import { logError, logInfo } from "@/lib/logging";
 import { toast } from "sonner";
 
 import { useLanguage } from "@/hooks/use-language";
+
+// Toasts and labels here were calling a `t` that was never defined (ReferenceError at runtime): translate with the
+// app's i18n instance, which follows the current language like useLanguage().
+const t = (key: string, options?: Record<string, string | number> | string): string =>
+  i18n.t(key, typeof options === "string" ? { defaultValue: options } : options) as string;
+
 type Row = {
   id: string;
   template?: { id: string; name?: string; description?: string } | null;

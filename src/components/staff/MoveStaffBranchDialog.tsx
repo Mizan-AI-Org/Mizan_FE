@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -22,10 +23,12 @@ import { API_BASE } from "@/lib/api";
 import type { BusinessLocationBrief } from "@/hooks/use-business-locations";
 
 import { useLanguage } from "@/hooks/use-language";
+
 export type MoveStaffTarget = {
   id: string;
   first_name?: string;
   last_name?: string;
+  role?: string;
   primary_location?: string | null;
   primary_location_data?: { id: string; name: string } | null;
 };
@@ -38,58 +41,107 @@ type Props = {
   onMoved: () => void;
 };
 
-export function MoveStaffBranchDialog({
-  open,
-  onOpenChange,
-  staff,
-  locations,
-  onMoved,
-}: Props) {
-    const { t } = useLanguage();
+type StaffBranches = {
+  home: { id: string; name: string } | null;
+  allowed: { id: string; name: string }[];
+  managed: { id: string; name: string }[];
+};
+
+const MANAGING_ROLES = new Set(["MANAGER", "SUPERVISOR"]);
+
+function authHeaders(): Record<string, string> {
+  const token = localStorage.getItem("access_token") || localStorage.getItem("accessToken") || "";
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+/**
+ * Several people: move them to a new home branch. One person: their home branch, the other branches where they
+ * may work (and clock in), and for managers / supervisors the branches they run.
+ */
+export function MoveStaffBranchDialog({ open, onOpenChange, staff, locations, onMoved }: Props) {
+  const { t } = useLanguage();
   const [destinationId, setDestinationId] = useState<string>("");
+  const [allowed, setAllowed] = useState<Set<string>>(new Set());
+  const [managed, setManaged] = useState<Set<string>>(new Set());
+  const [loaded, setLoaded] = useState<StaffBranches | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const count = staff.length;
+  const single = count === 1 ? staff[0] : null;
+  const canManage = Boolean(single?.role && MANAGING_ROLES.has(String(single.role).toUpperCase()));
 
   const fromBranch = useMemo(() => {
     const names = Array.from(
-      new Set(
-        staff
-          .map((s) => s.primary_location_data?.name)
-          .filter((n): n is string => Boolean(n)),
-      ),
+      new Set(staff.map((s) => s.primary_location_data?.name).filter((n): n is string => Boolean(n))),
     );
     if (names.length === 1) return names[0];
-    if (names.length > 1) return "multiple branches";
+    if (names.length > 1) return t("branches.move.several_branches");
     return null;
-  }, [staff]);
+  }, [staff, t]);
 
-  const currentHomeIds = useMemo(() => {
-    return new Set(
-      staff
-        .map((s) => s.primary_location_data?.id || s.primary_location)
-        .filter(Boolean)
-        .map(String),
-    );
-  }, [staff]);
+  const currentHomeIds = useMemo(
+    () =>
+      new Set(
+        staff
+          .map((s) => s.primary_location_data?.id || s.primary_location)
+          .filter(Boolean)
+          .map(String),
+      ),
+    [staff],
+  );
 
   const destinationOptions = useMemo(() => {
-    // Prefer destinations that aren't already everyone's home
+    if (single) return locations;
     const others = locations.filter((loc) => !currentHomeIds.has(String(loc.id)));
     return others.length > 0 ? others : locations;
-  }, [locations, currentHomeIds]);
+  }, [locations, currentHomeIds, single]);
 
   useEffect(() => {
-    if (open) {
-      setDestinationId("");
-      setSubmitting(false);
-    }
-  }, [open, staff]);
+    if (!open) return;
+    setDestinationId("");
+    setSubmitting(false);
+    setLoaded(null);
+    setAllowed(new Set());
+    setManaged(new Set());
+    if (!single) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/staff/${single.id}/branches/`, {
+          headers: authHeaders(),
+          credentials: "include",
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || cancelled) return;
+        const row: StaffBranches = data?.data ?? data;
+        setLoaded(row);
+        setDestinationId(row.home?.id ?? "");
+        setAllowed(new Set(row.allowed.map((b) => b.id).filter((id) => id !== row.home?.id)));
+        setManaged(new Set(row.managed.map((b) => b.id)));
+      } catch {
+        /* the move still works without the current branches */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, single]);
 
-  const title =
-    count === 1
-      ? `Move ${staff[0]?.first_name || "staff"}`
-      : `Move ${count} people`;
+  const toggle = (set: Set<string>, id: string, on: boolean) => {
+    const next = new Set(set);
+    if (on) next.add(id);
+    else next.delete(id);
+    return next;
+  };
+
+  const title = single
+    ? t("branches.move.title_one", { name: single.first_name || t("branches.move.staff") })
+    : t("branches.move.title_many", { count });
+
+  const destName = locations.find((l) => l.id === destinationId)?.name || "";
 
   const handleSubmit = async () => {
     if (!destinationId) {
@@ -97,47 +149,48 @@ export function MoveStaffBranchDialog({
       return;
     }
     if (count === 0) return;
-
     setSubmitting(true);
     try {
-      const token =
-        localStorage.getItem("access_token") ||
-        localStorage.getItem("accessToken") ||
-        "";
-      const res = await fetch(`${API_BASE}/staff/transfer-locations/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          staff_ids: staff.map((s) => s.id),
-          primary_location: destinationId,
-          // Simple move: new home branch only
-          allowed_mode: "set_destination_only",
-        }),
-      });
+      const res = single
+        ? await fetch(`${API_BASE}/staff/${single.id}/branches/`, {
+            method: "PATCH",
+            headers: authHeaders(),
+            credentials: "include",
+            body: JSON.stringify({
+              primary_location: destinationId,
+              allowed_locations: [destinationId, ...Array.from(allowed).filter((id) => id !== destinationId)],
+              ...(canManage ? { managed_locations: Array.from(managed) } : {}),
+            }),
+          })
+        : await fetch(`${API_BASE}/staff/transfer-locations/`, {
+            method: "POST",
+            headers: authHeaders(),
+            credentials: "include",
+            body: JSON.stringify({
+              staff_ids: staff.map((s) => s.id),
+              primary_location: destinationId,
+              allowed_mode: "set_destination_only",
+            }),
+          });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.success === false) {
-        throw new Error(data?.error || data?.detail || "Failed to move staff");
+        throw new Error(data?.error || data?.detail || t("branches.move.failed"));
       }
-      const destName =
-        locations.find((l) => l.id === destinationId)?.name || "new branch";
       toast.success(
-        count === 1
-          ? `Moved ${staff[0]?.first_name || "staff"} to ${destName}`
-          : `Moved ${count} people to ${destName}`,
+        single
+          ? t("branches.move.saved_one", { name: single.first_name || t("branches.move.staff") })
+          : t("branches.move.moved_many", { count, branch: destName }),
       );
-      setDestinationId("");
       onOpenChange(false);
       onMoved();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to move staff");
+      toast.error(err instanceof Error ? err.message : t("branches.move.failed"));
     } finally {
       setSubmitting(false);
     }
   };
+
+  const others = locations.filter((loc) => loc.id !== destinationId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -148,9 +201,11 @@ export function MoveStaffBranchDialog({
             {title}
           </DialogTitle>
           <DialogDescription>
-            {fromBranch
-              ? `From ${fromBranch} → choose their new branch.`
-              : "Choose their new branch."}
+            {single
+              ? t("branches.move.description_one")
+              : fromBranch
+                ? t("branches.move.description_from", { branch: fromBranch })
+                : t("branches.move.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -166,26 +221,58 @@ export function MoveStaffBranchDialog({
           ) : null}
 
           <div className="space-y-2">
-            <Label>New branch</Label>
+            <Label>{single ? t("branches.move.home_branch") : t("branches.move.new_branch")}</Label>
             <Select value={destinationId} onValueChange={setDestinationId}>
               <SelectTrigger>
-                <SelectValue placeholder="Pick a branch…" />
+                <SelectValue placeholder={t("branches.move.pick")} />
               </SelectTrigger>
               <SelectContent>
                 {destinationOptions.map((loc) => (
                   <SelectItem key={loc.id} value={loc.id}>
                     {loc.name}
-                    {loc.is_primary ? " (main)" : ""}
+                    {loc.is_primary ? ` (${t("branches.move.main")})` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          {single && others.length > 0 ? (
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium">{t("branches.move.also_works_at")}</legend>
+              <p className="text-xs text-muted-foreground">{t("branches.move.also_works_at_hint")}</p>
+              {others.map((loc) => (
+                <label key={loc.id} className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={allowed.has(loc.id)}
+                    onCheckedChange={(on) => setAllowed((s) => toggle(s, loc.id, on === true))}
+                  />
+                  {loc.name}
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
+
+          {single && canManage && loaded ? (
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium">{t("branches.move.manages")}</legend>
+              <p className="text-xs text-muted-foreground">{t("branches.move.manages_hint")}</p>
+              {locations.map((loc) => (
+                <label key={loc.id} className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={managed.has(loc.id)}
+                    onCheckedChange={(on) => setManaged((s) => toggle(s, loc.id, on === true))}
+                  />
+                  {loc.name}
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -194,11 +281,13 @@ export function MoveStaffBranchDialog({
           >
             {submitting ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Moving…
+                <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                {t("branches.move.saving")}
               </>
+            ) : single ? (
+              t("branches.move.save")
             ) : (
-              "Move"
+              t("branches.move.move")
             )}
           </Button>
         </DialogFooter>

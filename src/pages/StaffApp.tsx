@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { unwrapEnvelope } from "@/lib/envelope";
+import { AddPeopleDialog } from "@/components/staff/AddPeopleDialog";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -84,6 +85,7 @@ import { format, parseISO } from "date-fns";
 import DeleteStaffConfirmation from "@/components/staff/DeleteStaffConfirmation";
 import DeactivateStaffConfirmation from "@/components/staff/DeactivateStaffConfirmation";
 import MoveStaffBranchDialog from "@/components/staff/MoveStaffBranchDialog";
+import StaffHRFile from "@/components/staff/StaffHRFile";
 import { StaffMemberAvatar } from "@/components/staff/StaffMemberAvatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { splitInviteRoleSelection, useBusinessVertical } from "@/hooks/use-business-vertical";
@@ -227,77 +229,7 @@ function phonesMatch(a: string | null | undefined, b: string | null | undefined)
     return da.slice(-tail) === db.slice(-tail);
 }
 
-const STAFF_ACTIVATION_WA_TEXT = "Hi Mizan AI, I am ready to activate my account!";
-/** Public Mizan WhatsApp number. Used when the API omits a wa.me link. */
-const MIZAN_ACTIVATION_WA_PHONE = "212784476751";
-
-/** Build a wa.me link with a specific prefilled message. */
-function buildWhatsAppMeLink(phoneDigits: string, text: string): string {
-    const phone = phoneDigitsOnly(phoneDigits);
-    if (!phone) return "";
-    return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
-}
-
-function extractWaMePhone(link: string): string {
-    const m = (link || "").match(/wa\.me\/(\d+)/i);
-    return m?.[1] || "";
-}
-
-function isLegacyAiChatInviteLink(link: string): boolean {
-    if (!link) return false;
-    try {
-        const decoded = decodeURIComponent(link);
-        return /[?&]text=Hi\+?Agent(?:&|$)/i.test(link) || /[?&]text=Hi Agent(?:&|$)/i.test(decoded);
-    } catch {
-        return /text=Hi\+?Agent/i.test(link);
-    }
-}
-
-function isStaffActivationInviteLink(link: string): boolean {
-    if (!link) return false;
-    if (/wa\.me\/\d+/i.test(link)) return true;
-    // Short redirects: /wa (activation) - not /wa/hi (chat)
-    if (/\/wa\/?($|\?)/i.test(link) && !/\/wa\/hi/i.test(link)) return true;
-    if (link.includes("/api/go/wa")) return true;
-    try {
-        const decoded = decodeURIComponent(link);
-        return /activate my (staff )?account/i.test(decoded);
-    } catch {
-        return /activate/i.test(link);
-    }
-}
-
-function unwrapInvitePayload(data: Record<string, unknown> | null | undefined) {
-    const nested = data && typeof data.data === "object" && data.data ? (data.data as Record<string, unknown>) : {};
-    return { ...nested, ...(data || {}) } as {
-        invite_link?: string;
-        invite_short_link?: string;
-        chat_link?: string;
-    };
-}
-
-/**
- * Prefer the ONE-TAP activation wa.me link. Never return a legacy AI chat invite.
- */
-function pickActivationInviteLink(data: {
-    invite_link?: string;
-    invite_short_link?: string;
-    chat_link?: string;
-}): string {
-    const candidates = [data.invite_link, data.invite_short_link, data.chat_link].filter(Boolean) as string[];
-    for (const candidate of candidates) {
-        if (isLegacyAiChatInviteLink(candidate)) continue;
-        if (/wa\.me\/\d+/i.test(candidate)) return candidate;
-    }
-    const phone =
-        extractWaMePhone(data.invite_link || "") ||
-        extractWaMePhone(data.invite_short_link || "") ||
-        extractWaMePhone(data.chat_link || "") ||
-        MIZAN_ACTIVATION_WA_PHONE;
-    return buildWhatsAppMeLink(phone, STAFF_ACTIVATION_WA_TEXT);
-}
-
-/** ONE-TAP activation pending (StaffActivationRecord) */
+/** Added on WhatsApp, not joined yet (/staff/invites/pending/). */
 interface PendingActivation {
     id: string;
     first_name: string;
@@ -465,25 +397,10 @@ const TeamTab: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [staffPage, setStaffPage] = useState(1);
     const [staffPageSize, setStaffPageSize] = useState(8);
-    const [invitesPage, setInvitesPage] = useState(1);
     const [selectedMember, setSelectedMember] = useState<StaffMember | null>(null);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-    const [lastInviteLink, setLastInviteLinkState] = useState<string | null>(null);
-    /** Always store the activation phrase - never a legacy AI chat invite. */
-    const setLastInviteLink = (link: string | null) => {
-        if (!link) {
-            setLastInviteLinkState(null);
-            return;
-        }
-        if (isLegacyAiChatInviteLink(link)) {
-            const fixed = buildWhatsAppMeLink(extractWaMePhone(link), STAFF_ACTIVATION_WA_TEXT);
-            setLastInviteLinkState(fixed || null);
-            return;
-        }
-        setLastInviteLinkState(link);
-    };
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [documents, setDocuments] = useState<StaffDocument[]>([]);
     const [isUploading, setIsUploading] = useState(false);
@@ -561,34 +478,23 @@ const TeamTab: React.FC = () => {
         },
     });
 
-    const { data: invitesData, isLoading: isInvitesLoading, refetch: refetchInvites } = useQuery<PaginatedResponse<Invitation>>({
-        queryKey: ["pending-invitations", invitesPage],
-        queryFn: async () => {
-            const response = await fetch(`${API_BASE}/invitations/?is_accepted=false&page=${invitesPage}`, {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-                },
-            });
-            if (!response.ok) throw new Error("Failed to fetch invitations");
-            return unwrapEnvelope(await response.json());
-        },
-    });
-
     const { data: activationPendingData, isLoading: isActivationPendingLoading, refetch: refetchActivationPending } = useQuery<{ pending: PendingActivation[]; count: number }>({
         queryKey: ["pending-activations"],
         queryFn: async () => {
-            const response = await fetch(`${API_BASE}/staff/activation/pending/`, {
+            // WhatsApp-first: people added but not joined yet, with the welcome's delivery state.
+            const response = await fetch(`${API_BASE}/staff/invites/pending/`, {
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem("access_token")}`,
                 },
             });
             if (!response.ok) throw new Error("Failed to fetch pending activations");
-            return unwrapEnvelope(await response.json());
+            const rows = (unwrapEnvelope(await response.json()) || []) as { id: string; name: string; phone: string; role: string; status: string; sentAt: string | null }[];
+            const pending = rows.map((r) => ({ id: r.id, first_name: r.name, last_name: "", phone: r.phone, role: r.role, status: r.status, batch_id: "", created_at: r.sentAt }));
+            return { pending, count: pending.length };
         },
     });
 
     const staff = Array.isArray(staffData) ? staffData : (staffData?.results || []);
-    const invitations = Array.isArray(invitesData) ? invitesData : (invitesData?.results || []);
     const pendingActivations: PendingActivation[] = activationPendingData?.pending ?? [];
 
     const filteredStaff = staff;
@@ -644,101 +550,34 @@ const TeamTab: React.FC = () => {
         setMoveDialogOpen(true);
     };
 
-    const handleResendInvite = async (inviteId: string) => {
+    const handleResendWelcome = async (staffId: string) => {
         try {
-            const response = await fetch(`${API_BASE}/invitations/${inviteId}/resend/`, {
+            const response = await fetch(`${API_BASE}/staff/invites/${staffId}/resend/`, {
                 method: "POST",
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-                },
+                headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
             });
-            if (!response.ok) throw new Error("Failed to resend invitation");
-            toast.success(t("toasts.invitation_resent"));
+            const body = unwrapEnvelope(await response.json().catch(() => ({}))) as { error?: string; status?: string } | null;
+            if (!response.ok) throw new Error(body?.error || t("staff.pending.resend_failed"));
+            toast[body?.status === "sent" ? "success" : "warning"](
+                body?.status === "sent" ? t("staff.pending.resent") : t("staff.add_people.not_delivered"),
+            );
+            refetchActivationPending();
         } catch (err: unknown) {
-            toast.error(getErrorMessage(err, "Failed to resend invitation"));
-        }
-    };
-
-    const handleCancelInvite = async (inviteId: string) => {
-        if (!confirm(t("errors.confirm_cancel_invitation"))) return;
-        try {
-            const response = await fetch(`${API_BASE}/invitations/${inviteId}/`, {
-                method: "DELETE",
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-                },
-            });
-            if (!response.ok) throw new Error("Failed to cancel invitation");
-            toast.success(t("toasts.invitation_cancelled"));
-            refetchInvites();
-            void queryClient.invalidateQueries({ queryKey: ["nav-attention", "counts"] });
-        } catch (err: unknown) {
-            toast.error(getErrorMessage(err, "Failed to cancel invitation"));
-        }
-    };
-
-    const fetchActivationInviteLink = async (): Promise<string> => {
-        const headers = {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-            "Content-Type": "application/json",
-        };
-        let response = await fetch(`${API_BASE}/staff/activation/invite-link/`, { headers });
-        if (response.status === 405) {
-            response = await fetch(`${API_BASE}/staff/activation/invite-link/`, {
-                method: "POST",
-                headers,
-                body: "{}",
-            });
-        }
-        if (!response.ok) throw new Error("Failed to get link");
-        const data = unwrapInvitePayload(await response.json().catch(() => ({})));
-        return pickActivationInviteLink(data);
-    };
-
-    const handleCopyActivationLink = async () => {
-        try {
-            const link = await fetchActivationInviteLink();
-            if (link) {
-                await navigator.clipboard.writeText(link);
-                toast.success(t("toasts.invite_copied"));
-                setLastInviteLink(link);
-            } else {
-                toast.error(t("errors.no_invite_link"));
-            }
-        } catch {
-            toast.error(t("errors.failed_to_copy"));
-        }
-    };
-
-    /** Copy the ONE-TAP WhatsApp activation invite. */
-    const handleCopyWhatsAppInviteLink = async (): Promise<{ link: string; kind: "activation" } | null> => {
-        try {
-            const link = await fetchActivationInviteLink();
-            if (!link) {
-                toast.error(t("errors.no_invite_link") || "WhatsApp link is not configured.");
-                return null;
-            }
-            await navigator.clipboard.writeText(link);
-            setLastInviteLink(link);
-            toast.success(t("toasts.invite_copied"));
-            return { link, kind: "activation" };
-        } catch {
-            toast.error(t("errors.failed_to_copy") || "Failed to copy WhatsApp link");
-            return null;
+            toast.error(getErrorMessage(err, t("staff.pending.resend_failed")));
         }
     };
 
     const handleDeletePendingActivation = async (activationId: string) => {
         if (!confirm(t("staff.pending.delete_confirm"))) return;
         try {
-            const response = await fetch(`${API_BASE}/staff/activation/pending/${activationId}/`, {
+            const response = await fetch(`${API_BASE}/staff/invites/${activationId}/`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
             });
             if (!response.ok) throw new Error("Failed to remove pending invitation");
             toast.success(t("staff.pending.deleted"));
-            refetchInvites();
             refetchActivationPending();
+            void queryClient.invalidateQueries({ queryKey: ["nav-attention", "counts"] });
         } catch (err: unknown) {
             toast.error(getErrorMessage(err, "Failed to remove pending invitation"));
         }
@@ -746,7 +585,7 @@ const TeamTab: React.FC = () => {
 
     const refetch = () => {
         refetchStaff();
-        refetchInvites();
+        refetchActivationPending();
     };
 
 
@@ -820,18 +659,19 @@ const TeamTab: React.FC = () => {
             "";
 
         const handleGenerateReport = async () => {
+            // Open the tab inside the click so popup blockers allow it; the report prints itself (Save as PDF).
+            const reportWindow = window.open("", "_blank");
             setIsGeneratingReport(true);
             try {
                 const token = localStorage.getItem("access_token") || "";
-                const blob = await api.generateStaffReport(token, selectedMember.id);
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `report_${selectedMember.first_name}_${selectedMember.last_name}.pdf`;
-                a.click();
-                window.URL.revokeObjectURL(url);
+                const html = await api.generateStaffReport(token, selectedMember.id);
+                if (!reportWindow) throw new Error(t("staff.report.popup_blocked"));
+                reportWindow.document.open();
+                reportWindow.document.write(html);
+                reportWindow.document.close();
                 toast.success(t("toasts.report_generated"));
             } catch (err: unknown) {
+                reportWindow?.close();
                 toast.error(getErrorMessage(err, "Failed to generate report"));
             } finally {
                 setIsGeneratingReport(false);
@@ -845,19 +685,6 @@ const TeamTab: React.FC = () => {
         const profilePhoneMissingCountryCode =
             profileCanCopyWhatsAppLink && phoneDigitsOnly(waPhone).length < 11;
 
-        const handleCopyProfileWaLink = async () => {
-            if (!profileCanCopyWhatsAppLink) {
-                toast.error(t("staff.profile.whatsapp_missing_hint"));
-                return;
-            }
-            setIsCopyingWaLink(true);
-            try {
-                // Always copy the ONE-TAP activation short link from staff profile.
-                await handleCopyWhatsAppInviteLink();
-            } finally {
-                setIsCopyingWaLink(false);
-            }
-        };
 
         return (
             <div className={STAFF_MODAL_OVERLAY}>
@@ -985,21 +812,30 @@ const TeamTab: React.FC = () => {
                                                 {t("staff.profile.whatsapp_country_code_hint")}
                                             </p>
                                         ) : null}
+                                        {!selectedMember.is_active ? (
                                         <Button
                                             type="button"
                                             variant="outline"
                                             size="sm"
                                             className="w-full border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-semibold"
-                                            onClick={handleCopyProfileWaLink}
+                                            onClick={async () => {
+                                                setIsCopyingWaLink(true);
+                                                try {
+                                                    await handleResendWelcome(selectedMember.id);
+                                                } finally {
+                                                    setIsCopyingWaLink(false);
+                                                }
+                                            }}
                                             disabled={isCopyingWaLink}
                                         >
                                             {isCopyingWaLink ? (
                                                 <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                                             ) : (
-                                                <Copy className="w-3.5 h-3.5 mr-1.5" />
+                                                <Send className="w-3.5 h-3.5 mr-1.5" />
                                             )}
-                                            {t("staff.profile.copy_activation_link")}
+                                            {t("staff.pending.resend")}
                                         </Button>
+                                        ) : null}
                                     </div>
                                     ) : (
                                     <div className="rounded-xl border border-amber-100 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-950/20 p-3 space-y-1.5">
@@ -1080,36 +916,9 @@ const TeamTab: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className={cn("flex items-center justify-between pt-4 border-t", STAFF_MODAL_DIVIDER)}>
-                            <h4 className={STAFF_MODAL_SECTION_TITLE}>Documents</h4>
-                        </div>
-                        <div className="space-y-3 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
-                            {documents.length > 0 ? (
-                                documents.map((doc, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 transition-all hover:bg-slate-100/80 dark:hover:bg-slate-800/80 hover:shadow-sm">
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            <div className="w-7 h-7 rounded-lg bg-card flex items-center justify-center shadow-sm border border-slate-200 dark:border-slate-700">
-                                                <FileText className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" />
-                                            </div>
-                                            <span className="text-xs font-bold text-slate-600 dark:text-slate-200 truncate">{doc.title}</span>
-                                        </div>
-                                        <a
-                                            href={getDocumentUrl(doc.file)}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            aria-label={`Download document: ${doc.title}`}
-                                            title={`Download ${doc.title}`}
-                                            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-emerald-500 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-900 transition-all"
-                                        >
-                                            <Download className="w-4 h-4" />
-                                        </a>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className={cn(STAFF_MODAL_EMPTY, "flex flex-col items-center justify-center rounded-[1.5rem]")}>
-                                    <p className={cn(STAFF_MODAL_EMPTY_TEXT, "text-center")}>No documents uploaded</p>
-                                </div>
-                            )}
+                        <div className={cn("space-y-4 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
+                            <h4 className={STAFF_MODAL_SECTION_TITLE}>{t("hr.file_title")}</h4>
+                            <StaffHRFile staffId={selectedMember.id} />
                         </div>
                         </CardContent>
 
@@ -1688,752 +1497,6 @@ const TeamTab: React.FC = () => {
         );
     };
 
-    // Invite Staff Modal
-    const InviteStaffModal = () => {
-        const queryClient = useQueryClient();
-        const { data: staffSettings } = useBusinessVertical();
-        const businessVertical = staffSettings?.businessVertical ?? "RESTAURANT";
-        const customStaffRoles = staffSettings?.customStaffRoles ?? [];
-
-        useEffect(() => {
-            void queryClient.invalidateQueries({ queryKey: ["settings", "business_vertical"] });
-        }, [queryClient]);
-        const { data: tenantLocations = [] } = useBusinessLocations();
-        // Only show branch pickers when the tenant has more than one location;
-        // single-site tenants shouldn't see fields they don't care about.
-        const multiLocation = tenantLocations.length >= 2;
-        const [inviteMethod, setInviteMethod] = useState<"email" | "whatsapp">("email");
-        const [isBulkMode, setIsBulkMode] = useState(false);
-        const [bulkData, setBulkData] = useState<BulkInviteRow[]>([]);
-        const [isInviteLoading, setIsInviteLoading] = useState(false);
-        const [formData, setFormData] = useState({
-            email: "",
-            first_name: "",
-            last_name: "",
-            role: "MANAGER",
-            phone_number: "",
-        });
-        const [primaryLocation, setPrimaryLocation] = useState<string>("");
-        const [allowedLocations, setAllowedLocations] = useState<string[]>([]);
-        const [managedLocations, setManagedLocations] = useState<string[]>([]);
-
-        const inviteRoleGroups = useMemo(
-            () => getStaffInviteRoleGroups(businessVertical as BusinessVertical),
-            [businessVertical]
-        );
-
-        const isManagerRole = formData.role === "MANAGER";
-
-        // Default the primary-location picker to the tenant's primary branch as
-        // soon as locations load, so the common case requires zero clicks.
-        useEffect(() => {
-            if (!primaryLocation && tenantLocations.length > 0) {
-                const def = tenantLocations.find((l) => l.is_primary) || tenantLocations[0];
-                setPrimaryLocation(def.id);
-            }
-        }, [tenantLocations, primaryLocation]);
-
-        const toggleInArray = (arr: string[], id: string) =>
-            arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
-
-        useEffect(() => {
-            setFormData((fd) => {
-                if (isRoleAllowedForVertical(fd.role, businessVertical as BusinessVertical)) return fd;
-                return { ...fd, role: defaultRoleForVertical(businessVertical as BusinessVertical) };
-            });
-        }, [businessVertical]);
-
-        const splitDelimitedRow = (row: string, delimiter: string) => {
-            const out: string[] = [];
-            let cur = "";
-            let inQuotes = false;
-            for (let i = 0; i < row.length; i++) {
-                const ch = row[i];
-                if (ch === '"') {
-                    // handle escaped quotes ""
-                    const next = row[i + 1];
-                    if (inQuotes && next === '"') {
-                        cur += '"';
-                        i++;
-                        continue;
-                    }
-                    inQuotes = !inQuotes;
-                    continue;
-                }
-                if (ch === delimiter && !inQuotes) {
-                    out.push(cur.trim());
-                    cur = "";
-                    continue;
-                }
-                cur += ch;
-            }
-            out.push(cur.trim());
-            return out;
-        };
-
-        const detectDelimiter = (headerLine: string) => {
-            const commaCount = (headerLine.match(/,/g) || []).length;
-            const semiCount = (headerLine.match(/;/g) || []).length;
-            const tabCount = (headerLine.match(/\t/g) || []).length;
-            if (tabCount > commaCount && tabCount > semiCount) return "\t";
-            if (semiCount > commaCount) return ";";
-            return ",";
-        };
-
-        const parseStaffCsvText = (text: string, method: "email" | "whatsapp") => {
-            const rawLines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
-            const lines = rawLines.map(l => l.trim()).filter(Boolean);
-
-            // Excel directive line support: "sep=,"
-            const dataLines = (lines[0] || "").toLowerCase().startsWith("sep=") ? lines.slice(1) : lines;
-            if (dataLines.length < 2) return [];
-
-            const delimiter = detectDelimiter(dataLines[0]);
-            const parsed = dataLines.slice(1).map((line) => {
-                const values = splitDelimitedRow(line, delimiter).map(v => v.trim());
-                if (values.length < 4) return null;
-                const base: BulkInviteRow = {
-                    first_name: values[0] || "",
-                    last_name: values[1] || "",
-                    role: values[2] || "",
-                };
-                if (method === "email") {
-                    base.email = values[3] || "";
-                } else {
-                    base.phone_number = values[3] || "";
-                }
-                return base;
-            }).filter(Boolean);
-
-            return parsed as BulkInviteRow[];
-        };
-
-        const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const text = event.target?.result as string;
-                const parsed = parseStaffCsvText(text, inviteMethod);
-
-                if (parsed.length === 0) {
-                    toast.error(t("staff.csv_no_valid_data"));
-                    return;
-                }
-                setBulkData(parsed);
-                toast.success(`Parsed ${parsed.length} staff members from CSV`);
-            };
-            reader.readAsText(file);
-        };
-
-        const downloadTemplate = () => {
-            // "sep=," ensures Excel splits into columns even on locales that default to ';'
-            const lastCol = inviteMethod === "email" ? "Email Address" : "WhatsApp Number";
-            const sample1 = inviteMethod === "email" ? "john@example.com" : "212600000000";
-            const sample2 = inviteMethod === "email" ? "jane@example.com" : "212700000000";
-            const content =
-                "sep=,\n" +
-                `First Name,Last Name,Role,${lastCol}\n` +
-                `John,Doe,CHEF,${sample1}\n` +
-                `Jane,Smith,WAITER,${sample2}\n`;
-            const blob = new Blob([content], { type: "text/csv" });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "staff_invite_template.csv";
-            a.click();
-            window.URL.revokeObjectURL(url);
-        };
-
-        const handleCloseInviteModal = () => {
-            setIsInviteModalOpen(false);
-        };
-
-        const handleInvite = async () => {
-            if (isBulkMode) {
-                if (bulkData.length === 0) {
-                    toast.error(t("staff.upload_csv_first"));
-                    return;
-                }
-
-                setIsInviteLoading(true);
-                try {
-                    const token = localStorage.getItem("access_token") || "";
-
-                    if (inviteMethod === "whatsapp") {
-                        // ONE-TAP: upload creates profiles (Not activated). Manager shares the link; staff click it to activate.
-                        const staffList = bulkData.map((r) => ({
-                            phone: r.phone_number || "",
-                            first_name: r.first_name || "",
-                            last_name: r.last_name || "",
-                            role: r.role || "WAITER",
-                        }));
-                        const response = await fetch(`${API_BASE}/staff/activation/upload/`, {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                Authorization: `Bearer ${token}`,
-                            },
-                            body: JSON.stringify({
-                                staff_list: staffList,
-                                // Tag every row in this upload with the chosen
-                                // branch so the backend can assign it on activation.
-                                ...(multiLocation && primaryLocation
-                                    ? { primary_location: primaryLocation }
-                                    : {}),
-                            }),
-                        });
-                        const data = await response.json().catch(() => ({}));
-                        if (!response.ok)
-                            throw new Error(data.error || data.detail || data.errors?.[0] || "Failed to create staff records");
-                        const createdCount = Number(data.created ?? data.invited ?? 0);
-                        const activationLink = pickActivationInviteLink(data);
-                        if (createdCount > 0) {
-                            if (activationLink) setLastInviteLink(activationLink);
-                            handleCloseInviteModal();
-                            toast.success(
-                                activationLink
-                                    ? `${createdCount} staff members ready. Copy and share the invite link so they can activate on WhatsApp.`
-                                    : `${createdCount} staff members ready for WhatsApp activation.`,
-                            );
-                            refetch();
-                            refetchInvites();
-                            refetchActivationPending();
-                        } else {
-                            toast.error(data.errors?.[0] || "No records created");
-                        }
-                        setIsInviteLoading(false);
-                        return;
-                    }
-
-                    // Email bulk: use existing invite endpoint
-                    const response = await fetch(`${API_BASE}/staff/invite-bulk-csv/`, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${token}`,
-                        },
-                        body: JSON.stringify({
-                            staff_list: bulkData,
-                            invitation_method: inviteMethod,
-                            ...(multiLocation && primaryLocation
-                                ? { primary_location: primaryLocation }
-                                : {}),
-                        }),
-                    });
-                    const data = await response.json().catch(() => ({}));
-                    if (!response.ok) throw new Error(data.error || data.detail || "Failed to send bulk invitations");
-                    const created = Number(data.created ?? data.data?.created ?? bulkData.length);
-                    toast.success(`Invitations created for ${created} staff members`);
-                    handleCloseInviteModal();
-                    refetch();
-                    refetchInvites();
-                    refetchActivationPending();
-                } catch (err: unknown) {
-                    toast.error(getErrorMessage(err, "Failed to send bulk invitations"));
-                } finally {
-                    setIsInviteLoading(false);
-                }
-                return;
-            }
-
-            if (inviteMethod === "email" && !formData.email) {
-                toast.error(t("staff.email_required_invite"));
-                return;
-            }
-            if (inviteMethod === "whatsapp" && !formData.phone_number) {
-                toast.error(t("staff.phone_required_whatsapp_invite"));
-                return;
-            }
-
-            setIsInviteLoading(true);
-            try {
-                const token = localStorage.getItem("access_token") || "";
-                const rolePayload = splitInviteRoleSelection(formData.role);
-                const response = await fetch(`${API_BASE}/staff/invite/`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        first_name: formData.first_name,
-                        last_name: formData.last_name,
-                        email: formData.email,
-                        phone_number: formData.phone_number,
-                        role: rolePayload.role,
-                        ...(rolePayload.custom_role_id
-                            ? { custom_role_id: rolePayload.custom_role_id }
-                            : {}),
-                        send_whatsapp: inviteMethod === "whatsapp",
-                        // Multi-location assignments: only send when the tenant
-                        // actually has multiple branches so single-site tenants
-                        // aren't forced to think about it.
-                        ...(multiLocation && primaryLocation
-                            ? { primary_location: primaryLocation }
-                            : {}),
-                        ...(multiLocation && allowedLocations.length
-                            ? { allowed_locations: allowedLocations }
-                            : {}),
-                        ...(multiLocation && isManagerRole && managedLocations.length
-                            ? { managed_locations: managedLocations }
-                            : {}),
-                    }),
-                });
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(
-                        errorData.error ||
-                            errorData.detail ||
-                            errorData.message ||
-                            "Failed to send invitation",
-                    );
-                }
-                const data = await response.json().catch(() => ({}));
-                const link = pickActivationInviteLink(data) || null;
-                if (link) setLastInviteLink(link);
-                toast.success(data.message || `Invitation sent successfully via ${inviteMethod === "email" ? "Email" : "WhatsApp"}`);
-                handleCloseInviteModal();
-                refetch();
-                refetchInvites();
-                refetchActivationPending();
-            } catch (err: unknown) {
-                toast.error(getErrorMessage(err, "Failed to send invitation"));
-            } finally {
-                setIsInviteLoading(false);
-            }
-        };
-
-        return (
-            <Dialog
-                open={isInviteModalOpen}
-                onOpenChange={(open) => setIsInviteModalOpen(open)}
-            >
-                <DialogContent className="sm:max-w-3xl w-[calc(100vw-2rem)] max-h-[90vh] flex flex-col gap-0 p-0 bg-card border-slate-200 dark:border-slate-800 overflow-hidden">
-                    <DialogHeader className="flex-none px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
-                        <DialogTitle className="text-slate-900 dark:text-white">
-                            {t("staff.invite.title")}
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-                        {/* Mode + channel selectors — high-contrast segmented controls */}
-                        <div className="space-y-3">
-                            <div
-                                role="tablist"
-                                aria-label={t("staff.invite.title")}
-                                className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-900/80"
-                            >
-                                <button
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={!isBulkMode}
-                                    onClick={() => setIsBulkMode(false)}
-                                    className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
-                                        !isBulkMode
-                                            ? "bg-emerald-600 text-white shadow-sm"
-                                            : "text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-                                    }`}
-                                >
-                                    {t("staff.invite.individual")}
-                                </button>
-                                <button
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={isBulkMode}
-                                    onClick={() => setIsBulkMode(true)}
-                                    className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
-                                        isBulkMode
-                                            ? "bg-emerald-600 text-white shadow-sm"
-                                            : "text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-                                    }`}
-                                >
-                                    {t("staff.invite.bulk")}
-                                </button>
-                            </div>
-
-                            <div
-                                role="tablist"
-                                aria-label="Invite channel"
-                                className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-900/80"
-                            >
-                                <button
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={inviteMethod === "email"}
-                                    onClick={() => {
-                                        setInviteMethod("email");
-                                        if (isBulkMode) {
-                                            setBulkData([]);
-                                            toast.message("Switched to Email bulk invite. Please upload an Email CSV.");
-                                        }
-                                    }}
-                                    className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
-                                        inviteMethod === "email"
-                                            ? "bg-emerald-600 text-white shadow-sm"
-                                            : "text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-                                    }`}
-                                >
-                                    <Mail className="h-4 w-4" />
-                                    {t("staff.invite.email")}
-                                </button>
-                                <button
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={inviteMethod === "whatsapp"}
-                                    onClick={() => {
-                                        setInviteMethod("whatsapp");
-                                        if (isBulkMode) {
-                                            setBulkData([]);
-                                            toast.message("Switched to WhatsApp bulk invite. Please upload a WhatsApp CSV.");
-                                        }
-                                    }}
-                                    className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
-                                        inviteMethod === "whatsapp"
-                                            ? "bg-emerald-600 text-white shadow-sm"
-                                            : "text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-                                    }`}
-                                >
-                                    <Phone className="h-4 w-4" />
-                                    {t("staff.invite.whatsapp")}
-                                </button>
-                            </div>
-                        </div>
-
-                        {!isBulkMode ? (
-                            <>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("staff.invite.first_name")}</label>
-                                        <Input value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} placeholder="Hamza" className="bg-surface-raised" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("staff.invite.last_name")}</label>
-                                        <Input value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} placeholder="Yassine" className="bg-surface-raised" />
-                                    </div>
-                                </div>
-
-                                {inviteMethod === "email" ? (
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("staff.invite.email_address")} <span className="text-red-500">*</span></label>
-                                        <Input value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="john.doe@example.com" className="bg-surface-raised" />
-                                        <p className="text-xs text-slate-500">{t("staff.invite.email_hint")}</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("staff.invite.whatsapp_number")} <span className="text-red-500">*</span></label>
-                                        <Input value={formData.phone_number} onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })} placeholder="212774567890" className="bg-surface-raised" />
-                                        <p className="text-xs text-slate-500">{t("staff.invite.whatsapp_hint")}</p>
-                                    </div>
-                                )}
-
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("staff.invite.role")}</label>
-                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                                        {t("staff.invite.role_industry_hint")}
-                                    </p>
-                                    <select
-                                        value={formData.role}
-                                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                        className="w-full rounded-md border border-slate-200 dark:border-slate-800 bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                    >
-                                        {inviteRoleGroups.map((g) => (
-                                            <optgroup key={g.groupLabelKey} label={t(g.groupLabelKey)}>
-                                                {g.roles.map((r) => (
-                                                    <option key={r.value} value={r.value}>
-                                                        {t(r.labelKey)}
-                                                    </option>
-                                                ))}
-                                            </optgroup>
-                                        ))}
-                                        {customStaffRoles.length > 0 ? (
-                                            <optgroup label={t("staff.invite.custom_roles_group")}>
-                                                {customStaffRoles.map((cr) => (
-                                                    <option key={cr.id} value={`CUSTOM:${cr.id}`}>
-                                                        {cr.name}
-                                                    </option>
-                                                ))}
-                                            </optgroup>
-                                        ) : null}
-                                    </select>
-                                </div>
-
-                                {multiLocation && (
-                                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-card shadow-sm">
-                                        <div className="flex items-start gap-3 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-br from-emerald-50/60 to-transparent dark:from-emerald-900/10 px-4 py-3">
-                                            <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400">
-                                                <MapPin className="h-4 w-4" />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                                    {t("staff.invite.branch_assignment")}
-                                                </p>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                    {t("staff.invite.branch_assignment_desc")}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-5 px-4 py-4">
-                                            <div className="space-y-1.5">
-                                                <div className="flex items-center justify-between">
-                                                    <Label className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
-                                                        {t("staff.invite.primary_location")}
-                                                    </Label>
-                                                </div>
-                                                <select
-                                                    value={primaryLocation}
-                                                    onChange={(e) => setPrimaryLocation(e.target.value)}
-                                                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-surface-raised px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
-                                                >
-                                                    {tenantLocations.map((loc) => (
-                                                        <option key={loc.id} value={loc.id}>
-                                                            {loc.name}
-                                                            {loc.is_primary ? " ★" : ""}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                                                    {t("staff.invite.primary_location_hint")}
-                                                </p>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <Label className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
-                                                        {t("staff.invite.allowed_locations")}
-                                                    </Label>
-                                                    <div className="flex items-center gap-1 text-[11px]">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                setAllowedLocations(tenantLocations.map((l) => l.id))
-                                                            }
-                                                            className="rounded-md px-2 py-0.5 font-medium text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                                                        >
-                                                            {t("staff.invite.select_all")}
-                                                        </button>
-                                                        <span className="text-slate-300 dark:text-slate-700">·</span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setAllowedLocations([])}
-                                                            className="rounded-md px-2 py-0.5 font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                                        >
-                                                            {t("staff.invite.clear_all")}
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                                                    {allowedLocations.length === 0
-                                                        ? t("staff.invite.allowed_locations_empty")
-                                                        : t("staff.invite.allowed_locations_hint")}
-                                                </p>
-                                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                                    {tenantLocations.map((loc) => {
-                                                        const id = `allow-${loc.id}`;
-                                                        const checked = allowedLocations.includes(loc.id);
-                                                        const isPrimary = loc.id === primaryLocation;
-                                                        return (
-                                                            <label
-                                                                key={loc.id}
-                                                                htmlFor={id}
-                                                                className={`group flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition ${
-                                                                    checked
-                                                                        ? "border-emerald-500/60 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-500/40"
-                                                                        : "border-slate-200 bg-surface-raised hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-                                                                }`}
-                                                            >
-                                                                <input
-                                                                    id={id}
-                                                                    type="checkbox"
-                                                                    className="h-4 w-4 flex-none rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-700"
-                                                                    checked={checked}
-                                                                    onChange={() =>
-                                                                        setAllowedLocations((prev) => toggleInArray(prev, loc.id))
-                                                                    }
-                                                                />
-                                                                <span className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">
-                                                                    {loc.name}
-                                                                </span>
-                                                                {isPrimary ? (
-                                                                    <span className="flex-none rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                                                                        ★
-                                                                    </span>
-                                                                ) : null}
-                                                            </label>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-
-                                            {isManagerRole && (
-                                                <div className="space-y-2 rounded-lg border border-amber-200/70 bg-amber-50/50 p-3 dark:border-amber-800/40 dark:bg-amber-950/20">
-                                                    <div className="flex items-center justify-between gap-2">
-                                                        <Label className="text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
-                                                            {t("staff.invite.managed_locations")}
-                                                        </Label>
-                                                        <div className="flex items-center gap-1 text-[11px]">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    setManagedLocations(tenantLocations.map((l) => l.id))
-                                                                }
-                                                                className="rounded-md px-2 py-0.5 font-medium text-amber-700 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/30"
-                                                            >
-                                                                {t("staff.invite.select_all")}
-                                                            </button>
-                                                            <span className="text-amber-300 dark:text-amber-700">·</span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setManagedLocations([])}
-                                                                className="rounded-md px-2 py-0.5 font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                                            >
-                                                                {t("staff.invite.clear_all")}
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                    <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
-                                                        {managedLocations.length === 0
-                                                            ? t("staff.invite.managed_locations_empty")
-                                                            : t("staff.invite.managed_locations_hint")}
-                                                    </p>
-                                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                                        {tenantLocations.map((loc) => {
-                                                            const id = `manage-${loc.id}`;
-                                                            const checked = managedLocations.includes(loc.id);
-                                                            return (
-                                                                <label
-                                                                    key={loc.id}
-                                                                    htmlFor={id}
-                                                                    className={`group flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition ${
-                                                                        checked
-                                                                            ? "border-amber-500/60 bg-white dark:bg-amber-900/10 dark:border-amber-500/50"
-                                                                            : "border-amber-200/60 bg-surface-raised hover:border-amber-300 dark:border-amber-800/40 dark:hover:bg-slate-800"
-                                                                    }`}
-                                                                >
-                                                                    <input
-                                                                        id={id}
-                                                                        type="checkbox"
-                                                                        className="h-4 w-4 flex-none rounded border-slate-300 text-amber-600 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-700"
-                                                                        checked={checked}
-                                                                        onChange={() =>
-                                                                            setManagedLocations((prev) => toggleInArray(prev, loc.id))
-                                                                        }
-                                                                    />
-                                                                    <span className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">
-                                                                        {loc.name}
-                                                                        {loc.is_primary ? " ★" : ""}
-                                                                    </span>
-                                                                </label>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        ) : (
-                            <div className="space-y-4">
-                                <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center bg-slate-50/50 dark:bg-slate-800/50">
-                                    <Upload className="w-10 h-9 text-slate-400 mx-auto mb-4" />
-                                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">{t("staff.invite.upload_csv")}</h3>
-                                    <p className="text-xs text-slate-500 mb-4">
-                                        {t("staff.invite.csv_columns", { method: inviteMethod === "email" ? t("staff.invite.email_address") : t("staff.invite.whatsapp_number") })}
-                                    </p>
-                                    <Input
-                                        type="file"
-                                        accept=".csv"
-                                        onChange={handleFileUpload}
-                                        className="hidden"
-                                        id="csv-upload"
-                                    />
-                                    <label
-                                        htmlFor="csv-upload"
-                                        className="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-lg cursor-pointer transition-colors"
-                                    >
-                                        {t("staff.invite.select_csv")}
-                                    </label>
-                                    {bulkData.length > 0 && (
-                                        <p className="mt-3 text-sm font-medium text-emerald-600">
-                                            {t("staff.invite.staff_ready", { count: bulkData.length })}
-                                        </p>
-                                    )}
-                                </div>
-                                <button
-                                    onClick={downloadTemplate}
-                                    className="w-full flex items-center justify-center gap-2 py-2 text-xs font-medium text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800 transition-all"
-                                >
-                                    <Download className="w-4 h-4" />
-                                    {t("staff.invite.download_template")}
-                                </button>
-
-                                {multiLocation && (
-                                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-card shadow-sm">
-                                        <div className="flex items-start gap-3 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-br from-emerald-50/60 to-transparent dark:from-emerald-900/10 px-4 py-3">
-                                            <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400">
-                                                <MapPin className="h-4 w-4" />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                                    {t("staff.invite.bulk_primary_location")}
-                                                </Label>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                    {t("staff.invite.bulk_primary_location_hint")}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="px-4 py-3">
-                                            <select
-                                                value={primaryLocation}
-                                                onChange={(e) => setPrimaryLocation(e.target.value)}
-                                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-surface-raised px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
-                                            >
-                                                {tenantLocations.map((loc) => (
-                                                    <option key={loc.id} value={loc.id}>
-                                                        {loc.name}
-                                                        {loc.is_primary ? " ★" : ""}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                                    <p className="text-[11px] text-amber-800 dark:text-amber-400">
-                                        <strong>Tip:</strong>{" "}
-                                        {inviteMethod === "email"
-                                            ? "Use valid email addresses. Roles should match the role codes (MANAGER, CHEF, WAITER, etc.)."
-                                            : <>Use WhatsApp numbers in international format (digits only), e.g. <code>2126XXXXXXXX</code> for Morocco. After upload, copy and share the invite link with staff so they can activate their account.</>
-                                        }
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                    <div className="flex-none border-t border-slate-100 dark:border-slate-800 px-6 py-4 bg-card">
-                        <Button
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                            onClick={handleInvite}
-                            disabled={isInviteLoading}
-                        >
-                            {isInviteLoading ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    {t("staff.invite.sending")}
-                                </>
-                            ) : (
-                                t("staff.invite.send")
-                            )}
-                        </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
-        );
-    };
-
     return (
         <div className="space-y-6">
             <input
@@ -2446,7 +1509,12 @@ const TeamTab: React.FC = () => {
             {/* Modals */}
             {isViewModalOpen && <ViewProfileModal />}
             {isEditModalOpen && <EditProfileModal />}
-            {isInviteModalOpen && <InviteStaffModal />}
+            <AddPeopleDialog
+                open={isInviteModalOpen}
+                onOpenChange={setIsInviteModalOpen}
+                locations={tenantLocations}
+                onAdded={() => { refetchStaff(); refetchActivationPending(); }}
+            />
             <DeleteStaffConfirmation
                 isOpen={isDeleteModalOpen}
                 onClose={() => { setIsDeleteModalOpen(false); setStaffToDelete(null); }}
@@ -2475,59 +1543,6 @@ const TeamTab: React.FC = () => {
                     setMoveTargets([]);
                 }}
             />
-
-            {/* Staff activation link (after ONE-TAP invite) */}
-            {lastInviteLink && isStaffActivationInviteLink(lastInviteLink) && (
-                <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 shrink-0">{t("staff.invite_link_ready")}</p>
-                    <div className="flex flex-1 min-w-0 items-center gap-2">
-                        <Input
-                            readOnly
-                            value={lastInviteLink}
-                            className="font-mono text-sm bg-surface-raised border-slate-200 dark:border-slate-700 flex-1 min-w-0"
-                        />
-                        <Button
-                            size="sm"
-                            className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
-                            onClick={async () => {
-                                try {
-                                    await navigator.clipboard.writeText(lastInviteLink);
-                                    toast.success(t("toasts.invite_copied"));
-                                } catch {
-                                    toast.error(t("errors.no_invite_link"));
-                                }
-                            }}
-                        >
-                            <Copy className="w-4 h-4 mr-1.5" />
-                            {t("common.copy")}
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="shrink-0"
-                            onClick={async () => {
-                                try {
-                                    if (navigator.share) {
-                                        await navigator.share({ url: lastInviteLink, title: t("staff.invite_link_ready") });
-                                        toast.success(t("toasts.invite_shared"));
-                                    } else {
-                                        await navigator.clipboard.writeText(lastInviteLink);
-                                        toast.success(t("toasts.copied_share_unsupported"));
-                                    }
-                                } catch (e: unknown) {
-                                    if ((e as Error)?.name !== "AbortError") toast.error(t("errors.failed_to_share"));
-                                }
-                            }}
-                        >
-                            <Share2 className="w-4 h-4 mr-1.5" />
-                            {t("common.share")}
-                        </Button>
-                        <Button size="sm" variant="ghost" className="shrink-0" onClick={() => setLastInviteLink(null)}>
-                            <X className="w-4 h-4" />
-                        </Button>
-                    </div>
-                </div>
-            )}
 
             {/* Search & Actions */}
             <div className="flex w-full flex-wrap items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-card p-3">
@@ -2736,7 +1751,7 @@ const TeamTab: React.FC = () => {
                                         </TableBody>
                                     </Table>
                                 ) : (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                                         {filteredStaff.map((member) => {
                                             const isSelected = selectedStaffIds.includes(member.id);
                                             const contactLine = (() => {
@@ -2761,14 +1776,48 @@ const TeamTab: React.FC = () => {
                                             <Card
                                                 key={member.id}
                                                 className={cn(
-                                                    "group relative overflow-hidden rounded-2xl border border-border/70 bg-card",
-                                                    "shadow-sm hover:shadow-md hover:border-emerald-500/25 transition-all duration-200",
-                                                    isSelected && "ring-2 ring-emerald-500/80 border-emerald-400/80",
+                                                    "staff-directory-card group relative overflow-hidden rounded-[1.4rem] border border-border/70",
+                                                    isSelected && "staff-directory-card--selected",
                                                 )}
                                             >
-                                                <CardContent className="p-5 flex flex-col items-center text-center gap-3">
+                                                <div className="staff-directory-card__band" aria-hidden />
+                                                <div
+                                                    className="staff-directory-card__actions absolute right-3 top-3 z-10 flex items-center gap-0.5 rounded-full p-0.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                                                        onClick={() => handleViewProfile(member)}
+                                                        title={t("common.view_profile")}
+                                                    >
+                                                        <Eye className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                                                        onClick={() => handleEditProfile(member)}
+                                                        title={t("common.edit_profile")}
+                                                    >
+                                                        <Edit className="h-3.5 w-3.5" />
+                                                    </Button>
                                                     {multiBranch ? (
-                                                        <div className="absolute left-3 top-3">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                                                            onClick={() => openMoveDialog([member])}
+                                                            title="Move to branch"
+                                                        >
+                                                            <ArrowRightLeft className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    ) : null}
+                                                </div>
+                                                <CardContent className="relative z-[1] flex flex-col items-center px-5 pb-5 pt-8 text-center">
+                                                    {multiBranch ? (
+                                                        <div className="absolute left-3 top-3 z-[2]">
                                                             <Checkbox
                                                                 checked={isSelected}
                                                                 onCheckedChange={() => toggleStaffSelected(member)}
@@ -2779,80 +1828,55 @@ const TeamTab: React.FC = () => {
                                                     ) : null}
                                                     <button
                                                         type="button"
-                                                        className="flex flex-col items-center gap-2 w-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 pt-1"
+                                                        className="flex w-full flex-col items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                                                         onClick={() => handleViewProfile(member)}
                                                     >
-                                                        <StaffMemberAvatar
-                                                            size="xl"
-                                                            firstName={member.first_name}
-                                                            lastName={member.last_name}
-                                                            avatarUrl={member.avatar_url}
-                                                            onUploadClick={() => openAvatarUpload(member.id)}
-                                                            uploadLabel={t("staff.avatar.change", { defaultValue: "Change photo" })}
-                                                        />
+                                                        <div className="staff-directory-avatar-wrap">
+                                                            <StaffMemberAvatar
+                                                                size="lg"
+                                                                firstName={member.first_name}
+                                                                lastName={member.last_name}
+                                                                avatarUrl={member.avatar_url}
+                                                                onUploadClick={() => openAvatarUpload(member.id)}
+                                                                uploadLabel={t("staff.avatar.change", { defaultValue: "Change photo" })}
+                                                            />
+                                                        </div>
                                                         <div className="min-w-0 w-full space-y-1">
-                                                            <h3 className="font-semibold text-base text-foreground truncate px-1">
+                                                            <h3 className="truncate px-1 text-[1.05rem] font-semibold tracking-tight text-foreground">
                                                                 {member.first_name} {member.last_name}
                                                             </h3>
-                                                            <Badge variant="secondary" className="capitalize text-[10px] font-medium">
+                                                            <p className="truncate text-xs font-medium capitalize text-primary">
                                                                 {staffRoleLabel(member)}
-                                                            </Badge>
+                                                            </p>
                                                         </div>
                                                     </button>
-                                                    <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground w-full min-w-0 px-1">
-                                                        <ContactIcon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                                                    <p className="mt-3 flex w-full min-w-0 items-center justify-center gap-1.5 px-1 text-xs text-muted-foreground">
+                                                        <ContactIcon className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
                                                         <span className="truncate">{contactLine.text}</span>
                                                     </p>
                                                     {multiBranch && member.primary_location_data?.name ? (
-                                                        <p className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
-                                                            <MapPin className="h-3 w-3 shrink-0" aria-hidden />
+                                                        <p className="mt-1 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                                                            <MapPin className="h-3 w-3 shrink-0 opacity-60" aria-hidden />
                                                             <span className="truncate">{member.primary_location_data.name}</span>
                                                         </p>
                                                     ) : null}
-                                                    <Badge
+                                                    <div
                                                         className={cn(
-                                                            "text-[10px] font-semibold uppercase tracking-wide",
+                                                            "mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]",
                                                             member.is_active
-                                                                ? "bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300"
-                                                                : "bg-red-50 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-300",
+                                                                ? "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
+                                                                : "bg-red-500/10 text-red-700 dark:bg-red-400/10 dark:text-red-300",
                                                         )}
                                                     >
+                                                        <span
+                                                            className={cn(
+                                                                "h-1.5 w-1.5 rounded-full",
+                                                                member.is_active ? "bg-emerald-500 shadow-[0_0_0_3px_hsl(152_60%_45%/0.18)] dark:bg-emerald-400" : "bg-red-500 dark:bg-red-400",
+                                                            )}
+                                                            aria-hidden
+                                                        />
                                                         {member.is_active ? t("common.active") : t("common.inactive")}
-                                                    </Badge>
-                                                    <div
-                                                        className="flex w-full justify-center gap-1 pt-1 border-t border-border/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-                                                                onClick={() => handleViewProfile(member)}
-                                                                title={t("common.view_profile")}
-                                                            >
-                                                                <Eye className="h-4 w-4" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-                                                                onClick={() => handleEditProfile(member)}
-                                                                title={t("common.edit_profile")}
-                                                            >
-                                                                <Edit className="h-4 w-4" />
-                                                            </Button>
-                                                            {multiBranch ? (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-                                                                    onClick={() => openMoveDialog([member])}
-                                                                    title="Move to branch"
-                                                                >
-                                                                    <ArrowRightLeft className="h-4 w-4" />
-                                                                </Button>
-                                                            ) : null}
-                                                        </div>
+                                                    </div>
                                                 </CardContent>
                                             </Card>
                                             );
@@ -2894,9 +1918,9 @@ const TeamTab: React.FC = () => {
                     <CardDescription className="text-slate-500 dark:text-slate-400">{t("staff.pending.subtitle")}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {isInvitesLoading && !activationPendingData ? (
+                    {isActivationPendingLoading && !activationPendingData ? (
                         <TableSkeleton rowCount={4} colCount={5} />
-                    ) : (invitations && invitations.length > 0) || (pendingActivations && pendingActivations.length > 0) ? (
+                    ) : pendingActivations.length > 0 ? (
                         <>
                             <Table>
                                 <TableHeader>
@@ -2926,15 +1950,15 @@ const TeamTab: React.FC = () => {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                                    WhatsApp
+                                                <Badge className={pa.status === "not_delivered" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"}>
+                                                    {t(`staff.pending.wa_status.${pa.status === "sent" || pa.status === "not_delivered" ? pa.status : "pending"}`)}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
-                                                    <Button variant="outline" size="sm" className="text-emerald-600 hover:text-emerald-700 border-emerald-200" onClick={handleCopyActivationLink}>
-                                                        <Copy className="w-3.5 h-3.5 mr-1.5" />
-                                                        {t("staff.pending.copy_link")}
+                                                    <Button variant="outline" size="sm" className="text-emerald-600 hover:text-emerald-700 border-emerald-200" onClick={() => handleResendWelcome(pa.id)}>
+                                                        <Send className="w-3.5 h-3.5 mr-1.5" />
+                                                        {t("staff.pending.resend")}
                                                     </Button>
                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={() => handleDeletePendingActivation(pa.id)} title={t("staff.pending.delete")}>
                                                         <Trash2 className="h-4 w-4" />
@@ -2943,53 +1967,8 @@ const TeamTab: React.FC = () => {
                                             </TableCell>
                                         </TableRow>
                                     ))}
-                                    {invitations.map((invite) => (
-                                        <TableRow key={invite.id} className="border-slate-100 dark:border-slate-800">
-                                            <TableCell className="font-medium text-slate-900 dark:text-white">
-                                                {invite.first_name || t("staff.new")} {invite.last_name || t("staff.member")}
-                                            </TableCell>
-                                            <TableCell className="text-slate-600 dark:text-slate-300">
-                                                <div className="flex items-center gap-2">
-                                                    {invite.email ? <Mail className="w-3 h-3" /> : <Phone className="w-3 h-3" />}
-                                                    {invite.email || invite.phone_number || invite.extra_data?.phone || "N/A"}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline" className="capitalize">
-                                                    {invite.role?.toLowerCase().replace(/_/g, " ")}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-wrap items-center gap-1.5">
-                                                    <Badge variant="outline">{invite.email ? "Email" : "WhatsApp"}</Badge>
-                                                    {invite.status === "expired" && (
-                                                        <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 border-0">
-                                                            Expired
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600 hover:text-emerald-700" onClick={() => handleResendInvite(invite.id)} title={t("common.resend_invitation")}>
-                                                        <Send className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={() => handleCancelInvite(invite.id)} title={t("common.cancel_invitation")}>
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
                                 </TableBody>
                             </Table>
-                            <PaginationControls
-                                currentPage={invitesPage}
-                                count={typeof invitesData?.count === "number" ? invitesData.count : (Array.isArray(invitesData) ? invitesData.length : invitations.length)}
-                                pageSize={20}
-                                onPageChange={setInvitesPage}
-                                isLoading={isInvitesLoading}
-                            />
                         </>
                     ) : (
                         <div className="text-center py-8 text-slate-500">{t("staff.pending.none")}</div>

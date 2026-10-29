@@ -3,6 +3,7 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '../../contexts/AuthContext.types';
@@ -77,13 +78,13 @@ const DeleteStaffConfirmation: React.FC<DeleteStaffConfirmationProps> = ({ isOpe
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                    <Button variant="outline" onClick={onClose} disabled={deleteStaffMutation.isLoading}>Cancel</Button>
+                    <Button variant="outline" onClick={onClose} disabled={deleteStaffMutation.isPending}>Cancel</Button>
                     <Button
                         variant="destructive"
                         onClick={handleDelete}
-                        disabled={deleteStaffMutation.isLoading}
+                        disabled={deleteStaffMutation.isPending}
                     >
-                        {deleteStaffMutation.isLoading ? 'Removing...' : 'Remove'}
+                        {deleteStaffMutation.isPending ? 'Removing...' : 'Remove'}
                     </Button>
                 </DialogFooter>
             </DialogContent>

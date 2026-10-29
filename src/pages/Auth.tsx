@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 import { useAuth } from "../contexts/AuthContext";
 import { AuthForm } from "../components/AuthForm";
+import { InviteLinkRetired } from "./AcceptInvitation";
 import { SignUpForm } from "../components/SignUpForm";
 import { RestaurantShowcase } from "../components/RestaurantShowcase";
 import { AuthLanguagePicker } from "@/components/AuthLanguagePicker";
@@ -45,117 +46,8 @@ const Auth = () => {
   const isInvitationLink = () =>
     new URLSearchParams(window.location.search).has("token");
 
-  const handleAcceptInvitation = async (
-    e: React.FormEvent<HTMLFormElement>
-  ) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError("");
-
-    const formData = new FormData(e.currentTarget);
-    const token = new URLSearchParams(window.location.search).get("token");
-    const firstName = formData.get("firstName") as string;
-    const lastName = formData.get("lastName") as string;
-    const password = formData.get("password") as string;
-
-    if (!token) {
-      setError(t("auth.invite.errors.invalid_link"));
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      await auth.acceptInvitation(token, firstName, lastName, password, null);
-
-      toast({
-        title: t("auth.invite.toast_welcome"),
-        description: t("auth.invite.toast_desc"),
-      });
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError(t("auth.invite.errors.unexpected"));
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   if (isInvitationLink()) {
-    return (
-      <AuthShell>
-        <AuthBackground>
-          <div className="flex min-h-screen items-center justify-center p-4">
-            <div className={`w-full max-w-md ${authGlassCardClass}`}>
-              <div className="mb-6 flex items-center gap-2.5">
-                <BrandLogo size="md" />
-                <div>
-                  <div className="text-lg font-bold tracking-tight text-white">
-                    Mizan AI
-                  </div>
-                  <p className="text-xs text-[#78909C]">{t("auth.invite.join_team")}</p>
-                </div>
-              </div>
-
-              {error && (
-                <Alert variant="destructive" className="mb-4 bg-red-500/10 border-red-500/30">
-                  <AlertDescription className="text-red-200">{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <form onSubmit={handleAcceptInvitation} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName" className="text-white">
-                    {t("auth.invite.first_name")}
-                  </Label>
-                  <Input
-                    id="firstName"
-                    name="firstName"
-                    placeholder={t("auth.invite.placeholder_first")}
-                    required
-                    className={`h-11 ${authFieldClass}`}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName" className="text-white">
-                    {t("auth.invite.last_name")}
-                  </Label>
-                  <Input
-                    id="lastName"
-                    name="lastName"
-                    placeholder={t("auth.invite.placeholder_last")}
-                    required
-                    className={`h-11 ${authFieldClass}`}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-white">
-                    {t("auth.invite.password")}
-                  </Label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    minLength={6}
-                    className={`h-11 ${authFieldClass}`}
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="mt-2 h-11 w-full rounded-lg border border-[#00E676]/30 bg-gradient-to-r from-[#00E676] to-[#00C853] font-semibold text-[#0A0D10] shadow-lg transition-all hover:from-[#00F77B] hover:to-[#00D96B] hover:shadow-[0_0_25px_rgba(0,230,118,0.4)]"
-                  disabled={isLoading}
-                >
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isLoading ? t("auth.invite.completing") : t("auth.invite.complete_setup")}
-                </Button>
-              </form>
-            </div>
-          </div>
-        </AuthBackground>
-      </AuthShell>
-    );
+    return <InviteLinkRetired />;
   }
 
   const isSignup = currentPage === "signup";

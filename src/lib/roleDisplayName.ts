@@ -1,7 +1,5 @@
-import type { TFunction } from "i18next";
-
 /** Human-readable role label for nav, RBAC, and profile. */
-export function roleDisplayName(role: string | undefined | null, t: TFunction): string {
+export function roleDisplayName(role: string | undefined | null, t: (key: string) => string): string {
   if (!role) return "";
   const code = role.trim().toUpperCase();
   const slug = code.toLowerCase();

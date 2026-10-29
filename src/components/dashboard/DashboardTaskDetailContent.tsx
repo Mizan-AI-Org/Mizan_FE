@@ -3,6 +3,7 @@ import {
   Calendar,
   ChevronDown,
   Paperclip,
+  Archive,
   Sparkles,
   Play,
   CheckCircle2,
@@ -65,6 +66,7 @@ export function DashboardTaskDetailContent({
   isAssigneeUpdating,
   t,
   onOpenInbox,
+  onArchive,
 }: {
   task: DashboardTaskDemandItem;
   widgetTitle?: string;
@@ -78,8 +80,10 @@ export function DashboardTaskDetailContent({
   isUpdating: boolean;
   isSaving?: boolean;
   isAssigneeUpdating?: boolean;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: (key: string, options?: Record<string, string | number>) => string;
   onOpenInbox?: () => void;
+  /** Archive the task (30-day undo); only for dashboard tasks. */
+  onArchive?: () => void;
 }) {
   const multiAssignMode = !!onSaveAssignees;
   const savedIds = useMemo(() => initialAssigneeIds(task), [task]);
@@ -225,7 +229,6 @@ export function DashboardTaskDetailContent({
                       className={cn(
                         "inline-block h-2 w-2 rounded-full mr-2",
                         p === "URGENT" && "bg-red-500",
-                        p === "HIGH" && "bg-amber-500",
                         p === "MEDIUM" && "bg-blue-500",
                       )}
                     />
@@ -276,6 +279,32 @@ export function DashboardTaskDetailContent({
                 </p>
               )}
             </div>
+            {task.group_mode === "all" && task.assignees?.length ? (
+              <div className="mt-1.5 text-[11px] text-muted-foreground">
+                <div>
+                  {t("dashboard.task_detail.shared_all", {
+                    done: task.assignees.filter((a) => task.done_by?.includes(a.id)).length,
+                    total: task.assignees.length,
+                    defaultValue: "Everyone together",
+                  })}
+                </div>
+                {task.assignees.some((a) => !task.done_by?.includes(a.id)) ? (
+                  <div className="text-amber-700 dark:text-amber-400">
+                    {t("dashboard.task_detail.shared_missing", {
+                      names: task.assignees
+                        .filter((a) => !task.done_by?.includes(a.id))
+                        .map((a) => a.name)
+                        .join(", "),
+                      defaultValue: "Waiting on",
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            ) : task.group_mode === "first" ? (
+              <div className="mt-1.5 text-[11px] text-muted-foreground">
+                {t("dashboard.task_detail.shared_first", { defaultValue: "First to take it" })}
+              </div>
+            ) : null}
           </div>
           <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
             <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -432,6 +461,16 @@ export function DashboardTaskDetailContent({
           ) : null}
         </div>
         )}
+        {onArchive ? (
+          <button
+            type="button"
+            onClick={onArchive}
+            className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            <Archive className="h-3.5 w-3.5" aria-hidden />
+            {t("archive.archive_task")}
+          </button>
+        ) : null}
         {onOpenInbox ? (
           <button
             type="button"

@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -6,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Loader2, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
-import { AssignedShift } from './WeeklyScheduleView'; // Reuse interface from WeeklyScheduleView
+import type { AssignedShift } from './WeeklyScheduleView'; // Reuse interface from WeeklyScheduleView
 import { API_BASE } from "@/lib/api";
 import { unwrapEnvelope } from "@/lib/envelope";
 
@@ -25,6 +26,12 @@ function asList(payload: unknown): any[] {
 
 
 import { useLanguage } from "@/hooks/use-language";
+
+// Toasts and labels here were calling a `t` that was never defined (ReferenceError at runtime): translate with the
+// app's i18n instance, which follows the current language like useLanguage().
+const t = (key: string, options?: Record<string, string | number> | string): string =>
+  i18n.t(key, typeof options === "string" ? { defaultValue: options } : options) as string;
+
 interface ShiftSwapRequest {
     id: string;
     shift_to_swap: string; // ID of the shift being swapped
@@ -53,9 +60,9 @@ const ManagerSwapRequests: React.FC = () => {
     const queryClient = useQueryClient();
 
     const { data: swapRequests, isLoading, error } = useQuery<ShiftSwapRequest[]>({ // Specify the type of data expected
-        queryKey: ['managerShiftSwapRequests', user?.restaurant?.id],
+        queryKey: ['managerShiftSwapRequests', user?.restaurant],
         queryFn: async () => {
-            if (!user?.restaurant?.id) return [];
+            if (!user?.restaurant) return [];
             const response = await fetch(`${API_BASE}/schedule/manager-shift-swap-requests/`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -64,7 +71,7 @@ const ManagerSwapRequests: React.FC = () => {
             if (!response.ok) throw new Error('Failed to fetch swap requests');
             return asList(await response.json());
         },
-        enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'OWNER' || user.role === 'ADMIN'),
+        enabled: !!user?.restaurant && (user.role === 'SUPER_ADMIN' || user.role === 'OWNER' || user.role === 'ADMIN'),
         refetchInterval: 60_000,
     });
 

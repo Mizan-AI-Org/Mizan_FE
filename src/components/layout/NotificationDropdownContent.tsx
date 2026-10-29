@@ -180,7 +180,7 @@ function BatchNotificationRow({
   onToggle: () => void;
   onNavigate: (n: LayoutNotification) => void;
   onMarkRead: (ids: string[]) => void;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: (key: string, opts?: Record<string, string | number>) => string;
 }) {
   const unreadIds = group.items.filter((n) => !n.read).map((n) => n.id);
   const titles = group.items.map((n) => taskTitleFromMessage(n.description)).filter(Boolean);
@@ -271,7 +271,7 @@ export function NotificationDropdownContent({
   notifications: LayoutNotification[];
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: (key: string, opts?: Record<string, string | number>) => string;
   staffRequestsLabel?: string;
   showStaffRequestsLink?: boolean;
 }) {

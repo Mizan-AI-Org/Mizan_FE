@@ -861,5 +861,89 @@
     background-repeat: repeat;
     background-size: 128px 128px;
   }
+
+  /* Staff directory — profile cards (light + dark) */
+  .staff-directory-card {
+    background: hsl(var(--card));
+    box-shadow:
+      0 1px 2px hsl(var(--foreground) / 0.04),
+      0 10px 28px hsl(var(--primary) / 0.05);
+    transition:
+      transform 0.22s ease,
+      box-shadow 0.22s ease,
+      border-color 0.22s ease;
+  }
+
+  .staff-directory-card:hover {
+    transform: translateY(-4px);
+    border-color: hsl(var(--primary) / 0.35);
+    box-shadow:
+      0 18px 40px hsl(var(--primary) / 0.14),
+      0 2px 8px hsl(var(--foreground) / 0.04);
+  }
+
+  .dark .staff-directory-card {
+    box-shadow:
+      0 1px 0 hsl(var(--primary) / 0.08),
+      0 12px 32px hsl(0 0% 0% / 0.35);
+  }
+
+  .dark .staff-directory-card:hover {
+    box-shadow:
+      0 0 0 1px hsl(var(--primary) / 0.22),
+      0 20px 44px hsl(var(--primary) / 0.18);
+  }
+
+  .staff-directory-card--selected {
+    border-color: hsl(var(--primary) / 0.55) !important;
+    box-shadow:
+      0 0 0 1px hsl(var(--primary) / 0.35),
+      0 12px 28px hsl(var(--primary) / 0.16);
+  }
+
+  .staff-directory-card__band {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 6.25rem;
+    background:
+      radial-gradient(90% 140% at 50% -10%, hsl(var(--primary) / 0.28), transparent 68%),
+      linear-gradient(180deg, hsl(var(--primary-muted)) 0%, hsl(var(--primary-muted) / 0.2) 100%);
+    pointer-events: none;
+  }
+
+  .dark .staff-directory-card__band {
+    background:
+      radial-gradient(90% 140% at 50% -20%, hsl(var(--primary) / 0.42), transparent 70%),
+      linear-gradient(180deg, hsl(var(--primary) / 0.22) 0%, transparent 100%);
+  }
+
+  .staff-directory-avatar-wrap {
+    padding: 3px;
+    border-radius: 9999px;
+    background: hsl(var(--card));
+    box-shadow:
+      0 0 0 1px hsl(var(--primary) / 0.18),
+      0 10px 22px hsl(var(--primary) / 0.12);
+  }
+
+  .dark .staff-directory-avatar-wrap {
+    box-shadow:
+      0 0 0 1px hsl(var(--primary) / 0.35),
+      0 12px 28px hsl(0 0% 0% / 0.45);
+  }
+
+  .staff-directory-card__actions {
+    background: hsl(var(--card) / 0.92);
+    border: 1px solid hsl(var(--border) / 0.7);
+    box-shadow: 0 6px 18px hsl(var(--foreground) / 0.08);
+    backdrop-filter: blur(10px);
+  }
+
+  .dark .staff-directory-card__actions {
+    background: hsl(var(--card) / 0.8);
+    border-color: hsl(var(--primary) / 0.28);
+    box-shadow: 0 8px 22px hsl(0 0% 0% / 0.4);
+  }
 }
 

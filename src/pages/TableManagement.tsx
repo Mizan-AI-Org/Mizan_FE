@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,12 @@ import { API_BASE } from "@/lib/api";
 
 
 import { useLanguage } from "@/hooks/use-language";
+
+// Toasts and labels here were calling a `t` that was never defined (ReferenceError at runtime): translate with the
+// app's i18n instance, which follows the current language like useLanguage().
+const t = (key: string, options?: Record<string, string | number> | string): string =>
+  i18n.t(key, typeof options === "string" ? { defaultValue: options } : options) as string;
+
 interface Order {
     id: string;
     order_type: string;
@@ -57,9 +64,9 @@ const TableManagement: React.FC = () => {
     });
 
     const { data: tables, isLoading, error, refetch } = useQuery<Table[]>({ // Specify the type of data expected
-        queryKey: ['tables', user?.restaurant?.id],
+        queryKey: ['tables', user?.restaurant],
         queryFn: async () => {
-            if (!user?.restaurant?.id) return [];
+            if (!user?.restaurant) return [];
             const response = await fetch(`${API_BASE}/staff/tables/`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -71,15 +78,15 @@ const TableManagement: React.FC = () => {
             }
             return response.json();
         },
-        enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'OWNER' || user.role === 'ADMIN'),
+        enabled: !!user?.restaurant && (user.role === 'SUPER_ADMIN' || user.role === 'OWNER' || user.role === 'ADMIN'),
         refetchInterval: 60_000,
     });
 
     // Fetch pending orders to assign
     const { data: pendingOrders, isLoading: isLoadingPendingOrders } = useQuery<Order[]>({ // Specify the type of data expected
-        queryKey: ['pendingOrders', user?.restaurant?.id],
+        queryKey: ['pendingOrders', user?.restaurant],
         queryFn: async () => {
-            if (!user?.restaurant?.id) return [];
+            if (!user?.restaurant) return [];
             const response = await fetch(`${API_BASE}/staff/orders/?status=PENDING`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -91,7 +98,7 @@ const TableManagement: React.FC = () => {
             }
             return response.json();
         },
-        enabled: !!user?.restaurant?.id && (user.role === 'SUPER_ADMIN' || user.role === 'OWNER' || user.role === 'ADMIN') && showAssignOrderDialog, // Only fetch when dialog is open
+        enabled: !!user?.restaurant && (user.role === 'SUPER_ADMIN' || user.role === 'OWNER' || user.role === 'ADMIN') && showAssignOrderDialog, // Only fetch when dialog is open
     });
 
     const createTableMutation = useMutation({

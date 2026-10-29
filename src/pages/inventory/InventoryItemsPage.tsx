@@ -11,7 +11,10 @@ import {
     ArrowUpDown,
     MoreHorizontal,
     Upload,
+    Truck,
 } from "lucide-react";
+import { TransferStockDialog } from "@/components/inventory/TransferStockDialog";
+import { useBranchScope } from "@/contexts/BranchScopeContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 import { useAuth } from "../../contexts/AuthContext";
@@ -46,6 +49,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useLanguage } from "@/hooks/use-language";
 import { PAGE_SHELL } from "@/lib/page-shell";
 import { cn } from "@/lib/utils";
+
+const ITEM_CATEGORIES = ["FOOD", "BEVERAGE", "SUPPLIES", "CLEANING", "OTHER"] as const;
 
 function parseInventoryCsv(text: string) {
     const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
@@ -90,11 +95,12 @@ export default function InventoryItemsPage({ embedded = false }: InventoryItemsP
     const [sortColumn, setSortColumn] = useState<keyof InventoryItem>("name");
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+    const [isTransferOpen, setIsTransferOpen] = useState(false);
+    const { multiBranch } = useBranchScope();
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
     const [newItem, setNewItem] = useState<Omit<InventoryItem, 'id' | 'restaurant' | 'created_at' | 'updated_at' | 'supplier_info' | 'inventory_item_info' | 'adjusted_by_info'>>({
         name: "",
-        description: "",
         category: "",
         unit: "",
         current_stock: 0,
@@ -102,9 +108,7 @@ export default function InventoryItemsPage({ embedded = false }: InventoryItemsP
         cost_per_unit: 0,
         supplier: undefined,
         last_restock_date: undefined,
-        pack_size: null,
-        min_order_qty: null,
-        shelf_life_days: null,
+        par_level: 0,
     });
 
     const { data: inventoryItems, isLoading } = useQuery<InventoryItem[]>({
@@ -127,7 +131,6 @@ export default function InventoryItemsPage({ embedded = false }: InventoryItemsP
             setIsCreateDialogOpen(false);
             setNewItem({
                 name: "",
-                description: "",
                 category: "",
                 unit: "",
                 current_stock: 0,
@@ -135,9 +138,7 @@ export default function InventoryItemsPage({ embedded = false }: InventoryItemsP
                 cost_per_unit: 0,
                 supplier: undefined,
                 last_restock_date: undefined,
-                pack_size: null,
-                min_order_qty: null,
-                shelf_life_days: null,
+                par_level: 0,
             });
         },
         onError: (err) => {
@@ -261,6 +262,12 @@ export default function InventoryItemsPage({ embedded = false }: InventoryItemsP
                 <Upload className="w-4 h-4 mr-2" />
                 {importMutation.isPending ? t("inventory.uploading") : t("inventory.upload")}
             </Button>
+            {multiBranch ? (
+                <Button variant="outline" onClick={() => setIsTransferOpen(true)}>
+                    <Truck className="w-4 h-4 me-2" />
+                    {t("branches.transfer.title")}
+                </Button>
+            ) : null}
             <Button onClick={() => setIsCreateDialogOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 {t("inventory.add")}
@@ -307,7 +314,7 @@ export default function InventoryItemsPage({ embedded = false }: InventoryItemsP
                                 <SelectItem value="all">{t("inventory.all_categories")}</SelectItem>
                                 {categories.map((category) => (
                                     <SelectItem key={category} value={category}>
-                                        {category}
+                                        {t(`inventory.cat.${category}`, { defaultValue: category })}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -354,7 +361,7 @@ export default function InventoryItemsPage({ embedded = false }: InventoryItemsP
                             ) : sortedAndFilteredItems.map((item) => (
                                 <TableRow key={item.id}>
                                     <TableCell className="font-medium">{item.name}</TableCell>
-                                    <TableCell>{item.category}</TableCell>
+                                    <TableCell>{item.category ? t(`inventory.cat.${item.category}`, { defaultValue: item.category }) : "—"}</TableCell>
                                     <TableCell>
                                         {item.current_stock} {item.unit}
                                         {item.current_stock <= item.min_stock_level && (
@@ -405,12 +412,8 @@ export default function InventoryItemsPage({ embedded = false }: InventoryItemsP
                                 <Input id="inventory-item-name" name="inventory-item-name" autoComplete="off" data-1p-ignore data-lpignore="true" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} className="col-span-3" required />
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="inventory-description" className="text-right">{t("common.description")}</Label>
-                                <Input id="inventory-description" name="inventory-description" autoComplete="off" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} className="col-span-3" />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="inventory-category" className="text-right">{t("inventory.field.category")}</Label>
-                                <Input id="inventory-category" name="inventory-category" autoComplete="off" value={newItem.category} onChange={(e) => setNewItem({ ...newItem, category: e.target.value })} className="col-span-3" />
+                                <select id="inventory-category" className="col-span-3 h-10 rounded-md border border-input bg-background px-3 text-sm" value={newItem.category} onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}><option value="">—</option>{ITEM_CATEGORIES.map((c) => <option key={c} value={c}>{t(`inventory.cat.${c}`)}</option>)}</select>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="inventory-unit" className="text-right">{t("inventory.field.unit")}</Label>
@@ -423,6 +426,10 @@ export default function InventoryItemsPage({ embedded = false }: InventoryItemsP
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="min_stock_level" className="text-right">{t("inventory.field.min")}</Label>
                                 <Input id="min_stock_level" type="number" value={newItem.min_stock_level} onChange={(e) => setNewItem({ ...newItem, min_stock_level: parseFloat(e.target.value) })} className="col-span-3" required />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="par_level" className="text-right">{t("inventory.field.par")}</Label>
+                                <Input id="par_level" type="number" min="0" value={newItem.par_level ?? 0} onChange={(e) => setNewItem({ ...newItem, par_level: parseFloat(e.target.value) || 0 })} className="col-span-3" />
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="cost_per_unit" className="text-right">{t("inventory.field.cost")}</Label>
@@ -442,51 +449,6 @@ export default function InventoryItemsPage({ embedded = false }: InventoryItemsP
                                         ))}
                                     </SelectContent>
                                 </Select>
-                            </div>
-                            <div className="grid grid-cols-4 items-start gap-4">
-                                <Label htmlFor="pack_size" className="text-right pt-2">{t("inventory.field.pack")}</Label>
-                                <div className="col-span-3 space-y-1">
-                                    <Input
-                                        id="pack_size"
-                                        type="number"
-                                        step="0.001"
-                                        min="0"
-                                        value={newItem.pack_size ?? ""}
-                                        onChange={(e) => setNewItem({ ...newItem, pack_size: e.target.value === "" ? null : parseFloat(e.target.value) })}
-                                        placeholder={t("inventory.field.pack_placeholder")}
-                                    />
-                                    <p className="text-[11px] text-muted-foreground">{t("inventory.field.pack_hint")}</p>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-4 items-start gap-4">
-                                <Label htmlFor="min_order_qty" className="text-right pt-2">{t("inventory.field.min_order")}</Label>
-                                <div className="col-span-3 space-y-1">
-                                    <Input
-                                        id="min_order_qty"
-                                        type="number"
-                                        step="0.001"
-                                        min="0"
-                                        value={newItem.min_order_qty ?? ""}
-                                        onChange={(e) => setNewItem({ ...newItem, min_order_qty: e.target.value === "" ? null : parseFloat(e.target.value) })}
-                                        placeholder={t("inventory.field.min_order_placeholder")}
-                                    />
-                                    <p className="text-[11px] text-muted-foreground">{t("inventory.field.min_order_hint")}</p>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-4 items-start gap-4">
-                                <Label htmlFor="shelf_life_days" className="text-right pt-2">{t("inventory.field.shelf")}</Label>
-                                <div className="col-span-3 space-y-1">
-                                    <Input
-                                        id="shelf_life_days"
-                                        type="number"
-                                        step="1"
-                                        min="0"
-                                        value={newItem.shelf_life_days ?? ""}
-                                        onChange={(e) => setNewItem({ ...newItem, shelf_life_days: e.target.value === "" ? null : parseInt(e.target.value, 10) })}
-                                        placeholder={t("inventory.field.shelf_placeholder")}
-                                    />
-                                    <p className="text-[11px] text-muted-foreground">{t("inventory.field.shelf_hint")}</p>
-                                </div>
                             </div>
                         </div>
                         <DialogFooter>
@@ -513,12 +475,8 @@ export default function InventoryItemsPage({ embedded = false }: InventoryItemsP
                                     <Input id="edit-inventory-name" name="edit-inventory-name" autoComplete="off" data-1p-ignore data-lpignore="true" value={selectedItem.name} onChange={(e) => setSelectedItem({ ...selectedItem, name: e.target.value })} className="col-span-3" required />
                                 </div>
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label htmlFor="edit-inventory-description" className="text-right">{t("common.description")}</Label>
-                                    <Input id="edit-inventory-description" autoComplete="off" value={selectedItem.description || ""} onChange={(e) => setSelectedItem({ ...selectedItem, description: e.target.value })} className="col-span-3" />
-                                </div>
-                                <div className="grid grid-cols-4 items-center gap-4">
                                     <Label htmlFor="edit-inventory-category" className="text-right">{t("inventory.field.category")}</Label>
-                                    <Input id="edit-inventory-category" autoComplete="off" value={selectedItem.category} onChange={(e) => setSelectedItem({ ...selectedItem, category: e.target.value })} className="col-span-3" />
+                                    <select id="edit-inventory-category" className="col-span-3 h-10 rounded-md border border-input bg-background px-3 text-sm" value={selectedItem.category} onChange={(e) => setSelectedItem({ ...selectedItem, category: e.target.value })}><option value="">—</option>{ITEM_CATEGORIES.map((c) => <option key={c} value={c}>{t(`inventory.cat.${c}`)}</option>)}</select>
                                 </div>
                                 <div className="grid grid-cols-4 items-center gap-4">
                                     <Label htmlFor="edit-inventory-unit" className="text-right">{t("inventory.field.unit")}</Label>
@@ -531,6 +489,10 @@ export default function InventoryItemsPage({ embedded = false }: InventoryItemsP
                                 <div className="grid grid-cols-4 items-center gap-4">
                                     <Label htmlFor="edit-min_stock_level" className="text-right">{t("inventory.field.min")}</Label>
                                     <Input id="edit-min_stock_level" type="number" value={selectedItem.min_stock_level} onChange={(e) => setSelectedItem({ ...selectedItem, min_stock_level: parseFloat(e.target.value) })} className="col-span-3" required />
+                                </div>
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="edit-par_level" className="text-right">{t("inventory.field.par")}</Label>
+                                    <Input id="edit-par_level" type="number" min="0" value={selectedItem.par_level ?? 0} onChange={(e) => setSelectedItem({ ...selectedItem, par_level: parseFloat(e.target.value) || 0 })} className="col-span-3" />
                                 </div>
                                 <div className="grid grid-cols-4 items-center gap-4">
                                     <Label htmlFor="edit-cost_per_unit" className="text-right">{t("inventory.field.cost")}</Label>
@@ -551,51 +513,6 @@ export default function InventoryItemsPage({ embedded = false }: InventoryItemsP
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div className="grid grid-cols-4 items-start gap-4">
-                                    <Label htmlFor="edit-pack_size" className="text-right pt-2">{t("inventory.field.pack")}</Label>
-                                    <div className="col-span-3 space-y-1">
-                                        <Input
-                                            id="edit-pack_size"
-                                            type="number"
-                                            step="0.001"
-                                            min="0"
-                                            value={selectedItem.pack_size ?? ""}
-                                            onChange={(e) => setSelectedItem({ ...selectedItem, pack_size: e.target.value === "" ? null : parseFloat(e.target.value) })}
-                                            placeholder={t("inventory.field.pack_placeholder")}
-                                        />
-                                        <p className="text-[11px] text-muted-foreground">{t("inventory.field.pack_hint")}</p>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-4 items-start gap-4">
-                                    <Label htmlFor="edit-min_order_qty" className="text-right pt-2">{t("inventory.field.min_order")}</Label>
-                                    <div className="col-span-3 space-y-1">
-                                        <Input
-                                            id="edit-min_order_qty"
-                                            type="number"
-                                            step="0.001"
-                                            min="0"
-                                            value={selectedItem.min_order_qty ?? ""}
-                                            onChange={(e) => setSelectedItem({ ...selectedItem, min_order_qty: e.target.value === "" ? null : parseFloat(e.target.value) })}
-                                            placeholder={t("inventory.field.min_order_placeholder")}
-                                        />
-                                        <p className="text-[11px] text-muted-foreground">{t("inventory.field.min_order_hint")}</p>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-4 items-start gap-4">
-                                    <Label htmlFor="edit-shelf_life_days" className="text-right pt-2">{t("inventory.field.shelf")}</Label>
-                                    <div className="col-span-3 space-y-1">
-                                        <Input
-                                            id="edit-shelf_life_days"
-                                            type="number"
-                                            step="1"
-                                            min="0"
-                                            value={selectedItem.shelf_life_days ?? ""}
-                                            onChange={(e) => setSelectedItem({ ...selectedItem, shelf_life_days: e.target.value === "" ? null : parseInt(e.target.value, 10) })}
-                                            placeholder={t("inventory.field.shelf_placeholder")}
-                                        />
-                                        <p className="text-[11px] text-muted-foreground">{t("inventory.field.shelf_hint")}</p>
-                                    </div>
-                                </div>
                             </div>
                             <DialogFooter>
                                 <Button type="submit" disabled={updateMutation.isPending}>
@@ -606,6 +523,13 @@ export default function InventoryItemsPage({ embedded = false }: InventoryItemsP
                     )}
                 </DialogContent>
             </Dialog>
+            {multiBranch ? (
+                <TransferStockDialog
+                    open={isTransferOpen}
+                    onOpenChange={setIsTransferOpen}
+                    items={(inventoryItems || []).map((i) => ({ id: String(i.id), name: i.name, unit: i.unit }))}
+                />
+            ) : null}
         </>
     );
 

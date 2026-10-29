@@ -196,8 +196,8 @@ const StaffMyTasks: React.FC = () => {
     const cl: ChecklistTemplate[] = Array.isArray(activeTemplates) ? activeTemplates : [];
     const tl: TaskTemplateApi[] = Array.isArray(taskTemplates) ? taskTemplates : [];
     const normalized: SuggestedTemplate[] = [
-      ...cl.map((t) => ({ id: String(t.id), name: t.name, description: t.description, template_type: String(t.template_type || "SOP").toUpperCase(), source: "CHECKLIST" })),
-      ...tl.map((t) => ({ id: String(t.id), name: t.name, description: t.description || "", template_type: String(t.template_type || "SOP").toUpperCase(), source: "TASK", tasks: t.tasks || [] })),
+      ...cl.map((t) => ({ id: String(t.id), name: t.name, description: t.description, template_type: String(t.template_type || "SOP").toUpperCase(), source: "CHECKLIST" as const })),
+      ...tl.map((t) => ({ id: String(t.id), name: t.name, description: t.description || "", template_type: String(t.template_type || "SOP").toUpperCase(), source: "TASK" as const, tasks: t.tasks || [] })),
     ];
     const byType = (t: SuggestedTemplate, types: string[]) => types.includes(String(t?.template_type || "").toUpperCase());
     const byName = (t: SuggestedTemplate, keywords: string[]) => {

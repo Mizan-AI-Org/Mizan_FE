@@ -16,18 +16,18 @@ import { API_BASE } from "@/lib/api";
 
 
 interface Task {
-  id: number;
+  id: string;
   title: string;
   description: string;
   due_date: string;
   priority: 'low' | 'medium' | 'high';
   status: 'pending' | 'in_progress' | 'completed';
   task_type: 'sop' | 'checklist';
-  assigned_to?: number;
+  assigned_to?: string;
 }
 
 interface Staff {
-  id: number;
+  id: string;
   first_name: string;
   last_name: string;
 }
@@ -71,7 +71,8 @@ const TaskManagementInterface: React.FC<{ isManager: boolean }> = ({ isManager }
         },
       });
       if (!response.ok) throw new Error('Failed to fetch staff');
-      return response.json();
+      const body = await response.json();
+      return Array.isArray(body) ? body : body?.data ?? body?.results ?? [];
     },
     enabled: isManager,
   });
@@ -110,7 +111,7 @@ const TaskManagementInterface: React.FC<{ isManager: boolean }> = ({ isManager }
 
   // Update task status mutation
   const updateTaskStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const response = await fetch(`${API_BASE}/staff/tasks/${id}/`, {
         method: 'PATCH',
         headers: {
@@ -314,7 +315,7 @@ const TaskManagementInterface: React.FC<{ isManager: boolean }> = ({ isManager }
                 <Label htmlFor="assigned-to">Assign To</Label>
                 <Select
                   value={newTask.assigned_to?.toString()}
-                  onValueChange={(value) => setNewTask({ ...newTask, assigned_to: parseInt(value) })}
+                  onValueChange={(value) => setNewTask({ ...newTask, assigned_to: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select staff member" />

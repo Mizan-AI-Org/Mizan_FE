@@ -39,6 +39,7 @@ import { toast } from "sonner";
 import { useLanguage } from "@/hooks/use-language";
 import { PAGE_SHELL_PADDED } from "@/lib/page-shell";
 
+
 // ── Types ───────────────────────────────────────────────────────────
 type GuestRequestStatus = "open" | "in_progress" | "resolved";
 type GuestRequestPriority = "low" | "normal" | "high" | "urgent";
@@ -74,17 +75,17 @@ interface GuestRequest {
 // ── Constants ───────────────────────────────────────────────────────
 const REQUEST_TYPE_CONFIG: Record<
   GuestRequestType,
-  { label: string; icon: any; color: string }
+  { labelKey: string; icon: any; color: string }
 > = {
-  towel: { label: t("generic.towel"), icon: Sparkles, color: "text-blue-500" },
-  room_service: { label: t("generic.room_service"), icon: ConciergeBell, color: "text-amber-500" },
-  housekeeping: { label: t("generic.housekeeping"), icon: Sparkles, color: "text-green-500" },
-  maintenance: { label: t("generic.maintenance"), icon: Wrench, color: "text-orange-500" },
-  complaint: { label: t("generic.complaint"), icon: AlertTriangle, color: "text-red-500" },
-  amenity: { label: t("generic.amenity"), icon: Plus, color: "text-purple-500" },
-  check_in: { label: t("generic.check_in"), icon: Bell, color: "text-teal-500" },
-  check_out: { label: t("generic.check_out"), icon: CheckCircle2, color: "text-gray-500" },
-  other: { label: t("generic.other"), icon: Clock, color: "text-gray-400" },
+  towel: { labelKey: "generic.towel", icon: Sparkles, color: "text-blue-500" },
+  room_service: { labelKey: "generic.room_service", icon: ConciergeBell, color: "text-amber-500" },
+  housekeeping: { labelKey: "generic.housekeeping", icon: Sparkles, color: "text-green-500" },
+  maintenance: { labelKey: "generic.maintenance", icon: Wrench, color: "text-orange-500" },
+  complaint: { labelKey: "generic.complaint", icon: AlertTriangle, color: "text-red-500" },
+  amenity: { labelKey: "generic.amenity", icon: Plus, color: "text-purple-500" },
+  check_in: { labelKey: "generic.check_in", icon: Bell, color: "text-teal-500" },
+  check_out: { labelKey: "generic.check_out", icon: CheckCircle2, color: "text-gray-500" },
+  other: { labelKey: "generic.other", icon: Clock, color: "text-gray-400" },
 };
 
 const PRIORITY_COLORS: Record<GuestRequestPriority, string> = {
@@ -326,7 +327,7 @@ export default function GuestRequestsPage() {
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <span className="text-muted-foreground">{t("Type")}:</span>{" "}
-                    {REQUEST_TYPE_CONFIG[detailRequest.request_type]?.label}
+                    {t(REQUEST_TYPE_CONFIG[detailRequest.request_type]?.labelKey ?? "generic.other")}
                   </div>
                   <div>
                     <span className="text-muted-foreground">{t("Room")}:</span>{" "}
@@ -484,7 +485,7 @@ function GuestRequestForm({
             <SelectContent>
               {Object.entries(REQUEST_TYPE_CONFIG).map(([key, config]) => (
                 <SelectItem key={key} value={key}>
-                  {config.label}
+                  {t(config.labelKey)}
                 </SelectItem>
               ))}
             </SelectContent>

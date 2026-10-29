@@ -30,8 +30,11 @@ import {
   sanitizeMiyaText,
   playAgentReplyAudio,
   invalidateAfterAgentWrite,
+  uploadAgentFiles,
+  type AgentFile,
   type MastraChatMessage,
 } from "@/lib/mastraApi";
+import { toast } from "sonner";
 
 function newMessageId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -187,6 +190,16 @@ function ChatMessages({
   );
 }
 
+type ComposerFiles = {
+  items: AgentFile[];
+  uploading: boolean;
+  onAttach: (files: File[]) => void;
+  onRemove: (id: string) => void;
+};
+
+const ACCEPT_FILES =
+  ".pdf,.doc,.docx,.xls,.xlsx,.xlsm,.csv,.tsv,.txt,.jpg,.jpeg,.png,.webp,.heic,.ogg,.mp3,.m4a,.wav,.webm";
+
 function ChatComposer({
   input,
   setInput,
@@ -196,7 +209,9 @@ function ChatComposer({
   voiceState,
   onVoiceHoldStart,
   onVoiceHoldEnd,
+  files,
 }: {
+  files: ComposerFiles;
   input: string;
   setInput: (v: string) => void;
   loading: boolean;
@@ -208,7 +223,9 @@ function ChatComposer({
 }) {
   const { t } = useLanguage();
   const micButtonRef = useRef<HTMLButtonElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const transcribing = voiceState === "transcribing";
+  const canSend = !!input.trim() || files.items.length > 0;
 
   return (
     <div className="mizan-chat-composer-bar shrink-0 px-3 py-3">
@@ -223,13 +240,65 @@ function ChatComposer({
           {t("ai.voice_processing")}
         </p>
       ) : null}
+      {files.items.length > 0 || files.uploading ? (
+        <div className="mb-2 flex flex-wrap gap-1.5" aria-live="polite">
+          {files.items.map((file) => (
+            <span
+              key={file.id}
+              className={cn(
+                "inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-1 text-xs",
+                file.status === "unreadable" ? "border-destructive/40 text-destructive" : "border-border/70 bg-muted/40",
+              )}
+              title={file.error || file.name}
+            >
+              <Paperclip className="h-3 w-3 shrink-0" aria-hidden />
+              <span className="truncate">{file.name}</span>
+              <button
+                type="button"
+                className="ms-0.5 rounded-full p-0.5 hover:bg-muted"
+                onClick={() => files.onRemove(file.id)}
+                aria-label={t("ai.attach_remove", { name: file.name })}
+              >
+                <X className="h-3 w-3" aria-hidden />
+              </button>
+            </span>
+          ))}
+          {files.uploading ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-border/70 px-2.5 py-1 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+              {t("ai.attach_reading")}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       <form
         className="block"
         onSubmit={(e) => {
           e.preventDefault();
           onSend();
         }}
+        onDragOver={(e) => {
+          if (e.dataTransfer?.types?.includes("Files")) e.preventDefault();
+        }}
+        onDrop={(e) => {
+          const dropped = Array.from(e.dataTransfer?.files || []);
+          if (!dropped.length) return;
+          e.preventDefault();
+          files.onAttach(dropped);
+        }}
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept={ACCEPT_FILES}
+          className="hidden"
+          onChange={(e) => {
+            const picked = Array.from(e.target.files || []);
+            e.target.value = "";
+            if (picked.length) files.onAttach(picked);
+          }}
+        />
         <div
           className={cn(
             "flex min-h-[3rem] items-center gap-1 rounded-3xl border px-2 py-2 transition-colors",
@@ -243,9 +312,11 @@ function ChatComposer({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-9 w-9 shrink-0 text-muted-foreground"
-              disabled
-              aria-label={t("ai.attach", { defaultValue: "Attach" })}
+              className="h-9 w-9 shrink-0 text-muted-foreground hover:text-primary"
+              disabled={loading || files.uploading}
+              onClick={() => fileInputRef.current?.click()}
+              aria-label={t("ai.attach")}
+              title={t("ai.attach_hint")}
             >
               <Paperclip className="h-[18px] w-[18px]" aria-hidden />
             </Button>
@@ -300,7 +371,7 @@ function ChatComposer({
             type="submit"
             size="icon"
             className="h-10 w-10 shrink-0 rounded-full bg-primary hover:bg-primary/90"
-            disabled={loading || transcribing || voiceState === "recording" || !input.trim()}
+            disabled={loading || transcribing || files.uploading || voiceState === "recording" || !canSend}
             aria-label={t("ai.send_message")}
           >
             {loading ? (
@@ -388,7 +459,9 @@ function AgentPanelBody({
   voiceState,
   onVoiceHoldStart,
   onVoiceHoldEnd,
+  files,
 }: {
+  files: ComposerFiles;
   messages: MastraChatMessage[];
   loading: boolean;
   scrollRef: React.RefObject<HTMLDivElement | null>;
@@ -420,6 +493,7 @@ function AgentPanelBody({
         voiceState={voiceState}
         onVoiceHoldStart={onVoiceHoldStart}
         onVoiceHoldEnd={onVoiceHoldEnd}
+        files={files}
       />
     </div>
   );
@@ -484,6 +558,8 @@ export const AgentChatPanel: React.FC = () => {
   const [localOpen, setLocalOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [attached, setAttached] = useState<AgentFile[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [messages, setMessages] = useState<MastraChatMessage[]>([]);
   const [conversationId, setConversationId] = useState("");
   const [historyReady, setHistoryReady] = useState(false);
@@ -591,19 +667,22 @@ export const AgentChatPanel: React.FC = () => {
 
   const sendText = useCallback(
     async (rawText: string, options?: { fromVoice?: boolean }) => {
-      const text = rawText.trim();
-      if (!text || loading) return;
+      const typed = rawText.trim();
+      const files = attached;
+      if ((!typed && !files.length) || loading || uploading) return;
+      const text = typed || t("ai.attach_default_message");
 
       const fromVoice = !!options?.fromVoice;
       const userMsg: MastraChatMessage = {
         id: newMessageId(),
         role: "user",
-        content: text,
+        content: files.length ? `${text}\n📎 ${files.map((f) => f.name).join(", ")}` : text,
         createdAt: Date.now(),
         fromVoice,
       };
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
+      setAttached([]);
       setLoading(true);
 
       try {
@@ -622,6 +701,7 @@ export const AgentChatPanel: React.FC = () => {
           locale: language,
           draftId,
           inputMode: fromVoice ? "voice" : "text",
+          attachments: files.map((f) => f.id),
         });
 
         if (userId) {
@@ -690,7 +770,7 @@ export const AgentChatPanel: React.FC = () => {
         setLoading(false);
       }
     },
-    [conversationId, language, loading, queryClient, t, userId],
+    [attached, conversationId, language, loading, queryClient, t, uploading, userId],
   );
 
   sendTextRef.current = (rawText, options) => {
@@ -716,6 +796,29 @@ export const AgentChatPanel: React.FC = () => {
       ]);
     },
   });
+
+  const attachFiles = useCallback(
+    async (picked: File[]) => {
+      const tooBig = picked.find((f) => f.size > 25 * 1024 * 1024);
+      if (tooBig) {
+        toast.error(t("ai.attach_too_big", { name: tooBig.name }));
+        return;
+      }
+      setUploading(true);
+      try {
+        const convId = (userId && conversationIdForUser(userId)) || conversationId || undefined;
+        const stored = await uploadAgentFiles(picked.slice(0, 10), convId);
+        setAttached((prev) => [...prev, ...stored.filter((f) => !prev.some((p) => p.id === f.id))]);
+        const unreadable = stored.find((f) => f.status === "unreadable");
+        if (unreadable) toast.error(unreadable.error || t("ai.attach_unreadable", { name: unreadable.name }));
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t("ai.attach_failed"));
+      } finally {
+        setUploading(false);
+      }
+    },
+    [conversationId, t, userId],
+  );
 
   const sendMessage = useCallback(() => {
     void sendText(input);
@@ -763,6 +866,12 @@ export const AgentChatPanel: React.FC = () => {
     voiceState,
     onVoiceHoldStart: () => void handleVoiceHoldStart(),
     onVoiceHoldEnd: () => void handleVoiceHoldEnd(),
+    files: {
+      items: attached,
+      uploading,
+      onAttach: (picked: File[]) => void attachFiles(picked),
+      onRemove: (id: string) => setAttached((prev) => prev.filter((f) => f.id !== id)),
+    },
   };
 
   if (!canUseWebAgent) {

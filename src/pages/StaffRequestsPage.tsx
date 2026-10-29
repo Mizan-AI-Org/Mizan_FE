@@ -196,7 +196,7 @@ function getCategoryIcon(category?: string) {
 
 function formatRelativeTime(
   iso: string,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: (key: string, options?: Record<string, string | number>) => string,
 ): string {
   try {
     const then = new Date(iso).getTime();
@@ -379,12 +379,13 @@ function invoiceAttachmentItems(invoice: Invoice) {
 
 function invoiceStatusLabel(
   status: string | undefined,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: (key: string, options?: Record<string, string | number>) => string,
 ) {
   const s = String(status || "").toUpperCase();
   const map: Record<string, string> = {
     PAID: t("staff.requests.invoice_status_paid"),
     VOIDED: t("staff.requests.invoice_status_voided"),
+    ARCHIVED: t("staff.requests.invoice_status_archived", { defaultValue: "Archived" }),
     DRAFT: t("staff.requests.invoice_status_draft"),
     SUBMITTED: t("staff.requests.invoice_status_submitted", { defaultValue: "Submitted" }),
     UNDER_REVIEW: t("staff.requests.invoice_status_under_review", { defaultValue: "Under Review" }),
@@ -402,7 +403,7 @@ function invoiceStatusLabel(
 function invoiceStatusBadge(status?: string) {
   const s = String(status || "").toUpperCase();
   if (s === "PAID") return "bg-emerald-50 text-emerald-700 border-emerald-200 ring-1 ring-emerald-200";
-  if (s === "VOIDED" || s === "REJECTED" || s === "PAYMENT_FAILED") {
+  if (s === "VOIDED" || s === "ARCHIVED" || s === "REJECTED" || s === "PAYMENT_FAILED") {
     return "bg-slate-50 text-slate-600 border-slate-200 ring-1 ring-slate-200";
   }
   if (s === "DRAFT" || s === "RETURNED") {
@@ -422,7 +423,7 @@ function InvoiceDetailPanel({
   t,
 }: {
   invoice: Invoice;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: (key: string, options?: Record<string, string | number>) => string;
 }) {
   const queryClient = useQueryClient();
   const [approvalNote, setApprovalNote] = useState("");
@@ -741,7 +742,7 @@ function DashboardTaskDetailPanel({
   onAssigneeChange?: (assigneeId: string | null) => void;
   isUpdating: boolean;
   isAssigneeUpdating?: boolean;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: (key: string, options?: Record<string, string | number>) => string;
   widgetTitle?: string;
 }) {
   return (
@@ -1191,7 +1192,7 @@ const StaffRequestsPage: React.FC = () => {
         assignee: r.assignee_summary
           ? { id: r.assignee_summary.id, name: r.assignee_summary.name }
           : null,
-      });
+      } as DashboardTaskDemandItem); // only `id` is read by onSelectDashboardTask
       return;
     }
     onSelect(r.id);

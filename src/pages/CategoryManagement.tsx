@@ -51,6 +51,7 @@ type CategoryFormValues = z.infer<typeof categoryFormSchema>;
 const CategoryManagement: React.FC = () => {
     const { user } = useAuth();
     const queryClient = useQueryClient();
+    const { t } = useLanguage();
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -112,7 +113,7 @@ const CategoryManagement: React.FC = () => {
     const updateCategoryMutation = useMutation({
         mutationFn: async (data: Category) => {
             const response = await fetch(`${API_BASE}/staff/categories/${data.id}/`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,

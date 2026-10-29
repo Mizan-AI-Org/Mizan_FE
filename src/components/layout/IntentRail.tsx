@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronLeft, ChevronRight, Menu } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Menu, Store } from "lucide-react";
+import { useBranchScope } from "@/contexts/BranchScopeContext";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { useLanguage } from "@/hooks/use-language";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useModules } from "@/hooks/use-modules";
+import type { ModuleKey } from "@/lib/types";
 import { UserAvatarMenu } from "@/components/layout/UserAvatarMenu";
 import { cn } from "@/lib/utils";
 import { OPERATIONAL_COMMAND_ROLES } from "@/lib/operationalCommandRoles";
@@ -12,6 +15,7 @@ import {
   IconAttention,
   IconCommand,
   IconCustomers,
+  IconFinancials,
   IconPeople,
   IconProducts,
   IconSettings,
@@ -34,6 +38,10 @@ type NavGroup = {
   icon: React.ComponentType<{ className?: string }>;
   href?: string;
   appId?: string;
+  /** Hidden when the tenant turned this module off. */
+  moduleId?: ModuleKey;
+  /** Only for businesses with several branches. */
+  multiBranchOnly?: boolean;
   roles?: string[];
   children?: NavLeaf[];
 };
@@ -62,6 +70,14 @@ const GROUPS: NavGroup[] = [
     roles: [...OPERATIONAL_COMMAND_ROLES],
   },
   {
+    id: "branches",
+    labelKey: "nav.branches",
+    icon: Store,
+    href: "/dashboard/locations-overview",
+    roles: [...OPERATIONAL_COMMAND_ROLES],
+    multiBranchOnly: true,
+  },
+  {
     id: "operations",
     labelKey: "nav.operations",
     icon: IconWork,
@@ -79,6 +95,7 @@ const GROUPS: NavGroup[] = [
   },
   {
     id: "products",
+    moduleId: "sales",
     labelKey: "nav.sales",
     icon: IconProducts,
     href: "/dashboard/products/sales",
@@ -86,13 +103,23 @@ const GROUPS: NavGroup[] = [
   },
   {
     id: "procurements",
+    moduleId: "inventory",
     labelKey: "nav.procurements",
     icon: IconSuppliers,
     href: "/dashboard/suppliers/procurement",
     roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
   },
   {
+    id: "finance",
+    moduleId: "finance",
+    labelKey: "nav.financials",
+    icon: IconFinancials,
+    href: "/dashboard/financials",
+    roles: ["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"],
+  },
+  {
     id: "reservations_orders",
+    moduleId: "reservations",
     labelKey: "nav.customers.reservations_orders",
     icon: IconCustomers,
     href: "/dashboard/customers/reservations-orders",
@@ -203,6 +230,9 @@ export function IntentRail({ className }: { className?: string }) {
   const { t, isRTL } = useLanguage();
   const { hasRole } = useAuth() as AuthContextType;
   const { canApp } = usePermissions();
+  const { isEnabled: isModuleOn } = useModules();
+  const { multiBranch, branches: myBranches } = useBranchScope();
+  const branchCount = myBranches.length;
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem("mizan-intent-rail-collapsed") === "1";
@@ -239,18 +269,21 @@ export function IntentRail({ className }: { className?: string }) {
 
   const visible = useMemo(() => {
     return GROUPS.filter((g) => {
+      if (g.multiBranchOnly && !(multiBranch && branchCount > 1)) return false;
       if (g.roles && !hasRole(g.roles)) return false;
       if (g.appId && !canApp(g.appId)) return false;
+      if (!isModuleOn(g.moduleId)) return false;
       return true;
     }).map((g) => ({
       ...g,
       children: g.children?.filter((c) => {
         if (c.roles && !hasRole(c.roles)) return false;
         if (c.appId && !canApp(c.appId)) return false;
+        if (!isModuleOn(c.moduleId)) return false;
         return true;
       }),
     }));
-  }, [hasRole, canApp]);
+  }, [hasRole, canApp, isModuleOn, multiBranch, branchCount]);
 
   const navHrefs = useMemo(
     () =>
@@ -434,6 +467,9 @@ export function MobileIntentDock() {
   const { t, isRTL } = useLanguage();
   const { hasRole } = useAuth() as AuthContextType;
   const { canApp } = usePermissions();
+  const { isEnabled: isModuleOn } = useModules();
+  const { multiBranch, branches: myBranches } = useBranchScope();
+  const branchCount = myBranches.length;
   const [menuOpen, setMenuOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
@@ -449,18 +485,21 @@ export function MobileIntentDock() {
 
   const visible = useMemo(() => {
     return GROUPS.filter((g) => {
+      if (g.multiBranchOnly && !(multiBranch && branchCount > 1)) return false;
       if (g.roles && !hasRole(g.roles)) return false;
       if (g.appId && !canApp(g.appId)) return false;
+      if (!isModuleOn(g.moduleId)) return false;
       return true;
     }).map((g) => ({
       ...g,
       children: g.children?.filter((c) => {
         if (c.roles && !hasRole(c.roles)) return false;
         if (c.appId && !canApp(c.appId)) return false;
+        if (!isModuleOn(c.moduleId)) return false;
         return true;
       }),
     }));
-  }, [hasRole, canApp]);
+  }, [hasRole, canApp, isModuleOn, multiBranch, branchCount]);
 
   const mobileNavHrefs = useMemo(
     () =>

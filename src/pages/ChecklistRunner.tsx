@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -11,6 +12,12 @@ import { api } from "@/lib/api";
 import { API_BASE } from "@/lib/api";
 
 import { useLanguage } from "@/hooks/use-language";
+
+// Toasts and labels here were calling a `t` that was never defined (ReferenceError at runtime): translate with the
+// app's i18n instance, which follows the current language like useLanguage().
+const t = (key: string, options?: Record<string, string | number> | string): string =>
+  i18n.t(key, typeof options === "string" ? { defaultValue: options } : options) as string;
+
 // Backend response shapes used for mapping into ChecklistExecutor types
 interface BackendStep {
   id: string;
@@ -194,7 +201,7 @@ const ChecklistRunner: React.FC = () => {
               id: String(a.id || crypto.randomUUID()),
               title: a.title || '',
               description: a.description || undefined,
-              priority: (a.priority || 'MEDIUM'),
+              priority: (a.priority || 'MEDIUM') as ExecutionRecord['actions'][number]['priority'],
               dueDate: a.due_date || undefined,
               assigneeId: a.assigned_to?.id ? String(a.assigned_to.id) : undefined,
               labels: [],

@@ -49,7 +49,187 @@ export interface SignupData {
         email: string;
         /** Saved to general_settings.business_vertical on the backend */
         business_vertical?: string;
+        /** Modules chosen at signup (general_settings.enabled_modules); core modules are always added. */
+        modules?: ModuleKey[];
     };
+}
+
+/** Product modules a tenant runs (and pays for). operations + team are the core platform (always on). */
+export type ModuleKey =
+    | "operations"
+    | "team"
+    | "geo_clock"
+    | "attendance"
+    | "scheduling"
+    | "hr"
+    | "checklists"
+    | "accountability"
+    | "incidents"
+    | "food_safety"
+    | "sales"
+    | "reservations"
+    | "inventory"
+    | "finance";
+
+export type ModuleBundle = "core" | "workforce" | "execution" | "business";
+
+export interface ModuleCatalogEntry {
+    key: ModuleKey;
+    core: boolean;
+    bundle: ModuleBundle;
+    requires: ModuleKey[];
+    recommended: boolean;
+    priceMonthly: number;
+}
+
+export interface ModulePricing {
+    currency: string;
+    platformMonthly: number;
+    locationMonthly?: number;
+    yearlyMonths: number;
+    /** A whole bundle is billed at its bundle price. */
+    bundles?: Record<string, { monthly: number; modules: string[] }>;
+}
+
+export interface ModuleCatalogResponse {
+    modules: ModuleCatalogEntry[];
+    recommended: ModuleKey[];
+    pricing: ModulePricing;
+}
+
+export interface BillingLine {
+    key: string;
+    label: string;
+    monthly?: number;
+    amount: number;
+    note?: string;
+    /** Bundle lines: what the modules cost bought one by one. */
+    listMonthly?: number;
+    modules?: string[];
+    /** Custom (Mizan-issued) and location lines. */
+    quantity?: number;
+    unitPrice?: number;
+    unitMonthly?: number;
+}
+
+export interface BillingQuote {
+    currency: string;
+    interval: "month" | "year";
+    lines: BillingLine[];
+    /** HT per month. */
+    monthlyTotal: number;
+    /** HT for the interval. */
+    total: number;
+    taxRate?: number;
+    taxAmount?: number;
+    /** TTC for the interval. */
+    totalTtc?: number;
+    bundleSavings?: number;
+    yearlySavings: number;
+    locations?: number;
+}
+
+export interface BillingInvoiceRow {
+    id: string;
+    number: string;
+    kind: "cycle" | "proration" | "custom";
+    status: "open" | "paid" | "void";
+    interval: string;
+    periodStart: string;
+    periodEnd: string;
+    lines: BillingLine[];
+    subtotal: number;
+    taxRate: number;
+    taxAmount: number;
+    total: number;
+    currency: string;
+    issuedAt: string;
+    dueAt: string;
+    paidAt: string | null;
+    paymentMethod: string;
+    paymentReference: string;
+    overdue: boolean;
+    restaurantId: string;
+    restaurantName: string;
+    billTo: Partial<BillingDetails>;
+    notes?: string;
+    reportedAt: string | null;
+    reportedReference: string;
+    reportedNote: string;
+}
+
+export interface BillingPaymentInstructions {
+    beneficiary: string;
+    bankName: string;
+    rib: string;
+    swift: string;
+    instructions: string;
+    contactEmail: string;
+    legalName: string;
+    address: string;
+    ice: string;
+    rc: string;
+    taxId: string;
+    taxLabel: string;
+    taxRate: number;
+}
+
+export interface BillingDetails {
+    legalName: string;
+    ice: string;
+    address: string;
+    email: string;
+}
+
+export interface BillingBundleOffer {
+    bundle: string;
+    label: string;
+    missing: string[];
+    missingKeys: string[];
+    extraMonthly: number;
+}
+
+export type BillingState = "trial" | "trial_over" | "active" | "due" | "overdue" | "suspended" | "none";
+
+export interface BillingOverview {
+    moduleBilling: boolean;
+    status: string;
+    state: BillingState;
+    interval: "month" | "year";
+    trialEndsAt: string | null;
+    trialDaysLeft: number | null;
+    nextInvoiceAt: string | null;
+    suspended: boolean;
+    locations: number;
+    current: BillingQuote;
+    monthly: BillingQuote;
+    yearly: BillingQuote;
+    bundleOffers: BillingBundleOffer[];
+    openInvoices: BillingInvoiceRow[];
+    balanceDue: number;
+    invoices: BillingInvoiceRow[];
+    paymentInstructions: BillingPaymentInstructions;
+    billingDetails: BillingDetails;
+}
+
+export interface BillingInvoiceDocument extends BillingInvoiceRow {
+    seller: BillingPaymentInstructions;
+}
+
+export interface TenantModulesResponse {
+    enabled: ModuleKey[];
+    selected: ModuleKey[];
+    suspended: boolean;
+    modules: ModuleCatalogEntry[];
+    pricing: ModulePricing;
+    canEdit: boolean;
+}
+
+export interface UpdateModulesResponse {
+    enabled: ModuleKey[];
+    selected: ModuleKey[];
+    suspended: boolean;
+    billing: { added: ModuleKey[]; removed: ModuleKey[]; proration: BillingInvoiceRow | null; nextBill: BillingQuote };
 }
 
 export interface InviteStaffData {
@@ -67,6 +247,8 @@ export interface StaffListItem {
     last_name: string;
     role: string;
     join_date: string;
+    phone?: string | null;
+    profile?: { department?: string | null; [key: string]: unknown } | null;
 }
 
 export interface StaffDashboardSummary {
@@ -78,6 +260,7 @@ export interface StaffDashboardSummary {
 
 export interface StaffOperationResponse {
     message: string;
+    success?: boolean;
 }
 
 export interface StaffInvitation {
@@ -223,6 +406,7 @@ export type DashboardTaskPillStatus =
     | 'PAID'
     /** Invoice has been voided / superseded (final). */
     | 'VOIDED'
+    | 'ARCHIVED'
     /** Task or request reached its terminal "done" state. */
     | 'DONE'
     /** Task or request was cancelled / rejected (final, no further action). */
@@ -256,6 +440,10 @@ export interface DashboardTaskDemandItem {
      * vocabulary; older API responses may omit it.
      */
     kind?: 'dashboard' | 'scheduling' | 'staff_request' | 'invoice';
+    /** Shared task from WhatsApp Project X: "first" = first to take it, "all" = everyone together. */
+    group_mode?: 'first' | 'all' | null;
+    /** Members who validated an everyone-together task. */
+    done_by?: string[];
     /** Raw staff-request status before widget vocabulary mapping. */
     raw_status?: string;
     due_date: string | null;
@@ -529,7 +717,8 @@ export interface Invoice {
       | 'PAYMENT_IN_PROGRESS'
       | 'PAID'
       | 'PAYMENT_FAILED'
-      | 'VOIDED';
+      | 'VOIDED'
+      | 'ARCHIVED';
     category?: string;
     notes?: string;
     photo?: string | null;
@@ -619,8 +808,23 @@ export interface ClockInEventItem {
     lateness_minutes: number | null;
     /** True when the staff clocked in at a branch outside their allowed set. */
     location_mismatch: boolean;
-    method: "self" | "manager_override";
+    method: "self" | "manager_override" | "whatsapp_geo";
+    /** WhatsApp geo-clocking: site name and on-site photo (proof of presence). */
+    site?: string | null;
+    photo_url?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
     location: { id: string; name: string } | null;
+    /** Geolocation Clock-In proof review: "flagged" waits for a manager. */
+    review_status?: "ok" | "flagged" | "approved" | "rejected" | "manual" | null;
+    flags?: string[];
+    /** Why it was flagged, in the viewer's language. */
+    flag_labels?: string;
+    /** Same reasons, a few words each, for compact cards. */
+    flag_short?: string;
+    /** "flow_camera" = camera-only selfie; "chat_photo" = normal photo (could be from the gallery). */
+    selfie_source?: "flow_camera" | "chat_photo" | null;
+    reviewed_by?: string | null;
     staff: {
         id: string;
         name: string;
@@ -653,6 +857,8 @@ export interface InventoryItem {
     min_stock_level: number;
     reorder_level?: number | null;
     cost_per_unit: number;
+    par_level?: number;
+    stock_value?: number;
     supplier?: string; // Supplier ID
     supplier_info?: Supplier;
     last_restock_date?: string;
@@ -975,4 +1181,418 @@ export interface BillingEntitlements {
     limits: { max_locations: number | null; max_staff: number | null };
     usage?: { staff: number };
     plan: SubscriptionPlan | null;
+}
+
+// ── HR staff file (Mizan_BE apps.people) ──────────────────────────────────
+
+export type StaffDocumentCategory = "ID" | "CONTRACT" | "CERTIFICATE" | "MEDICAL" | "JUSTIFICATION" | "PAYSLIP" | "OTHER";
+export type StaffAbsenceReason = "CHILD_SICK" | "DOCTOR" | "SICK" | "DEATH_FAMILY" | "FAMILY_EMERGENCY" | "TRANSPORT" | "OTHER";
+export type StaffAbsenceStatus = "REPORTED" | "JUSTIFIED" | "EXCUSED" | "UNJUSTIFIED";
+export type StaffNoteKind = "NOTE" | "PRAISE" | "WARNING";
+
+export interface StaffHRDocument {
+    id: string;
+    staffId: string;
+    category: StaffDocumentCategory;
+    categoryLabel: string;
+    title: string;
+    url: string;
+    mimeType: string;
+    sizeBytes: number;
+    expiresAt: string | null;
+    source: string;
+    createdAt: string;
+}
+
+export interface StaffAbsence {
+    id: string;
+    staffId: string;
+    staffName: string;
+    startDate: string;
+    endDate: string;
+    reason: StaffAbsenceReason;
+    reasonLabel: string;
+    note: string;
+    status: StaffAbsenceStatus;
+    justified: boolean;
+    justification: StaffHRDocument | null;
+    reportedVia: string;
+    reviewedAt: string | null;
+    createdAt: string;
+}
+
+export interface MonthlyAttendanceRow {
+    staffId: string;
+    name: string;
+    role: string;
+    scheduled_shifts: number;
+    days_present: number;
+    attendance_rate: number | null;
+    late_count: number;
+    late_minutes: number;
+    absent_days: number;
+    absences_justified: number;
+    absences_pending: number;
+    absences_unjustified: number;
+    absent_unreported: number;
+    leave_days: number;
+    hours: number;
+}
+
+export interface MonthlyAttendance {
+    month: string;
+    from: string;
+    to: string;
+    totals: Omit<MonthlyAttendanceRow, "staffId" | "name" | "role" | "attendance_rate" | "absent_days">;
+    staff: MonthlyAttendanceRow[];
+}
+
+export type PresenceStatus =
+    | "on_time" | "late" | "not_yet_in" | "absent_unreported" | "absent_reported"
+    | "absent_justified" | "on_leave" | "unscheduled_in" | "upcoming";
+
+export interface DayPresenceRow {
+    staffId: string;
+    name: string;
+    role: string;
+    status: PresenceStatus;
+    shiftStart: string;
+    shiftEnd: string;
+    clockIn: string;
+    lateMinutes: number;
+    site: string;
+    photoUrl: string;
+    hours: number;
+    absence: StaffAbsence | null;
+}
+
+export interface DayPresence {
+    date: string;
+    summary: Record<string, number>;
+    staff: DayPresenceRow[];
+}
+
+export interface StaffHRFile {
+    id: string;
+    identity: { firstName: string; lastName: string; name: string; role: string; roleLabel: string; isActive: boolean; language: string };
+    contact: { email: string; phone: string; whatsapp: string };
+    personal: Record<string, unknown>;
+    employment: Record<string, unknown>;
+    compensation: Record<string, unknown>;
+    skills: Record<string, unknown>;
+    tenureDays: number | null;
+    contractEndsInDays: number | null;
+    locations: { id: string; name: string; isPrimary: boolean }[];
+    leave: { year: number; entitlementDays: number; usedDays: number; pendingDays: number; remainingDays: number; upcoming: { from: string; to: string; days: number }[] };
+    attendanceThisMonth: MonthlyAttendanceRow | null;
+    today: DayPresenceRow | null;
+    absences: StaffAbsence[];
+    documents: StaffHRDocument[];
+    upcomingShifts: { date: string; start: string; end: string; role: string }[];
+    work: { openTasks: number; tasksCompleted30d: number; incidentsReported30d: number; openIncidentsAssigned: number; openRequests: number };
+    notes: { id: string; kind: StaffNoteKind; body: string; author: string; createdAt: string }[];
+    sensitiveHidden: boolean;
+}
+
+// ── Finance (Mizan_BE apps.finance.pnl) ───────────────────────────────────
+
+export type FinancePeriod = "month" | "last_month" | "week" | "7d" | "30d";
+export const COST_CATEGORIES = [
+    "FOOD", "BEVERAGE", "SUPPLIES", "CLEANING", "UTILITIES", "RENT", "MAINTENANCE", "EQUIPMENT", "MARKETING",
+    "SERVICES", "OTHER",
+] as const;
+
+export interface FinanceRatios {
+    food_cost_pct: number | null;
+    labor_pct: number | null;
+    prime_cost_pct: number | null;
+    gross_margin_pct: number | null;
+    net_margin_pct: number | null;
+}
+
+export interface FinancePnL {
+    period: { from: string; to: string; days: number };
+    currency: string;
+    revenue: { total: number; pos_sales: number; mizan_orders: number };
+    cogs: { total: number; food: number; beverage: number };
+    gross_profit: number;
+    labor: { total: number; floor: number; management: number; floor_hours: number;
+             by_person?: { name: string; hours: number; cost: number }[] };
+    overheads: { total: number; by_category: Record<string, number> };
+    waste: { estimated_cost: number; unpriced_events: number };
+    prime_cost: number;
+    net_profit: number;
+    ratios: FinanceRatios;
+    top_vendors: { vendor: string; amount: number }[];
+    daily: { date: string; revenue: number; costs: number }[];
+    gaps: { key: string; detail: string; count?: number }[];
+    previous?: Pick<FinancePnL, "period" | "revenue" | "cogs" | "labor" | "net_profit" | "ratios">;
+}
+
+export interface FinancePayables {
+    total_open: number;
+    buckets: Record<"overdue" | "due_7d" | "due_30d" | "later", { amount: number; count: number }>;
+    awaiting_approval: number;
+    paid_last_30d: number;
+}
+
+// ── Inventory ledger (Mizan_BE apps.inventory.stock) ──────────────────────
+
+export interface InventorySummary {
+    currency: string;
+    stockValue: number;
+    stockValueByCategory: Record<string, number>;
+    itemsWithoutCost: number;
+    wasteCost30d: number;
+    onOrderValue: number;
+    lowStockCount: number;
+    outOfStockCount: number;
+    itemCount: number;
+}
+
+export interface StockCountReport {
+    reference: string;
+    itemsCounted: number;
+    itemsWithVariance: number;
+    varianceValue: number;
+    lines: { itemId: string; name: string; unit: string; expected: number; counted: number; variance: number; varianceValue: number }[];
+}
+
+export interface ReorderLine {
+    itemId: string;
+    name: string;
+    unit: string;
+    onHand: number;
+    reorderPoint: number;
+    parLevel: number;
+    suggestedQuantity: number;
+    unitPrice: number;
+    estimatedCost: number;
+    dailyDemand: number | null;
+    isLow: boolean;
+}
+
+export interface ReorderSuggestions {
+    itemCount: number;
+    groups: { supplierId: string | null; supplierName: string | null; estimatedTotal: number; lines: ReorderLine[] }[];
+}
+
+// ── Accountability (Mizan_BE apps.operations.scorecard) ───────────────────
+
+export interface AccountabilityPerson {
+    staffId: string;
+    name: string;
+    role: string;
+    assigned: number;
+    completed: number;
+    onTime: number;
+    late: number;
+    onTimePct: number | null;
+    open: number;
+    openOverdue: number;
+    nudges: number;
+    nudgesPerTask: number;
+    blocked: number;
+    sentBack: number;
+    escalated: number;
+    medianAckMinutes: number | null;
+    medianCompleteHours: number | null;
+    incidentsResolved: number;
+    incidentResolutionHours: number | null;
+    flags: ("overdue" | "often_late" | "needs_chasing" | "often_blocked")[];
+}
+
+export interface AccountabilityScorecard {
+    days: number;
+    team: { onTimePct: number | null; completed: number; openOverdue: number; unassigned: number; blocked: number;
+            awaitingValidation: number; escalatedOpen: number };
+    people: AccountabilityPerson[];
+}
+
+export interface NeedsAttentionItem {
+    kind: "blocked" | "overdue" | "unassigned" | "validate";
+    taskId: string;
+    title: string;
+    who?: string;
+    reason?: string;
+    due?: string | null;
+    since?: string | null;
+    nudges?: number;
+    escalationLevel?: number;
+    proof?: string | null;
+}
+
+/** Approvals engine (Operations → Approvals, WhatsApp buttons, Miya). */
+export type ApprovalKind =
+    | "purchase"
+    | "expense"
+    | "salary_advance"
+    | "overtime"
+    | "discount"
+    | "purchase_order"
+    | "invoice"
+    | "time_off"
+    | "shift_swap"
+    | "contract"
+    | "other";
+
+export interface ApprovalStep {
+    approverId: string;
+    approverName: string;
+    status: "waiting" | "approved" | "rejected";
+    decidedByName?: string;
+    decidedAt?: string | null;
+    note?: string;
+    escalatedFrom?: string;
+    signature?: { name: string; via: string; at: string };
+}
+
+export interface ApprovalEventRow {
+    kind: string;
+    actor: string;
+    note: string;
+    via: string;
+    at: string;
+}
+
+export interface ApprovalRow {
+    id: string;
+    code: string;
+    kind: ApprovalKind;
+    kindLabel: string;
+    title: string;
+    notes: string;
+    amount: string;
+    currency: string;
+    status: "pending" | "approved" | "rejected" | "cancelled";
+    requestedBy: string;
+    requestedById: string | null;
+    assignedTo: string;
+    assignedToId: string | null;
+    decidedBy: string;
+    decisionNotes: string;
+    steps: ApprovalStep[];
+    stepIndex: number;
+    evidenceUrl: string;
+    source: string;
+    createdAt: string | null;
+    decidedAt: string | null;
+    dueAt: string | null;
+    overdue: boolean;
+    hoursPending: number | null;
+    canDecide: boolean;
+    /** The rule makes approvers sign (typed full name + consent) instead of just approving. */
+    needsSignature?: boolean;
+    signatures?: { name: string; via: string; at: string; userId: string; step: number }[];
+    events?: ApprovalEventRow[];
+}
+
+export interface ApprovalsListResponse {
+    approvals: ApprovalRow[];
+    counts: { mine: number; pending: number; requested: number };
+}
+
+export type ApprovalStepSpec =
+    | { kind: "owner" }
+    | { kind: "manager" }
+    | { kind: "role"; role: string }
+    | { kind: "user"; user_id: string };
+
+export interface ApprovalRule {
+    enabled: boolean;
+    auto_approve_below: string | null;
+    sla_hours: number;
+    max_reminders: number;
+    sign_on_approve?: boolean;
+    tiers: { max_amount: string | null; steps: ApprovalStepSpec[] }[];
+}
+
+export type SignatureStatus = "draft" | "approval" | "sent" | "completed" | "declined" | "voided" | "expired";
+
+export interface SignatureSigner {
+    id: string;
+    name: string;
+    role: "signer" | "copy";
+    order: number;
+    status: "waiting" | "sent" | "viewed" | "signed" | "declined";
+    phone: string;
+    isTeam: boolean;
+    isCurrent: boolean;
+    signedAt: string | null;
+    viewedAt: string | null;
+    typedName: string;
+    declineReason: string;
+    reminders: number;
+    /** WhatsApp refused the invitation (wrong number, or no open chat and no template). */
+    undelivered: boolean;
+    canSignHere: boolean;
+}
+
+export interface SignatureEventRow {
+    kind: string;
+    label: string;
+    who: string;
+    at: string;
+    localTime: string;
+    detail: { reason?: string; via?: string; question?: string };
+    hash: string;
+}
+
+export interface SignatureRequestRow {
+    id: string;
+    code: string;
+    ref: string;
+    title: string;
+    kind: string;
+    message: string;
+    status: SignatureStatus;
+    ordered: boolean;
+    pages: number;
+    documentUrl: string;
+    sealedUrl: string;
+    documentSha256: string;
+    sealedSha256: string;
+    createdBy: string;
+    createdAt: string;
+    sentAt: string | null;
+    completedAt: string | null;
+    expiresAt: string | null;
+    remindEveryDays: number;
+    voidedReason: string;
+    approval: { id: string; code: string; status: string } | null;
+    verifyUrl: string;
+    signers: SignatureSigner[];
+    events?: SignatureEventRow[];
+    chainOk?: boolean;
+}
+
+export interface SignatureVerifyRecord {
+    ref: string;
+    title: string;
+    business: string;
+    status: SignatureStatus;
+    pages: number;
+    documentSha256: string;
+    sealedSha256: string;
+    completedAt: string | null;
+    timezone: string;
+    chainOk: boolean;
+    signers: { name: string; status: string; signedAt: string | null; verifiedBy: string }[];
+}
+
+export interface ApprovalTypeInfo {
+    key: ApprovalKind;
+    label: string;
+    labelFr: string;
+    money: boolean;
+    module: string | null;
+    available: boolean;
+    ownerCategory: string | null;
+}
+
+export interface ApprovalRulesResponse {
+    rules: Record<ApprovalKind, ApprovalRule>;
+    types: ApprovalTypeInfo[];
+    staff: { id: string; name: string; role: string }[];
+    canEdit: boolean;
 }

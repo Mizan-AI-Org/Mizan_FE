@@ -14,7 +14,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 import { useAuth } from "../../contexts/AuthContext";
-import { StockAdjustment, InventoryItem, User } from "../../lib/types";
+import { StockAdjustment, InventoryItem, StaffListItem } from "../../lib/types";
 import {
     Table,
     TableBody,
@@ -75,7 +75,7 @@ export default function StockAdjustmentsPage() {
         enabled: !!accessToken,
     });
 
-    const { data: users } = useQuery<User[]>({ // Assuming an API to get users for the 'adjusted_by' field
+    const { data: users } = useQuery<StaffListItem[]>({ // Assuming an API to get users for the 'adjusted_by' field
         queryKey: ["users", accessToken],
         queryFn: () => api.getStaffList(accessToken!),
         enabled: !!accessToken,

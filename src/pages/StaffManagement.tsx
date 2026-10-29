@@ -14,7 +14,7 @@ import { PageWithTableSkeleton } from "@/components/skeletons";
 import DeleteStaffConfirmation from "@/components/staff/DeleteStaffConfirmation";
 import DeactivateStaffConfirmation from "@/components/staff/DeactivateStaffConfirmation";
 import EditStaffModal from "@/components/staff/EditStaffModal";
-import InviteStaffModal from "@/components/staff/InviteStaffModal";
+import { AddPeopleDialog } from "@/components/staff/AddPeopleDialog";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { API_BASE } from "@/lib/api";
@@ -243,10 +243,11 @@ const StaffManagement: React.FC = () => {
                     </TableBody>
                 </Table>
             </div>
-            <InviteStaffModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onSuccess={refetch}
+            <AddPeopleDialog
+                open={isModalOpen}
+                onOpenChange={setIsModalOpen}
+                locations={tenantLocations}
+                onAdded={() => refetch()}
             />
             <EditStaffModal
                 isOpen={isEditModalOpen}

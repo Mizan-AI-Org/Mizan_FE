@@ -25,7 +25,7 @@ function normalizeEnvelope<T>(input: T[] | { results?: T[] } | unknown): T[] {
   return [];
 }
 
-interface AssignedShift {
+export interface AssignedShift {
   id: string;
   shift_date: string | Date;
   start_time: string;

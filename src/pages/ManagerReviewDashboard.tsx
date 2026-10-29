@@ -647,7 +647,7 @@ const ManagerReviewDashboard: React.FC = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
       });
       if (!res.ok) throw new Error('Failed to fetch incident details');
-      return unwrapApiPayload(await res.json());
+      return unwrapApiPayload<IncidentDetail>(await res.json());
     },
   });
 
@@ -656,6 +656,7 @@ const ManagerReviewDashboard: React.FC = () => {
     title?: string | null;
     location?: string | null;
     severity?: string | null;
+    priority?: string | null;
     status?: string | null;
     is_anonymous?: boolean | null;
     reporter_details?: { first_name?: string | null; last_name?: string | null } | null;

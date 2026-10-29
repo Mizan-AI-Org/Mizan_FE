@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -135,7 +136,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
             return response.json();
         },
         onSuccess: () => {
-            queryClient.invalidateQueries(['staff-list']);
+            queryClient.invalidateQueries({ queryKey: ['staff-list'] });
             toast({
                 title: "Staff member updated successfully!",
                 description: "The staff member's information has been saved.",
@@ -190,8 +191,8 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
             return response.json();
         },
         onSuccess: () => {
-            queryClient.invalidateQueries(['staff-list']);
-            queryClient.invalidateQueries(['staff-list-escalate-modal']);
+            queryClient.invalidateQueries({ queryKey: ['staff-list'] });
+            queryClient.invalidateQueries({ queryKey: ['staff-list-escalate-modal'] });
         },
     });
 
@@ -417,8 +418,8 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                         </>
                     )}
                     <DialogFooter>
-                        <Button type="submit" disabled={updateStaffMutation.isLoading}>
-                            {updateStaffMutation.isLoading ? 'Saving Changes...' : 'Save Changes'}
+                        <Button type="submit" disabled={updateStaffMutation.isPending}>
+                            {updateStaffMutation.isPending ? 'Saving Changes...' : 'Save Changes'}
                         </Button>
                     </DialogFooter>
                 </form>

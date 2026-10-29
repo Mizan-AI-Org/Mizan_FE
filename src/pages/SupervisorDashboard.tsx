@@ -36,9 +36,9 @@ const SupervisorDashboard: React.FC = () => {
     const { user } = useAuth();
 
     const { data: restaurantOrders = [], isLoading: isLoadingOrders, error: ordersError } = useQuery<Order[]>({
-        queryKey: ['restaurantOrders', user?.restaurant?.id],
+        queryKey: ['restaurantOrders', user?.restaurant],
         queryFn: async () => {
-            if (!user?.restaurant?.id) return [];
+            if (!user?.restaurant) return [];
             const response = await fetch(`${API_BASE}/staff/restaurant-orders/`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -50,7 +50,7 @@ const SupervisorDashboard: React.FC = () => {
             return response.json();
         },
         enabled:
-            !!user?.restaurant?.id &&
+            !!user?.restaurant &&
             (user.role === 'SUPER_ADMIN' ||
                 user.role === 'OWNER' ||
                 user.role === 'ADMIN' ||
@@ -59,9 +59,9 @@ const SupervisorDashboard: React.FC = () => {
     });
 
     const { data: tables = [], isLoading: isLoadingTables, error: tablesError } = useQuery<Table[]>({
-        queryKey: ['tables', user?.restaurant?.id],
+        queryKey: ['tables', user?.restaurant],
         queryFn: async () => {
-            if (!user?.restaurant?.id) return [];
+            if (!user?.restaurant) return [];
             const response = await fetch(`${API_BASE}/staff/tables/`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -73,7 +73,7 @@ const SupervisorDashboard: React.FC = () => {
             return response.json();
         },
         enabled:
-            !!user?.restaurant?.id &&
+            !!user?.restaurant &&
             (user.role === 'SUPER_ADMIN' ||
                 user.role === 'OWNER' ||
                 user.role === 'ADMIN' ||

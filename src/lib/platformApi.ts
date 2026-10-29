@@ -1,4 +1,5 @@
 import { API_BASE } from "@/lib/api";
+import type { BillingInvoiceRow, BillingOverview, BillingPaymentInstructions } from "@/lib/types";
 
 function authHeaders(): HeadersInit {
   const token = localStorage.getItem("access_token") || "";
@@ -291,6 +292,7 @@ export type PlatformHealth = {
 export type PlatformAuditRow = {
   id: string;
   timestamp: string;
+  created_at?: string;
   action_type: string;
   entity_type: string;
   entity_id: string | null;
@@ -485,6 +487,7 @@ export type PlatformWhatsAppTestResult = {
   available_phone_numbers?: PlatformWhatsAppPhoneOption[];
   suggested_phone_number_id?: string;
   suggested_business_account_id?: string;
+  phone_number_id?: string;
   fix_steps?: string[];
   auto_corrected?: boolean;
   config?: PlatformWhatsAppConfig;
@@ -556,6 +559,43 @@ export const platformApi = {
       body: JSON.stringify(body),
     }),
   plans: () => platformFetch<PlatformPlan[]>("/billing/plans/"),
+  invoices: (params?: Record<string, string>) => {
+    const qs = new URLSearchParams(params || {}).toString();
+    return platformFetch<Paginated<BillingInvoiceRow>>(`/billing/invoices/${qs ? `?${qs}` : ""}`);
+  },
+  invoiceAction: (id: string, action: "mark-paid" | "void", body: Record<string, unknown> = {}) =>
+    platformFetch<BillingInvoiceRow>(`/billing/invoices/${id}/${action}/`, { method: "POST", body: JSON.stringify(body) }),
+  modulePrices: () =>
+    platformFetch<{ currency: string; yearlyMonths: number; prices: Record<string, number> }>("/billing/prices/"),
+  updateModulePrices: (prices: Record<string, number>) =>
+    platformFetch<{ currency: string; yearlyMonths: number; prices: Record<string, number> }>("/billing/prices/", {
+      method: "PUT",
+      body: JSON.stringify({ prices }),
+    }),
+  billingProfile: () => platformFetch<BillingPaymentInstructions>("/billing/profile/"),
+  updateBillingProfile: (body: BillingPaymentInstructions) =>
+    platformFetch<BillingPaymentInstructions>("/billing/profile/", { method: "PUT", body: JSON.stringify(body) }),
+  tenantBilling: (restaurantId: string) => platformFetch<BillingOverview>(`/billing/tenants/${restaurantId}/`),
+  enableModuleBilling: (restaurantId: string, trialDays: number) =>
+    platformFetch<BillingOverview>(`/billing/tenants/${restaurantId}/`, {
+      method: "POST",
+      body: JSON.stringify({ action: "enable_module_billing", trial_days: trialDays }),
+    }),
+  /** Bill the tenant's subscription now (platform + modules + locations, plus tax). */
+  issueTenantInvoice: (restaurantId: string) =>
+    platformFetch<BillingOverview>(`/billing/tenants/${restaurantId}/`, {
+      method: "POST",
+      body: JSON.stringify({ action: "issue_invoice" }),
+    }),
+  /** Anything outside the subscription: setup, training, extra services. Amounts HT; tax added. */
+  customTenantInvoice: (
+    restaurantId: string,
+    body: { lines: { label: string; quantity: number; unitPrice: number }[]; due_days: number; notes: string },
+  ) =>
+    platformFetch<BillingOverview>(`/billing/tenants/${restaurantId}/`, {
+      method: "POST",
+      body: JSON.stringify({ action: "custom_invoice", ...body }),
+    }),
   health: () => platformFetch<PlatformHealth>("/health/"),
   audit: (params?: Record<string, string>) => {
     const qs = new URLSearchParams(params || {}).toString();

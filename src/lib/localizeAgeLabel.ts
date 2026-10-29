@@ -1,7 +1,7 @@
 /** Map backend English relative time labels to the active locale. */
 export function localizeAgeLabel(
   label: string | undefined,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: (key: string, options?: Record<string, string | number>) => string,
 ): string {
   const raw = (label || "").trim();
   if (!raw || raw === "-") return "-";

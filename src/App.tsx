@@ -18,7 +18,11 @@ import { PageLoadingSkeleton } from "./components/skeletons";
 // All route components are lazy-loaded below. Keep the top-level module graph
 // tiny so the initial JS chunk can paint the shell + skeleton immediately.
 const InventoryItemsPage = React.lazy(() => import("./pages/inventory/InventoryItemsPage"));
+const StockCountPage = React.lazy(() => import("./pages/inventory/StockCountPage"));
 const PurchasingPage = React.lazy(() => import("./pages/PurchasingPage"));
+const BillingInvoicePage = React.lazy(() => import("./pages/BillingInvoicePage"));
+const VerifySignaturePage = React.lazy(() => import("./pages/VerifySignaturePage"));
+const FoodSafetyPage = React.lazy(() => import("./pages/FoodSafetyPage"));
 const ProcurementHubPage = React.lazy(() => import("./pages/ProcurementHubPage"));
 const ApprovalsPage = React.lazy(() => import("./pages/ApprovalsPage"));
 const PurchaseOrdersPage = React.lazy(() => import("./pages/inventory/PurchaseOrdersPage"));
@@ -128,6 +132,7 @@ const StaffAppsPage = React.lazy(() => import("./pages/StaffAppsPage"));
 const SafetyDashboard = React.lazy(() => import("./pages/SafetyDashboard"));
 const PinLogin = React.lazy(() => import("./components/auth/PinLogin"));
 const StaffApp = React.lazy(() => import("./pages/StaffApp"));
+const FinancePage = React.lazy(() => import("./pages/financials/FinancePage"));
 const ProcessesTasksApp = React.lazy(() => import("./pages/ProcessesTasksApp"));
 const StaffSchedulingPage = React.lazy(
   () => import("./pages/StaffSchedulingPage")
@@ -287,6 +292,15 @@ const App = () => {
               <Route path="/accept-invitation" element={<AcceptInvitation />} />
               <Route path="/invite/:token" element={<AcceptInvitation />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/verify/:ref" element={<VerifySignaturePage />} />
+              <Route
+                path="/billing/invoices/:id"
+                element={
+                  <ProtectedRoute>
+                    <BillingInvoicePage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/onboarding"
                 element={
@@ -361,6 +375,8 @@ const App = () => {
                   <Route path="tasks" element={<Navigate to="/dashboard/operations/approvals" replace />} />
                   <Route path="incidents" element={<ManagerReviewDashboard />} />
                   <Route path="checklists" element={<ManagerReviewDashboard />} />
+                  <Route path="food-safety" element={<FoodSafetyPage />} />
+                  <Route path="archived" element={<Navigate to="/dashboard/operations/live" replace />} />
                   <Route path="requests" element={<RedirectToOperationsLive />} />
                   <Route path="requests/:id" element={<RedirectToOperationsLive />} />
                 </Route>
@@ -409,7 +425,22 @@ const App = () => {
                 />
                 <Route path="dashboard/suppliers/purchasing" element={<Navigate to="/dashboard/suppliers/procurement?tab=needs" replace />} />
                 <Route path="dashboard/suppliers/deliveries" element={<Navigate to="/dashboard/suppliers/procurement?tab=receiving" replace />} />
-                <Route path="dashboard/financials/*" element={<Navigate to="/dashboard" replace />} />
+                <Route
+                  path="dashboard/financials"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"]}>
+                      <FinancePage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/financials/:section"
+                  element={
+                    <RoleBasedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "OWNER", "MANAGER"]}>
+                      <FinancePage />
+                    </RoleBasedRoute>
+                  }
+                />
                 <Route path="dashboard/intelligence/*" element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard/social-media/*" element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard/automation" element={<Navigate to="/dashboard" replace />} />
@@ -488,6 +519,14 @@ const App = () => {
                   element={
                     <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
                       <InventoryItemsPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="dashboard/inventory/count"
+                  element={
+                    <RoleBasedRoute allowedRoles={[...OPERATIONAL_COMMAND_ROLES]}>
+                      <StockCountPage />
                     </RoleBasedRoute>
                   }
                 />
