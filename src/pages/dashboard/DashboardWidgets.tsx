@@ -5769,8 +5769,10 @@ export function CustomWidgetTasksCard({
       queryKey: fetchKey,
       queryFn: () => api.getCustomWidgetTasks(def.id, expanded ? WIDGET_TASK_EXPANDED_LIMIT : 5),
       placeholderData: (previous) => previous,
-      refetchInterval: 15_000,
-      staleTime: 0,
+      // Edits on the dashboard invalidate this right away; the poll only picks up changes made on WhatsApp / by
+      // Miya. 30s keeps cards live without every card hitting the API four times a minute.
+      refetchInterval: 30_000,
+      staleTime: 15_000,
       retry: 3,
       retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 8000),
       refetchOnMount: "always",
