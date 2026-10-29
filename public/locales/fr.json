@@ -5879,7 +5879,7 @@
   "auth.wa_code.resend": "Pas reçu ? Renvoyer un code",
   "auth.wa_code.back": "Utiliser l'e-mail et le mot de passe",
   "nav.work.food_safety": "Hygiène alimentaire",
-  "nav.work.archived": "Archives",
+  "nav.work.archived": "Archivés",
   "modules.food_safety.name": "Hygiène alimentaire (HACCP)",
   "modules.food_safety.desc": "Relevés frigo, congélateur et cuisson demandés sur WhatsApp aux heures prévues ; hors limites = incident et alerte au manager ; PDF prêt pour l'inspection.",
   "food_safety.title": "Hygiène alimentaire",

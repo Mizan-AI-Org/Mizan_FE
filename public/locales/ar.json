@@ -5879,7 +5879,7 @@
   "auth.wa_code.resend": "ما وصلكش؟ صيفط رمز آخر",
   "auth.wa_code.back": "استعمل الإيميل وكلمة السر",
   "nav.work.food_safety": "سلامة الأغذية",
-  "nav.work.archived": "الأرشيف",
+  "nav.work.archived": "المؤرشف",
   "modules.food_safety.name": "سلامة الأغذية (HACCP)",
   "modules.food_safety.desc": "مراقبة الثلاجات والمجمدات والطهي فالواتساب فأوقات محددة؛ القراءة خارج الحدود كتفتح حادث وكتنبه المسؤول؛ PDF جاهز للمفتش.",
   "food_safety.title": "سلامة الأغذية",
