@@ -5746,5 +5746,10 @@
   "staff.errors.delete_document": "Failed to delete document",
   "staff.errors.upload_photo": "Failed to upload photo",
   "staff.errors.remove_pending": "Failed to remove pending invitation",
-  "onboarding.gate.go_dashboard": "Go to the dashboard"
+  "onboarding.gate.go_dashboard": "Go to the dashboard",
+  "ops.review.date_today": "Today",
+  "ops.review.date_last_days": "{{count}} days",
+  "ops.review.accountability_link_hint": "Who delivers on time, per person:",
+  "ops.review.show_trends": "Show trends",
+  "ops.review.hide_trends": "Hide trends"
 }

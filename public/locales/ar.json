@@ -5746,5 +5746,10 @@
   "staff.errors.delete_document": "تعذّر حذف المستند",
   "staff.errors.upload_photo": "تعذّر رفع الصورة",
   "staff.errors.remove_pending": "تعذّرت إزالة الدعوة المعلّقة",
-  "onboarding.gate.go_dashboard": "الذهاب إلى لوحة التحكم"
+  "onboarding.gate.go_dashboard": "الذهاب إلى لوحة التحكم",
+  "ops.review.date_today": "اليوم",
+  "ops.review.date_last_days": "{{count}} أيام",
+  "ops.review.accountability_link_hint": "من يُنجز في الوقت، لكل شخص:",
+  "ops.review.show_trends": "عرض الاتجاهات",
+  "ops.review.hide_trends": "إخفاء الاتجاهات"
 }
