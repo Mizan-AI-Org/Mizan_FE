@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from "react";
-import { useModules } from "@/hooks/use-modules";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -25,7 +24,6 @@ import {
   RefreshCw,
   Search,
   BarChart3,
-  Target,
   LayoutGrid,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -72,7 +70,6 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
 import { OperationsProgressPanel } from "@/components/operations/OperationsProgressPanel";
-import { AccountabilityPanel } from "@/components/operations/AccountabilityPanel";
 import { localizeAgeLabel } from "@/lib/localizeAgeLabel";
 
 type LaneKey = "pending" | "in_progress" | "completed";
@@ -711,7 +708,7 @@ function categoryFilterLabel(
   return key.replace(/_/g, " ");
 }
 
-type OpsPageView = "live" | "progress" | "accountability";
+type OpsPageView = "live" | "progress";
 
 export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean }) {
   const { t: translate } = useLanguage();
@@ -720,10 +717,14 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const viewParam = searchParams.get("view");
-  const { isEnabled: isModuleOn } = useModules();
-  const accountabilityOn = isModuleOn("accountability");
-  const opsView: OpsPageView =
-    !embedded && (viewParam === "progress" || viewParam === "accountability") ? viewParam : "live";
+  const opsView: OpsPageView = !embedded && viewParam === "progress" ? "progress" : "live";
+
+  // Accountability has its own page in the nav: old ?view=accountability links land there.
+  React.useEffect(() => {
+    if (!embedded && viewParam === "accountability") {
+      navigate("/dashboard/operations/accountability", { replace: true });
+    }
+  }, [embedded, viewParam, navigate]);
 
   const setOpsView = (next: OpsPageView) => {
     setSearchParams(
@@ -1004,20 +1005,13 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
             >
               <TabsList
                 className={cn(
-                  "grid h-auto w-full gap-1 rounded-lg border border-border/60 bg-muted/30 p-1",
-                  accountabilityOn ? "grid-cols-3" : "grid-cols-2",
+                  "grid h-auto w-full grid-cols-2 gap-1 rounded-lg border border-border/60 bg-muted/30 p-1",
                 )}
               >
                 <TabsTrigger value="live" className={cn(HUB_TABS_TRIGGER, "gap-1.5 py-2 text-sm")}>
                   <LayoutGrid className="h-3.5 w-3.5" />
                   {t("operations_live.tab.board")}
                 </TabsTrigger>
-                {accountabilityOn ? (
-                  <TabsTrigger value="accountability" className={cn(HUB_TABS_TRIGGER, "gap-1.5 py-2 text-sm")}>
-                    <Target className="h-3.5 w-3.5" />
-                    {t("accountability.tab")}
-                  </TabsTrigger>
-                ) : null}
                 <TabsTrigger value="progress" className={cn(HUB_TABS_TRIGGER, "gap-1.5 py-2 text-sm")}>
                   <BarChart3 className="h-3.5 w-3.5" />
                   {t("operations_live.tab.progress")}
@@ -1028,7 +1022,6 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
         )}
 
         {!embedded && opsView === "progress" ? <OperationsProgressPanel /> : null}
-        {!embedded && opsView === "accountability" && accountabilityOn ? <AccountabilityPanel /> : null}
 
         {!embedded && opsView !== "live" ? null : !embedded ? (
           <div
