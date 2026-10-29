@@ -5578,7 +5578,6 @@
   "auth.wa_code.resend": "Didn't get it? Send another code",
   "auth.wa_code.back": "Use email and password instead",
   "nav.work.food_safety": "Food safety",
-  "nav.work.archived": "Archived",
   "modules.food_safety.name": "Food Safety (HACCP)",
   "modules.food_safety.desc": "Fridge, freezer and cooking checks asked on WhatsApp at set times; out-of-range readings open an incident and alert the manager; inspector-ready PDF.",
   "food_safety.title": "Food safety",
