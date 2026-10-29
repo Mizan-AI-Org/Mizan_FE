@@ -23,6 +23,7 @@ export type DomainNavLeaf = DomainSection & {
 export const DOMAIN_SECTIONS: Record<DomainId, DomainSection[]> = {
   operations: [
     { labelKey: "nav.work.live_operations", href: "/dashboard/operations/live" },
+    { labelKey: "nav.work.accountability", href: "/dashboard/operations/accountability", moduleId: "accountability" },
     { labelKey: "nav.work.approvals", href: "/dashboard/operations/approvals" },
     { labelKey: "nav.work.incidents", href: "/dashboard/operations/incidents", moduleId: "incidents" },
     { labelKey: "nav.work.staff_checklists", href: "/dashboard/operations/checklists", moduleId: "checklists" },

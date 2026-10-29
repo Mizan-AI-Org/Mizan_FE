@@ -67,7 +67,7 @@ export const MODULES: ModuleMeta[] = [
       "/dashboard/reviews/checklists",
     ],
   },
-  { key: "accountability", icon: ShieldCheck, bundle: "execution", routes: [] },
+  { key: "accountability", icon: ShieldCheck, bundle: "execution", routes: ["/dashboard/operations/accountability"] },
   {
     key: "incidents",
     icon: AlertTriangle,

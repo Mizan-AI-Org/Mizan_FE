@@ -6008,5 +6008,10 @@
   "auth.invite_retired.body": "Mizan now adds people on WhatsApp. Ask your manager to add you with your WhatsApp number: Mizan will message you there and you join with one tap.",
   "auth.invite_retired.sign_in": "Go to sign in",
   "staff.email_optional": "Email (optional, for dashboard sign-in)",
-  "staff.email_optional_hint": "Leave empty: they use Miya on WhatsApp"
+  "staff.email_optional_hint": "Leave empty: they use Miya on WhatsApp",
+  "food_safety.load_error": "Couldn't load food safety data. This is not a clean day: retry before relying on it.",
+  "food_safety.retry": "Retry",
+  "nav.work.accountability": "Accountability",
+  "accountability.page_title": "Accountability",
+  "accountability.page_subtitle": "Who delivers on time without being chased, and what needs you now."
 }
