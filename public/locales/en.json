@@ -6006,5 +6006,7 @@
   "staff.pending.wa_status.pending": "Waiting",
   "auth.invite_retired.title": "This invitation link is no longer used",
   "auth.invite_retired.body": "Mizan now adds people on WhatsApp. Ask your manager to add you with your WhatsApp number: Mizan will message you there and you join with one tap.",
-  "auth.invite_retired.sign_in": "Go to sign in"
+  "auth.invite_retired.sign_in": "Go to sign in",
+  "staff.email_optional": "Email (optional, for dashboard sign-in)",
+  "staff.email_optional_hint": "Leave empty: they use Miya on WhatsApp"
 }

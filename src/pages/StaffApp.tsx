@@ -97,6 +97,7 @@ import {
   type BusinessVertical,
 } from "@/config/staffInviteRolesByVertical";
 import { t } from "i18next";
+import { WEB_APP_ROLES } from "@/lib/operationalCommandRoles";
 
 const STAFF_MODAL_INPUT =
     "h-9 rounded-lg bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 font-medium [color-scheme:light] dark:[color-scheme:dark]";
@@ -981,9 +982,10 @@ const TeamTab: React.FC = () => {
 
         React.useEffect(() => {
             if (!isEditModalOpen || !selectedMember) return;
+            // The API already blanks addresses Mizan generated for phone-only people; older ones are cleared here.
             const normalizeEmail = (email: string | null | undefined) => {
                 const value = email || "";
-                if (/^\d+@mizan\.ai$/i.test(value)) {
+                if (/^\d+@mizan\.ai$/i.test(value) || isWhatsAppActivationEmail(value)) {
                     return "";
                 }
                 return value;
@@ -1153,14 +1155,19 @@ const TeamTab: React.FC = () => {
                                             className={STAFF_MODAL_INPUT}
                                         />
                                     </div>
-                                    <div className="space-y-2 col-span-2">
-                                        <label className={STAFF_MODAL_FIELD_LABEL}>Email Address</label>
-                                        <Input
-                                            value={formData.email}
-                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                            className={STAFF_MODAL_INPUT}
-                                        />
-                                    </div>
+                                    {/* Staff work on WhatsApp with Miya and never sign in: only dashboard roles have an email. */}
+                                    {(WEB_APP_ROLES as readonly string[]).includes(formData.role) && (
+                                        <div className="space-y-2 col-span-2">
+                                            <label className={STAFF_MODAL_FIELD_LABEL}>{t("staff.email_optional")}</label>
+                                            <Input
+                                                type="email"
+                                                value={formData.email}
+                                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                placeholder={t("staff.email_optional_hint")}
+                                                className={STAFF_MODAL_INPUT}
+                                            />
+                                        </div>
+                                    )}
                                     <div className="space-y-2">
                                         <label className={STAFF_MODAL_FIELD_LABEL}>WhatsApp Number</label>
                                         <Input

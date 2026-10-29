@@ -6006,5 +6006,7 @@
   "staff.pending.wa_status.pending": "كيتسنى",
   "auth.invite_retired.title": "هاد رابط الدعوة ما بقاش مستعمل",
   "auth.invite_retired.body": "ميزان ولا كيزيد الناس فالواتساب. طلب من المسؤول ديالك يزيدك برقم الواتساب ديالك: ميزان غادي يراسلك تما وتدخل بضغطة وحدة.",
-  "auth.invite_retired.sign_in": "سير للدخول"
+  "auth.invite_retired.sign_in": "سير للدخول",
+  "staff.email_optional": "البريد الإلكتروني (اختياري، لتسجيل الدخول إلى لوحة التحكم)",
+  "staff.email_optional_hint": "اتركه فارغًا: يستخدم ميا على واتساب"
 }
