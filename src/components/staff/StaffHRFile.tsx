@@ -19,6 +19,7 @@ import type {
   StaffHRFile as StaffHRFileData,
   StaffNoteKind,
 } from "@/lib/types";
+import { safeUrl } from "@/lib/safeUrl";
 
 const DOC_CATEGORIES: StaffDocumentCategory[] = ["CONTRACT", "ID", "CERTIFICATE", "MEDICAL", "JUSTIFICATION", "PAYSLIP", "OTHER"];
 
@@ -262,7 +263,7 @@ function StaffHRFileBody({ staffId, canEdit = true }: { staffId: string; canEdit
             <div className="flex flex-wrap items-center gap-2">
               {a.justification ? (
                 <a
-                  href={a.justification.url}
+                  href={safeUrl(a.justification.url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
@@ -367,7 +368,7 @@ function StaffHRFileBody({ staffId, canEdit = true }: { staffId: string; canEdit
             </div>
             <div className="flex items-center gap-1">
               <a
-                href={d.url}
+                href={safeUrl(d.url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={t("hr.doc.download")}

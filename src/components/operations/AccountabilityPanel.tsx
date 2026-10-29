@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { NeedsAttentionItem } from "@/lib/types";
+import { safeUrl } from "@/lib/safeUrl";
 
 const KIND_TONE: Record<NeedsAttentionItem["kind"], string> = {
   blocked: "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300",
@@ -103,7 +104,7 @@ export function AccountabilityPanel() {
               <div className="flex flex-wrap items-center gap-1.5">
                 {item.proof ? (
                   <Button size="sm" variant="ghost" asChild>
-                    <a href={item.proof} target="_blank" rel="noopener noreferrer"><Camera className="h-4 w-4 me-1" aria-hidden />{t("accountability.proof")}</a>
+                    <a href={safeUrl(item.proof)} target="_blank" rel="noopener noreferrer"><Camera className="h-4 w-4 me-1" aria-hidden />{t("accountability.proof")}</a>
                   </Button>
                 ) : null}
                 {item.kind === "validate" ? (

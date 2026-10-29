@@ -66,6 +66,7 @@ import {
   INCIDENT_PRIORITIES,
   type IncidentPriority,
 } from "@/components/dashboard/dashboard-task-detail-utils";
+import { safeUrl } from "@/lib/safeUrl";
 
 type SubmittedChecklist = {
   id: string;
@@ -2571,7 +2572,7 @@ const ManagerReviewDashboard: React.FC = () => {
                                         className="rounded border bg-muted/20 overflow-hidden"
                                       >
                                         {isImage && abs ? (
-                                          <a href={abs} target="_blank" rel="noreferrer">
+                                          <a href={safeUrl(abs)} target="_blank" rel="noreferrer">
                                             <img
                                               src={abs}
                                               alt={ev.caption || ev.filename || `Evidence ${eidx + 1}`}
