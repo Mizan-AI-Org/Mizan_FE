@@ -2105,8 +2105,9 @@ export class BackendService {
    * Printable HR report for a staff member (profile, contract, attendance, absences, documents).
    * Returns the HTML page; the caller opens it in a tab, which prints itself (Save as PDF).
    */
-  async generateStaffReport(accessToken: string, staffId: string): Promise<string> {
-    const response = await fetch(`${API_BASE}/staff/${staffId}/report/`, {
+  async generateStaffReport(accessToken: string, staffId: string, lang?: "en" | "fr" | "ar"): Promise<string> {
+    const query = lang ? `?lang=${lang}` : "";
+    const response = await fetch(`${API_BASE}/staff/${staffId}/report/${query}`, {
       method: "GET",
       headers: this.getHeaders(accessToken),
     });
