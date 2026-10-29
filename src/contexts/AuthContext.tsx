@@ -382,38 +382,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const loginWithPhone = async (phone: string) => {
-    const raw = (phone || "").trim();
-    if (!raw) throw new Error("WhatsApp number is required.");
-    const response = await fetch(`${API_BASE}/auth/staff-phone-login/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone_number: raw }),
-    });
-    const contentType = response.headers.get("content-type") || "";
-    const isJson = contentType.includes("application/json");
-    const rawText = await response.text();
-    if (!response.ok) {
-      let errorMsg = "Login failed";
-      if (isJson && rawText) {
-        try {
-          const parsed = JSON.parse(rawText);
-          errorMsg = parsed.error || parsed.message || "Login failed";
-        } catch {
-          errorMsg = `Login failed (${response.status})`;
-        }
-      }
-      throw new Error(errorMsg);
-    }
-    const data = isJson ? JSON.parse(rawText) : {};
-    setUser(data.user);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    applyLanguageForUser(data.user);
-    localStorage.setItem("access_token", data.tokens?.access || data.access);
-    localStorage.setItem("refresh_token", data.tokens?.refresh || data.refresh);
-    navigate(resolvePostLoginPath(data.user));
-  };
-
   const ownerSignup = async (signupData: SignupData) => {
     const response = await fetch(`${API_BASE}/register/`, {
       method: "POST",
@@ -464,87 +432,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.setItem("access_token", data.tokens.access);
     localStorage.setItem("refresh_token", data.tokens.refresh);
     navigate("/onboarding");
-  };
-
-  const acceptInvitation = async (
-    token: string,
-    first_name: string,
-    last_name: string,
-    password?: string,
-    pin_code?: string | null,
-    invitation_pin?: string | null,
-    email?: string
-  ) => {
-    // Use the API client’s logic to hit the right endpoint
-    const data = await api.acceptInvitation(
-      token,
-      first_name,
-      last_name,
-      password,
-      pin_code,
-      invitation_pin,
-      email
-    );
-
-    // Staff roles activate on WhatsApp — do not keep a web SPA session.
-    if (
-      data.code === "whatsapp_only" ||
-      (data.user && !["SUPER_ADMIN", "OWNER", "ADMIN", "MANAGER", "SUPERVISOR"].includes(
-        String(data.user.role || "").toUpperCase(),
-      ))
-    ) {
-      clearAuth();
-      const wa =
-        (data as { data?: { whatsapp_url?: string }; whatsapp_url?: string }).data
-          ?.whatsapp_url ||
-        (data as { whatsapp_url?: string }).whatsapp_url;
-      sessionStorage.setItem(
-        "mizan_whatsapp_only",
-        JSON.stringify({ role: data.user?.role, whatsapp_url: wa }),
-      );
-      navigate("/staff-whatsapp", {
-        replace: true,
-        state: { role: data.user?.role, whatsappUrl: wa },
-      });
-      return;
-    }
-
-    setUser(data.user);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    localStorage.setItem("access_token", data.tokens.access);
-    localStorage.setItem("refresh_token", data.tokens.refresh);
-    navigate(resolvePostLoginPath(data.user));
-  };
-
-  const inviteStaff = async (
-    accessToken: string,
-    inviteData: {
-      email: string;
-      role: string;
-      custom_role_id?: string;
-      first_name?: string;
-      last_name?: string;
-      phone_number?: string;
-      primary_location?: string;
-      allowed_locations?: string[];
-      managed_locations?: string[];
-    }
-  ) => {
-    const response = await fetch(`${API_BASE}/staff/invite/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(inviteData),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Failed to send invitation");
-    }
-
-    return await response.json();
   };
 
   const logout = async () => {
@@ -607,10 +494,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     updateUser,
     login,
     loginWithPin,
-    loginWithPhone,
     ownerSignup,
-    acceptInvitation,
-    inviteStaff,
     logout,
     hasRole,
     isSuperAdmin,

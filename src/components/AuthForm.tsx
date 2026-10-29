@@ -7,6 +7,7 @@ import { Loader2, Mail, Lock } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "@/hooks/use-language";
 import { ForgotPasswordForm } from "./ForgotPasswordForm";
+import { WhatsAppCodeForm } from "./WhatsAppCodeForm";
 import { authFieldClass } from "./AuthAmbientBackground";
 
 interface AuthFormProps {
@@ -22,6 +23,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({
   const [error, setError] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showWhatsAppCode, setShowWhatsAppCode] = useState(false);
   const auth = useAuth();
   const { t } = useLanguage();
 
@@ -74,6 +76,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({
 
   if (showForgotPassword) {
     return <ForgotPasswordForm onBack={() => setShowForgotPassword(false)} />;
+  }
+  if (showWhatsAppCode) {
+    return <WhatsAppCodeForm onBack={() => setShowWhatsAppCode(false)} />;
   }
 
   return (
@@ -144,6 +149,15 @@ export const AuthForm: React.FC<AuthFormProps> = ({
           {isLoading ? t("auth.actions.signing_in") : t("auth.actions.sign_in")}
         </Button>
       </form>
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setShowWhatsAppCode(true)}
+        className="h-11 w-full border-[#00E676]/40 bg-transparent font-semibold text-[#00E676] hover:bg-[#00E676]/10 hover:text-[#00F77B]"
+      >
+        {t("auth.wa_code.cta")}
+      </Button>
 
       <div className="space-y-4 pt-2 text-center text-sm">
         <button

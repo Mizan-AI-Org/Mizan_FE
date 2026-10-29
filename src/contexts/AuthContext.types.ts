@@ -1,6 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { SignupData } from "../lib/types";
 
+export interface BranchBrief {
+    id: string;
+    name: string;
+    isPrimary?: boolean;
+    timezone?: string;
+}
+
+/** Branches this person covers (login / me payload). multiBranch false = a single-branch business. */
+export interface BranchScopePayload {
+    multiBranch: boolean;
+    all: boolean;
+    home: BranchBrief | null;
+    visible: BranchBrief[];
+    managed: string[];
+    allowed: string[];
+}
+
 export interface User {
     id: string;
     email: string;
@@ -26,6 +43,7 @@ export interface User {
         emergency_contact_name?: string;
         emergency_contact_phone?: string;
     };
+    branch_scope?: BranchScopePayload;
 }
 
 export interface AuthContextType {
@@ -43,30 +61,7 @@ export interface AuthContextType {
         latitude?: number | null,
         longitude?: number | null
     ) => Promise<void>;
-    loginWithPhone: (phone: string) => Promise<void>;
     ownerSignup: (signupData: SignupData) => Promise<void>;
-    acceptInvitation: (
-        token: string,
-        first_name: string,
-        last_name: string,
-        password: string,
-        pin_code: string | null,
-        invitation_pin?: string | null
-    ) => Promise<void>;
-    inviteStaff: (
-      accessToken: string,
-      inviteData: {
-        email: string;
-        role: string;
-        custom_role_id?: string;
-        first_name?: string;
-        last_name?: string;
-        phone_number?: string;
-        primary_location?: string;
-        allowed_locations?: string[];
-        managed_locations?: string[];
-      }
-    ) => Promise<any>;
     logout: () => void;
     hasRole: (roles: string[]) => boolean;
     isSuperAdmin: () => boolean;
