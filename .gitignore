@@ -54,3 +54,8 @@ Thumbs.db
 
 # Optional local storybook / story dumps
 storybook-static/
+
+# Keys and certificates never belong in git
+*.pem
+*.key
+secrets/
