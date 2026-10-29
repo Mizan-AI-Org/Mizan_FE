@@ -8,6 +8,8 @@ import type { BusinessVertical } from "./staffInviteRolesByVertical";
 export type PlaybookPreview = {
   seed_id: string;
   name: string;
+  /** Present on backend-sourced playbooks; the local presets omit it. */
+  summary?: string;
 };
 
 const CHECKLIST: PlaybookPreview = {

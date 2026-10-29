@@ -2,7 +2,7 @@ import type { DashboardTaskDemandItem } from "@/lib/types";
 
 export function dashboardTaskStatusLabel(
   status: string | undefined,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: (key: string, options?: Record<string, string | number>) => string,
 ): string {
   const s = String(status || "").toUpperCase();
   if (s === "ACCEPTED") return t("staff.requests.status_accepted", { defaultValue: "Accepted" });
@@ -49,7 +49,7 @@ export function dashboardTaskPriorityBadge(priority?: string) {
 
 export function dashboardTaskPriorityLabel(
   priority: string | undefined,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: (key: string, options?: Record<string, string | number>) => string,
 ): string {
   const p = normalizeOpsPriority(priority);
   if (p === "URGENT") {
@@ -71,7 +71,7 @@ export function incidentPriorityBadge(priority?: string) {
 
 export function incidentPriorityLabel(
   priority: string | undefined,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: (key: string, options?: Record<string, string | number>) => string,
 ): string {
   return dashboardTaskPriorityLabel(priority, t);
 }
@@ -89,7 +89,7 @@ const ALL_STATUSES: DashboardTaskStatus[] = [
 
 export function dashboardTaskPrimaryAction(
   status: DashboardTaskStatus,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: (key: string, options?: Record<string, string | number>) => string,
 ): { label: string; nextStatus: DashboardTaskStatus } | null {
   switch (status) {
     case "PENDING":

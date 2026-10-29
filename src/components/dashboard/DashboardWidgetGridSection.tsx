@@ -8,6 +8,20 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useModules } from "@/hooks/use-modules";
+import type { ModuleKey } from "@/lib/types";
+
+/** Widgets that belong to a module; hidden when the tenant turned it off (Settings > Modules). */
+const WIDGET_MODULES: Record<string, ModuleKey | undefined> = {
+  live_attendance: "attendance",
+  clock_ins: "attendance",
+  inventory_delivery: "inventory",
+  take_orders: "reservations",
+  sales_or_tasks: "sales",
+  reservations: "reservations",
+  incidents: "incidents",
+  finance: "finance",
+};
 import {
   DndContext,
   DragEndEvent,
@@ -78,13 +92,14 @@ export function DashboardWidgetGridSection() {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isEnabled: isModuleOn, ready: modulesReady } = useModules();
   const { user, hasRole, accessToken } = useAuth() as AuthContextType;
   const { canWidget } = usePermissions();
 
   const { data: todaySales, isLoading: salesLoading } = useQuery({
     queryKey: ["pos-sales-today", accessToken],
     queryFn: () => api.getTodaySales(accessToken!),
-    enabled: !!accessToken && hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER"]),
+    enabled: !!accessToken && hasRole(["SUPER_ADMIN", "ADMIN", "MANAGER"]) && modulesReady && isModuleOn("sales"),
     staleTime: 60_000,
     refetchInterval: 120_000,
     refetchOnWindowFocus: true,
@@ -322,8 +337,9 @@ export function DashboardWidgetGridSection() {
     () =>
       (DASHBOARD_WIDGET_IDS as readonly DashboardWidgetId[])
         .filter((id) => !widgetOrder.includes(id))
+        .filter((id) => isModuleOn(WIDGET_MODULES[id]))
         .filter((id) => canWidget(id)),
-    [widgetOrder, canWidget],
+    [widgetOrder, canWidget, isModuleOn],
   );
 
   useEffect(() => {
@@ -391,6 +407,7 @@ export function DashboardWidgetGridSection() {
   const rawDisplayOrder = canCustomizeDashboard ? widgetOrder : DEFAULT_DASHBOARD_WIDGET_ORDER;
   const displayOrder = rawDisplayOrder.filter((id) => {
     if (isCustomWidgetSlotId(id)) return true;
+    if (!isModuleOn(WIDGET_MODULES[id as string])) return false;
     return canWidget(id as string);
   });
 

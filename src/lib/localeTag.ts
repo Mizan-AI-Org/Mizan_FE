@@ -14,7 +14,7 @@ export function localeTag(language: Language): string {
 /** Translate backend widget subtitles like "6 task(s)". */
 export function translateWidgetTaskSubtitle(
   subtitle: string | undefined | null,
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: (key: string, opts?: Record<string, string | number>) => string,
 ): string | undefined {
   if (!subtitle?.trim()) return subtitle ?? undefined;
   const match = subtitle.trim().match(/^(\d+)\s+task\(s\)$/i);

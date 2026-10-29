@@ -12,6 +12,7 @@ import type {
   CustomWidgetTasksResponse,
   DashboardMeetingsRemindersResponse,
   MeetingReminderItem,
+  ClockInEventItem,
   DashboardClockInsResponse,
 } from "@/lib/types";
 import { toast } from "sonner";
@@ -21,10 +22,11 @@ import {
   type AttachmentViewerState,
 } from "@/components/ui/attachment-preview";
 import { resolveStoredMediaUrl } from "@/components/dashboard/dashboard-task-detail-utils";
-import { BACKEND_URL } from "@/lib/api";
+import { BACKEND_URL, resolveMediaUrl } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,6 +83,7 @@ import {
   Share2,
   Video,
   MapPin,
+  Camera,
   ExternalLink,
   Unplug,
   RefreshCw,
@@ -118,13 +121,13 @@ import { localizeAgeLabel } from "@/lib/localizeAgeLabel";
 
 import { useLanguage } from "@/hooks/use-language";
 
-function staffMessageTemplateLabel(tpl: { id: string; label: string }, t: (key: string) => string): string {
+function staffMessageTemplateLabel(tpl: { id: string; label: string }, t: (key: string, options?: Record<string, string | number> | string) => string): string {
   const key = `dashboard.staff_messages.template.${tpl.id}`;
   const translated = t(key);
   return translated !== key ? translated : tpl.label;
 }
 
-function localizeAiSummaryLine(line: string, t: (key: string) => string): string {
+function localizeAiSummaryLine(line: string, t: (key: string, options?: Record<string, string | number> | string) => string): string {
   const partOf = /^Part of project:\s*/i;
   if (partOf.test(line)) {
     return line.replace(partOf, `${t("dashboard.category_tasks.ai_part_of_project")} `);
@@ -785,7 +788,7 @@ function StaffingCoverageCard({
 }: {
   cardBase: string;
   cardHeaderBase: string;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
   attendance: Record<string, unknown> | undefined;
   isLoading: boolean;
   noShowsCount: number;
@@ -920,7 +923,7 @@ function TakeOrdersDashboardCard({
 }: {
   cardBase: string;
   cardHeaderBase: string;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
   navigate: NavigateFunction;
 }) {
   const { accessToken } = useAuth() as AuthContextType;
@@ -973,7 +976,7 @@ function OpsReportsEnterpriseCard({
 }: {
   cardBase: string;
   cardHeaderBase: string;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
   navigate: NavigateFunction;
 }) {
   const shortcuts = [
@@ -1180,7 +1183,7 @@ function StaffInboxEnterpriseCard({
 }: {
   cardBase: string;
   cardHeaderBase: string;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
   navigate: NavigateFunction;
 }) {
   const { accessToken } = useAuth() as AuthContextType;
@@ -1644,7 +1647,7 @@ function sourcePrefix(src: DashboardTaskDemandItem["source"]): string {
 type PillVisual = { dot: string; text: string; bg: string; label: string };
 
 /** Granular pill descriptors keyed by ``DashboardTaskPillStatus``. */
-const PILL_VISUALS: Record<NonNullable<DashboardTaskDemandItem["pill_status"]>, PillVisual> = {
+const PILL_VISUALS: Partial<Record<NonNullable<DashboardTaskDemandItem["pill_status"]>, PillVisual>> = {
   // Final-state buckets first (cool / muted) so they read as "done".
   DONE: {
     dot: "bg-emerald-500",
@@ -1763,7 +1766,7 @@ const WIDGET_TASK_PREVIEW_LIMIT = 4;
 
 function taskDemandStatusLabel(
   pill: PillVisual,
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: (key: string, opts?: Record<string, string | number>) => string,
 ): string {
   const tasksKey = `dashboard.tasks_demands.status_${pill.label}`;
   const categoryKey = `dashboard.category_tasks.pill_${pill.label}`;
@@ -1783,7 +1786,7 @@ function WidgetTasksMoreFooter({
 }: {
   visible: boolean;
   onClick: (e: React.MouseEvent) => void;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
   className?: string;
   expanded?: boolean;
 }) {
@@ -1818,7 +1821,7 @@ function TasksDemandsCard({
 }: {
   cardBase: string;
   cardHeaderBase: string;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
   navigate: NavigateFunction;
 }) {
   const qc = useQueryClient();
@@ -2418,7 +2421,7 @@ function GoogleCalendarSyncHub({
   lastSyncAt?: string | null;
   locale: string;
   calendarLink: string;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
 }) {
   const [disconnectOpen, setDisconnectOpen] = useState(false);
   const initials = (email || "?").trim().charAt(0).toUpperCase() || "?";
@@ -2645,7 +2648,7 @@ function MeetingsRemindersCard({
 }: {
   cardBase: string;
   cardHeaderBase: string;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
   navigate: NavigateFunction;
 }) {
   const qc = useQueryClient();
@@ -3151,6 +3154,59 @@ function MeetingsRemindersCard({
  * (``/dashboard/employees/attendance``) which renders the full
  * "Live Attendance List" with per-staff shift / clock-in / status rows.
  */
+/** Flagged geo clock-in: why, then Approve / Reject (reject needs a reason the staff member sees). */
+function ClockInReview({ ev, t }: { ev: ClockInEventItem; t: (key: string, options?: Record<string, string | number> | string) => string }) {
+  const qc = useQueryClient();
+  const [rejecting, setRejecting] = React.useState(false);
+  const [note, setNote] = React.useState("");
+  const review = useMutation({
+    mutationFn: (approve: boolean) => api.reviewClockIn(ev.id, approve, note.trim()),
+    onSuccess: (_res, approve) => {
+      toast.success(t(approve ? "dashboard.clock_ins.approved" : "dashboard.clock_ins.rejected"));
+      qc.invalidateQueries({ queryKey: ["dashboard", "clock-ins"] });
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  return (
+    <div className="mt-1.5 space-y-1.5 ps-11" onClick={stop} onKeyDown={stop}>
+      <p className="text-[11px] leading-snug text-amber-700 dark:text-amber-300" title={ev.flag_labels || undefined}>
+        <span className="font-semibold">{t("dashboard.clock_ins.to_review")}</span>
+        {ev.flag_short ? ` · ${ev.flag_short}` : ""}
+      </p>
+      {rejecting ? (
+        <div className="flex flex-wrap items-center gap-1">
+          <Input
+            autoFocus
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder={t("dashboard.clock_ins.reject_reason")}
+            aria-label={t("dashboard.clock_ins.reject_reason")}
+            className="h-7 text-xs"
+          />
+          <Button size="sm" variant="destructive" className="h-7 px-2 text-xs" disabled={!note.trim() || review.isPending}
+                  onClick={() => review.mutate(false)}>
+            {t("dashboard.clock_ins.reject")}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setRejecting(false)}>
+            {t("dashboard.clock_ins.cancel")}
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-1">
+          <Button size="sm" className="h-7 px-2 text-xs" disabled={review.isPending} onClick={() => review.mutate(true)}>
+            <Check className="me-1 h-3 w-3" aria-hidden />
+            {t("dashboard.clock_ins.approve")}
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setRejecting(true)}>
+            {t("dashboard.clock_ins.reject")}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ClockInsCard({
   cardBase,
   cardHeaderBase,
@@ -3159,7 +3215,7 @@ function ClockInsCard({
 }: {
   cardBase: string;
   cardHeaderBase: string;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
   navigate: NavigateFunction;
 }) {
   const { data, isLoading, isError, refetch, isFetching } =
@@ -3268,58 +3324,92 @@ function ClockInsCard({
                 return (
                   <li
                     key={ev.id}
-                    className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                    className="rounded-lg px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
                   >
-                    <div className="min-w-0 flex-1">
-                      <div
-                        className="truncate text-[13px] font-medium text-slate-900 dark:text-white"
-                        title={ev.staff.name}
-                      >
-                        {ev.staff.name || t("dashboard.clock_ins.unknown_staff")}{" "}
-                        <span className="font-normal text-slate-500 dark:text-slate-400">
-                          {t("dashboard.clock_ins.just_arrived")}
-                        </span>
-                      </div>
-                      {/* Subtitle: role or "X min late". Shown only when
-                          we have something meaningful to say - keeps the
-                          row feeling dense & scannable like the mock. */}
-                      {isLate && typeof ev.lateness_minutes === "number" ? (
-                        <div className="text-[11px] text-amber-600 dark:text-amber-400">
-                          {t("dashboard.clock_ins.minutes_late").replace(
-                            "{n}",
-                            String(ev.lateness_minutes),
-                          )}
-                        </div>
-                      ) : ev.location_mismatch ? (
-                        <div className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                          <MapPin className="h-2.5 w-2.5" aria-hidden />
-                          {t("dashboard.clock_ins.wrong_branch")}
-                        </div>
+                    <div className="flex items-center gap-3">
+                      {ev.photo_url ? (
+                        <a
+                          href={resolveMediaUrl(ev.photo_url)}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="shrink-0"
+                          title={t("dashboard.clock_ins.on_site_photo")}
+                        >
+                          <img
+                            src={resolveMediaUrl(ev.photo_url)}
+                            alt={t("dashboard.clock_ins.selfie_alt").replace("{name}", ev.staff.name)}
+                            className={cn(
+                              "h-8 w-8 rounded-full object-cover ring-2",
+                              ev.review_status === "flagged" ? "ring-amber-400" : "ring-transparent",
+                            )}
+                            loading="lazy"
+                          />
+                        </a>
                       ) : null}
-                    </div>
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className="truncate text-[13px] font-medium text-slate-900 dark:text-white"
+                          title={ev.staff.name}
+                        >
+                          {ev.staff.name || t("dashboard.clock_ins.unknown_staff")}{" "}
+                          <span className="font-normal text-slate-500 dark:text-slate-400">
+                            {t("dashboard.clock_ins.just_arrived")}
+                          </span>
+                        </div>
+                        {/* Subtitle: role or "X min late". Shown only when
+                            we have something meaningful to say - keeps the
+                            row feeling dense & scannable like the mock. */}
+                        {isLate && typeof ev.lateness_minutes === "number" ? (
+                          <div className="text-[11px] text-amber-600 dark:text-amber-400">
+                            {t("dashboard.clock_ins.minutes_late").replace(
+                              "{n}",
+                              String(ev.lateness_minutes),
+                            )}
+                          </div>
+                        ) : ev.location_mismatch ? (
+                          <div className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                            <MapPin className="h-2.5 w-2.5" aria-hidden />
+                            {t("dashboard.clock_ins.wrong_branch")}
+                          </div>
+                        ) : null}
+                        {ev.site ? (
+                          <div className="flex items-center gap-1 truncate text-[11px] text-slate-500 dark:text-slate-400">
+                            <MapPin className="h-2.5 w-2.5 shrink-0" aria-hidden />
+                            {ev.site}
+                          </div>
+                        ) : null}
+                      </div>
 
-                    <span
-                      className={cn(
-                        "shrink-0 text-[13px] tabular-nums font-medium tracking-tight",
-                        isLate
-                          ? "text-amber-600 dark:text-amber-400"
-                          : "text-slate-600 dark:text-slate-300",
+                      <span
+                        className={cn(
+                          "shrink-0 text-[13px] tabular-nums font-medium tracking-tight",
+                          isLate
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-slate-600 dark:text-slate-300",
+                        )}
+                      >
+                        {time}
+                      </span>
+
+                      {ev.review_status === "flagged" ? (
+                        <AlertTriangle
+                          className="shrink-0 h-4 w-4 text-amber-500"
+                          aria-label={t("dashboard.clock_ins.to_review")}
+                        />
+                      ) : isLate ? (
+                        <XCircle
+                          className="shrink-0 h-4 w-4 text-amber-500"
+                          aria-label={t("dashboard.clock_ins.status_late")}
+                        />
+                      ) : (
+                        <CheckCircle2
+                          className="shrink-0 h-4 w-4 text-emerald-500"
+                          aria-label={t("dashboard.clock_ins.status_on_time")}
+                        />
                       )}
-                    >
-                      {time}
-                    </span>
-
-                    {isLate ? (
-                      <XCircle
-                        className="shrink-0 h-4 w-4 text-amber-500"
-                        aria-label={t("dashboard.clock_ins.status_late")}
-                      />
-                    ) : (
-                      <CheckCircle2
-                        className="shrink-0 h-4 w-4 text-emerald-500"
-                        aria-label={t("dashboard.clock_ins.status_on_time")}
-                      />
-                    )}
+                    </div>
+                    {ev.review_status === "flagged" ? <ClockInReview ev={ev} t={t} /> : null}
                   </li>
                 );
               })}
@@ -3364,7 +3454,7 @@ function StaffDailyProgressCard({
 }: {
   cardBase: string;
   cardHeaderBase: string;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
   navigate: NavigateFunction;
 }) {
   const { user: authUser } = useAuth() as AuthContextType;
@@ -3683,7 +3773,7 @@ function RecentIncidentsCard({
 }: {
   cardBase: string;
   cardHeaderBase: string;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
   navigate: NavigateFunction;
 }) {
   const { data, isLoading, isError, refetch, isFetching } = useQuery<unknown>({
@@ -4067,8 +4157,8 @@ function resolveRowKind(
 function canAcceptBucketDrop(
   payload: RowDragPayload,
   target: string,
-  t: (key: string) => string,
-): { ok: true } | { ok: false; message: string } {
+  t: (key: string, options?: Record<string, string | number> | string) => string,
+): { ok: boolean; message?: string } {
   const kind = resolveRowKind(payload);
 
   if (isCustomDropTarget(target) || target === "tasks_demands") {
@@ -4396,7 +4486,7 @@ function CategoryTasksCard({
 }: {
   cardBase: string;
   cardHeaderBase: string;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
   navigate: NavigateFunction;
   bucket: import("@/lib/types").CategoryTaskBucket;
   titleKey: string;
@@ -4976,7 +5066,7 @@ function CategoryStatusStrip({
 }: {
   counts: import("@/lib/types").CategoryTasksResponse["counts"];
   filter: CategoryTasksFilter;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
 }) {
   // ``counts`` may come from older deployments without the granular
   // breakdown - coerce missing fields to 0 so we never render NaN.
@@ -5143,7 +5233,7 @@ function CategoryTaskRow({
   onOpenProofMedia,
 }: {
   item: DashboardTaskDemandItem;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
   onStatusChange?: (nextStatus: DashboardTaskDemandItem["status"]) => void;
   onValidate?: () => void;
   onChase?: () => void;
@@ -5641,7 +5731,7 @@ export function CustomWidgetTasksCard({
   def: DashboardCustomWidgetDef;
   cardBase: string;
   cardHeaderBase: string;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number> | string) => string;
   navigate: NavigateFunction;
 }) {
   const qc = useQueryClient();
@@ -7012,6 +7102,9 @@ function StaffMessagesCard({
 }
 
 
+// The "sales" case formats money with it (it was referenced without being defined: a crash once a POS is connected).
+const locale = typeof navigator !== "undefined" && navigator.language ? navigator.language : "en-US";
+
 export function DashboardWidgetById({
   id,
   props,
@@ -7099,7 +7192,7 @@ export function DashboardWidgetById({
       // issues, ranked by urgency. Whole card is clickable → dedicated
       // operational-issues page with the complete ranked list grouped
       // by severity. Each row also navigates to the specific action.
-      const totalIssues = Number(summary?.insights?.total || insights.length);
+      const totalIssues = Number((summary?.insights as { total?: number } | undefined)?.total || insights.length);
       const goToAllIssues = () => navigate("/dashboard/operational-issues");
       return (
         <Card

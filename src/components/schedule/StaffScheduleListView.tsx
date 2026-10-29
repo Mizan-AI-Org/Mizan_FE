@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CardGridSkeleton } from "@/components/skeletons";
-import { Search, MapPin, Calendar, Clock, User } from "lucide-react";
+import { Search, MapPin, Calendar, Clock, User, Plus } from "lucide-react";
 import { format, parseISO, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
@@ -31,6 +31,7 @@ interface StaffScheduleListViewProps {
     shifts: Shift[];
     staffMembers: StaffMember[];
     currentDate: Date;
+    onCreateShift?: () => void;
     isLoading?: boolean;
 }
 
@@ -38,6 +39,7 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
     shifts,
     staffMembers,
     currentDate,
+    onCreateShift,
     isLoading = false,
 }) => {
     const { t } = useLanguage();
@@ -117,6 +119,16 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                 <div className="text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {filteredShifts.length} {t("schedule.shifts_found")}
                 </div>
+                {onCreateShift ? (
+                    <button
+                        type="button"
+                        onClick={onCreateShift}
+                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:bg-primary/90 active:scale-95"
+                    >
+                        <Plus className="h-4 w-4" />
+                        <span>{t("schedule.create")}</span>
+                    </button>
+                ) : null}
             </div>
 
             {sortedDates.length === 0 ? (

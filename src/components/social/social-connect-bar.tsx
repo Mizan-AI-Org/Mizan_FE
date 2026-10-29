@@ -227,7 +227,7 @@ export function SocialConnectBar({ className, compact }: Props) {
                 onClick={() => disconnect.mutate(String(a.platform))}
               >
                 {t("social.connect.disconnect", {
-                  label: PLATFORMS.find((p) => p.id === a.platform)?.label || a.platform,
+                  label: PLATFORMS.find((p) => p.id === a.platform)?.label || (a.platform as string),
                 })}
               </Button>
             ))}

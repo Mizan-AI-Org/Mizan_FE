@@ -507,7 +507,7 @@ function StaffRosterCard({
   onToggle: (m: BranchStaffMember) => void;
   onMoveOne: (m: BranchStaffMember) => void;
   onSelectAll: (list: BranchStaffMember[]) => void;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: (key: string, options?: Record<string, string | number>) => string;
 }) {
   const allSelected =
     staff.length > 0 && staff.every((s) => selectedIds.includes(s.id));
@@ -637,6 +637,7 @@ function PerformanceSection({
 }: {
   performance: LocationDetail["performance"] | undefined;
 }) {
+  const { t } = useLanguage();
   if (!performance) {
     return <EmptyRow text="Performance data unavailable." />;
   }
@@ -887,6 +888,7 @@ function BranchProfileCard({
 }: {
   location: NonNullable<LocationDetail>["location"];
 }) {
+  const { t } = useLanguage();
   return (
     <Card>
       <CardContent className="space-y-3 p-4">
@@ -955,7 +957,7 @@ function ShiftsCard({
   t,
 }: {
   shifts: ShiftToday[];
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: (key: string, options?: Record<string, string | number>) => string;
 }) {
   return (
     <Card>
@@ -1018,7 +1020,7 @@ function ClockEventsCard({
   t,
 }: {
   events: ClockEventToday[];
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: (key: string, options?: Record<string, string | number>) => string;
 }) {
   const mismatchCount = events.filter((e) => e.location_mismatch).length;
   return (
@@ -1070,6 +1072,7 @@ function ClockEventsCard({
 }
 
 function CashSessionsCard({ sessions }: { sessions: CashSessionToday[] }) {
+  const { t } = useLanguage();
   if (sessions.length === 0) return null;
   return (
     <Card>
@@ -1213,6 +1216,7 @@ function ReportLinksCard({
 }: {
   links: { label: string; href: string }[];
 }) {
+  const { t } = useLanguage();
   if (links.length === 0) return null;
   return (
     <Card>

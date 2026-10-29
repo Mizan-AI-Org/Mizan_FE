@@ -48,9 +48,9 @@ export function ReportsWorkspace({ variant = "standalone" }: { variant?: "standa
   const [viewingReport, setViewingReport] = useState<Report | null>(null);
 
   const { data: reports = [], isLoading, error } = useQuery<Report[]>({
-    queryKey: ["reports", user?.restaurant?.id],
+    queryKey: ["reports", user?.restaurant],
     queryFn: async () => {
-      if (!user?.restaurant?.id) return [];
+      if (!user?.restaurant) return [];
       const response = await fetch(`${API_BASE}/reporting/reports/`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
@@ -60,7 +60,7 @@ export function ReportsWorkspace({ variant = "standalone" }: { variant?: "standa
       return unwrapDrfListResponse<Report>(unwrapEnvelope(await response.json()));
     },
     enabled:
-      !!user?.restaurant?.id &&
+      !!user?.restaurant &&
       (user.role === "SUPER_ADMIN" ||
         user.role === "ADMIN" ||
         user.role === "MANAGER" ||

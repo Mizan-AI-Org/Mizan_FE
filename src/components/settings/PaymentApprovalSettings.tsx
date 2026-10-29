@@ -78,7 +78,7 @@ const TIER_ACCENTS = [
 
 function roleLabel(
   roleId: string,
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: (key: string, opts?: Record<string, string | number>) => string,
 ): string {
   const found = ROLES.find((r) => r.id === roleId);
   if (found) return t(found.labelKey, { defaultValue: found.fallback });
@@ -207,7 +207,7 @@ function whoValue(step: Step): string {
 
 function approverLabel(
   step: Step,
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: (key: string, opts?: Record<string, string | number>) => string,
 ): string {
   if (step.user_id) return step.label || roleLabel(step.role, t);
   return t("settings.payguard.any_with_role", {

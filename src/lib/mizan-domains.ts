@@ -1,3 +1,5 @@
+import type { ModuleKey } from "@/lib/types";
+
 export type DomainId =
   | "operations"
   | "employees"
@@ -8,6 +10,8 @@ export type DomainSection = {
   labelKey: string;
   href: string;
   exact?: boolean;
+  /** Hidden when the tenant turned this module off (Settings > Modules). */
+  moduleId?: ModuleKey;
 };
 
 export type DomainNavLeaf = DomainSection & {
@@ -20,16 +24,17 @@ export const DOMAIN_SECTIONS: Record<DomainId, DomainSection[]> = {
   operations: [
     { labelKey: "nav.work.live_operations", href: "/dashboard/operations/live" },
     { labelKey: "nav.work.approvals", href: "/dashboard/operations/approvals" },
-    { labelKey: "nav.work.incidents", href: "/dashboard/operations/incidents" },
-    { labelKey: "nav.work.staff_checklists", href: "/dashboard/operations/checklists" },
+    { labelKey: "nav.work.incidents", href: "/dashboard/operations/incidents", moduleId: "incidents" },
+    { labelKey: "nav.work.staff_checklists", href: "/dashboard/operations/checklists", moduleId: "checklists" },
+    { labelKey: "nav.work.food_safety", href: "/dashboard/operations/food-safety", moduleId: "food_safety" },
   ],
   employees: [
-    { labelKey: "nav.employees.staff_requests", href: "/dashboard/staff-requests" },
     { labelKey: "nav.employees.people", href: "/dashboard/employees/people" },
-    { labelKey: "nav.employees.shifts", href: "/dashboard/employees/shifts" },
-    { labelKey: "nav.employees.tasks", href: "/dashboard/employees/tasks" },
-    { labelKey: "nav.employees.attendance", href: "/dashboard/employees/attendance" },
-    { labelKey: "nav.employees.performance", href: "/dashboard/employees/performance" },
+    { labelKey: "nav.employees.staff_requests", href: "/dashboard/staff-requests" },
+    { labelKey: "nav.employees.shifts", href: "/dashboard/employees/shifts", moduleId: "scheduling" },
+    { labelKey: "nav.employees.tasks", href: "/dashboard/employees/tasks", moduleId: "checklists" },
+    { labelKey: "nav.employees.attendance", href: "/dashboard/employees/attendance", moduleId: "attendance" },
+    { labelKey: "nav.employees.performance", href: "/dashboard/employees/performance", moduleId: "scheduling" },
   ],
   products: [{ labelKey: "nav.sales", href: "/dashboard/products/sales" }],
   customers: [

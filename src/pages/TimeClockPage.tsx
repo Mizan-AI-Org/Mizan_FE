@@ -119,6 +119,7 @@ export default function TimeClockPage() {
         longitude?: number;
         radius?: number;
         geofence_radius?: number;
+        geofence_enabled?: boolean;
         restaurant?: {
             latitude?: number;
             longitude?: number;

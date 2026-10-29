@@ -31,6 +31,7 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { ListSkeleton } from "@/components/skeletons";
 import { PAGE_SHELL } from "@/lib/page-shell";
+import PresenceRecap from "@/components/attendance/PresenceRecap";
 
 const cardBase =
   "relative border border-slate-200/60 dark:border-slate-800/80 bg-card rounded-2xl ring-1 ring-slate-900/[0.03] dark:ring-white/[0.04] shadow-[0_1px_2px_0_rgb(15_23_42_/_0.04),0_2px_8px_-2px_rgb(15_23_42_/_0.06)] transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-0.5 hover:border-slate-300/70 dark:hover:border-slate-700 hover:shadow-[0_12px_32px_-12px_rgb(15_23_42_/_0.18),0_4px_12px_-4px_rgb(15_23_42_/_0.08)]";
@@ -129,6 +130,8 @@ export default function DashboardAttendancePage() {
               : "All clear right now"}
           </p>
         </header>
+
+        <PresenceRecap />
 
         {/* All insights (critical + operational + rest) */}
         <Card

@@ -316,6 +316,33 @@ export function playAgentReplyAudio(base64: string, mimeType: string): void {
   }
 }
 
+export type AgentFile = {
+  id: string;
+  name: string;
+  kind: string;
+  status: "received" | "ready" | "unreadable";
+  pages?: number;
+  error?: string;
+};
+
+/** Upload files for Miya (PDF, Word, Excel, CSV, photos, voice notes; 25 MB each). */
+export async function uploadAgentFiles(files: File[], conversationId?: string): Promise<AgentFile[]> {
+  const form = new FormData();
+  for (const file of files) form.append("file", file);
+  if (conversationId) form.append("conversationId", conversationId);
+  const response = await safeFetch(`${API_BASE}/mastra/files/`, {
+    method: "POST",
+    headers: authHeadersMultipart(),
+    credentials: "include",
+    body: form,
+  });
+  const data = response ? await response.json().catch(() => ({})) : {};
+  if (!response || !response.ok || data?.success === false) {
+    throw new Error(data?.error || data?.detail || "Upload failed");
+  }
+  return (data?.data ?? []) as AgentFile[];
+}
+
 export async function runMastraChat(body: {
   message: string;
   conversationId?: string;
@@ -324,6 +351,7 @@ export async function runMastraChat(body: {
   locationId?: string;
   draftId?: string;
   inputMode?: "text" | "voice";
+  attachments?: string[];
 }): Promise<MastraRunResponse> {
   const response = await safeFetch(`${API_BASE}/mastra/run/`, {
     method: "POST",
@@ -336,6 +364,7 @@ export async function runMastraChat(body: {
       locale: body.locale,
       locationId: body.locationId,
       draftId: body.draftId,
+      attachments: body.attachments && body.attachments.length ? body.attachments : undefined,
       inputMode: body.inputMode ?? "text",
     }),
   });

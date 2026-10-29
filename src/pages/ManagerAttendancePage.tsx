@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -36,8 +36,8 @@ import { cn } from "@/lib/utils";
 type AttendanceDashboardSummary = {
   present: { count: number; percentage: number; total: number };
   late: { count: number; avg_minutes: number };
-  absent: { count: number; reason: string };
-  on_leave: { count: number; subtitle: string };
+  absent: { count: number; reason?: string };
+  on_leave: { count: number; subtitle?: string };
 };
 
 type AttendanceListItem = {
@@ -164,6 +164,33 @@ function ManagerAttendanceBoard() {
 
     return (
         <div className="space-y-8">
+            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                        {t("staff.attendance.title")}
+                    </h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">
+                        {t("staff.attendance.live_list")}
+                    </p>
+                </div>
+                <Tabs
+                    value={showFullRoster ? "roster" : "floor"}
+                    onValueChange={(value) => {
+                        setShowFullRoster(value === "roster");
+                        setLivePage(1);
+                    }}
+                    className="w-full shrink-0 sm:w-[min(42rem,58%)]"
+                >
+                    <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
+                        <TabsTrigger value="floor" className="w-full justify-center py-2.5 text-sm">
+                            {t("staff.attendance.today_floor", { defaultValue: "On floor today" })}
+                        </TabsTrigger>
+                        <TabsTrigger value="roster" className="w-full justify-center py-2.5 text-sm">
+                            {t("staff.attendance.full_roster", { defaultValue: "Full roster" })}
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
+            </header>
             {/* 1. Top Summary Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="border-slate-100 dark:border-slate-800 bg-card shadow-sm">
@@ -254,38 +281,18 @@ function ManagerAttendanceBoard() {
             <div className="space-y-6">
                 <Card className="border-border/80 shadow-sm overflow-hidden">
                     <CardHeader className="border-b border-border/60 bg-muted/20 pb-4">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                            <div className="space-y-1">
-                                <CardTitle className="text-lg flex items-center gap-2">
-                                    <Users className="h-5 w-5 text-muted-foreground" aria-hidden />
-                                    {t("staff.attendance.live_list")}
-                                </CardTitle>
-                                <CardDescription>
-                                    {showFullRoster
-                                        ? t("staff.attendance.roster_full_hint", { defaultValue: "Full team roster for today." })
-                                        : t("staff.attendance.roster_floor_hint", {
-                                            defaultValue: "Scheduled staff, absences, and anyone who punched in.",
-                                          })}
-                                </CardDescription>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant={showFullRoster ? "outline" : "default"}
-                                    onClick={() => { setShowFullRoster(false); setLivePage(1); }}
-                                >
-                                    {t("staff.attendance.today_floor", { defaultValue: "On floor today" })}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant={showFullRoster ? "default" : "outline"}
-                                    onClick={() => { setShowFullRoster(true); setLivePage(1); }}
-                                >
-                                    {t("staff.attendance.full_roster", { defaultValue: "Full roster" })}
-                                </Button>
-                            </div>
+                        <div className="space-y-1">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <Users className="h-5 w-5 text-muted-foreground" aria-hidden />
+                                {t("staff.attendance.live_list")}
+                            </CardTitle>
+                            <CardDescription>
+                                {showFullRoster
+                                    ? t("staff.attendance.roster_full_hint", { defaultValue: "Full team roster for today." })
+                                    : t("staff.attendance.roster_floor_hint", {
+                                        defaultValue: "Scheduled staff, absences, and anyone who punched in.",
+                                      })}
+                            </CardDescription>
                         </div>
                         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="relative flex-1 max-w-md">
@@ -517,17 +524,8 @@ function ManagerAttendanceBoard() {
 
 
 export default function ManagerAttendancePage() {
-  const { t } = useLanguage();
   return (
-    <div className={`${PAGE_SHELL_PADDED} space-y-6 min-w-0`}>
-      <header className="space-y-1">
-        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
-          {t("staff.attendance.title")}
-        </h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">
-          {t("staff.attendance.live_list")}
-        </p>
-      </header>
+    <div className={`${PAGE_SHELL_PADDED} min-w-0`}>
       <ManagerAttendanceBoard />
     </div>
   );

@@ -102,7 +102,7 @@ export function SettingsSection({
           ) : (
             <div className="flex min-w-0 items-center gap-3">{identity}</div>
           )}
-          {actions ? <div className="shrink-0">{actions}</div> : null}
+          {actions ? <div className="shrink-0 self-center">{actions}</div> : null}
         </div>
       </CardHeader>
       {expanded ? (

@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { StaffProfileItem } from "@/lib/types";
 
 import { useLanguage } from "@/hooks/use-language";
+
+// Toasts and labels here were calling a `t` that was never defined (ReferenceError at runtime): translate with the
+// app's i18n instance, which follows the current language like useLanguage().
+const t = (key: string, options?: Record<string, string | number> | string): string =>
+  i18n.t(key, typeof options === "string" ? { defaultValue: options } : options) as string;
+
 const TEMPLATES = [
   { id: "food-safety-basic", name: "Food Safety - Basic", description: "Daily food safety checklist", role: "STAFF" },
   { id: "opening-checklist", name: "Opening Checklist", description: "Pre-opening checks for the shift", role: "STAFF" },

@@ -1,661 +1,461 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import {
-  AlertCircle,
-  ArrowRight,
-  CalendarClock,
+  AlertTriangle,
+  ArrowUpRight,
+  BadgeCheck,
   Check,
-  CreditCard,
-  ExternalLink,
+  Clock,
+  Copy,
+  FileText,
+  Landmark,
   Loader2,
+  MapPin,
+  Package,
+  PauseCircle,
+  Sparkles,
 } from "lucide-react";
-
-import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
-import type {
-  BillingEntitlements,
-  CurrentSubscription,
-  SubscriptionPlan,
-  SubscriptionTier,
-} from "@/lib/types";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { formatMoney } from "@/components/onboarding/ModulePicker";
+import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
-import {
-  translatePlanBadge,
-  translatePlanDescription,
-  translatePlanFeatures,
-  translatePlanName,
-} from "@/lib/billing-i18n";
+import { api } from "@/lib/api";
+import { PRIVILEGED_ROLES } from "@/lib/operationalCommandRoles";
+import { cn } from "@/lib/utils";
+import type { BillingInvoiceRow, BillingOverview, BillingState } from "@/lib/types";
 
-type Interval = "month" | "year";
-type Translate = (key: string, options?: Record<string, string | number>) => string;
+const fmtDate = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
 
-const TIER_ORDER: Record<SubscriptionTier, number> = {
-  FREE: 0,
-  STARTER: 1,
-  GROWTH: 2,
-  ENTERPRISE: 3,
+const STATE_TONE: Record<BillingState, string> = {
+  trial: "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100",
+  trial_over: "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100",
+  active: "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-100",
+  none: "border-border bg-card text-foreground",
+  due: "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100",
+  overdue: "border-red-200 bg-red-50 text-red-900 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100",
+  suspended: "border-red-300 bg-red-50 text-red-900 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-100",
 };
 
-/** Prefer region-aware locales so MAD/EUR don't render as "$US". */
-function currencyLocale(uiLanguage: string, currency: string): string {
-  const cur = (currency || "").toUpperCase();
-  const lang = (uiLanguage || "en").toLowerCase();
-  if (cur === "MAD") return lang.startsWith("ar") ? "ar-MA" : "fr-MA";
-  if (cur === "EUR") return lang.startsWith("fr") ? "fr-FR" : lang.startsWith("ar") ? "ar" : "en-IE";
-  if (cur === "USD") return lang.startsWith("fr") ? "en-US" : lang;
-  return lang;
+export function useBillingOverview() {
+  return useQuery({ queryKey: ["billing-overview"], queryFn: () => api.getBillingOverview() });
 }
 
-const formatCurrency = (
-  value: string | null | undefined,
-  currency: string,
-  locale: string,
-) => {
-  if (!value) return "-";
-  const n = Number(value);
-  if (Number.isNaN(n)) return String(value);
-  const code = (currency || "USD").toUpperCase();
-  try {
-    return new Intl.NumberFormat(currencyLocale(locale, code), {
-      style: "currency",
-      currency: code,
-      maximumFractionDigits: n % 1 === 0 ? 0 : 2,
-    }).format(n);
-  } catch {
-    return `${code} ${n}`;
-  }
-};
-
-const formatDate = (iso: string | null | undefined, locale: string) => {
-  if (!iso) return "-";
-  try {
-    return new Intl.DateTimeFormat(locale, {
-      dateStyle: "medium",
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
-};
-
-function priceIdFor(plan: SubscriptionPlan, interval: Interval): string {
-  if (interval === "year") {
-    return plan.stripe_price_id_yearly || plan.stripe_price_id_monthly || plan.stripe_price_id || "";
-  }
-  return plan.stripe_price_id_monthly || plan.stripe_price_id || "";
+function usePrivileged() {
+  const { user } = useAuth();
+  return PRIVILEGED_ROLES.includes(String(user?.role || "").toUpperCase() as (typeof PRIVILEGED_ROLES)[number]);
 }
 
-function PlanCardSkeleton() {
+/** The one-glance answer: where the account stands and what (if anything) to do now. */
+function AccountHero({ data }: { data: BillingOverview }) {
+  const { t } = useLanguage();
+  const cur = data.current.currency;
+  const nextDue = data.openInvoices[0];
+  const Icon = { trial: Sparkles, trial_over: Clock, active: BadgeCheck, none: BadgeCheck, due: Clock, overdue: AlertTriangle, suspended: PauseCircle }[data.state];
+  const headline = {
+    trial: t("billing.hero.trial", { days: String(data.trialDaysLeft ?? 0) }),
+    trial_over: t("billing.hero.trial_over"),
+    active: t("billing.hero.active"),
+    none: t("billing.hero.none"),
+    due: t("billing.hero.due", { amount: formatMoney(data.balanceDue, cur), date: fmtDate(nextDue?.dueAt) }),
+    overdue: t("billing.hero.overdue", { amount: formatMoney(data.balanceDue, cur) }),
+    suspended: t("billing.hero.suspended", { amount: formatMoney(data.balanceDue, cur) }),
+  }[data.state];
+  const detail =
+    data.state === "trial"
+      ? t("billing.hero.trial_detail", { date: fmtDate(data.trialEndsAt), amount: formatMoney(data.current.totalTtc ?? data.current.total, cur) })
+      : data.state === "active" && data.nextInvoiceAt
+        ? t("billing.hero.next", { date: fmtDate(data.nextInvoiceAt), amount: formatMoney(data.current.totalTtc ?? data.current.total, cur) })
+        : data.state === "due" || data.state === "overdue"
+          ? t("billing.hero.pay_hint")
+          : data.state === "suspended"
+            ? t("billing.hero.suspended_detail")
+            : data.state === "trial_over"
+              ? t("billing.hero.trial_over_detail")
+              : t("billing.hero.managed");
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-5 space-y-3">
-      <Skeleton className="h-4 w-20" />
-      <Skeleton className="h-8 w-28" />
-      <Skeleton className="h-3 w-full" />
-      <Skeleton className="h-3 w-5/6" />
-      <Skeleton className="h-9 w-full rounded-lg" />
-    </div>
+    <section className={cn("rounded-2xl border p-5 sm:p-6", STATE_TONE[data.state])}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <Icon className="mt-0.5 h-6 w-6 shrink-0" aria-hidden />
+          <div className="min-w-0 space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wider opacity-70">{t(`billing.state.${data.state}`)}</p>
+            <h2 className="text-lg font-bold leading-snug sm:text-xl">{headline}</h2>
+            <p className="text-sm opacity-80">{detail}</p>
+          </div>
+        </div>
+        <div className="text-end">
+          <p className="text-3xl font-bold tabular-nums tracking-tight">{formatMoney(data.monthly.monthlyTotal, cur)}</p>
+          <p className="text-xs opacity-70">{t("billing.per_month_ht")}</p>
+        </div>
+      </div>
+    </section>
   );
 }
 
-type TrialContext = {
-  status?: string | null;
-  trialEndsAt?: string | null;
-  hasProviderSub?: boolean;
-};
-
-function trialCaption(
-  t: Translate,
-  plan: SubscriptionPlan,
-  isCurrent: boolean,
-  ctx: TrialContext,
-  locale: string,
-): string | null {
-  // Trial is Starter-only (14 days at signup). Growth/Enterprise: pay for what you get.
-  const isStarter = plan.tier === "STARTER" || plan.slug === "starter";
-  if (!isStarter) return null;
-
-  // Already paying - trial is gone.
-  if (ctx.hasProviderSub || ctx.status === "active") return null;
-
-  const status = (ctx.status || "").toLowerCase();
-  if (isCurrent && status === "trialing" && ctx.trialEndsAt) {
-    return t("billing.trial.current_ends", {
-      date: formatDate(ctx.trialEndsAt, locale),
-    });
-  }
-  return null;
-}
-
-interface PlanCardProps {
-  plan: SubscriptionPlan;
-  interval: Interval;
-  isCurrent: boolean;
-  ctaLabel: string;
-  disabled: boolean;
-  locale: string;
-  checkoutPending: boolean;
-  onSelect: (plan: SubscriptionPlan) => void;
-  t: Translate;
-  trialContext: TrialContext;
-}
-
-function PlanCard({
-  plan,
-  interval,
-  isCurrent,
-  ctaLabel,
-  disabled,
-  locale,
-  checkoutPending,
-  onSelect,
-  t,
-  trialContext,
-}: PlanCardProps) {
-  const monthlyPrice = plan.price_monthly ?? plan.price;
-  const yearlyPrice = plan.price_yearly ?? (monthlyPrice ? String(Number(monthlyPrice) * 10) : null);
-  const displayPrice = interval === "month" ? monthlyPrice : yearlyPrice;
-  const monthlyEquivalent =
-    interval === "year" && yearlyPrice
-      ? String((Number(yearlyPrice) / 12).toFixed(0))
-      : null;
-
-  // On Starter trial, "Upgrade" stays clickable so they can convert to paid.
-  const isPaidCurrent =
-    isCurrent && (trialContext.status || "").toLowerCase() !== "trialing";
-  const canAct = !isPaidCurrent;
-  const features = translatePlanFeatures(t, plan);
-  const description = translatePlanDescription(t, plan);
-  const badge = plan.badge ? translatePlanBadge(t, plan.badge) : "";
-  const trialText = trialCaption(t, plan, isCurrent, trialContext, locale);
-
+/** Line by line: platform, bundles (with what they save), modules, extra sites, then HT / tax / TTC. */
+function WhatYouPay({ data }: { data: BillingOverview }) {
+  const { t } = useLanguage();
+  const privileged = usePrivileged();
+  const qc = useQueryClient();
+  const q = data.current;
+  const cur = q.currency;
+  const setInterval_ = useMutation({
+    mutationFn: (interval: "month" | "year") => api.setBillingInterval(interval),
+    onSuccess: (next) => {
+      qc.setQueryData(["billing-overview"], next);
+      toast.success(t("billing.interval_saved"));
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  const per = q.interval === "year" ? t("billing.per_year") : t("billing.per_month");
   return (
-    <div
-      className={cn(
-        "relative flex flex-col rounded-xl border p-5 transition-shadow",
-        plan.highlight
-          ? "border-emerald-400 shadow-md shadow-emerald-500/10 dark:border-emerald-500/60"
-          : "border-slate-200 dark:border-slate-800",
-        isCurrent && "ring-2 ring-emerald-500/35",
-      )}
-    >
-      {badge ? (
-        <span
-          className={cn(
-            "absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-            plan.highlight
-              ? "bg-emerald-600 text-white"
-              : "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900",
-          )}
-        >
-          {badge}
-        </span>
-      ) : null}
-
-      <div className="mb-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-            {translatePlanName(t, plan)}
+    <section className="space-y-4 rounded-2xl border border-border bg-card p-5 sm:p-6">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h3 className="flex items-center gap-2 text-base font-bold text-foreground">
+            <Package className="h-4 w-4 text-primary" aria-hidden />
+            {t("billing.what_you_pay")}
           </h3>
-          {isCurrent && (
-            <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">
-              {t("billing.badge.active")}
-            </Badge>
-          )}
+          <p className="text-sm text-muted-foreground">{t("billing.what_you_pay_desc")}</p>
         </div>
-        {description ? (
-          <p className="mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400 line-clamp-2">
-            {description}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="mb-3">
-        <div className="flex items-baseline gap-1">
-          <span className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
-            {formatCurrency(displayPrice, plan.currency, locale)}
-          </span>
-          <span className="text-xs text-slate-500 dark:text-slate-400">
-            /{interval === "year" ? t("billing.interval.yr") : t("billing.interval.mo")}
-          </span>
+        <div className="inline-flex rounded-lg border border-border p-0.5" role="radiogroup" aria-label={t("billing.interval")}>
+          {(["month", "year"] as const).map((iv) => (
+            <button
+              key={iv}
+              type="button"
+              role="radio"
+              aria-checked={q.interval === iv}
+              disabled={!privileged || setInterval_.isPending}
+              onClick={() => q.interval !== iv && setInterval_.mutate(iv)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed",
+                q.interval === iv ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {iv === "month" ? t("billing.monthly") : t("billing.yearly")}
+              {iv === "year" ? <span className="ms-1.5 text-[11px] font-bold opacity-80">{t("billing.two_months_free")}</span> : null}
+            </button>
+          ))}
         </div>
-        {monthlyEquivalent && (
-          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-            {t("billing.billed_annually", {
-              price: formatCurrency(monthlyEquivalent, plan.currency, locale),
-            })}
-          </p>
-        )}
-        {trialText ? (
-          <p className="mt-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-            {trialText}
-          </p>
-        ) : null}
-      </div>
+      </header>
 
-      <ul className="mb-4 space-y-1.5 text-xs">
-        {features.map((feature, idx) => (
-          <li key={idx} className="flex items-start gap-1.5">
-            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
-            <span className="text-slate-700 dark:text-slate-300">{feature}</span>
+      <ul className="divide-y divide-border rounded-xl border border-border">
+        {q.lines.map((line) => (
+          <li key={line.key} className="flex items-start justify-between gap-4 px-4 py-3">
+            <div className="min-w-0">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                {line.key === "location" ? <MapPin className="h-3.5 w-3.5 text-muted-foreground" aria-hidden /> : null}
+                {line.label}
+              </p>
+              {line.listMonthly && line.monthly !== undefined && line.listMonthly > line.monthly ? (
+                <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                  {t("billing.bundle_saves", { amount: formatMoney(line.listMonthly - line.monthly, cur) })}
+                </p>
+              ) : null}
+            </div>
+            <div className="shrink-0 text-end">
+              <p className="text-sm font-semibold tabular-nums text-foreground">{formatMoney(line.amount, cur)}</p>
+              {line.listMonthly && line.monthly !== undefined && line.listMonthly > line.monthly ? (
+                <p className="text-[11px] tabular-nums text-muted-foreground line-through">
+                  {formatMoney(q.interval === "year" ? line.listMonthly * 10 : line.listMonthly, cur)}
+                </p>
+              ) : null}
+            </div>
           </li>
         ))}
       </ul>
 
-      <div className="mt-auto">
-        <Button
-          className={cn(
-            "w-full h-10 rounded-lg font-semibold",
-            plan.highlight
-              ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-              : "",
-          )}
-          variant={plan.highlight ? "default" : "outline"}
-          disabled={disabled || isPaidCurrent || checkoutPending || !canAct}
-          onClick={() => onSelect(plan)}
-        >
-          {checkoutPending ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : null}
-          {ctaLabel}
-          {!isPaidCurrent && (
-            <ArrowRight className="ml-2 h-4 w-4" />
-          )}
-        </Button>
+      <dl className="ms-auto w-full max-w-xs space-y-1 text-sm">
+        <div className="flex justify-between text-muted-foreground">
+          <dt>{t("billing.subtotal_ht")}</dt>
+          <dd className="tabular-nums">{formatMoney(q.total, cur)}</dd>
+        </div>
+        <div className="flex justify-between text-muted-foreground">
+          <dt>{t("billing.tax", { label: data.paymentInstructions.taxLabel || "TVA", rate: String(q.taxRate ?? 0) })}</dt>
+          <dd className="tabular-nums">{formatMoney(q.taxAmount ?? 0, cur)}</dd>
+        </div>
+        <div className="flex justify-between border-t border-border pt-1 text-base font-bold text-foreground">
+          <dt>{t("billing.total_ttc")}</dt>
+          <dd className="tabular-nums">
+            {formatMoney(q.totalTtc ?? q.total, cur)} <span className="text-xs font-normal text-muted-foreground">{per}</span>
+          </dd>
+        </div>
+      </dl>
+
+      {q.interval === "month" && q.yearlySavings > 0 ? (
+        <p className="text-xs text-muted-foreground">{t("billing.yearly_saves", { amount: formatMoney(q.yearlySavings, cur) })}</p>
+      ) : null}
+
+      {data.bundleOffers.length ? (
+        <div className="space-y-2">
+          {data.bundleOffers.map((offer) => (
+            <div key={offer.bundle} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-sm">
+              <p className="text-foreground">
+                <span className="font-semibold">{t("billing.offer_title", { bundle: offer.label })}</span>{" "}
+                <span className="text-muted-foreground">
+                  {t("billing.offer_desc", { modules: offer.missing.join(", "), amount: formatMoney(offer.extraMonthly, cur) })}
+                </span>
+              </p>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/dashboard/settings?tab=modules">{t("billing.change_modules")}</Link>
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>{t("billing.unlimited_staff", { n: String(data.locations) })}</span>
+        <Link to="/dashboard/settings?tab=modules" className="inline-flex items-center gap-1 font-semibold text-primary hover:underline">
+          {t("billing.change_modules")}
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+        </Link>
       </div>
+    </section>
+  );
+}
+
+function CopyValue({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  if (!value) return null;
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2">
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className="truncate font-mono text-sm text-foreground">{value}</p>
+      </div>
+      <button
+        type="button"
+        className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+        aria-label={`Copy ${label}`}
+        onClick={() => {
+          void navigator.clipboard?.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+      >
+        {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+      </button>
     </div>
   );
 }
 
+function ReportPaymentDialog({ invoice, onClose }: { invoice: BillingInvoiceRow; onClose: () => void }) {
+  const { t } = useLanguage();
+  const qc = useQueryClient();
+  const [reference, setReference] = useState("");
+  const [note, setNote] = useState("");
+  const report = useMutation({
+    mutationFn: () => api.reportBillingPayment(invoice.id, reference.trim(), note.trim()),
+    onSuccess: () => {
+      toast.success(t("billing.report.sent"));
+      void qc.invalidateQueries({ queryKey: ["billing-overview"] });
+      onClose();
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("billing.report.title", { number: invoice.number })}</DialogTitle>
+          <DialogDescription>{t("billing.report.desc", { amount: formatMoney(invoice.total, invoice.currency) })}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="pay-ref">{t("billing.report.reference")}</Label>
+            <Input id="pay-ref" value={reference} onChange={(e) => setReference(e.target.value)} placeholder={t("billing.report.reference_ph")} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pay-note">{t("billing.report.note")}</Label>
+            <Textarea id="pay-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>{t("billing.cancel")}</Button>
+          <Button onClick={() => report.mutate()} disabled={!reference.trim() || report.isPending}>
+            {report.isPending ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : null}
+            {t("billing.report.submit")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function InvoiceStatus({ inv }: { inv: BillingInvoiceRow }) {
+  const { t } = useLanguage();
+  const [key, tone] =
+    inv.status === "paid"
+      ? ["paid", "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"]
+      : inv.status === "void"
+        ? ["void", "bg-muted text-muted-foreground"]
+        : inv.reportedAt
+          ? ["reported", "bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-200"]
+          : inv.overdue
+            ? ["overdue", "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-200"]
+            : ["due", "bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"];
+  return <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-bold", tone)}>{t(`billing.inv_status.${key}`)}</span>;
+}
+
+/** Open invoices first, with everything needed to pay them by transfer. */
+function ToPay({ data }: { data: BillingOverview }) {
+  const { t } = useLanguage();
+  const privileged = usePrivileged();
+  const [reporting, setReporting] = useState<BillingInvoiceRow | null>(null);
+  const pay = data.paymentInstructions;
+  if (!data.openInvoices.length) return null;
+  return (
+    <section className="space-y-4 rounded-2xl border border-amber-200 bg-card p-5 dark:border-amber-900/40 sm:p-6" id="to-pay">
+      <header className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-base font-bold text-foreground">
+          <Landmark className="h-4 w-4 text-amber-600" aria-hidden />
+          {t("billing.to_pay", { amount: formatMoney(data.balanceDue, data.current.currency) })}
+        </h3>
+        <span className="text-xs text-muted-foreground">{t("billing.pay_by_transfer")}</span>
+      </header>
+      <ul className="space-y-2">
+        {data.openInvoices.map((inv) => (
+          <li key={inv.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-4 py-3">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                {inv.number} <InvoiceStatus inv={inv} />
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {inv.reportedAt
+                  ? t("billing.reported_on", { date: fmtDate(inv.reportedAt), ref: inv.reportedReference })
+                  : inv.overdue
+                    ? t("billing.overdue_since", { date: fmtDate(inv.dueAt) })
+                    : t("billing.due_on", { date: fmtDate(inv.dueAt) })}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-base font-bold tabular-nums text-foreground">{formatMoney(inv.total, inv.currency)}</span>
+              <Button asChild size="sm" variant="outline">
+                <Link to={`/billing/invoices/${inv.id}`} target="_blank" rel="noreferrer">
+                  <FileText className="me-1 h-3.5 w-3.5" aria-hidden />
+                  {t("billing.view_invoice")}
+                </Link>
+              </Button>
+              {privileged && !inv.reportedAt ? (
+                <Button size="sm" onClick={() => setReporting(inv)}>
+                  {t("billing.mark_paid")}
+                </Button>
+              ) : null}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <CopyValue label={t("billing.pay.beneficiary")} value={pay.beneficiary} />
+        <CopyValue label={t("billing.pay.bank")} value={pay.bankName} />
+        <CopyValue label={t("billing.pay.rib")} value={pay.rib} />
+        <CopyValue label={t("billing.pay.swift")} value={pay.swift} />
+        <CopyValue label={t("billing.pay.reference")} value={data.openInvoices.map((i) => i.number).join(", ")} />
+      </div>
+      {pay.instructions ? <p className="text-sm text-muted-foreground">{pay.instructions}</p> : null}
+      {!pay.rib ? <p className="text-sm text-muted-foreground">{t("billing.pay.contact", { email: pay.contactEmail || "billing@mizan.ai" })}</p> : null}
+      <p className="text-xs text-muted-foreground">{t("billing.pay.after")}</p>
+      {reporting ? <ReportPaymentDialog invoice={reporting} onClose={() => setReporting(null)} /> : null}
+    </section>
+  );
+}
+
+function History({ data }: { data: BillingOverview }) {
+  const { t } = useLanguage();
+  return (
+    <section className="space-y-3 rounded-2xl border border-border bg-card p-5 sm:p-6">
+      <h3 className="text-base font-bold text-foreground">{t("billing.invoices")}</h3>
+      {data.invoices.length ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead>
+              <tr className="text-start text-[11px] uppercase tracking-wider text-muted-foreground">
+                <th className="py-2 text-start font-semibold">{t("billing.col.number")}</th>
+                <th className="py-2 text-start font-semibold">{t("billing.col.issued")}</th>
+                <th className="py-2 text-start font-semibold">{t("billing.col.for")}</th>
+                <th className="py-2 text-end font-semibold">{t("billing.col.total")}</th>
+                <th className="py-2 text-end font-semibold">{t("billing.col.status")}</th>
+                <th className="py-2 text-end font-semibold"><span className="sr-only">{t("billing.view_invoice")}</span></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {data.invoices.map((inv) => (
+                <tr key={inv.id}>
+                  <td className="py-2.5">
+                    <Link to={`/billing/invoices/${inv.id}`} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">
+                      {inv.number}
+                    </Link>
+                  </td>
+                  <td className="py-2.5 text-muted-foreground">{fmtDate(inv.issuedAt)}</td>
+                  <td className="py-2.5 text-muted-foreground">
+                    {inv.kind === "custom"
+                      ? inv.lines[0]?.label
+                      : inv.kind === "proration"
+                        ? t("billing.kind.proration")
+                        : `${fmtDate(inv.periodStart)} → ${fmtDate(inv.periodEnd)}`}
+                  </td>
+                  <td className="py-2.5 text-end font-semibold tabular-nums">{formatMoney(inv.total, inv.currency)}</td>
+                  <td className="py-2.5 text-end">
+                    <InvoiceStatus inv={inv} />
+                  </td>
+                  <td className="py-2.5 text-end">
+                    <Button asChild size="sm" variant="outline">
+                      <Link to={`/billing/invoices/${inv.id}`} target="_blank" rel="noreferrer">
+                        <FileText className="me-1 h-3.5 w-3.5" aria-hidden />
+                        {t("billing.view_invoice")}
+                      </Link>
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+          {data.state === "trial" ? t("billing.no_invoices_trial") : t("billing.no_invoices")}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** Settings > Billing: where the account stands, what you pay for and why, what to pay and how, every invoice.
+ * Bill-to identity is the business profile (name, address, email), not a separate form.
+ * No online payment: Mizan issues the invoices, you pay by bank transfer and tell us, Mizan confirms. */
 export default function BillingSettings() {
-  const { t, language } = useLanguage();
-  const queryClient = useQueryClient();
-  const [interval, setInterval] = useState<Interval>("month");
-  const handledBillingParam = useRef(false);
-
-  const locale = language || "en";
-
-  const subscriptionQuery = useQuery<CurrentSubscription>({
-    queryKey: ["current-subscription"],
-    queryFn: () => api.getCurrentSubscription(),
-    retry: false,
-    staleTime: 0,
-    refetchOnMount: "always",
-  });
-
-  const entitlementsQuery = useQuery<BillingEntitlements>({
-    queryKey: ["billing-entitlements"],
-    queryFn: () => api.getBillingEntitlements(),
-    retry: false,
-    staleTime: 30 * 1000,
-  });
-
-  const plansQuery = useQuery<SubscriptionPlan[]>({
-    // Refetch when subscription loads so prices use the tenant location currency.
-    queryKey: ["subscription-plans", subscriptionQuery.data?.status ?? "anon"],
-    queryFn: () => api.listSubscriptionPlans(),
-    staleTime: 60 * 1000,
-  });
-
-  const sortedPlans = useMemo(() => {
-    const plans = plansQuery.data ?? [];
-    return [...plans]
-      .filter((p) => p.tier !== "FREE")
-      .sort(
-        (a, b) =>
-          (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
-          (TIER_ORDER[a.tier] ?? 99) - (TIER_ORDER[b.tier] ?? 99),
-      );
-  }, [plansQuery.data]);
-
-  const currentSub = subscriptionQuery.data;
-  const currentTier: SubscriptionTier =
-    currentSub?.plan?.tier ?? currentSub?.tier ?? "FREE";
-  const currentPlanSlug = currentSub?.plan?.slug ?? null;
-  const isEntitled = Boolean(currentSub?.is_paid);
-  const hasProviderSub = Boolean(currentSub?.has_provider_subscription);
-  const staffUsed = entitlementsQuery.data?.usage?.staff;
-  const maxStaff =
-    entitlementsQuery.data?.limits?.max_staff ??
-    currentSub?.plan?.max_staff ??
-    null;
-
-  const isPlanCurrent = (plan: SubscriptionPlan): boolean => {
-    if (currentPlanSlug && plan.slug === currentPlanSlug) return true;
-    if (!currentPlanSlug && currentTier && plan.tier === currentTier) return true;
-    return false;
-  };
-
-  useEffect(() => {
-    if (handledBillingParam.current) return;
-    const params = new URLSearchParams(window.location.search);
-    const billing = params.get("billing");
-    if (!billing) return;
-    handledBillingParam.current = true;
-    params.delete("billing");
-    if (!params.get("tab")) params.set("tab", "billing");
-    const next = `${window.location.pathname}?${params.toString()}`;
-    window.history.replaceState({}, "", next);
-
-    if (billing === "success") {
-      toast.success(t("billing.toast.success"));
-      void queryClient.invalidateQueries({ queryKey: ["current-subscription"] });
-      void queryClient.invalidateQueries({ queryKey: ["billing-entitlements"] });
-    } else if (billing === "cancelled") {
-      toast.message(t("billing.toast.cancelled"));
-    }
-  }, [queryClient, t]);
-
-  // Prefer the interval of the active provider subscription when known.
-  useEffect(() => {
-    if (currentSub?.billing_interval === "month" || currentSub?.billing_interval === "year") {
-      setInterval(currentSub.billing_interval);
-    }
-  }, [currentSub?.billing_interval]);
-
-  const checkoutMutation = useMutation({
-    mutationFn: async (plan: SubscriptionPlan) => {
-      const priceId = priceIdFor(plan, interval);
-      const origin = window.location.origin;
-      const base = `${origin}/dashboard/settings?tab=billing`;
-      return api.createCheckoutSession({
-        ...(priceId ? { price_id: priceId } : { plan_id: plan.id }),
-        billing_interval: interval,
-        success_url: `${base}&billing=success`,
-        cancel_url: `${base}&billing=cancelled`,
-      });
-    },
-    onSuccess: (result) => {
-      const r = result as Awaited<ReturnType<typeof api.createCheckoutSession>>;
-      if (r.action === "redirect" && r.url) {
-        window.location.href = r.url;
-        return;
-      }
-      if (r.action === "updated") {
-        toast.success(r.message || t("billing.toast.plan_updated"));
-        void queryClient.invalidateQueries({ queryKey: ["current-subscription"] });
-        void queryClient.invalidateQueries({ queryKey: ["billing-entitlements"] });
-        return;
-      }
-      if (r.action === "queued") {
-        toast.message(r.message || t("billing.toast.queued"));
-        void queryClient.invalidateQueries({ queryKey: ["current-subscription"] });
-      }
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || t("billing.toast.checkout_error"));
-    },
-  });
-
-  const portalMutation = useMutation({
-    mutationFn: async () => {
-      const returnUrl = `${window.location.origin}/dashboard/settings?tab=billing`;
-      return api.createBillingPortalSession(returnUrl);
-    },
-    onSuccess: (result) => {
-      if (result?.url) {
-        window.location.href = result.url;
-        return;
-      }
-      toast.message(result?.message || t("billing.toast.portal_unavailable"));
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || t("billing.toast.portal_error"));
-    },
-  });
-
-  const handleSelect = (plan: SubscriptionPlan) => {
-    void checkoutMutation.mutate(plan);
-  };
-
-  const isTrialing = (currentSub?.status || "").toLowerCase() === "trialing";
-
-  const ctaForPlan = (plan: SubscriptionPlan): string => {
-    if (isPlanCurrent(plan)) {
-      // Starter trial → Upgrade (convert to paid). Paid current → Current Plan.
-      return isTrialing ? t("billing.cta.upgrade") : t("billing.cta.current");
-    }
-
-    const currentOrder = TIER_ORDER[currentTier] ?? 0;
-    const targetOrder = TIER_ORDER[plan.tier] ?? 0;
-    if (targetOrder > currentOrder) return t("billing.cta.upgrade");
-    if (targetOrder < currentOrder && hasProviderSub) return t("billing.cta.switch");
-    if (isEntitled && !hasProviderSub) return t("billing.cta.subscribe");
-    return t("billing.cta.upgrade");
-  };
-
-  const loadingPlans = plansQuery.isLoading;
-  const loadingSub = subscriptionQuery.isLoading;
-
-  const statusLabel = (() => {
-    if (hasProviderSub) {
-      return t(`billing.status.${currentSub?.status || "active"}`);
-    }
-    if (isTrialing) return t("billing.status.trialing") || "Trial";
-    if (isEntitled && currentSub?.plan) return t("billing.status.active");
-    return t("billing.status.pilot");
-  })();
-
-  const trialDays =
-    currentSub?.plan?.trial_days && currentSub.plan.trial_days > 0
-      ? currentSub.plan.trial_days
-      : 14;
-
-  const planName = currentSub?.plan
-    ? translatePlanName(t, currentSub.plan)
-    : t(`billing.tier.${currentTier.toLowerCase()}`);
-
-  const statusDetail = (() => {
-    if (hasProviderSub && currentSub?.current_period_end) {
-      return currentSub.cancel_at_period_end
-        ? t("billing.cancels_on", {
-            date: formatDate(currentSub.current_period_end, locale),
-          })
-        : t("billing.renews_on", {
-            date: formatDate(currentSub.current_period_end, locale),
-          });
-    }
-    // Trial end date lives in the banner - don't repeat it here.
-    if (isTrialing) return null;
-    if (currentSub?.plan) {
-      return t("billing.current_tier_blurb", { plan: planName });
-    }
-    return t("billing.pilot_blurb");
-  })();
-
+  const { t } = useLanguage();
+  const overview = useBillingOverview();
+  if (overview.isLoading) {
+    return (
+      <div className="flex items-center gap-2 rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> {t("billing.loading")}
+      </div>
+    );
+  }
+  if (overview.isError || !overview.data) {
+    return (
+      <div className="flex items-center justify-between rounded-2xl border border-border bg-card p-6 text-sm">
+        <span className="text-muted-foreground">{t("billing.load_error")}</span>
+        <Button size="sm" variant="outline" onClick={() => overview.refetch()}>{t("billing.retry")}</Button>
+      </div>
+    );
+  }
+  const data = overview.data;
   return (
     <div className="space-y-4">
-      {isTrialing && !loadingSub ? (
-        <div
-          role="status"
-          className="flex items-center gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50 px-3.5 py-2.5 text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/35 dark:text-amber-100"
-        >
-          <CalendarClock className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
-          <p className="min-w-0 text-sm">
-            <span className="font-semibold">
-              {t("billing.trial.banner_title", { days: trialDays })}
-            </span>
-            <span className="text-amber-900/75 dark:text-amber-100/75">
-              {" · "}
-              {currentSub?.trial_ends_at
-                ? t("billing.trial.banner_body", {
-                    days: trialDays,
-                    date: formatDate(currentSub.trial_ends_at, locale),
-                  })
-                : t("billing.trial.banner_body_nodate", { days: trialDays })}
-            </span>
-          </p>
-        </div>
-      ) : null}
-
-      {/* Compact current status - keeps plan tiers near the top */}
-      <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200/80 bg-card px-4 py-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-        {loadingSub ? (
-          <div className="flex w-full items-center gap-3">
-            <Skeleton className="h-5 w-28" />
-            <Skeleton className="h-5 w-16" />
-            <Skeleton className="h-4 w-40" />
-          </div>
-        ) : (
-          <>
-            <div className="min-w-0 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                <CreditCard className="h-4 w-4 text-slate-400" />
-                {planName}
-              </span>
-              <Badge
-                className={cn(
-                  "text-[10px]",
-                  hasProviderSub
-                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
-                    : "bg-amber-100 text-amber-800 hover:bg-amber-100",
-                )}
-              >
-                {statusLabel}
-              </Badge>
-              {typeof staffUsed === "number" ? (
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  {maxStaff == null
-                    ? t("billing.staff_usage_unlimited", { used: staffUsed })
-                    : t("billing.staff_usage", {
-                        used: staffUsed,
-                        max: maxStaff,
-                      })}
-                </span>
-              ) : null}
-              {statusDetail ? (
-                <span className="text-xs text-slate-500 dark:text-slate-400 sm:max-w-xs sm:truncate">
-                  {statusDetail}
-                </span>
-              ) : null}
-              {currentSub?.pending_plan ? (
-                <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                  {t("billing.pending_upgrade", {
-                    name: translatePlanName(t, currentSub.pending_plan),
-                    interval: currentSub.pending_billing_interval
-                      ? t("billing.pending_interval_suffix", {
-                          interval:
-                            currentSub.pending_billing_interval === "year"
-                              ? t("billing.yearly")
-                              : t("billing.monthly"),
-                        })
-                      : "",
-                  })}
-                </span>
-              ) : null}
-            </div>
-            {hasProviderSub ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0 h-8"
-                disabled={portalMutation.isPending}
-                onClick={() => portalMutation.mutate()}
-              >
-                {portalMutation.isPending ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                )}
-                {t("billing.manage_billing")}
-              </Button>
-            ) : null}
-          </>
-        )}
-      </div>
-
-      <div className="space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              {t("billing.plans_title")}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {t("billing.plans_desc")}
-            </p>
-          </div>
-
-          <div className="inline-flex rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100/60 dark:bg-slate-800 p-0.5 self-start">
-            {(["month", "year"] as Interval[]).map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => setInterval(opt)}
-                className={cn(
-                  "relative px-3.5 py-1 text-xs font-medium rounded-full transition-all",
-                  interval === opt
-                    ? "bg-card text-slate-900 shadow-sm dark:text-slate-100"
-                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-                )}
-              >
-                {opt === "month" ? t("billing.monthly") : t("billing.yearly")}
-                {opt === "year" && (
-                  <span className="ml-1.5 inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
-                    {t("billing.yearly_save")}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {loadingPlans ? (
-          <div className="grid gap-4 md:grid-cols-3">
-            <PlanCardSkeleton />
-            <PlanCardSkeleton />
-            <PlanCardSkeleton />
-          </div>
-        ) : plansQuery.isError ? (
-          <div className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-3 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <div>
-              <p className="text-sm font-medium">{t("billing.load_error")}</p>
-              <Button
-                size="sm"
-                variant="link"
-                className="mt-1 px-0 text-red-700 dark:text-red-300"
-                onClick={() => plansQuery.refetch()}
-              >
-                {t("common.retry")}
-              </Button>
-            </div>
-          </div>
-        ) : sortedPlans.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {t("billing.no_plans")}
-          </p>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-3">
-            {sortedPlans.map((plan) => {
-              const isCurrent = isPlanCurrent(plan);
-              return (
-                <PlanCard
-                  key={plan.id}
-                  plan={plan}
-                  interval={interval}
-                  isCurrent={isCurrent}
-                  ctaLabel={ctaForPlan(plan)}
-                  disabled={checkoutMutation.isPending}
-                  checkoutPending={
-                    checkoutMutation.isPending &&
-                    checkoutMutation.variables?.slug === plan.slug
-                  }
-                  locale={locale}
-                  onSelect={handleSelect}
-                  t={t}
-                  trialContext={{
-                    status: currentSub?.status,
-                    trialEndsAt: currentSub?.trial_ends_at,
-                    hasProviderSub,
-                  }}
-                />
-              );
-            })}
-          </div>
-        )}
-      </div>
+      <AccountHero data={data} />
+      <ToPay data={data} />
+      <WhatYouPay data={data} />
+      <History data={data} />
     </div>
   );
 }

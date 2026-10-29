@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { ClipboardList, FileText, PackageCheck, ShoppingCart } from "lucide-react";
+import { ClipboardList, FileText, Loader2, PackageCheck, Repeat, ShoppingCart } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { API_BASE, api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
 
-type HubTab = "needs" | "orders" | "receiving" | "invoices";
+type HubTab = "needs" | "reorder" | "orders" | "receiving" | "invoices";
 
 type ProcurementLine = {
   id: string;
@@ -68,18 +69,14 @@ async function post(path: string, token: string, payload: Record<string, unknown
 }
 
 function tabFromParam(value: string | null): HubTab {
-  if (value === "orders" || value === "receiving" || value === "invoices") return value;
+  if (value === "reorder" || value === "orders" || value === "receiving" || value === "invoices") return value;
   return "needs";
 }
 
 const RECEIVING_STATUSES = new Set(["approved", "sent", "partial_received"]);
-const INVOICE_STATUSES = new Set([
-  "received",
-  "pending_invoice_match",
-  "pending_payment",
-  "pending_approval",
-  "closed",
-]);
+// An invoice is matched against what was received, so only delivered orders can take one.
+const INVOICE_STATUSES = new Set(["partial_received", "received", "pending_invoice_match", "pending_payment", "closed"]);
+const CAN_ATTACH_INVOICE = new Set(["partial_received", "received", "pending_invoice_match"]);
 
 export default function ProcurementHubPage() {
   const { t } = useLanguage();
@@ -93,7 +90,7 @@ export default function ProcurementHubPage() {
     setActiveTab(tabFromParam(searchParams.get("tab")));
   }, [searchParams]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["procurement-needs", accessToken],
     queryFn: () => load("/procurement/needs/", accessToken),
     enabled: !!accessToken,
@@ -105,7 +102,10 @@ export default function ProcurementHubPage() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["procurement-needs"] });
     queryClient.invalidateQueries({ queryKey: ["purchasing"] });
+    queryClient.invalidateQueries({ queryKey: ["procurement-reorder"] });
+    queryClient.invalidateQueries({ queryKey: ["inventory-summary"] });
   };
+  const fail = (e: unknown) => toast.error((e as Error).message || t("procurement.action_failed"));
 
   const createFromRec = useMutation({
     mutationFn: (row: { id: string; suggestedQuantity: number; reason: string }) =>
@@ -114,22 +114,26 @@ export default function ProcurementHubPage() {
         source: "alert",
       }),
     onSuccess: invalidate,
+    onError: fail,
   });
 
   const convertRequest = useMutation({
     mutationFn: (staffRequestId: string) =>
       post(`/procurement/staff-requests/${staffRequestId}/convert/`, accessToken, {}),
     onSuccess: invalidate,
+    onError: fail,
   });
 
   const submitOrder = useMutation({
     mutationFn: (orderId: string) => post(`/procurement/orders/${orderId}/submit/`, accessToken, {}),
     onSuccess: invalidate,
+    onError: fail,
   });
 
   const sendOrder = useMutation({
     mutationFn: (orderId: string) => post(`/procurement/orders/${orderId}/send/`, accessToken, {}),
     onSuccess: invalidate,
+    onError: fail,
   });
 
   const receiveOrder = useMutation({
@@ -141,12 +145,14 @@ export default function ProcurementHubPage() {
         })),
       }),
     onSuccess: invalidate,
+    onError: fail,
   });
 
   const attachInvoice = useMutation({
     mutationFn: ({ orderId, invoiceId }: { orderId: string; invoiceId: string }) =>
       post(`/procurement/orders/${orderId}/attach-invoice/`, accessToken, { invoiceId }),
     onSuccess: invalidate,
+    onError: fail,
   });
 
   const { data: invoiceList } = useQuery({
@@ -216,10 +222,16 @@ export default function ProcurementHubPage() {
   return (
     <MizanPageShell title={t("nav.suppliers.procurement")} eyebrow={t("procurement.subtitle")}>
       <Tabs value={activeTab} onValueChange={selectTab} className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5 lg:grid-cols-4">
+        {isError && (
+          <p className="mb-4 rounded-lg border border-red-200 dark:border-red-900/50 p-3 text-sm text-red-700 dark:text-red-400">
+            {(error as Error)?.message || t("procurement.load_failed")}
+          </p>
+        )}
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-xl border border-border/60 bg-muted/40 p-1.5 lg:grid-cols-5">
           {(
             [
               ["needs", ShoppingCart, t("procurement.tab.needs")],
+              ["reorder", Repeat, t("procurement.tab.reorder")],
               ["orders", ClipboardList, t("procurement.tab.orders")],
               ["receiving", PackageCheck, t("procurement.tab.receiving")],
               ["invoices", FileText, t("procurement.tab.invoices")],
@@ -282,6 +294,10 @@ export default function ProcurementHubPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="reorder" className="mt-6 space-y-4 focus-visible:outline-none">
+          <ReorderPanel enabled={activeTab === "reorder"} onCreated={() => { invalidate(); selectTab("orders"); }} />
+        </TabsContent>
+
         <TabsContent value="orders" className="mt-6 space-y-4 focus-visible:outline-none">
           {openOrders.length === 0 && (
             <p className="text-sm text-muted-foreground">{t("procurement.no_orders")}</p>
@@ -326,7 +342,7 @@ export default function ProcurementHubPage() {
           {invoiceOrders.map((order) =>
             renderOrderCard(
               order,
-              !order.invoiceId ? (
+              !order.invoiceId && CAN_ATTACH_INVOICE.has(order.status) ? (
                 <select
                   className="rounded-md border bg-background px-2 py-1 text-sm"
                   defaultValue=""
@@ -336,21 +352,100 @@ export default function ProcurementHubPage() {
                   }}
                 >
                   <option value="">{t("procurement.link_invoice")}</option>
-                  {(invoiceList?.results || []).map((inv: { id: string; vendor?: string; amount?: number }) => (
+                  {(invoiceList?.results || []).map((inv: { id: string; vendor_name?: string; invoice_number?: string; amount?: string | number; currency?: string }) => (
                     <option key={inv.id} value={inv.id}>
-                      {inv.vendor || inv.id} · {inv.amount}
+                      {inv.vendor_name || inv.id}{inv.invoice_number ? ` #${inv.invoice_number}` : ""} · {inv.amount} {inv.currency || ""}
                     </option>
                   ))}
                 </select>
-              ) : (
+              ) : order.invoiceId ? (
                 <Button size="sm" variant="outline" asChild>
                   <a href="/dashboard/operations/approvals">{t("procurement.view_approvals")}</a>
                 </Button>
-              ),
+              ) : null,
             ),
           )}
         </TabsContent>
       </Tabs>
     </MizanPageShell>
+  );
+}
+
+
+/** Reorder: items below their reorder point (or short for demand), topped up to par, grouped by supplier.
+ * Quantities are editable; each supplier becomes one draft purchase order. */
+function ReorderPanel({ enabled, onCreated }: { enabled: boolean; onCreated: () => void }) {
+  const { t } = useLanguage();
+  const { data, isLoading } = useQuery({
+    queryKey: ["procurement-reorder"],
+    queryFn: () => api.getReorderSuggestions(),
+    enabled,
+  });
+  const [qty, setQty] = useState<Record<string, string>>({});
+  const create = useMutation({
+    mutationFn: (groups: NonNullable<typeof data>["groups"]) =>
+      api.createReorderOrders(
+        groups.map((g) => ({
+          supplierId: g.supplierId,
+          lines: g.lines.map((l) => ({ itemId: l.itemId, quantity: Number(qty[l.itemId] ?? l.suggestedQuantity) || 0,
+                                       unitPrice: l.unitPrice || undefined })),
+        })),
+      ),
+    onSuccess: (res) => {
+      toast.success(t("procurement.reorder.created", { count: res.orders.length }));
+      setQty({});
+      onCreated();
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  if (isLoading) return <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />;
+  const groups = data?.groups || [];
+  if (!groups.length) return <p className="text-sm text-muted-foreground">{t("procurement.reorder.none")}</p>;
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button disabled={create.isPending} onClick={() => create.mutate(groups)}>
+          {t("procurement.reorder.create_all", { count: groups.length })}
+        </Button>
+      </div>
+      {groups.map((g) => (
+        <Card key={g.supplierId || "none"}>
+          <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+            <CardTitle className="text-base">{g.supplierName || t("procurement.reorder.no_supplier")}</CardTitle>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {t("procurement.reorder.estimate", { amount: Math.round(g.estimatedTotal).toLocaleString() })}
+              </span>
+              <Button size="sm" variant="outline" disabled={create.isPending} onClick={() => create.mutate([g])}>
+                {t("procurement.reorder.create_one")}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {g.lines.map((l) => (
+              <div key={l.itemId} className="flex flex-wrap items-center justify-between gap-3 border-b py-2 last:border-0">
+                <div className="min-w-0">
+                  <p className="font-medium">{l.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("procurement.reorder.line_detail", { onHand: l.onHand, unit: l.unit, par: l.parLevel || l.reorderPoint })}
+                    {l.unitPrice ? ` · ${l.unitPrice} / ${l.unit}` : ` · ${t("procurement.reorder.no_price")}`}
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="number" min="0" step="any"
+                    className="h-9 w-24 rounded-md border bg-background px-2 text-sm"
+                    value={qty[l.itemId] ?? String(l.suggestedQuantity)}
+                    onChange={(e) => setQty((prev) => ({ ...prev, [l.itemId]: e.target.value }))}
+                    aria-label={t("procurement.reorder.qty_for", { name: l.name })}
+                  />
+                  {l.unit}
+                </label>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
 }

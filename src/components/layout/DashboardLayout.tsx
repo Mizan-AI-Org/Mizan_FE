@@ -19,6 +19,10 @@ import { AgentPanelProvider } from "@/context/AgentPanelContext";
 import { cn } from "@/lib/utils";
 import { isImpersonating } from "@/lib/impersonation";
 import { useAgentRailGutter } from "@/hooks/use-agent-rail";
+import { ModuleGate } from "@/components/layout/ModuleGate";
+import { BillingBanner } from "@/components/layout/BillingBanner";
+import { BranchSwitcher } from "@/components/layout/BranchSwitcher";
+import { BranchScopeProvider } from "@/contexts/BranchScopeContext";
 
 const DashboardLayoutInner: React.FC = () => {
   const navigate = useNavigate();
@@ -79,6 +83,7 @@ const DashboardLayoutInner: React.FC = () => {
           <div className="flex-1 lg:hidden" />
 
           <div className="mizan-app-header-actions ms-auto flex shrink-0 items-center gap-1 sm:gap-2 text-foreground">
+            <BranchSwitcher className="hidden sm:flex" />
             <div className="hidden sm:block">
               <LiveDateTime showTime={false} />
             </div>
@@ -125,7 +130,10 @@ const DashboardLayoutInner: React.FC = () => {
               id="mizan-main"
               className="mizan-app-main min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pb-20 lg:pb-6"
             >
-              <Outlet />
+              <BillingBanner />
+              <ModuleGate>
+                <Outlet />
+              </ModuleGate>
             </main>
           </div>
           <AgentChatPanel />
@@ -146,9 +154,11 @@ const DashboardLayoutInner: React.FC = () => {
 };
 
 const DashboardLayout: React.FC = () => (
-  <AgentPanelProvider>
-    <DashboardLayoutInner />
-  </AgentPanelProvider>
+  <BranchScopeProvider>
+    <AgentPanelProvider>
+      <DashboardLayoutInner />
+    </AgentPanelProvider>
+  </BranchScopeProvider>
 );
 
 export default DashboardLayout;

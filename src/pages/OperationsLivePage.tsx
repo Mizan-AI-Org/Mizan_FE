@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useModules } from "@/hooks/use-modules";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -24,6 +25,7 @@ import {
   RefreshCw,
   Search,
   BarChart3,
+  Target,
   LayoutGrid,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +47,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
+import type { LanguageContextType } from "@/contexts/LanguageContext.types";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthContextType } from "@/contexts/AuthContext.types";
 import { api, BACKEND_URL } from "@/lib/api";
@@ -69,9 +72,28 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
 import { OperationsProgressPanel } from "@/components/operations/OperationsProgressPanel";
+import { AccountabilityPanel } from "@/components/operations/AccountabilityPanel";
 import { localizeAgeLabel } from "@/lib/localizeAgeLabel";
 
 type LaneKey = "pending" | "in_progress" | "completed";
+
+type OpsTranslate = (
+  key: string,
+  options?: Record<string, unknown> | string,
+) => string;
+
+/** Helpers type i18n options as unknown; the app translator only accepts string and number values. */
+function asOpsT(t: LanguageContextType["t"]): OpsTranslate {
+  return (key, options) => {
+    if (typeof options === "string") return t(key, options);
+    if (!options) return t(key);
+    const safe: Record<string, string | number> = {};
+    for (const [name, value] of Object.entries(options)) {
+      if (typeof value === "string" || typeof value === "number") safe[name] = value;
+    }
+    return t(key, safe);
+  };
+}
 
 const QUERY_KEY = ["dashboard", "operations-live"] as const;
 export const OPERATIONS_LIVE_PAGE_SIZE = 15;
@@ -109,7 +131,7 @@ const ROLE_I18N: Record<string, string> = {
 
 function localizeRole(
   role: string | null | undefined,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: (key: string, options?: Record<string, string | number>) => string,
 ): string | null {
   if (!role) return null;
   const key = ROLE_I18N[String(role).trim().toLowerCase()];
@@ -119,7 +141,7 @@ function localizeRole(
 
 function formatPerson(
   person: { name?: string; role?: string | null } | null | undefined,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: (key: string, options?: Record<string, string | number>) => string,
 ): string {
   if (!person?.name) return "-";
   const name =
@@ -142,7 +164,7 @@ function laneForStatus(status: string | undefined): LaneKey {
 
 function categoryLabel(
   item: OperationsLiveItem,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: (key: string, options?: Record<string, string | number>) => string,
 ): string {
   if (item.process_label?.trim()) return item.process_label.trim();
   const c = String(item.category || "OTHER").toUpperCase();
@@ -215,7 +237,7 @@ function attachmentViewStateFromItem(item: OperationsLiveItem): AttachmentViewer
 
 function attachmentCell(
   item: OperationsLiveItem,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: (key: string, options?: Record<string, string | number>) => string,
   onOpenAttachment: () => void,
 ): React.ReactNode {
   const label = item.attachment_label;
@@ -258,7 +280,7 @@ function OperationsLiveRow({
 }: {
   item: OperationsLiveItem;
   lane: LaneKey;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: (key: string, options?: Record<string, string | number>) => string;
   onOpen: () => void;
   onOpenAttachment: () => void;
   onStatusChange: (status: OperationsLiveItem["status"]) => void;
@@ -557,7 +579,7 @@ function OperationsLiveTable({
   lane: LaneKey;
   pagination: OperationsLiveLanePagination;
   onPageChange: (page: number) => void;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: (key: string, options?: Record<string, string | number>) => string;
   onOpenRow: (id: string) => void;
   onOpenAttachment: (item: OperationsLiveItem) => void;
   onStatusChange: (id: string, status: OperationsLiveItem["status"]) => void;
@@ -681,7 +703,7 @@ function OperationsLiveTable({
 
 function categoryFilterLabel(
   key: string,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: (key: string, options?: Record<string, string | number>) => string,
 ): string {
   if (key.startsWith("process:")) return key.slice(8);
   const mapped = t(`operations_live.category.${key.toLowerCase()}`, { defaultValue: "" });
@@ -689,15 +711,19 @@ function categoryFilterLabel(
   return key.replace(/_/g, " ");
 }
 
-type OpsPageView = "live" | "progress";
+type OpsPageView = "live" | "progress" | "accountability";
 
 export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean }) {
-  const { t } = useLanguage();
+  const { t: translate } = useLanguage();
+  const t = asOpsT(translate);
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const viewParam = searchParams.get("view");
+  const { isEnabled: isModuleOn } = useModules();
+  const accountabilityOn = isModuleOn("accountability");
   const opsView: OpsPageView =
-    !embedded && searchParams.get("view") === "progress" ? "progress" : "live";
+    !embedded && (viewParam === "progress" || viewParam === "accountability") ? viewParam : "live";
 
   const setOpsView = (next: OpsPageView) => {
     setSearchParams(
@@ -706,7 +732,7 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
         if (next === "live") {
           p.delete("view");
         } else {
-          p.set("view", "progress");
+          p.set("view", next);
         }
         return p;
       },
@@ -974,16 +1000,27 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
             <Tabs
               value={opsView}
               onValueChange={(value) => setOpsView(value as OpsPageView)}
-              className="w-full sm:w-auto sm:min-w-[280px]"
+              className="w-full sm:w-[65%] sm:shrink-0"
             >
-              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
+              <TabsList
+                className={cn(
+                  "grid h-auto w-full gap-1 rounded-lg border border-border/60 bg-muted/30 p-1",
+                  accountabilityOn ? "grid-cols-3" : "grid-cols-2",
+                )}
+              >
                 <TabsTrigger value="live" className={cn(HUB_TABS_TRIGGER, "gap-1.5 py-2 text-sm")}>
                   <LayoutGrid className="h-3.5 w-3.5" />
                   {t("operations_live.tab.board")}
                 </TabsTrigger>
+                {accountabilityOn ? (
+                  <TabsTrigger value="accountability" className={cn(HUB_TABS_TRIGGER, "gap-1.5 py-2 text-sm")}>
+                    <Target className="h-3.5 w-3.5" />
+                    {t("accountability.tab")}
+                  </TabsTrigger>
+                ) : null}
                 <TabsTrigger value="progress" className={cn(HUB_TABS_TRIGGER, "gap-1.5 py-2 text-sm")}>
                   <BarChart3 className="h-3.5 w-3.5" />
-                  {t("nav.work.progress")}
+                  {t("operations_live.tab.progress")}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -991,8 +1028,9 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
         )}
 
         {!embedded && opsView === "progress" ? <OperationsProgressPanel /> : null}
+        {!embedded && opsView === "accountability" && accountabilityOn ? <AccountabilityPanel /> : null}
 
-        {!embedded && opsView === "progress" ? null : !embedded ? (
+        {!embedded && opsView !== "live" ? null : !embedded ? (
           <div
             className="overflow-x-auto rounded-xl border border-border/70 bg-card/80 p-2 shadow-sm"
             role="toolbar"
@@ -1118,7 +1156,7 @@ export function OperationsLiveFeed({ embedded = false }: { embedded?: boolean })
           </div>
         ) : null}
 
-        {!embedded && opsView === "progress" ? null : isLoading ? (
+        {!embedded && opsView !== "live" ? null : isLoading ? (
           <div className="flex items-center justify-center py-24 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {t("operations_live.loading")}

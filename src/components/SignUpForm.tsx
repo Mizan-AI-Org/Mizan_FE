@@ -1,13 +1,15 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, User, Mail, Lock, Building2 } from "lucide-react";
+import { ArrowRight, Loader2, User, Mail, Lock, Building2 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "@/hooks/use-language";
-import type { SignupData } from "@/lib/types";
+import type { ModuleKey, SignupData } from "@/lib/types";
+import { api } from "@/lib/api";
+import { recommendedModules } from "@/config/modules";
 import {
   DEFAULT_BUSINESS_VERTICAL,
   SIGNUP_SECTOR_OPTIONS,
@@ -25,67 +27,69 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
   const [error, setError] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [sector, setSector] = useState<BusinessVertical>(DEFAULT_BUSINESS_VERTICAL);
+  const [modules, setModules] = useState<ModuleKey[]>(() => recommendedModules(DEFAULT_BUSINESS_VERTICAL));
   const { toast } = useToast();
   const { t } = useLanguage();
   const auth = useAuth();
 
+  // Suggested modules follow the sector. The owner tailors them in the in-app setup wizard.
+  useEffect(() => {
+    let cancelled = false;
+    setModules(recommendedModules(sector));
+    api
+      .getModuleCatalog(sector)
+      .then((res) => {
+        if (cancelled || !Array.isArray(res.recommended)) return;
+        setModules(res.recommended);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [sector]);
+
   const handleOwnerSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
     setError("");
-
     if (!termsAccepted) {
       setError(t("auth.signup.errors.terms_required"));
-      setIsLoading(false);
       return;
     }
-
     const formData = new FormData(e.currentTarget);
-    const businessName = formData.get("businessName") as string;
-    const fullName = formData.get("fullName") as string;
-    const email = formData.get("email") as string;
     const password = formData.get("password") as string;
-    const confirmPassword = formData.get("confirmPassword") as string;
-
-    if (password !== confirmPassword) {
+    if (password !== (formData.get("confirmPassword") as string)) {
       setError(t("auth.signup.errors.passwords_match"));
-      setIsLoading(false);
       return;
     }
-
-    const nameParts = fullName.trim().split(" ");
-    const firstName = nameParts[0];
-    const lastName = nameParts.slice(1).join(" ") || "User";
-
+    const fullName = (formData.get("fullName") as string).trim();
+    const email = (formData.get("email") as string).trim();
+    const nameParts = fullName.split(" ");
     const signupData: SignupData = {
       user: {
         email,
         password,
-        first_name: firstName,
-        last_name: lastName,
+        first_name: nameParts[0],
+        last_name: nameParts.slice(1).join(" ") || "User",
       },
       restaurant: {
-        name: businessName,
+        name: (formData.get("businessName") as string).trim(),
         address: "",
         phone: "",
-        email: email,
+        email,
         business_vertical: sector,
+        modules,
       },
     };
 
+    setIsLoading(true);
     try {
       await auth.ownerSignup(signupData);
-
       toast({
         title: t("auth.signup.toast_welcome"),
         description: t("auth.signup.toast_desc"),
       });
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError(t("auth.signup.errors.unexpected"));
-      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t("auth.signup.errors.unexpected"));
     } finally {
       setIsLoading(false);
     }
@@ -102,7 +106,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
         </Alert>
       )}
 
-      <div className="mb-6 space-y-2">
+      <div className="mb-6 space-y-3">
         <h2 className="text-2xl font-bold text-white">{t("auth.signup.title")}</h2>
         <p className="text-sm text-[#B0BEC5]">{t("auth.signup.subtitle")}</p>
       </div>
@@ -244,10 +248,11 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
         <Button
           type="submit"
           className="mt-2 h-11 w-full rounded-lg border border-[#00E676]/30 bg-gradient-to-r from-[#00E676] to-[#00C853] font-semibold text-[#0A0D10] shadow-lg transition-all duration-300 hover:from-[#00F77B] hover:to-[#00D96B] hover:shadow-[0_0_25px_rgba(0,230,118,0.4)]"
-          disabled={isLoading || !termsAccepted}
+          disabled={!termsAccepted || isLoading}
         >
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {isLoading ? t("auth.signup.submitting") : t("auth.signup.submit")}
+          <ArrowRight className="ms-2 h-4 w-4 rtl:rotate-180" aria-hidden />
         </Button>
       </form>
     </div>

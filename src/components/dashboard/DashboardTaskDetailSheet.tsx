@@ -13,6 +13,7 @@ import type { DashboardTaskDemandItem } from "@/lib/types";
 import { useLanguage } from "@/hooks/use-language";
 import { DashboardTaskDetailContent } from "@/components/dashboard/DashboardTaskDetailContent";
 import { toast } from "sonner";
+import { archiveWithUndo } from "@/lib/archiveApi";
 
 function tasksDemandsDetailHref(taskId: string): string {
   return `/dashboard/operations/live?task=${taskId}`;
@@ -205,6 +206,24 @@ export function DashboardTaskDetailSheet({
               isSaving={saveAssigneesMutation.isPending}
               isAssigneeUpdating={singleAssigneeMutation.isPending}
               t={t}
+              onArchive={
+                task.kind === "dashboard" || task.kind === undefined
+                  ? () =>
+                      archiveWithUndo(
+                        "task",
+                        task.id,
+                        {
+                          archived: t("archive.archived_named", { name: task.title }),
+                          undo: t("archive.undo"),
+                          restored: t("archive.restored"),
+                        },
+                        () => {
+                          onOpenChange(false);
+                          queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+                        },
+                      )
+                  : undefined
+              }
               onOpenInbox={() => {
                 onOpenChange(false);
                 navigate(tasksDemandsDetailHref(task.id));

@@ -50,6 +50,7 @@ type ComplianceDoc = {
   id: string;
   title: string;
   document_type: string;
+  category?: string | null;
   expires_at?: string | null;
   expires_on?: string | null;
   days_until_expiry?: number | null;
@@ -297,6 +298,19 @@ export default function ComplianceDocumentsSettings() {
       iconClassName="bg-teal-50 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300"
       title={t("settings.compliance.title")}
       description={t("settings.compliance.description")}
+      actions={
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+          disabled={saving || loading}
+          onClick={() => void seedStarters()}
+        >
+          {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileWarning className="h-4 w-4 mr-2" />}
+          {t("settings.compliance.seed_starters")}
+        </Button>
+      }
     >
       <div className="space-y-6">
         <input
@@ -306,19 +320,6 @@ export default function ComplianceDocumentsSettings() {
           accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.tiff,.tif"
           onChange={handleAttachChange}
         />
-
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={saving || loading}
-            onClick={() => void seedStarters()}
-          >
-            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileWarning className="h-4 w-4 mr-2" />}
-            {t("settings.compliance.seed_starters")}
-          </Button>
-        </div>
 
         {/* Add a document form */}
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">

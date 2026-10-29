@@ -115,7 +115,7 @@ export const useNotifications = () => {
     });
 
     // Mutation to mark all notifications as read
-    const markAllAsReadMutation = useMutation<void, Error>({
+    const markAllAsReadMutation = useMutation<void, Error, void, { previous?: Notification[] }>({
         mutationFn: async () => {
             const token = localStorage.getItem('access_token');
             const response = await fetch(`${API_BASE}/notifications/mark-all-read/`, {

@@ -89,6 +89,7 @@ interface WeeklyTimeGridViewProps {
     currentDate: Date;
     setCurrentDate: React.Dispatch<React.SetStateAction<Date>>;
     onEditShift: (shift: Shift) => void;
+    onCreateShift?: () => void;
     isLoading?: boolean;
 }
 
@@ -137,6 +138,7 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
     currentDate,
     setCurrentDate,
     onEditShift,
+    onCreateShift,
     isLoading = false,
 }) => {
     const { hasRole } = useAuth() as AuthContextType;
@@ -403,10 +405,22 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                         </div>
                         <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">{getDateDisplay()}</h2>
                     </div>
-                    <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
-                        <UIButton variant="ghost" className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "day" ? "bg-surface-raised shadow-sm text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")} onClick={() => setView("day")}>{t("schedule.day")}</UIButton>
-                        <UIButton variant="ghost" className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "week" ? "bg-surface-raised shadow-sm text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")} onClick={() => setView("week")}>{t("schedule.week")}</UIButton>
-                        <UIButton variant="ghost" className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "month" ? "bg-surface-raised shadow-sm text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")} onClick={() => setView("month")}>{t("schedule.month")}</UIButton>
+                    <div className="flex items-center gap-3">
+                        <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
+                            <UIButton variant="ghost" className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", (view as string) === "day" ? "bg-surface-raised shadow-sm text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")} onClick={() => setView("day")}>{t("schedule.day")}</UIButton>
+                            <UIButton variant="ghost" className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", (view as string) === "week" ? "bg-surface-raised shadow-sm text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")} onClick={() => setView("week")}>{t("schedule.week")}</UIButton>
+                            <UIButton variant="ghost" className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "month" ? "bg-surface-raised shadow-sm text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")} onClick={() => setView("month")}>{t("schedule.month")}</UIButton>
+                        </div>
+                        {onCreateShift ? (
+                            <button
+                                type="button"
+                                onClick={onCreateShift}
+                                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:bg-primary/90 active:scale-95"
+                            >
+                                <Plus className="h-4 w-4" />
+                                <span>{t("schedule.create")}</span>
+                            </button>
+                        ) : null}
                     </div>
                 </div>
                 <div className="flex-1 overflow-auto p-4">
@@ -484,12 +498,22 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
                         </UIButton>
                         <UIButton
                             variant="ghost"
-                            className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", view === "month" ? "bg-surface-raised shadow-sm text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")}
+                            className={cn("text-xs font-bold px-4 py-1.5 rounded-lg transition-all", (view as string) === "month" ? "bg-surface-raised shadow-sm text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")}
                             onClick={() => setView("month")}
                         >
                             {t("schedule.month")}
                         </UIButton>
                     </div>
+                    {onCreateShift ? (
+                        <button
+                            type="button"
+                            onClick={onCreateShift}
+                            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:bg-primary/90 active:scale-95"
+                        >
+                            <Plus className="h-4 w-4" />
+                            <span>{t("schedule.create")}</span>
+                        </button>
+                    ) : null}
                 </div>
             </div>
 
