@@ -42,7 +42,7 @@ interface Category {
 const categoryFormSchema = z.object({
     name: z.string().min(1, "Category name is required"),
     description: z.string().optional().nullable(),
-    display_order: z.coerce.number().min(0, "Display order must be non-negative").optional().default(0),
+    display_order: z.coerce.number<number>().min(0, "Display order must be non-negative").optional().default(0),
     is_active: z.boolean().optional().default(true),
 });
 
@@ -56,7 +56,7 @@ const CategoryManagement: React.FC = () => {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
-    const form = useForm<CategoryFormValues>({
+    const form = useForm<z.input<typeof categoryFormSchema>, unknown, CategoryFormValues>({
         resolver: zodResolver(categoryFormSchema),
         defaultValues: {
             name: '',

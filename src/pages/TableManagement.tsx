@@ -42,7 +42,7 @@ interface Table {
 
 const createTableSchema = z.object({
     number: z.string().min(1, "Table number is required"),
-    capacity: z.coerce.number().min(1, "Capacity must be at least 1"),
+    capacity: z.coerce.number<number>().min(1, "Capacity must be at least 1"),
 });
 
 type CreateTableFormValues = z.infer<typeof createTableSchema>;

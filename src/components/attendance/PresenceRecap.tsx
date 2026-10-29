@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { PresenceStatus } from "@/lib/types";
+import { safeUrl } from "@/lib/safeUrl";
 
 const STATUS_TONE: Record<PresenceStatus, string> = {
   on_time: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300",
@@ -143,7 +144,7 @@ export default function PresenceRecap() {
                           {r.clockIn || "—"}
                           {r.site ? <span className="text-[11px] text-slate-500"> · {r.site}</span> : null}
                           {r.photoUrl ? (
-                            <a href={r.photoUrl} target="_blank" rel="noopener noreferrer" className="ms-1 inline-flex align-middle text-slate-400 hover:text-emerald-600" aria-label={t("hr.presence.photo")}>
+                            <a href={safeUrl(r.photoUrl)} target="_blank" rel="noopener noreferrer" className="ms-1 inline-flex align-middle text-slate-400 hover:text-emerald-600" aria-label={t("hr.presence.photo")}>
                               <Camera className="w-3.5 h-3.5" />
                             </a>
                           ) : null}
@@ -157,7 +158,7 @@ export default function PresenceRecap() {
                             <span className="block text-[11px] text-slate-500 mt-0.5">
                               {t(`hr.absence.reason.${r.absence.reason}`, { defaultValue: r.absence.reasonLabel })}
                               {r.absence.justification ? (
-                                <a href={r.absence.justification.url} target="_blank" rel="noopener noreferrer" className="ms-1 inline-flex text-emerald-600" aria-label={t("hr.absence.view_justification")}>
+                                <a href={safeUrl(r.absence.justification.url)} target="_blank" rel="noopener noreferrer" className="ms-1 inline-flex text-emerald-600" aria-label={t("hr.absence.view_justification")}>
                                   <Paperclip className="w-3 h-3" />
                                 </a>
                               ) : null}

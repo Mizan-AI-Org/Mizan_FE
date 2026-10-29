@@ -47,6 +47,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { safeUrl } from "@/lib/safeUrl";
 
 /**
  * Loose attachment shape - every back-end serializer that surfaces a file
@@ -268,7 +269,7 @@ function ImageLightbox({
       className="fixed inset-0 z-[200] flex cursor-zoom-out items-center justify-center bg-black/85 p-4"
     >
       <img
-        src={url}
+        src={safeUrl(url)}
         alt={alt}
         onClick={(e) => e.stopPropagation()}
         className="max-h-full max-w-full rounded-md shadow-2xl cursor-default"
@@ -339,7 +340,7 @@ function FileCard({
         </div>
       </div>
       <a
-        href={url}
+        href={safeUrl(url)}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-md border border-border bg-background px-2.5 text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
@@ -349,7 +350,7 @@ function FileCard({
         Open
       </a>
       <a
-        href={url}
+        href={safeUrl(url)}
         download={name}
         className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         aria-label={`Download ${name}`}
@@ -407,7 +408,7 @@ export function AttachmentPreview({
           )}
         >
           <img
-            src={url}
+            src={safeUrl(url)}
             alt={name}
             loading="lazy"
             onError={() => setImgError(true)}
@@ -462,7 +463,7 @@ export function AttachmentPreview({
           ) : null}
         </div>
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <audio controls preload="metadata" src={url} className="h-9 w-full" />
+        <audio controls preload="metadata" src={safeUrl(url)} className="h-9 w-full" />
       </div>
     );
   }
@@ -478,7 +479,7 @@ export function AttachmentPreview({
         <video
           controls
           preload="metadata"
-          src={url}
+          src={safeUrl(url)}
           className="w-full max-h-72 rounded-md bg-black"
         >
           <track kind="captions" />
@@ -576,7 +577,7 @@ export function AttachmentViewerModal({
               <p className="text-sm text-muted-foreground">Preview unavailable.</p>
             ) : (
               <img
-                src={url}
+                src={safeUrl(url)}
                 alt={name}
                 onError={() => setImgError(true)}
                 className="mx-auto max-h-[70vh] w-full object-contain"
@@ -585,14 +586,14 @@ export function AttachmentViewerModal({
           ) : kind === "pdf" ? (
             <iframe
               title={name}
-              src={url}
+              src={safeUrl(url)}
               className="h-[70vh] w-full rounded-md border border-border bg-background"
             />
           ) : kind === "video" ? (
             <video
               controls
               preload="metadata"
-              src={url}
+              src={safeUrl(url)}
               className="mx-auto max-h-[70vh] w-full rounded-md bg-black"
             >
               <track kind="captions" />
@@ -600,7 +601,7 @@ export function AttachmentViewerModal({
           ) : kind === "audio" ? (
             <div className="rounded-lg border border-border bg-background p-4">
               {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-              <audio controls preload="metadata" src={url} className="w-full" />
+              <audio controls preload="metadata" src={safeUrl(url)} className="w-full" />
             </div>
           ) : (
             <div className="flex flex-col items-center gap-4 py-8 text-center">
@@ -614,13 +615,13 @@ export function AttachmentViewerModal({
         {url ? (
           <DialogFooter className="border-t border-border px-5 py-3 sm:justify-between">
             <Button type="button" variant="outline" size="sm" asChild>
-              <a href={url} download={name}>
+              <a href={safeUrl(url)} download={name}>
                 <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                 Download
               </a>
             </Button>
             <Button type="button" variant="secondary" size="sm" asChild>
-              <a href={url} target="_blank" rel="noopener noreferrer">
+              <a href={safeUrl(url)} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                 Open in new tab
               </a>
