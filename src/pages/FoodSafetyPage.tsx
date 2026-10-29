@@ -246,7 +246,13 @@ export default function FoodSafetyPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {summary.isLoading && <p className="text-sm text-muted-foreground">{t("food_safety.loading")}</p>}
-          {!summary.isLoading && !s?.today.length && <p className="text-sm text-muted-foreground">{t("food_safety.no_checks_today")}</p>}
+          {summary.isError && (
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+              <span>{t("food_safety.load_error")}</span>
+              <Button size="sm" variant="outline" onClick={() => summary.refetch()}>{t("food_safety.retry")}</Button>
+            </div>
+          )}
+          {!summary.isLoading && !summary.isError && !s?.today.length && <p className="text-sm text-muted-foreground">{t("food_safety.no_checks_today")}</p>}
           {s?.today.map((row) => {
             const point = pointById(row.pointId);
             return (
@@ -295,7 +301,13 @@ export default function FoodSafetyPage() {
           <CardTitle className="flex items-center gap-2 text-base"><Thermometer className="h-4 w-4" />{t("food_safety.points")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {!points.isLoading && !points.data?.length && <p className="text-sm text-muted-foreground">{t("food_safety.no_points")}</p>}
+          {points.isError && (
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+              <span>{t("food_safety.load_error")}</span>
+              <Button size="sm" variant="outline" onClick={() => points.refetch()}>{t("food_safety.retry")}</Button>
+            </div>
+          )}
+          {!points.isLoading && !points.isError && !points.data?.length && <p className="text-sm text-muted-foreground">{t("food_safety.no_points")}</p>}
           {points.data?.map((p) => (
             <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 border-b py-2 last:border-0">
               <div className="min-w-0">

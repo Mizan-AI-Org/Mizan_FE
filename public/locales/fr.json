@@ -6008,5 +6008,10 @@
   "auth.invite_retired.body": "Mizan ajoute désormais les personnes sur WhatsApp. Demandez à votre manager de vous ajouter avec votre numéro WhatsApp : Mizan vous écrira et vous rejoindrez en un clic.",
   "auth.invite_retired.sign_in": "Aller à la connexion",
   "staff.email_optional": "Email (facultatif, pour se connecter au tableau de bord)",
-  "staff.email_optional_hint": "Laisse vide : cette personne utilise Miya sur WhatsApp"
+  "staff.email_optional_hint": "Laisse vide : cette personne utilise Miya sur WhatsApp",
+  "food_safety.load_error": "Impossible de charger la sécurité alimentaire. Ce n'est pas une journée sans anomalie : réessaie avant de t'y fier.",
+  "food_safety.retry": "Réessayer",
+  "nav.work.accountability": "Responsabilisation",
+  "accountability.page_title": "Responsabilisation",
+  "accountability.page_subtitle": "Qui livre à l'heure sans relance, et ce qui a besoin de toi maintenant."
 }

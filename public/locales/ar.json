@@ -6008,5 +6008,10 @@
   "auth.invite_retired.body": "ميزان ولا كيزيد الناس فالواتساب. طلب من المسؤول ديالك يزيدك برقم الواتساب ديالك: ميزان غادي يراسلك تما وتدخل بضغطة وحدة.",
   "auth.invite_retired.sign_in": "سير للدخول",
   "staff.email_optional": "البريد الإلكتروني (اختياري، لتسجيل الدخول إلى لوحة التحكم)",
-  "staff.email_optional_hint": "اتركه فارغًا: يستخدم ميا على واتساب"
+  "staff.email_optional_hint": "اتركه فارغًا: يستخدم ميا على واتساب",
+  "food_safety.load_error": "تعذّر تحميل بيانات سلامة الغذاء. هذا لا يعني يومًا بلا مشاكل: أعد المحاولة قبل الاعتماد عليها.",
+  "food_safety.retry": "إعادة المحاولة",
+  "nav.work.accountability": "المساءلة",
+  "accountability.page_title": "المساءلة",
+  "accountability.page_subtitle": "من يُنجز في الوقت دون تذكير، وما يحتاجك الآن."
 }
