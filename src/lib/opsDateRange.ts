@@ -18,3 +18,12 @@ export function dateRangeQueryParams(dateFrom: string, dateTo: string): Record<s
   if (dateTo.trim()) params.date_to = dateTo.trim();
   return params;
 }
+
+/** Quick windows for platform admin list filters (replaces twin date inputs + preset buttons). */
+export type OpsWindowPreset = "" | "7" | "30" | "90";
+
+export function rangeForWindowPreset(preset: OpsWindowPreset): { dateFrom: string; dateTo: string } {
+  if (!preset) return { dateFrom: "", dateTo: "" };
+  const today = localIsoDate();
+  return { dateFrom: localIsoDateDaysAgo(Number(preset) - 1), dateTo: today };
+}

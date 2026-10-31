@@ -37,6 +37,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { to: "/admin", end: true, label: "Overview", icon: LayoutDashboard },
       { to: "/admin/tenants", label: "Tenants", icon: Building2 },
       { to: "/admin/users", label: "Users", icon: Users },
+      { to: "/admin/billing", label: "Billing", icon: CreditCard },
       { to: "/admin/operators", label: "Operators", icon: Shield },
     ],
   },
@@ -58,7 +59,6 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Platform",
     items: [
-      { to: "/admin/billing", label: "Billing", icon: CreditCard },
       { to: "/admin/health", label: "Health", icon: HeartPulse },
       { to: "/admin/audit", label: "Audit", icon: ScrollText },
     ],
