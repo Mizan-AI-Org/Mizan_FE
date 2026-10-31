@@ -3,8 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { ChevronDown, Loader2, Search, Sunrise } from "lucide-react";
 import OpsPagination from "@/components/platform-admin/OpsPagination";
-import OpsDateRangeFilter from "@/components/platform-admin/OpsDateRangeFilter";
-import { dateRangeQueryParams } from "@/lib/opsDateRange";
+import {
+  dateRangeQueryParams,
+  rangeForWindowPreset,
+  type OpsWindowPreset,
+} from "@/lib/opsDateRange";
 import { platformApi, type PlatformBriefing, type PlatformBriefingRecipient } from "@/lib/platformApi";
 import { cn } from "@/lib/utils";
 import {
@@ -22,12 +25,6 @@ import {
 } from "@/components/platform-admin/opsStyles";
 
 const PAGE_SIZE = 25;
-
-const KIND_FILTERS = [
-  { id: "", label: "All" },
-  { id: "morning", label: "Morning briefings" },
-  { id: "evening", label: "Evening debriefings" },
-] as const;
 
 function roleLabel(role: string) {
   if (role === "OWNER") return "Owner";
@@ -156,12 +153,13 @@ export default function BriefingsPage() {
   const [role, setRole] = useState("");
   const [q, setQ] = useState("");
   const [submitted, setSubmitted] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [windowPreset, setWindowPreset] = useState<OpsWindowPreset>("");
   const [page, setPage] = useState(1);
 
+  const { dateFrom, dateTo } = rangeForWindowPreset(windowPreset);
+
   const { data, isLoading, error, isFetching } = useQuery({
-    queryKey: ["platform-briefings", kind, role, submitted, dateFrom, dateTo, page],
+    queryKey: ["platform-briefings", kind, role, submitted, windowPreset, page],
     queryFn: () =>
       platformApi.briefings({
         ...(kind ? { kind } : {}),
@@ -175,7 +173,7 @@ export default function BriefingsPage() {
 
   return (
     <div className={opsPage}>
-      <header className="flex flex-wrap items-end justify-between gap-4">
+      <header className="space-y-4">
         <div>
           <h2 className={opsTitle}>Briefings</h2>
           <p className={opsSubtitle}>
@@ -184,7 +182,7 @@ export default function BriefingsPage() {
           </p>
         </div>
         <form
-          className="flex flex-wrap gap-2"
+          className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5"
           onSubmit={(event) => {
             event.preventDefault();
             setPage(1);
@@ -192,70 +190,61 @@ export default function BriefingsPage() {
           }}
         >
           <select
+            value={windowPreset}
+            onChange={(event) => {
+              setPage(1);
+              setWindowPreset(event.target.value as OpsWindowPreset);
+            }}
+            className={`${opsInput} w-auto shrink-0`}
+            aria-label="Date range"
+          >
+            <option value="">All time</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+          <select
+            value={kind}
+            onChange={(event) => {
+              setPage(1);
+              setKind(event.target.value);
+            }}
+            className={`${opsInput} w-auto shrink-0`}
+            aria-label="Briefing kind"
+          >
+            <option value="">All kinds</option>
+            <option value="morning">Morning briefings</option>
+            <option value="evening">Evening debriefings</option>
+          </select>
+          <select
             value={role}
             onChange={(event) => {
               setPage(1);
               setRole(event.target.value);
             }}
-            className={opsInput}
+            className={`${opsInput} w-auto shrink-0`}
             aria-label="Recipient role"
           >
-            <option value="">All leadership roles</option>
-            <option value="SUPER_ADMIN">Super admins only</option>
-            <option value="ADMIN">Admins only</option>
-            <option value="OWNER">Owners only</option>
-            <option value="MANAGER">Managers only</option>
+            <option value="">All roles</option>
+            <option value="SUPER_ADMIN">Super admins</option>
+            <option value="ADMIN">Admins</option>
+            <option value="OWNER">Owners</option>
+            <option value="MANAGER">Managers</option>
           </select>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={q}
               onChange={(event) => setQ(event.target.value)}
               placeholder="Tenant or briefing text…"
-              className={`${opsInput} w-56 pl-9`}
+              className={`${opsInput} w-full min-w-[10rem] max-w-md pl-9`}
             />
           </div>
-          <button type="submit" className={opsBtnPrimary}>
+          <button type="submit" className={`${opsBtnPrimary} shrink-0`}>
             Search
           </button>
         </form>
       </header>
-
-      <OpsDateRangeFilter
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        onChange={({ dateFrom: nextFrom, dateTo: nextTo }) => {
-          setPage(1);
-          setDateFrom(nextFrom);
-          setDateTo(nextTo);
-        }}
-      />
-
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Briefing kind">
-        {KIND_FILTERS.map((filter) => {
-          const active = kind === filter.id;
-          return (
-            <button
-              key={filter.id || "all"}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => {
-                setPage(1);
-                setKind(filter.id);
-              }}
-              className={cn(
-                "rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
-                active
-                  ? "bg-emerald-500 text-slate-950"
-                  : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700 dark:hover:bg-slate-800",
-              )}
-            >
-              {filter.label}
-            </button>
-          );
-        })}
-      </div>
 
       {isLoading ? (
         <div className="flex h-40 items-center justify-center">

@@ -28,7 +28,7 @@ import {
 const PAGE_SIZE = 20;
 
 const MODULE_LABELS: Record<string, string> = {
-  platform: "Platform fee (operations, Miya, team, 1 location, unlimited staff)",
+  platform: "Platform fee",
   location: "Each additional location",
   geo_clock: "Geolocation clock-in",
   attendance: "Attendance & timesheets",
@@ -36,14 +36,14 @@ const MODULE_LABELS: Record<string, string> = {
   hr: "HR & staff files",
   checklists: "Processes & checklists",
   accountability: "Accountability",
-  incidents: "Staff Incident Reporting",
+  incidents: "Staff incident reporting",
   sales: "Sales & POS",
-  reservations: "Reservations & Customer Orders",
+  reservations: "Reservations & orders",
   inventory: "Procurement",
   finance: "Finance",
-  bundle_workforce: "Workforce bundle (clock-in, attendance, scheduling, HR)",
-  bundle_execution: "Execution bundle (checklists, accountability, incidents)",
-  bundle_business: "Business bundle (sales, reservations, procurement, finance)",
+  bundle_workforce: "Workforce bundle",
+  bundle_execution: "Execution bundle",
+  bundle_business: "Business bundle",
 };
 
 const money = formatMoney;
@@ -77,11 +77,9 @@ function InvoicesTab() {
   });
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="space-y-2">
         <p className={opsSubtitle}>
-          Invoices come from each tenant&apos;s subscription (trial end, each cycle, modules added mid-cycle) or are
-          issued by you from the tenant page. Mark them paid when the transfer arrives; 7 days overdue pauses the
-          tenant&apos;s paid modules. &quot;Payment reported&quot; = the tenant says they paid: check the bank.
+          Mark invoices paid when transfers arrive. 7+ days overdue pauses paid modules.
         </p>
         <select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value); }} className={opsInput} aria-label="Filter invoices">
           <option value="open">Open</option>
@@ -199,6 +197,27 @@ function InvoicesTab() {
   );
 }
 
+const PRICE_GROUPS: { label: string; keys: string[] }[] = [
+  { label: "Core", keys: ["platform", "location"] },
+  {
+    label: "Modules",
+    keys: [
+      "geo_clock",
+      "attendance",
+      "scheduling",
+      "hr",
+      "checklists",
+      "accountability",
+      "incidents",
+      "sales",
+      "reservations",
+      "inventory",
+      "finance",
+    ],
+  },
+  { label: "Bundles", keys: ["bundle_workforce", "bundle_execution", "bundle_business"] },
+];
+
 function PricesTab() {
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["platform-module-prices"], queryFn: () => platformApi.modulePrices() });
@@ -210,58 +229,107 @@ function PricesTab() {
     mutationFn: () => platformApi.updateModulePrices(Object.fromEntries(Object.entries(draft).map(([k, v]) => [k, Number(v) || 0]))),
     onSuccess: (res) => queryClient.setQueryData(["platform-module-prices"], res),
   });
-  if (isLoading || !data) return <Loader2 className="h-6 w-6 animate-spin text-[#00C853]" />;
-  const order = Object.keys(MODULE_LABELS).filter((k) => k in draft);
-  // Everything on = platform + the three bundles (a whole bundle is billed at its bundle price).
-  const total = ["platform", "bundle_workforce", "bundle_execution", "bundle_business"].reduce((sum, k) => sum + (Number(draft[k]) || 0), 0);
+  if (isLoading || !data) {
+    return (
+      <div className="flex h-40 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-[#00C853]" />
+      </div>
+    );
+  }
+  const total = ["platform", "bundle_workforce", "bundle_execution", "bundle_business"].reduce(
+    (sum, k) => sum + (Number(draft[k]) || 0),
+    0,
+  );
   return (
-    <div className={`${opsCard} max-w-xl space-y-3`}>
-      <p className={opsSubtitle}>
-        Monthly prices in {data.currency}, excluding tax. Yearly = {data.yearlyMonths} × monthly. A tenant with every module
-        of a bundle pays the bundle price. Changes apply to the next invoices, never to invoices already issued.
-      </p>
-      <ul className="divide-y divide-slate-200 dark:divide-slate-800">
-        {order.map((key) => (
-          <li key={key} className="flex items-center justify-between gap-3 py-2">
-            <label htmlFor={`price-${key}`} className="text-sm">{MODULE_LABELS[key]}</label>
-            <input
-              id={`price-${key}`}
-              type="number"
-              min={0}
-              step={10}
-              value={draft[key]}
-              onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
-              className={`${opsInput} w-28 text-end tabular-nums`}
-            />
-          </li>
-        ))}
-      </ul>
-      <div className="flex items-center justify-between">
-        <span className={`${opsMuted} text-xs`}>Everything on, 1 location: {money(total, data.currency)}/month HT</span>
-        <button type="button" className={opsBtnPrimary} disabled={save.isPending} onClick={() => save.mutate()}>
-          {save.isPending ? "Saving…" : "Save prices"}
-        </button>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className={opsSubtitle}>Monthly {data.currency} HT. Applies to future invoices.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className={`${opsMuted} text-xs`}>
+            Full stack, 1 location: {money(total, data.currency)}/mo
+          </span>
+          <button type="button" className={opsBtnPrimary} disabled={save.isPending} onClick={() => save.mutate()}>
+            {save.isPending ? "Saving…" : "Save prices"}
+          </button>
+        </div>
       </div>
       {save.isSuccess ? <p className="text-xs text-emerald-600">Saved.</p> : null}
       {save.error ? <p className="text-xs text-rose-600">{(save.error as Error).message}</p> : null}
+      <div className={opsTableWrap}>
+        <table className="w-full text-left">
+          <thead>
+            <tr>
+              <th className={opsTh}>Item</th>
+              <th className={`${opsTh} w-40 text-end`}>Monthly HT</th>
+            </tr>
+          </thead>
+          <tbody>
+            {PRICE_GROUPS.map((group) => (
+              <React.Fragment key={group.label}>
+                <tr>
+                  <td colSpan={2} className={`${opsTd} bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:bg-slate-950/80 dark:text-slate-400`}>
+                    {group.label}
+                  </td>
+                </tr>
+                {group.keys.filter((key) => key in draft).map((key) => (
+                  <tr key={key} className={opsRow}>
+                    <td className={opsTd}>
+                      <label htmlFor={`price-${key}`}>{MODULE_LABELS[key]}</label>
+                    </td>
+                    <td className={`${opsTd} text-end`}>
+                      <input
+                        id={`price-${key}`}
+                        type="number"
+                        min={0}
+                        step={10}
+                        value={draft[key]}
+                        onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+                        className={`${opsInput} ms-auto w-28 text-end tabular-nums`}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
-const PROFILE_FIELDS: { key: keyof BillingPaymentInstructions; label: string; multiline?: boolean; numeric?: boolean }[] = [
-  { key: "legalName", label: "Company legal name (seller on invoices)" },
-  { key: "address", label: "Company address", multiline: true },
-  { key: "ice", label: "ICE" },
-  { key: "rc", label: "RC" },
-  { key: "taxId", label: "IF (identifiant fiscal)" },
-  { key: "taxLabel", label: "Tax label" },
-  { key: "taxRate", label: "Tax rate (%) added to prices", numeric: true },
-  { key: "beneficiary", label: "Beneficiary" },
-  { key: "bankName", label: "Bank" },
-  { key: "rib", label: "RIB" },
-  { key: "swift", label: "SWIFT / BIC" },
-  { key: "contactEmail", label: "Billing contact email" },
-  { key: "instructions", label: "Instructions shown to tenants", multiline: true },
+const PROFILE_SECTIONS: {
+  title: string;
+  fields: { key: keyof BillingPaymentInstructions; label: string; multiline?: boolean; numeric?: boolean; span?: 2 }[];
+}[] = [
+  {
+    title: "Company",
+    fields: [
+      { key: "legalName", label: "Legal name", span: 2 },
+      { key: "address", label: "Address", multiline: true, span: 2 },
+      { key: "ice", label: "ICE" },
+      { key: "rc", label: "RC" },
+      { key: "taxId", label: "IF" },
+      { key: "contactEmail", label: "Contact email" },
+    ],
+  },
+  {
+    title: "Tax",
+    fields: [
+      { key: "taxLabel", label: "Tax label" },
+      { key: "taxRate", label: "Tax rate %", numeric: true },
+    ],
+  },
+  {
+    title: "Bank",
+    fields: [
+      { key: "beneficiary", label: "Beneficiary" },
+      { key: "bankName", label: "Bank" },
+      { key: "rib", label: "RIB" },
+      { key: "swift", label: "SWIFT / BIC" },
+      { key: "instructions", label: "Tenant instructions", multiline: true, span: 2 },
+    ],
+  },
 ];
 
 function PaymentDetailsTab() {
@@ -271,39 +339,58 @@ function PaymentDetailsTab() {
     if (data) setDraft(data);
   }, [data]);
   const save = useMutation({ mutationFn: () => platformApi.updateBillingProfile(draft!) });
-  if (isLoading || !draft) return <Loader2 className="h-6 w-6 animate-spin text-[#00C853]" />;
+  if (isLoading || !draft) {
+    return (
+      <div className="flex h-40 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-[#00C853]" />
+      </div>
+    );
+  }
   return (
-    <div className={`${opsCard} max-w-xl space-y-3`}>
-      <p className={opsSubtitle}>
-        Printed on every invoice (seller, ICE/RC/IF, tax) and shown to tenants with each open invoice, with the invoice number
-        as transfer reference.
-      </p>
-      {PROFILE_FIELDS.map((f) => (
-        <label key={f.key} className="block space-y-1 text-sm">
-          <span>{f.label}</span>
-          {f.multiline ? (
-            <textarea
-              className={`${opsInput} min-h-[80px] w-full`}
-              value={String(draft[f.key] ?? "")}
-              onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
-            />
-          ) : (
-            <input
-              className={`${opsInput} w-full`}
-              type={f.numeric ? "number" : "text"}
-              min={f.numeric ? 0 : undefined}
-              max={f.numeric ? 100 : undefined}
-              value={String(draft[f.key] ?? "")}
-              onChange={(e) => setDraft({ ...draft, [f.key]: f.numeric ? Number(e.target.value) : e.target.value })}
-            />
-          )}
-        </label>
-      ))}
-      <button type="button" className={opsBtnPrimary} disabled={save.isPending} onClick={() => save.mutate()}>
-        {save.isPending ? "Saving…" : "Save"}
-      </button>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className={opsSubtitle}>Printed on invoices and shown with each open invoice.</p>
+        <button type="button" className={opsBtnPrimary} disabled={save.isPending} onClick={() => save.mutate()}>
+          {save.isPending ? "Saving…" : "Save details"}
+        </button>
+      </div>
       {save.isSuccess ? <p className="text-xs text-emerald-600">Saved.</p> : null}
       {save.error ? <p className="text-xs text-rose-600">{(save.error as Error).message}</p> : null}
+      {PROFILE_SECTIONS.map((section) => (
+        <section key={section.title} className={`${opsCard} p-5`}>
+          <h3 className="mb-4 text-sm font-semibold text-slate-900 dark:text-white">{section.title}</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {section.fields.map((f) => (
+              <label
+                key={f.key}
+                className={`space-y-1.5 text-sm text-slate-700 dark:text-slate-200 ${f.span === 2 ? "sm:col-span-2" : ""}`}
+              >
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  {f.label}
+                </span>
+                {f.multiline ? (
+                  <textarea
+                    className={`${opsInput} min-h-[88px] w-full py-2`}
+                    value={String(draft[f.key] ?? "")}
+                    onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
+                  />
+                ) : (
+                  <input
+                    className={`${opsInput} w-full`}
+                    type={f.numeric ? "number" : "text"}
+                    min={f.numeric ? 0 : undefined}
+                    max={f.numeric ? 100 : undefined}
+                    value={String(draft[f.key] ?? "")}
+                    onChange={(e) =>
+                      setDraft({ ...draft, [f.key]: f.numeric ? Number(e.target.value) : e.target.value })
+                    }
+                  />
+                )}
+              </label>
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
@@ -321,7 +408,7 @@ export default function BillingPage() {
       <header className="space-y-3">
         <div>
           <h2 className={opsTitle}>Billing</h2>
-          <p className={opsSubtitle}>Tenants pay a platform fee plus each module they run. Invoices are paid by transfer.</p>
+          <p className={opsSubtitle}>Platform fee plus modules. Paid by transfer.</p>
         </div>
         <nav className="flex flex-wrap gap-1" role="tablist">
           {TABS.map((t) => (

@@ -37,6 +37,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { to: "/admin", end: true, label: "Overview", icon: LayoutDashboard },
       { to: "/admin/tenants", label: "Tenants", icon: Building2 },
       { to: "/admin/users", label: "Users", icon: Users },
+      { to: "/admin/billing", label: "Billing", icon: CreditCard },
       { to: "/admin/operators", label: "Operators", icon: Shield },
     ],
   },
@@ -58,7 +59,6 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Platform",
     items: [
-      { to: "/admin/billing", label: "Billing", icon: CreditCard },
       { to: "/admin/health", label: "Health", icon: HeartPulse },
       { to: "/admin/audit", label: "Audit", icon: ScrollText },
     ],
@@ -81,11 +81,6 @@ export default function PlatformAdminLayout() {
   const roleSubtitle = me?.is_superuser
     ? "Platform superuser"
     : "Platform operator";
-
-  const signedInName =
-    [me?.first_name, me?.last_name].filter(Boolean).join(" ") ||
-    me?.email?.split("@")[0] ||
-    "Operator";
 
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden text-foreground">
@@ -153,19 +148,6 @@ export default function PlatformAdminLayout() {
               </div>
             ))}
           </nav>
-
-          <div className="shrink-0 border-t border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/80">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-              Signed in
-            </p>
-            <p className="mt-1 truncate text-sm font-semibold text-slate-900 dark:text-white">
-              {signedInName}
-            </p>
-            <p className="truncate text-xs text-slate-500 dark:text-slate-400">{me?.email}</p>
-            <p className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
-              {roleSubtitle}
-            </p>
-          </div>
         </aside>
 
         <main className="relative min-w-0 flex-1 overflow-auto">

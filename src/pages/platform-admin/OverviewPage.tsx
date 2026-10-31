@@ -151,6 +151,11 @@ export default function OverviewPage() {
     queryFn: () => platformApi.agentMetrics({ days: "7" }),
   });
 
+  const { data: agentMetricsAllTime } = useQuery({
+    queryKey: ["platform-agent-metrics", "90"],
+    queryFn: () => platformApi.agentMetrics({ days: "90" }),
+  });
+
   const chartData = useMemo(() => {
     if (!data?.growth) return [];
     const users = data.growth[range].users;
@@ -419,7 +424,7 @@ export default function OverviewPage() {
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <p className="text-slate-500 dark:text-slate-400">Turns</p>
+              <p className="text-slate-500 dark:text-slate-400">Turns (7d)</p>
               <p className="text-xl font-bold tabular-nums">{agentMetrics?.turns?.total ?? "—"}</p>
             </div>
             <div>
@@ -442,6 +447,32 @@ export default function OverviewPage() {
                 {agentMetrics?.evaluation?.avg_accuracy ?? "—"}
               </p>
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <Bot className="h-4 w-4 text-emerald-600" />
+              Total conversations
+            </h3>
+            <Link
+              to="/admin/agent/conversations"
+              className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+            >
+              View all →
+            </Link>
+          </div>
+          <div>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mb-2">All time</p>
+            <p className="text-3xl font-bold tabular-nums">
+              {agentMetricsAllTime?.unique_conversations ?? "—"}
+            </p>
+            {agentMetricsAllTime?.unique_conversations ? (
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                {agentMetricsAllTime.turns?.total ?? 0} turns tracked
+              </p>
+            ) : null}
           </div>
           <div className="mt-4 flex flex-wrap gap-3 text-xs font-semibold">
             <Link to="/admin/agent/turns" className="text-emerald-700 dark:text-emerald-400 hover:underline">

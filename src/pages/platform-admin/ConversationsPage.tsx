@@ -3,8 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import OpsPagination from "@/components/platform-admin/OpsPagination";
-import OpsDateRangeFilter from "@/components/platform-admin/OpsDateRangeFilter";
-import { dateRangeQueryParams } from "@/lib/opsDateRange";
+import {
+  dateRangeQueryParams,
+  rangeForWindowPreset,
+  type OpsWindowPreset,
+} from "@/lib/opsDateRange";
 import { platformApi } from "@/lib/platformApi";
 import {
   opsBtnPrimary,
@@ -31,11 +34,12 @@ function formatWhen(value?: string | null) {
 export default function ConversationsPage() {
   const [channel, setChannel] = useState("");
   const [page, setPage] = useState(1);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [windowPreset, setWindowPreset] = useState<OpsWindowPreset>("");
+
+  const { dateFrom, dateTo } = rangeForWindowPreset(windowPreset);
 
   const { data, isLoading, error, isFetching, refetch } = useQuery({
-    queryKey: ["platform-agent-conversations", channel, dateFrom, dateTo, page],
+    queryKey: ["platform-agent-conversations", channel, windowPreset, page],
     queryFn: () =>
       platformApi.agentConversations({
         ...(channel ? { channel } : {}),
@@ -47,7 +51,7 @@ export default function ConversationsPage() {
 
   return (
     <div className={opsPage}>
-      <header className="flex flex-wrap items-end justify-between gap-4">
+      <header className="space-y-4">
         <div>
           <h2 className={opsTitle}>Conversations</h2>
           <p className={opsSubtitle}>
@@ -55,24 +59,28 @@ export default function ConversationsPage() {
             {typeof data?.count === "number" ? ` · ${data.count} total` : ""}
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <OpsDateRangeFilter
-            dateFrom={dateFrom}
-            dateTo={dateTo}
-            onChange={({ dateFrom: nextFrom, dateTo: nextTo }) => {
+        <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5">
+          <select
+            value={windowPreset}
+            onChange={(e) => {
               setPage(1);
-              setDateFrom(nextFrom);
-              setDateTo(nextTo);
+              setWindowPreset(e.target.value as OpsWindowPreset);
             }}
-          />
-          <div className="flex gap-2">
+            className={`${opsInput} w-auto shrink-0`}
+            aria-label="Date range"
+          >
+            <option value="">All time</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
           <select
             value={channel}
             onChange={(e) => {
               setPage(1);
               setChannel(e.target.value);
             }}
-            className={opsInput}
+            className={`${opsInput} w-auto shrink-0`}
             aria-label="Channel filter"
           >
             <option value="">All channels</option>
@@ -80,10 +88,9 @@ export default function ConversationsPage() {
             <option value="whatsapp">WhatsApp</option>
             <option value="mobile">Mobile</option>
           </select>
-          <button type="button" className={opsBtnPrimary} onClick={() => refetch()}>
+          <button type="button" className={`${opsBtnPrimary} shrink-0`} onClick={() => refetch()}>
             Refresh
           </button>
-          </div>
         </div>
       </header>
 

@@ -325,6 +325,8 @@ export type PlatformAgentTurn = {
   thread_id: string;
   deploy_version: string;
   user_thumbs_up: boolean | null;
+  language?: string;
+  input_language_detected?: string;
 };
 
 export type PlatformAgentTurnDetail = PlatformAgentTurn & {
@@ -400,6 +402,7 @@ export type PlatformAgentMetrics = {
     avg_safety: number;
     avg_verification_rate: number;
   };
+  unique_conversations?: number;
 };
 
 export type PlatformBriefingRecipient = {
@@ -627,6 +630,20 @@ export const platformApi = {
       turns: PlatformAgentTurn[];
     }>(`/agent/conversations/${encodeURIComponent(conversationId)}/${qs ? `?${qs}` : ""}`);
   },
+  agentTranslate: (segments: Array<{ id: string; text: string }>) =>
+    platformFetch<{
+      target_language: string;
+      service_available: boolean;
+      segments: Array<{
+        id: string;
+        text_en: string;
+        source_language: string;
+        unchanged?: boolean;
+      }>;
+    }>("/agent/translate/", {
+      method: "POST",
+      body: JSON.stringify({ segments }),
+    }),
   agentMetrics: (params?: Record<string, string>) => {
     const qs = new URLSearchParams(params || {}).toString();
     return platformFetch<PlatformAgentMetrics>(`/agent/metrics/${qs ? `?${qs}` : ""}`);

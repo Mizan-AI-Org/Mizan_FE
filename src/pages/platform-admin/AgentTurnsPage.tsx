@@ -3,8 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { Loader2, Search } from "lucide-react";
 import OpsPagination from "@/components/platform-admin/OpsPagination";
-import OpsDateRangeFilter from "@/components/platform-admin/OpsDateRangeFilter";
-import { dateRangeQueryParams } from "@/lib/opsDateRange";
+import {
+  dateRangeQueryParams,
+  rangeForWindowPreset,
+  type OpsWindowPreset,
+} from "@/lib/opsDateRange";
 import { platformApi } from "@/lib/platformApi";
 import {
   opsBadgeDanger,
@@ -38,11 +41,12 @@ export default function AgentTurnsPage() {
   const [submitted, setSubmitted] = useState("");
   const [channel, setChannel] = useState("");
   const [page, setPage] = useState(1);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [windowPreset, setWindowPreset] = useState<OpsWindowPreset>("");
+
+  const { dateFrom, dateTo } = rangeForWindowPreset(windowPreset);
 
   const { data, isLoading, error, isFetching } = useQuery({
-    queryKey: ["platform-agent-turns", submitted, channel, userIdFilter, dateFrom, dateTo, page],
+    queryKey: ["platform-agent-turns", submitted, channel, userIdFilter, windowPreset, page],
     queryFn: () =>
       platformApi.agentTurns({
         ...(submitted ? { q: submitted } : {}),
@@ -56,7 +60,7 @@ export default function AgentTurnsPage() {
 
   return (
     <div className={opsPage}>
-      <header className="flex flex-wrap items-end justify-between gap-4">
+      <header className="space-y-4">
         <div>
           <h2 className={opsTitle}>Agent turns</h2>
           <p className={opsSubtitle}>
@@ -70,18 +74,8 @@ export default function AgentTurnsPage() {
             ) : null}
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-        <OpsDateRangeFilter
-          dateFrom={dateFrom}
-          dateTo={dateTo}
-          onChange={({ dateFrom: nextFrom, dateTo: nextTo }) => {
-            setPage(1);
-            setDateFrom(nextFrom);
-            setDateTo(nextTo);
-          }}
-        />
         <form
-          className="flex flex-wrap gap-2"
+          className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5"
           onSubmit={(e) => {
             e.preventDefault();
             setPage(1);
@@ -89,12 +83,26 @@ export default function AgentTurnsPage() {
           }}
         >
           <select
+            value={windowPreset}
+            onChange={(e) => {
+              setPage(1);
+              setWindowPreset(e.target.value as OpsWindowPreset);
+            }}
+            className={`${opsInput} w-auto shrink-0`}
+            aria-label="Date range"
+          >
+            <option value="">All time</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+          <select
             value={channel}
             onChange={(e) => {
               setPage(1);
               setChannel(e.target.value);
             }}
-            className={opsInput}
+            className={`${opsInput} w-auto shrink-0`}
             aria-label="Channel filter"
           >
             <option value="">All channels</option>
@@ -103,18 +111,19 @@ export default function AgentTurnsPage() {
             <option value="whatsapp">WhatsApp</option>
             <option value="mobile">Mobile</option>
           </select>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Message, intent, conversation…"
-              className={`${opsInput} w-64 pl-9`}
+              placeholder="Search message or intent…"
+              className={`${opsInput} w-full min-w-[10rem] max-w-md pl-9`}
             />
           </div>
-          <button type="submit" className={opsBtnPrimary}>Search</button>
+          <button type="submit" className={`${opsBtnPrimary} shrink-0`}>
+            Search
+          </button>
         </form>
-        </div>
       </header>
 
       {isLoading ? (
