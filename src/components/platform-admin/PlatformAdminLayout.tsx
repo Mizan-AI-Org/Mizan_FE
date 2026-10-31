@@ -82,11 +82,6 @@ export default function PlatformAdminLayout() {
     ? "Platform superuser"
     : "Platform operator";
 
-  const signedInName =
-    [me?.first_name, me?.last_name].filter(Boolean).join(" ") ||
-    me?.email?.split("@")[0] ||
-    "Operator";
-
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden text-foreground">
       <header className="z-[2000] shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 shadow-sm">
@@ -153,19 +148,6 @@ export default function PlatformAdminLayout() {
               </div>
             ))}
           </nav>
-
-          <div className="shrink-0 border-t border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/80">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-              Signed in
-            </p>
-            <p className="mt-1 truncate text-sm font-semibold text-slate-900 dark:text-white">
-              {signedInName}
-            </p>
-            <p className="truncate text-xs text-slate-500 dark:text-slate-400">{me?.email}</p>
-            <p className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
-              {roleSubtitle}
-            </p>
-          </div>
         </aside>
 
         <main className="relative min-w-0 flex-1 overflow-auto">
