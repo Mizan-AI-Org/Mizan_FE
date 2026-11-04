@@ -93,6 +93,8 @@ import {
   Check,
   Loader2,
   Trash2,
+  Plus,
+  Pencil,
   // Icons used by the new category-bucketed widgets:
   Flame,
   Wrench,
@@ -115,6 +117,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { EscalateStaffRequestModal } from "@/components/staff/EscalateStaffRequestModal";
 import { StaffTagSelector } from "@/components/staff/StaffTagChips";
+import { CalendarEventDialog } from "@/components/dashboard/CalendarEventDialog";
 import type { StaffTag } from "@/lib/staff-tags";
 import { translateWidgetTaskSubtitle } from "@/lib/localeTag";
 import { localizeAgeLabel } from "@/lib/localizeAgeLabel";
@@ -2656,10 +2659,14 @@ function MeetingsRemindersCard({
   const [disconnecting, setDisconnecting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [eventBusyId, setEventBusyId] = useState<string | null>(null);
+  // null: closed; "new": create; an item: edit.
+  const [editing, setEditing] = useState<MeetingReminderItem | "new" | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const limit = showAll ? 50 : 5;
   const { data, isLoading, isError, refetch, isFetching } =
     useQuery<DashboardMeetingsRemindersResponse>({
-      queryKey: ["dashboard", "meetings-reminders", 5],
-      queryFn: () => api.getDashboardMeetingsReminders(5),
+      queryKey: ["dashboard", "meetings-reminders", limit],
+      queryFn: () => api.getDashboardMeetingsReminders(limit),
       refetchInterval: 60_000,
       staleTime: 30_000,
       retry: 2,
@@ -2669,9 +2676,9 @@ function MeetingsRemindersCard({
     });
 
   const handleRefreshCalendar = React.useCallback(async () => {
-    const fresh = await api.getDashboardMeetingsReminders(5, true);
-    qc.setQueryData(["dashboard", "meetings-reminders", 5], fresh);
-  }, [qc]);
+    const fresh = await api.getDashboardMeetingsReminders(limit, true);
+    qc.setQueryData(["dashboard", "meetings-reminders", limit], fresh);
+  }, [qc, limit]);
 
   const { data: personalReminders } = useQuery({
     queryKey: ["dashboard", "personal-reminders"],
@@ -2721,7 +2728,7 @@ function MeetingsRemindersCard({
       // tokens are already present. Just refetch so the widget flips
       // out of the not-connected state.
       await qc.invalidateQueries({
-        queryKey: ["dashboard", "meetings-reminders", 5],
+        queryKey: ["dashboard", "meetings-reminders"],
       });
     } catch (err) {
       const msg =
@@ -2740,7 +2747,7 @@ function MeetingsRemindersCard({
       await api.disconnectGoogleCalendar();
       toast.success(t("dashboard.meetings_reminders.disconnected_toast"));
       await qc.invalidateQueries({
-        queryKey: ["dashboard", "meetings-reminders", 5],
+        queryKey: ["dashboard", "meetings-reminders"],
       });
     } catch (err) {
       const msg =
@@ -2754,7 +2761,7 @@ function MeetingsRemindersCard({
   }, [qc, t]);
 
   const invalidateMeetings = React.useCallback(async () => {
-    await qc.invalidateQueries({ queryKey: ["dashboard", "meetings-reminders", 5] });
+    await qc.invalidateQueries({ queryKey: ["dashboard", "meetings-reminders"] });
   }, [qc]);
 
   const handleShiftEvent = React.useCallback(
@@ -2808,7 +2815,7 @@ function MeetingsRemindersCard({
     if (gcal === "connected") {
       toast.success(t("dashboard.meetings_reminders.connected_toast"));
       qc.invalidateQueries({
-        queryKey: ["dashboard", "meetings-reminders", 5],
+        queryKey: ["dashboard", "meetings-reminders"],
       });
     } else {
       const detail = params.get("gcal_detail") || "";
@@ -2838,6 +2845,21 @@ function MeetingsRemindersCard({
             {t("dashboard.meetings_reminders.title")}
           </CardTitle>
         </div>
+        <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7 text-emerald-700 dark:text-emerald-400"
+          aria-label={t("dashboard.meetings_reminders.new_meeting")}
+          title={t("dashboard.meetings_reminders.new_meeting")}
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditing("new");
+          }}
+        >
+          <Plus className="h-4 w-4" aria-hidden />
+        </Button>
         {/* Share/open-external quick action - matches the mock's top-right
             forward icon. Opens the full agenda in a new tab. */}
         <a
@@ -2851,9 +2873,26 @@ function MeetingsRemindersCard({
         >
           <Share2 className="h-4 w-4" aria-hidden />
         </a>
+        </div>
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col pt-1 pb-4 px-5">
+        {data && !data.connected ? (
+          data.configured === false ? null : (
+            <button
+              type="button"
+              className="mb-2 inline-flex items-center gap-1 self-start text-[11px] text-slate-500 hover:text-emerald-700 dark:text-slate-400 dark:hover:text-emerald-400"
+              disabled={connecting}
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleConnect();
+              }}
+            >
+              <Link2 className="h-3 w-3" aria-hidden />
+              {t("dashboard.meetings_reminders.sync_google_optional")}
+            </button>
+          )
+        ) : (
         <GoogleCalendarSyncHub
           connected={Boolean(data?.connected)}
           email={data?.email ?? null}
@@ -2869,6 +2908,7 @@ function MeetingsRemindersCard({
           calendarLink={calendarLink}
           t={t}
         />
+        )}
 
         <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
           {isLoading ? (
@@ -2891,19 +2931,6 @@ function MeetingsRemindersCard({
                 {t("dashboard.meetings_reminders.retry")}
               </Button>
             </div>
-          ) : !data?.connected && items.length === 0 ? (
-            data?.configured === false ? (
-              <div className="py-4 text-center text-xs text-slate-500 dark:text-slate-400">
-                {t("dashboard.meetings_reminders.not_configured")}
-              </div>
-            ) : (
-              <div className="py-4 flex flex-col items-center gap-2 text-center">
-                <Sparkle className="h-5 w-5 text-emerald-500/70" aria-hidden />
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[240px]">
-                  {t("dashboard.meetings_reminders.not_connected_desc")}
-                </p>
-              </div>
-            )
           ) : items.length === 0 ? (
             <div className="py-5 flex flex-col items-center gap-2 text-center">
               <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/30">
@@ -2920,11 +2947,13 @@ function MeetingsRemindersCard({
                 size="sm"
                 variant="outline"
                 className="mt-1 h-7 text-[11px]"
-                asChild
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditing("new");
+                }}
               >
-                <a href={calendarLink} target="_blank" rel="noopener noreferrer">
-                  {t("dashboard.meetings_reminders.add_in_gcal")}
-                </a>
+                <Plus className="h-3.5 w-3.5 mr-1" aria-hidden />
+                {t("dashboard.meetings_reminders.new_meeting")}
               </Button>
             </div>
           ) : (
@@ -2958,21 +2987,25 @@ function MeetingsRemindersCard({
                             />
                           ) : null}
                         </div>
-                        <div className="mt-0.5 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                        <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
                           <span
                             className={cn(
-                              "truncate italic",
-                              ev.owner_is_me ? "text-slate-700 dark:text-slate-300" : "",
+                              "shrink-0 inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-semibold whitespace-nowrap",
+                              pill.bg,
+                              pill.text,
                             )}
                           >
-                            {ev.owner_is_me
-                              ? t("dashboard.meetings_reminders.owner_me")
-                              : ev.owner_label}
+                            <span className={cn("h-1.5 w-1.5 rounded-full", pill.dot)} aria-hidden />
+                            {t(pill.labelKey)}
                           </span>
+                          {/* The time first: it is what people look for. The organizer only when it isn't me. */}
                           {timeLabel ? (
+                            <span className="shrink-0 font-medium text-slate-700 dark:text-slate-300">{timeLabel}</span>
+                          ) : null}
+                          {!ev.owner_is_me ? (
                             <>
                               <span className="w-1 h-1 bg-slate-300 rounded-full shrink-0" />
-                              <span className="truncate">{timeLabel}</span>
+                              <span className="truncate italic">{ev.owner_label}</span>
                             </>
                           ) : null}
                           {ev.attendee_count > 0 ? (
@@ -2985,20 +3018,6 @@ function MeetingsRemindersCard({
                           ) : null}
                         </div>
                       </div>
-
-                      <span
-                        className={cn(
-                          "shrink-0 mt-0.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap",
-                          pill.bg,
-                          pill.text,
-                        )}
-                      >
-                        <span
-                          className={cn("h-1.5 w-1.5 rounded-full", pill.dot)}
-                          aria-hidden
-                        />
-                        {t(pill.labelKey)}
-                      </span>
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -3036,9 +3055,16 @@ function MeetingsRemindersCard({
                               </a>
                             </DropdownMenuItem>
                           ) : null}
-                          {ev.owner_is_me ? (
+                          {(ev.can_edit ?? ev.owner_is_me) ? (
                             <>
                               <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                disabled={eventBusyId === ev.id}
+                                onClick={() => setEditing(ev)}
+                              >
+                                <Pencil className="h-3.5 w-3.5 mr-2" />
+                                {t("dashboard.meetings_reminders.edit_event")}
+                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 disabled={eventBusyId === ev.id}
                                 onClick={() => handleShiftEvent(ev.id, 30)}
@@ -3087,6 +3113,21 @@ function MeetingsRemindersCard({
           )}
         </div>
 
+        {(data?.total ?? 0) > 5 ? (
+          <button
+            type="button"
+            className="mt-2 self-start px-2 text-xs font-semibold text-emerald-700 hover:underline dark:text-emerald-400"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowAll((v) => !v);
+            }}
+          >
+            {showAll
+              ? t("dashboard.meetings_reminders.show_less")
+              : t("dashboard.meetings_reminders.show_all", { count: data?.total ?? 0 })}
+          </button>
+        ) : null}
+
         {reminderRows.length > 0 ? (
           <div className="mt-4 border-t border-slate-100 dark:border-slate-800 pt-3">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
@@ -3124,6 +3165,17 @@ function MeetingsRemindersCard({
         ) : null}
       </CardContent>
     </Card>
+    {editing ? (
+      <CalendarEventDialog
+        event={editing === "new" ? null : editing}
+        t={t}
+        onClose={() => setEditing(null)}
+        onSaved={() => {
+          setEditing(null);
+          void invalidateMeetings();
+        }}
+      />
+    ) : null}
     <AlertDialog open={Boolean(deletingId)} onOpenChange={(open) => !open && setDeletingId(null)}>
       <AlertDialogContent onClick={(e) => e.stopPropagation()}>
         <AlertDialogHeader>

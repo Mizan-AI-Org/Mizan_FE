@@ -1338,7 +1338,7 @@ function Settings() {
                         setGcalConnected(false);
                         setGcalEmail("");
                         setGcalDisconnectOpen(false);
-                        queryClient.invalidateQueries({ queryKey: ["dashboard", "meetings-reminders", 5] });
+                        queryClient.invalidateQueries({ queryKey: ["dashboard", "meetings-reminders"] });
                         await fetchUnifiedSettings();
                       } catch (err) {
                         toast.error(
