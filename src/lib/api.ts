@@ -1281,6 +1281,7 @@ export class BackendService {
     endsAt: string;
     location?: string;
     notes?: string;
+    attendeeIds?: string[];
   }): Promise<Record<string, unknown>> {
     return this.fetchWithError("/calendar/", {
       method: "POST",
@@ -1297,6 +1298,8 @@ export class BackendService {
       location?: string;
       notes?: string;
       shiftMinutes?: number;
+      attendeeIds?: string[];
+      removeAttendeeIds?: string[];
     },
   ): Promise<Record<string, unknown>> {
     return this.fetchWithError(`/calendar/${eventId}/`, {

@@ -778,6 +778,12 @@ export interface MeetingReminderItem {
     location: string | null;
     attendee_count: number;
     calendar_id: string;
+    /** The viewer created it, or is an owner / admin: they may edit or delete it. */
+    can_edit?: boolean;
+    attendee_ids?: string[];
+    notes?: string;
+    /** local (made in Mizan), google, google_busy, mizan_google. */
+    source?: string;
 }
 
 export interface DashboardMeetingsRemindersResponse {
@@ -785,6 +791,8 @@ export interface DashboardMeetingsRemindersResponse {
     /** Google account the tenant connected. Shown as a hint on the empty state. */
     email: string | null;
     items: MeetingReminderItem[];
+    /** Every upcoming meeting of this person (items holds the first `limit`). */
+    total?: number;
     counts: { urgent: number; pending: number; done: number };
     /** Target for the "Open in Calendar" footer link. */
     calendar_link: string;
