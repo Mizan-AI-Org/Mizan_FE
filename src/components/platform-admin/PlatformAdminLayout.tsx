@@ -14,6 +14,7 @@ import {
   MessagesSquare,
   Gauge,
   Sunrise,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { to: "/admin", end: true, label: "Overview", icon: LayoutDashboard },
       { to: "/admin/tenants", label: "Tenants", icon: Building2 },
+      { to: "/admin/agencies", label: "Agencies", icon: Wrench },
       { to: "/admin/users", label: "Users", icon: Users },
       { to: "/admin/billing", label: "Billing", icon: CreditCard },
       { to: "/admin/operators", label: "Operators", icon: Shield },
