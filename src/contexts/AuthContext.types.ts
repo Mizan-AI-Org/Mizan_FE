@@ -36,6 +36,8 @@ export interface User {
         language?: string;
         onboarding_completed_at?: string | null;
         onboarding_state?: Record<string, boolean>;
+        /** "agency" for a facility agency account (jobs from the restaurants it services). */
+        restaurant_type?: string;
     };
     phone?: string;
     preferred_language?: string | null;

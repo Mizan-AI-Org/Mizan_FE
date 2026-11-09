@@ -22,6 +22,7 @@ const PurchasingPage = React.lazy(() => import("./pages/PurchasingPage"));
 const BillingInvoicePage = React.lazy(() => import("./pages/BillingInvoicePage"));
 const VerifySignaturePage = React.lazy(() => import("./pages/VerifySignaturePage"));
 const FoodSafetyPage = React.lazy(() => import("./pages/FoodSafetyPage"));
+const AgencyJobsPage = React.lazy(() => import("./pages/AgencyJobsPage"));
 const AccountabilityPage = React.lazy(() => import("./pages/AccountabilityPage"));
 const ProcurementHubPage = React.lazy(() => import("./pages/ProcurementHubPage"));
 const ApprovalsPage = React.lazy(() => import("./pages/ApprovalsPage"));
@@ -78,6 +79,12 @@ const PlatformAdminLayout = React.lazy(
 );
 const PlatformOverviewPage = React.lazy(
   () => import("./pages/platform-admin/OverviewPage")
+);
+const PlatformAgenciesPage = React.lazy(
+  () => import("./pages/platform-admin/AgenciesPage")
+);
+const PlatformAgencyDetailPage = React.lazy(
+  () => import("./pages/platform-admin/AgencyDetailPage")
 );
 const PlatformTenantsPage = React.lazy(
   () => import("./pages/platform-admin/TenantsPage")
@@ -296,6 +303,8 @@ const App = () => {
                   <Route index element={<PlatformOverviewPage />} />
                   <Route path="tenants" element={<PlatformTenantsPage />} />
                   <Route path="tenants/:id" element={<PlatformTenantDetailPage />} />
+                  <Route path="agencies" element={<PlatformAgenciesPage />} />
+                  <Route path="agencies/:id" element={<PlatformAgencyDetailPage />} />
                   <Route path="users" element={<PlatformUsersPage />} />
                   <Route path="users/:id" element={<PlatformUserDetailPage />} />
                   <Route path="operators" element={<PlatformOperatorsPage />} />
@@ -356,6 +365,7 @@ const App = () => {
                   <Route path="incidents" element={<ManagerReviewDashboard />} />
                   <Route path="checklists" element={<ManagerReviewDashboard />} />
                   <Route path="food-safety" element={<FoodSafetyPage />} />
+                  <Route path="agency-jobs" element={<AgencyJobsPage />} />
                   <Route path="archived" element={<Navigate to="/dashboard/operations/live" replace />} />
                   <Route path="accountability" element={<AccountabilityPage />} />
                   <Route path="requests" element={<RedirectToOperationsLive />} />

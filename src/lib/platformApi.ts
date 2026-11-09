@@ -701,5 +701,93 @@ export const platformApi = {
     }),
   deleteWhatsAppTemplate: (id: string) =>
     platformFetch<void>(`/whatsapp/templates/${id}/`, { method: "DELETE" }),
+  agencies: (q?: string) =>
+    platformFetch<{ results: PlatformAgency[]; count: number }>(
+      `/agencies/${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+    ),
+  agency: (id: string) => platformFetch<PlatformAgencyDetail>(`/agencies/${id}/`),
+  createAgency: (body: {
+    name: string;
+    email: string;
+    phone?: string;
+    language: string;
+    ownerName: string;
+    ownerPhone: string;
+  }) =>
+    platformFetch<PlatformAgency & { ownerInvite?: string }>("/agencies/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  createAvenue: (agencyId: string, body: { name: string; city?: string; notes?: string }) =>
+    platformFetch<AgencyAvenue>(`/agencies/${agencyId}/avenues/`, { method: "POST", body: JSON.stringify(body) }),
+  updateAvenue: (agencyId: string, avenueId: string, body: Partial<AgencyAvenue>) =>
+    platformFetch<AgencyAvenue>(`/agencies/${agencyId}/avenues/${avenueId}/`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  deleteAvenue: (agencyId: string, avenueId: string) =>
+    platformFetch<{ deleted: boolean }>(`/agencies/${agencyId}/avenues/${avenueId}/`, { method: "DELETE" }),
+  linkRestaurant: (
+    agencyId: string,
+    body: { clientId: string; avenueId?: string | null; scopes: AgencyScope[]; targets?: AgencyTargets; context?: string },
+  ) =>
+    platformFetch<AgencyLink>(`/agencies/${agencyId}/links/`, { method: "POST", body: JSON.stringify(body) }),
+  updateLink: (
+    agencyId: string,
+    linkId: string,
+    body: Partial<{ avenueId: string | null; scopes: AgencyScope[]; targets: AgencyTargets; context: string; active: boolean }>,
+  ) =>
+    platformFetch<AgencyLink>(`/agencies/${agencyId}/links/${linkId}/`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  unlinkRestaurant: (agencyId: string, linkId: string) =>
+    platformFetch<AgencyLink>(`/agencies/${agencyId}/links/${linkId}/`, { method: "DELETE" }),
 
 };
+
+// --- Facility agencies (Mizan_BE apps/agencies, apps/platform_admin/agency_views.py) ---------------------------
+
+export type AgencyScope = "breakdown" | "cleaning" | "security" | "common_area";
+export type AgencyUrgency = "critical" | "high" | "normal" | "low";
+export type AgencyTargets = Record<AgencyUrgency, { respond: number; fix: number }>;
+
+export const AGENCY_SCOPES: AgencyScope[] = ["breakdown", "cleaning", "security", "common_area"];
+export const AGENCY_URGENCIES: AgencyUrgency[] = ["critical", "high", "normal", "low"];
+
+export interface AgencyAvenue {
+  id: string;
+  name: string;
+  city: string;
+  notes?: string;
+}
+
+export interface AgencyLink {
+  id: string;
+  client: { id: string; name: string };
+  avenue: { id: string; name: string } | null;
+  scopes: AgencyScope[];
+  targets: AgencyTargets;
+  context: string;
+  active: boolean;
+  createdAt: string | null;
+}
+
+export interface PlatformAgency {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  language: string;
+  ownerName: string;
+  avenues: { id: string; name: string; city: string }[];
+  linkedCount: number;
+  openJobs: number;
+  suspended?: boolean;
+}
+
+export interface PlatformAgencyDetail extends PlatformAgency {
+  avenues: AgencyAvenue[];
+  links: AgencyLink[];
+  kpis: { openJobs: number; overdue: number; medianRespondMinutes: number | null; medianFixMinutes: number | null };
+}

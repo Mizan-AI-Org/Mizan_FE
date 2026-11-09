@@ -69,7 +69,9 @@ export type ModuleKey =
     | "sales"
     | "reservations"
     | "inventory"
-    | "finance";
+    | "finance"
+    /** Facility agencies only (jobs from the restaurants they service); never in the restaurant module picker. */
+    | "agency";
 
 export type ModuleBundle = "core" | "workforce" | "execution" | "business";
 
