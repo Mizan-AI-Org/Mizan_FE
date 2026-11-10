@@ -701,11 +701,29 @@ export const platformApi = {
     }),
   deleteWhatsAppTemplate: (id: string) =>
     platformFetch<void>(`/whatsapp/templates/${id}/`, { method: "DELETE" }),
+  userBusinesses: (userId: string) =>
+    platformFetch<{ businesses: PlatformUserBusiness[] }>(`/users/${userId}/businesses/`),
+  addUserToBusiness: (userId: string, body: { restaurantId: string; role: string }) =>
+    platformFetch<{ businesses: PlatformUserBusiness[]; welcome?: string }>(`/users/${userId}/businesses/`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  linkUserAccount: (userId: string, otherUserId: string) =>
+    platformFetch<{ businesses: PlatformUserBusiness[] }>(`/users/${userId}/link/`, {
+      method: "POST",
+      body: JSON.stringify({ userId: otherUserId }),
+    }),
   agencies: (q?: string) =>
     platformFetch<{ results: PlatformAgency[]; count: number }>(
       `/agencies/${q ? `?q=${encodeURIComponent(q)}` : ""}`,
     ),
   agency: (id: string) => platformFetch<PlatformAgencyDetail>(`/agencies/${id}/`),
+  /** An existing tenant becomes an agency (keeps everything it has, gains the agency module and Jobs board). */
+  promoteToAgency: (tenantId: string) =>
+    platformFetch<PlatformAgency>("/agencies/promote/", { method: "POST", body: JSON.stringify({ tenantId }) }),
+  /** Back to a normal tenant; refused while restaurants are still connected. */
+  demoteAgency: (agencyId: string) =>
+    platformFetch<{ id: string; restaurantType: string }>(`/agencies/${agencyId}/demote/`, { method: "POST", body: "{}" }),
   createAgency: (body: {
     name: string;
     email: string;
@@ -790,4 +808,15 @@ export interface PlatformAgencyDetail extends PlatformAgency {
   avenues: AgencyAvenue[];
   links: AgencyLink[];
   kpis: { openJobs: number; overdue: number; medianRespondMinutes: number | null; medianFixMinutes: number | null };
+}
+
+/** One person, several businesses (Mizan_BE apps/accounts/people_links.py). */
+export interface PlatformUserBusiness {
+  userId: string;
+  restaurantId: string | null;
+  restaurantName: string;
+  role: string;
+  email: string;
+  active: boolean;
+  current: boolean;
 }

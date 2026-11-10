@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { SignupData } from "../lib/types";
 import { AuthContext } from "./AuthContext";
 import { AuthContextType, User } from "./AuthContext.types";
-import { api, API_BASE, refreshAccessToken } from "../lib/api";
+import { api, API_BASE, authFetch, refreshAccessToken } from "../lib/api";
 import i18n from "@/i18n";
 import { clearOnboardingSkipFlags, restaurantOnboardingComplete } from "@/lib/onboarding-gate";
 import { roleAllowed } from "@/lib/operationalCommandRoles";
@@ -482,6 +482,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     applyLanguageForUser(updatedUser);
   };
 
+  const switchBusiness = async (targetUserId: string) => {
+    const response = await authFetch(`${API_BASE}/auth/switch-business/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: targetUserId }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !(data.tokens?.access || data.access)) {
+      throw new Error(data.error || "Could not open this business");
+    }
+    localStorage.setItem("user", JSON.stringify(data.user));
+    localStorage.setItem("access_token", data.tokens?.access || data.access);
+    localStorage.setItem("refresh_token", data.tokens?.refresh || data.refresh);
+    // Every cached screen belongs to the other business: start clean, like impersonation does.
+    window.location.replace("/dashboard");
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -492,6 +509,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     loginWithPin,
     ownerSignup,
     logout,
+    switchBusiness,
     hasRole,
     isSuperAdmin,
     isAdmin,

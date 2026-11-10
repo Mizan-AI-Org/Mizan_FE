@@ -1,8 +1,18 @@
 import { shrinkPhoto } from "@/lib/image";
 import { API_BASE } from "./api";
 
+/** A button under Miya's answer (e.g. "Switch to Zama Zama and send" when another business is named). */
+export type MastraQuickReply = {
+  label: string;
+  action: "send" | "switch_business";
+  message: string;
+  userId?: string;
+  businessConfirmed?: boolean;
+};
+
 export type MastraRunResponse = {
   success: boolean;
+  quickReplies?: MastraQuickReply[];
   text?: string;
   /** Present when the user spoke via mic and TTS succeeded */
   audioBase64?: string;
@@ -44,6 +54,7 @@ export type MastraChatMessage = {
   fromVoice?: boolean;
   /** Session-only TTS for this assistant turn (not persisted to localStorage) */
   replyAudio?: { base64: string; mimeType: string };
+  quickReplies?: MastraQuickReply[];
 };
 
 const MAX_STORED_MESSAGES = 200;
@@ -353,6 +364,7 @@ export async function runMastraChat(body: {
   draftId?: string;
   inputMode?: "text" | "voice";
   attachments?: string[];
+  businessConfirmed?: boolean;
 }): Promise<MastraRunResponse> {
   const response = await safeFetch(`${API_BASE}/mastra/run/`, {
     method: "POST",
@@ -367,6 +379,7 @@ export async function runMastraChat(body: {
       draftId: body.draftId,
       attachments: body.attachments && body.attachments.length ? body.attachments : undefined,
       inputMode: body.inputMode ?? "text",
+      businessConfirmed: body.businessConfirmed || undefined,
     }),
   });
   if (!response) {

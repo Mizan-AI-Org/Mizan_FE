@@ -21,8 +21,8 @@ import {
   opsTitle,
 } from "@/components/platform-admin/opsStyles";
 
-/** Facility agencies: their own tenants, servicing the restaurants of an avenue (breakdowns, cleaning, security,
- * shared areas). Create one here; connect restaurants on its page. */
+/** Facility agencies: normal tenants with agency status, servicing the restaurants of an avenue (breakdowns,
+ * cleaning, security, shared areas). Promote a tenant here (or on its tenant page); connect restaurants on its page. */
 export default function AgenciesPage() {
   const [q, setQ] = useState("");
   const [submitted, setSubmitted] = useState("");
@@ -61,12 +61,12 @@ export default function AgenciesPage() {
             </div>
           </form>
           <button type="button" className={opsBtnPrimary} onClick={() => setCreating(true)}>
-            <Plus className="h-4 w-4" /> Create agency
+            <Plus className="h-4 w-4" /> Make a tenant an agency
           </button>
         </div>
       </header>
 
-      {creating ? <CreateAgency onClose={() => setCreating(false)} /> : null}
+      {creating ? <PromoteTenant onClose={() => setCreating(false)} /> : null}
 
       {isLoading ? (
         <div className="flex h-40 items-center justify-center">
@@ -124,77 +124,67 @@ export default function AgenciesPage() {
   );
 }
 
-function CreateAgency({ onClose }: { onClose: () => void }) {
+function PromoteTenant({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    language: "fr",
-    ownerName: "",
-    ownerPhone: "",
+  const [search, setSearch] = useState("");
+  const [tenantId, setTenantId] = useState("");
+  const tenants = useQuery({
+    queryKey: ["platform-tenants-promote", search],
+    queryFn: () => platformApi.tenants({ q: search, status: "active", page_size: "10" }),
+    enabled: search.trim().length >= 2,
   });
-  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm((f) => ({ ...f, [key]: e.target.value }));
-  const create = useMutation({
-    mutationFn: () => platformApi.createAgency(form),
+  const choices = (tenants.data?.results || []).filter((t) => t.restaurant_type !== "agency");
+  const promote = useMutation({
+    mutationFn: () => platformApi.promoteToAgency(tenantId),
     onSuccess: (agency) => {
       queryClient.invalidateQueries({ queryKey: ["platform-agencies"] });
       navigate(`/admin/agencies/${agency.id}`);
     },
   });
-  const ready = form.name.trim() && form.email.trim() && form.ownerPhone.trim();
 
   return (
     <form
       className={`${opsCard} space-y-4 p-5`}
       onSubmit={(e) => {
         e.preventDefault();
-        if (ready) create.mutate();
+        if (tenantId) promote.mutate();
       }}
     >
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-slate-900 dark:text-white">New agency</h3>
+        <h3 className="font-semibold text-slate-900 dark:text-white">Make a tenant an agency</h3>
         <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600" aria-label="Close">
           <X className="h-4 w-4" />
         </button>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Agency name">
-          <input className={`${opsInput} w-full`} value={form.name} onChange={set("name")} required />
-        </Field>
-        <Field label="Email">
-          <input className={`${opsInput} w-full`} type="email" value={form.email} onChange={set("email")} required />
-        </Field>
-        <Field label="Phone (office)">
-          <input className={`${opsInput} w-full`} value={form.phone} onChange={set("phone")} />
-        </Field>
-        <Field label="Language">
-          <select className={`${opsInput} w-full`} value={form.language} onChange={set("language")}>
-            <option value="fr">Français</option>
-            <option value="en">English</option>
-            <option value="ar">العربية</option>
-          </select>
-        </Field>
-        <Field label="Owner's name">
-          <input className={`${opsInput} w-full`} value={form.ownerName} onChange={set("ownerName")} />
-        </Field>
-        <Field label="Owner's WhatsApp number">
-          <input
-            className={`${opsInput} w-full`}
-            value={form.ownerPhone}
-            onChange={set("ownerPhone")}
-            placeholder="212600000000"
-            required
-          />
-        </Field>
+      <p className={opsMuted}>
+        The agency signs up like any business. Pick its tenant here: it keeps everything it has and gets agency status,
+        then you connect the restaurants that send it their issues.
+      </p>
+      <Field label="Tenant">
+        <input
+          className={`${opsInput} w-full`}
+          placeholder="Search a tenant by name or email…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </Field>
+      <div className="flex flex-wrap gap-2">
+        {choices.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTenantId(t.id)}
+            className={tenantId === t.id ? opsBtnPrimary : opsBtnGhost}
+          >
+            {t.name}
+          </button>
+        ))}
       </div>
-      <p className={opsMuted}>The owner gets the Mizan welcome on WhatsApp and joins with one tap.</p>
-      {create.error ? <p className="text-sm text-rose-600">{(create.error as Error).message}</p> : null}
+      {promote.error ? <p className="text-sm text-rose-600">{(promote.error as Error).message}</p> : null}
       <div className="flex gap-2">
-        <button type="submit" className={opsBtnPrimary} disabled={!ready || create.isPending}>
-          {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Create agency
+        <button type="submit" className={opsBtnPrimary} disabled={!tenantId || promote.isPending}>
+          {promote.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Promote to agency
         </button>
         <button type="button" className={opsBtnGhost} onClick={onClose}>
           Cancel
