@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { shrinkPhoto } from "@/lib/image";
 import {
   User,
   AccountabilityScorecard,
@@ -2019,7 +2020,7 @@ export class BackendService {
     file: File,
   ): Promise<{ avatar_url?: string } & Record<string, unknown>> {
     const form = new FormData();
-    form.append("avatar", file);
+    form.append("avatar", await shrinkPhoto(file));
     const response = await fetch(`${API_BASE}/staff/profile/${staffId}/avatar/`, {
       method: "POST",
       headers: {
@@ -2131,7 +2132,7 @@ export class BackendService {
       const formData = new FormData();
       formData.append("staff", staffId);
       formData.append("title", title);
-      formData.append("file", file);
+      formData.append("file", await shrinkPhoto(file));
 
       const response = await fetch(`${API_BASE}/staff/documents/`, {
         method: "POST",
@@ -2218,7 +2219,7 @@ export class BackendService {
     form.append("staff", staffId);
     form.append("title", title);
     form.append("category", category);
-    form.append("file", file);
+    form.append("file", await shrinkPhoto(file));
     if (expiresAt) form.append("expires_at", expiresAt);
     return this.peopleRequest(accessToken, "/staff/documents/", { method: "POST", body: form });
   }
@@ -2240,7 +2241,7 @@ export class BackendService {
 
   async uploadAbsenceJustification(accessToken: string, absenceId: string, file: File): Promise<StaffAbsence> {
     const form = new FormData();
-    form.append("file", file);
+    form.append("file", await shrinkPhoto(file));
     return this.peopleRequest(accessToken, `/people/absences/${absenceId}/justification/`, { method: "POST", body: form });
   }
 
@@ -5103,7 +5104,7 @@ export class BackendService {
   async addStepEvidence(stepResponseId: string, file: File): Promise<any> {
     try {
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", await shrinkPhoto(file));
       const headers = this.getHeaders();
       // Remove explicit JSON content-type for multipart
       delete headers["Content-Type"];

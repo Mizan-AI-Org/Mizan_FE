@@ -1,3 +1,4 @@
+import { shrinkPhoto } from "@/lib/image";
 import { API_BASE } from "./api";
 
 export type MastraRunResponse = {
@@ -328,7 +329,7 @@ export type AgentFile = {
 /** Upload files for Miya (PDF, Word, Excel, CSV, photos, voice notes; 25 MB each). */
 export async function uploadAgentFiles(files: File[], conversationId?: string): Promise<AgentFile[]> {
   const form = new FormData();
-  for (const file of files) form.append("file", file);
+  for (const file of files) form.append("file", await shrinkPhoto(file));
   if (conversationId) form.append("conversationId", conversationId);
   const response = await safeFetch(`${API_BASE}/mastra/files/`, {
     method: "POST",
