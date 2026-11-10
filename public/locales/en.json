@@ -5936,5 +5936,6 @@
   "agency.report.empty": "No jobs this month",
   "agency.badge.with": "With {{agency}}",
   "agency.badge.cancel": "Call off",
-  "agency.badge.cancelled": "Agency job called off"
+  "agency.badge.cancelled": "Agency job called off",
+  "businesses.title": "Your businesses"
 }

@@ -4,6 +4,7 @@ import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom
 import { platformApi, type PlatformMe } from "@/lib/platformApi";
 import { KeyRound, Loader2, Unlock } from "lucide-react";
 import OpsBackNav from "@/components/platform-admin/OpsBackNav";
+import UserBusinesses from "@/components/platform-admin/UserBusinesses";
 import OpsPagination from "@/components/platform-admin/OpsPagination";
 import OpsDateRangeFilter from "@/components/platform-admin/OpsDateRangeFilter";
 import { dateRangeQueryParams } from "@/lib/opsDateRange";
@@ -312,6 +313,8 @@ export default function UserDetailPage() {
         <Info label="Superuser" value={data.is_superuser ? "Yes" : "No"} />
         <Info label="Created" value={new Date(data.created_at).toLocaleString()} />
       </div>
+
+      <UserBusinesses userId={id} />
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">

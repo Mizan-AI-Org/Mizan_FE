@@ -5936,5 +5936,6 @@
   "agency.report.empty": "Aucune intervention ce mois-ci",
   "agency.badge.with": "Chez {{agency}}",
   "agency.badge.cancel": "Annuler l'intervention",
-  "agency.badge.cancelled": "Intervention annulée"
+  "agency.badge.cancelled": "Intervention annulée",
+  "businesses.title": "Vos établissements"
 }

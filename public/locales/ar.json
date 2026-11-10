@@ -5936,5 +5936,6 @@
   "agency.report.empty": "حتى تدخل هاد الشهر",
   "agency.badge.with": "عند {{agency}}",
   "agency.badge.cancel": "لغي التدخل",
-  "agency.badge.cancelled": "تلغى التدخل"
+  "agency.badge.cancelled": "تلغى التدخل",
+  "businesses.title": "المؤسسات ديالك"
 }

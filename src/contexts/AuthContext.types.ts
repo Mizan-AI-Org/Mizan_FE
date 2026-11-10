@@ -46,6 +46,18 @@ export interface User {
         emergency_contact_phone?: string;
     };
     branch_scope?: BranchScopePayload;
+    /** One person, several businesses: every business they can open (empty when only one). */
+    businesses?: UserBusiness[];
+}
+
+export interface UserBusiness {
+    userId: string;
+    restaurantId: string;
+    name: string;
+    role: string;
+    /** Allowed on the web app in that business (staff accounts are WhatsApp-only). */
+    web: boolean;
+    current: boolean;
 }
 
 export interface AuthContextType {
@@ -65,6 +77,8 @@ export interface AuthContextType {
     ) => Promise<void>;
     ownerSignup: (signupData: SignupData) => Promise<void>;
     logout: () => void;
+    /** Open another business this person runs (a new session for that business, then a full reload). */
+    switchBusiness: (userId: string) => Promise<void>;
     hasRole: (roles: string[]) => boolean;
     isSuperAdmin: () => boolean;
     isAdmin: () => boolean;
