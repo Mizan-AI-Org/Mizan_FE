@@ -1,3 +1,4 @@
+import { shrinkPhoto } from "@/lib/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -208,7 +209,7 @@ export default function ComplianceDocumentsSettings() {
         formData.append("document_type", documentType);
         if (expiresAt) formData.append("expires_at", expiresAt);
         formData.append("remind_days_before", String(Number(remindDays) || 30));
-        formData.append("file", selectedFile);
+        formData.append("file", await shrinkPhoto(selectedFile));
         await postFormData("/payroll/compliance-documents/", formData);
       } else {
         await api.post("/payroll/compliance-documents/", {
@@ -257,7 +258,7 @@ export default function ComplianceDocumentsSettings() {
     setSaving(true);
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", await shrinkPhoto(file));
       await postFormData(`/payroll/compliance-documents/${docId}/attach/`, formData);
       toast.success(t("generic.toast.document_attached"));
       await load();
