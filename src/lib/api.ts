@@ -5632,5 +5632,99 @@ export class BackendService {
     });
   }
 
+  /** Job titles -> roles (apps/accounts/job_title_views.py): remembered choices + titles nobody recognised yet. */
+  async getTitleMappings(): Promise<TitleMappingsResponse> {
+    const data = (await this.fetchWithError("/staff/title-mappings/")) as Partial<TitleMappingsResponse> | null;
+    return {
+      roles: Array.isArray(data?.roles) ? data!.roles : [...JOB_TITLE_ROLES],
+      remembered: Array.isArray(data?.remembered) ? data!.remembered : [],
+      unmatchedTitles: Array.isArray(data?.unmatchedTitles) ? data!.unmatchedTitles : [],
+    };
+  }
+
+  /** Everyone with this job title gets the role (title kept as their label); remembered for the next import. */
+  async applyTitleMapping(body: ApplyTitleMappingInput): Promise<ApplyTitleMappingResult> {
+    return this.fetchWithError("/staff/title-mappings/", {
+      method: "POST",
+      body: JSON.stringify({ remember: true, ...body }),
+    });
+  }
+
+  /** CSV staff import preview (POST /staff/import/): each row's resolved role + the titles nobody recognised. */
+  async previewStaffImport(csv: string): Promise<StaffImportPreview> {
+    const data = (await this.fetchWithError("/staff/import/", {
+      method: "POST",
+      body: JSON.stringify({ csv }),
+    })) as Partial<StaffImportPreview> | null;
+    return {
+      valid: data?.valid ?? [],
+      duplicates: data?.duplicates ?? [],
+      errors: data?.errors ?? [],
+      validCount: data?.validCount ?? 0,
+      unmatchedTitles: data?.unmatchedTitles ?? [],
+    };
+  }
+
 }
+
+/** Roles a job title can map to (apps/accounts/job_titles.py TITLE_ROLES), highest first. */
+export const JOB_TITLE_ROLES = ["ADMIN", "MANAGER", "SUPERVISOR", "CHEF", "WAITER", "BARTENDER", "STAFF"] as const;
+
+/** A job title on an import that no role matched: everyone with it was added as STAFF, title kept. */
+export type UnmatchedTitle = {
+  title: string;
+  count: number;
+  people: Array<{ id?: string; name: string; line?: number }>;
+};
+
+/** A title that reads above the inviter's rank: the person was added at the highest role they may give. */
+export type RoleLowered = { name: string; title: string; requested: string; given: string; id?: string };
+
+/** Fields every staff import response may carry (invite, invite-bulk-csv, activation/upload). */
+export type JobTitleReport = { unmatchedTitles?: UnmatchedTitle[]; rolesLowered?: RoleLowered[] };
+
+export type RememberedTitleMapping = { title: string; role: string; customRoleId?: string | null };
+
+export type TitleMappingsResponse = {
+  roles: string[];
+  remembered: RememberedTitleMapping[];
+  unmatchedTitles: UnmatchedTitle[];
+};
+
+export type ApplyTitleMappingInput = { title: string; role?: string; customRoleId?: string; remember?: boolean };
+
+export type ApplyTitleMappingResult = {
+  title: string;
+  role: string;
+  customRoleId: string | null;
+  label: string;
+  updated: number;
+  people: Array<{ id: string; name: string; role: string; title: string }>;
+  skipped: Array<{ id: string; name: string; reason: string }>;
+  remembered: boolean;
+};
+
+export type StaffImportPreviewRow = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  role: string;
+  resolvedRole: string;
+  title: string | null;
+  line: number;
+  customRoleId?: string;
+  titleUnmatched?: boolean;
+  primaryLocation?: string;
+  error?: string;
+};
+
+export type StaffImportPreview = {
+  valid: StaffImportPreviewRow[];
+  duplicates: StaffImportPreviewRow[];
+  errors: StaffImportPreviewRow[];
+  validCount: number;
+  unmatchedTitles: UnmatchedTitle[];
+};
+
 export const api = new BackendService();
