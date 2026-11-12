@@ -394,22 +394,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       let errorMsg = "Signup failed";
       if (contentType.includes("application/json") && rawText) {
         try {
-          const parsed = JSON.parse(rawText);
-          if (parsed.message) {
-            errorMsg = parsed.message;
-          } else {
-            const parts: string[] = [];
-            Object.entries(parsed).forEach(([key, val]) => {
-              const messages = Array.isArray(val) ? val : [val];
-              const text = messages
-                .filter(Boolean)
-                .map((v) => (typeof v === "string" ? v : JSON.stringify(v)))
-                .join(", ");
-              parts.push(`${key}: ${text}`);
-            });
-            if (parts.length) errorMsg = parts.join(" | ");
-          }
-        } catch (e) {
+          const parsed = JSON.parse(rawText) as {
+            message?: string;
+            error?: string;
+            detail?: string;
+          };
+          errorMsg =
+            parsed.error ||
+            parsed.message ||
+            parsed.detail ||
+            `Signup failed (${response.status})`;
+        } catch {
           errorMsg = rawText || errorMsg;
         }
       } else {

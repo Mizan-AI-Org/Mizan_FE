@@ -598,7 +598,9 @@ export class BackendService {
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Signup failed");
+        throw new Error(
+          errorData.error || errorData.message || errorData.detail || "Signup failed",
+        );
       }
       return await response.json();
     } catch (error: any) {
