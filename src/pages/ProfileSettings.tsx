@@ -14,6 +14,9 @@ import {
 } from "@/components/settings/SettingsSection";
 
 import { API_BASE } from "@/lib/api";
+import { unwrapUser } from "@/lib/envelope";
+import { roleDisplayName } from "@/lib/roleDisplayName";
+import type { User } from "@/contexts/AuthContext.types";
 
 const ProfileSettings: React.FC = () => {
   const { user, updateUser } = useAuth() as AuthContextType;
@@ -53,13 +56,13 @@ const ProfileSettings: React.FC = () => {
     try {
       if (newPassword || confirmPassword || currentPassword) {
         if (!newPassword || !confirmPassword || !currentPassword) {
-          throw new Error("Please fill current, new, and confirm password.");
+          throw new Error(t("profile.errors.password_fields_required"));
         }
         if (newPassword !== confirmPassword) {
-          throw new Error("New password and confirmation do not match.");
+          throw new Error(t("profile.errors.password_mismatch"));
         }
         if (newPassword.length < 8) {
-          throw new Error("Password must be at least 8 characters.");
+          throw new Error(t("profile.errors.password_min_length"));
         }
       }
 
@@ -91,19 +94,36 @@ const ProfileSettings: React.FC = () => {
       try {
         responseData = await response.json();
       } catch {
-        throw new Error("Invalid response from server");
+        throw new Error(t("profile.errors.invalid_response"));
       }
 
       if (!response.ok) {
-        throw new Error(
-          responseData.detail || responseData.message || "Failed to update profile",
-        );
+        const serverMsg =
+          responseData.error ||
+          responseData.detail ||
+          responseData.message ||
+          t("profile.update_failed");
+        throw new Error(typeof serverMsg === "string" ? serverMsg : t("profile.update_failed"));
+      }
+
+      const updated = unwrapUser(responseData) as User;
+      const access =
+        responseData.access ||
+        responseData.tokens?.access ||
+        responseData.data?.access;
+      const refresh =
+        responseData.refresh ||
+        responseData.tokens?.refresh ||
+        responseData.data?.refresh;
+      if (access) {
+        localStorage.setItem("access_token", String(access));
+        if (refresh) localStorage.setItem("refresh_token", String(refresh));
       }
 
       if (typeof updateUser === "function") {
-        updateUser(responseData);
+        updateUser(updated);
       } else {
-        localStorage.setItem("user", JSON.stringify(responseData));
+        localStorage.setItem("user", JSON.stringify(updated));
       }
       toast({
         title: t("profile.updated_success"),
@@ -116,12 +136,18 @@ const ProfileSettings: React.FC = () => {
       setConfirmPassword("");
     } catch (error: unknown) {
       console.error("Profile update error:", error);
-      const message =
+      const raw =
         error instanceof Error
           ? error.message
           : typeof error === "string"
             ? error
-            : "An unexpected error occurred.";
+            : t("profile.errors.unexpected");
+      const serverMap: Record<string, string> = {
+        "Current password is incorrect.": t("profile.errors.wrong_current"),
+        "Please fill current, new, and confirm password.": t("profile.errors.password_fields_required"),
+        "New password and confirmation do not match.": t("profile.errors.password_mismatch"),
+      };
+      const message = serverMap[raw] || raw;
       toast({
         title: t("profile.update_failed"),
         description: message,
@@ -195,8 +221,8 @@ const ProfileSettings: React.FC = () => {
           <Label className="text-sm text-muted-foreground shrink-0">{t("profile.role")}</Label>
           <div className="inline-flex max-w-full items-center gap-2.5 rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/20 px-3.5 py-2">
             <ShieldAlert className="w-4 h-4 text-emerald-700 dark:text-emerald-300 shrink-0" />
-            <span className="text-sm font-semibold text-emerald-900 dark:text-emerald-200 uppercase tracking-wide">
-              {user?.role?.replace(/_/g, " ") || "N/A"}
+            <span className="text-sm font-semibold text-emerald-900 dark:text-emerald-200 tracking-wide">
+              {roleDisplayName(user?.role, t) || "—"}
             </span>
           </div>
         </div>

@@ -39,6 +39,8 @@ export interface SignupData {
         password: string;
         first_name: string;
         last_name: string;
+        /** E.164-style digits for WhatsApp (Miya, login codes, profile). */
+        whatsapp_phone?: string;
         phone?: string;
         pin_code?: string;
     };
@@ -65,7 +67,6 @@ export type ModuleKey =
     | "checklists"
     | "accountability"
     | "incidents"
-    | "food_safety"
     | "sales"
     | "reservations"
     | "inventory"

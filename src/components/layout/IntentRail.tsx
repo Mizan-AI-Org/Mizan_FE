@@ -46,7 +46,7 @@ type NavGroup = {
   children?: NavLeaf[];
 };
 
-const RAIL_EXPANDED = 232;
+const RAIL_EXPANDED = 248;
 const RAIL_COLLAPSED = 72;
 const ICON = "h-[22px] w-[22px]";
 
@@ -326,7 +326,7 @@ export function IntentRail({ className }: { className?: string }) {
                 <Icon className={ICON} />
                 {!collapsed ? (
                   <>
-                    <span className="min-w-0 flex-1 truncate">{label}</span>
+                    <span className="min-w-0 flex-1 line-clamp-2 text-start leading-snug">{label}</span>
                     <NavAttentionBadge count={leafBadge} />
                   </>
                 ) : (
@@ -361,7 +361,7 @@ export function IntentRail({ className }: { className?: string }) {
                 <Icon className={ICON} />
                 {!collapsed ? (
                   <>
-                    <span className="flex-1 text-start truncate">{label}</span>
+                    <span className="min-w-0 flex-1 text-start line-clamp-2 leading-snug">{label}</span>
                     {!expanded ? <NavAttentionBadge count={groupBadge} /> : null}
                     {expanded ? (
                       <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
@@ -399,7 +399,9 @@ export function IntentRail({ className }: { className?: string }) {
                         className={navChildItemClass(childActive)}
                         aria-current={childActive ? "page" : undefined}
                       >
-                        <span className="min-w-0 flex-1 truncate">{childLabel}</span>
+                        <span className="min-w-0 flex-1 text-start line-clamp-2 text-[13px] leading-snug">
+                          {childLabel}
+                        </span>
                         <NavAttentionBadge count={childBadge} />
                       </button>
                     );
@@ -582,7 +584,7 @@ export function MobileIntentDock() {
                     aria-current={active ? "page" : undefined}
                   >
                     <Icon className={ICON} />
-                    <span className="min-w-0 flex-1 truncate text-start">{label}</span>
+                    <span className="min-w-0 flex-1 text-start line-clamp-2 leading-snug">{label}</span>
                     <NavAttentionBadge count={leafBadge} />
                   </button>
                 );
@@ -600,7 +602,7 @@ export function MobileIntentDock() {
                     aria-expanded={expanded}
                   >
                     <Icon className={ICON} />
-                    <span className="flex-1 text-start truncate">{label}</span>
+                    <span className="min-w-0 flex-1 text-start line-clamp-2 leading-snug">{label}</span>
                     {!expanded ? <NavAttentionBadge count={groupBadge} /> : null}
                     {expanded ? <ChevronDown className="h-4 w-4 opacity-60" /> : <ChevronRight className="h-4 w-4 opacity-60" />}
                   </button>
@@ -620,7 +622,9 @@ export function MobileIntentDock() {
                             className={navChildItemClass(childActive)}
                             aria-current={childActive ? "page" : undefined}
                           >
-                            <span className="min-w-0 flex-1 truncate">{t(child.labelKey)}</span>
+                            <span className="min-w-0 flex-1 text-start line-clamp-2 text-[13px] leading-snug">
+                              {t(child.labelKey)}
+                            </span>
                             <NavAttentionBadge count={childBadge} />
                           </button>
                         );

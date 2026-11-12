@@ -74,7 +74,6 @@ export const MODULES: ModuleMeta[] = [
     bundle: "execution",
     routes: ["/dashboard/operations/incidents", "/dashboard/operational-issues"],
   },
-  { key: "food_safety", icon: Thermometer, bundle: "execution", routes: ["/dashboard/operations/food-safety"] },
   {
     key: "sales",
     icon: ShoppingCart,

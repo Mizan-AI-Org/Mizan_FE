@@ -201,8 +201,8 @@ function operationCell(
   const rawDetail = (item.description || "").trim();
   const detail =
     rawDetail &&
-    rawDetail !== title &&
-    !rawDetail.toLowerCase().startsWith(title.toLowerCase())
+      rawDetail !== title &&
+      !rawDetail.toLowerCase().startsWith(title.toLowerCase())
       ? rawDetail.split("\n")[0].trim()
       : null;
   return { title: title || "—", detail };
@@ -350,12 +350,12 @@ function OperationsLiveRow({
       <td className="px-4 py-3.5 text-[13px] text-foreground whitespace-nowrap">
         {item.to?.name
           ? formatPerson(
-              {
-                name: item.to.is_me ? "Me" : item.to.name,
-                role: item.to.role,
-              },
-              t,
-            )
+            {
+              name: item.to.is_me ? "Me" : item.to.name,
+              role: item.to.role,
+            },
+            t,
+          )
           : "-"}
       </td>
       <td className="px-4 py-3.5 whitespace-nowrap">
@@ -462,16 +462,16 @@ function OperationsLiveRow({
             )}
             {!isInvoice &&
               LIVE_OPS_PRIORITIES.map((priority) => (
-              <DropdownMenuItem
-                key={priority}
-                onClick={() => onPriorityChange(priority)}
-                disabled={toLiveOpsPriority(item.priority) === priority}
-              >
-                {t("operations_live.set_priority", {
-                  priority: dashboardTaskPriorityLabel(priority, t),
-                })}
-              </DropdownMenuItem>
-            ))}
+                <DropdownMenuItem
+                  key={priority}
+                  onClick={() => onPriorityChange(priority)}
+                  disabled={toLiveOpsPriority(item.priority) === priority}
+                >
+                  {t("operations_live.set_priority", {
+                    priority: dashboardTaskPriorityLabel(priority, t),
+                  })}
+                </DropdownMenuItem>
+              ))}
             {!isInvoice && moveTargets.map((target) => (
               <DropdownMenuItem
                 key={target}

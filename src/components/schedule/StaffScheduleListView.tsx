@@ -32,6 +32,7 @@ interface StaffScheduleListViewProps {
     staffMembers: StaffMember[];
     currentDate: Date;
     onCreateShift?: () => void;
+    onEditShift?: (shift: Shift) => void;
     isLoading?: boolean;
 }
 
@@ -40,6 +41,7 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
     staffMembers,
     currentDate,
     onCreateShift,
+    onEditShift,
     isLoading = false,
 }) => {
     const { t } = useLanguage();
@@ -181,8 +183,35 @@ export const StaffScheduleListView: React.FC<StaffScheduleListViewProps> = ({
                                     const singleStaffLabel = staffDisplayName(displayStaff);
                                     const roleLabel = (shift as Shift & { role?: string }).role || displayStaff?.role;
 
+                                    const openShift = () => onEditShift?.(shift);
+                                    const shiftSummary = [
+                                        (shift.title || "").trim() || singleStaffLabel,
+                                        `${formatTime(shift.start)} – ${formatTime(shift.end)}`,
+                                    ].join(" · ");
+
                                     return (
-                                        <Card key={`${shift.id}-${idx}`} className="group hover:shadow-md transition-all duration-300 border-gray-100 dark:border-slate-700 overflow-hidden rounded-xl">
+                                        <Card
+                                            key={`${shift.id}-${idx}`}
+                                            role={onEditShift ? "button" : undefined}
+                                            tabIndex={onEditShift ? 0 : undefined}
+                                            onClick={onEditShift ? openShift : undefined}
+                                            onKeyDown={
+                                                onEditShift
+                                                    ? (e) => {
+                                                        if (e.key === "Enter" || e.key === " ") {
+                                                            e.preventDefault();
+                                                            openShift();
+                                                        }
+                                                    }
+                                                    : undefined
+                                            }
+                                            title={onEditShift ? shiftSummary : undefined}
+                                            className={cn(
+                                                "group hover:shadow-md transition-all duration-300 border-gray-100 dark:border-slate-700 overflow-hidden rounded-xl",
+                                                onEditShift &&
+                                                    "cursor-pointer hover:border-green-200 dark:hover:border-green-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600/40 active:scale-[0.99]"
+                                            )}
+                                        >
                                             <CardContent className="p-0">
                                                 <div className="flex items-stretch min-h-0">
                                                     <div
