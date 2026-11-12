@@ -482,8 +482,10 @@ function AgentPanelBody({
   onVoiceHoldStart,
   onVoiceHoldEnd,
   files,
+  onQuickReply,
 }: {
   files: ComposerFiles;
+  onQuickReply?: (reply: MastraQuickReply) => void;
   messages: MastraChatMessage[];
   loading: boolean;
   scrollRef: React.RefObject<HTMLDivElement | null>;
