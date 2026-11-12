@@ -211,9 +211,10 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
             end: `${String(hour + 1).padStart(2, '0')}:00`,
             date: toYMD(targetDate),
             day: dayIndex,
-            staffId: staffMembers[0]?.id || "",
+            staffId: "",
+            staff_members: [],
             color: "#6b7280",
-            tasks: []
+            tasks: [],
         });
     };
 
@@ -293,7 +294,8 @@ export const WeeklyTimeGridView: React.FC<WeeklyTimeGridViewProps> = ({
             end: `${String(endHour).padStart(2, '0')}:00`,
             date: toYMD(base),
             day: dragStart.day,
-            staffId: staffMembers[0]?.id || "",
+            staffId: "",
+            staff_members: [],
             color: "#6b7280",
             tasks: [],
         });

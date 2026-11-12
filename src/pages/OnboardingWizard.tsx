@@ -1120,11 +1120,8 @@ const IndustryStep: React.FC<{
     return (
         <StepShell
             icon={<Building2 className="h-6 w-6" />}
-            title={t("onboarding.industry.title", "What kind of business is this?")}
-            subtitle={t(
-                "onboarding.industry.subtitle",
-                "We'll turn on the automations that fit. One tap to confirm — you can change this later in Settings.",
-            )}
+            title={t("auth.signup.sector_label")}
+            subtitle={t("auth.signup.sector_hint")}
             alreadyDoneBadge={status.steps.industry}
             optional
         >

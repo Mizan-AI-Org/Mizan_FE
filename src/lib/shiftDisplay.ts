@@ -71,3 +71,10 @@ export function displayShiftTitle(shift: ShiftTitleSource): string {
   if (LEGACY_ADHOC.test(raw)) return "Process checklist";
   return raw.replace(/\(\s*Processes\s*&\s*Tasks\s*\)\.?$/i, "").trim() || "Process checklist";
 }
+
+/** Saved shift from the API (not an in-modal draft from the grid or Create button). */
+export function isPersistedShift(shift: { id?: string } | null | undefined): boolean {
+  if (!shift?.id) return false;
+  const id = String(shift.id);
+  return !id.startsWith("temp-");
+}

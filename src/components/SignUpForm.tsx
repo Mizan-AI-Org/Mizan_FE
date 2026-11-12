@@ -1,20 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
-import { ArrowRight, Loader2, User, Mail, Lock, Building2 } from "lucide-react";
+import { ArrowRight, Loader2, User, Mail, Lock, Building2, MessageCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "@/hooks/use-language";
-import type { ModuleKey, SignupData } from "@/lib/types";
-import { api } from "@/lib/api";
-import { recommendedModules } from "@/config/modules";
-import {
-  DEFAULT_BUSINESS_VERTICAL,
-  SIGNUP_SECTOR_OPTIONS,
-  type BusinessVertical,
-} from "@/config/staffInviteRolesByVertical";
+import type { SignupData } from "@/lib/types";
 import { authFieldClass } from "./AuthAmbientBackground";
 
 interface SignUpFormProps {
@@ -26,27 +19,9 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [sector, setSector] = useState<BusinessVertical>(DEFAULT_BUSINESS_VERTICAL);
-  const [modules, setModules] = useState<ModuleKey[]>(() => recommendedModules(DEFAULT_BUSINESS_VERTICAL));
   const { toast } = useToast();
   const { t } = useLanguage();
   const auth = useAuth();
-
-  // Suggested modules follow the sector. The owner tailors them in the in-app setup wizard.
-  useEffect(() => {
-    let cancelled = false;
-    setModules(recommendedModules(sector));
-    api
-      .getModuleCatalog(sector)
-      .then((res) => {
-        if (cancelled || !Array.isArray(res.recommended)) return;
-        setModules(res.recommended);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [sector]);
 
   const handleOwnerSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -63,6 +38,12 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
     }
     const fullName = (formData.get("fullName") as string).trim();
     const email = (formData.get("email") as string).trim();
+    const whatsappPhone = (formData.get("whatsappPhone") as string).trim();
+    const waDigits = whatsappPhone.replace(/\D/g, "");
+    if (!waDigits || waDigits.length < 8) {
+      setError(t("auth.signup.errors.whatsapp_invalid"));
+      return;
+    }
     const nameParts = fullName.split(" ");
     const signupData: SignupData = {
       user: {
@@ -70,14 +51,14 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
         password,
         first_name: nameParts[0],
         last_name: nameParts.slice(1).join(" ") || "User",
+        whatsapp_phone: whatsappPhone,
+        phone: whatsappPhone,
       },
       restaurant: {
         name: (formData.get("businessName") as string).trim(),
         address: "",
         phone: "",
         email,
-        business_vertical: sector,
-        modules,
       },
     };
 
@@ -109,6 +90,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
       <div className="mb-6 space-y-3">
         <h2 className="text-2xl font-bold text-white">{t("auth.signup.title")}</h2>
         <p className="text-sm text-[#B0BEC5]">{t("auth.signup.subtitle")}</p>
+        <p className="text-[11px] leading-snug text-[#78909C]">{t("auth.signup.sector_onboarding_hint")}</p>
       </div>
 
       <form onSubmit={handleOwnerSignUp} className="space-y-4">
@@ -127,34 +109,6 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
                 className={`h-11 pl-9 text-sm ${authFieldClass}`}
               />
             </div>
-          </div>
-
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="businessVertical" className="text-sm text-white">
-              {t("auth.signup.sector_label")}
-            </Label>
-            <p id="sector-hint" className="text-[11px] leading-snug text-[#78909C]">
-              {t("auth.signup.sector_hint")}
-            </p>
-            <select
-              id="businessVertical"
-              name="businessVertical"
-              value={sector}
-              onChange={(e) => setSector(e.target.value as BusinessVertical)}
-              aria-describedby="sector-hint"
-              className={`h-11 w-full px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#00E676]/40 ${authFieldClass}`}
-            >
-              {SIGNUP_SECTOR_OPTIONS.map((opt) => (
-                <option
-                  key={opt.value}
-                  value={opt.value}
-                  title={t(opt.taglineKey)}
-                  className="bg-[#0A0D10] text-white"
-                >
-                  {opt.emoji} {t(opt.nameKey)}
-                </option>
-              ))}
-            </select>
           </div>
 
           <div className="space-y-2 sm:col-span-2">
@@ -187,6 +141,37 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
                 required
                 className={`h-11 pl-9 text-sm ${authFieldClass}`}
               />
+            </div>
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <div className="rounded-xl border border-[#00E676]/25 bg-gradient-to-br from-[#00E676]/[0.07] to-transparent p-4 shadow-[inset_0_1px_0_rgba(0,230,118,0.12)]">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <Label htmlFor="signup-whatsapp" className="text-sm font-semibold text-white">
+                  {t("auth.signup.whatsapp")}
+                </Label>
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#00E676]/30 bg-[#00E676]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#00E676]">
+                  <MessageCircle className="h-3 w-3" aria-hidden />
+                  WhatsApp
+                </span>
+              </div>
+              <p id="signup-whatsapp-hint" className="mb-3 text-[11px] leading-snug text-[#78909C]">
+                {t("auth.signup.whatsapp_hint")}
+              </p>
+              <div className="group relative">
+                <MessageCircle className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#00E676]/70 transition-colors group-focus-within:text-[#00E676]" />
+                <Input
+                  id="signup-whatsapp"
+                  name="whatsappPhone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder={t("auth.signup.whatsapp_placeholder")}
+                  required
+                  aria-describedby="signup-whatsapp-hint"
+                  className={`h-11 pl-10 text-sm ${authFieldClass} border-[#00E676]/20 focus-visible:ring-[#00E676]/40`}
+                />
+              </div>
             </div>
           </div>
 
@@ -258,3 +243,5 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
     </div>
   );
 };
+
+export default SignUpForm;
