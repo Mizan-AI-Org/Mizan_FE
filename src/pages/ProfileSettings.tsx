@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { User, Phone, ShieldAlert, Lock, Save, Loader2 } from "lucide-react";
+import { User as UserIcon, Phone, ShieldAlert, Lock, Save, Loader2 } from "lucide-react";
 import {
   SettingsSection,
   SettingsStickyActions,
@@ -106,7 +106,7 @@ const ProfileSettings: React.FC = () => {
         throw new Error(typeof serverMsg === "string" ? serverMsg : t("profile.update_failed"));
       }
 
-      const updated = unwrapUser(responseData) as User;
+      const updated = unwrapUser(responseData) as unknown as User;
       const access =
         responseData.access ||
         responseData.tokens?.access ||
@@ -161,7 +161,7 @@ const ProfileSettings: React.FC = () => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <SettingsSection
-        icon={<User className="h-5 w-5" />}
+        icon={<UserIcon className="h-5 w-5" />}
         iconClassName="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
         title={t("profile.section_personal")}
         description={t("profile.section_contact_desc")}
