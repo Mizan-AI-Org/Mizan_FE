@@ -61,7 +61,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 
-import { API_BASE, api } from "@/lib/api";
+import { API_BASE, api, type JobTitleReport } from "@/lib/api";
+import { UnmatchedTitlesPanel } from "@/components/staff/JobTitlesPanel";
 import { CATEGORY_OWNER_GROUPS } from "@/lib/categoryOwners";
 import { CategoryOwnerPicker } from "@/components/settings/CategoryOwnerPicker";
 import { fetchStaffRosterCount } from "@/lib/staffPicker";
@@ -244,6 +245,12 @@ const HEADER_ALIASES: Record<string, keyof ParsedStaffRow | "skip"> = {
     position: "role",
     job: "role",
     poste: "role",
+    title: "role",
+    "job title": "role",
+    fonction: "role",
+    "métier": "role",
+    metier: "role",
+    "الوظيفة": "role",
 };
 
 function normalizeHeader(h: string): keyof ParsedStaffRow | "skip" {
@@ -1305,6 +1312,8 @@ const StaffCsvStep: React.FC<{
     const [rows, setRows] = useState<ParsedStaffRow[]>([]);
     const [errors, setErrors] = useState<string[]>([]);
     const [fileName, setFileName] = useState<string | null>(null);
+    // Job titles the backend didn't recognise / roles lowered: asked here before moving on.
+    const [titleReport, setTitleReport] = useState<JobTitleReport | null>(null);
     const [dragging, setDragging] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -1346,9 +1355,9 @@ const StaffCsvStep: React.FC<{
                     body.detail || body.error || t("onboarding.staff.err.upload"),
                 );
             }
-            return res.json();
+            return (await res.json()) as JobTitleReport;
         },
-        onSuccess: async () => {
+        onSuccess: async (data) => {
             const count = rows.length;
             toast.success(
                 t("onboarding.staff.saved", {
@@ -1356,6 +1365,10 @@ const StaffCsvStep: React.FC<{
                     count,
                 }),
             );
+            if (data?.unmatchedTitles?.length || data?.rolesLowered?.length) {
+                setTitleReport({ unmatchedTitles: data.unmatchedTitles ?? [], rolesLowered: data.rolesLowered ?? [] });
+                return;
+            }
             await onSaved();
         },
         onError: (err: unknown) => {
@@ -1530,6 +1543,30 @@ const StaffCsvStep: React.FC<{
                 </div>
             )}
 
+            {titleReport && (
+                <UnmatchedTitlesPanel
+                    unmatched={titleReport.unmatchedTitles}
+                    lowered={titleReport.rolesLowered}
+                    onApplied={(title) =>
+                        setTitleReport((r) => r && {
+                            ...r,
+                            unmatchedTitles: (r.unmatchedTitles ?? []).filter((u) => u.title !== title),
+                        })
+                    }
+                />
+            )}
+
+            {titleReport ? (
+                <StepActions>
+                    <Button
+                        onClick={() => void onSaved()}
+                        className="gap-2 bg-emerald-500 hover:bg-emerald-600"
+                    >
+                        <ArrowRight className="h-4 w-4" />
+                        {t("onboarding.continue", "Continue")}
+                    </Button>
+                </StepActions>
+            ) : (
             <StepActions>
                 <Button variant="ghost" onClick={onSkip} disabled={upload.isPending}>
                     {t("onboarding.skip_step", "Skip for now")}
@@ -1550,6 +1587,7 @@ const StaffCsvStep: React.FC<{
                     })}
                 </Button>
             </StepActions>
+            )}
         </StepShell>
     );
 };

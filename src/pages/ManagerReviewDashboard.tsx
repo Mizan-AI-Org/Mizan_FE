@@ -26,6 +26,7 @@ import {
   Bar,
 } from "recharts";
 import { Textarea } from "@/components/ui/textarea";
+import IncidentAgencyStatus from "@/components/agency/IncidentAgencyStatus";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -2227,6 +2228,7 @@ const ManagerReviewDashboard: React.FC = () => {
                       <p className="line-clamp-6 whitespace-pre-wrap text-slate-700 dark:text-slate-200">
                         {incidentDetail.description || "No description provided."}
                       </p>
+                      <IncidentAgencyStatus incidentId={String(incidentDetail.id || selectedIncident || "")} />
                     </div>
                   </div>
 

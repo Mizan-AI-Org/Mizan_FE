@@ -33,6 +33,7 @@ import {
   uploadAgentFiles,
   type AgentFile,
   type MastraChatMessage,
+  type MastraQuickReply,
 } from "@/lib/mastraApi";
 import { toast } from "sonner";
 
@@ -94,14 +95,18 @@ function TypingIndicator() {
   );
 }
 
+const AFTER_SWITCH_KEY = "mizan:agent-send-after-switch";
+
 function ChatMessages({
   messages,
   loading,
   scrollRef,
+  onQuickReply,
 }: {
   messages: MastraChatMessage[];
   loading: boolean;
   scrollRef: React.RefObject<HTMLDivElement | null>;
+  onQuickReply?: (reply: MastraQuickReply) => void;
 }) {
   const { t, language } = useLanguage();
 
@@ -168,6 +173,21 @@ function ChatMessages({
                   )}
                 >
                   <span className="pe-14">{sanitizeMiyaText(msg.content)}</span>
+                  {msg.quickReplies?.length && index === messages.length - 1 ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {msg.quickReplies.map((reply) => (
+                        <button
+                          key={`${reply.action}-${reply.label}`}
+                          type="button"
+                          disabled={loading}
+                          onClick={() => onQuickReply?.(reply)}
+                          className="rounded-full border border-primary/40 bg-background px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
+                        >
+                          {reply.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                   {msg.replyAudio ? (
                     <audio
                       controls
@@ -210,8 +230,10 @@ function ChatComposer({
   onVoiceHoldStart,
   onVoiceHoldEnd,
   files,
+  onQuickReply,
 }: {
   files: ComposerFiles;
+  onQuickReply?: (reply: MastraQuickReply) => void;
   input: string;
   setInput: (v: string) => void;
   loading: boolean;
@@ -460,8 +482,10 @@ function AgentPanelBody({
   onVoiceHoldStart,
   onVoiceHoldEnd,
   files,
+  onQuickReply,
 }: {
   files: ComposerFiles;
+  onQuickReply?: (reply: MastraQuickReply) => void;
   messages: MastraChatMessage[];
   loading: boolean;
   scrollRef: React.RefObject<HTMLDivElement | null>;
@@ -483,7 +507,7 @@ function AgentPanelBody({
         onNewConversation={onNewConversation}
         signalBadge={signalBadge}
       />
-      <ChatMessages messages={messages} loading={loading} scrollRef={scrollRef} />
+      <ChatMessages messages={messages} loading={loading} scrollRef={scrollRef} onQuickReply={onQuickReply} />
       <ChatComposer
         input={input}
         setInput={setInput}
@@ -550,7 +574,7 @@ function AgentCollapsedRail({
 
 export const AgentChatPanel: React.FC = () => {
   const { t, language } = useLanguage();
-  const { user } = useAuth();
+  const { user, switchBusiness } = useAuth();
   const queryClient = useQueryClient();
   const canUseWebAgent = isWebAgentRole(user?.role);
   const panel = useAgentPanelOptional();
@@ -565,7 +589,7 @@ export const AgentChatPanel: React.FC = () => {
   const [historyReady, setHistoryReady] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const sendTextRef = useRef<(rawText: string, options?: { fromVoice?: boolean }) => void>(
+  const sendTextRef = useRef<(rawText: string, options?: { fromVoice?: boolean; businessConfirmed?: boolean }) => void>(
     () => undefined,
   );
 
@@ -666,7 +690,7 @@ export const AgentChatPanel: React.FC = () => {
   }, [panel?.prefill, panel]);
 
   const sendText = useCallback(
-    async (rawText: string, options?: { fromVoice?: boolean }) => {
+    async (rawText: string, options?: { fromVoice?: boolean; businessConfirmed?: boolean }) => {
       const typed = rawText.trim();
       const files = attached;
       if ((!typed && !files.length) || loading || uploading) return;
@@ -702,6 +726,7 @@ export const AgentChatPanel: React.FC = () => {
           draftId,
           inputMode: fromVoice ? "voice" : "text",
           attachments: files.map((f) => f.id),
+          businessConfirmed: options?.businessConfirmed,
         });
 
         if (userId) {
@@ -754,6 +779,7 @@ export const AgentChatPanel: React.FC = () => {
             content: reply,
             createdAt: Date.now(),
             replyAudio,
+            quickReplies: result.quickReplies?.length ? result.quickReplies : undefined,
           },
         ]);
       } catch {
@@ -776,6 +802,19 @@ export const AgentChatPanel: React.FC = () => {
   sendTextRef.current = (rawText, options) => {
     void sendText(rawText, options);
   };
+
+  // Sent from another business with "Switch to … and send": send it here once, after the reload.
+  useEffect(() => {
+    if (!userId) return;
+    let pending = "";
+    try {
+      pending = localStorage.getItem(AFTER_SWITCH_KEY) || "";
+      localStorage.removeItem(AFTER_SWITCH_KEY);
+    } catch {
+      pending = "";
+    }
+    if (pending) sendTextRef.current(pending, { businessConfirmed: true });
+  }, [userId]);
 
   const {
     voiceState,
@@ -852,7 +891,22 @@ export const AgentChatPanel: React.FC = () => {
   const handleClose = () => setOpen(false);
   const handleSend = () => void sendMessage();
 
+  const handleQuickReply = (reply: MastraQuickReply) => {
+    if (reply.action === "switch_business" && reply.userId) {
+      // Another business this person runs: open it, then send the message there (picked up after the reload).
+      try {
+        localStorage.setItem(AFTER_SWITCH_KEY, reply.message);
+      } catch {
+        // the switch still happens; they retype the question
+      }
+      switchBusiness(reply.userId).catch((e: Error) => toast.error(e.message));
+      return;
+    }
+    void sendText(reply.message, { businessConfirmed: !!reply.businessConfirmed });
+  };
+
   const panelBodyProps = {
+    onQuickReply: handleQuickReply,
     messages,
     loading,
     scrollRef,

@@ -1,5 +1,6 @@
 import React from "react";
-import { LogOut } from "lucide-react";
+import { Check, LogOut, Store } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -74,7 +75,9 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
   subtitle,
   onLogout,
 }) => {
-  const { user: authUser, logout } = useAuth() as AuthContextType;
+  const { user: authUser, logout, switchBusiness } = useAuth() as AuthContextType;
+  // One person, several businesses: the ones they can open on the web (staff accounts are WhatsApp-only).
+  const businesses = userOverride ? [] : (authUser?.businesses || []).filter((b) => b.web || b.current);
   const { t } = useLanguage();
   const user = (userOverride ?? authUser) as AvatarMenuUser | null | undefined;
 
@@ -163,6 +166,29 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
             <p className="mt-1 text-xs text-muted-foreground">{restaurantLabel}</p>
           )}
         </div>
+        {businesses.length > 1 ? (
+          <>
+            <DropdownMenuSeparator />
+            <p className="px-4 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              {t("businesses.title")}
+            </p>
+            {businesses.map((b) => (
+              <DropdownMenuItem
+                key={b.userId}
+                disabled={b.current}
+                onClick={() => {
+                  if (!b.current) {
+                    switchBusiness(b.userId).catch((e: Error) => toast.error(e.message));
+                  }
+                }}
+              >
+                <Store className="mr-2 h-4 w-4" />
+                <span className="flex-1 truncate">{b.name}</span>
+                {b.current ? <Check className="ml-2 h-4 w-4 text-emerald-600" /> : null}
+              </DropdownMenuItem>
+            ))}
+          </>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={handleLogout}

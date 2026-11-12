@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import TenantModuleBilling from "@/components/platform-admin/TenantModuleBilling";
+import TenantAgencyStatus from "@/components/platform-admin/TenantAgencyStatus";
 import { platformApi } from "@/lib/platformApi";
 import { Loader2, LogIn } from "lucide-react";
 import OpsBackNav from "@/components/platform-admin/OpsBackNav";
@@ -239,6 +240,7 @@ export default function TenantDetailPage() {
       </div>
 
       <TenantModuleBilling restaurantId={id} />
+      <TenantAgencyStatus tenantId={id} restaurantType={data?.restaurant_type} />
 
       {(data.locations || []).length > 0 ? (
         <section className={`${opsCard} p-5`}>
