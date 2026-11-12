@@ -72,6 +72,7 @@ import {
   settingsFieldClassName,
   settingsSelectClassName,
 } from "@/components/settings/SettingsSection";
+import { JobTitlesSettings } from "@/components/staff/JobTitlesPanel";
 import { SettingsNav, type SettingsNavItem } from "@/components/settings/SettingsNav";
 import { SETTINGS_PAGE_SHELL_PADDED } from "@/lib/page-shell";
 import { HUB_TABS_TRIGGER } from "@/lib/mizan-ui";
@@ -1054,6 +1055,8 @@ function Settings() {
                       {t("settings.general.custom_staff_roles_add")}
                     </Button>
                   </div>
+
+                  <JobTitlesSettings />
                 </div>
             </SettingsSection>
 
