@@ -9,6 +9,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "@/hooks/use-language";
 import type { ModuleKey, SignupData } from "@/lib/types";
 import { api } from "@/lib/api";
+import { normalizeAppLanguage } from "@/lib/userLanguage";
 import { recommendedModules } from "@/config/modules";
 import {
   DEFAULT_BUSINESS_VERTICAL,
@@ -29,7 +30,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
   const [sector, setSector] = useState<BusinessVertical>(DEFAULT_BUSINESS_VERTICAL);
   const [modules, setModules] = useState<ModuleKey[]>(() => recommendedModules(DEFAULT_BUSINESS_VERTICAL));
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const auth = useAuth();
 
   // Suggested modules follow the sector. The owner tailors them in the in-app setup wizard.
@@ -65,6 +66,8 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
     const email = (formData.get("email") as string).trim();
     const nameParts = fullName.split(" ");
     const signupData: SignupData = {
+      // The language on the signup page is the owner's (and the business's) from the first screen on.
+      language: normalizeAppLanguage(language) ?? "en",
       user: {
         email,
         password,

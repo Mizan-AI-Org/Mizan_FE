@@ -5953,5 +5953,12 @@
   "agency.badge.with": "With {{agency}}",
   "agency.badge.cancel": "Call off",
   "agency.badge.cancelled": "Agency job called off",
-  "businesses.title": "Your businesses"
+  "businesses.title": "Your businesses",
+  "language.switch.label": "Language",
+  "settings.language.mine": "My language",
+  "settings.language.mine_hint": "Your own language for the dashboard, Miya and your WhatsApp messages. Only affects you.",
+  "settings.language.business": "Business default language",
+  "settings.language.business_hint": "Used for team members who haven't chosen their own language, and for new staff.",
+  "settings.language.business_saved": "Business default language saved",
+  "settings.language.save_error": "Could not save your language. Try again."
 }

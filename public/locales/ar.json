@@ -5953,5 +5953,12 @@
   "agency.badge.with": "عند {{agency}}",
   "agency.badge.cancel": "لغي التدخل",
   "agency.badge.cancelled": "تلغى التدخل",
-  "businesses.title": "المؤسسات ديالك"
+  "businesses.title": "المؤسسات ديالك",
+  "language.switch.label": "اللغة",
+  "settings.language.mine": "لغتي",
+  "settings.language.mine_hint": "لغتك الخاصة للوحة التحكم وميا ورسائل واتساب. تخصك أنت فقط.",
+  "settings.language.business": "اللغة الافتراضية للنشاط التجاري",
+  "settings.language.business_hint": "تُستخدم لأعضاء الفريق الذين لم يختاروا لغتهم، وللموظفين الجدد.",
+  "settings.language.business_saved": "تم حفظ اللغة الافتراضية للنشاط التجاري",
+  "settings.language.save_error": "تعذّر حفظ لغتك. حاول مرة أخرى."
 }
