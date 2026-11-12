@@ -167,7 +167,8 @@ function Settings() {
   const { t } = useLanguage();
   // The person's own language (the app, Miya, WhatsApp) vs. the business default for everyone who hasn't chosen.
   const { language, changeLanguage: changeMyLanguage, saving: savingMyLanguage } = useMyLanguage();
-  const { updateUser } = useAuth();
+  const { user: authUser, updateUser } = useAuth();
+  const followingBusinessLanguage = authUser?.language_chosen === false;
   const [businessLanguage, setBusinessLanguage] = useState<Language>("en");
   const [savingBusinessLanguage, setSavingBusinessLanguage] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -797,13 +798,11 @@ function Settings() {
   const persistBusinessLanguage = async (lng: Language) => {
     // Business default for everyone who hasn't picked their own; saved at once, without the full Save.
     const previous = businessLanguage;
-    const mine = language;
     setBusinessLanguage(lng);
     setSavingBusinessLanguage(true);
     try {
-      let updated = await api.updateMyLanguage({ language: lng, business: true });
-      // The endpoint also sets the caller's own language: keep the person's own choice when it differs.
-      if (mine !== lng) updated = await api.updateMyLanguage({ language: mine });
+      // businessOnly: the person's own language (and Miya's) stays as it is.
+      const updated = await api.updateMyLanguage({ language: lng, businessOnly: true });
       if (updated) updateUser(updated);
       toast.success(t("settings.language.business_saved"));
     } catch (error) {
@@ -829,7 +828,9 @@ function Settings() {
         <option value="fr">Français</option>
         <option value="ar">العربية</option>
       </select>
-      <p className="text-[11px] text-slate-500 dark:text-slate-400">{t("settings.language.mine_hint")}</p>
+      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+        {followingBusinessLanguage ? t("settings.language.following_business") : t("settings.language.mine_hint")}
+      </p>
     </div>
   );
 

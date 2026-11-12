@@ -5960,5 +5960,6 @@
   "settings.language.business": "Langue par défaut de l'entreprise",
   "settings.language.business_hint": "Utilisée pour les membres de l'équipe qui n'ont pas choisi leur langue, et pour les nouveaux employés.",
   "settings.language.business_saved": "Langue par défaut de l'entreprise enregistrée",
-  "settings.language.save_error": "Impossible d'enregistrer votre langue. Réessayez."
+  "settings.language.save_error": "Impossible d'enregistrer votre langue. Réessayez.",
+  "settings.language.following_business": "Suit la langue de l'entreprise. Choisissez-en une pour en faire la vôtre."
 }

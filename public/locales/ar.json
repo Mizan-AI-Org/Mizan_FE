@@ -5960,5 +5960,6 @@
   "settings.language.business": "اللغة الافتراضية للنشاط التجاري",
   "settings.language.business_hint": "تُستخدم لأعضاء الفريق الذين لم يختاروا لغتهم، وللموظفين الجدد.",
   "settings.language.business_saved": "تم حفظ اللغة الافتراضية للنشاط التجاري",
-  "settings.language.save_error": "تعذّر حفظ لغتك. حاول مرة أخرى."
+  "settings.language.save_error": "تعذّر حفظ لغتك. حاول مرة أخرى.",
+  "settings.language.following_business": "تتبع لغة النشاط التجاري. اختر لغة لتصبح لغتك الخاصة."
 }

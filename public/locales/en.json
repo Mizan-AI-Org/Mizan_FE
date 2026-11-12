@@ -5960,5 +5960,6 @@
   "settings.language.business": "Business default language",
   "settings.language.business_hint": "Used for team members who haven't chosen their own language, and for new staff.",
   "settings.language.business_saved": "Business default language saved",
-  "settings.language.save_error": "Could not save your language. Try again."
+  "settings.language.save_error": "Could not save your language. Try again.",
+  "settings.language.following_business": "Following the business language. Pick one to make it your own."
 }

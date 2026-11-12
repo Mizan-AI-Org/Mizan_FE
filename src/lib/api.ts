@@ -411,8 +411,11 @@ export async function authFetch(input: string, init: RequestInit = {}): Promise<
   return response;
 }
 
-/** PATCH /auth/me/language/ body. business=true also makes it the business default (owners / settings managers). */
-export type UpdateMyLanguageInput = { language: "en" | "fr" | "ar"; business?: boolean };
+/**
+ * PATCH /auth/me/language/ body. business=true also makes it the business default (owners / settings managers);
+ * businessOnly=true changes only the business default (the person's own language stays; 403 without settings rights).
+ */
+export type UpdateMyLanguageInput = { language: "en" | "fr" | "ar"; business?: boolean; businessOnly?: boolean };
 
 export class BackendService {
   [x: string]: any;
