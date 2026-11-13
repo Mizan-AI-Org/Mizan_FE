@@ -22,6 +22,7 @@ import { isImpersonating } from "@/lib/impersonation";
 import { useAgentRailGutter } from "@/hooks/use-agent-rail";
 import { ModuleGate } from "@/components/layout/ModuleGate";
 import { BillingBanner } from "@/components/layout/BillingBanner";
+import { WhatsAppVerifyBanner } from "./WhatsAppVerifyBanner";
 import { BranchSwitcher } from "@/components/layout/BranchSwitcher";
 import { BranchScopeProvider } from "@/contexts/BranchScopeContext";
 
@@ -132,6 +133,7 @@ const DashboardLayoutInner: React.FC = () => {
               id="mizan-main"
               className="mizan-app-main min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pb-20 lg:pb-6"
             >
+              <WhatsAppVerifyBanner />
               <BillingBanner />
               <ModuleGate>
                 <Outlet />
