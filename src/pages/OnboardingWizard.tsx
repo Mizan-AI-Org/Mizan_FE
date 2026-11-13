@@ -75,6 +75,7 @@ import {
     WIDGET_ADD_ICONS,
     type DashboardWidgetId,
 } from "@/pages/dashboard/DashboardWidgets";
+import BusinessSetupStep from "@/components/onboarding/BusinessSetupStep";
 import { SectorPicker } from "@/components/onboarding/SectorPicker";
 import { ModulePicker } from "@/components/onboarding/ModulePicker";
 import { recommendedModules } from "@/config/modules";
@@ -99,13 +100,15 @@ type BackendStep =
     | "category_owners"
     | "google_calendar";
 
-type WizardStep = "welcome" | BackendStep | "modules" | "done";
+type WizardStep = "welcome" | BackendStep | "modules" | "business" | "done";
 
 const MODULES_DONE_KEY = "mizan.onboarding.modules";
+const BUSINESS_DONE_KEY = "mizan.onboarding.business";
 
 const WIZARD_ORDER: WizardStep[] = [
     "welcome",
     "industry",
+    "business",
     "modules",
     "staff_csv",
     "widgets",
@@ -258,12 +261,14 @@ function normalizeHeader(h: string): keyof ParsedStaffRow | "skip" {
     return HEADER_ALIASES[clean] ?? "skip";
 }
 
-function parseStaffCsv(text: string): {
+type CsvT = (key: string, opts?: Record<string, unknown>) => string;
+
+function parseStaffCsv(text: string, t: CsvT): {
     rows: ParsedStaffRow[];
     errors: string[];
 } {
     const raw = parseCsv(text);
-    if (raw.length === 0) return { rows: [], errors: ["Empty file."] };
+    if (raw.length === 0) return { rows: [], errors: [t("onboarding.csv.err_empty")] };
     const [header, ...body] = raw;
     const mapping = header.map(normalizeHeader);
     const rows: ParsedStaffRow[] = [];
@@ -288,11 +293,11 @@ function parseStaffCsv(text: string): {
         });
         if (!first_name && !last_name && !phone && !email) return;
         if (!first_name && !last_name) {
-            errors.push(`Row ${idx + 2}: missing first/last name.`);
+            errors.push(t("onboarding.csv.err_name", { row: idx + 2 }));
             return;
         }
         if (!phone && !email) {
-            errors.push(`Row ${idx + 2}: needs phone or email.`);
+            errors.push(t("onboarding.csv.err_contact", { row: idx + 2 }));
             return;
         }
         rows.push({
@@ -393,6 +398,28 @@ const OnboardingWizard: React.FC = () => {
         staleTime: 30_000,
     });
 
+    /* Google Calendar only appears when the server has OAuth set up (otherwise Connect would just fail with a 501). */
+    const { data: calendarInfo } = useQuery<{ configured?: boolean }>({
+        queryKey: ["onboarding-gcal-configured"],
+        queryFn: async () => {
+            const res = await fetch(`${API_BASE}/integrations/google-calendar/`, { headers: authHeaders() });
+            if (!res.ok) return { configured: false };
+            return res.json();
+        },
+        enabled: !!user,
+        staleTime: 5 * 60_000,
+    });
+    const calendarAvailable = calendarInfo?.configured === true;
+    const wizardOrder = useMemo(
+        () => WIZARD_ORDER.filter((s) => s !== "google_calendar" || calendarAvailable),
+        [calendarAvailable],
+    );
+
+    /* Reached (e.g. by resume) while the server has no Google OAuth: skip past it. */
+    useEffect(() => {
+        if (step === "google_calendar" && calendarInfo && !calendarAvailable) setStep("done");
+    }, [step, calendarInfo, calendarAvailable]);
+
     /* -------------------------- Step navigation ------------------------- */
 
     const goTo = useCallback((next: WizardStep) => {
@@ -401,16 +428,16 @@ const OnboardingWizard: React.FC = () => {
     }, []);
 
     const goNext = useCallback(() => {
-        const idx = WIZARD_ORDER.indexOf(step);
-        const next = WIZARD_ORDER[idx + 1];
+        const idx = wizardOrder.indexOf(step);
+        const next = wizardOrder[idx + 1];
         if (next) goTo(next);
-    }, [step, goTo]);
+    }, [step, goTo, wizardOrder]);
 
     const goBack = useCallback(() => {
-        const idx = WIZARD_ORDER.indexOf(step);
-        const prev = WIZARD_ORDER[idx - 1];
+        const idx = wizardOrder.indexOf(step);
+        const prev = wizardOrder[idx - 1];
         if (prev) goTo(prev);
-    }, [step, goTo]);
+    }, [step, goTo, wizardOrder]);
 
     /* On first load, resume at next_step or welcome. */
     const didAutoResume = useRef(false);
@@ -427,8 +454,15 @@ const OnboardingWizard: React.FC = () => {
             if (started) {
                 const next = status.next_step as WizardStep;
                 const modulesDone = localStorage.getItem(MODULES_DONE_KEY) === "1";
+                const businessDone = localStorage.getItem(BUSINESS_DONE_KEY) === "1";
                 const pastIndustry = next !== "industry";
-                goTo(!modulesDone && pastIndustry ? "modules" : next);
+                goTo(
+                    !businessDone && pastIndustry
+                        ? "business"
+                        : !modulesDone && pastIndustry
+                          ? "modules"
+                          : next,
+                );
             }
         }
     }, [status, step, goTo]);
@@ -511,7 +545,7 @@ const OnboardingWizard: React.FC = () => {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-emerald-50/60 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950/20 gap-4">
                 <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-                <p className="text-sm text-slate-400 dark:text-slate-500 animate-pulse">Loading your setup...</p>
+                <p className="text-sm text-slate-400 dark:text-slate-500 animate-pulse">{t("onboarding.loading", "Loading your setup...")}</p>
             </div>
         );
     }
@@ -534,8 +568,8 @@ const OnboardingWizard: React.FC = () => {
     const requiredTotal = status.required_steps.length;
     const progress = Math.round((requiredDone / requiredTotal) * 100);
 
-    const currentIdx = WIZARD_ORDER.indexOf(step);
-    const totalWizardSteps = WIZARD_ORDER.length;
+    const currentIdx = wizardOrder.indexOf(step);
+    const totalWizardSteps = wizardOrder.length;
 
     /* -------------------------- Render active step ----------------------- */
 
@@ -574,11 +608,13 @@ const OnboardingWizard: React.FC = () => {
                 {/* Step chips */}
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-3 overflow-x-auto scrollbar-none">
                     <div className="flex items-center gap-1.5 text-xs">
-                        {WIZARD_ORDER.filter((s) => s !== "welcome" && s !== "done").map(
+                        {wizardOrder.filter((s) => s !== "welcome" && s !== "done").map(
                             (s, i) => {
                                 const done = s === "modules"
                                     ? localStorage.getItem(MODULES_DONE_KEY) === "1"
-                                    : status.steps[s as BackendStep];
+                                    : s === "business"
+                                        ? localStorage.getItem(BUSINESS_DONE_KEY) === "1"
+                                        : status.steps[s as BackendStep];
                                 const active = step === s;
                                 return (
                                     <React.Fragment key={s}>
@@ -659,6 +695,21 @@ const OnboardingWizard: React.FC = () => {
                             onSkip={async () => {
                                 await markStepComplete("industry");
                                 await refreshStatus();
+                                goNext();
+                            }}
+                        />
+                    )}
+
+                    {step === "business" && (
+                        <BusinessSetupStep
+                            Shell={StepShell}
+                            Actions={StepActions}
+                            onSaved={() => {
+                                localStorage.setItem(BUSINESS_DONE_KEY, "1");
+                                goNext();
+                            }}
+                            onSkip={() => {
+                                localStorage.setItem(BUSINESS_DONE_KEY, "1");
                                 goNext();
                             }}
                         />
@@ -942,6 +993,8 @@ function stepChipFallback(s: string): string {
             return "Industry";
         case "modules":
             return "Modules";
+        case "business":
+            return "Business";
         case "staff_csv":
             return "Staff";
         case "widgets":
@@ -1322,7 +1375,7 @@ const StaffCsvStep: React.FC<{
         const reader = new FileReader();
         reader.onload = (e) => {
             const text = String(e.target?.result ?? "");
-            const { rows, errors } = parseStaffCsv(text);
+            const { rows, errors } = parseStaffCsv(text, t as unknown as CsvT);
             setRows(rows);
             setErrors(errors);
         };
