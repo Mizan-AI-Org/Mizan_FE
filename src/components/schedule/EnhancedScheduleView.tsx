@@ -3,13 +3,14 @@ import { WeeklyTimeGridView } from "./WeeklyTimeGridView";
 import { StaffScheduleListView } from "./StaffScheduleListView";
 import { StaffTimesheetView } from "./StaffTimesheetView";
 import ShiftModal from "@/components/ShiftModal";
-import type { Shift, StaffMember, WeeklyScheduleData, BackendShift, ProcessOccurrence, TaskPriority } from "@/types/schedule";
+import type { Shift, StaffMember, WeeklyScheduleData, BackendShift, TaskPriority } from "@/types/schedule";
 import { displayShiftTitle } from "@/lib/shiftDisplay";
+import { mergeTeamShifts } from "@/lib/mergeTeamShifts";
 import { useLanguage } from "@/hooks/use-language";
 import { startOfWeek, endOfWeek, format, addDays, parseISO, addWeeks, addMonths, isBefore, isEqual } from "date-fns";
 import { API_BASE } from "@/lib/api";
 import { toast } from "sonner";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -26,6 +27,45 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+/** API returns a placeholder row with `id: ""` when the week has no DB schedule yet — ignore it and create. */
+async function resolveWeeklyScheduleId(
+  token: string,
+  weekStart: string,
+  weekEnd: string,
+): Promise<string | null> {
+  const headers = { Authorization: `Bearer ${token}` };
+
+  const fetchPersisted = async (): Promise<WeeklyScheduleData | undefined> => {
+    const response = await fetch(
+      `${API_BASE}/scheduling/weekly-schedules/?week_start=${encodeURIComponent(weekStart)}`,
+      { headers },
+    );
+    if (!response.ok) return undefined;
+    const listJson = await response.json();
+    const listData = (listJson?.results ?? listJson) as WeeklyScheduleData[];
+    if (!Array.isArray(listData)) return undefined;
+    const row = listData.find((s) => s.week_start === weekStart);
+    if (!row?.id) return undefined;
+    return row;
+  };
+
+  const existing = await fetchPersisted();
+  if (existing?.id) return String(existing.id);
+
+  const createRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ week_start: weekStart, week_end: weekEnd, is_published: false }),
+  });
+  if (createRes.ok) {
+    const created = (await createRes.json()) as WeeklyScheduleData;
+    if (created?.id) return String(created.id);
+  }
+
+  const afterCreate = await fetchPersisted();
+  return afterCreate?.id ? String(afterCreate.id) : null;
+}
+
 /**
  * EnhancedScheduleView serves as the main scheduling hub.
  * It now prioritizes the 24-hour weekly grid view for optimized staff allocation.
@@ -39,7 +79,20 @@ const EnhancedScheduleView: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
+  const [shiftModalOpensInView, setShiftModalOpensInView] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  const openExistingShift = useCallback((shift: Shift) => {
+    setShiftModalOpensInView(true);
+    setCurrentShift(shift);
+    setIsShiftModalOpen(true);
+  }, []);
+
+  const openCreateShift = useCallback(() => {
+    setShiftModalOpensInView(false);
+    setCurrentShift(null);
+    setIsShiftModalOpen(true);
+  }, []);
 
   const toYMD = (d: Date) => {
     const year = d.getFullYear();
@@ -98,52 +151,36 @@ const EnhancedScheduleView: React.FC = () => {
     queryFn: async () => {
       const token = localStorage.getItem("access_token");
       const headers = { Authorization: `Bearer ${token}` };
-      const fetchByWeek = async () => {
-        const response = await fetch(
-          `${API_BASE}/scheduling/weekly-schedules/?week_start=${encodeURIComponent(weekStartStr)}`,
-          { headers },
-        );
-        if (!response.ok) throw new Error("Failed to fetch schedules");
-        const listJson = await response.json();
-        const listData = (listJson?.results ?? listJson) as WeeklyScheduleData[];
-        return Array.isArray(listData) ? listData.find((s) => s.week_start === weekStartStr) : undefined;
+      const weekEndStr = toYMD(addDays(getWeekStart(currentDate), 6));
+
+      if (canEditShifts && token) {
+        await resolveWeeklyScheduleId(token, weekStartStr, weekEndStr);
+      }
+
+      const response = await fetch(
+        `${API_BASE}/scheduling/weekly-schedules/?week_start=${encodeURIComponent(weekStartStr)}`,
+        { headers },
+      );
+      if (!response.ok) throw new Error("Failed to fetch schedules");
+      const listJson = await response.json();
+      const listData = (listJson?.results ?? listJson) as WeeklyScheduleData[];
+      const persisted = Array.isArray(listData)
+        ? listData.find((s) => s.week_start === weekStartStr && s.id)
+        : undefined;
+      if (persisted) return persisted;
+
+      const placeholder = Array.isArray(listData)
+        ? listData.find((s) => s.week_start === weekStartStr)
+        : undefined;
+
+      return {
+        id: placeholder?.id || "",
+        week_start: weekStartStr,
+        week_end: weekEndStr,
+        is_published: placeholder?.is_published ?? false,
+        assigned_shifts: placeholder?.assigned_shifts ?? [],
+        process_occurrences: placeholder?.process_occurrences ?? [],
       };
-
-      let existing = await fetchByWeek();
-
-      if (!existing && canEditShifts) {
-        // Create if missing (only for admins)
-        const createRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            week_start: weekStartStr,
-            week_end: toYMD(addDays(getWeekStart(currentDate), 6)),
-            is_published: false,
-          }),
-        });
-        if (createRes.ok) {
-          existing = await createRes.json();
-        } else {
-          // Race / already exists: re-fetch the week that was just created elsewhere
-          existing = await fetchByWeek();
-        }
-      }
-
-      if (!existing) {
-        return {
-          id: "",
-          week_start: weekStartStr,
-          week_end: toYMD(addDays(getWeekStart(currentDate), 6)),
-          is_published: false,
-          assigned_shifts: [],
-          process_occurrences: [],
-        };
-      }
-      return existing;
     },
     // Light polling so newly generated schedules show up on the calendar
     // without requiring a manual refresh/navigation. 90s is plenty for a
@@ -189,6 +226,9 @@ const EnhancedScheduleView: React.FC = () => {
           ? shift.staff_members_details
           : staffInfoDetails,
         color: firstStaffId ? getStaffColor(firstStaffId) : (shift.color || "#6b7280"),
+        role: shift.role,
+        location: shift.location,
+        location_data: shift.location_data ?? undefined,
         task_templates: shift.task_templates ?? [],
         task_templates_details: shift.task_templates_details,
         tasks: (shift.tasks ?? []).map((t: { id?: string; title: string; priority?: string }) => ({
@@ -203,36 +243,10 @@ const EnhancedScheduleView: React.FC = () => {
       };
     };
 
-    const mapProcessOccurrence = (occ: ProcessOccurrence): Shift => {
-      const members = occ.staff_members?.length ? occ.staff_members : [occ.staff];
-      const firstStaffId = members[0] || occ.staff;
-      const details = occ.staff_info
-        ? [{ id: occ.staff_info.id, first_name: occ.staff_info.first_name, last_name: occ.staff_info.last_name }]
-        : undefined;
-      return {
-        id: occ.id,
-        source: "process",
-        template_id: occ.template_id,
-        title: occ.title || "Process",
-        start: toHHmm(occ.start_time),
-        end: toHHmm(occ.end_time),
-        date: occ.shift_date,
-        type: "tentative" as const,
-        day: new Date(occ.shift_date).getDay() === 0 ? 6 : new Date(occ.shift_date).getDay() - 1,
-        staffId: firstStaffId,
-        staff_members: members,
-        staff_members_details: details,
-        color: "#0d9488",
-        frequency: occ.frequency as Shift["frequency"], // process occurrences may also be QUARTERLY/ANNUALLY
-        days_of_week: occ.schedule_days,
-        role: occ.role,
-        tasks: [],
-      };
-    };
-
-    const assigned = (scheduleData?.assigned_shifts ?? []).map(mapBackendShift);
-    const processes = (scheduleData?.process_occurrences ?? []).map(mapProcessOccurrence);
-    return [...assigned, ...processes];
+    // Only rostered assigned shifts belong on this grid. `process_occurrences` are standing
+    // Processes & Tasks templates (often DAILY) and look like silent "recurrence" when merged.
+    const mapped = (scheduleData?.assigned_shifts ?? []).map(mapBackendShift);
+    return mergeTeamShifts(mapped);
   }, [scheduleData]);
 
   const isLoading = isLoadingStaff || isLoadingShifts;
@@ -282,7 +296,10 @@ const EnhancedScheduleView: React.FC = () => {
     try {
       // -- Recurring: use batch API (one request create, or delete+create for edit) --
       const hasCustomDays = Array.isArray(shift.days_of_week) && shift.days_of_week.length > 0;
-      const isRecurringSave = shift.isRecurring && shift.recurringEndDate && (shift.frequency === 'CUSTOM' ? hasCustomDays : shift.frequency);
+      const isRecurringSave =
+        shift.isRecurring === true &&
+        Boolean(shift.recurringEndDate?.trim()) &&
+        (shift.frequency === "CUSTOM" ? hasCustomDays : Boolean(shift.frequency));
       if (isRecurringSave) {
         if (isUpdate) {
           if (shift.recurrence_group_id) {
@@ -339,44 +356,9 @@ const EnhancedScheduleView: React.FC = () => {
       }
 
       // -- Single shift: one PUT or one POST --
-      let targetedScheduleId = scheduleData?.id;
-      const currentWeekStart = toYMD(getWeekStart(parseISO(shift.date)));
-      if (currentWeekStart !== weekStartStr) {
-        const findRes = await fetch(
-          `${API_BASE}/scheduling/weekly-schedules/?week_start=${encodeURIComponent(currentWeekStart)}`,
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
-        const listJson = await findRes.json();
-        const listData = (listJson?.results ?? listJson) as WeeklyScheduleData[];
-        let existing = Array.isArray(listData)
-          ? listData.find((s) => s.week_start === currentWeekStart)
-          : undefined;
-        if (!existing) {
-          const createRes = await fetch(`${API_BASE}/scheduling/weekly-schedules/`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              week_start: currentWeekStart,
-              week_end: toYMD(addDays(getWeekStart(parseISO(shift.date)), 6)),
-              is_published: false,
-            }),
-          });
-          if (createRes.ok) {
-            existing = await createRes.json();
-          } else {
-            const retry = await fetch(
-              `${API_BASE}/scheduling/weekly-schedules/?week_start=${encodeURIComponent(currentWeekStart)}`,
-              { headers: { Authorization: `Bearer ${token}` } },
-            );
-            const retryJson = await retry.json();
-            const retryList = (retryJson?.results ?? retryJson) as WeeklyScheduleData[];
-            existing = Array.isArray(retryList)
-              ? retryList.find((s) => s.week_start === currentWeekStart)
-              : undefined;
-          }
-        }
-        targetedScheduleId = existing?.id;
-      }
+      const shiftWeekStart = toYMD(getWeekStart(parseISO(shift.date)));
+      const shiftWeekEnd = toYMD(addDays(getWeekStart(parseISO(shift.date)), 6));
+      const targetedScheduleId = await resolveWeeklyScheduleId(token, shiftWeekStart, shiftWeekEnd);
       if (!targetedScheduleId) {
         toast.error(t("schedule.could_not_resolve_schedule"));
         return;
@@ -408,11 +390,10 @@ const EnhancedScheduleView: React.FC = () => {
       }
       toast.success(isUpdate ? t("toasts.shift_updated") : t("toasts.shift_created"));
       refetchShifts();
+      setIsShiftModalOpen(false);
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : "Failed to save shift(s)");
-    } finally {
-      setIsShiftModalOpen(false);
     }
   };
 
@@ -471,14 +452,8 @@ const EnhancedScheduleView: React.FC = () => {
             staffMembers={staffMembers}
             currentDate={currentDate}
             setCurrentDate={setCurrentDate}
-            onEditShift={(shift) => {
-              setCurrentShift(shift);
-              setIsShiftModalOpen(true);
-            }}
-            onCreateShift={() => {
-              setCurrentShift(null);
-              setIsShiftModalOpen(true);
-            }}
+            onEditShift={openExistingShift}
+            onCreateShift={openCreateShift}
             isLoading={isLoading}
           />
         )}
@@ -488,14 +463,8 @@ const EnhancedScheduleView: React.FC = () => {
             staffMembers={staffMembers}
             currentDate={currentDate}
             setCurrentDate={setCurrentDate}
-            onEditShift={(shift) => {
-              setCurrentShift(shift);
-              setIsShiftModalOpen(true);
-            }}
-            onCreateShift={() => {
-              setCurrentShift(null);
-              setIsShiftModalOpen(true);
-            }}
+            onEditShift={openExistingShift}
+            onCreateShift={openCreateShift}
             isLoading={isLoading}
           />
         )}
@@ -504,10 +473,8 @@ const EnhancedScheduleView: React.FC = () => {
             shifts={shifts}
             staffMembers={staffMembers}
             currentDate={currentDate}
-            onCreateShift={() => {
-              setCurrentShift(null);
-              setIsShiftModalOpen(true);
-            }}
+            onEditShift={openExistingShift}
+            onCreateShift={openCreateShift}
             isLoading={isLoading}
           />
         )}
@@ -581,20 +548,17 @@ const EnhancedScheduleView: React.FC = () => {
 
       <ShiftModal
         isOpen={isShiftModalOpen}
-        onClose={() => setIsShiftModalOpen(false)}
+        onClose={() => {
+          setIsShiftModalOpen(false);
+          setShiftModalOpensInView(false);
+        }}
         onSave={handleSaveShift}
         onDelete={handleDeleteShift}
-        initialShift={currentShift || {
-          id: '',
-          title: '',
-          date: toYMD(currentDate),
-          start: "09:00",
-          end: "17:00",
-          day: currentDate.getDay() === 0 ? 6 : currentDate.getDay() - 1,
-          staffId: staffMembers[0]?.id || '',
-          tasks: []
-        }}
+        initialShift={currentShift}
+        referenceDate={toYMD(currentDate)}
         staffMembers={staffMembers}
+        opensInViewMode={shiftModalOpensInView}
+        canEdit={canEditShifts}
       />
     </div>
   );

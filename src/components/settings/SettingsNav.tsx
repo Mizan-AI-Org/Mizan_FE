@@ -70,7 +70,7 @@ export function SettingsNav({
                 <Icon className="h-4 w-4" aria-hidden />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-semibold leading-tight whitespace-nowrap lg:whitespace-normal">
+                <span className="block text-sm font-semibold leading-snug whitespace-nowrap lg:whitespace-normal lg:line-clamp-2">
                   {item.label}
                 </span>
                 {item.description ? (

@@ -48,8 +48,12 @@ export interface Shift {
   tasks?: Task[];
   task_templates?: string[];
   task_templates_details?: { id: string; name?: string; title?: string; }[];
+  /** All DB row ids when this card is a merged multi-staff slot (save/delete use primary `id`). */
+  group_shift_ids?: string[];
   /** Shift's declared role (e.g. WAITER / CHEF), independent of any member's role. */
   role?: string;
+  location?: string;
+  location_data?: { id: string; name: string } | null;
 }
 
 export interface StaffMember {
@@ -105,6 +109,9 @@ export interface BackendShift {
   end_time: string;
   notes: string;
   title?: string; // same as notes, for viewing saved details
+  role?: string;
+  location?: string;
+  location_data?: { id: string; name: string } | null;
   color?: string;
   staff_name?: string;
   staff_email?: string;

@@ -19,6 +19,7 @@ import { API_BASE } from "@/lib/api";
 import { useLanguage } from "@/hooks/use-language";
 import { Search, Calendar as CalendarIcon, X, Check, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { shiftTaskPriorityLabel, shiftTaskPriorityStyles } from "@/lib/shiftTaskPriority";
 import { Task, TaskPriority } from '@/types/schedule';
 import { useBusinessLocations } from "@/hooks/use-business-locations";
 
@@ -780,65 +781,84 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                     <div className="space-y-4 pt-4 border-t border-gray-100">
                         <Label className="text-sm font-semibold text-[#1F2937]">Custom Tasks</Label>
 
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 items-center">
                             <Input
                                 placeholder="Add a custom task..."
                                 value={newTaskTitle}
                                 onChange={(e) => setNewTaskTitle(e.target.value)}
-                                className="flex-1 h-12 rounded-xl border-gray-200 text-sm focus:ring-[#106B4E]"
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        handleAddManualTask();
+                                    }
+                                }}
+                                className="flex-1 min-w-0 h-12 rounded-xl border-gray-200 text-sm focus:border-[#106B4E] focus:ring-[#106B4E]"
                             />
-                            <div className="w-[140px]">
-                                <Select
-                                    value={newTaskPriority}
-                                    onValueChange={(v: TaskPriority) => setNewTaskPriority(v)}
-                                >
-                                    <SelectTrigger className="h-12 rounded-xl border-gray-200 text-sm">
-                                        <SelectValue placeholder="Priority" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="LOW">Low</SelectItem>
-                                        <SelectItem value="MEDIUM">Medium</SelectItem>
-                                        <SelectItem value="HIGH">High</SelectItem>
-                                        <SelectItem value="URGENT">Urgent</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <Select
+                                value={newTaskPriority}
+                                onValueChange={(v: TaskPriority) => setNewTaskPriority(v)}
+                            >
+                                <SelectTrigger className="h-12 w-[7.25rem] shrink-0 rounded-xl border-gray-200 text-sm">
+                                    <SelectValue placeholder="Priority" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="LOW">Low</SelectItem>
+                                    <SelectItem value="MEDIUM">Medium</SelectItem>
+                                    <SelectItem value="HIGH">High</SelectItem>
+                                    <SelectItem value="URGENT">Urgent</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <Button
                                 type="button"
+                                variant="outline"
                                 onClick={handleAddManualTask}
-                                className="h-12 w-12 p-0 rounded-xl bg-emerald-50 text-[#106B4E] hover:bg-emerald-100 border border-emerald-100"
+                                aria-label="Add custom task"
+                                className="h-12 w-12 shrink-0 rounded-xl border-2 border-[#106B4E] bg-[#106B4E] p-0 text-white shadow-sm hover:border-[#0D5A41] hover:bg-[#0D5A41] hover:text-white"
                             >
-                                <Plus className="w-5 h-5" />
+                                <Plus className="h-5 w-5 shrink-0" strokeWidth={2.5} />
                             </Button>
                         </div>
 
                         {/* List of Manual Tasks */}
                         <div className="space-y-2 max-h-[180px] overflow-y-auto pr-2">
-                            {(manualTasks || []).map((task, index) => (
-                                <div
-                                    key={index}
-                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 group transition-all hover:bg-white hover:shadow-sm"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={cn(
-                                            "w-2 h-2 rounded-full",
-                                            task.priority === 'URGENT' ? "bg-red-500" :
-                                                task.priority === 'HIGH' ? "bg-orange-500" :
-                                                    task.priority === 'MEDIUM' ? "bg-blue-500" : "bg-gray-400"
-                                        )} title={task.priority} />
-                                        <span className="text-sm font-medium text-gray-700">{task.title}</span>
-                                    </div>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => handleRemoveManualTask(index)}
-                                        className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                            {(manualTasks || []).map((task, index) => {
+                                const priority = task.priority || "MEDIUM";
+                                const styles = shiftTaskPriorityStyles(priority);
+                                return (
+                                    <div
+                                        key={`${task.title}-${index}`}
+                                        className={cn(
+                                            "group flex items-center justify-between gap-3 rounded-xl border border-l-4 bg-white p-3 shadow-sm transition-shadow hover:shadow-md",
+                                            styles.row,
+                                            styles.accent,
+                                        )}
                                     >
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                </div>
-                            ))}
+                                        <div className="min-w-0 flex-1">
+                                            <span className="block truncate text-sm font-semibold text-gray-900">
+                                                {task.title}
+                                            </span>
+                                        </div>
+                                        <span
+                                            className={cn(
+                                                "shrink-0 rounded-lg border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide",
+                                                styles.badge,
+                                            )}
+                                        >
+                                            {shiftTaskPriorityLabel(priority, t)}
+                                        </span>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => handleRemoveManualTask(index)}
+                                            aria-label={t("common.remove", "Remove")}
+                                            className="h-9 w-9 shrink-0 rounded-lg text-gray-400 opacity-70 hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 sm:opacity-0"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                );
+                            })}
                             {manualTasks.length === 0 && (
                                 <p className="text-xs text-gray-400 text-center py-4">No custom tasks added yet.</p>
                             )}
@@ -850,10 +870,10 @@ const AssignedShiftModal: React.FC<AssignedShiftModalProps> = ({ isOpen, onClose
                         {shift && (
                             <Button
                                 type="button"
-                                variant="destructive"
+                                variant="outline"
                                 onClick={() => deleteShiftMutation.mutate(shift.id as string)}
                                 disabled={deleteShiftMutation.isPending}
-                                className="mr-auto rounded-xl"
+                                className="mr-auto h-12 rounded-xl border border-red-300 bg-white px-5 font-semibold text-red-600 hover:border-red-400 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-red-950/40"
                             >
                                 {deleteShiftMutation.isPending ? t("schedule.deleting") : t("schedule.delete_shift")}
                             </Button>
