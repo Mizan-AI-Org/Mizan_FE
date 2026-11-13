@@ -314,17 +314,17 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
         setIsSubmitting(true);
         try {
             if (!(shiftData.title ?? '').trim()) {
-                toast.error('Please enter a shift title.');
+                toast.error(t("shift_modal.err_title_required"));
                 setIsSubmitting(false);
                 return;
             }
             if (!shiftData.date || String(shiftData.date).trim() === "") {
-                toast.error('Please select a date for the shift.');
+                toast.error(t("shift_modal.err_date_required"));
                 setIsSubmitting(false);
                 return;
             }
             if (selectedStaffIds.length === 0) {
-                toast.error('Please select at least one staff member.');
+                toast.error(t("shift_modal.err_staff_required"));
                 setIsSubmitting(false);
                 return;
             }
@@ -335,17 +335,17 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                 : (shiftData.tasks || []);
             const hasCustomTasks = effectiveTasks.length > 0;
             if (!hasTemplates && !hasCustomTasks) {
-                toast.error('Every shift must have at least one Process & Task Template or at least one Custom Task. Add a template or type a custom task and click +.');
+                toast.error(t("shift_modal.err_tasks_required"));
                 setIsSubmitting(false);
                 return;
             }
             if (isRecurring && !recurringEndDate) {
-                toast.error('Please select an end date for recurring shifts.');
+                toast.error(t("shift_modal.err_end_date_required"));
                 setIsSubmitting(false);
                 return;
             }
             if (isRecurring && frequency === 'CUSTOM' && daysOfWeek.length === 0) {
-                toast.error('Select at least one day for Custom repeat.');
+                toast.error(t("shift_modal.err_custom_days_required"));
                 setIsSubmitting(false);
                 return;
             }
@@ -493,7 +493,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
                         <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                             <div className="rounded-xl border border-gray-100 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/40">
-                                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Date</p>
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{t("common.date")}</p>
                                 <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
                                     {shiftData.date
                                         ? format(parseISO(shiftData.date), "EEE, MMM d, yyyy")
@@ -501,13 +501,13 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                 </p>
                             </div>
                             <div className="rounded-xl border border-gray-100 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/40">
-                                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Start</p>
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{t("common.start")}</p>
                                 <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
                                     {formatClock12(shiftData.start)}
                                 </p>
                             </div>
                             <div className="rounded-xl border border-gray-100 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/40">
-                                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">End</p>
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{t("common.end")}</p>
                                 <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
                                     {formatClock12(shiftData.end)}
                                 </p>
@@ -515,17 +515,17 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                         </section>
 
                         <section className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-800/40">
-                            <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Recurring</p>
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{t("generic.recurring")}</p>
                             <p className="mt-1 text-sm font-medium text-gray-800 dark:text-gray-200">
                                 {isRecurring
-                                    ? `${frequency}${recurringEndDate ? ` · until ${format(parseISO(recurringEndDate), "MMM d, yyyy")}` : ""}`
+                                    ? `${t(`shift_modal.freq_${String(frequency).toLowerCase()}`, String(frequency))}${recurringEndDate ? ` · ${t("shift_modal.until_date", { date: format(parseISO(recurringEndDate), "MMM d, yyyy") })}` : ""}`
                                     : t("common.no", "No")}
                             </p>
                         </section>
 
                         <section className="space-y-2">
                             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                Process & Task Templates
+                                {t("shift_modal.templates_label")}
                             </p>
                             {viewTemplateDetails.length === 0 ? (
                                 <p className="rounded-xl border border-dashed border-gray-200 px-3 py-4 text-center text-sm text-gray-500 dark:border-slate-600 dark:text-gray-400">
@@ -547,7 +547,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
                         <section className="space-y-2">
                             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                Custom Tasks
+                                {t("shift_modal.custom_tasks")}
                             </p>
                             {viewTasks.length === 0 ? (
                                 <p className="text-sm text-center text-gray-500 dark:text-gray-400 py-3">
@@ -606,7 +606,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
                     {/* Multi-Staff Selection */}
                     <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">Assign Staff ({selectedStaffIds.length} selected)</Label>
+                        <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">{t("shift_modal.assign_staff_count", { count: selectedStaffIds.length })}</Label>
                         <Popover modal={false} open={isStaffPopoverOpen} onOpenChange={setIsStaffPopoverOpen}>
                             <PopoverTrigger asChild>
                                 <Button
@@ -624,10 +624,10 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                                               initialShift?.staff_members_details,
                                                           ),
                                                       )
-                                                    : `${selectedStaffIds.length} members selected`}
+                                                    : t("shift_modal.members_selected", { count: selectedStaffIds.length })}
                                             </span>
                                         ) : (
-                                            <span className="text-orange-900/50 dark:text-orange-300/50">Select staff members...</span>
+                                            <span className="text-orange-900/50 dark:text-orange-300/50">{t("shift_modal.select_staff_members")}</span>
                                         )}
                                     </div>
                                     <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -645,7 +645,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                         className={STAFF_LIST_SCROLL}
                                         onWheel={handleNestedListWheel}
                                     >
-                                        <CommandEmpty className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">No staff found.</CommandEmpty>
+                                        <CommandEmpty className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">{t("shift_modal.no_staff_found")}</CommandEmpty>
                                         <CommandGroup>
                                             {staffMembers
                                                 .filter(s => String(s.user?.id) !== String(user?.id))
@@ -686,7 +686,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                            <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">Date</Label>
+                            <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">{t("common.date")}</Label>
                             <div className="relative">
                                 <Input
                                     type="date"
@@ -706,7 +706,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
-                                <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">Start</Label>
+                                <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">{t("common.start")}</Label>
                                 <Select
                                     value={shiftData.start}
                                     onValueChange={(value) => setShiftData(prev => ({ ...prev, start: value }))}
@@ -731,7 +731,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                 </Select>
                             </div>
                             <div className="space-y-1">
-                                <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">End</Label>
+                                <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">{t("common.end")}</Label>
                                 <Select
                                     value={shiftData.end}
                                     onValueChange={(value) => setShiftData(prev => ({ ...prev, end: value }))}
@@ -762,8 +762,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                     <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl space-y-4 border border-slate-100 dark:border-slate-700">
                         <div className="flex items-center justify-between">
                             <div className="flex flex-col">
-                                <Label className="text-sm font-bold text-slate-900 dark:text-gray-100 leading-none">Recurring Shift</Label>
-                                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Create this shift repeatedly until the end date.</p>
+                                <Label className="text-sm font-bold text-slate-900 dark:text-gray-100 leading-none">{t("shift_modal.recurring_shift")}</Label>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">{t("shift_modal.recurring_hint")}</p>
                             </div>
                             <div
                                 onClick={() => setIsRecurring(!isRecurring)}
@@ -781,8 +781,8 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
                         {isRecurring && (
                             <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-2">Repeat</Label>
-                                <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-2">Daily = every day; Weekly = same day each week; Monthly = same date each month; Custom = pick specific weekdays (e.g. Mon, Wed, Fri).</p>
+                                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-2">{t("shift_modal.repeat")}</Label>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-2">{t("shift_modal.repeat_help")}</p>
                                 <div className="flex flex-wrap gap-2">
                                     <Button
                                         type="button"
@@ -793,7 +793,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                             frequency === 'DAILY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                                         )}
                                     >
-                                        Daily
+                                        {t("shift_modal.freq_daily")}
                                     </Button>
                                     <Button
                                         type="button"
@@ -804,7 +804,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                             frequency === 'WEEKLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                                         )}
                                     >
-                                        Weekly
+                                        {t("shift_modal.freq_weekly")}
                                     </Button>
                                     <Button
                                         type="button"
@@ -815,7 +815,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                             frequency === 'MONTHLY' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                                         )}
                                     >
-                                        Monthly
+                                        {t("shift_modal.freq_monthly")}
                                     </Button>
                                     <Button
                                         type="button"
@@ -826,7 +826,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                             frequency === 'CUSTOM' ? "bg-[#106B4E] hover:bg-[#0D5A41] text-white" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                                         )}
                                     >
-                                        Custom
+                                        {t("shift_modal.freq_custom")}
                                     </Button>
                                 </div>
                                 {frequency === 'CUSTOM' && (
@@ -848,16 +848,16 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                                             isSelected ? "bg-[#106B4E] text-white border-[#106B4E]" : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                                                         )}
                                                     >
-                                                        {label}
+                                                        {t(`process.schedule.day_${label.toLowerCase()}`, label)}
                                                     </button>
                                                 );
                                             })}
                                         </div>
-                                        {daysOfWeek.length === 0 && <p className="text-[10px] text-amber-600 mt-1">Select at least one day.</p>}
+                                        {daysOfWeek.length === 0 && <p className="text-[10px] text-amber-600 mt-1">{t("shift_modal.select_one_day")}</p>}
                                     </div>
                                 )}
                                 <div className="mt-4">
-                                    <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-2">End Date</Label>
+                                    <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-2">{t("shift_modal.end_date")}</Label>
                                     <div className="relative">
                                         <Input
                                             type="date"
@@ -874,7 +874,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                             className={cn(SHIFT_DATE_INPUT_CLASS, "h-10")}
                                         />
                                     </div>
-                                    {!recurringEndDate && <p className="text-[10px] text-amber-600 mt-1">Please select an end date for recurring shifts.</p>}
+                                    {!recurringEndDate && <p className="text-[10px] text-amber-600 mt-1">{t("shift_modal.err_end_date_required")}</p>}
                                 </div>
                             </div>
                         )}
@@ -882,7 +882,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
 
                     <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                            <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">Process & Task Templates</Label>
+                            <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">{t("shift_modal.templates_label")}</Label>
                             {!isViewMode ? (
                                 <div className="relative w-48">
                                     <Input
@@ -915,7 +915,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                             onWheel={handleNestedListWheel}
                         >
                             {templatesLoading ? (
-                                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Loading templates...</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">{t("shift_modal.loading_templates")}</p>
                             ) : (() => {
                                 const pool = templates || [];
                                 const filtered = isViewMode
@@ -931,7 +931,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                         <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
                                             {isViewMode
                                                 ? t("schedule.no_templates_linked", "No templates linked to this shift.")
-                                                : "No templates found."}
+                                                : t("shift_modal.no_templates_found")}
                                         </p>
                                     );
                                 }
@@ -976,7 +976,7 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                                     "text-[11px] line-clamp-1",
                                                     isSelected ? "text-emerald-700/80 dark:text-emerald-400/80" : "text-gray-500 dark:text-gray-400"
                                                 )}>
-                                                    {template.description || "Daily preparation and inventory check"}
+                                                    {template.description || t("shift_modal.template_default_desc")}
                                                 </p>
                                             </div>
                                         </div>
@@ -986,14 +986,14 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                         </div>
                         {!isViewMode ? (
                             <p className="text-[10px] text-gray-400 dark:text-gray-500 pt-1">
-                                Select templates to automatically add tasks to this shift.
+                                {t("shift_modal.templates_hint")}
                             </p>
                         ) : null}
                     </div>
 
                     {/* Manual Task Creation Section */}
                     <div className="space-y-3 pt-4 border-t border-gray-100 dark:border-slate-700">
-                        <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">Custom Tasks</Label>
+                        <Label className="text-sm font-semibold text-[#1F2937] dark:text-gray-100">{t("shift_modal.custom_tasks")}</Label>
 
                         {!isViewMode ? (
                         <div className="flex gap-2 items-center">
@@ -1017,10 +1017,10 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                     <SelectValue placeholder={t("common.priority")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="LOW">Low</SelectItem>
-                                    <SelectItem value="MEDIUM">Medium</SelectItem>
-                                    <SelectItem value="HIGH">High</SelectItem>
-                                    <SelectItem value="URGENT">Urgent</SelectItem>
+                                    <SelectItem value="LOW">{shiftTaskPriorityLabel("LOW", t)}</SelectItem>
+                                    <SelectItem value="MEDIUM">{shiftTaskPriorityLabel("MEDIUM", t)}</SelectItem>
+                                    <SelectItem value="HIGH">{shiftTaskPriorityLabel("HIGH", t)}</SelectItem>
+                                    <SelectItem value="URGENT">{shiftTaskPriorityLabel("URGENT", t)}</SelectItem>
                                 </SelectContent>
                             </Select>
                             <Button
@@ -1116,14 +1116,14 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                     type="button"
                                     variant="outline"
                                     onClick={() => {
-                                        if (confirm("Are you sure?")) {
+                                        if (confirm(t("common.are_you_sure"))) {
                                             onDelete(initialShift.id);
                                             onClose();
                                         }
                                     }}
                                     className="mr-auto h-12 rounded-xl border border-red-300 bg-white px-5 font-semibold text-red-600 hover:border-red-400 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-red-950/40"
                                 >
-                                    Delete Shift
+                                    {t("schedule.delete_shift")}
                                 </Button>
                             )}
                             <Button
@@ -1132,14 +1132,14 @@ const ShiftModal: React.FC<ShiftModalProps> = ({
                                 onClick={onClose}
                                 className="h-12 px-8 rounded-xl text-gray-600 dark:text-gray-300 font-semibold hover:bg-gray-100 dark:hover:bg-slate-800"
                             >
-                                Cancel
+                                {t("common.cancel")}
                             </Button>
                             <Button
                                 onClick={handleSubmit}
                                 disabled={isSubmitting}
                                 className="h-12 px-10 rounded-xl bg-[#106B4E] hover:bg-[#0D5A41] text-white font-bold text-base transition-all shadow-md active:scale-[0.98]"
                             >
-                                {isSubmitting ? "Saving..." : editingPersistedShift ? "Save Changes" : "Create"}
+                                {isSubmitting ? t("schedule.saving") : editingPersistedShift ? t("profile.save_changes") : t("schedule.create")}
                             </Button>
                         </>
                     )}

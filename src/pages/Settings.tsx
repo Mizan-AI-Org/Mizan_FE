@@ -1,3 +1,4 @@
+import { CURRENCY_CODES, DEFAULT_CURRENCY, DEFAULT_TIMEZONE, TIMEZONES, withCurrent } from "@/lib/regional";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,6 @@ import {
   Eye,
   EyeOff,
   CheckCircle,
-  AlertCircle,
   Unplug,
   ShieldCheck,
   Calendar,
@@ -42,6 +42,7 @@ import PosIntegrations from "@/components/settings/PosIntegrations";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
 const ProfileSettings = lazy(() => import("./ProfileSettings"));
+import { AccountDataCard } from "@/components/settings/AccountDataCard";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
 const MultiLocationSettings = lazy(() => import("@/components/settings/MultiLocationSettings"));
@@ -184,8 +185,9 @@ function Settings() {
   const [restaurantAddress, setRestaurantAddress] = useState("");
   const [restaurantPhone, setRestaurantPhone] = useState("");
   const [restaurantEmail, setRestaurantEmail] = useState("");
-  const [timezone, setTimezone] = useState("America/New_York");
-  const [currency, setCurrency] = useState("USD");
+  const [businessWhatsapp, setBusinessWhatsapp] = useState("");
+  const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY);
   const [operatingHours, setOperatingHours] = useState<{
     [key: string]: { open: string; close: string; isClosed: boolean };
   }>({
@@ -540,37 +542,6 @@ function Settings() {
     return items;
   }, [isStaff, t]);
 
-  const loadCoreSettings = async () => {
-    try {
-      const response = await apiClient.get("/timeclock/restaurant-location/");
-      const data = response.data?.restaurant || response.data || {};
-      setLatitude(data.latitude || 0);
-      setLongitude(data.longitude || 0);
-      setRadius(data.geofence_radius ?? data.radius ?? 0);
-      setRestaurantName(data.name || "");
-      setRestaurantAddress(data.address || "");
-      setRestaurantPhone(data.phone || "");
-      setRestaurantEmail(data.email || "");
-      setTimezone(data.timezone || "America/New_York");
-      setCurrency(data.currency || "USD");
-      setBusinessLanguage(
-        typeof data.language === "string" && (supportedLanguages as readonly string[]).includes(data.language)
-          ? (data.language as Language)
-          : "en"
-      );
-      setOperatingHours(data.operating_hours || operatingHours);
-      setAutomaticClockOut(data.automatic_clock_out === true);
-      setAllowChecklistWithoutClockIn(data.allow_checklist_without_clock_in === true);
-      setBreakDuration(data.break_duration || 30);
-      setEmailNotifications(data.email_notifications || emailNotifications);
-      setPushNotifications(data.push_notifications || pushNotifications);
-    } catch (error) {
-      console.error("Failed to fetch restaurant settings:", error);
-      toast.error(t("generic.toast.failed_to_load_restaurant_settings"));
-    }
-
-  };
-
   const fetchUnifiedSettings = async () => {
     try {
       const response = await apiClient.get("/settings/unified/");
@@ -588,8 +559,9 @@ function Settings() {
       setRestaurantAddress(data.address || "");
       setRestaurantPhone(data.phone || data.phone_restaurant || "");
       setRestaurantEmail(data.email || "");
-      setTimezone(data.timezone || "America/New_York");
-      setCurrency(data.currency || "USD");
+      setBusinessWhatsapp(data.whatsapp_number || "");
+      setTimezone(data.timezone || DEFAULT_TIMEZONE);
+      setCurrency(data.currency || DEFAULT_CURRENCY);
       setBusinessLanguage(
         typeof data.language === "string" && (supportedLanguages as readonly string[]).includes(data.language)
           ? (data.language as Language)
@@ -730,6 +702,7 @@ function Settings() {
         address: restaurantAddress,
         phone_restaurant: restaurantPhone,
         email: restaurantEmail,
+        whatsapp_number: businessWhatsapp,
         timezone,
         currency,
         language: businessLanguage,
@@ -1027,6 +1000,37 @@ function Settings() {
                       className={settingsFieldClassName}
                       placeholder={t("settings.general.fields.email_placeholder")}
                     />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="timezone">{t("settings.general.timezone")}</Label>
+                    <select id="timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} className={settingsSelectClassName}>
+                      {withCurrent(TIMEZONES, timezone).map((tz) => (
+                        <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="currency">{t("settings.general.currency")}</Label>
+                    <select id="currency" value={currency} onChange={(e) => setCurrency(e.target.value)} className={settingsSelectClassName}>
+                      {withCurrent(CURRENCY_CODES, currency).map((code) => (
+                        <option key={code} value={code}>{code}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="business-whatsapp">{t("settings.general.business_whatsapp")}</Label>
+                    <Input
+                      id="business-whatsapp"
+                      type="tel"
+                      value={businessWhatsapp}
+                      onChange={(e) => setBusinessWhatsapp(e.target.value)}
+                      className={settingsFieldClassName}
+                      placeholder="+212 6 00 00 00 00"
+                    />
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{t("settings.general.business_whatsapp_hint")}</p>
                   </div>
                 </div>
 
@@ -1423,17 +1427,7 @@ function Settings() {
               <BillingSettings />
             </Suspense>
 
-            <SettingsSection
-              icon={<AlertCircle className="h-5 w-5" />}
-              iconClassName="bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
-              title={t("settings.danger_zone")}
-              description={t("settings.danger_zone_desc")}
-              className="border-red-200/80 dark:border-red-900/50"
-            >
-              <Button variant="destructive" className="w-full sm:w-auto h-11 rounded-xl font-semibold">
-                {t("settings.delete_account")}
-              </Button>
-            </SettingsSection>
+            <AccountDataCard />
           </TabsContent>
         ) : null}
 

@@ -18,18 +18,24 @@ import { useLanguage } from "@/hooks/use-language";
 const t = (key: string, options?: Record<string, string | number> | string): string =>
   i18n.t(key, typeof options === "string" ? { defaultValue: options } : options) as string;
 
-const TEMPLATES = [
-  { id: "food-safety-basic", name: "Food Safety - Basic", description: "Daily food safety checklist", role: "STAFF" },
-  { id: "opening-checklist", name: "Opening Checklist", description: "Pre-opening checks for the shift", role: "STAFF" },
-  { id: "closing-checklist", name: "Closing Checklist", description: "End-of-day closing checks", role: "STAFF" },
+const TEMPLATE_DEFS = [
+  { id: "food-safety-basic", nameKey: "admin_checklist_templates.tpl.food_safety.name", descKey: "admin_checklist_templates.tpl.food_safety.desc", role: "STAFF" },
+  { id: "opening-checklist", nameKey: "admin_checklist_templates.tpl.opening.name", descKey: "admin_checklist_templates.tpl.opening.desc", role: "STAFF" },
+  { id: "closing-checklist", nameKey: "admin_checklist_templates.tpl.closing.name", descKey: "admin_checklist_templates.tpl.closing.desc", role: "STAFF" },
 ];
+
+const getTemplates = () =>
+  TEMPLATE_DEFS.map(({ nameKey, descKey, ...rest }) => ({ ...rest, name: t(nameKey), description: t(descKey) }));
 
 const AdminChecklistTemplates: React.FC = () => {
   const { user, accessToken } = useAuth();
+  const { language } = useLanguage();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const TEMPLATES = useMemo(() => getTemplates(), [language]);
   const [loading, setLoading] = useState(true);
   const [staff, setStaff] = useState<StaffProfileItem[]>([]);
   const [assigneeId, setAssigneeId] = useState<string>("");
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(TEMPLATES[0].id);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(TEMPLATE_DEFS[0].id);
   const [dueDate, setDueDate] = useState<string>("");
 
   useEffect(() => {
@@ -44,7 +50,7 @@ const AdminChecklistTemplates: React.FC = () => {
         const profiles = await api.getStaffProfiles(token);
         setStaff(profiles);
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : "Unable to load staff";
+        const msg = e instanceof Error ? e.message : t("admin_checklist_templates.error_load_staff");
         toast.error(msg);
       } finally {
         setLoading(false);
@@ -53,7 +59,7 @@ const AdminChecklistTemplates: React.FC = () => {
     load();
   }, []);
 
-  const selectedTemplate = useMemo(() => TEMPLATES.find(t => t.id === selectedTemplateId)!, [selectedTemplateId]);
+  const selectedTemplate = useMemo(() => TEMPLATES.find(tpl => tpl.id === selectedTemplateId)!, [TEMPLATES, selectedTemplateId]);
 
   const assignChecklist = async () => {
     if (!assigneeId) { toast.error(t("generic.toast.please_choose_an_assignee")); return; }
@@ -76,7 +82,7 @@ const AdminChecklistTemplates: React.FC = () => {
       await api.ensureChecklistForTask(task.id);
       toast.success(t("generic.toast.checklist_task_assigned_and_linked"));
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to assign checklist";
+      const msg = e instanceof Error ? e.message : t("admin_checklist_templates.error_assign");
       toast.error(msg);
     }
   };
@@ -85,30 +91,30 @@ const AdminChecklistTemplates: React.FC = () => {
     <div className="p-4 sm:p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold">Checklist Templates</h2>
-          <p className="text-sm text-muted-foreground">Assign templates to staff and link to tasks</p>
+          <h2 className="text-xl font-semibold">{t("admin_checklist_templates.title")}</h2>
+          <p className="text-sm text-muted-foreground">{t("admin_checklist_templates.subtitle")}</p>
         </div>
-        {user?.role && <Badge variant="secondary">Role: {user.role}</Badge>}
+        {user?.role && <Badge variant="secondary">{t("admin_checklist_templates.role_label", { role: user.role })}</Badge>}
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Assign Template</CardTitle>
-          <CardDescription>Choose a template and assignee</CardDescription>
+          <CardTitle>{t("admin_checklist_templates.assign_title")}</CardTitle>
+          <CardDescription>{t("admin_checklist_templates.assign_desc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Tabs defaultValue="template">
             <TabsList variant="compact" className="grid w-full grid-cols-3">
-              <TabsTrigger variant="compact" value="template">Template</TabsTrigger>
-              <TabsTrigger variant="compact" value="assignee">Assignee</TabsTrigger>
-              <TabsTrigger variant="compact" value="schedule">Schedule</TabsTrigger>
+              <TabsTrigger variant="compact" value="template">{t("admin_checklist_templates.template")}</TabsTrigger>
+              <TabsTrigger variant="compact" value="assignee">{t("generic.assignee")}</TabsTrigger>
+              <TabsTrigger variant="compact" value="schedule">{t("admin_checklist_templates.schedule")}</TabsTrigger>
             </TabsList>
             <TabsContent value="template" className="mt-3">
               <div className="grid gap-3">
-                <Label>Template</Label>
+                <Label>{t("admin_checklist_templates.template")}</Label>
                 <select className="border rounded-md h-9 px-2" value={selectedTemplateId} onChange={e => setSelectedTemplateId(e.target.value)}>
-                  {TEMPLATES.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
+                  {TEMPLATES.map(tpl => (
+                    <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
                   ))}
                 </select>
                 <div className="text-sm text-muted-foreground">{selectedTemplate.description}</div>
@@ -116,9 +122,9 @@ const AdminChecklistTemplates: React.FC = () => {
             </TabsContent>
             <TabsContent value="assignee" className="mt-3">
               <div className="grid gap-3">
-                <Label>Assign To</Label>
+                <Label>{t("admin_checklist_templates.assign_to")}</Label>
                 <select className="border rounded-md h-9 px-2" value={assigneeId} onChange={e => setAssigneeId(e.target.value)}>
-                  <option value="">Select staff…</option>
+                  <option value="">{t("admin_checklist_templates.select_staff")}</option>
                   {staff.map(s => {
                     const name = `${s.user_details.first_name} ${s.user_details.last_name}`.trim();
                     const label = name || s.user_details.email || s.id;
@@ -131,32 +137,32 @@ const AdminChecklistTemplates: React.FC = () => {
             </TabsContent>
             <TabsContent value="schedule" className="mt-3">
               <div className="grid gap-3">
-                <Label>Due Date</Label>
+                <Label>{t("checklist.executor.field_due_date")}</Label>
                 <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
               </div>
             </TabsContent>
           </Tabs>
           <div className="flex items-center justify-end gap-2">
-            <Button onClick={assignChecklist} disabled={loading || !assigneeId}>Assign</Button>
+            <Button onClick={assignChecklist} disabled={loading || !assigneeId}>{t("generic.assign")}</Button>
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Available Templates</CardTitle>
-          <CardDescription>Predefined templates for quick assignment</CardDescription>
+          <CardTitle>{t("admin_checklist_templates.available_title")}</CardTitle>
+          <CardDescription>{t("admin_checklist_templates.available_desc")}</CardDescription>
         </CardHeader>
         <CardContent className="grid sm:grid-cols-3 gap-3">
-          {TEMPLATES.map(t => (
-            <div key={t.id} className="border rounded-md p-3">
-              <div className="font-medium">{t.name}</div>
-              <div className="text-xs text-muted-foreground">{t.description}</div>
+          {TEMPLATES.map(tpl => (
+            <div key={tpl.id} className="border rounded-md p-3">
+              <div className="font-medium">{tpl.name}</div>
+              <div className="text-xs text-muted-foreground">{tpl.description}</div>
               <div className="mt-2">
-                <Badge variant="outline" className="text-xs">Role: {t.role}</Badge>
+                <Badge variant="outline" className="text-xs">{t("admin_checklist_templates.role_label", { role: tpl.role })}</Badge>
               </div>
               <div className="mt-3">
-                <Button variant="secondary" size="sm" onClick={() => setSelectedTemplateId(t.id)}>Use</Button>
+                <Button variant="secondary" size="sm" onClick={() => setSelectedTemplateId(tpl.id)}>{t("admin_checklist_templates.use")}</Button>
               </div>
             </div>
           ))}

@@ -23,6 +23,7 @@ import { API_BASE } from '@/lib/api';
 import { unwrapEnvelope } from '@/lib/envelope';
 import { PAGE_SHELL } from '@/lib/page-shell';
 import { useAuth } from '@/hooks/use-auth';
+import { useLanguage } from '@/hooks/use-language';
 
 interface AuditRow {
     id: string;
@@ -48,23 +49,23 @@ interface AuditResponse {
     results: AuditRow[];
 }
 
-const ACTION_TYPES: { value: string; label: string }[] = [
-    { value: '__all__', label: 'All actions' },
-    { value: 'CREATE', label: 'Created' },
-    { value: 'UPDATE', label: 'Updated' },
-    { value: 'DELETE', label: 'Deleted' },
-    { value: 'LOGIN', label: 'Login' },
-    { value: 'LOGIN_FAILED', label: 'Login failed' },
-    { value: 'LOGIN_PIN', label: 'PIN login' },
-    { value: 'LOGOUT', label: 'Logout' },
-    { value: 'PASSWORD_CHANGED', label: 'Password changed' },
-    { value: 'PIN_CHANGED', label: 'PIN changed' },
-    { value: 'PERMISSION_CHANGE', label: 'Permission changed' },
-    { value: 'ACCOUNT_LOCKED', label: 'Account locked' },
-    { value: 'ACCOUNT_UNLOCKED', label: 'Account unlocked' },
-    { value: 'ORDER_ACTION', label: 'Order action' },
-    { value: 'INVENTORY_ACTION', label: 'Inventory action' },
-    { value: 'OTHER', label: 'Other' },
+const buildActionTypes = (t: (key: string) => string): { value: string; label: string }[] => [
+    { value: '__all__', label: t('activitylog.action.__all__') },
+    { value: 'CREATE', label: t('activitylog.action.create') },
+    { value: 'UPDATE', label: t('activitylog.action.update') },
+    { value: 'DELETE', label: t('activitylog.action.delete') },
+    { value: 'LOGIN', label: t('activitylog.action.login') },
+    { value: 'LOGIN_FAILED', label: t('activitylog.action.login_failed') },
+    { value: 'LOGIN_PIN', label: t('activitylog.action.login_pin') },
+    { value: 'LOGOUT', label: t('activitylog.action.logout') },
+    { value: 'PASSWORD_CHANGED', label: t('activitylog.action.password_changed') },
+    { value: 'PIN_CHANGED', label: t('activitylog.action.pin_changed') },
+    { value: 'PERMISSION_CHANGE', label: t('activitylog.action.permission_change') },
+    { value: 'ACCOUNT_LOCKED', label: t('activitylog.action.account_locked') },
+    { value: 'ACCOUNT_UNLOCKED', label: t('activitylog.action.account_unlocked') },
+    { value: 'ORDER_ACTION', label: t('activitylog.action.order_action') },
+    { value: 'INVENTORY_ACTION', label: t('activitylog.action.inventory_action') },
+    { value: 'OTHER', label: t('activitylog.action.other') },
 ];
 
 const badgeTone = (actionType: string): string => {
@@ -95,6 +96,8 @@ const formatWhen = (iso: string | null): string => {
 
 const ActivityLogPage: React.FC = () => {
     const { user } = useAuth();
+    const { t } = useLanguage();
+    const actionTypes = useMemo(() => buildActionTypes(t), [t]);
     const [page, setPage] = useState(1);
     const [actionType, setActionType] = useState<string>('__all__');
     const [q, setQ] = useState('');
@@ -124,7 +127,7 @@ const ActivityLogPage: React.FC = () => {
                 }
             );
             if (!res.ok) {
-                throw new Error('Failed to load audit log.');
+                throw new Error(t('activitylog.load_failed'));
             }
             return unwrapEnvelope<AuditResponse>(await res.json());
         },
@@ -134,7 +137,7 @@ const ActivityLogPage: React.FC = () => {
     if (!canView) {
         return (
             <div className="p-10 text-center text-muted-foreground">
-                You do not have permission to view the activity log.
+                {t('activitylog.no_permission')}
             </div>
         );
     }
@@ -155,12 +158,10 @@ const ActivityLogPage: React.FC = () => {
                 <div>
                     <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
                         <Activity className="h-6 w-6 text-blue-600" />
-                        Activity log
+                        {t('activitylog.title')}
                     </h1>
                     <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
-                        Every material change in your account - logins, staff
-                        edits, schedule changes, orders, settings - with who
-                        did it and when. Tenant-scoped.
+                        {t('activitylog.subtitle')}
                     </p>
                 </div>
 
@@ -168,7 +169,7 @@ const ActivityLogPage: React.FC = () => {
                     <CardHeader className="pb-3">
                         <CardTitle className="text-base flex items-center gap-2">
                             <Filter className="h-4 w-4 text-slate-500" />
-                            Filters
+                            {t('activitylog.filters')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -178,7 +179,7 @@ const ActivityLogPage: React.FC = () => {
                         >
                             <div className="flex-1">
                                 <label className="text-xs text-muted-foreground block mb-1">
-                                    Search
+                                    {t('common.search')}
                                 </label>
                                 <div className="relative">
                                     <Search className="h-4 w-4 absolute left-2.5 top-2.5 text-muted-foreground" />
@@ -187,14 +188,14 @@ const ActivityLogPage: React.FC = () => {
                                         onChange={(e) =>
                                             setQInput(e.target.value)
                                         }
-                                        placeholder="User email, path, description…"
+                                        placeholder={t('activitylog.search_placeholder')}
                                         className="pl-8"
                                     />
                                 </div>
                             </div>
                             <div className="w-full md:w-64">
                                 <label className="text-xs text-muted-foreground block mb-1">
-                                    Action
+                                    {t('activitylog.col_action')}
                                 </label>
                                 <Select
                                     value={actionType}
@@ -207,7 +208,7 @@ const ActivityLogPage: React.FC = () => {
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {ACTION_TYPES.map((a) => (
+                                        {actionTypes.map((a) => (
                                             <SelectItem
                                                 key={a.value}
                                                 value={a.value}
@@ -219,7 +220,7 @@ const ActivityLogPage: React.FC = () => {
                                 </Select>
                             </div>
                             <Button type="submit" variant="outline">
-                                Apply
+                                {t('activitylog.apply')}
                             </Button>
                         </form>
                     </CardContent>
@@ -235,11 +236,11 @@ const ActivityLogPage: React.FC = () => {
                             <div className="p-8 text-center text-red-600">
                                 {error instanceof Error
                                     ? error.message
-                                    : 'Failed to load audit log.'}
+                                    : t('activitylog.load_failed')}
                             </div>
                         ) : rows.length === 0 ? (
                             <div className="p-12 text-center text-muted-foreground">
-                                No events match your filters yet.
+                                {t('activitylog.empty')}
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
@@ -247,22 +248,22 @@ const ActivityLogPage: React.FC = () => {
                                     <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-muted-foreground">
                                         <tr>
                                             <th className="text-left px-4 py-2 font-medium">
-                                                When
+                                                {t('activitylog.col_when')}
                                             </th>
                                             <th className="text-left px-4 py-2 font-medium">
-                                                Who
+                                                {t('activitylog.col_who')}
                                             </th>
                                             <th className="text-left px-4 py-2 font-medium">
-                                                Action
+                                                {t('activitylog.col_action')}
                                             </th>
                                             <th className="text-left px-4 py-2 font-medium">
-                                                Entity
+                                                {t('activitylog.col_entity')}
                                             </th>
                                             <th className="text-left px-4 py-2 font-medium">
-                                                Detail
+                                                {t('activitylog.col_detail')}
                                             </th>
                                             <th className="text-left px-4 py-2 font-medium">
-                                                IP
+                                                {t('activitylog.col_ip')}
                                             </th>
                                         </tr>
                                     </thead>
@@ -289,7 +290,7 @@ const ActivityLogPage: React.FC = () => {
                                                         </div>
                                                     ) : (
                                                         <span className="text-muted-foreground">
-                                                            system
+                                                            {t('activitylog.system')}
                                                         </span>
                                                     )}
                                                 </td>
@@ -324,7 +325,7 @@ const ActivityLogPage: React.FC = () => {
                 {total > 25 && (
                     <div className="flex items-center justify-between text-sm">
                         <div className="text-muted-foreground">
-                            Page {page} of {totalPages} · {total} events
+                            {t('activitylog.pagination', { page, totalPages, total })}
                         </div>
                         <div className="flex gap-2">
                             <Button
@@ -334,7 +335,7 @@ const ActivityLogPage: React.FC = () => {
                                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                             >
                                 <ChevronLeft className="h-4 w-4" />
-                                Prev
+                                {t('common.previous')}
                             </Button>
                             <Button
                                 variant="outline"
@@ -342,7 +343,7 @@ const ActivityLogPage: React.FC = () => {
                                 disabled={page >= totalPages || isFetching}
                                 onClick={() => setPage((p) => p + 1)}
                             >
-                                Next
+                                {t('common.next')}
                                 <ChevronRight className="h-4 w-4" />
                             </Button>
                         </div>

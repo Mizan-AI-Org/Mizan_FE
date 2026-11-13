@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import i18n from "@/i18n";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
@@ -233,7 +234,7 @@ export function PageLoadingSkeleton({ className }: { className?: string }) {
   return (
     <div
       className={`min-h-[60vh] w-full bg-background ${className ?? ""}`}
-      aria-label="Loading page"
+      aria-label={i18n.t("common.loading_page")}
     >
       <div className="container mx-auto py-6 space-y-6 px-4">
         {/* Tabs row */}

@@ -13,6 +13,7 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '../../contexts/AuthContext.types';
 import { API_BASE } from "@/lib/api";
+import { useLanguage } from "@/hooks/use-language";
 import { useBusinessLocations } from "@/hooks/use-business-locations";
 import { StaffTagSelector } from "@/components/staff/StaffTagChips";
 import type { StaffTag } from "@/lib/staff-tags";
@@ -58,6 +59,7 @@ interface EditStaffModalProps {
 
 
 const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffMember }) => {
+    const { t } = useLanguage();
     const queryClient = useQueryClient();
     const { user, logout } = useAuth() as AuthContextType;
 
@@ -106,12 +108,12 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
         arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
 
     const staffRoles = [
-        { value: 'SUPER_ADMIN', label: 'Super Admin' },
-        { value: 'ADMIN', label: 'Admin' },
-        { value: 'CHEF', label: 'Chef' },
-        { value: 'WAITER', label: 'Waiter' },
-        { value: 'CLEANER', label: 'Cleaner' },
-        { value: 'CASHIER', label: 'Cashier' },
+        { value: 'SUPER_ADMIN', label: t('staff.roles.super_admin') },
+        { value: 'ADMIN', label: t('staff.roles.admin') },
+        { value: 'CHEF', label: t('staff.roles.chef') },
+        { value: 'WAITER', label: t('staff.roles.waiter') },
+        { value: 'CLEANER', label: t('staff.roles.cleaner') },
+        { value: 'CASHIER', label: t('staff.roles.cashier') },
     ];
 
     const updateStaffMutation = useMutation({
@@ -128,25 +130,25 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
             if (!response.ok) {
                 if (response.status === 401) {
                     logout();
-                    throw new Error('Session expired');
+                    throw new Error(t('staffconfirm.session_expired'));
                 }
                 const errorData = await response.json();
-                throw new Error(errorData.detail || errorData.message || 'Failed to update staff');
+                throw new Error(errorData.detail || errorData.message || t('staff.edit.update_failed'));
             }
             return response.json();
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['staff-list'] });
             toast({
-                title: "Staff member updated successfully!",
-                description: "The staff member's information has been saved.",
+                title: t('staff.edit.updated_title'),
+                description: t('staff.edit.updated_desc'),
             });
             onClose();
         },
         onError: (error: any) => {
             toast({
-                title: "Failed to update staff member.",
-                description: error.message || "An unexpected error occurred.",
+                title: t('staff.edit.failed_title'),
+                description: error.message || t('staffconfirm.unexpected_error'),
                 variant: "destructive",
             });
         },
@@ -185,7 +187,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(
-                    errorData.detail || errorData.message || 'Failed to update locations / tags'
+                    errorData.detail || errorData.message || t('staff.edit.locations_failed')
                 );
             }
             return response.json();
@@ -225,14 +227,14 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Edit Staff Member</DialogTitle>
+                    <DialogTitle>{t('staff.edit.title')}</DialogTitle>
                     <DialogDescription>
-                        Update the details for {staffMember?.user.first_name} {staffMember?.user.last_name}.
+                        {t('staff.edit.description', { name: `${staffMember?.user.first_name ?? ''} ${staffMember?.user.last_name ?? ''}`.trim() })}
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="firstName" className="text-right">First Name</Label>
+                        <Label htmlFor="firstName" className="text-right">{t('staff.first_name')}</Label>
                         <Input
                             id="firstName"
                             value={firstName}
@@ -242,7 +244,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                         />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="lastName" className="text-right">Last Name</Label>
+                        <Label htmlFor="lastName" className="text-right">{t('staff.last_name')}</Label>
                         <Input
                             id="lastName"
                             value={lastName}
@@ -252,7 +254,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                         />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="email" className="text-right">Email</Label>
+                        <Label htmlFor="email" className="text-right">{t('generic.email')}</Label>
                         <Input
                             id="email"
                             type="email"
@@ -263,7 +265,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                         />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="phone" className="text-right">Phone</Label>
+                        <Label htmlFor="phone" className="text-right">{t('generic.phone')}</Label>
                         <Input
                             id="phone"
                             type="tel"
@@ -273,7 +275,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                         />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="employeeId" className="text-right">Employee ID</Label>
+                        <Label htmlFor="employeeId" className="text-right">{t('staff.edit.employee_id')}</Label>
                         <Input
                             id="employeeId"
                             value={employeeId}
@@ -282,10 +284,10 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                         />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="role" className="text-right">Role</Label>
+                        <Label htmlFor="role" className="text-right">{t('generic.role')}</Label>
                         <Select onValueChange={setRole} value={role} required>
                             <SelectTrigger className="col-span-3" id="role">
-                                <SelectValue placeholder="Select a role" />
+                                <SelectValue placeholder={t('generic.select_a_role')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {staffRoles.map((r) => (
@@ -295,7 +297,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                         </Select>
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="isActive" className="text-right">Active</Label>
+                        <Label htmlFor="isActive" className="text-right">{t('common.active')}</Label>
                         <Switch
                             id="isActive"
                             checked={isActive}
@@ -304,18 +306,18 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                         />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="password" className="text-right">New Password (Optional)</Label>
+                        <Label htmlFor="password" className="text-right">{t('staff.edit.new_password')}</Label>
                         <Input
                             id="password"
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="col-span-3"
-                            placeholder="Leave blank to keep current password"
+                            placeholder={t('staff.edit.password_placeholder')}
                         />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="pinCode" className="text-right">New PIN Code (Optional)</Label>
+                        <Label htmlFor="pinCode" className="text-right">{t('staff.edit.new_pin')}</Label>
                         <Input
                             id="pinCode"
                             type="password"
@@ -323,7 +325,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                             onChange={(e) => setPinCode(e.target.value)}
                             className="col-span-3"
                             maxLength={4}
-                            placeholder="Leave blank to keep current PIN"
+                            placeholder={t('staff.edit.pin_placeholder')}
                         />
                     </div>
 
@@ -340,15 +342,15 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                     {multiLocation && (
                         <>
                             <div className="col-span-full border-t pt-4 mt-2">
-                                <p className="text-sm font-medium">Branch assignment</p>
+                                <p className="text-sm font-medium">{t('staff.edit.branch_assignment')}</p>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="edit-primary-location" className="text-right">
-                                    Primary location
+                                    {t('staff.invite.primary_location')}
                                 </Label>
                                 <Select value={primaryLocation} onValueChange={setPrimaryLocation}>
                                     <SelectTrigger className="col-span-3" id="edit-primary-location">
-                                        <SelectValue placeholder="Select home branch" />
+                                        <SelectValue placeholder={t('staff.edit.home_branch_placeholder')} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {locations.map((loc) => (
@@ -360,10 +362,10 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                                 </Select>
                             </div>
                             <div className="grid grid-cols-4 items-start gap-4">
-                                <Label className="text-right pt-2">Also allowed at</Label>
+                                <Label className="text-right pt-2">{t('staff.edit.also_allowed')}</Label>
                                 <div className="col-span-3 space-y-2">
                                     <p className="text-xs text-muted-foreground">
-                                        Leave all unchecked to allow this staff at any branch.
+                                        {t('staff.edit.allowed_hint')}
                                     </p>
                                     {locations.map((loc) => {
                                         const id = `edit-allow-${loc.id}`;
@@ -388,10 +390,10 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                             </div>
                             {isManagerRole && (
                                 <div className="grid grid-cols-4 items-start gap-4">
-                                    <Label className="text-right pt-2">Manages branches</Label>
+                                    <Label className="text-right pt-2">{t('staff.edit.manages_branches')}</Label>
                                     <div className="col-span-3 space-y-2">
                                         <p className="text-xs text-muted-foreground">
-                                            Leave unchecked for a manager of the whole business.
+                                            {t('staff.edit.manages_hint')}
                                         </p>
                                         {locations.map((loc) => {
                                             const id = `edit-manage-${loc.id}`;
@@ -419,7 +421,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ isOpen, onClose, staffM
                     )}
                     <DialogFooter>
                         <Button type="submit" disabled={updateStaffMutation.isPending}>
-                            {updateStaffMutation.isPending ? 'Saving Changes...' : 'Save Changes'}
+                            {updateStaffMutation.isPending ? t('profile.saving_changes') : t('profile.save_changes')}
                         </Button>
                     </DialogFooter>
                 </form>

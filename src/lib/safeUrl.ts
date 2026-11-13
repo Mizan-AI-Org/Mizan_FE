@@ -13,3 +13,23 @@ export function safeUrl(value: string | null | undefined): string | undefined {
     return undefined;
   }
 }
+
+/**
+ * Stricter variant for proof / photo links coming from third parties (agency jobs): only https: URLs and our
+ * own `/media/...` paths render. Anything else (javascript:, data:, http:, other relative paths) is dropped.
+ */
+export function safeMediaUrl(value: string | null | undefined): string | undefined {
+  const url = safeUrl(value);
+  if (!url) return undefined;
+  if (url.startsWith("/")) {
+    return url.startsWith("/media/") && !url.split(/[?#]/)[0].includes("..") ? url : undefined;
+  }
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "https:") return parsed.toString();
+    if (parsed.origin === window.location.origin && parsed.pathname.startsWith("/media/")) return parsed.toString();
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}

@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import BrandLogo from "@/components/BrandLogo";
 import { useAuth } from "../contexts/AuthContext";
 import { AuthForm } from "../components/AuthForm";
@@ -109,13 +110,13 @@ const Auth = () => {
               {!isSignup && (
                 <p className="mt-4 px-2 text-center text-[11px] leading-relaxed text-[#78909C]">
                   {t("auth.footer.continue_agree_prefix")}{" "}
-                  <a href="#" className="text-[#00E676] hover:underline">
+                  <Link to="/legal/terms" target="_blank" rel="noopener" className="text-[#00E676] hover:underline">
                     {t("auth.footer.terms_of_use")}
-                  </a>{" "}
+                  </Link>{" "}
                   {t("auth.footer.and")}{" "}
-                  <a href="#" className="text-[#00E676] hover:underline">
+                  <Link to="/legal/privacy" target="_blank" rel="noopener" className="text-[#00E676] hover:underline">
                     {t("auth.footer.privacy")}
-                  </a>
+                  </Link>
                   .
                 </p>
               )}

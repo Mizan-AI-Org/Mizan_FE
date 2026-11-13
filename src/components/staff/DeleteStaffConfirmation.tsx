@@ -8,6 +8,7 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/use-auth';
 import { AuthContextType } from '../../contexts/AuthContext.types';
 import { API_BASE } from "@/lib/api";
+import { useLanguage } from "@/hooks/use-language";
 
 interface DeleteStaffConfirmationProps {
     isOpen: boolean;
@@ -19,6 +20,7 @@ interface DeleteStaffConfirmationProps {
 
 
 const DeleteStaffConfirmation: React.FC<DeleteStaffConfirmationProps> = ({ isOpen, onClose, staffId, staffName, onSuccess }) => {
+    const { t } = useLanguage();
     const queryClient = useQueryClient();
     const { logout } = useAuth() as AuthContextType;
 
@@ -34,10 +36,10 @@ const DeleteStaffConfirmation: React.FC<DeleteStaffConfirmationProps> = ({ isOpe
             if (!response.ok) {
                 if (response.status === 401) {
                     logout();
-                    throw new Error('Session expired');
+                    throw new Error(t('staffconfirm.session_expired'));
                 }
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error((errorData as { detail?: string })?.detail || errorData.message || 'Failed to remove staff member');
+                throw new Error((errorData as { detail?: string })?.detail || errorData.message || t('staffconfirm.remove_failed_title'));
             }
             if (response.status === 204) return null;
             return response.json();
@@ -47,15 +49,15 @@ const DeleteStaffConfirmation: React.FC<DeleteStaffConfirmationProps> = ({ isOpe
             queryClient.invalidateQueries({ queryKey: ['staff-members'] });
             onSuccess?.();
             toast({
-                title: "Staff member removed successfully!",
-                description: `${staffName} has been removed.`,
+                title: t('staffconfirm.remove_success_title'),
+                description: t('staffconfirm.remove_success_desc', { name: staffName ?? '' }),
             });
             onClose();
         },
         onError: (error: any) => {
             toast({
-                title: "Failed to remove staff member.",
-                description: error.message || "An unexpected error occurred.",
+                title: t('staffconfirm.remove_failed_title'),
+                description: error.message || t('staffconfirm.unexpected_error'),
                 variant: "destructive",
             });
         },
@@ -71,20 +73,20 @@ const DeleteStaffConfirmation: React.FC<DeleteStaffConfirmationProps> = ({ isOpe
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Confirm Removal</DialogTitle>
+                    <DialogTitle>{t('staffconfirm.remove_title')}</DialogTitle>
                     <DialogDescription>
-                        Are you sure you want to remove <span className="font-semibold">{staffName}</span>?
-                        This action will deactivate their account and cannot be undone.
+                        {t('staffconfirm.remove_desc_prefix')} <span className="font-semibold">{staffName}</span>
+                        {t('staffconfirm.remove_desc_suffix')}
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                    <Button variant="outline" onClick={onClose} disabled={deleteStaffMutation.isPending}>Cancel</Button>
+                    <Button variant="outline" onClick={onClose} disabled={deleteStaffMutation.isPending}>{t('common.cancel')}</Button>
                     <Button
                         variant="destructive"
                         onClick={handleDelete}
                         disabled={deleteStaffMutation.isPending}
                     >
-                        {deleteStaffMutation.isPending ? 'Removing...' : 'Remove'}
+                        {deleteStaffMutation.isPending ? t('staffconfirm.removing') : t('common.remove')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

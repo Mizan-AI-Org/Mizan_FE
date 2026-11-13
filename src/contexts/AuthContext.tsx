@@ -6,6 +6,7 @@ import { AuthContext } from "./AuthContext";
 import { AuthContextType, User } from "./AuthContext.types";
 import { api, API_BASE, authFetch, refreshAccessToken } from "../lib/api";
 import i18n from "@/i18n";
+import { accountErrorText } from "@/lib/accountErrors";
 import { clearOnboardingSkipFlags, restaurantOnboardingComplete } from "@/lib/onboarding-gate";
 import { roleAllowed } from "@/lib/operationalCommandRoles";
 import { isTenantUserSession } from "@/lib/platformApi";
@@ -397,12 +398,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             message?: string;
             error?: string;
             detail?: string;
+            code?: string;
           };
-          errorMsg =
-            parsed.error ||
-            parsed.message ||
-            parsed.detail ||
-            `Signup failed (${response.status})`;
+          errorMsg = accountErrorText(
+            parsed.code,
+            parsed.error || parsed.message || parsed.detail || `Signup failed (${response.status})`,
+          );
         } catch {
           errorMsg = rawText || errorMsg;
         }

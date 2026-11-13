@@ -97,7 +97,7 @@ import {
   type BusinessVertical,
 } from "@/config/staffInviteRolesByVertical";
 import { t } from "i18next";
-import { WEB_APP_ROLES } from "@/lib/operationalCommandRoles";
+import { WEB_APP_ROLES, isPrivilegedRole } from "@/lib/operationalCommandRoles";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const STAFF_MODAL_INPUT =
@@ -396,6 +396,7 @@ const TeamTab: React.FC = () => {
     const navigate = useNavigate();
     const { t } = useLanguage();
     const [searchQuery, setSearchQuery] = useState("");
+    const [showDeactivated, setShowDeactivated] = useState(false);
     const [staffPage, setStaffPage] = useState(1);
     const [staffPageSize, setStaffPageSize] = useState(8);
     const [selectedMember, setSelectedMember] = useState<StaffMember | null>(null);
@@ -444,6 +445,23 @@ const TeamTab: React.FC = () => {
         setStaffPage(1);
     }, [searchQuery]);
 
+    const handleReactivate = async (id: string) => {
+        try {
+            const response = await authFetch(`${API_BASE}/users/${id}/reactivate/`, { method: "POST" });
+            if (!response.ok) {
+                const errorData = (await response.json().catch(() => ({}))) as { detail?: string; error?: string };
+                throw new Error(errorData.detail || errorData.error || t("staff.reactivate_failed"));
+            }
+            toast.success(t("staff.reactivate_success"));
+            setIsViewModalOpen(false);
+            setIsEditModalOpen(false);
+            void refetchStaff();
+            void queryClient.invalidateQueries({ queryKey: ["staff-members"] });
+        } catch (err) {
+            toast.error(getErrorMessage(err, t("staff.reactivate_failed")));
+        }
+    };
+
     const selectedMemberId = selectedMember?.id;
     React.useEffect(() => {
         if ((isViewModalOpen || isEditModalOpen) && selectedMemberId) {
@@ -452,10 +470,10 @@ const TeamTab: React.FC = () => {
     }, [isViewModalOpen, isEditModalOpen, selectedMemberId]);
 
     const { data: staffData, isLoading, error, refetch: refetchStaff } = useQuery<PaginatedResponse<StaffMember>>({
-        queryKey: ["staff-members", staffPage, staffPageSize, searchQuery, branchFilter],
+        queryKey: ["staff-members", staffPage, staffPageSize, searchQuery, branchFilter, showDeactivated],
         queryFn: async () => {
             const params = new URLSearchParams({
-                is_active: "true",
+                is_active: showDeactivated ? "false" : "true",
                 page: String(staffPage),
                 page_size: String(staffPageSize),
                 search: searchQuery,
@@ -1472,14 +1490,20 @@ const TeamTab: React.FC = () => {
                                 )}
                             </div>
 
-                            {/* Danger zone: Deactivate / Remove - only for Owner or Super Admin, not for self */}
-                            {(user?.role === "OWNER" || user?.role === "SUPER_ADMIN") && selectedMember && selectedMember.id !== user?.id && (
+                            {/* Danger zone: Deactivate / Remove - owners and admins, not for self */}
+                            {isPrivilegedRole(user?.role) && selectedMember && selectedMember.id !== user?.id && (
                                 <div className={cn("space-y-3 pt-4 border-t", STAFF_MODAL_DIVIDER)}>
                                     <h4 className={STAFF_MODAL_SECTION_TITLE_SM}>{t("staff.danger_zone")}</h4>
                                     <div className="flex gap-2">
+                                        {!selectedMember.is_active ? (
+                                        <Button variant="outline" size="sm" className="text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" onClick={() => void handleReactivate(selectedMember.id)}>
+                                            {t("staff.reactivate_staff")}
+                                        </Button>
+                                        ) : (
                                         <Button variant="outline" size="sm" className="text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20" onClick={() => { setStaffToDeactivate({ id: selectedMember.id, name: `${selectedMember.first_name} ${selectedMember.last_name}` }); setIsDeactivateModalOpen(true); }}>
                                             {t("staff.deactivate_staff")}
                                         </Button>
+                                        )}
                                         <Button variant="outline" size="sm" className="text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => { setStaffToDelete({ id: selectedMember.id, name: `${selectedMember.first_name} ${selectedMember.last_name}` }); setIsDeleteModalOpen(true); }}>
                                             {t("staff.remove_staff")}
                                         </Button>
@@ -1560,6 +1584,22 @@ const TeamTab: React.FC = () => {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-10 bg-muted/50 border-border"
                     />
+                </div>
+                <div className="flex items-center bg-muted p-1 rounded-lg" role="group" aria-label={t("staff.filter.status")}>
+                    <button
+                        type="button"
+                        onClick={() => { setShowDeactivated(false); setStaffPage(1); clearSelection(); }}
+                        className={cn("px-3 py-1.5 text-xs font-semibold rounded-md", !showDeactivated ? "bg-card shadow-sm" : "text-muted-foreground")}
+                    >
+                        {t("common.active")}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => { setShowDeactivated(true); setStaffPage(1); clearSelection(); }}
+                        className={cn("px-3 py-1.5 text-xs font-semibold rounded-md", showDeactivated ? "bg-card shadow-sm" : "text-muted-foreground")}
+                    >
+                        {t("staff.filter.deactivated")}
+                    </button>
                 </div>
                 {multiBranch ? (
                     <select

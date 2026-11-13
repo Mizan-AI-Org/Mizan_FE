@@ -21,7 +21,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CloudDownload, Plug, RefreshCw, Users } from "lucide-react";
+import { CloudDownload, Plug, Plus, RefreshCw, Users } from "lucide-react";
+import ReservationDialog, { type ReservationRow } from "@/components/reservations/ReservationDialog";
 import { PAGE_SHELL } from "@/lib/page-shell";
 import { toast } from "sonner";
 
@@ -48,6 +49,8 @@ export function ReservationsPanel({ embedded = false }: ReservationsPanelProps) 
   const [startDate, setStartDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [endDate, setEndDate] = useState(() => format(addDays(new Date(), 14), "yyyy-MM-dd"));
   const [isImporting, setIsImporting] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<ReservationRow | null>(null);
 
   const settingsQuery = useQuery({
     queryKey: ["unified-settings-reservations", accessToken],
@@ -70,7 +73,7 @@ export function ReservationsPanel({ embedded = false }: ReservationsPanelProps) 
   const { data, isLoading, isError, refetch, error } = useQuery({
     queryKey: ["eatnow-reservations", accessToken, startDate, endDate],
     queryFn: () => api.getEatNowReservations(accessToken!, startDate, endDate),
-    enabled: !!accessToken && bookingConnected,
+    enabled: !!accessToken,
   });
 
   const rows = data?.reservations ?? [];
@@ -88,6 +91,18 @@ export function ReservationsPanel({ embedded = false }: ReservationsPanelProps) 
     isReservationConnectionConfigError(rawErrorMessage);
 
   const goConnectBooking = () => navigate(RESERVATION_BOOKING_CONNECT_PATH);
+
+  async function changeStatus(id: string, status: "seated" | "completed" | "cancelled" | "no_show") {
+    if (!accessToken) return;
+    if (status === "cancelled" && !window.confirm(t("reservations.confirm_cancel"))) return;
+    try {
+      await api.setReservationStatus(accessToken, id, status);
+      toast.success(t("reservations.status_updated"));
+      await refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("reservations.form.save_failed"));
+    }
+  }
 
   async function handleImportFromEatNowApi() {
     if (!accessToken) return;
@@ -131,8 +146,14 @@ export function ReservationsPanel({ embedded = false }: ReservationsPanelProps) 
             </p>
           </div>
         )}
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <Button type="button" onClick={() => { setEditing(null); setDialogOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("reservations.new")}
+          </Button>
+        </div>
         {bookingConnected ? (
-          <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="secondary"
@@ -160,34 +181,19 @@ export function ReservationsPanel({ embedded = false }: ReservationsPanelProps) 
         <p className="py-12 text-center text-sm text-muted-foreground">
           {t("dashboard.reservations.loading")}
         </p>
-      ) : notConnected ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="flex flex-col items-start gap-4 rounded-xl border border-border/80 bg-card px-5 py-8 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div className="flex min-w-0 gap-3">
-            <Plug className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
-            <div className="min-w-0 space-y-1">
-              <p className="font-semibold text-foreground">
-                {t("dashboard.reservations.not_connected_title")}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {t("dashboard.reservations.connect_booking_body")}
-              </p>
-            </div>
-          </div>
-          <Button
-            type="button"
-            className="shrink-0 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
-            onClick={goConnectBooking}
-          >
-            <Plug className="mr-2 h-4 w-4" />
-            {t("dashboard.reservations.connect_booking_system")}
-          </Button>
-        </div>
       ) : (
         <div className="space-y-4 rounded-xl border border-border/80 bg-card p-4 sm:p-5">
+          {notConnected ? (
+            <div role="status" className="flex flex-col gap-2 rounded-lg border border-border/80 bg-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Plug className="h-4 w-4 shrink-0" aria-hidden />
+                {t("dashboard.reservations.connect_booking_body")}
+              </p>
+              <Button type="button" variant="outline" size="sm" onClick={goConnectBooking}>
+                {t("dashboard.reservations.connect_booking_system")}
+              </Button>
+            </div>
+          ) : null}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-medium text-foreground">
               {t("dashboard.reservations.date_range")}
@@ -260,21 +266,23 @@ export function ReservationsPanel({ embedded = false }: ReservationsPanelProps) 
                     <TableHead>{t("dashboard.reservations.covers")}</TableHead>
                     <TableHead>{t("dashboard.reservations.col_status")}</TableHead>
                     <TableHead>{t("dashboard.reservations.col_contact")}</TableHead>
+                    <TableHead>{t("reservations.form.table")}</TableHead>
                     <TableHead>{t("dashboard.reservations.col_notes")}</TableHead>
+                    <TableHead className="text-right">{t("reservations.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rows.map((r) => (
                     <TableRow key={r.id || `${r.start_time}-${r.guest_name}`}>
                       <TableCell className="whitespace-nowrap font-medium">
-                        {r.start_time ? String(r.start_time) : "-"}
+                        {r.start_time ? new Date(r.start_time).toLocaleString() : "-"}
                       </TableCell>
                       <TableCell>{r.guest_name || "-"}</TableCell>
                       <TableCell>{r.covers ?? "-"}</TableCell>
                       <TableCell>
                         {r.status ? (
                           <Badge variant="secondary" className="font-normal">
-                            {String(r.status)}
+                            {t(`reservations.status.${String(r.status)}`)}
                           </Badge>
                         ) : (
                           "-"
@@ -283,8 +291,33 @@ export function ReservationsPanel({ embedded = false }: ReservationsPanelProps) 
                       <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
                         {[r.phone, r.email].filter(Boolean).join(" · ") || "-"}
                       </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{r.table || "-"}</TableCell>
                       <TableCell className="max-w-[220px] truncate text-sm text-muted-foreground">
                         {r.notes || "-"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-right">
+                        {r.status === "cancelled" || r.status === "completed" || r.status === "no_show" ? null : (
+                          <div className="flex justify-end gap-1">
+                            <Button type="button" size="sm" variant="ghost" onClick={() => { setEditing(r); setDialogOpen(true); }}>
+                              {t("reservations.edit")}
+                            </Button>
+                            {r.status === "seated" ? (
+                              <Button type="button" size="sm" variant="ghost" onClick={() => void changeStatus(r.id, "completed")}>
+                                {t("reservations.complete")}
+                              </Button>
+                            ) : (
+                              <Button type="button" size="sm" variant="ghost" onClick={() => void changeStatus(r.id, "seated")}>
+                                {t("reservations.seat")}
+                              </Button>
+                            )}
+                            <Button type="button" size="sm" variant="ghost" onClick={() => void changeStatus(r.id, "no_show")}>
+                              {t("reservations.no_show")}
+                            </Button>
+                            <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={() => void changeStatus(r.id, "cancelled")}>
+                              {t("common.cancel")}
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -294,6 +327,13 @@ export function ReservationsPanel({ embedded = false }: ReservationsPanelProps) 
           )}
         </div>
       )}
+      <ReservationDialog
+        open={dialogOpen}
+        accessToken={accessToken || ""}
+        reservation={editing}
+        onClose={() => setDialogOpen(false)}
+        onSaved={() => void refetch()}
+      />
     </div>
   );
 }

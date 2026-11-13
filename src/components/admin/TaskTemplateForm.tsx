@@ -51,6 +51,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { useLanguage } from "@/hooks/use-language";
+import i18n from "@/i18n";
 /** What happens after Yes / No on a checklist task. */
 type BranchActionType = "next" | "goto" | "end" | "alert";
 
@@ -82,11 +83,11 @@ interface TemplateTask {
   };
 }
 
-const BRANCH_ACTION_OPTIONS: DropdownOption[] = [
-  { value: "next", label: "Continue to next task" },
-  { value: "goto", label: "Jump to another task" },
-  { value: "end", label: "End this process" },
-  { value: "alert", label: "Flag for manager, then continue" },
+const BRANCH_ACTION_OPTIONS: { value: string; labelKey: string }[] = [
+  { value: "next", labelKey: "process.form.branch_next" },
+  { value: "goto", labelKey: "process.form.branch_goto" },
+  { value: "end", labelKey: "process.form.branch_end" },
+  { value: "alert", labelKey: "process.form.branch_alert" },
 ];
 
 const newTaskId = () =>
@@ -96,7 +97,7 @@ const newTaskId = () =>
 
 const defaultBranches = (): NonNullable<TemplateTask["branches"]> => ({
   yes: { type: "next" },
-  no: { type: "alert", message: "Needs attention" },
+  no: { type: "alert", message: i18n.t("process.form.needs_attention") },
 });
 
 const normalizeTask = (t: Partial<TemplateTask> & { title?: string }): TemplateTask => {
@@ -115,7 +116,7 @@ const normalizeTask = (t: Partial<TemplateTask> & { title?: string }): TemplateT
     verification_type: requiresPhoto ? "PHOTO" : "NONE",
     branches: {
       yes: t.branches?.yes || { type: "next" },
-      no: t.branches?.no || { type: "alert", message: "Needs attention" },
+      no: t.branches?.no || { type: "alert", message: i18n.t("process.form.needs_attention") },
     },
   };
 };
@@ -152,18 +153,18 @@ interface TaskTemplateFormProps {
   onCancel: () => void;
 }
 
-const templateTypes: DropdownOption[] = [
-  { value: 'CLEANING', label: 'Daily Restaurant Cleaning Schedule' },
-  { value: 'TEMPERATURE', label: 'Daily Temperature Log' },
-  { value: 'OPENING', label: 'Restaurant Manager Opening Checklist' },
-  { value: 'CLOSING', label: 'Restaurant Manager Closing Checklist' },
-  { value: 'HEALTH', label: 'Monthly Health and Safety Inspection' },
-  { value: 'SOP', label: 'Standard Operating Procedure' },
-  { value: 'MAINTENANCE', label: 'Equipment Maintenance' },
-  { value: 'COMPLIANCE', label: 'Compliance Check' },
-  { value: 'SAFETY', label: 'Safety Protocol' },
-  { value: 'QUALITY', label: 'Quality Control' },
-  { value: 'CUSTOM', label: 'Custom Template' },
+const templateTypes: { value: string; labelKey: string }[] = [
+  { value: 'CLEANING', labelKey: 'process.form.type_cleaning' },
+  { value: 'TEMPERATURE', labelKey: 'process.form.type_temperature' },
+  { value: 'OPENING', labelKey: 'process.form.type_opening' },
+  { value: 'CLOSING', labelKey: 'process.form.type_closing' },
+  { value: 'HEALTH', labelKey: 'process.form.type_health' },
+  { value: 'SOP', labelKey: 'process.form.type_sop' },
+  { value: 'MAINTENANCE', labelKey: 'process.form.type_maintenance' },
+  { value: 'COMPLIANCE', labelKey: 'process.form.type_compliance' },
+  { value: 'SAFETY', labelKey: 'process.form.type_safety' },
+  { value: 'QUALITY', labelKey: 'process.form.type_quality' },
+  { value: 'CUSTOM', labelKey: 'process.form.type_custom' },
 ];
 
 const WEEKDAY_KEYS = [
@@ -176,20 +177,20 @@ const WEEKDAY_KEYS = [
   { value: 6, labelKey: 'process.schedule.day_sun' },
 ] as const;
 
-const frequencies: DropdownOption[] = [
-  { value: 'DAILY', label: 'Daily' },
-  { value: 'WEEKLY', label: 'Weekly' },
-  { value: 'MONTHLY', label: 'Monthly' },
-  { value: 'QUARTERLY', label: 'Quarterly' },
-  { value: 'ANNUALLY', label: 'Annually' },
-  { value: 'CUSTOM', label: 'Custom' },
+const frequencies: { value: string; labelKey: string }[] = [
+  { value: 'DAILY', labelKey: 'process.form.freq_daily' },
+  { value: 'WEEKLY', labelKey: 'process.form.freq_weekly' },
+  { value: 'MONTHLY', labelKey: 'process.form.freq_monthly' },
+  { value: 'QUARTERLY', labelKey: 'process.form.freq_quarterly' },
+  { value: 'ANNUALLY', labelKey: 'process.form.freq_annually' },
+  { value: 'CUSTOM', labelKey: 'process.form.freq_custom' },
 ];
 
-const priorities: DropdownOption[] = [
-  { value: 'LOW', label: 'Low' },
-  { value: 'MEDIUM', label: 'Medium' },
-  { value: 'HIGH', label: 'High' },
-  { value: 'URGENT', label: 'Urgent' },
+const priorities: { value: string; labelKey: string }[] = [
+  { value: 'LOW', labelKey: 'process.form.prio_low' },
+  { value: 'MEDIUM', labelKey: 'process.form.prio_medium' },
+  { value: 'HIGH', labelKey: 'process.form.prio_high' },
+  { value: 'URGENT', labelKey: 'process.form.prio_urgent' },
 ];
 
 // Helper function for priority colors
@@ -227,6 +228,22 @@ const getPriorityColor = (priority: string) => {
 
 export default function TaskTemplateForm({ template, onSuccess, onCancel }: TaskTemplateFormProps) {
     const { t } = useLanguage();
+  const branchActionOptions = useMemo<DropdownOption[]>(
+    () => BRANCH_ACTION_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+    [t],
+  );
+  const templateTypeOptions = useMemo<DropdownOption[]>(
+    () => templateTypes.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+    [t],
+  );
+  const frequencyOptions = useMemo<DropdownOption[]>(
+    () => frequencies.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+    [t],
+  );
+  const priorityOptions = useMemo<DropdownOption[]>(
+    () => priorities.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+    [t],
+  );
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState<TaskTemplate>({
     name: '',
@@ -298,13 +315,13 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
   /** All tasks (for jump-to pickers), excluding optional self id */
   const allTaskOptions = useMemo(() => {
     return processes.flatMap((p) =>
-      p.tasks.map((t) => ({
-        id: t.id,
-        label: t.title.trim() || "Untitled task",
+      p.tasks.map((task) => ({
+        id: task.id,
+        label: task.title.trim() || t("process.form.untitled_task"),
         processName: p.name,
       })),
     );
-  }, [processes]);
+  }, [processes, t]);
 
   // Selection map for bulk operations
   const [selectedTasks, setSelectedTasks] = useState<Record<string, Set<number>>>({});
@@ -385,7 +402,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       const isJson = contentType.includes('application/json');
 
       if (!response.ok) {
-        let message = `Failed to save process (HTTP ${response.status})`;
+        let message = t("process.form.save_failed_http", { status: response.status });
         if (isJson) {
           try {
             const errorData = await response.json();
@@ -409,8 +426,8 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
             const text = await response.text();
             if (text.startsWith('<!DOCTYPE') || text.includes('<html')) {
               message = response.status === 401
-                ? 'Unauthorized. Please log in again.'
-                : 'Server returned HTML instead of JSON.';
+                ? t('process.form.unauthorized')
+                : t('process.form.html_response');
             }
           } catch {
             // ignore text read errors
@@ -434,18 +451,18 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       }
     },
     onSuccess: async (resp: TaskTemplate | undefined) => {
-      toast.success(template?.id ? 'Process updated successfully' : 'Process created successfully');
+      toast.success(template?.id ? t('process.form.updated_ok') : t('process.form.created_ok'));
       // In-app only - do NOT WhatsApp-blast the whole team. That polluted the
       // dashboard "Messages to staff" feed with failed "A process has been
       // created…" rows and burned Meta's messaging window.
       try {
         const token = localStorage.getItem('access_token') || '';
-        const tplName = (resp?.name ?? formData.name ?? 'Process');
+        const tplName = (resp?.name ?? formData.name ?? t('process.form.process_fallback'));
         await api.createAnnouncement(
           token,
           {
-            title: `Process updated: ${tplName}`,
-            message: `A process has been ${template?.id ? 'updated' : 'created'} and is available to use.`,
+            title: t('process.form.announce_title', { name: tplName }),
+            message: template?.id ? t('process.form.announce_updated') : t('process.form.announce_created'),
             priority: 'MEDIUM',
             tags: ['template_update'],
           },
@@ -468,28 +485,28 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Process name is required';
+      newErrors.name = t('process.form.err_name');
     }
 
     if (!formData.description.trim()) {
-      newErrors.description = 'Process description is required';
+      newErrors.description = t('process.form.err_description');
     }
 
     // Validate processes exist and are not empty
     if (processes.length === 0) {
-      newErrors.tasks = 'Add at least one process with tasks';
+      newErrors.tasks = t('process.form.err_tasks');
     }
 
     processes.forEach((p, pIndex) => {
       if (!p.name.trim()) {
-        newErrors[`process_${p.id}_name`] = 'Process name is required';
+        newErrors[`process_${p.id}_name`] = t('process.form.err_name');
       }
       if (p.tasks.length === 0) {
-        newErrors[`process_${p.id}_tasks`] = 'Each process must have at least one task';
+        newErrors[`process_${p.id}_tasks`] = t('process.form.err_process_tasks');
       }
-      p.tasks.forEach((t, tIndex) => {
-        if (!t.title.trim()) {
-          newErrors[`process_${p.id}_task_${tIndex}_title`] = 'Task title is required';
+      p.tasks.forEach((task, tIndex) => {
+        if (!task.title.trim()) {
+          newErrors[`process_${p.id}_task_${tIndex}_title`] = t('process.form.err_task_title');
         }
       });
     });
@@ -502,7 +519,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     e.preventDefault();
 
     if (!validateForm()) {
-      toast.error('Please fix the form errors');
+      toast.error(t('process.form.fix_errors'));
       return;
     }
 
@@ -527,7 +544,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
   const addProcess = (name?: string) => {
     const id = genProcessId();
     const color = ['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'][processes.length % 5];
-    setProcesses(prev => [...prev, { id, name: name || 'New section', color, tasks: [] }]);
+    setProcesses(prev => [...prev, { id, name: name || t('process.form.new_section'), color, tasks: [] }]);
     setOpenAccordionIds(prev => [...prev, id]);
     setTargetProcessId(id);
     return id;
@@ -615,7 +632,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     }
     const added = addTasksToTarget(items);
     if (added > 0) {
-      toast.success(`Added ${added} task${added === 1 ? "" : "s"}`);
+      toast.success(added === 1 ? t("process.form.added_task_one") : t("process.form.added_task_other", { count: added }));
       setBulkText("");
     }
   };
@@ -762,7 +779,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
     answer: "yes" | "no",
   ) => {
     const action = task.branches?.[answer] || { type: "next" as BranchActionType };
-    const label = answer === "yes" ? "Yes" : "No";
+    const label = answer === "yes" ? t("common.yes") : t("common.no");
     const tone =
       answer === "yes"
         ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/50 dark:bg-emerald-950/30"
@@ -794,7 +811,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
         <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
           <AccessibleDropdown
             id={`branch_${processId}_${taskIndex}_${answer}_type`}
-            ariaLabel={`${label} action`}
+            ariaLabel={t("process.form.branch_action_aria", { label })}
             value={action.type}
             onChange={(value) => {
               const type = value as BranchActionType;
@@ -803,17 +820,17 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                 next.task_id = action.task_id || gotoOptions[0]?.value;
               }
               if (type === "alert") {
-                next.message = action.message || "Needs attention";
+                next.message = action.message || t("process.form.needs_attention");
               }
               setBranchAction(processId, taskIndex, answer, next);
             }}
-            options={BRANCH_ACTION_OPTIONS}
-            placeholder="What happens next?"
+            options={branchActionOptions}
+            placeholder={t("process.form.what_next")}
           />
           {action.type === "goto" ? (
             <AccessibleDropdown
               id={`branch_${processId}_${taskIndex}_${answer}_goto`}
-              ariaLabel={`${label} jump target`}
+              ariaLabel={t("process.form.branch_jump_aria", { label })}
               value={action.task_id || ""}
               onChange={(value) =>
                 setBranchAction(processId, taskIndex, answer, { type: "goto", task_id: value })
@@ -821,9 +838,9 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
               options={
                 gotoOptions.length > 0
                   ? gotoOptions
-                  : [{ value: "", label: "Add another task first" }]
+                  : [{ value: "", label: t("process.form.add_task_first") }]
               }
-              placeholder="Choose task…"
+              placeholder={t("process.form.choose_task")}
             />
           ) : action.type === "alert" ? (
             <div className="flex flex-col gap-2">
@@ -836,16 +853,16 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                     message: e.target.value,
                   })
                 }
-                placeholder="Manager note (optional)"
-                aria-label={`${label} alert message`}
+                placeholder={t("process.form.manager_note")}
+                aria-label={t("process.form.branch_alert_aria", { label })}
               />
               {renderAssigneePicker(processId, taskIndex, answer, action)}
             </div>
           ) : (
             <p className="text-xs text-muted-foreground self-center px-1">
               {action.type === "next"
-                ? "Staff moves to the next task in order."
-                : "Checklist stops after this answer."}
+                ? t("process.form.next_hint")
+                : t("process.form.end_hint")}
             </p>
           )}
         </div>
@@ -860,43 +877,43 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5" />
-            Basic Information
+            {t("process.form.basic_info")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Process Name *</Label>
+              <Label htmlFor="name">{t("process.form.name_label")}</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g., Daily Cleaning Process"
+                placeholder={t("process.form.name_placeholder")}
                 className={errors.name ? 'border-red-500' : ''}
               />
               {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="template_type">Template Type</Label>
+              <Label htmlFor="template_type">{t("process.form.template_type")}</Label>
               <AccessibleDropdown
                 id="template_type"
-                ariaLabel="Template Type"
+                ariaLabel={t("process.form.template_type")}
                 value={formData.template_type}
                 onChange={handleDropdownChange('template_type')}
-                options={templateTypes}
-                placeholder="Select template type"
+                options={templateTypeOptions}
+                placeholder={t("process.form.template_type_placeholder")}
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description *</Label>
+            <Label htmlFor="description">{t("process.form.description_label")}</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Describe what this process is used for..."
+              placeholder={t("process.form.description_placeholder")}
               rows={3}
               className={errors.description ? 'border-red-500' : ''}
             />
@@ -905,26 +922,26 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="frequency">Frequency</Label>
+              <Label htmlFor="frequency">{t("process.form.frequency")}</Label>
               <AccessibleDropdown
                 id="frequency"
-                ariaLabel="Frequency"
+                ariaLabel={t("process.form.frequency")}
                 value={formData.frequency}
                 onChange={handleDropdownChange('frequency')}
-                options={frequencies}
-                placeholder="Select frequency"
+                options={frequencyOptions}
+                placeholder={t("common.select_frequency")}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="priority_level">Priority Level</Label>
+              <Label htmlFor="priority_level">{t("process.form.priority_level")}</Label>
               <AccessibleDropdown
                 id="priority_level"
-                ariaLabel="Priority Level"
+                ariaLabel={t("process.form.priority_level")}
                 value={formData.priority_level}
                 onChange={handleDropdownChange('priority_level')}
-                options={priorities}
-                placeholder="Select priority"
+                options={priorityOptions}
+                placeholder={t("common.select_priority")}
                 renderOption={(opt: DropdownOption) => {
                   const color = getPriorityColor(opt.value);
                   return (
@@ -934,7 +951,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                   );
                 }}
                 renderTriggerValue={(selected) => {
-                  if (!selected) return <span className="text-muted-foreground">Select priority</span>;
+                  if (!selected) return <span className="text-muted-foreground">{t("common.select_priority")}</span>;
                   const color = getPriorityColor(selected.value);
                   return <Badge className={color}>{selected.label}</Badge>;
                 }}
@@ -950,7 +967,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                 />
                 <Label htmlFor="is_critical" className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-orange-500" />
-                  Critical Process
+                  {t("process.form.critical")}
                 </Label>
               </div>
 
@@ -960,7 +977,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                   checked={formData.is_active}
                   onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))}
                 />
-                <Label htmlFor="is_active">Active</Label>
+                <Label htmlFor="is_active">{t("common.active")}</Label>
               </div>
             </div>
           </div>
@@ -1016,11 +1033,12 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
             <Users className="h-4 w-4 text-muted-foreground" />
-            Who can run this
+            {t("process.form.who_title")}
           </CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Optional. Assign staff or whole departments. Each person runs their own copy -
-            clock in first or say <span className="font-medium">start checklist</span> anytime.
+            {t("process.form.who_desc_prefix")}{" "}
+            <span className="font-medium">start checklist</span>{" "}
+            {t("process.form.who_desc_suffix")}
           </p>
         </CardHeader>
         <CardContent>
@@ -1028,7 +1046,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
             selectedIds={formData.standing_assignees || []}
             staffOptions={staffOptions}
             onChange={(ids) => setFormData((prev) => ({ ...prev, standing_assignees: ids }))}
-            popoverHint="Clock in → start checklist, or start checklist directly. No shift required."
+            popoverHint={t("process.form.assignee_hint")}
           />
         </CardContent>
       </Card>
@@ -1038,11 +1056,11 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             <GitBranch className="h-5 w-5 text-teal-600" />
-            Tasks ({processes.reduce((sum, p) => sum + p.tasks.length, 0)})
+            {t("process.form.tasks_title", { count: processes.reduce((sum, p) => sum + p.tasks.length, 0) })}
           </CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            For each task, set what happens when staff answers <span className="font-semibold text-emerald-700 dark:text-emerald-400">Yes</span> or{" "}
-            <span className="font-semibold text-rose-700 dark:text-rose-400">No</span>.
+            {t("process.form.tasks_hint_prefix")} <span className="font-semibold text-emerald-700 dark:text-emerald-400">{t("common.yes")}</span> {t("process.form.tasks_hint_or")}{" "}
+            <span className="font-semibold text-rose-700 dark:text-rose-400">{t("common.no")}</span>{t("process.form.tasks_hint_suffix")}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -1060,7 +1078,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                       : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800",
                   )}
                 >
-                  One at a time
+                  {t("process.form.one_at_a_time")}
                 </button>
                 <button
                   type="button"
@@ -1072,7 +1090,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                       : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800",
                   )}
                 >
-                  Add several
+                  {t("process.form.add_several")}
                 </button>
               </div>
             </div>
@@ -1080,13 +1098,13 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
             {addMode === "single" ? (
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                 <div className="md:col-span-5">
-                  <Label htmlFor="quick_task_title">Task Title *</Label>
+                  <Label htmlFor="quick_task_title">{t("process.form.task_title_label")}</Label>
                   <Input
                     id="quick_task_title"
                     ref={quickAddTitleRef}
                     value={newTask.title}
                     onChange={(e) => setNewTask((prev) => ({ ...prev, title: e.target.value }))}
-                    placeholder="e.g., Sweep floors"
+                    placeholder={t("process.form.task_title_placeholder")}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -1096,12 +1114,12 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                   />
                 </div>
                 <div className="md:col-span-5">
-                  <Label htmlFor="quick_task_desc">Description</Label>
+                  <Label htmlFor="quick_task_desc">{t("common.description")}</Label>
                   <Input
                     id="quick_task_desc"
                     value={newTask.description}
                     onChange={(e) => setNewTask((prev) => ({ ...prev, description: e.target.value }))}
-                    placeholder="Optional details..."
+                    placeholder={t("process.form.optional_details")}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -1112,18 +1130,18 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                 </div>
                 <div className="md:col-span-2">
                   <Button type="button" onClick={handleQuickAddSingle} className="w-full">
-                    <Plus className="h-4 w-4 mr-1" /> Add task
+                    <Plus className="h-4 w-4 mr-1" /> {t("process.form.add_task")}
                   </Button>
                 </div>
               </div>
             ) : (
               <div className="space-y-2">
-                <Label htmlFor="bulk_tasks">Add several tasks (one per line)</Label>
+                <Label htmlFor="bulk_tasks">{t("process.form.bulk_label")}</Label>
                 <Textarea
                   id="bulk_tasks"
                   value={bulkText}
                   onChange={(e) => setBulkText(e.target.value)}
-                  placeholder={"Sweep floors\nWipe down counters\nCheck fridge temperature | Should read below 5°C"}
+                  placeholder={t("process.form.bulk_placeholder")}
                   rows={4}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -1134,20 +1152,20 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                 />
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs text-muted-foreground">
-                    Tip: use <code className="px-1 rounded bg-slate-200 dark:bg-slate-800">Title | description</code> to add details. Press ⌘/Ctrl+Enter to add.
+                    {t("process.form.tip_prefix")} <code className="px-1 rounded bg-slate-200 dark:bg-slate-800">{t("process.form.tip_format")}</code> {t("process.form.tip_suffix")}
                   </p>
                   <Button type="button" onClick={handleBulkAdd}>
                     <Plus className="h-4 w-4 mr-1" />
-                    Add {bulkText.split("\n").map((l) => l.trim()).filter(Boolean).length || ""} tasks
+                    {t("process.form.add_n_tasks", { n: bulkText.split("\n").map((l) => l.trim()).filter(Boolean).length || "" })}
                   </Button>
                 </div>
               </div>
             )}
 
             <p className="text-xs text-muted-foreground">
-              Default flow per task: <span className="font-medium text-emerald-700 dark:text-emerald-400">Yes → next</span>
+              {t("process.form.default_flow")} <span className="font-medium text-emerald-700 dark:text-emerald-400">{t("process.form.yes_next")}</span>
               {" · "}
-              <span className="font-medium text-rose-700 dark:text-rose-400">No → flag manager</span>. Adjust on each task below.
+              <span className="font-medium text-rose-700 dark:text-rose-400">{t("process.form.no_flag")}</span>{t("process.form.adjust_below")}
             </p>
           </div>
 
@@ -1155,11 +1173,11 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
           <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
             <div className="relative w-full md:w-1/2">
               <Input
-                placeholder="Search tasks..."
+                placeholder={t("staff.requests.search_tasks")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
-                aria-label="Search tasks"
+                aria-label={t("process.form.search_tasks_aria")}
               />
               <SearchIcon className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             </div>
@@ -1174,7 +1192,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                       setExpandedTaskIds(new Set(flatTasks.map((f) => f.task.id)))
                     }
                   >
-                    Expand all
+                    {t("process.form.expand_all")}
                   </Button>
                   <Button
                     type="button"
@@ -1182,7 +1200,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                     size="sm"
                     onClick={() => setExpandedTaskIds(new Set())}
                   >
-                    Collapse all
+                    {t("process.form.collapse_all")}
                   </Button>
                 </>
               )}
@@ -1194,7 +1212,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                   className="text-destructive hover:text-destructive"
                   onClick={() => processes.forEach((p) => bulkDeleteSelected(p.id))}
                 >
-                  <Trash2 className="h-4 w-4 mr-1" /> Delete selected
+                  <Trash2 className="h-4 w-4 mr-1" /> {t("process.form.delete_selected")}
                 </Button>
               )}
             </div>
@@ -1204,7 +1222,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
           {flatTasks.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <FolderMinus className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No tasks yet. Type a task above and press Add to get started.</p>
+              <p>{t("process.form.no_tasks")}</p>
             </div>
           ) : (
             <DndContext
@@ -1235,7 +1253,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                                     className="h-8 w-8 p-0 shrink-0"
                                     onClick={() => toggleTaskExpanded(task.id)}
                                     aria-expanded={isExpanded}
-                                    aria-label={isExpanded ? "Collapse task" : "Expand task"}
+                                    aria-label={isExpanded ? t("process.form.collapse_task") : t("process.form.expand_task")}
                                   >
                                     <ChevronDown
                                       className={`h-4 w-4 transition-transform ${isExpanded ? "" : "-rotate-90"}`}
@@ -1247,7 +1265,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                                   <Checkbox
                                     checked={!!selectedTasks[processId]?.has(index)}
                                     onCheckedChange={() => toggleTaskSelection(processId, index)}
-                                    aria-label="Select task"
+                                    aria-label={t("process.form.select_task")}
                                     className="shrink-0"
                                   />
                                   {isExpanded ? (
@@ -1259,7 +1277,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                                       onClick={() => toggleTaskExpanded(task.id)}
                                     >
                                       <p className="text-sm font-medium truncate text-slate-900 dark:text-slate-100">
-                                        {task.title?.trim() || "Untitled task"}
+                                        {task.title?.trim() || t("process.form.untitled_task")}
                                       </p>
                                       {task.description?.trim() ? (
                                         <p className="text-xs text-muted-foreground truncate">
@@ -1276,7 +1294,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                                       className="h-8 w-8 p-0 cursor-grab active:cursor-grabbing"
                                       {...attributes}
                                       {...listeners}
-                                      aria-label="Drag to reorder"
+                                      aria-label={t("process.form.drag_reorder")}
                                     >
                                       <GripVertical className="h-4 w-4" />
                                     </Button>
@@ -1286,7 +1304,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                                       size="sm"
                                       onClick={() => removeTaskFromProcess(processId, index)}
                                       className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                      aria-label="Delete task"
+                                      aria-label={t("process.form.delete_task")}
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -1298,7 +1316,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                                     <div className="flex gap-3 items-start pl-1">
                                       <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3 min-w-0">
                                         <div className="md:col-span-5">
-                                          <Label htmlFor={`task_${processId}_${index}_title`}>Title *</Label>
+                                          <Label htmlFor={`task_${processId}_${index}_title`}>{t("process.form.title_label")}</Label>
                                           <Input
                                             id={`task_${processId}_${index}_title`}
                                             value={task.title}
@@ -1310,7 +1328,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                                           )}
                                         </div>
                                         <div className="md:col-span-7">
-                                          <Label htmlFor={`task_${processId}_${index}_description`}>Description</Label>
+                                          <Label htmlFor={`task_${processId}_${index}_description`}>{t("common.description")}</Label>
                                           <Input
                                             id={`task_${processId}_${index}_description`}
                                             value={task.description || ''}
@@ -1324,9 +1342,9 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                                       <div className="flex items-start gap-2 min-w-0">
                                         <Camera className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                                         <div className="min-w-0">
-                                          <p className="text-sm font-medium">Ask for photo after Yes</p>
+                                          <p className="text-sm font-medium">{t("process.form.photo_title")}</p>
                                           <p className="text-xs text-muted-foreground">
-                                            Staff will be asked for a photo as proof, then continue to the next task.
+                                            {t("process.form.photo_desc")}
                                           </p>
                                         </div>
                                       </div>
@@ -1349,7 +1367,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                                             }),
                                           );
                                         }}
-                                        aria-label="Require photo proof after Yes"
+                                        aria-label={t("process.form.photo_aria")}
                                       />
                                     </div>
 
@@ -1358,10 +1376,10 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
                                       <div className="flex items-center gap-2 mb-1">
                                         <GitBranch className="h-4 w-4 text-teal-600" />
                                         <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                                          Condition flow
+                                          {t("process.form.condition_flow")}
                                         </span>
                                         <span className="text-xs text-muted-foreground">
-                                          What happens after Yes or No
+                                          {t("process.form.condition_flow_hint")}
                                         </span>
                                       </div>
                                       {renderBranchRow(processId, index, task, "yes")}
@@ -1388,7 +1406,7 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
       {/* Form Actions */}
       <div className="flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button
           type="submit"
@@ -1398,12 +1416,12 @@ export default function TaskTemplateForm({ template, onSuccess, onCancel }: Task
           {saveTemplateMutation.isPending ? (
             <>
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              {template?.id ? 'Updating...' : 'Creating...'}
+              {template?.id ? t('process.form.updating') : t('schedule.creating')}
             </>
           ) : (
             <>
               <CheckCircle className="h-4 w-4 mr-2" />
-              {template?.id ? 'Update Process' : 'Create Process'}
+              {template?.id ? t('process.form.update_process') : t('processes.create_process')}
             </>
           )}
         </Button>
