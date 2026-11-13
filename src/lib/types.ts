@@ -43,12 +43,19 @@ export interface SignupData {
         whatsapp_phone?: string;
         phone?: string;
         pin_code?: string;
+        /** UI language at signup (en | fr | ar): becomes the business's and the owner's language. */
+        language?: string;
+        /** Terms of use + privacy policy accepted (the server refuses signup without it) and the text version. */
+        accept_terms?: boolean;
+        terms_version?: string;
     };
     restaurant: {
         name: string;
         address: string;
         phone: string;
         email: string;
+        /** ISO country of the business (MA default): its dial code reads a national WhatsApp number. */
+        country?: string;
         /** Saved to general_settings.business_vertical on the backend */
         business_vertical?: string;
         /** Modules chosen at signup (general_settings.enabled_modules); core modules are always added. */

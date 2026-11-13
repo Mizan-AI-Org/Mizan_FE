@@ -22,7 +22,6 @@ import {
   Eye,
   EyeOff,
   CheckCircle,
-  AlertCircle,
   Unplug,
   ShieldCheck,
   Calendar,
@@ -42,6 +41,7 @@ import PosIntegrations from "@/components/settings/PosIntegrations";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
 const ProfileSettings = lazy(() => import("./ProfileSettings"));
+import { AccountDataCard } from "@/components/settings/AccountDataCard";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - dynamic import types resolved at runtime
 const MultiLocationSettings = lazy(() => import("@/components/settings/MultiLocationSettings"));
@@ -1371,17 +1371,7 @@ function Settings() {
               <BillingSettings />
             </Suspense>
 
-            <SettingsSection
-              icon={<AlertCircle className="h-5 w-5" />}
-              iconClassName="bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
-              title={t("settings.danger_zone")}
-              description={t("settings.danger_zone_desc")}
-              className="border-red-200/80 dark:border-red-900/50"
-            >
-              <Button variant="destructive" className="w-full sm:w-auto h-11 rounded-xl font-semibold">
-                {t("settings.delete_account")}
-              </Button>
-            </SettingsSection>
+            <AccountDataCard />
           </TabsContent>
         ) : null}
 

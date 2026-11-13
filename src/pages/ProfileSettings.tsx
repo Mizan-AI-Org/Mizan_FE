@@ -6,7 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { User as UserIcon, Phone, ShieldAlert, Lock, Save, Loader2 } from "lucide-react";
+import { User as UserIcon, ShieldAlert, Lock, Save, Loader2 } from "lucide-react";
+import { WhatsAppNumberCard } from "@/components/settings/WhatsAppNumberCard";
+import { LeaveBusinessCard } from "@/components/settings/LeaveBusinessCard";
+import { accountErrorFrom } from "@/lib/accountErrors";
 import {
   SettingsSection,
   SettingsStickyActions,
@@ -26,7 +29,6 @@ const ProfileSettings: React.FC = () => {
   const [firstName, setFirstName] = useState(user?.first_name || "");
   const [lastName, setLastName] = useState(user?.last_name || "");
   const [email, setEmail] = useState(user?.email || "");
-  const [phone, setPhone] = useState(user?.phone || "");
   const [emergencyContactName, setEmergencyContactName] = useState(
     user?.profile?.emergency_contact_name || "",
   );
@@ -43,7 +45,6 @@ const ProfileSettings: React.FC = () => {
       setFirstName(user.first_name || "");
       setLastName(user.last_name || "");
       setEmail(user.email || "");
-      setPhone(user.phone || "");
       setEmergencyContactName(user.profile?.emergency_contact_name || "");
       setEmergencyContactPhone(user.profile?.emergency_contact_phone || "");
     }
@@ -54,7 +55,11 @@ const ProfileSettings: React.FC = () => {
     setIsLoading(true);
 
     try {
-      if (newPassword || confirmPassword || currentPassword) {
+      const emailChanged = email.trim().toLowerCase() !== (user?.email || "").trim().toLowerCase();
+      if (emailChanged && !currentPassword) {
+        throw new Error(t("account.errors.email_needs_password"));
+      }
+      if (newPassword || confirmPassword || (currentPassword && !emailChanged)) {
         if (!newPassword || !confirmPassword || !currentPassword) {
           throw new Error(t("profile.errors.password_fields_required"));
         }
@@ -75,12 +80,11 @@ const ProfileSettings: React.FC = () => {
         body: JSON.stringify({
           first_name: firstName,
           last_name: lastName,
-          phone: phone,
-          ...(newPassword
+          ...(emailChanged ? { email: email.trim() } : {}),
+          ...(newPassword || emailChanged
             ? {
                 current_password: currentPassword,
-                new_password: newPassword,
-                confirm_password: confirmPassword,
+                ...(newPassword ? { new_password: newPassword, confirm_password: confirmPassword } : {}),
               }
             : {}),
           profile: {
@@ -98,12 +102,7 @@ const ProfileSettings: React.FC = () => {
       }
 
       if (!response.ok) {
-        const serverMsg =
-          responseData.error ||
-          responseData.detail ||
-          responseData.message ||
-          t("profile.update_failed");
-        throw new Error(typeof serverMsg === "string" ? serverMsg : t("profile.update_failed"));
+        throw new Error(accountErrorFrom(responseData, t("profile.update_failed")));
       }
 
       const updated = unwrapUser(responseData) as unknown as User;
@@ -142,12 +141,7 @@ const ProfileSettings: React.FC = () => {
           : typeof error === "string"
             ? error
             : t("profile.errors.unexpected");
-      const serverMap: Record<string, string> = {
-        "Current password is incorrect.": t("profile.errors.wrong_current"),
-        "Please fill current, new, and confirm password.": t("profile.errors.password_fields_required"),
-        "New password and confirmation do not match.": t("profile.errors.password_mismatch"),
-      };
-      const message = serverMap[raw] || raw;
+      const message = raw;
       toast({
         title: t("profile.update_failed"),
         description: message,
@@ -195,28 +189,17 @@ const ProfileSettings: React.FC = () => {
               id="email"
               type="email"
               value={email}
-              disabled
-              className={`${settingsFieldClassName} bg-slate-100 dark:bg-slate-800/70 text-slate-500 cursor-not-allowed`}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+              className={settingsFieldClassName}
             />
             <p className="text-xs text-slate-400 dark:text-slate-500">
               {t("profile.email_cannot_change")}
             </p>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="phone">{t("profile.phone_number")}</Label>
-            <div className="relative">
-              <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className={`${settingsFieldClassName} pl-10`}
-                placeholder={t("profile.phone_placeholder")}
-              />
-            </div>
-          </div>
         </div>
+        <WhatsAppNumberCard />
         <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-border/40">
           <Label className="text-sm text-muted-foreground shrink-0">{t("profile.role")}</Label>
           <div className="inline-flex max-w-full items-center gap-2.5 rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/20 px-3.5 py-2">
@@ -306,6 +289,8 @@ const ProfileSettings: React.FC = () => {
           </div>
         </SettingsSection>
       </div>
+
+      <LeaveBusinessCard />
 
       <SettingsStickyActions hint={t("settings.save_hint")}>
         <Button

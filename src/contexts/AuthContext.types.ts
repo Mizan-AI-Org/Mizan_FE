@@ -46,6 +46,11 @@ export interface User {
         emergency_contact_phone?: string;
     };
     branch_scope?: BranchScopePayload;
+    /** The WhatsApp number on the account was proven by a code (or by writing to Mizan from it). */
+    whatsapp_verified?: boolean;
+    /** Entered at signup / number change and not proven yet: the dashboard shows "verify your WhatsApp". */
+    whatsapp_verification_pending?: boolean;
+    legal?: { current_version: string; accepted_version: string | null; accepted_at: string | null } | null;
     /** One person, several businesses: every business they can open (empty when only one). */
     businesses?: UserBusiness[];
 }

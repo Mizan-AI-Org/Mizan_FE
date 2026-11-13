@@ -608,12 +608,13 @@ export class BackendService {
     }
   }
 
-  async requestPasswordReset(email: string): Promise<{ message: string }> {
+  /** `identifier`: the account's email or WhatsApp number; the answer never says whether an account matched. */
+  async requestPasswordReset(identifier: string): Promise<{ message: string }> {
     try {
       const response = await fetch(`${API_BASE}/password-reset-request/`, {
         method: "POST",
         headers: this.getHeaders(),
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(identifier.includes("@") ? { email: identifier } : { identifier }),
       });
 
       // Read raw text first to handle non-JSON responses gracefully
@@ -662,7 +663,8 @@ export class BackendService {
       if (!response.ok) {
         const message = (parsed && (parsed.error || parsed.message || parsed.detail))
           || `Password reset failed (${response.status})`;
-        throw new Error(message);
+        const { accountErrorText } = await import("@/lib/accountErrors");
+        throw new Error(accountErrorText(parsed?.code, message));
       }
 
       if (parsed) {
