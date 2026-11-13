@@ -463,7 +463,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return r === "ADMIN" || r === "SUPER_ADMIN" || r === "OWNER";
   };
   const isStaff = (): boolean => {
-    const staffRoles = ["CHEF", "WAITER", "BARTENDER", "STAFF", "CLEANER", "CASHIER"];
+    const staffRoles = ["CHEF", "WAITER", "BARTENDER", "DISHWASHER", "STAFF", "CASHIER", "KITCHEN_HELP", "CLEANER", "RECEPTIONIST", "SECURITY"];
     return user ? staffRoles.includes(String(user.role || "").toUpperCase()) : false;
   };
 
