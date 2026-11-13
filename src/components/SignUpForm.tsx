@@ -8,6 +8,7 @@ import { ArrowRight, Loader2, User, Mail, Lock, Building2, MessageCircle } from 
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "@/hooks/use-language";
 import type { SignupData } from "@/lib/types";
+import { normalizeAppLanguage } from "@/lib/userLanguage";
 import { authFieldClass } from "./AuthAmbientBackground";
 
 interface SignUpFormProps {
@@ -20,7 +21,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
   const [error, setError] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const auth = useAuth();
 
   const handleOwnerSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -46,6 +47,8 @@ export const SignUpForm: React.FC<SignUpFormProps> = () => {
     }
     const nameParts = fullName.split(" ");
     const signupData: SignupData = {
+      // The language on the signup page is the owner's (and the business's) from the first screen on.
+      language: normalizeAppLanguage(language) ?? "en",
       user: {
         email,
         password,

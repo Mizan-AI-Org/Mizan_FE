@@ -59,6 +59,8 @@ const ComplianceDocumentsSettings = lazy(
 const ApprovalRulesSettings = lazy(() => import("@/components/settings/ApprovalRulesSettings"));
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/use-language";
+import { useMyLanguage } from "@/hooks/use-my-language";
+import { useAuth } from "@/hooks/use-auth";
 import { Language } from "@/contexts/LanguageContext.types";
 import { supportedLanguages } from "@/i18n";
 import axios from "axios";
@@ -162,7 +164,13 @@ function resolveIntegrationSection(params: URLSearchParams): IntegrationSection 
 
 function Settings() {
   const queryClient = useQueryClient();
-  const { language, setLanguage: setAppLanguage, t } = useLanguage();
+  const { t } = useLanguage();
+  // The person's own language (the app, Miya, WhatsApp) vs. the business default for everyone who hasn't chosen.
+  const { language, changeLanguage: changeMyLanguage, saving: savingMyLanguage } = useMyLanguage();
+  const { user: authUser, updateUser } = useAuth();
+  const followingBusinessLanguage = authUser?.language_chosen === false;
+  const [businessLanguage, setBusinessLanguage] = useState<Language>("en");
+  const [savingBusinessLanguage, setSavingBusinessLanguage] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [latitude, setLatitude] = useState<number>(0);
@@ -458,7 +466,6 @@ function Settings() {
     const storedUser = localStorage.getItem("user");
     if (token && storedUser) {
       apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      apiClient.defaults.headers.common["Accept-Language"] = language;
       const parsedUser: User = JSON.parse(storedUser);
       setUser(parsedUser);
       const role = (parsedUser?.role || "").toUpperCase();
@@ -472,7 +479,12 @@ function Settings() {
     } else {
       navigate("/auth");
     }
-  }, [navigate, apiClient, language]);
+  }, [navigate, apiClient]);
+
+  // Changing my language must not reload (and overwrite) the business settings form.
+  useEffect(() => {
+    apiClient.defaults.headers.common["Accept-Language"] = language;
+  }, [apiClient, language]);
 
   // Restrict non-profile settings for staff users: only admins/managers/owners see other tabs
   const roleUpper = (user?.role || "").toUpperCase();
@@ -541,7 +553,7 @@ function Settings() {
       setRestaurantEmail(data.email || "");
       setTimezone(data.timezone || "America/New_York");
       setCurrency(data.currency || "USD");
-      setAppLanguage(
+      setBusinessLanguage(
         typeof data.language === "string" && (supportedLanguages as readonly string[]).includes(data.language)
           ? (data.language as Language)
           : "en"
@@ -578,7 +590,7 @@ function Settings() {
       setRestaurantEmail(data.email || "");
       setTimezone(data.timezone || "America/New_York");
       setCurrency(data.currency || "USD");
-      setAppLanguage(
+      setBusinessLanguage(
         typeof data.language === "string" && (supportedLanguages as readonly string[]).includes(data.language)
           ? (data.language as Language)
           : "en"
@@ -720,7 +732,7 @@ function Settings() {
         email: restaurantEmail,
         timezone,
         currency,
-        language,
+        language: businessLanguage,
         operating_hours: operatingHours,
         automatic_clock_out: automaticClockOut,
         allow_checklist_without_clock_in: allowChecklistWithoutClockIn,
@@ -774,27 +786,53 @@ function Settings() {
     }
   };
 
-  const persistLanguagePreference = async (lng: Language) => {
-    // Apply immediately in-app, then persist to workspace (restaurant) without requiring full Save.
-    setAppLanguage(lng);
-    apiClient.defaults.headers.common["Accept-Language"] = lng;
+  const persistMyLanguage = async (lng: Language) => {
     try {
-      const response = await apiClient.put("/settings/unified/", {
-        language: lng,
-        settings_schema_version: settingsSchemaVersion,
-      });
-      // Refresh version so subsequent saves don't conflict
-      const version =
-        typeof response.data?.settings_schema_version === "number"
-          ? response.data.settings_schema_version
-          : (typeof response.data?.settingsVersion === "number" ? response.data.settingsVersion : settingsSchemaVersion);
-      if (typeof version === "number") setSettingsSchemaVersion(version);
+      await changeMyLanguage(lng);
     } catch (error) {
-      const axiosErr = error as AxiosError<{ detail?: string }>;
-      console.error("Failed to persist language:", axiosErr);
-      toast.error(translateApiError(axiosErr));
+      console.error("Failed to save my language:", error);
+      toast.error(t("settings.language.save_error"));
     }
   };
+
+  const persistBusinessLanguage = async (lng: Language) => {
+    // Business default for everyone who hasn't picked their own; saved at once, without the full Save.
+    const previous = businessLanguage;
+    setBusinessLanguage(lng);
+    setSavingBusinessLanguage(true);
+    try {
+      // businessOnly: the person's own language (and Miya's) stays as it is.
+      const updated = await api.updateMyLanguage({ language: lng, businessOnly: true });
+      if (updated) updateUser(updated);
+      toast.success(t("settings.language.business_saved"));
+    } catch (error) {
+      console.error("Failed to persist business language:", error);
+      setBusinessLanguage(previous);
+      toast.error(t("settings.language.save_error"));
+    } finally {
+      setSavingBusinessLanguage(false);
+    }
+  };
+
+  const myLanguageField = (
+    <div className="space-y-2">
+      <Label htmlFor="my-language">{t("settings.language.mine")}</Label>
+      <select
+        id="my-language"
+        value={language}
+        disabled={savingMyLanguage}
+        onChange={(e) => persistMyLanguage(e.target.value as Language)}
+        className={settingsSelectClassName}
+      >
+        <option value="en">English</option>
+        <option value="fr">Français</option>
+        <option value="ar">العربية</option>
+      </select>
+      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+        {followingBusinessLanguage ? t("settings.language.following_business") : t("settings.language.mine_hint")}
+      </p>
+    </div>
+  );
 
   const handleOperatingHoursChange = (
     day: string,
@@ -900,6 +938,16 @@ function Settings() {
             </TabsList>
 
             <TabsContent value="profile" className="mt-0 space-y-4 focus-visible:outline-none">
+              {isStaff ? (
+                <SettingsSection
+                  icon={<Languages className="h-5 w-5" />}
+                  iconClassName="bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
+                  title={t("settings.language.mine")}
+                  description={t("settings.language.mine_hint")}
+                >
+                  <div className="max-w-sm">{myLanguageField}</div>
+                </SettingsSection>
+              ) : null}
               <Suspense fallback={<FormSectionSkeleton fields={5} />}>
                 <ProfileSettings />
               </Suspense>
@@ -1069,21 +1117,25 @@ function Settings() {
               defaultOpen
             >
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start">
-                  <div className="space-y-2">
-                    <Label htmlFor="language">{t("settings.general.language")}</Label>
-                    <select
-                      id="language"
-                      value={language}
-                      onChange={(e) => persistLanguagePreference(e.target.value as Language)}
-                      className={settingsSelectClassName}
-                    >
-                      <option value="en">English</option>
-                      <option value="fr">Français</option>
-                      <option value="ar">العربية</option>
-                    </select>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {t("settings.general.language_hint")}
-                    </p>
+                  <div className="space-y-5">
+                    {myLanguageField}
+                    <div className="space-y-2">
+                      <Label htmlFor="language">{t("settings.language.business")}</Label>
+                      <select
+                        id="language"
+                        value={businessLanguage}
+                        disabled={savingBusinessLanguage}
+                        onChange={(e) => persistBusinessLanguage(e.target.value as Language)}
+                        className={settingsSelectClassName}
+                      >
+                        <option value="en">English</option>
+                        <option value="fr">Français</option>
+                        <option value="ar">العربية</option>
+                      </select>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {t("settings.language.business_hint")}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-4 h-full min-h-[5.5rem]">
                     <div className="space-y-0.5 min-w-0 flex-1">

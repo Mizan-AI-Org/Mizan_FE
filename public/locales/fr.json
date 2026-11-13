@@ -5964,5 +5964,13 @@
   "agency.badge.with": "Chez {{agency}}",
   "agency.badge.cancel": "Annuler l'intervention",
   "agency.badge.cancelled": "Intervention annulée",
-  "businesses.title": "Vos établissements"
+  "businesses.title": "Vos établissements",
+  "language.switch.label": "Langue",
+  "settings.language.mine": "Ma langue",
+  "settings.language.mine_hint": "Votre langue pour le tableau de bord, Miya et vos messages WhatsApp. Ne concerne que vous.",
+  "settings.language.business": "Langue par défaut de l'entreprise",
+  "settings.language.business_hint": "Utilisée pour les membres de l'équipe qui n'ont pas choisi leur langue, et pour les nouveaux employés.",
+  "settings.language.business_saved": "Langue par défaut de l'entreprise enregistrée",
+  "settings.language.save_error": "Impossible d'enregistrer votre langue. Réessayez.",
+  "settings.language.following_business": "Suit la langue de l'entreprise. Choisissez-en une pour en faire la vôtre."
 }
