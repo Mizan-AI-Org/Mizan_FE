@@ -1,5 +1,5 @@
 import { API_BASE } from "@/lib/api";
-import type { BillingInvoiceRow, BillingOverview, BillingPaymentInstructions } from "@/lib/types";
+import type { BillingInvoiceRow, BillingOpsAlertRow, BillingOverview, BillingPaymentInstructions } from "@/lib/types";
 
 function authHeaders(): HeadersInit {
   const token = localStorage.getItem("access_token") || "";
@@ -578,6 +578,12 @@ export const platformApi = {
   billingProfile: () => platformFetch<BillingPaymentInstructions>("/billing/profile/"),
   updateBillingProfile: (body: BillingPaymentInstructions) =>
     platformFetch<BillingPaymentInstructions>("/billing/profile/", { method: "PUT", body: JSON.stringify(body) }),
+  billingAlerts: (params?: Record<string, string>) => {
+    const qs = new URLSearchParams(params || {}).toString();
+    return platformFetch<Paginated<BillingOpsAlertRow>>(`/billing/alerts/${qs ? `?${qs}` : ""}`);
+  },
+  resolveBillingAlert: (id: string) =>
+    platformFetch<BillingOpsAlertRow>(`/billing/alerts/${id}/resolve/`, { method: "POST", body: JSON.stringify({}) }),
   tenantBilling: (restaurantId: string) => platformFetch<BillingOverview>(`/billing/tenants/${restaurantId}/`),
   enableModuleBilling: (restaurantId: string, trialDays: number) =>
     platformFetch<BillingOverview>(`/billing/tenants/${restaurantId}/`, {

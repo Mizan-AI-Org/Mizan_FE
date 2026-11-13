@@ -197,6 +197,80 @@ function InvoicesTab() {
   );
 }
 
+const ALERT_LABEL: Record<string, string> = {
+  signup: "New signup",
+  repeat_trial: "No trial (repeat)",
+  payment_reported: "Payment reported",
+  trial_ending: "Trial ending",
+  suspended: "Suspended",
+  canceled: "Canceled",
+  welcome_cap: "Welcome cap",
+};
+
+/** Ops queue: what needs a human today (new signups, payments to check, trials ending, suspensions). */
+function AlertsTab() {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState("1");
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["platform-billing-alerts", open],
+    queryFn: () => platformApi.billingAlerts({ open }),
+    refetchInterval: 60_000,
+  });
+  const resolve = useMutation({
+    mutationFn: (id: string) => platformApi.resolveBillingAlert(id),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["platform-billing-alerts"] }),
+  });
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <p className={opsSubtitle}>New signups, payments reported, trials ending, suspensions. Also sent to the ops WhatsApp / email.</p>
+        <select value={open} onChange={(e) => setOpen(e.target.value)} className={opsInput} aria-label="Filter alerts">
+          <option value="1">To do</option>
+          <option value="0">All</option>
+        </select>
+      </div>
+      {isLoading ? (
+        <div className="flex h-40 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-[#00C853]" /></div>
+      ) : error ? (
+        <p className="text-rose-600 dark:text-rose-400">{(error as Error).message}</p>
+      ) : (
+        <div className={opsTableWrap}>
+          <table className="w-full text-left">
+            <thead>
+              <tr>
+                <th className={opsTh}>When</th>
+                <th className={opsTh}>Type</th>
+                <th className={opsTh}>Alert</th>
+                <th className={opsTh} />
+              </tr>
+            </thead>
+            <tbody>
+              {(data?.results || []).map((a) => (
+                <tr key={a.id} className={opsRow}>
+                  <td className={`${opsTd} whitespace-nowrap text-xs`}>{new Date(a.createdAt).toLocaleString()}</td>
+                  <td className={opsTd}><span className={a.kind === "suspended" || a.kind === "payment_reported" ? opsBadgeWarn : opsBadgeOk}>{ALERT_LABEL[a.kind] || a.kind}</span></td>
+                  <td className={opsTd}>
+                    {a.restaurantId ? <Link to={`/admin/tenants/${a.restaurantId}`} className={opsLink}>{a.title}</Link> : a.title}
+                    {a.body ? <p className={`${opsMuted} text-xs`}>{a.body}</p> : null}
+                  </td>
+                  <td className={`${opsTd} text-end`}>
+                    {!a.resolvedAt ? (
+                      <button type="button" className={opsBtnGhost} disabled={resolve.isPending} onClick={() => resolve.mutate(a.id)}>Done</button>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+              {(data?.results || []).length === 0 ? (
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">Nothing to do</td></tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const PRICE_GROUPS: { label: string; keys: string[] }[] = [
   { label: "Core", keys: ["platform", "location"] },
   {
@@ -396,13 +470,14 @@ function PaymentDetailsTab() {
 }
 
 const TABS = [
+  { id: "alerts", label: "Alerts" },
   { id: "invoices", label: "Invoices" },
   { id: "prices", label: "Prices" },
   { id: "payment", label: "Company & payment details" },
 ] as const;
 
 export default function BillingPage() {
-  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("invoices");
+  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("alerts");
   return (
     <div className={opsPage}>
       <header className="space-y-3">
@@ -425,6 +500,7 @@ export default function BillingPage() {
           ))}
         </nav>
       </header>
+      {tab === "alerts" ? <AlertsTab /> : null}
       {tab === "invoices" ? <InvoicesTab /> : null}
       {tab === "prices" ? <PricesTab /> : null}
       {tab === "payment" ? <PaymentDetailsTab /> : null}

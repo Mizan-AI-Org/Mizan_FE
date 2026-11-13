@@ -166,6 +166,8 @@ export interface BillingInvoiceRow {
     reportedAt: string | null;
     reportedReference: string;
     reportedNote: string;
+    reportedReceiptUrl?: string | null;
+    transferReference?: string;
 }
 
 export interface BillingPaymentInstructions {
@@ -199,7 +201,7 @@ export interface BillingBundleOffer {
     extraMonthly: number;
 }
 
-export type BillingState = "trial" | "trial_over" | "active" | "due" | "overdue" | "suspended" | "none";
+export type BillingState = "trial" | "trial_over" | "active" | "due" | "overdue" | "suspended" | "canceled" | "inactive" | "none";
 
 export interface BillingOverview {
     moduleBilling: boolean;
@@ -220,6 +222,57 @@ export interface BillingOverview {
     invoices: BillingInvoiceRow[];
     paymentInstructions: BillingPaymentInstructions;
     billingDetails: BillingDetails;
+    graceDays?: number;
+    trialGranted?: boolean;
+    cancelAtPeriodEnd?: boolean;
+    cancelEffectiveAt?: string | null;
+    canceledAt?: string | null;
+    pendingModules?: string[] | null;
+    pendingEffectiveAt?: string | null;
+    selectedModules?: string[];
+}
+
+export interface BillingCharge {
+    subtotal: number;
+    taxRate: number;
+    tax: number;
+    total: number;
+}
+
+export interface PlanChangePreview {
+    added: string[];
+    removed: string[];
+    addedLabels: string[];
+    removedLabels: string[];
+    modules: string[];
+    changed: boolean;
+    removedEffectiveAt: string | null;
+    chargeNow: BillingCharge | null;
+    currentBill: BillingQuote;
+    nextBill: BillingQuote;
+    inTrial: boolean;
+    interval: "month" | "year";
+}
+
+export interface CancelPreview {
+    effectiveAt: string;
+    immediate: boolean;
+    inTrial: boolean;
+    openBalance: number;
+    openInvoices: string[];
+}
+
+export interface BillingOpsAlertRow {
+    id: string;
+    kind: string;
+    title: string;
+    body: string;
+    restaurantId: string | null;
+    restaurantName: string;
+    invoiceId: string | null;
+    delivered: { whatsapp?: number; email?: number };
+    createdAt: string;
+    resolvedAt: string | null;
 }
 
 export interface BillingInvoiceDocument extends BillingInvoiceRow {
